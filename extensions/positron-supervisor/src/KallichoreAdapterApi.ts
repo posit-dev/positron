@@ -8,49 +8,19 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ClientHeartbeat, DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
+import { ClientHeartbeat, DefaultApi, ServerStatus, Status } from './kcclient/api';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
-import { createUniqueId, summarizeError, summarizeHttpError } from './util';
-import { namedPipeInterceptor } from './NamedPipeHttpAgent';
+import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
+import { isAxiosError } from 'axios';
+import { KallichoreServerState } from './ServerState.js';
+import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
+import { KallichoreInstances } from './KallichoreInstances.js';
+import { DapComm } from './DapComm';
 
-const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
-
-/**
- * The persisted state of the Kallichore server. This metadata is saved in
- * workspace state storage and used to re-establish a connection to the server
- * when the extension (or Positron) is reloaded.
- */
-interface KallichoreServerState {
-	/** The port the server is listening on, e.g. 8182 (for TCP) */
-	port?: number;
-
-	/** The full base path of the API, e.g. http://127.0.0.1:8182/ or http://unix:/path/to/socket: */
-	base_path?: string;
-
-	/** The path to the server binary, e.g. /usr/lib/bin/kcserver. */
-	server_path: string;
-
-	/** The PID of the server process */
-	server_pid: number;
-
-	/** The bearer token used to authenticate with the server */
-	bearer_token: string;
-
-	/** The path to the log file */
-	log_path: string;
-
-	/** The transport protocol used */
-	transport?: string;
-
-	/** The path to the unix domain socket (when using socket transport) */
-	socket_path?: string;
-
-	/** The name of the named pipe (when using named pipe transport) */
-	named_pipe?: string;
-}
+export const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
 /**
  * Determines if a base path is using a domain socket transport
@@ -90,40 +60,13 @@ function extractPipeName(basePath: string): string | null {
 	return match ? match[1] : null;
 }
 
-/**
- * Constructs the appropriate WebSocket URI based on the API base path
- * @param apiBasePath The HTTP API base path
- * @param sessionId The session ID for the WebSocket connection
- * @returns The WebSocket URI to connect to
- */
-function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
-	const uri = vscode.Uri.parse(apiBasePath);
-
-	if (isDomainSocketPath(apiBasePath)) {
-		// For domain sockets, we need to use ws+unix format
-		const socketPath = extractSocketPath(apiBasePath);
-		if (socketPath) {
-			return `ws+unix://${socketPath}:/sessions/${sessionId}/channels`;
-		}
-	}
-
-	if (isNamedPipePath(apiBasePath)) {
-		// For named pipes, we need to use ws+npipe format
-		const pipeName = extractPipeName(apiBasePath);
-		if (pipeName) {
-			return `ws+npipe://${pipeName}:/sessions/${sessionId}/channels`;
-		}
-	}
-
-	// For TCP connections, use the standard ws:// format
-	return `ws://${uri.authority}/sessions/${sessionId}/channels`;
-}
-
 export class KCApi implements PositronSupervisorApi {
+	/** The DAP comm class */
+	readonly DapComm = DapComm;
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */
-	private readonly _api: DefaultApi;
+	private _api: KallichoreApiInstance;
 
 	/** A barrier that opens when the Kallichore server has successfully started;
 	 * used to hold operations until we're online */
@@ -172,22 +115,16 @@ export class KCApi implements PositronSupervisorApi {
 	 *
 	 * @param _context The extension context
 	 * @param _log A log output channel for the extension
+	 * @param _transport The transport type to use
+	 * @param _reconnect Whether to attempt reconnect to an existing server
 	 */
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _log: vscode.OutputChannel) {
+		private readonly _log: vscode.OutputChannel,
+		private readonly _transport: KallichoreTransport,
+		private readonly _reconnect: boolean) {
 
-		this._api = new DefaultApi();
-
-		// Add interceptor for named pipe support on Windows. This interceptor
-		// allows us to perform HTTP over named pipes, which is not natively
-		// supported by the HTTP client in Node.js.
-		//
-		// Note that the interceptor doesn't always use named pipes; it just gives us
-		// the ability to do so.
-		if (os.platform() === 'win32') {
-			(this._api as any).interceptors.push(namedPipeInterceptor);
-		}
+		this._api = new KallichoreApiInstance(_transport);
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -198,12 +135,17 @@ export class KCApi implements PositronSupervisorApi {
 		}).catch((err) => {
 			this.log(`Failed to start Kallichore server: ${err}`);
 		});
+	}
 
-		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
+	/**
+	 * Register commands for the supervisor.
+	 */
+	public registerCommands(): void {
+		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
 			this.reconnectActiveSession();
 		}));
 
-		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
+		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
 		}));
 
@@ -220,7 +162,7 @@ export class KCApi implements PositronSupervisorApi {
 					}
 				}
 			});
-			_context.subscriptions.push(configListener);
+			this._context.subscriptions.push(configListener);
 		}
 	}
 
@@ -296,9 +238,11 @@ export class KCApi implements PositronSupervisorApi {
 			}
 		}
 
-		// Check to see if there's a server already running for this workspace
-		const serverState =
-			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		// Check to see if there's a server already running for this workspace,
+		// if reconnect is permitted.
+		const serverState = this._reconnect ?
+			this.loadServerState() :
+			undefined;
 
 		// If there is, and we can reconnect to it, do so
 		if (serverState) {
@@ -346,6 +290,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Consult configuration to see if we should show this terminal
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const showTerminal = config.get<boolean>('showTerminal', false);
+		const startupTimeout = config.get<number>('startupTimeout', 10) * 1000;
 
 		// Create a temporary file with a random name to use for logs
 		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);
@@ -358,27 +303,9 @@ export class KCApi implements PositronSupervisorApi {
 		let wrapperPath = path.join(this._context.extensionPath, 'resources', wrapperName);
 
 		// The first argument to the wrapper script is the path to the log file
-		const shellArgs = [
+		let shellArgs = [
 			outFile
 		];
-
-		// Check to see if session persistence is enabled; if it is, we want to run the
-		// server with nohup so it doesn't die when the terminal is closed.
-		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
-		if (shutdownTimeout !== 'immediately') {
-			const kernelWrapper = wrapperPath;
-			if (os.platform() === 'win32') {
-				// Use start /b on Windows to run the server in the background
-				this.log(`Running Kallichore server with 'start /b' to persist sessions`);
-				wrapperPath = 'start';
-				shellArgs.unshift('/b', kernelWrapper);
-			} else {
-				// Use nohup as the wrapper on Unix-like systems; this becomes
-				// the first argument to the wrapper script.
-				this.log(`Running Kallichore server with nohup to persist sessions`);
-				shellArgs.unshift('nohup');
-			}
-		}
 
 		// Get the log level from the configuration
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
@@ -391,25 +318,22 @@ export class KCApi implements PositronSupervisorApi {
 			'--connection-file', connectionFile,
 		]);
 
-		// Add transport option based on configuration
-		const transport = config.get<string>('transport', 'ipc');
-		if (transport === 'ipc') {
-			// Use native IPC: named pipes on Windows, unix sockets on other platforms
-			if (os.platform() === 'win32') {
-				shellArgs.push('--transport', 'named-pipe');
-				this.log(`Using native IPC transport: named pipes`);
-			} else {
-				shellArgs.push('--transport', 'socket');
-				this.log(`Using native IPC transport: unix sockets`);
-			}
-		} else if (transport === 'tcp') {
+		// Add transport option
+		if (this._transport === KallichoreTransport.TCP) {
 			// Use TCP transport
 			shellArgs.push('--transport', 'tcp');
 			this.log(`Using TCP transport`);
+		} else if (this._transport === KallichoreTransport.UnixSocket) {
+			// Use Unix socket transport
+			shellArgs.push('--transport', 'socket');
+			this.log(`Using Unix socket transport`);
+		} else if (this._transport === KallichoreTransport.NamedPipe) {
+			// Use named pipe transport
+			shellArgs.push('--transport', 'named-pipe');
+			this.log(`Using named pipe transport`);
 		} else {
-			// Fallback for unknown values; don't pass --transport option at all
-			// and let Kallichore decide
-			this.log(`Unknown transport option '${transport}', using default`);
+			// Fallback - this shouldn't happen with the current enum values
+			this.log(`Unknown transport type '${this._transport}', using default`);
 		}
 
 		// Set the idle shutdown hours from the configuration. This is used to
@@ -420,25 +344,36 @@ export class KCApi implements PositronSupervisorApi {
 			shellArgs.push('--idle-shutdown-hours', idleShutdownHours.toString());
 		}
 
-		// Start the server in a new terminal
-		this.log(`Starting Kallichore server ${shellPath} with connection file ${connectionFile}`);
-		const terminal = vscode.window.createTerminal({
-			name: 'Kallichore',
-			shellPath: wrapperPath,
-			shellArgs,
-			message: `*** Kallichore Server (${shellPath}) ***`,
-			hideFromUser: !showTerminal,
-			isTransient: false
-		} satisfies vscode.TerminalOptions);
-
-		// Flag to track if the terminal exited before the start barrier opened
-		let exited = false;
+		// Check to see if session persistence is enabled; if it is, we want to run the
+		// server with a detached process so it doesn't die when the terminal is closed.
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		if (shutdownTimeout !== 'immediately') {
+			const kernelWrapper = wrapperPath;
+			if (os.platform() === 'win32') {
+				// Use PowerShell with Start-Process to create a truly detached process
+				this.log(`Running Kallichore server with PowerShell detached process to persist sessions`);
+				wrapperPath = 'powershell.exe';
+				// Build the arguments for the wrapper script
+				const escapedWrapper = kernelWrapper.replace(/'/g, "''");
+				const escapedArgs = shellArgs.map(arg => `'${arg.replace(/'/g, "''")}'`).join(', ');
+				shellArgs = [
+					'-WindowStyle', 'Hidden',
+					'-Command',
+					`Start-Process -FilePath '${escapedWrapper}' -ArgumentList @(${escapedArgs}) -WindowStyle Hidden`
+				];
+			} else {
+				// Use nohup as the wrapper on Unix-like systems; this becomes
+				// the first argument to the wrapper script.
+				this.log(`Running Kallichore server with nohup to persist sessions`);
+				shellArgs.unshift('nohup');
+			}
+		}
 
 		// Listen for the terminal to close. If it closes unexpectedly before
 		// the start barrier opens, provide some feedback.
 		const closeListener = vscode.window.onDidCloseTerminal(async (closedTerminal) => {
 			// Ignore closed terminals that aren't the one we started
-			if (closedTerminal !== terminal) {
+			if (closedTerminal !== this._terminal) {
 				return;
 			}
 
@@ -458,8 +393,8 @@ export class KCApi implements PositronSupervisorApi {
 
 			// Read the contents of the output file and log it
 			const contents = fs.readFileSync(outFile, 'utf8');
-			if (terminal.exitStatus && terminal.exitStatus.code) {
-				this.log(`Supervisor terminal closed with exit code ${terminal.exitStatus.code}; output:\n${contents}`);
+			if (this._terminal.exitStatus && this._terminal.exitStatus.code) {
+				this.log(`Supervisor terminal closed with exit code ${this._terminal.exitStatus.code}; output:\n${contents}`);
 			} else {
 				this.log(`Supervisor terminal closed unexpectedly; output:\n${contents}`);
 			}
@@ -477,16 +412,38 @@ export class KCApi implements PositronSupervisorApi {
 			}
 		});
 
+
+		// Start the server in a new terminal
+		this.log(`Starting Kallichore server ${shellPath} ` +
+			`with connection file ${connectionFile} and ` +
+			`${startupTimeout}ms startup timeout`);
+
+		this._terminal = vscode.window.createTerminal({
+			name: 'Kallichore',
+			shellPath: wrapperPath,
+			shellArgs,
+			message: `*** Kallichore Server (${shellPath}) ***`,
+			hideFromUser: !showTerminal,
+			isTransient: false
+		} satisfies vscode.TerminalOptions);
+
+		// Flag to track if the terminal exited before the start barrier opened
+		let exited = false;
+
 		// Ensure this listener is disposed when the API is disposed
 		this._disposables.push(closeListener);
 
 		// Ensure the output file is cleaned up when the API is disposed
 		this._disposables.push(new vscode.Disposable(() => {
-			fs.unlinkSync(outFile);
+			try {
+				fs.unlinkSync(outFile);
+			} catch (err) {
+				this.log(`Error cleaning up output file ${outFile}: ${err}`);
+			}
 		}));
 
 		// Wait for the terminal to start and get the PID
-		let processId = await terminal.processId;
+		let processId = await this._terminal.processId;
 
 		// Wait for the connection file to be written by the server
 		let connectionData: KallichoreServerState | undefined = undefined;
@@ -530,6 +487,16 @@ export class KCApi implements PositronSupervisorApi {
 				this.log(`Error reading connection file (attempt ${retry}): ${err}`);
 			}
 
+			// Every 10 retries, check to see if the server process has exited.
+			if (!exited && processId && retry % 10 === 0) {
+				try {
+					process.kill(processId, 0);
+				} catch (err) {
+					this.log(`Kallichore server PID ${processId} is not running`);
+					exited = true;
+				}
+			}
+
 			// Has the terminal exited? if it has, there's no point in continuing to retry.
 			if (exited) {
 				let message = `The supervisor process exited unexpectedly during startup`;
@@ -546,7 +513,7 @@ export class KCApi implements PositronSupervisorApi {
 			}
 
 			const elapsed = Date.now() - startTime;
-			if (elapsed > 10000) {
+			if (elapsed > startupTimeout) {
 				let message = `Connection file was not created after ${elapsed}ms`;
 
 				// Include any output from the server process to help diagnose the problem
@@ -566,7 +533,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		if (!connectionData) {
 			let message = `Timed out waiting for connection file to be ` +
-				`created at ${connectionFile} after 10 seconds`;
+				`created at ${connectionFile} after ${startupTimeout}ms`;
 
 			// Include any output from the server process to help diagnose the problem
 			if (fs.existsSync(outFile)) {
@@ -579,48 +546,33 @@ export class KCApi implements PositronSupervisorApi {
 			throw new Error(message);
 		}
 
-		// If an HTTP proxy is set, exempt the supervisor from it; since this
-		// is a local server, we generally don't want to route it through a
-		// proxy (only applicable for TCP connections)
-		if (process.env.http_proxy && serverPort > 0) {
-			// Add the server's port to the no_proxy list, amending it if it
-			// already exists
-			process.env.no_proxy = (process.env.no_proxy ? process.env.no_proxy + ',' : '') + `localhost:${serverPort}`;
-			this.log(`HTTP proxy set to ${process.env.http_proxy}; setting no_proxy to ${process.env.no_proxy} to exempt supervisor`);
-		}
-
 		// Create a bearer auth object with the token
 		const bearerToken = connectionData.bearer_token;
-		const bearer = new HttpBearerAuth();
-		bearer.accessToken = bearerToken;
-
-		// Establish the API
-		this._api.basePath = basePath;
-		this._api.setDefaultAuthentication(bearer);
+		this.refreshServerState(connectionData);
 
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
 		// HTTP server is ready, so we may need to retry a few times.
 		for (let retry = 0; retry < 100; retry++) {
 			try {
-				const status = await this._api.serverStatus();
-				this.log(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
+				const status = await this._api.api.serverStatus();
+				this.log(`Kallichore ${status.data.version} server online with ${status.data.sessions} sessions`);
 
 				// Update the process ID; this can be different than the process
 				// ID in the hosting terminal when the supervisor is run in an
 				// shell and/or with nohup
-				if (processId !== status.body.processId) {
-					this.log(`Running as pid ${status.body.processId} (terminal pid ${processId})`);
-					processId = status.body.processId;
+				if (processId !== status.data.process_id) {
+					this.log(`Running as pid ${status.data.process_id} (terminal pid ${processId})`);
+					processId = status.data.process_id;
 				}
 
 				// Make sure the version is the one expected in package.json.
 				const version = this._context.extension.packageJSON.positron.binaryDependencies.kallichore;
-				if (status.body.version !== version) {
+				if (status.data.version !== version) {
 					vscode.window.showWarningMessage(vscode.l10n.t(
 						'Positron Supervisor version {0} is unsupported (expected {1}). ' +
 						'This may result in unexpected behavior or errors.',
-						status.body.version,
+						status.data.version,
 						version)
 					);
 				}
@@ -633,11 +585,12 @@ export class KCApi implements PositronSupervisorApi {
 					throw new Error(`The supervisor process exited before the server was ready.`);
 				}
 
-				// ECONNREFUSED is a normal condition during startup; the
-				// server isn't ready yet. Keep trying up to 10 seconds from
-				// the time we got a process ID established.
-				if (err.code === 'ECONNREFUSED') {
-					if (elapsed < 10000) {
+				// ECONNREFUSED (for TCP) and ENOENT (for sockets) are normal
+				// conditions during startup; the server isn't ready yet. Keep
+				// trying up to the startup timeout from the time we got a
+				// process ID established.
+				if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
+					if (elapsed < startupTimeout) {
 						// Log every few attempts. We don't want to overwhelm
 						// the logs, and it's normal for us to encounter a few
 						// connection refusals before the server is ready.
@@ -670,9 +623,9 @@ export class KCApi implements PositronSupervisorApi {
 				}
 
 				// If the request times out, go ahead and try again as long as
-				// it hasn't been more than 10 seconds since we started. This
-				// can happen if the server is slow to start.
-				if (err.code === 'ETIMEDOUT' && elapsed < 10000) {
+				// the startup timeout hasn't been reached. This can happen if
+				// the server is slow to start.
+				if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
 					this.log(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
 					continue;
 				}
@@ -701,32 +654,46 @@ export class KCApi implements PositronSupervisorApi {
 		// Open the started barrier and save the server state since we're online
 		this._started.open();
 
-		// Determine transport type based on configuration and actual usage
-		const configTransport = config.get<string>('transport', 'ipc');
-		let actualTransport: string;
-		if (configTransport === 'tcp') {
-			actualTransport = 'tcp';
-		} else {
-			// For IPC, determine actual transport based on platform and connection type
-			actualTransport = isDomainSocketPath(basePath) ? 'socket' :
-				(isNamedPipePath(basePath) ? 'named-pipe' : 'tcp');
-		}
-
 		const state: KallichoreServerState = {
 			// Save the constructed basePath for API usage
+			// @ts-ignore
 			base_path: this._api.basePath,
 			port: serverPort,
 			server_path: shellPath,
 			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile,
-			transport: actualTransport,
+			transport: this._api.transport,
 			// For domain sockets, also save the original socket_path from connection data
 			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
 			// For named pipes, also save the original named_pipe from connection data
 			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined)
 		};
+
+		// Save the server state for reconnect if enabled
+		if (this._reconnect) {
+			this.saveServerState(state);
+		}
+
+		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), state);
+	}
+
+	/**
+	 * Save the current server state for reconnect.
+	 *
+	 * @param state The server state to save, or undefined to clear the saved state.
+	 */
+	private saveServerState(state: KallichoreServerState | undefined) {
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+	}
+
+	/**
+	 * Load the current server state for reconnect.
+	 *
+	 * @returns The saved server state, or undefined if not found.
+	 */
+	private loadServerState(): KallichoreServerState | undefined {
+		return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 	}
 
 	/***
@@ -820,9 +787,7 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
-		const bearer = new HttpBearerAuth();
-		bearer.accessToken = serverState.bearer_token;
-		this._api.setDefaultAuthentication(bearer);
+		this.refreshServerState(serverState);
 
 		// Re-establish the log stream
 		if (this._logStreamer) {
@@ -833,24 +798,9 @@ export class KCApi implements PositronSupervisorApi {
 			this.log(`Streaming Kallichore server logs at ${serverState.log_path}`);
 		});
 
-		// Reconnect and get the session list
-		// Construct the base path from base_path, socket_path, or named_pipe
-		if (serverState.base_path) {
-			this._api.basePath = serverState.base_path;
-			this.log(`Reconnecting to TCP server at ${serverState.base_path}`);
-		} else if (serverState.socket_path) {
-			this._api.basePath = `http://unix:${serverState.socket_path}:`;
-			this.log(`Reconnecting to socket: ${serverState.socket_path}`);
-		} else if (serverState.named_pipe) {
-			this._api.basePath = `http://npipe:${serverState.named_pipe}:`;
-			this.log(`Reconnecting to named pipe: ${serverState.named_pipe}`);
-		} else {
-			throw new Error('Server state missing base_path, socket_path, and named_pipe');
-		}
-
-		const status = await this._api.serverStatus();
+		const status = await this._api.api.serverStatus();
 		this._started.open();
-		this.log(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
+		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
 
 		// Update the idle timeout from settings if we aren't in web mode
 		// (in web mode, no idle timeout is used)
@@ -861,7 +811,25 @@ export class KCApi implements PositronSupervisorApi {
 		// Mark this a restored server
 		this._newSupervisor = false;
 
+		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), serverState);
+
 		return true;
+	}
+
+	/**
+	 * Called when server connection information changes, to update the API
+	 * object and propagate the new API to all existing sessions.
+	 *
+	 * @param state The new server state
+	 */
+	refreshServerState(state: KallichoreServerState) {
+		// Update the API object with the new connection information
+		this._api.loadState(state);
+
+		// Update all existing sessions with the new API object
+		for (const session of this._sessions) {
+			session.refreshApi(this._api.api);
+		}
 	}
 
 	/**
@@ -871,8 +839,8 @@ export class KCApi implements PositronSupervisorApi {
 	async updateIdleTimeout() {
 		const timeout = this.getShutdownHours();
 		try {
-			await this._api.setServerConfiguration({
-				idleShutdownHours: timeout
+			await this._api.api.setServerConfiguration({
+				idle_shutdown_hours: timeout
 			});
 		} catch (err) {
 			this.log(`Failed to update idle timeout: ${summarizeError(err)}`);
@@ -891,18 +859,18 @@ export class KCApi implements PositronSupervisorApi {
 		// Get the PID of the current process to use for the heartbeat
 		const pid = process.pid;
 		const heartbeatPayload: ClientHeartbeat = {
-			processId: pid
+			process_id: pid
 		};
 
 		// Begin the heartbeat loop
 		const interval = setInterval(() => {
 			if (this._started.isOpen()) {
 				// The server is still started; send a heartbeat
-				this._api.clientHeartbeat(heartbeatPayload).catch(async (err) => {
-					if (err.code === 'ECONNREFUSED') {
-						// We thought the server was online, but ECONNREFUSED
-						// suggests that it isn't. See if the server has exited
-						// between heartbeats.
+				this._api.api.clientHeartbeat(heartbeatPayload).catch(async (err) => {
+					if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
+						// We thought the server was online, but ECONNREFUSED or
+						// ENOENT suggests that it isn't. See if the server has
+						// exited between heartbeats.
 						this.log(
 							`Connection refused while attempting to send heartbeat;` +
 							`checking server status`);
@@ -947,7 +915,16 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create the session object
 		const session = new KallichoreSession(
-			sessionMetadata, runtimeMetadata, dynState, this._api, true, _extra);
+			sessionMetadata,
+			runtimeMetadata,
+			dynState,
+			this._api.api,
+			this._api.transport,
+			async () => {
+				await this.testServerExited();
+			},
+			true,
+			_extra);
 
 		this.log(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -960,8 +937,8 @@ export class KCApi implements PositronSupervisorApi {
 			} catch (err) {
 				// If the connection was refused, check the server status; this
 				// suggests that the server may have exited
-				if (err.code === 'ECONNREFUSED' && !retried) {
-					this.log(`Connection refused while attempting to create session; checking server status`);
+				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT') && !retried) {
+					this.log(`Could not connect while attempting to create session; checking server status`);
 					await this.testServerExited();
 
 					// If the open barrier is now open, we can retry the
@@ -1041,8 +1018,8 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * Tests the server after a session disconnects, or after an RPC fails with
-	 * ECONNREFUSED, to see if it is still running.  If it isn't, marks all
-	 * sessions as exited and restarts the server.
+	 * ECONNREFUSED or ENOENT, to see if it is still running.  If it isn't,
+	 * marks all sessions as exited and restarts the server.
 	 *
 	 * Consider: This only tests the server's local process ID, not the server
 	 * itself.  We can't use this technique on a remote server, and it doesn't
@@ -1062,8 +1039,7 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		// Load the server state so we can check the process ID
-		const serverState =
-			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		const serverState = this._api.state;
 
 		// If there's no server state, return as we can't check its status
 		if (!serverState) {
@@ -1090,15 +1066,28 @@ export class KCApi implements PositronSupervisorApi {
 			return false;
 		}
 
+		// The server has exited. Remove its record from the instances
+		await KallichoreInstances.removeByPid(serverState.server_pid);
+
 		// Clean up the state so we don't try to reconnect to a server that
 		// isn't running.
-		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+		if (this._reconnect) {
+			this.saveServerState(undefined);
+		}
 
 		// We need to mark all sessions as exited since (at least right now)
 		// they cannot live without the supervisor.
+		let hadAbend = false;
 		for (const session of this._sessions) {
-			session.markExited(1, positron.RuntimeExitReason.Error);
+			if (session.runtimeState !== positron.RuntimeState.Exited) {
+				hadAbend = true;
+				this.log(`Marking session ${session.metadata.sessionId} as exited because the server is no longer running`);
+				session.markExited(1, positron.RuntimeExitReason.Error);
+			}
 		}
+
+		// Forget the sessions; they will not exist on the new server.
+		this._sessions.length = 0;
 
 		// Stop streaming the logs from the old server
 		if (this._logStreamer) {
@@ -1107,13 +1096,14 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		// Reset the start barrier and start the server again.
+		this._starting = undefined;
 		this._started = new Barrier();
 		try {
 			// Start the server again
 			await this.ensureStarted();
 
 			// If any sessions were running, show a message to the user
-			if (this._sessions.length > 0) {
+			if (hadAbend) {
 				vscode.window.showInformationMessage(
 					vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
 			}
@@ -1141,7 +1131,7 @@ export class KCApi implements PositronSupervisorApi {
 		}
 		try {
 			// Get the session status from the server
-			const session = await this._api.getSession(sessionId);
+			const session = await this._api.api.getSession(sessionId);
 
 			// The session is valid if it's in one of the running states (i.e.
 			// not 'never started' or 'exited').
@@ -1152,12 +1142,12 @@ export class KCApi implements PositronSupervisorApi {
 			// reconnect to them and there will be no way to see any output
 			// they emitted between the time Positron was closed and the time
 			// the session exited.
-			const status = session.body.status;
+			const status = session.data.status;
 			return status !== Status.Exited && status !== Status.Uninitialized;
 		} catch (e) {
 			// Swallow errors; we're just checking to see if the session is
 			// alive.
-			if (e instanceof HttpError && e.response.statusCode === 404) {
+			if (isAxiosError(e) && e.status === 404) {
 				// This is the expected error if the session is not found
 				return false;
 			}
@@ -1188,10 +1178,10 @@ export class KCApi implements PositronSupervisorApi {
 		await this.ensureStarted();
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
-			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
+			this._api.api.getSession(sessionMetadata.sessionId).then(async (response) => {
 				// Make sure the session is still running; it may have exited
 				// while we were disconnected.
-				const kcSession = response.body;
+				const kcSession = response.data;
 				if (kcSession.status === Status.Exited) {
 					this.log(`Attempt to reconnect to session ${sessionMetadata.sessionId} failed because it is no longer running`);
 					reject(`Session (${sessionMetadata.sessionId}) is no longer running`);
@@ -1201,9 +1191,9 @@ export class KCApi implements PositronSupervisorApi {
 				// Create the session object
 				const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
 					sessionName: dynState.sessionName,
-					continuationPrompt: kcSession.continuationPrompt,
-					inputPrompt: kcSession.inputPrompt,
-				}, this._api, false);
+					continuationPrompt: kcSession.continuation_prompt,
+					inputPrompt: kcSession.input_prompt
+				}, this._api.api, this._api.transport, async () => { await this.testServerExited() }, false);
 
 				// Restore the session from the server
 				try {
@@ -1214,6 +1204,10 @@ export class KCApi implements PositronSupervisorApi {
 						this.log(`Connection refused while attempting to restore session; checking server status`);
 						await this.testServerExited();
 					}
+					if (err.code === 'ENOENT') {
+						this.log(`Socket/pipe not found while attempting to restore session; checking server status`);
+						await this.testServerExited();
+					}
 					reject(err);
 				}
 				// Save the session
@@ -1221,8 +1215,8 @@ export class KCApi implements PositronSupervisorApi {
 				this._sessions.push(session);
 				resolve(session);
 			}).catch((err) => {
-				if (err instanceof HttpError) {
-					const message = summarizeHttpError(err);
+				if (isAxiosError(err)) {
+					const message = summarizeAxiosError(err);
 					this.log(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${message}`);
 					reject(message);
 					return;
@@ -1239,8 +1233,8 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns The server status.
 	 */
 	public async serverStatus(): Promise<ServerStatus> {
-		const status = await this._api.serverStatus();
-		return status.body;
+		const status = await this._api.api.serverStatus();
+		return status.data;
 	}
 
 	/**
@@ -1319,14 +1313,15 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Find the session in our list
 		const kallichoreSession = this._sessions.find(s => s.metadata.sessionId === session.metadata.sessionId);
+		const sessionName = (await session.getDynState()).sessionName;
 		if (!kallichoreSession) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', session.dynState.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', sessionName));
 			return;
 		}
 
 		// Ensure the session is still active
 		if (kallichoreSession.runtimeState === positron.RuntimeState.Exited) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', session.dynState.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', sessionName));
 			return;
 		}
 
@@ -1347,6 +1342,7 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		this.log('Restarting Kallichore server');
+		const existingState = this._api.state;
 
 		// Clean up all the sessions and mark them as exited
 		this._sessions.forEach(session => {
@@ -1357,7 +1353,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Clear the workspace state so we don't try to reconnect to the old
 		// server
-		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+		this.saveServerState(undefined);
 
 		// Do the same with the environment variable, and clean up the
 		// connection file if it exists.
@@ -1376,12 +1372,17 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Shut down the server itself
 		try {
-			await this._api.shutdownServer();
+			await this._api.api.shutdownServer();
 		} catch (err) {
 			// We can start a new server even if we failed to shut down the old
 			// one, so just log this error
 			const message = summarizeError(err);
 			this.log(`Failed to shut down Kallichore server: ${message}`);
+		}
+
+		// Remove the existing server record
+		if (existingState) {
+			await KallichoreInstances.removeByPid(existingState.server_pid);
 		}
 
 		// If we know the terminal, kill it
@@ -1398,7 +1399,7 @@ export class KCApi implements PositronSupervisorApi {
 			await this.ensureStarted();
 			vscode.window.showInformationMessage(vscode.l10n.t('Kernel supervisor successfully restarted'));
 		} catch (err) {
-			const message = err instanceof HttpError ? summarizeHttpError(err) : err;
+			const message = isAxiosError(err) ? summarizeAxiosError(err) : err;
 			vscode.window.showErrorMessage(vscode.l10n.t('Failed to restart kernel supervisor: {0}', err));
 		}
 	}
@@ -1416,5 +1417,13 @@ export class KCApi implements PositronSupervisorApi {
 		// Format the time as HH:MM:SS in UTC
 		const logTime = new Date().toISOString().substring(11, 19);
 		this._log.appendLine(`${logTime} [Positron] ${message}`);
+	}
+
+	private getWorkspaceName(): string | undefined {
+		if (vscode.workspace.name) {
+			return vscode.workspace.name;
+		}
+		const firstWorkspace = vscode.workspace.workspaceFolders?.[0];
+		return firstWorkspace?.name;
 	}
 }

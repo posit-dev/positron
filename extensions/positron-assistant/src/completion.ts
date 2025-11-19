@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import * as fs from 'fs';
+import * as path from 'path';
 
 import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { EXTENSION_ROOT_DIR } from './constants';
+import { MARKDOWN_DIR } from './constants';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
@@ -22,8 +23,6 @@ import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { CopilotService } from './copilot.js';
-
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 /**
  * Models used for autocomplete/ghost text.
@@ -190,7 +189,7 @@ class OpenAILegacyCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 
@@ -386,7 +385,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 
@@ -406,7 +405,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		const signal = controller.signal;
 		token.onCancellationRequested(() => controller.abort());
 
-		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/fim.md`, 'utf8');
+		const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'completion', 'fim.md'), 'utf8');
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,
@@ -442,7 +441,7 @@ class AnthropicCompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'anthropic',
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey'],
@@ -464,13 +463,13 @@ class OpenAICompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'GPT-4.1 Mini',
-			model: 'gpt-4.1-mini',
+			name: 'OpenAI',
+			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 		},
 	};
@@ -482,6 +481,22 @@ class OpenAICompletion extends FimPromptCompletion {
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+}
+
+class OpenAICompatibleCompletion extends OpenAICompletion {
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'openai-compatible',
+			displayName: 'OpenAI Compatible'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'OpenAI Compatible',
+			model: 'openai-compatible',
+			baseUrl: 'https://localhost/v1',
+		},
+	};
 }
 
 class OpenRouterCompletion extends FimPromptCompletion {
@@ -516,8 +531,8 @@ class AWSCompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'bedrock',
-			displayName: 'AWS Bedrock'
+			id: 'amazon-bedrock',
+			displayName: 'Amazon Bedrock'
 		},
 		supportedOptions: [],
 		defaults: {
@@ -648,7 +663,7 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 		return await this._copilotService.inlineCompletion(document, position, context, token);
@@ -669,15 +684,16 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
-		'anthropic': AnthropicCompletion,
+		'anthropic-api': AnthropicCompletion,
 		'azure': AzureCompletion,
-		'bedrock': AWSCompletion,
+		'amazon-bedrock': AWSCompletion,
 		'copilot': CopilotCompletion,
 		'deepseek': DeepSeekCompletion,
 		'google': GoogleCompletion,
 		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
-		'openai': OpenAICompletion,
+		'openai-api': OpenAICompletion,
+		'openai-compatible': OpenAICompatibleCompletion,
 		'openai-legacy': OpenAILegacyCompletion,
 		'openrouter': OpenRouterCompletion,
 		'vertex': VertexCompletion,
@@ -701,6 +717,7 @@ export const completionModels = [
 	GoogleCompletion,
 	OllamaCompletion,
 	OpenAICompletion,
+	OpenAICompatibleCompletion,
 	OpenAILegacyCompletion,
 	OpenRouterCompletion,
 	VertexCompletion,

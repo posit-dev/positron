@@ -35,7 +35,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
-			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
 		}, async function ({ app, logger, headless }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
@@ -77,7 +77,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify basic plot functionality - Static Plot', {
-			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
 		}, async function ({ app, logger }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
@@ -149,7 +149,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app }) {
+		test('Python - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS] }, async function ({ app }) {
+			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
+		});
+
+		test('Python - Verify saving a Python plot', { tag: [tags.WIN, tags.CRITICAL] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -344,7 +348,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Verify basic plot functionality', {
-			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
 		}, async function ({ app, logger, headless }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
@@ -384,7 +388,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app }) {
+		test('R - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS, tags.CRITICAL] }, async function ({ app }) {
+			await verifyPlotInNewWindow(app, 'R', rBasicPlot);
+		});
+
+		test('R - Verify saving an R plot', { tag: [tags.WIN, tags.CRITICAL] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('R', rSavePlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -412,7 +420,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 		});
 
-		test('R - Verify rplot plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify rplot plot', { tag: [tags.WEB, tags.WIN, tags.SOFT_FAIL] }, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(rplot);
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();
@@ -529,6 +537,18 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 		await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
 		await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
 	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
+}
+
+async function verifyPlotInNewWindow(app: Application, language: "Python" | "R", plotCode: string) {
+	const plots = app.workbench.plots;
+	await test.step(`Create a ${language} plot`, async () => {
+		await app.workbench.console.executeCode(language, plotCode);
+		await plots.waitForCurrentPlot();
+	});
+	await test.step('Open plot in new window', async () => {
+		await plots.openPlotIn('new window');
+		await app.workbench.layouts.enterLayout('stacked');
+	});
 }
 
 async function compareImages({

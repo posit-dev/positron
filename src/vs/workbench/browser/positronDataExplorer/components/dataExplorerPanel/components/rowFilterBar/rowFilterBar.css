@@ -27,6 +27,21 @@
 	background-color: var(--vscode-positronDataExplorer-background);
 }
 
+.data-explorer-panel .row-filter-bar .row-filter-button:hover:not(.disabled) {
+	background-color: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.data-explorer-panel .row-filter-bar .row-filter-button.disabled {
+	cursor: default;
+	opacity: 50%;
+}
+
+/* high contrast theme support for manage filter button */
+.hc-black .data-explorer-panel .row-filter-bar .row-filter-button:hover:not(.disabled),
+.hc-light .data-explorer-panel .row-filter-bar .row-filter-button:hover:not(.disabled) {
+	border: 1px dashed var(--vscode-focusBorder) !important;
+}
+
 .data-explorer-panel .row-filter-bar .row-filter-button:focus {
 	outline: none !important;
 }
@@ -74,7 +89,18 @@
 	background-color: var(--vscode-positronDataExplorer-background);
 }
 
+.data-explorer-panel .row-filter-bar .filter-entries .add-row-filter-button:hover:not(.disabled) {
+	background-color: var(--vscode-positronActionBar-hoverBackground);
+}
+
+/* high contrast theme support for add filter button */
+.hc-black .data-explorer-panel .row-filter-bar .filter-entries .add-row-filter-button:hover:not(.disabled),
+.hc-light .data-explorer-panel .row-filter-bar .filter-entries .add-row-filter-button:hover:not(.disabled) {
+	border: 1px dashed var(--vscode-focusBorder) !important;
+}
+
 .data-explorer-panel .row-filter-bar .filter-entries .add-row-filter-button.disabled {
+	cursor: default;
 	opacity: 50%;
 }
 

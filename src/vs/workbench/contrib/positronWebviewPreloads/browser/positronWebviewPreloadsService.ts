@@ -14,7 +14,7 @@ import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/note
 import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 /**
  * Format of output from a notebook cell
@@ -112,8 +112,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 
 	public attachNotebookInstance(instance: IPositronNotebookInstance): void {
-		console.log('Adding notebook instance to webview preloads knowledge', instance);
-		const notebookId = instance.id;
+		const notebookId = instance.getId();
 		if (this._notebookToDisposablesMap.has(notebookId)) {
 			// Clear existing disposables
 			this._notebookToDisposablesMap.get(notebookId)?.dispose();
@@ -139,6 +138,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			data: message.outputs.reduce((acc, output) => {
 				acc[output.mime] = output.data.toString();
 				return acc;
+				// eslint-disable-next-line local/code-no-dangerous-type-assertions
 			}, {} as Record<string, any>)
 		};
 	}
@@ -159,10 +159,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		outputId: NotebookOutput['outputId'];
 		outputs: NotebookOutput['outputs'];
 	}): NotebookPreloadOutputResults | undefined {
-		const notebookMessages = this._messagesByNotebookId.get(instance.id);
+		const notebookMessages = this._messagesByNotebookId.get(instance.getId());
 
 		if (!notebookMessages) {
-			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.id} not found in messagesByNotebookId map.`);
+			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.getId()} not found in messagesByNotebookId map.`);
 		}
 
 		// Check if this output contains any mime types that require webview handling
@@ -202,15 +202,15 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		displayMessage: ILanguageRuntimeMessageWebOutput,
 	): Promise<INotebookOutputWebview> {
 		// Grab disposables for this session
-		const disposables = this._notebookToDisposablesMap.get(instance.id);
+		const disposables = this._notebookToDisposablesMap.get(instance.getId());
 		if (!disposables) {
-			throw new Error(`PositronWebviewPreloadService: Could not find disposables for notebook ${instance.id}`);
+			throw new Error(`PositronWebviewPreloadService: Could not find disposables for notebook ${instance.getId()}`);
 		}
 
 		// Create a plot client and fire event letting plots pane know it's good to go.
-		const storedMessages = this._messagesByNotebookId.get(instance.id) ?? [];
+		const storedMessages = this._messagesByNotebookId.get(instance.getId()) ?? [];
 		const webview = await this._notebookOutputWebviewService.createMultiMessageWebview({
-			runtimeId: instance.id,
+			runtimeId: instance.getId(),
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,
 			viewType: 'jupyter-notebook'
@@ -218,7 +218,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Assert that we have a webview
 		if (!webview) {
-			throw new Error(`PositronWebviewPreloadService: Failed to create webview for notebook ${instance.id}`);
+			throw new Error(`PositronWebviewPreloadService: Failed to create webview for notebook ${instance.getId()}`);
 		}
 
 		return webview;

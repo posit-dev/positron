@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { expectedColumnNames } from './helpers/expected_columns';
 
 test.use({
 	suiteId: __filename
@@ -12,22 +11,38 @@ test.use({
 
 test.describe('Data Explorer: Column Names', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 
-	test('Verify data columns - Python', async function ({ app, python, openDataFile }) {
+	test('Verify data columns', async function ({ app, openDataFile }) {
+		const dataExplorer = app.workbench.dataExplorer;
 		await openDataFile('data-files/data_explorer/data_columns.csv');
-		await app.workbench.dataExplorer.addFilterButton.click();
-		await app.workbench.dataExplorer.selectColumnButton.click();
-		await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
-	});
+		await dataExplorer.maximize();
 
+		await dataExplorer.grid.expectColumnHeadersToBe([
+			'normal_name',
+			'leading_space',
+			'trailing_space',
+			'both',
+			'column04',
+			'123numeric_start',
+			'!@#symbols',
+			'中文字符',
+			'naïve_column',
+			'name,with,comma',
+			'"quoted"',
+			'multiline header',
+			'supercalifragilisticexpialidocious_column_name_that_is_really_really_long_to_test_limits',
+			'whitespace (tab)',
+			'duplicate',
+			'duplicate_1',
+			'Nombre_Español',
+			'ID_Único',
+			'Nome_Português',
+			'Número_do_Pedido',
+			'اسم_عربي',
+			'رمز_المنتج',
+			'שם_עברי',
+			'מספר_פריט',
+			'Heizölrückstoßabdämpfung',
+			'100.000 pro Bevölkerung'
+		]);
+	});
 });
-
-/* Add this after test.describe if there is a need to escape from the filter and delete all sessions for clean-up.
-	test.afterEach(async ({ app, page }) => {
-		await page.getByRole('button', { name: 'Select Column' }).focus();
-		await page.keyboard.press('Escape');
-		await page.keyboard.press('Escape');
-		await expect(page.locator('.positron-modal-popup')).toHaveCount(0);
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
-	});
-*/

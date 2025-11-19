@@ -24,7 +24,6 @@ import { usePositronReactServicesContext } from '../../../../../../base/browser/
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
-import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -56,9 +55,6 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
-
-	// Feature flags.
-	const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(services.configurationService);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -237,7 +233,7 @@ export const DataExplorer = () => {
 		return () => disposableStore.dispose();
 	}, [columnsCollapsed, services.accessibilityService, context.instance]);
 
-	// Automatic layout useEffect.
+	// Automatic layout useLayoutEffect.
 	useLayoutEffect(() => {
 		// Set the initial width.
 		const initialWidth = dataExplorerRef.current.offsetWidth;
@@ -343,23 +339,25 @@ export const DataExplorer = () => {
 
 			<div ref={leftColumnRef} className='left-column'>
 				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}
-				<PositronDataGrid
-					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
-						context.instance.tableSchemaDataGridInstance :
-						context.instance.tableDataDataGridInstance
-					}
-				/>
+				<div className='data-grid-container'>
+					<PositronDataGrid
+						instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+							context.instance.tableSchemaDataGridInstance :
+							context.instance.tableDataDataGridInstance
+						}
+					/>
+				</div>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
 				<div className='collapsed-left-spacer' />
 			}
 			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
+					alwaysShowExpandCollapseButton={true}
 					collapsible={true}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
 					isCollapsed={columnsCollapsed}
@@ -381,17 +379,18 @@ export const DataExplorer = () => {
 			}
 			<div ref={rightColumnRef} className='right-column'>
 				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}
-				<PositronDataGrid
-					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
-						context.instance.tableDataDataGridInstance :
-						context.instance.tableSchemaDataGridInstance
-					}
-				/>
+				<div className='data-grid-container'>
+					<PositronDataGrid
+						instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+							context.instance.tableDataDataGridInstance :
+							context.instance.tableSchemaDataGridInstance
+						}
+					/>
+				</div>
 			</div>
 		</div >
 	);

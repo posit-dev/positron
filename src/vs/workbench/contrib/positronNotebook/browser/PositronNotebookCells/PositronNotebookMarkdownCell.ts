@@ -3,53 +3,61 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { disposableTimeout } from '../../../../../base/common/async.js';
-import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue, waitForState } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
-	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
-	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
+	readonly markdownString;
+	readonly editorShown = observableValue('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
 		cellModel: NotebookCellTextModel,
 		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService
+		executionStateService: INotebookExecutionStateService,
+		textModelResolverService: ITextModelService,
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, executionStateService, textModelResolverService);
 
-		// Render the markdown content and update the observable when the cell content changes
-		this._register(this.cellModel.onDidChangeContent(() => {
-			this.markdownString.set(this.getContent(), undefined);
-		}));
-
-		this._updateContent();
+		// Create the markdown string observable
+		this.markdownString = observableFromEvent(
+			this,
+			this.model.onDidChangeContent,
+			() => /** @description markdownString */ this.getContent()
+		);
 	}
 
-	private _updateContent(): void {
-		this.markdownString.set(this.getContent(), undefined);
+	async toggleEditor(): Promise<void> {
+		const editorStartingOpen = this.editorShown.get();
+		if (editorStartingOpen) {
+			// Closing the editor - exit editing mode and return to selected state
+			this._instance.selectionStateMachine.exitEditor(this);
+			this.editorShown.set(false, undefined);
+		} else {
+			// Opening the editor - enter editing mode through the selection machine
+			// This will properly handle state transitions and focus management
+			await this._instance.selectionStateMachine.enterEditor(this);
+		}
 	}
 
-	toggleEditor(): void {
-		this.editorShown.set(!this.editorShown.get(), undefined);
+	override async showEditor(): Promise<ICodeEditor | undefined> {
+		this.editorShown.set(true, undefined);
+		await waitForState(this._editor, (editor) => editor !== undefined);
+		// Wait for the text model to be loaded before returning
+		// This ensures the editor is fully ready for focus operations
+		await this.getTextEditorModel();
+		return super.showEditor();
 	}
 
 	override run(): void {
 		this.toggleEditor();
-	}
-
-	override focusEditor(): void {
-		this.editorShown.set(true, undefined);
-		// Need a timeout here so that the editor is shown before we try to focus it.
-		this._register(disposableTimeout(() => {
-			super.focusEditor();
-		}, 0));
 	}
 }

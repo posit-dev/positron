@@ -10,7 +10,7 @@ import './vectorHistogram.css';
 import React, { useState, useRef, useMemo } from 'react';
 
 // Other dependencies.
-import { ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnHistogram, ColumnDisplayType, FormatOptions } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
@@ -22,6 +22,8 @@ interface VectorHistogramProps {
 	readonly xAxisHeight: number;
 	readonly columnHistogram: ColumnHistogram;
 	readonly hoverManager: IHoverManager;
+	readonly displayType?: ColumnDisplayType;
+	readonly formatOptions: FormatOptions;
 }
 
 /**
@@ -35,6 +37,8 @@ const BinItem = React.memo(({
 	binMin,
 	binStart,
 	binWidth,
+	displayType,
+	formatOptions,
 	graphHeight,
 	hoverManager,
 	xAxisHeight
@@ -46,6 +50,8 @@ const BinItem = React.memo(({
 	binMin: string;
 	binStart: number;
 	binWidth: number;
+	displayType?: ColumnDisplayType;
+	formatOptions: FormatOptions;
 	graphHeight: number;
 	hoverManager: IHoverManager;
 	xAxisHeight: number;
@@ -53,14 +59,27 @@ const BinItem = React.memo(({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
 
-	// Format numeric values with 4 significant digits if they're numbers
-	const formatValue = (value: string): string => {
-		const num = parseFloat(value);
-		return !isNaN(num) ? num.toPrecision(4) : value;
+	// Format numeric values based on display type
+	const formatValue = (value: string, isMin: boolean): string => {
+		// For integer types, round bin edges appropriately
+		if (displayType === ColumnDisplayType.Integer) {
+			// Remove thousands separator before parsing
+			const thousandsSep = formatOptions.thousands_sep || ',';
+			const cleanValue = value.replace(new RegExp(`\\${thousandsSep}`, 'g'), '');
+			const num = parseFloat(cleanValue);
+			if (isNaN(num)) {
+				return value;
+			}
+			// Round up for lower bound, down for upper bound to ensure integer bins
+			return isMin ? Math.ceil(num).toString() : Math.floor(num).toString();
+		}
+
+		// For other numeric types, use the backend's formatting as-is
+		return value;
 	};
 
-	const formattedMin = formatValue(binMin);
-	const formattedMax = formatValue(binMax);
+	const formattedMin = formatValue(binMin, true);
+	const formattedMax = formatValue(binMax, false);
 
 	return (
 		<foreignObject
@@ -150,6 +169,11 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 		const binCounts = props.columnHistogram.bin_counts;
 		const numBins = binCounts.length;
 
+		// Return empty path if no bins or maxBinCount is 0
+		if (numBins === 0 || maxBinCount === 0) {
+			return path;
+		}
+
 		for (let i = 0; i < numBins; i++) {
 			const binHeight = (binCounts[i] / maxBinCount) * props.graphHeight;
 			const x = (i / numBins) * props.graphWidth;
@@ -193,7 +217,7 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 					d={buildHistogramPath()}
 					fill='var(--vscode-positronDataExplorer-sparklineFill)'
 				/>
-				{props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
+				{maxBinCount > 0 && props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
 					const binCountHeight = (binCount / maxBinCount) * props.graphHeight;
 					const binMin = props.columnHistogram.bin_edges[binCountIndex];
 					const binMax = props.columnHistogram.bin_edges[binCountIndex + 1];
@@ -214,6 +238,8 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 							binMin={binMin}
 							binStart={x}
 							binWidth={width}
+							displayType={props.displayType}
+							formatOptions={props.formatOptions}
 							graphHeight={props.graphHeight}
 							hoverManager={props.hoverManager}
 							xAxisHeight={props.xAxisHeight}

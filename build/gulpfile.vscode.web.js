@@ -106,6 +106,10 @@ const vscodeWebEntryPoints = [
  * @param {object} product The parsed product.json file contents
  */
 const createVSCodeWebFileContentMapper = (extensionsRoot, product) => {
+	/**
+	 * @param {string} path
+	 * @returns {((content: string) => string) | undefined}
+	 */
 	return path => {
 		if (path.endsWith('vs/platform/product/common/product.js')) {
 			return content => {
@@ -154,6 +158,10 @@ const minifyVSCodeWebTask = task.define('minify-vscode-web', task.series(
 ));
 gulp.task(minifyVSCodeWebTask);
 
+/**
+ * @param {string} sourceFolderName
+ * @param {string} destinationFolderName
+ */
 function packageTask(sourceFolderName, destinationFolderName) {
 	const destination = path.join(BUILD_ROOT, destinationFolderName);
 
@@ -185,7 +193,10 @@ function packageTask(sourceFolderName, destinationFolderName) {
 		const packageJsonStream = gulp.src(['remote/web/package.json'], { base: 'remote/web' })
 			.pipe(json({ name, version, type: 'module' }));
 
-		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
+		const license = es.merge(
+			gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true }),
+			gulp.src(['NOTICE'], { base: '.', allowEmpty: true })
+		);
 
 		const productionDependencies = getProductionDependencies(WEB_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();

@@ -5,35 +5,109 @@
 
 // CSS.
 import './NotebookCellWrapper.css';
+import './NotebookCellSelection.css';
 
 // React.
 import React from 'react';
 
 // Other dependencies.
+import { localize } from '../../../../../nls.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus.js';
+import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
+import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { useCellContextKeys } from './useCellContextKeys.js';
+import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
+import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
-export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
+export function NotebookCellWrapper({ cell, children, hasError }: {
+	cell: IPositronNotebookCell;
+	children: React.ReactNode;
+	hasError?: boolean;
+}) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
-	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
-	const selectionStatus = useSelectionStatus(cell);
+	const notebookInstance = useNotebookInstance();
+	const selectionStateMachine = notebookInstance.selectionStateMachine;
+	const environment = useEnvironment();
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
+	const isActiveCell = useObservedValue(cell.isActive);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
-			// Attach the container to the cell instance can properly control focus.
+			// Attach the container so the cell instance can properly control focus.
 			cell.attachContainer(cellRef.current);
 		}
 	}, [cell, cellRef]);
 
+	// Focus management: focus when this cell becomes the active cell
+	React.useLayoutEffect(() => {
+		if (!cellRef.current) {
+			return;
+		}
+
+		/**
+		 * Focus the cell container element when this cell becomes the active cell,
+		 * except when in editing mode (the Monaco editor should have focus then).
+		 */
+		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing) {
+			cellRef.current.focus();
+		}
+	}, [isActiveCell, selectionStatus, cellRef]);
+
+	// Manage context keys for this cell
+	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
+
+	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
+	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
+
+	// State for ARIA announcements
+	const [announcement, setAnnouncement] = React.useState<string>('');
+
+	React.useLayoutEffect(() => {
+		const cellIndex = cell.index;
+		const cells = notebookInstance.cells.get();
+		const totalCells = cells.length;
+
+		// Announce selection changes for screen readers
+		if (selectionStatus === CellSelectionStatus.Selected) {
+			setAnnouncement(`Cell ${cellIndex + 1} of ${totalCells} selected`);
+		} else if (selectionStatus === CellSelectionStatus.Editing) {
+			setAnnouncement(`Editing cell ${cellIndex + 1} of ${totalCells}`);
+		} else if (selectionStatus === CellSelectionStatus.Unselected) {
+			// Clear announcement when unselected
+			setAnnouncement('');
+		}
+
+		/**
+		 * Close other markdown cell editors when this cell is selected or enters edit mode
+		 * This ensures only one markdown cell editor is open at a time.
+		 *
+		 * Note: We do not want to close other editors when this cell is unselected,
+		 * as that would interfere with multi-cell selection -> editing transitions
+		 * where multiple cells become unselected.
+		 */
+		if (selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing) {
+			for (const otherCell of cells) {
+				if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
+					otherCell.toggleEditor();
+				}
+			}
+		}
+	}, [selectionStatus, cell, notebookInstance]);
+
 	return <div
 		ref={cellRef}
+		aria-label={localize('notebookCell', '{0} cell', cellType)}
+		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		data-has-error={hasError}
 		data-is-running={executionStatus === 'running'}
+		data-testid='notebook-cell'
+		role='article'
 		tabIndex={0}
 		onClick={(e) => {
 			const clickTarget = e.nativeEvent.target as HTMLElement;
@@ -41,7 +115,7 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
 			// widget itself handles that logic
 			const childOfEditor = clickTarget.closest('.positron-cell-editor-monaco-widget');
-			if (childOfEditor || selectionStatus === CellSelectionStatus.Editing) {
+			if (childOfEditor) {
 				return;
 			}
 
@@ -50,14 +124,27 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 				return;
 			}
 
-			if (selectionStatus === CellSelectionStatus.Selected) {
-				cell.deselect();
+			// If we're in editing mode and clicking outside the editor, exit editing mode
+			if (selectionStatus === CellSelectionStatus.Editing) {
+				selectionStateMachine.exitEditor();
 				return;
 			}
+
+			// If already selected, do nothing - maintain selection invariant
+			if (selectionStatus === CellSelectionStatus.Selected) {
+				return;
+			}
+
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
 	>
-		{children}
+		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
+			<NotebookCellActionBar cell={cell} />
+			{children}
+		</CellScopedContextKeyServiceProvider>
+		<ScreenReaderOnly>
+			{announcement}
+		</ScreenReaderOnly>
 	</div>;
 }

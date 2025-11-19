@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
+
 declare module 'positron' {
 
 	import * as vscode from 'vscode';
@@ -55,6 +59,12 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+
+		/** A message representing a debug event to the frontend */
+		DebugEvent = 'debug_event',
+
+		/** A message representing a debug reply to the frontend */
+		DebugReply = 'debug_reply',
 
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
@@ -384,6 +394,9 @@ declare module 'positron' {
 		/** The language version number */
 		language_version: string;
 
+		/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+		supported_features?: string[];
+
 		/** Initial prompt string in case user customized it */
 		input_prompt?: string;
 
@@ -456,6 +469,39 @@ declare module 'positron' {
 
 		/** The data from the back-end */
 		data: object;
+	}
+
+	/** A DebugProtocolRequest is an opaque stand-in type for the [Request](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolRequest {
+		// Properties: see [Request details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request).
+	}
+
+	/** A DebugProtocolResponse is an opaque stand-in type for the [Response](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolResponse {
+		// Properties: see [Response details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response).
+	}
+
+	/**
+	 * A DebugProtocolEvent is an opaque stand-in type for the [Event](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolEvent {
+		// Properties: see [Event details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event).
+	}
+
+	/**
+	 * LanguageRuntimeDebugReply is a LanguageRuntimeMessage that represents a reply to a runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
+		/** The debug adapter protocol response.  */
+		content: DebugProtocolResponse;
+	}
+
+	/**
+	 * LanguageRuntimeDebugEvent is a LanguageRuntimeMessage that represents an event from the runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
+		/** The debug adapter protocol event. */
+		content: DebugProtocolEvent;
 	}
 
 	/**
@@ -641,7 +687,6 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
-		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataExplorer = 'positron.dataExplorer',
 		Ui = 'positron.ui',
@@ -836,6 +881,9 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		/** The ID of the code execution. */
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
@@ -988,12 +1036,11 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	 * Basic metadata about an active language runtime session, including
+	 * immutable metadata about the session itself and metadata about the
+	 * runtime with which it is associated.
 	 */
-	export interface LanguageRuntimeSession extends vscode.Disposable {
-
+	export interface ActiveRuntimeSessionMetadata {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -1002,9 +1049,61 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+	}
+
+	/**
+	 * Base interface for a language runtime session.
+	 *
+	 * This is the version of a language runtime session that is returned by
+	 * Positron's API methods; it provides basic access to the session for use
+	 * by extensions other that the one that created the session.
+	 */
+	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
 
 		/** The state of the runtime that changes during a user session */
-		dynState: LanguageRuntimeDynState;
+		getDynState(): Thenable<LanguageRuntimeDynState>;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
+
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
+		execute(code: string,
+			id: string,
+			mode: RuntimeCodeExecutionMode,
+			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
+		 */
+		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
+	}
+
+	/**
+	 * LanguageRuntimeSession is the full interface implemented by extensions
+	 * that provide a set of common tools for interacting with a language
+	 * runtime, such as code execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
+
+		/** Information about the runtime that is only available after starting. */
+		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
@@ -1023,28 +1122,12 @@ declare module 'positron' {
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
 
 		/**
-		 * Execute code in the runtime
+		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
 		 *
-		 * @param code The code to execute
-		 * @param id The ID of the code
-		 * @param mode The code execution mode
-		 * @param errorBehavior The code execution error behavior
-		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 * @param request The Debug Adapter Protocol request.
+		 * @returns The Debug Adapter Protocol response.
 		 */
-		execute(code: string,
-			id: string,
-			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
-
-		/**
-		 * Calls a method in the runtime and returns the result.
-		 *
-		 * Throws a RuntimeMethodError if the method call fails.
-		 *
-		 * @param method The name of the method to call
-		 * @param args Arguments to pass to the method
-		 */
-		callMethod?(method: string, ...args: any[]): Thenable<any>;
+		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -1113,13 +1196,6 @@ declare module 'positron' {
 		 * working directory.
 		 */
 		restart(workingDirectory?: string): Thenable<void>;
-
-		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the
-		 * runtime shutdown sequence has been successfully started (not
-		 * necessarily when it has completed).
-		 */
-		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 		/**
 		 * Forcibly quits the runtime; returns a Thenable that resolves when the
@@ -1568,6 +1644,19 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
+		 * Create and show a simple modal dialog input prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param placeholder The placeholder text for the input field
+		 *
+		 * @returns A Thenable that resolves to the user's input, or undefined if the user cancelled.
+		 */
+		export function showSimpleModalDialogInputPrompt(title: string,
+			message: string,
+			placeholder?: string): Thenable<string | undefined>;
+
+		/**
 		 * Create and show a different simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog
@@ -1715,6 +1804,10 @@ declare module 'positron' {
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
+		 * @param sessionId An optional session ID to execute the code in. If
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -1724,7 +1817,8 @@ declare module 'positron' {
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
-			observer?: ExecutionObserver): Thenable<Record<string, any>>;
+			observer?: ExecutionObserver,
+			sessionId?: string): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -1753,19 +1847,24 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<LanguageRuntimeSession[]>;
+		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
+
+		/**
+		 * Get a specific session by its ID.
+		 */
+		export function getSession(sessionId: string): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the active foreground session, if any.
 		 */
-		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -1797,9 +1896,17 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
-		 * Focus a running session
+		 * Focus a running session.
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Delete a running session.
+		 * If the session is busy, the user is asked whether it should be interrupted.
+		 * The promise resolves with `false` if the user declines to interrupt, or `true`
+		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 */
+		export function deleteSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Get the runtime variables for a session.
@@ -1962,44 +2069,69 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Utilities for pasting files as paths.
+	 */
+	namespace paths {
+		/**
+		 * Options for extracting clipboard file paths
+		 */
+		export interface ExtractClipboardFilePathsOptions {
+			/**
+			 * Whether to prefer relative paths when workspace context is available.
+			 * Defaults to true.
+			 */
+			preferRelative?: boolean;
+
+			/**
+			 * Custom base URI for relative path calculation.
+			 * If not provided and preferRelative is true, uses the first workspace folder.
+			 */
+			baseUri?: vscode.Uri;
+
+			/**
+			 * User home directory URI for home-relative path calculation.
+			 */
+			homeUri?: vscode.Uri;
+		}
+
+		/**
+		 * Extract file paths from clipboard.
+		 * Detects files copied from file manager and returns their paths for use in scripts.
+		 * Windows: Replaces `\` with `/`.
+		 * Surrounds paths with double quotes (and escapes any internal double quotes).
+		 * Optionally returns relative paths (e.g. to workspace or user's home directory).
+		 * Try to use core utilities (versus DIY path hacking).
+
+		 * @param dataTransfer The clipboard data transfer object
+		 * @param options Options for path conversion
+		 * @returns A Thenable that resolves to an array of quoted, forward-slash,
+		 *  possibly relative file paths, or null if no files detected
+		 */
+		export function extractClipboardFilePaths(
+			dataTransfer: vscode.DataTransfer,
+			options?: ExtractClipboardFilePathsOptions
+		): Thenable<string[] | null>;
+	}
+
+	/**
 	 * Experimental AI features.
 	 */
 	namespace ai {
 		/**
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
-		export interface LanguageModelChatProvider {
+		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
 			name: string;
 			provider: string;
-			identifier: string;
+			id: string;
 
 			providerName: string;
-			maxOutputTokens: number;
 
-			readonly capabilities?: {
-				readonly vision?: boolean;
-				readonly toolCalling?: boolean;
-				readonly agentMode?: boolean;
-			};
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
 
-			/**
-			 * Handle a language model request with tool calls and streaming chat responses.
-			 */
-			provideLanguageModelResponse(
-				messages: Array<vscode.LanguageModelChatMessage>,
-				options: vscode.LanguageModelChatRequestOptions,
-				extensionId: string,
-				progress: vscode.Progress<{
-					index: number;
-					part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
-				}>,
-				token: vscode.CancellationToken,
-			): Thenable<any>;
+			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
-			/**
-			 * Calculate the token count for a given string.
-			 */
-			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
+			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
 
 			/**
 			 * Tests the connection to the language model provider.
@@ -2007,6 +2139,15 @@ declare module 'positron' {
 			 * Returns an error if the connection fails.
 			 */
 			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+
+			/**
+			 * Retrieves a list of supported models from the provider.
+			 *
+			 * This is used to populate the model selection dropdown in the language model configuration dialog. This
+			 * should be called before registering the chat provider.
+			 * @returns A list of supported model identifiers, or undefined if the provider does not support a model listing.
+			 */
+			resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined>;
 		}
 
 		/**
@@ -2078,8 +2219,10 @@ declare module 'positron' {
 			project?: string;
 			location?: string;
 			numCtx?: number;
+			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
 		}
 
 		/**
@@ -2152,10 +2295,226 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Checks the file for exclusion from AI completion.
-		 * @param file The file to check for exclusion.
-		 * @returns A Thenable that resolves to true if the file should be excluded, false otherwise.
+		 * A chat language model provider.
 		 */
-		export function areCompletionsEnabled(file: vscode.Uri): Thenable<boolean>;
+		export interface ChatProvider {
+			readonly id: string;
+			readonly displayName: string;
+		}
+
+		/**
+		 * Get the current langauge model provider.
+		 */
+		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Get all the available langauge model providers.
+		 */
+		export function getProviders(): Thenable<ChatProvider[]>;
+
+		/**
+		 * Set the current language chat provider.
+		 */
+		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Checks if completions are enabled for the given file.
+		 * @param uri The file URI to check if completions are enabled.
+		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
+		 */
+		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
+	}
+
+	/**
+	 * Namespace for interacting with Positron notebooks
+	 */
+	export namespace notebooks {
+		/**
+		 * Context about the currently active notebook
+		 */
+		export interface NotebookContext {
+			/**
+			 * URI of the notebook
+			 */
+			uri: string;
+
+			/**
+			 * ID of the active kernel
+			 */
+			kernelId?: string;
+
+			/**
+			 * Language of the kernel (e.g., 'python', 'r')
+			 */
+			kernelLanguage?: string;
+
+			/**
+			 * Total number of cells in the notebook
+			 */
+			cellCount: number;
+
+			/**
+			 * Currently selected cells
+			 */
+			selectedCells: NotebookCell[];
+
+			/**
+			 * All cells in the notebook. Included if notebook is small enough
+			 * to fit without taking too much context.
+			 */
+			allCells?: NotebookCell[];
+		}
+
+		/**
+		 * Type of notebook cell
+		 */
+		export enum NotebookCellType {
+			/** A code cell */
+			Code = 'code',
+
+			/** A markdown cell */
+			Markdown = 'markdown',
+		}
+
+		/**
+		 * Represents a cell in a notebook
+		 */
+		export interface NotebookCell {
+			/**
+			 * Unique identifier for the cell
+			 */
+			id: string;
+
+			/**
+			 * Index of the cell in the notebook (0-based)
+			 */
+			index: number;
+
+			/**
+			 * Type of cell
+			 */
+			type: NotebookCellType;
+
+			/**
+			 * Content of the cell
+			 */
+			content: string;
+
+			/**
+			 * Whether the cell has output
+			 */
+			hasOutput: boolean;
+
+			/**
+			 * Selection status of the cell ('unselected' | 'selected' | 'active')
+			 */
+			selectionStatus: string;
+
+			/**
+			 * Execution status of the cell ('running' | 'pending' | 'idle')
+			 * Only present for code cells
+			 */
+			executionStatus?: string;
+
+			/**
+			 * Execution order number for the last execution
+			 * Only present for code cells
+			 */
+			executionOrder?: number;
+
+			/**
+			 * Whether the last execution was successful
+			 * Only present for code cells
+			 */
+			lastRunSuccess?: boolean;
+
+			/**
+			 * Duration of the last execution in milliseconds
+			 * Only present for code cells
+			 */
+			lastExecutionDuration?: number;
+
+			/**
+			 * Timestamp when the last execution ended
+			 * Only present for code cells
+			 */
+			lastRunEndTime?: number;
+		}
+
+		/**
+		 * Get context about the active notebook
+		 * @returns The notebook context or undefined if no notebook is active
+		 */
+		export function getContext(): Thenable<NotebookContext | undefined>;
+
+		/**
+		 * Get all cells from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @returns Array of all cells in the notebook
+		 */
+		export function getCells(notebookUri: string): Thenable<NotebookCell[]>;
+
+		/**
+		 * Get a specific cell from a notebook by its index
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to retrieve
+		 * @returns The cell or undefined if not found
+		 */
+		export function getCell(notebookUri: string, cellIndex: number): Thenable<NotebookCell | undefined>;
+
+		/**
+		 * Execute cells in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Array of cell indices to execute
+		 */
+		export function runCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
+
+		/**
+		 * Add a new cell to a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param type Type of cell to add
+		 * @param index Index where the cell should be inserted
+		 * @param content Initial content for the cell
+		 * @returns The ID of the newly created cell
+		 */
+		export function addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Thenable<string>;
+
+		/**
+		 * Delete a cell from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to delete
+		 */
+		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
+
+		/**
+		 * Update the content of a cell in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to update
+		 * @param content New content for the cell
+		 */
+		export function updateCellContent(notebookUri: string, cellIndex: number, content: string): Thenable<void>;
+
+		/**
+		 * Represents a cell output with its MIME type and data
+		 */
+		export interface NotebookCellOutput {
+			/**
+			 * MIME type of the output (e.g., 'text/plain', 'image/png', 'image/jpeg')
+			 */
+			mimeType: string;
+
+			/**
+			 * Output data - plain text for text outputs, base64-encoded string for images and other binary data
+			 */
+			data: string;
+		}
+
+		/**
+		 * Get the outputs from a code cell
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell
+		 * @returns Array of output objects with MIME type and data
+		 */
+		export function getCellOutputs(notebookUri: string, cellIndex: number): Thenable<NotebookCellOutput[]>;
 	}
 }

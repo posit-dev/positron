@@ -9,6 +9,26 @@
 	left: 0.5px;
 }
 
+.connections-items-container .no-entries-message {
+	padding: 10px;
+	justify-content: center;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+}
+
+.no-entries-message  .positron-button {
+	border: 1px solid;
+	border-color: var(--vscode-positronVariables-foreground);
+	border-radius: 5px;
+	display: flex;
+	align-items: center;
+}
+
+.no-entries-message .positron-button .codicon {
+	padding: 2px;
+}
+
 .connections-item {
 	display: flex;
 	cursor: pointer;
@@ -60,6 +80,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.connections-items-container .animate-spin {
+	animation: spin 1s linear infinite;
 }
 
 .connections-item.selected {

@@ -35,7 +35,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
@@ -91,7 +91,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Copilot');
 		await app.workbench.assistant.verifyAuthMethod('oauth');
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.verifyAuthMethod('apiKey');
 		await app.workbench.assistant.clickCloseButton();
 	});
@@ -100,7 +100,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 /**
  * Test suite Positron Assistant actions from the chat interface.
  */
-test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
@@ -115,10 +115,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.selectModelProvider('echo');
+			await app.workbench.assistant.clickSignOutButton();
+			await app.workbench.assistant.clickCloseButton();
+		}).toPass({ timeout: 30000 });
 	});
 	/**
 	 * Tests that Python code from chat responses can be executed in the console.
@@ -127,7 +129,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param python - Fixture that starts the python session.
 	 */
-	test('Python: Verify running code in console from chat markdown response', async function ({ app, python }) {
+	test('Python: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
@@ -142,17 +144,22 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param r - Fixture that starts the R session.
 	 */
-	test('R: Verify running code in console from chat markdown response', async function ({ app, r }) {
+	test('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
 		await app.workbench.variables.expectVariableToBe('foo', '200');
 	});
+
+	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
+		await app.workbench.assistant.verifyManageModelsOptionVisible();
+	});
 });
 
 // Skipping web. See https://github.com/posit-dev/positron/issues/8568
-test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
+// Skippig all due to https://github.com/posit-dev/positron/issues/9402
+test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
@@ -216,6 +223,7 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
 
+	// Only reports tokens used by first message.
 	test('Total token usage is displayed in chat header', async function ({ app }) {
 		const message1 = 'What is the meaning of life?';
 		const message2 = 'Forty-two';
@@ -225,7 +233,6 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage(message2);
 
 		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
 
 		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();

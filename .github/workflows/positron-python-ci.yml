@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - 'prerelease/**'
+      - 'release/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
@@ -13,6 +14,7 @@ on:
     branches:
       - main
       - 'prerelease/**'
+      - 'release/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
@@ -23,7 +25,7 @@ defaults:
    working-directory: 'extensions/positron-python'
 
 env:
-  NODE_VERSION: '20.12.1'
+  NODE_VERSION: '22.17.0'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
@@ -45,13 +47,13 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           cache: 'npm'
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
@@ -92,7 +94,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
@@ -114,7 +116,7 @@ jobs:
           uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@b5d50e5cde6547546a5c4ac92e416a8c2c1a1dfe # v2.3.2
+        uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e # v2.3.3
         with:
           version: 1.1.308
           working-directory: ${{ env.PYTHON_SRC_DIR }}
@@ -131,7 +133,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.13']
+        python: ['3.9', '3.13', '3.14']
 
     steps:
       - name: Checkout
@@ -140,7 +142,7 @@ jobs:
           path: ${{ env.special-working-directory-relative }}
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -178,13 +180,19 @@ jobs:
             python: '3.12'
           - os: 'ubuntu-latest'
             python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.14'
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -216,7 +224,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -244,26 +252,23 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.x']
         test-suite:
-          [ts-unit, venv, single-workspace, debugger, functional, smoke]
+          [ts-unit, single-workspace, debugger, functional] # venv is removed from this list, see https://github.com/posit-dev/positron/pull/10187
         # TODO: Add integration tests on windows and ubuntu. This requires updating
         # src/test/positron/testElectron.ts to support installing Positron on these platforms.
         exclude:
-          - os: windows-latest
-            test-suite: venv
+          # venv disabled for now, see https://github.com/posit-dev/positron/pull/10187
+          # - os: windows-latest
+          #   test-suite: venv
           - os: windows-latest
             test-suite: debugger
           - os: windows-latest
             test-suite: single-workspace
-          - os: windows-latest
-            test-suite: smoke
-          - os: ubuntu-latest
-            test-suite: venv
+          # - os: ubuntu-latest
+          #   test-suite: venv
           - os: ubuntu-latest
             test-suite: debugger
           - os: ubuntu-latest
             test-suite: single-workspace
-          - os: ubuntu-latest
-            test-suite: smoke
 
     steps:
       - name: Checkout
@@ -272,14 +277,14 @@ jobs:
           path: ${{ env.special-working-directory-relative }}
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: ${{ env.special-working-directory-relative }}/${{ env.PROJECT_DIR }}/package-lock.json
 
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
           cache: 'pip'
@@ -376,10 +381,6 @@ jobs:
           & $condaPythonPath ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} condaPath
           & $condaExecPath init --all
 
-      - name: Prepare VSIX for smoke tests
-        run: npm run package --allow-star-activation
-        if: matrix.test-suite == 'smoke'
-
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
           echo "CI_PYTHON_PATH=$(which python)" >> $GITHUB_ENV
@@ -432,10 +433,3 @@ jobs:
       - name: Run TypeScript functional tests
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
-
-      - name: Run smoke tests
-        env:
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-        run: |
-          npx tsc && node ./out/test/smokeTest.js
-        if: matrix.test-suite == 'smoke'

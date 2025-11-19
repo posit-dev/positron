@@ -30,7 +30,7 @@ import { IEditorService } from '../../workbench/services/editor/common/editorSer
 import { INotificationService } from '../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
-import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
 import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
 import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
@@ -55,6 +55,8 @@ import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/p
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ILanguageFeaturesService } from '../../editor/common/services/languageFeatures.js';
 import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
+import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
+import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
 
 /**
  * PositronReactServices interface.
@@ -80,6 +82,7 @@ export class PositronReactServices {
 	 */
 	public constructor(
 		@IAccessibilityService public readonly accessibilityService: IAccessibilityService,
+		@IActionWidgetService public readonly actionWidgetService: IActionWidgetService,
 		@IClipboardService public readonly clipboardService: IClipboardService,
 		@ICommandService public readonly commandService: ICommandService,
 		@IConfigurationService public readonly configurationService: IConfigurationService,
@@ -118,6 +121,7 @@ export class PositronReactServices {
 		@IPositronVariablesService public readonly positronVariablesService: IPositronVariablesService,
 		@IPositronWebviewPreloadService public readonly positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPreferencesService public readonly preferencesService: IPreferencesService,
+		@IQuickChatService public readonly quickChatService: IQuickChatService,
 		@IQuickInputService public readonly quickInputService: IQuickInputService,
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
@@ -132,4 +136,24 @@ export class PositronReactServices {
 		@IWorkspacesService public readonly workspacesService: IWorkspacesService,
 		@IWorkspaceTrustManagementService public readonly workspaceTrustManagementService: IWorkspaceTrustManagementService
 	) { }
+
+	/**
+	 * Get a service by its identifier.
+	 * Makes PositronReactServices compatible with ServicesAccessor interface.
+	 * @param id Service identifier
+	 * @returns The requested service
+	 */
+	get<T>(id: ServiceIdentifier<T>): T {
+		return this.instantiationService.invokeFunction(accessor => accessor.get(id));
+	}
+
+	/**
+	 * Get a service by its identifier, returning undefined if it doesn't exist.
+	 * Makes PositronReactServices compatible with ServicesAccessor interface.
+	 * @param id Service identifier
+	 * @returns The requested service
+	 */
+	getIfExists<T>(id: ServiceIdentifier<T>): T | undefined {
+		return this.instantiationService.invokeFunction(accessor => accessor.getIfExists(id));
+	}
 }

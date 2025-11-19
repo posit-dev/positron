@@ -35,11 +35,7 @@ An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/tests
 
 ### Environment Variables
 
-In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. A typical place to set them on a mac is in your `.zshrc`, but you should use your environment variable setting method of choice!
-
-Make sure you have the selected R and Python version installed that you are using for the environment variables. The easiest way is to open Positron and copy a version number you have available in the interpreter picker.
-
-Add these to your .zshrc or the relevant configuration file for your shell:
+In order to run the tests you'll need to have four environment variables set. These are so Positron knows what R and Python versions to load. There is an example env file available, just copy this into root of repo `.env.e2e`:
 
 ```bash
 export POSITRON_PY_VER_SEL="3.11.5"
@@ -48,9 +44,9 @@ export POSITRON_PY_ALT_VER_SEL='3.13.0 (Pyenv)'
 export POSITRON_R_ALT_VER_SEL='4.4.2'
 ```
 
-_Note: The environment variables with `ALT` in them are for the alternate interpreters which are used in fewer tests and might not be immediately needed. If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
+Make sure you have the selected R and Python version installed that you are using for the environment variables.
 
-_Note: If you forgot to set the environment variables before running the tests, you'll need to restart your editor or shell session for the environment variables to be loaded in._
+_Note: If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
 
 ## Dependencies
 
@@ -125,7 +121,11 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 #### Test Explorer
 
 1. Open the **Testing** extension.
-2. Ensure the correct project (`e2e-electron` or `e2e-browser`) is selected; otherwise, no tests will populate in the Test Explorer.
+2. Ensure the correct project is selected; otherwise, no tests will populate in the Test Explorer.
+   - `e2e-electron`: Standard Electron app testing
+   - `e2e-chromium`: Chromium browser testing with managed server
+   - `e2e-server`: Browser testing with external Positron server
+   - `e2e-workbench`: Browser testing against container containing both Positron and Workbench
 3. Expand the file tree to locate the desired test.
 4. Use the action buttons next to each test to:
    - **Run Test**: Executes the selected test.
@@ -150,7 +150,7 @@ Run tests directly from the CLI with these scripts:
 npm run e2e
 
 # run entire web test suite
-npm run e2e-browser
+npm run e2e-chromium
 
 # run entire pr test suite
 npm run e2e-pr
@@ -208,7 +208,7 @@ When creating a pull request, the test runner automatically scans the PR descrip
 
 > [!NOTE]
 > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
-For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
+> For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Running Windows and Browser Tests
 

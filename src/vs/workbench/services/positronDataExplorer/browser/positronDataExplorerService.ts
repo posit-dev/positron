@@ -7,10 +7,8 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { DataExplorerClientInstance, DataExplorerUiEvent } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -108,11 +106,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	//#region Private Properties
 
 	/**
-	 * Gets or sets the PositronDataExplorerFocused context key.
-	 */
-	private _positronDataExplorerFocusedContextKey: IContextKey<boolean>;
-
-	/**
 	 * A map of the data explorer runtimes keyed by session ID.
 	 */
 	private readonly _dataExplorerRuntimes = new Map<string, DataExplorerRuntime>();
@@ -134,11 +127,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		string, (event: DataExplorerUiEvent) => void
 	>();
 
-	/**
-	 * The focused Positron data explorer identifier.
-	 */
-	private _focusedPositronDataExplorerIdentifier?: string;
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -147,7 +135,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * Constructor.
 	 */
 	constructor(
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
@@ -156,11 +143,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	) {
 		// Call the disposable constructor.
 		super();
-
-		// Bind the PositronDataExplorerFocused context key.
-		this._positronDataExplorerFocusedContextKey = PositronDataExplorerFocused.bindTo(
-			this._contextKeyService
-		);
 
 		// Add a data explorer runtime for each running runtime.
 		this._runtimeSessionService.activeSessions.forEach(async session => {
@@ -245,28 +227,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	setInstanceForVar(instanceId: string, variableId: string): void {
 		this._varIdToInstanceIdMap.set(variableId, instanceId);
-	}
-
-	/**
-	 * Sets the focused Positron data explorer.
-	 * @param identifier The identifier of the focused Positron data explorer to set.
-	 */
-	setFocusedPositronDataExplorer(identifier: string) {
-		if (this._focusedPositronDataExplorerIdentifier !== identifier) {
-			this._focusedPositronDataExplorerIdentifier = identifier;
-			this._positronDataExplorerFocusedContextKey.set(true);
-		}
-	}
-
-	/**
-	 * Clears the focused Positron data explorer.
-	 * @param identifier The identifier of the focused Positron data explorer to clear.
-	 */
-	clearFocusedPositronDataExplorer(identifier: string) {
-		if (this._focusedPositronDataExplorerIdentifier === identifier) {
-			this._focusedPositronDataExplorerIdentifier = undefined;
-			this._positronDataExplorerFocusedContextKey.set(false);
-		}
 	}
 
 	//#endregion Constructor & Dispose
@@ -434,13 +394,15 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * PositronDataExplorerEditor is instantiated.
 	 */
 	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance) {
+		const instance = this._register(new PositronDataExplorerInstance(
+			languageName,
+			client
+		));
+
 		// Set the Positron data explorer client instance.
 		this._positronDataExplorerInstances.set(
 			client.identifier,
-			new PositronDataExplorerInstance(
-				languageName,
-				client
-			)
+			instance
 		);
 
 		this._register(client.onDidClose(() => {
@@ -461,13 +423,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance for the editor.
 	 */
 	private closeEditor(dataExplorerClientInstance: DataExplorerClientInstance) {
-		// Get the data explorer client instance. If it was found, delete it and dispose it.
+		// Get the data explorer client instance. If it was found, delete it from the map.
+		// We don't need to dispose it explicitly here as it's already registered with the parent
+		// disposable store and will be disposed when the service is disposed.
 		const positronDataExplorerInstance = this._positronDataExplorerInstances.get(
 			dataExplorerClientInstance.identifier
 		);
 		if (positronDataExplorerInstance) {
 			this._positronDataExplorerInstances.delete(dataExplorerClientInstance.identifier);
-			positronDataExplorerInstance.dispose();
 		}
 	}
 

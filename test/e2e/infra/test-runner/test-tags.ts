@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,6 +22,7 @@ export enum TestTags {
 	APPS = '@:apps',
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
+	CATALOG_EXPLORER = '@:catalog-explorer',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
@@ -41,6 +42,7 @@ export enum TestTags {
 	MODAL = '@:modal',
 	NEW_FOLDER_FLOW = '@:new-folder-flow',
 	NOTEBOOKS = '@:notebooks',
+	POSITRON_NOTEBOOKS = '@:positron-notebooks',
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
 	PLOTS = '@:plots',
@@ -60,13 +62,23 @@ export enum TestTags {
 	WELCOME = '@:welcome',
 	VSCODE_SETTINGS = '@:vscode-settings',
 
+	// performance tags
+	PERFORMANCE = '@:performance',
+
 	// platform  tags
+	RHEL_ELECTRON = '@:rhel-electron',
+	RHEL_WEB = '@:rhel-web',
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',
+	WORKBENCH = '@:workbench',
+	REMOTE_SSH = '@:remote-ssh',
 
 	// exclude tags
-	NIGHTLY_ONLY = '@:nightly-only'
+	NIGHTLY_ONLY = '@:nightly-only',
+
+	// soft fail tag for tests that shouldn't fail merge to main
+	SOFT_FAIL = '@:soft-fail'
 }
 
 

@@ -10,13 +10,13 @@ import { extname, isEqual } from '../../../../base/common/resources.js';
 import { assertType } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { toFormattedString } from '../../../../base/common/jsonFormatter.js';
-import { ITextModel, ITextBufferFactory, DefaultEndOfLine, ITextBuffer } from '../../../../editor/common/model.js';
+import { ITextModel, ITextBufferFactory, ITextBuffer } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageSelection, ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import * as nls from '../../../../nls.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
+/* eslint-disable no-duplicate-imports */
 import { ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
 // --- End Positron ---
 import { Extensions, IConfigurationPropertySchema, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -62,6 +62,9 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 import { NotebookRendererMessagingService } from './services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 
 // Editor Controller
 import './controller/coreActions.js';
@@ -139,7 +142,7 @@ import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetada
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
 // --- Start Positron ---
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 
 /*--------------------------------------------------------------------------------------------- */
@@ -405,8 +408,6 @@ class CellContentProvider implements ITextModelContentProvider {
 			if (cell.uri.toString() === resource.toString()) {
 				const bufferFactory: ITextBufferFactory = {
 					create: (defaultEOL) => {
-						const newEOL = (defaultEOL === DefaultEndOfLine.CRLF ? '\r\n' : '\n');
-						(cell.textBuffer as ITextBuffer).setEOL(newEOL);
 						return { textBuffer: cell.textBuffer as ITextBuffer, disposable: Disposable.None };
 					},
 					getFirstLineText: (limit: number) => {
@@ -806,11 +807,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
 				// --- Start Positron ---
 				// Make sure that we dont try and open the same editor twice if we're using positron
-				// notebooks. This is a separate if-statement so we don't have to put the diff
-				// inside the inline conditional.
-				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
-				// Check to see if the instance is connected to the view.
-				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
+				// notebooks.
+				const positronInstances = this._positronNotebookService.listInstances(model.resource);
+				if (positronInstances.some(instance => instance.connectedToEditor)) {
 					continue;
 				}
 				// --- End Positron ---
@@ -835,6 +834,9 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -842,6 +844,14 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
+		// --- Start Positron ---
+		// If this is a .ipynb file and Positron notebooks are enabled,
+		// let the Positron handler take care of it
+		if (workingCopy.resource.path.endsWith('.ipynb') &&
+			checkPositronNotebookEnabled(this._configurationService)) {
+			return false;
+		}
+		// --- End Positron ---
 		const viewType = this.handlesSync(workingCopy);
 		if (!viewType) {
 			return false;

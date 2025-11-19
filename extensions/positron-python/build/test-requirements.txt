@@ -9,7 +9,7 @@ pydocstyle
 prospector
 pytest
 flask
-fastapi
+fastapi; python_version < '3.14'
 uvicorn
 django
 testresources
@@ -39,3 +39,4 @@ pytest-describe
 
 # for pytest-ruff related tests
 pytest-ruff
+pytest-black

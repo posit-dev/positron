@@ -14,11 +14,11 @@ import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js'
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
-import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardRowIndexes } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * Constants.
@@ -139,7 +139,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Create the table summary cache.
 		this._register(this._tableSummaryCache = new TableSummaryCache(
-			this._services.configurationService,
 			this._dataExplorerClientInstance
 		));
 
@@ -173,6 +172,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.onDidChangeColumnSorting(isColumnSorting =>
 				this._onDidChangeColumnSortingEmitter.fire(isColumnSorting)
 			)
+		);
+
+		// Add the onDidChangePinnedColumns event handler.
+		this._register(
+			this._tableDataDataGridInstance.onDidChangePinnedColumns(async pinnedColumns => {
+				// Update the pinned rows in the summary data grid instance.
+				await this._tableSchemaDataGridInstance.updatePinnedRows(pinnedColumns);
+			})
 		);
 
 		// Add the onDidRequestFocus event handler.
@@ -327,18 +334,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		let selectedClipboardCells;
 		if (clipboardData instanceof ClipboardCell) {
 			selectedClipboardCells = 1;
-		} else if (clipboardData instanceof ClipboardCellRange) {
-			const columns = Math.max(clipboardData.lastColumnIndex - clipboardData.firstColumnIndex, 1);
-			const rows = Math.max(clipboardData.lastRowIndex - clipboardData.firstRowIndex, 1);
-			selectedClipboardCells = columns * rows;
-		} else if (clipboardData instanceof ClipboardColumnRange) {
-			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
-			selectedClipboardCells = columns * this._tableDataCache.rows;
+		} else if (clipboardData instanceof ClipboardCellIndexes) {
+			selectedClipboardCells = clipboardData.columnIndexes.length * clipboardData.rowIndexes.length;
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
 			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.rows;
-		} else if (clipboardData instanceof ClipboardRowRange) {
-			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
-			selectedClipboardCells = rows * this._tableDataCache.columns;
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
 			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.columns;
 		} else {

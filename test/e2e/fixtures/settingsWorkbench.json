@@ -1,0 +1,7 @@
+{
+    "security.workspace.trust.startupPrompt": "never",
+    "security.workspace.trust.enabled": false,
+    "security.workspace.trust.banner": "never",
+	"extensions.autoCheckUpdates": true,
+	"extensions.autoUpdate": true
+}

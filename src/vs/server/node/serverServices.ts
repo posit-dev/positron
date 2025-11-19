@@ -9,7 +9,7 @@ import { DisposableStore, toDisposable } from '../../base/common/lifecycle.js';
 import { Schemas } from '../../base/common/network.js';
 import * as path from '../../base/common/path.js';
 import { IURITransformer } from '../../base/common/uriIpc.js';
-import { getMachineId, getSqmMachineId, getdevDeviceId } from '../../base/node/id.js';
+import { getMachineId, getSqmMachineId, getDevDeviceId } from '../../base/node/id.js';
 import { Promises } from '../../base/node/pfs.js';
 import { ClientConnectionEvent, IMessagePassingProtocol, IPCServer, StaticRouter } from '../../base/parts/ipc/common/ipc.js';
 import { ProtocolConstants } from '../../base/parts/ipc/common/ipc.net.js';
@@ -48,6 +48,9 @@ import { getPiiPathsFromEnvironment, isInternalTelemetry, isLoggingOnly, ITeleme
 import ErrorTelemetry from '../../platform/telemetry/node/errorTelemetry.js';
 import { IPtyService, TerminalSettingId } from '../../platform/terminal/common/terminal.js';
 import { PtyHostService } from '../../platform/terminal/node/ptyHostService.js';
+// --- Start PWB ---
+import { AdminPolicyService, IAdminPolicyService } from '../../platform/policy/common/adminPolicyService.js';
+// --- End PWB ---
 import { IUriIdentityService } from '../../platform/uriIdentity/common/uriIdentity.js';
 import { UriIdentityService } from '../../platform/uriIdentity/common/uriIdentityService.js';
 import { RemoteAgentEnvironmentChannel } from './remoteAgentEnvironmentImpl.js';
@@ -55,7 +58,7 @@ import { RemoteAgentFileSystemProviderChannel } from './remoteFileSystemProvider
 import { ServerTelemetryChannel } from '../../platform/telemetry/common/remoteTelemetryChannel.js';
 import { IServerTelemetryService, ServerNullTelemetryService, ServerTelemetryService } from '../../platform/telemetry/common/serverTelemetryService.js';
 import { RemoteTerminalChannel } from './remoteTerminalChannel.js';
-import { createURITransformer } from '../../workbench/api/node/uriTransformer.js';
+import { createURITransformer } from '../../base/common/uriTransformer.js';
 import { ServerConnectionToken } from './serverConnectionToken.js';
 import { ServerEnvironmentService, ServerParsedArgs } from './serverEnvironmentService.js';
 import { REMOTE_TERMINAL_CHANNEL_NAME } from '../../workbench/contrib/terminal/common/remote/remoteTerminalChannel.js';
@@ -85,11 +88,14 @@ import { NativeMcpDiscoveryHelperChannel } from '../../platform/mcp/node/nativeM
 import { NativeMcpDiscoveryHelperService } from '../../platform/mcp/node/nativeMcpDiscoveryHelperService.js';
 import { IExtensionGalleryManifestService } from '../../platform/extensionManagement/common/extensionGalleryManifest.js';
 import { ExtensionGalleryManifestIPCService } from '../../platform/extensionManagement/common/extensionGalleryManifestServiceIpc.js';
-import { IMcpGalleryService, IMcpManagementService } from '../../platform/mcp/common/mcpManagement.js';
-import { McpManagementService } from '../../platform/mcp/common/mcpManagementService.js';
+import { IAllowedMcpServersService, IMcpGalleryService, IMcpManagementService } from '../../platform/mcp/common/mcpManagement.js';
+import { McpManagementService } from '../../platform/mcp/node/mcpManagementService.js';
 import { McpGalleryService } from '../../platform/mcp/common/mcpGalleryService.js';
 import { IMcpResourceScannerService, McpResourceScannerService } from '../../platform/mcp/common/mcpResourceScannerService.js';
 import { McpManagementChannel } from '../../platform/mcp/common/mcpManagementIpc.js';
+import { AllowedMcpServersService } from '../../platform/mcp/common/allowedMcpServersService.js';
+import { IMcpGalleryManifestService } from '../../platform/mcp/common/mcpGalleryManifest.js';
+import { McpGalleryManifestIPCService } from '../../platform/mcp/common/mcpGalleryManifestServiceIpc.js';
 
 // --- Start Positron ---
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
@@ -141,8 +147,23 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	const uriIdentityService = new UriIdentityService(fileService);
 	services.set(IUriIdentityService, uriIdentityService);
 
+	// --- Start PWB ---
+	// Admin Policy (enforced settings from environment variable)
+	const enforcedSettings = process.env['POSITRON_ENFORCED_SETTINGS'];
+	let adminPolicyService: IAdminPolicyService | undefined;
+	if (enforcedSettings) {
+		logService.info(`[Admin Policy] Found POSITRON_ENFORCED_SETTINGS: ${enforcedSettings}`);
+		adminPolicyService = disposables.add(new AdminPolicyService(enforcedSettings, logService));
+	} else {
+		logService.info('[Admin Policy] No POSITRON_ENFORCED_SETTINGS environment variable found');
+	}
+	// --- End PWB ---
+
 	// Configuration
-	const configurationService = new ConfigurationService(environmentService.machineSettingsResource, fileService, new NullPolicyService(), logService);
+	// --- Start PWB ---
+	// Add adminPolicyService to constructor
+	const configurationService = new ConfigurationService(environmentService.machineSettingsResource, fileService, new NullPolicyService(), logService, adminPolicyService);
+	// --- End PWB ---
 	services.set(IConfigurationService, configurationService);
 
 	// User Data Profiles
@@ -159,7 +180,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		userDataProfilesService.init(),
 		getMachineId(logService.error.bind(logService)),
 		getSqmMachineId(logService.error.bind(logService)),
-		getdevDeviceId(logService.error.bind(logService))
+		getDevDeviceId(logService.error.bind(logService))
 	]);
 
 	const extensionHostStatusService = new ExtensionHostStatusService();
@@ -200,6 +221,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	}
 
 	services.set(IExtensionGalleryManifestService, new ExtensionGalleryManifestIPCService(socketServer, productService));
+	services.set(IMcpGalleryManifestService, new McpGalleryManifestIPCService(socketServer));
 	services.set(IExtensionGalleryService, new SyncDescriptor(ExtensionGalleryServiceWithNoStorageService));
 
 	const downloadChannel = socketServer.getChannel('download', router);
@@ -226,6 +248,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	const ptyHostService = instantiationService.createInstance(PtyHostService, ptyHostStarter);
 	services.set(IPtyService, ptyHostService);
 
+	services.set(IAllowedMcpServersService, new SyncDescriptor(AllowedMcpServersService));
 	services.set(IMcpResourceScannerService, new SyncDescriptor(McpResourceScannerService));
 	services.set(IMcpGalleryService, new SyncDescriptor(McpGalleryService));
 	services.set(IMcpManagementService, new SyncDescriptor(McpManagementService));

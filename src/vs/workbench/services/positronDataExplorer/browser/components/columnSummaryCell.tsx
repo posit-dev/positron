@@ -12,18 +12,17 @@ import React, { useRef, useEffect } from 'react';
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
 import { ColumnProfileNumber } from './columnProfileNumber.js';
+import { ColumnProfileInteger } from './columnProfileInteger.js';
 import { ColumnProfileObject } from './columnProfileObject.js';
 import { ColumnProfileString } from './columnProfileString.js';
 import { VectorFrequencyTable } from './vectorFrequencyTable.js';
 import { ColumnProfileBoolean } from './columnProfileBoolean.js';
 import { ColumnProfileDatetime } from './columnProfileDatetime.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
-import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
+import { ColumnDisplayType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
 
 /**
@@ -49,34 +48,9 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
-	// Context hooks.
-	const context = usePositronDataGridContext();
-
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
-
-	/**
-	 * Determines whether summary stats is supported.
-	 * @returns true, if summary stats is supported; otherwise, false.
-	 */
-	const isSummaryStatsSupported = () => {
-		// Determine the summary stats support status.
-		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
-		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.SummaryStats
-		);
-
-		// If the summary status support status is undefined, return false.
-		if (!summaryStatsSupportStatus) {
-			return false;
-		}
-
-		// Return the summary stats support status.
-		return dataExplorerExperimentalFeatureEnabled(
-			summaryStatsSupportStatus.support_status,
-			props.instance.configurationService
-		);
-	};
+	const columnNameRef = useRef<HTMLDivElement>(undefined!);
 
 	/**
 	 * ColumnSparkline component.
@@ -86,7 +60,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
 			switch (props.columnSchema.type_display) {
-				case ColumnDisplayType.Number:
+				case ColumnDisplayType.Floating:
+				case ColumnDisplayType.Integer:
+				case ColumnDisplayType.Decimal:
 				case ColumnDisplayType.Boolean:
 				case ColumnDisplayType.String:
 					return true;
@@ -136,7 +112,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
-			case ColumnDisplayType.Number: {
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal: {
 				// Get the column histogram.
 				const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
 				if (!columnHistogram) {
@@ -154,6 +132,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					>
 						<VectorHistogram
 							columnHistogram={columnHistogram}
+							displayType={props.columnSchema.type_display}
+							formatOptions={props.instance.profileFormatOptions}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
 							hoverManager={props.instance.hoverManager}
@@ -390,8 +370,13 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnProfile = () => {
 		// Return the profile for the display type.
 		switch (props.columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number:
+			// Integer - use dedicated integer formatter
+			case ColumnDisplayType.Integer:
+				return <ColumnProfileInteger columnIndex={props.columnIndex} instance={props.instance} />;
+
+			// Other numeric types
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Decimal:
 				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Boolean.
@@ -434,8 +419,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const dataTypeIcon = (() => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number:
+			// Number (including all numeric subtypes).
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return 'codicon-positron-data-type-number';
 
 			// Boolean.
@@ -488,29 +475,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
 	// Set the summary stats supported flag.
-	let summaryStatsSupported;
-	switch (props.columnSchema.type_display) {
-		case ColumnDisplayType.Number:
-		case ColumnDisplayType.Boolean:
-		case ColumnDisplayType.String:
-		case ColumnDisplayType.Date:
-		case ColumnDisplayType.Datetime:
-		case ColumnDisplayType.Object:
-			summaryStatsSupported = isSummaryStatsSupported();
-			break;
-		case ColumnDisplayType.Time:
-		case ColumnDisplayType.Interval:
-		case ColumnDisplayType.Array:
-		case ColumnDisplayType.Struct:
-		case ColumnDisplayType.Unknown:
-			summaryStatsSupported = false;
-			break;
-
-		// This shouldn't ever happen.
-		default:
-			summaryStatsSupported = false;
-			break;
-	}
+	const summaryStatsSupported = props.instance.canToggleColumnExpansion(props.columnIndex);
 
 	const renderedColumn = renderLeadingTrailingWhitespace(props.columnSchema.column_name);
 
@@ -531,7 +496,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				className={positronClassNames(
 					'cursor-indicator',
 					{ 'cursor': cursor },
-					{ 'focused': cursor && context.instance.focused }
+					{ 'focused': cursor && props.instance.focused }
 				)}
 			/>
 			<div className='basic-info'>
@@ -562,7 +527,19 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						)
 					}
 				/>
-				<div className='column-name'>
+				<div
+					ref={columnNameRef}
+					className='column-name'
+					onMouseLeave={() => props.instance.hoverManager.hideHover()}
+					onMouseOver={() => {
+						if (props.columnSchema.column_label) {
+							props.instance.hoverManager.showHover(
+								columnNameRef.current,
+								props.columnSchema.column_label
+							);
+						}
+					}}
+				>
 					{renderedColumn}
 				</div>
 				{!expanded && <ColumnSparkline />}

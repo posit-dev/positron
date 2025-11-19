@@ -41,7 +41,7 @@ echo
 
 # Tests in the extension host
 
-API_TESTS_EXTRA_ARGS="--disable-telemetry --skip-welcome --skip-release-notes --crash-reporter-directory=$VSCODECRASHDIR --logsPath=$VSCODELOGSDIR --no-cached-data --disable-updates --use-inmemory-secretstorage --disable-extensions --disable-workspace-trust --user-data-dir=$VSCODEUSERDATADIR"
+API_TESTS_EXTRA_ARGS="--disable-telemetry --disable-experiments --skip-welcome --skip-release-notes --crash-reporter-directory=$VSCODECRASHDIR --logsPath=$VSCODELOGSDIR --no-cached-data --disable-updates --use-inmemory-secretstorage --disable-extensions --disable-workspace-trust --user-data-dir=$VSCODEUSERDATADIR"
 
 if [ -z "$INTEGRATION_TEST_APP_NAME" ]; then
 	kill_app() { true; }
@@ -131,6 +131,12 @@ echo
 echo "### Positron Assistant tests"
 echo
 npm run test-extension -- -l positron-assistant
+kill_app
+
+echo
+echo "### Positron Catalog Explorer tests"
+echo
+npm run test-extension -- -l positron-catalog-explorer
 kill_app
 
 echo

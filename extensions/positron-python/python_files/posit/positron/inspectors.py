@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
     # python >= 3.10
     with contextlib.suppress(ImportError):
-        import ibis  # noqa: F401
+        import ibis
 
 
 # General display settings
@@ -105,6 +105,7 @@ SIMPLER_NAMES = {
     # Just display Int64Index as pandas.Index, since the former is deprecated since pandas v1.4.0.
     "pandas.core.indexes.numeric.Int64Index": "pandas.Index",
     "duckdb.duckdb.DuckDBPyConnection": "duckdb.DuckDBPyConnection",
+    "ibis.expr.types.relations.Table": "ibis.Table",
 }
 
 
@@ -886,7 +887,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
         return "".join(parts), truncated
 
 
-Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
+Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index", "ibis.expr.types.generic.Column")
 
 
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
@@ -897,10 +898,17 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return self.value[key]
 
     def get_children(self) -> Collection[Any]:
-        return range(len(self.value))
+        if hasattr(self.value, "__len__"):
+            return range(len(self.value))
+        # Fallback for collections that don't implement len, like Ibis columns
+        return []
 
     def get_display_type(self) -> str:
-        return f"{self.value.dtype} [{self.get_length()}]"
+        dtype = getattr(self.value, "dtype", None)
+        if dtype is None:
+            # Fallback for objects without a dtype attribute
+            return f"{type(self.value).__name__} [{self.get_length()}]"
+        return f"{dtype} [{self.get_length()}]"
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         qualname = _get_simplified_qualname(self.value)
@@ -1014,10 +1022,10 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         return self.value.to_frame().write_csv(file=None, separator="\t")
 
 
-Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
+Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame", "ibis.expr.types.relations.Table")
 
 
-class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
+class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):  # noqa: PYI059
     """Base inspector for tabular data."""
 
     def get_display_type(self) -> str:
@@ -1109,6 +1117,49 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         return self.value.write_csv(file=None, separator="\t")
 
 
+class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
+    CLASS_QNAME = ("ibis.expr.types.relations.Table", "ibis.Table")
+
+    def get_size(self) -> int:
+        # size of the object in memory, not the data it represents
+        return sys.getsizeof(self.value)
+
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        display_value = _get_simplified_qualname(self.value)
+        columns = len(self.value.columns)
+        display_value = f"[{columns} columns] {display_value}"
+
+        return (_maybe_truncate_string(display_value, level=level)[0], True)
+
+    def get_display_name(self, key: str) -> str:
+        return str(key)
+
+    def get_children(self):
+        return self.value.columns
+
+    def get_child(self, key: str) -> Any:
+        return self.value[key]
+
+    def get_display_type(self) -> str:
+        type_name = type(self.value).__name__
+        columns = len(self.value.columns)
+        return f"{type_name} [{columns} columns]"
+
+    def get_kind(self) -> str:
+        return "table"
+
+    def get_length(self) -> int:
+        # send number of columns.
+        # number of rows per column is handled by ColumnInspector
+        return len(self.value.columns)
+
+    def has_viewer(self) -> bool:
+        return True
+
+    def is_mutable(self) -> bool:
+        return False
+
+
 class BaseConnectionInspector(ObjectInspector):
     def has_viewer(self) -> bool:
         return self._is_active(self.value)
@@ -1164,6 +1215,30 @@ class DuckDBConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class SnowflakeConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("snowflake.connector.connection.SnowflakeConnection",)
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
+class DatabricksConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("databricks.sql.client.Connection",)
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1202,6 +1277,9 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
     **dict.fromkeys(DuckDBConnectionInspector.CLASS_QNAME, DuckDBConnectionInspector),
+    **dict.fromkeys(IbisDataFrameInspector.CLASS_QNAME, IbisDataFrameInspector),
+    **dict.fromkeys(SnowflakeConnectionInspector.CLASS_QNAME, SnowflakeConnectionInspector),
+    **dict.fromkeys(DatabricksConnectionInspector.CLASS_QNAME, DatabricksConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
@@ -1310,14 +1388,15 @@ def _get_string_display_value(
 
 
 def _get_collection_display_value(
-    value: CollectionT | Column,
+    value: CollectionT | pd.Series | pl.Series | pd.Index,
     *,
     prefix: str,
     suffix: str,
     level: int = 0,
 ):
     # If the collection is empty, return the empty representation.
-    if len(value) == 0:
+    # Use getattr with a default to handle objects that might not implement len
+    if getattr(value, "__len__", lambda: 0)() == 0:
         return f"{prefix}{suffix}", False
 
     # If we're at the max nested level, just return ellipsis e.g. `[...]`.

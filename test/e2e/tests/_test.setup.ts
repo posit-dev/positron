@@ -9,27 +9,24 @@ const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
-import path = require('path');
-// eslint-disable-next-line local/code-import-patterns
-import { rename, rm, access, mkdir } from 'fs/promises';
-import { constants } from 'fs';
-import { randomUUID } from 'crypto';
-
-// Third-party packages
-import archiver from 'archiver';
 
 // Local imports
-import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, getRandomUserDataDir, copyFixtureFile } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
+import {
+	FileOperationsFixture, SettingsFixture, MetricsFixture,
+	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
+	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
+	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
+} from '../fixtures/test-setup';
+import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
+import { RecordMetric } from '../utils/metrics/metric-base.js';
+import { runDockerCommand, RunResult } from '../fixtures/test-setup/app-workbench.fixtures.js';
 
-// Constants
-const TEMP_DIR = `temp-${randomUUID()}`;
-const ROOT_PATH = process.cwd();
-const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
-let SPEC_NAME = '';
-let fixtureScreenshot: Buffer;
+// used specifically for app fixture error handling in test.afterAll
+let appFixtureFailed = false;
+let appFixtureScreenshot: Buffer | undefined;
+let renamedLogsPath = 'not-set';
 
 // Currents fixtures
 import {
@@ -44,6 +41,27 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	...currentsFixtures.baseFixtures,
 	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
+
+	envVars: [async ({ }, use, workerInfo) => {
+		const projectName = workerInfo.project.name;
+
+		loadEnvironmentVars(projectName);
+
+		validateEnvironmentVars([
+			'POSITRON_PY_VER_SEL',
+			'POSITRON_R_VER_SEL',
+			'POSITRON_PY_ALT_VER_SEL',
+			'POSITRON_R_ALT_VER_SEL',
+		], { allowEmpty: false });
+
+		if (projectName === 'e2e-workbench') {
+			validateEnvironmentVars([
+				'POSIT_WORKBENCH_PASSWORD'
+			], { allowEmpty: false });
+		}
+
+		await use(projectName);
+	}, { scope: 'worker', auto: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
 
@@ -60,69 +78,24 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	options: [async ({ logsPath, logger, snapshots }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
-		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
-		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
-		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
-
-		// get the version from package.json
-		const packageJsonPath = join(ROOT_PATH, 'package.json');
-		const packageJson = JSON.parse(await fs.promises.readFile(packageJsonPath, 'utf-8'));
-		const packageVersion = packageJson.version || '0.0.0';
-		const version = {
-			major: parseInt(packageVersion.split('.')[0], 10),
-			minor: parseInt(packageVersion.split('.')[1], 10),
-			patch: parseInt(packageVersion.split('.')[2], 10),
-		};
-
-		const options: ApplicationOptions = {
-			codePath: process.env.BUILD,
-			workspacePath: WORKSPACE_PATH,
-			userDataDir: join(TEST_DATA_PATH, 'd'),
-			extensionsPath: EXTENSIONS_PATH,
-			logger,
-			logsPath,
-			crashesPath: SPEC_CRASHES_PATH,
-			verbose: !!process.env.VERBOSE,
-			remote: !!process.env.REMOTE,
-			web: project.web,
-			headless: project.headless,
-			tracing: true,
-			snapshots,
-			quality: Quality.Dev,
-			version
-		};
-
-		options.userDataDir = getRandomUserDataDir(options);
+		const optionsFixture = OptionsFixture();
+		const options = await optionsFixture(logsPath, logger, snapshots, project, workerInfo);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
-	userDataDir: [async ({ options }, use) => {
-		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
-		process.env.PLAYWRIGHT_USER_DATA_DIR = userDir;
+	userDataDir: [async ({ options }, use, workerInfo) => {
+		const projectName = workerInfo.project.name;
 
-		// Copy keybindings and settings fixtures to the user data directory
-		await copyFixtureFile('keybindings.json', userDir, true);
-
-		const settingsFileName = 'settings.json';
-		if (fs.existsSync('/.dockerenv')) {
-
-			const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
-			const settingsFile = path.join(fixturesDir, 'settings.json');
-
-			const mergedSettings = {
-				...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
-				...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
-			};
-
-			// Overwrite file
-			fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
+		if (['server', 'workbench'].includes(projectName)) {
+			// For external/workbench projects, this fixture isn't used, they handle it separately
+			await use('');
+		} else {
+			// Default case for e2e-electron, e2e-chromium, and other projects
+			const userDataDirFixture = UserDataDirFixture();
+			const userDir = await userDataDirFixture(options);
+			await use(userDir);
 		}
-
-		await copyFixtureFile(settingsFileName, userDir);
-
-		await use(userDir);
 	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {
@@ -133,20 +106,20 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'test', timeout: 60000 }],
 
 	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
-		const app = createApp(options);
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
 
 		try {
-			await app.start();
-			await app.workbench.sessions.expectNoStartUpMessaging();
+			await start();
 
 			await use(app);
 		} catch (error) {
-			// capture a screenshot on failure
-			const screenshotPath = path.join(logsPath, 'app-start-failure.png');
+			appFixtureFailed = true;
+
+			const screenshotPath = join(logsPath, 'app-start-failure.png');
 			try {
 				const page = app.code?.driver?.page;
 				if (page) {
-					fixtureScreenshot = await page.screenshot({ path: screenshotPath });
+					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
 				}
 			} catch {
 				// ignore
@@ -154,13 +127,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 			throw error; // re-throw the error to ensure test failure
 		} finally {
-			await app.stop();
-
-			// rename the temp logs dir to the spec name (if available)
-			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
-			await moveAndOverwrite(logger, logsPath, specLogsPath);
+			await stop();
+			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 80000 }],
+	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -184,7 +154,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		},
 		{ scope: 'test' }],
 
-	// ex: await packages.manage('ipykernel', 'install');
+	// ex: await packages.manage('snowflake', 'install');
 	// ex: await packages.manage('renv', 'uninstall');
 	packages: [async ({ app }, use) => {
 		const packageManager = new PackageManager(app);
@@ -198,60 +168,35 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
-		await use(async (filePath: string, waitForFocus = true) => {
-			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
-			});
-		});
+		const fileOps = FileOperationsFixture(app);
+		await use(fileOps.openFile);
 	},
 
 	// ex: await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 	openDataFile: async ({ app }, use) => {
-		await use(async (filePath: string) => {
-			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
-			});
-		});
+		const fileOps = FileOperationsFixture(app);
+		await use(fileOps.openDataFile);
 	},
 
 	// ex: await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 	openFolder: async ({ app }, use) => {
-		await use(async (folderPath: string) => {
-			await test.step(`Open folder: ${folderPath}`, async () => {
-				await app.workbench.hotKeys.openFolder();
-				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
-
-				const folderNames = folderPath.split('/');
-
-				for (const folderName of folderNames) {
-					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
-
-					// Ensure we are ready to select the next folder
-					await playwright.expect(async () => {
-						try {
-							await playwright.expect(quickInputOption).toBeVisible({ timeout: 2000 });
-						} catch (error) {
-							await app.code.driver.page.keyboard.press('PageDown');
-							throw error;
-						}
-
-					}).toPass({ timeout: 30000 });
-
-					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
-
-					// Ensure next folder is no longer visible
-					await playwright.expect(quickInputOption).not.toBeVisible();
-				}
-
-				await app.workbench.quickInput.clickOkButton();
-			});
-		});
+		const fileOps = FileOperationsFixture(app);
+		await use(fileOps.openFolder);
 	},
 
 	// ex: await runCommand('workbench.action.files.save');
 	runCommand: async ({ app }, use) => {
 		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
 			await app.workbench.quickaccess.runCommand(command, options);
+		});
+	},
+
+	runDockerCommand: async ({ }, use, testInfo) => {
+		await use(async (command: string, description: string) => {
+			if (testInfo.project.name !== 'e2e-workbench') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench project');
+			}
+			return runDockerCommand(command, description); // <-- return result
 		});
 	},
 
@@ -275,34 +220,8 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await settings.set({'editor.actionBar.enabled': true});
 	settings: [async ({ app }, use) => {
-		const { settings } = app.workbench;
-
-		await use({
-			set: async (
-				newSettings: Record<string, unknown>,
-				options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
-			) => {
-				const { reload = false, waitMs = 0, waitForReady = false, keepOpen = false } = options || {};
-
-				await settings.set(newSettings, { keepOpen });
-
-				if (reload === true || (reload === 'web' && app.web === true)) {
-					await app.workbench.hotKeys.reloadWindow();
-					// wait for the reload to complete
-					await app.code.driver.page.waitForTimeout(3000);
-					await playwright.expect(app.code.driver.page.locator('.monaco-workbench')).toBeVisible();
-				}
-				if (waitMs) {
-					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
-				}
-
-				if (waitForReady) {
-					await app.workbench.sessions.expectNoStartUpMessaging();
-				}
-			},
-			clear: () => settings.clear(),
-			remove: (settingsToRemove: string[]) => settings.remove(settingsToRemove),
-		});
+		const settingsFixture = SettingsFixture(app);
+		await use(settingsFixture);
 	}, { scope: 'worker' }],
 
 	vsCodeSettings: [async ({ }, use) => {
@@ -313,93 +232,18 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'worker' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
-		let screenShotCounter = 1;
-		const page = app.code.driver.page;
-		const screenshots: string[] = [];
-
-		app.code.driver.takeScreenshot = async function (name: string) {
-			const screenshotPath = testInfo.outputPath(`${screenShotCounter++}-${name}.png`);
-			await page.screenshot({ path: screenshotPath });
-			screenshots.push(screenshotPath);
-		};
-
-		await use();
-
-		// if test failed, take and attach screenshot
-		if (testInfo.status !== testInfo.expectedStatus) {
-			const screenshot = await page.screenshot();
-			await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
-		}
-
-		for (const screenshotPath of screenshots) {
-			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
-		}
+		const attachScreenshotsFixture = AttachScreenshotsToReportFixture();
+		await attachScreenshotsFixture({ app, testInfo }, use);
 	}, { auto: true }],
 
 	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
-		await use();
-
-		if (!suiteId) { return; }
-
-		const zipPath = path.join(logsPath, 'logs.zip');
-		const output = fs.createWriteStream(zipPath);
-		const archive = archiver('zip', { zlib: { level: 9 } });
-
-		archive.on('error', (err) => {
-			throw err;
-		});
-
-		archive.pipe(output);
-
-		// add all log files to the archive
-		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
-
-		// wait for the archive to finalize and the output stream to close
-		await new Promise((resolve, reject) => {
-			output.on('close', () => resolve(undefined));
-			output.on('error', reject);
-			archive.finalize();
-		});
-
-		// attach the zipped file to the report
-		await testInfo.attach(`logs-${path.basename(testInfo.file)}.zip`, {
-			path: zipPath,
-			contentType: 'application/zip',
-		});
-
-		// remove the logs.zip file
-		try {
-			await fs.promises.unlink(zipPath);
-		} catch (err) {
-			console.error(`Failed to remove ${zipPath}:`, err);
-		}
+		const attachLogsFixture = AttachLogsToReportFixture();
+		await attachLogsFixture({ suiteId, logsPath, testInfo }, use);
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
-		// Determine execution mode
-		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
-
-		// Use default built-in tracing for e2e-browser except when running via CLI
-		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
-			await use(app);
-		} else {
-			// start tracing
-			await app.startTracing(testInfo.titlePath.join(' › '));
-
-			await use(app);
-
-			// stop tracing
-			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
-			const tracePath = testInfo.outputPath(`${title}.zip`);
-			await app.stopTracing(title, true, tracePath);
-
-			// attach the trace to the report if CI and test failed or not in CI
-			const isCI = process.env.CI === 'true';
-			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry) {
-				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-			}
-		}
-
+		const tracingFixture = TracingFixture();
+		await tracingFixture({ app, testInfo }, use);
 	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {
@@ -427,7 +271,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 	}, { scope: 'test', auto: true }],
 
-	cleanup: async ({ app }, use) => {
+	metric: [async ({ logger, app }, use) => {
+		const metricsRecorder = MetricsFixture(app, logger);
+		await use(metricsRecorder);
+	}, { scope: 'test' }],
+
+	cleanup: async ({ app }: any, use: (arg0: TestTeardown) => any) => {
 		const cleanup = new TestTeardown(app.workspacePathOrFolder);
 		await use(cleanup);
 	},
@@ -443,13 +292,13 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	// by storing the spec name globally, we can rename the logs folder after the suite finishes.
 	// note: workers are intentionally restarted per spec to scope logs by spec
 	// and provide a fresh app instance for each spec.
-	SPEC_NAME = testInfo.titlePath[0];
+	setSpecName(testInfo.titlePath[0]);
 	logger.log('');
 	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger }, testInfo) {
+test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
@@ -458,41 +307,32 @@ test.afterAll(async function ({ logger }, testInfo) {
 		// ignore
 	}
 
-	if (fixtureScreenshot) {
-		await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
+	if (appFixtureFailed) {
+		try {
+			if (appFixtureScreenshot) {
+				await testInfo.attach('app-start-failure', {
+					body: appFixtureScreenshot,
+					contentType: 'image/png',
+				});
+			}
+		} catch (e) {
+			console.log(e);
+		}
+
+		try {
+			const attachLogs = AttachLogsToReportFixture();
+			await attachLogs({ suiteId, logsPath: renamedLogsPath, testInfo }, async () => { /* no-op */ });
+		} catch (e) {
+			console.log(e);
+		}
+
+		appFixtureFailed = false;
+		appFixtureScreenshot = undefined;
 	}
 });
 
 export { playwrightExpect as expect };
 export { TestTags as tags, WorkerFixtures };
-
-async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
-	try {
-		await access(sourcePath, constants.F_OK);
-	} catch {
-		console.error(`moveAndOverwrite: source path does not exist: ${sourcePath}`);
-		return;
-	}
-
-	// check if the destination exists and delete it if so
-	try {
-		await access(destinationPath, constants.F_OK);
-		await rm(destinationPath, { recursive: true, force: true });
-	} catch (err) { }
-
-	// ensure parent directory of destination path exists
-	const destinationDir = path.dirname(destinationPath);
-	await mkdir(destinationDir, { recursive: true });
-
-	// rename source to destination
-	try {
-		await rename(sourcePath, destinationPath);
-		logger.setPath(destinationPath);
-		logger.log('Logger path updated to:', destinationPath);
-	} catch (err) {
-		logger.log(`moveAndOverwrite: failed to move ${sourcePath} to ${destinationPath}:`, err);
-	}
-}
 
 interface TestFixtures {
 	restartApp: Application;
@@ -510,6 +350,7 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
+	runDockerCommand: (command: string, description: string) => Promise<RunResult>;
 	executeCode: (language: 'Python' | 'R', code: string, options?: {
 		timeout?: number;
 		waitForReady?: boolean;
@@ -517,10 +358,12 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
+	metric: RecordMetric;
 }
 
 interface WorkerFixtures {
 	suiteId: string;
+	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;
 	options: ApplicationOptions;
@@ -536,9 +379,4 @@ interface WorkerFixtures {
 	vsCodeSettings: VscodeSettings;
 }
 
-export type CustomTestOptions = playwright.PlaywrightTestOptions & {
-	web: boolean;
-	artifactDir: string;
-	headless?: boolean;
-};
-
+export { CustomTestOptions };

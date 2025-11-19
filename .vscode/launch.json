@@ -20,7 +20,8 @@
 			"port": 5870,
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js",
-				"${workspaceFolder}/extensions/*/out/**/*.js"
+				"${workspaceFolder}/extensions/*/out/**/*.js",
+				"${workspaceFolder}/extensions/*/dist/**/*.js"
 			]
 		},
 		{
@@ -185,6 +186,26 @@
 			}
 		},
 		{
+			// Note this uses the version of Code/Positron you launch it from.
+			// i.e., launch from dev Positron if your tests need dev Positron.
+			"name": "positron-r extension tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/extensions/positron-r",
+				"--extensionTestsPath=${workspaceFolder}/extensions/positron-r/out/test"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js",
+				"${workspaceFolder}/extensions/positron-r/out/**/*.js"
+			],
+			"presentation": {
+				"group": "5_tests",
+				"order": 5
+			}
+		},
+		{
 			"type": "extensionHost",
 			"request": "launch",
 			"name": "Positron Tokenizer Tests",
@@ -269,6 +290,7 @@
 			"env": {
 				"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
 				"VSCODE_SKIP_PRELAUNCH": "1",
+				"VSCODE_DEV_DEBUG_OBSERVABLES": "1",
 			},
 			"cleanUp": "wholeBrowser",
 			"killBehavior": "polite",
@@ -314,6 +336,7 @@
 				"VSCODE_EXTHOST_WILL_SEND_SOCKET": null,
 				"VSCODE_SKIP_PRELAUNCH": "1",
 				"VSCODE_DEV_DEBUG": "1",
+				"VSCODE_DEV_DEBUG_OBSERVABLES": "1",
 			},
 			"cleanUp": "wholeBrowser",
 			"runtimeArgs": [

@@ -9,8 +9,8 @@ import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } fr
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
-import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
-import { EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -18,6 +18,7 @@ import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -43,20 +44,26 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
-	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
-	$getForegroundSession(): Promise<string | undefined>;
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
-	$restartSession(handle: number): Promise<void>;
-	$interruptSession(handle: number): Promise<void>;
-	$focusSession(handle: number): void;
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$restartSession(sessionId: string): Promise<void>;
+	$interruptSession(sessionId: string): Promise<void>;
+	$focusSession(sessionId: string): void;
+	$deleteSession(sessionId: string): Promise<boolean>;
+	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -79,6 +86,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
+	$callMethod(handle: number, method: string, args: any[]): Thenable<any>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
@@ -95,6 +103,7 @@ export interface ExtHostLanguageRuntimeShape {
 export interface MainThreadModalDialogsShape extends IDisposable {
 	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
 	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null>;
+	$showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string, timeout?: number): Promise<string | null>;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -158,11 +167,17 @@ export interface MainThreadAiFeaturesShape {
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
+	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	$getProviders(): Thenable<IPositronChatProvider[]>;
+	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
+	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	getProviders(): Thenable<IPositronChatProvider[]>;
+	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface MainThreadPlotsServiceShape {
@@ -171,6 +186,67 @@ export interface MainThreadPlotsServiceShape {
 
 export interface ExtHostPlotsServiceShape {
 	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
+}
+
+/**
+ * Data transfer object for notebook cell information.
+ */
+export interface INotebookCellDTO {
+	id: string;
+	index: number;
+	type: NotebookCellType;
+	content: string;
+	hasOutput: boolean;
+	selectionStatus: string;
+	executionStatus?: string;
+	executionOrder?: number;
+	lastRunSuccess?: boolean;
+	lastExecutionDuration?: number;
+	lastRunEndTime?: number;
+}
+
+/**
+ * Data transfer object for notebook context information.
+ */
+export interface INotebookContextDTO {
+	uri: string;
+	kernelId?: string;
+	kernelLanguage?: string;
+	cellCount: number;
+	selectedCells: INotebookCellDTO[];
+	allCells?: INotebookCellDTO[];
+}
+
+/**
+ * Data transfer object for notebook cell output information.
+ * Supports both text and binary (image) outputs.
+ */
+export interface INotebookCellOutputDTO {
+	/** MIME type of the output (e.g., 'text/plain', 'image/png') */
+	mimeType: string;
+	/** Output data - plain text for text outputs, base64 encoded for images */
+	data: string;
+}
+
+/**
+ * Interface that the main process exposes to the extension host for notebook features.
+ */
+export interface MainThreadNotebookFeaturesShape extends IDisposable {
+	$getActiveNotebookContext(): Promise<INotebookContextDTO | undefined>;
+	$getCells(notebookUri: string): Promise<INotebookCellDTO[]>;
+	$getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined>;
+	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
+	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
+	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
+	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
+	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
+}
+
+/**
+ * Interface to the main thread exposed by the extension host for notebook features.
+ */
+export interface ExtHostNotebookFeaturesShape {
+	// Future: could add events like $onDidExecuteCell
 }
 
 /**
@@ -250,6 +326,7 @@ export const ExtHostPositronContext = {
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
+	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 };
 
 export const MainPositronContext = {
@@ -263,4 +340,5 @@ export const MainPositronContext = {
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
+	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 };

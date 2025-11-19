@@ -250,9 +250,8 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 
 		super.create(parent);
 
-		const contentArea = this.getContentArea();
-		if (contentArea) {
-			this.createEmptyPaneMessage(contentArea);
+		if (this.contentArea) {
+			this.createEmptyPaneMessage(this.contentArea);
 		}
 
 		this.updateCompositeBar();
@@ -266,7 +265,7 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 		this.emptyPaneMessageElement = $('.empty-pane-message-area');
 
 		const messageElement = $('.empty-pane-message');
-		messageElement.innerText = localize('pane.emptyMessage', "Drag a view here to display.");
+		messageElement.textContent = localize('pane.emptyMessage', "Drag a view here to display.");
 
 		this.emptyPaneMessageElement.appendChild(messageElement);
 		parent.appendChild(this.emptyPaneMessageElement);
@@ -365,7 +364,8 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 				toggleMenuTitle: localize('moreActions', "More Actions..."),
 				hoverDelegate: this.toolbarHoverDelegate,
 				hiddenItemStrategy: HiddenItemStrategy.NoHide,
-				highlightToggledItems: true
+				highlightToggledItems: true,
+				telemetrySource: this.nameForTelemetry
 			}
 		));
 
@@ -451,11 +451,13 @@ export abstract class AbstractPaneCompositePart extends CompositePart<PaneCompos
 
 	protected override createHeaderArea(): HTMLElement {
 		const headerArea = super.createHeaderArea();
+
 		return this.createHeaderFooterCompositeBarArea(headerArea);
 	}
 
 	protected override createFooterArea(): HTMLElement {
 		const footerArea = super.createFooterArea();
+
 		return this.createHeaderFooterCompositeBarArea(footerArea);
 	}
 

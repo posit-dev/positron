@@ -38,7 +38,7 @@ const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
 const fancyLog = require('fancy-log');
-const { getQuartoStream } = require('./lib/quarto');
+const { getQuartoBinaries } = require('./lib/quarto');
 const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- End Positron ---
@@ -225,7 +225,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 	const destination = path.join(path.dirname(root), destinationFolderName);
 	platform = platform || process.platform;
 
-	return () => {
+	const task = () => {
 		const electron = require('@vscode/gulp-electron');
 		const json = require('gulp-json-editor');
 
@@ -302,7 +302,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				this.emit('data', file);
 			}));
 
-		const license = gulp.src([product.licenseFileName, 'ThirdPartyNotices.txt', 'licenses/**'], { base: '.', allowEmpty: true });
+		const license = gulp.src([product.licenseFileName, 'NOTICE', 'ThirdPartyNotices.txt', 'licenses/**'], { base: '.', allowEmpty: true });
 
 		// TODO the API should be copied to `out` during compile, not here
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
@@ -315,31 +315,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
-
-		// Bundled Quarto binaries
-		const quarto = getQuartoStream()
-			// Move the Quarto binaries into a `quarto` subdirectory
-			.pipe(rename(f => { f.dirname = path.join('quarto', f.dirname); }))
-
-			// Skip generated files that start with '._'
-			.pipe(es.mapSync(f => {
-				if (!f.basename.startsWith('._')) {
-					return f;
-				}
-			}))
-
-			// Restore the executable bit on the Quarto binaries. (It's very
-			// unfortunate that gulp doesn't preserve the executable bit when
-			// copying files.)
-			.pipe(util.setExecutableBit([
-				'**/dart',
-				'**/deno',
-				'**/esbuild',
-				'**/pandoc',
-				'**/quarto',
-				'**/sass',
-				'**/typst'
-			]));
 
 		// --- End Positron ---
 
@@ -380,13 +355,20 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
-			quarto,
 			moduleSources,
 			// --- End Positron ---
 			telemetry,
 			sources,
 			deps
 		);
+
+		/// --- Start Positron ---
+		// The Quarto binaries are not available for Windows ARM builds, but are
+		// for all other platforms/architectures
+		if (!(platform === 'win32' && arch === 'arm64')) {
+			all = es.merge(all, getQuartoBinaries());
+		}
+		// --- End Positron ---
 
 		if (platform === 'win32') {
 			all = es.merge(all, gulp.src([
@@ -483,9 +465,27 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
-			if (quality === 'insider') {
+			// --- Start Positron ---
+			// Positron doesn't build for the Windows store
+			/*
+			if (quality === 'stable' || quality === 'insider') {
 				result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
+				const rawVersion = version.replace(/-\w+$/, '').split('.');
+				const appxVersion = `${rawVersion[0]}.0.${rawVersion[1]}.${rawVersion[2]}`;
+				result = es.merge(result, gulp.src('resources/win32/appx/AppxManifest.xml', { base: '.' })
+					.pipe(replace('@@AppxPackageName@@', product.win32AppUserModelId))
+					.pipe(replace('@@AppxPackageVersion@@', appxVersion))
+					.pipe(replace('@@AppxPackageDisplayName@@', product.nameLong))
+					.pipe(replace('@@AppxPackageDescription@@', product.win32NameVersion))
+					.pipe(replace('@@ApplicationIdShort@@', product.win32RegValueName))
+					.pipe(replace('@@ApplicationExe@@', product.nameShort + '.exe'))
+					.pipe(replace('@@FileExplorerContextMenuID@@', quality === 'stable' ? 'OpenWithCode' : 'OpenWithCodeInsiders'))
+					.pipe(replace('@@FileExplorerContextMenuCLSID@@', product.win32ContextMenu[arch].clsid))
+					.pipe(replace('@@FileExplorerContextMenuDLL@@', `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`))
+					.pipe(rename(f => f.dirname = `appx/manifest`)));
 			}
+			*/
+			// --- End Positron ---
 		} else if (platform === 'linux') {
 			result = es.merge(result, gulp.src('resources/linux/bin/code.sh', { base: '.' })
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
@@ -501,6 +501,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		return result.pipe(vfs.dest(destination));
 	};
+	task.taskName = `package-${platform}-${arch}`;
+	return task;
 }
 
 // --- Start Positron ---

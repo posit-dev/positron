@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,9 +22,14 @@
 	outline: none !important;
 }
 
-.data-grid-rows {
+.data-grid-rows-container {
+	overflow: hidden;
 	position: relative;
 	box-sizing: border-box;
 	grid-row: waffle / end-waffle;
 	grid-column: waffle / end-waffle;
+}
+
+.data-grid-rows {
+	position: relative;
 }

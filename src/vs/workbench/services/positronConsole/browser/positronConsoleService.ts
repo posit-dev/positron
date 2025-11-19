@@ -45,6 +45,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurati
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/editorOptions.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -60,6 +61,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  * The trace output max length.
  */
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
+
+/**
+ * The prefix for execution IDs affiliated with the Positron Console
+ */
+export const POSITRON_CONSOLE_EXEC_PREFIX = 'fragment-';
 
 //#region Helper Functions
 
@@ -244,6 +250,12 @@ configurationRegistry.registerConfiguration({
 			'maximum': 5000,
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
+		},
+		// Whether to show notebook consoles
+		'console.showNotebookConsoles': {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize('console.showNotebookConsoles', "Whether to show consoles for open notebooks."),
 		}
 	}
 });
@@ -315,6 +327,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -331,7 +344,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Activate the first restored console session, if no session
 				// is active.
 				const activate = first && !hasActiveSession;
-				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console ||
+					session.hasConsole) {
 					first = false;
 					try {
 						this.restorePositronConsole(session, activate);
@@ -349,13 +363,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Start a Positron console instance for each running runtime. Only
 		// activate the first one.
 		let first = true;
-		this._runtimeSessionService.activeSessions.forEach(session => {
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+		this._runtimeSessionService.activeSessions.forEach(s => {
+			const session = this._runtimeSessionService.getActiveSession(s.sessionId);
+			if (!session) {
+				this._logService.warn(`No active session found for ${s.sessionId}`);
+				return;
+			}
+			if (session.hasConsole) {
 				// The instance should be activated if it is the foreground
 				// session.
 				let activate = false;
 				if (this._runtimeSessionService.foregroundSession &&
-					session.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
+					s.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
 					activate = true;
 				}
 
@@ -365,7 +384,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					activate = true;
 				}
 
-				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, activate);
+				this.startPositronConsoleInstance(s, SessionAttachMode.Connected, activate);
 				first = false;
 			}
 		});
@@ -374,7 +393,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Positron console instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			// Ignore non-console sessions
-			if (e.session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+			if (!e.hasConsole) {
 				return;
 			}
 
@@ -424,15 +443,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			} else {
 				// Create a new Positron console instance if we don't have a console instance we can reuse
 				this.startPositronConsoleInstance(e.session, attachMode, e.activate);
-			}
-		}));
-
-		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
-
-			if (positronConsoleInstance) {
-				positronConsoleInstance.setState(PositronConsoleState.Ready);
 			}
 		}));
 
@@ -584,6 +594,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	/**
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
+	 * @param sessionId An optional session ID. If provided, the code will be executed in the
+	 *  Positron console instance for the specified session. If not provided, the code will be
+	 *   executed in the active Positron console instance for the language, or a new Positron
+	 *   console instance will be created if there is no active instance for the language.
 	 * @param code The code.
 	 * @param attribution Attribution naming the origin of the code.
 	 * @param focus A value which indicates whether to focus the Positron console instance.
@@ -596,6 +610,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
+		sessionId: string | undefined,
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		focus: boolean,
@@ -607,19 +622,69 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Get the running runtimes for the language.
-		const runningLanguageRuntimeSessions = this._runtimeSessionService.activeSessions.filter(
-			session => session.runtimeMetadata.languageId === languageId);
+		let positronConsoleInstance: PositronConsoleInstance | undefined;
 
-		// If there isn't a running runtime for the language, start one.
-		if (!runningLanguageRuntimeSessions.length) {
-			// Get the preferred runtime for the language.
+		if (sessionId) {
+			const existingInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+			// Just a sanity check
+			if (existingInstance) {
+				const existingLanguageId = existingInstance.runtimeMetadata.languageId;
+				// It's possible that someone could try to execute code in a
+				// session that is for a different language than the code being
+				// executed. It's arguable whether we should allow this or not, but
+				// for now we'll just log a warning and send the code along.
+				if (existingLanguageId !== languageId) {
+					this._logService.warn(
+						`Code is being executed in a Positron console instance for language ` +
+						`${existingLanguageId} (session ${sessionId}), not for requested language ` +
+						`${languageId}.`);
+				}
+				positronConsoleInstance = existingInstance;
+			} else {
+				throw new Error(
+					`Cannot execute code because the requested session ID ${sessionId} ` +
+					`does not have a Positron console instance.`);
+			}
+		}
+
+		// If no session was provided and the language desired is the language
+		// of the current console session, prefer that
+		if (!positronConsoleInstance) {
+			if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId &&
+				this._activePositronConsoleInstance?.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+					this._activePositronConsoleInstance.sessionId);
+				sessionId = positronConsoleInstance?.sessionId;
+			}
+		}
+
+		// No session provided and the active console instance is not for the
+		// desired language, so look for *any* existing console instance for the
+		// desired language.
+		if (!positronConsoleInstance) {
+			const allInstances = Array.from(this._positronConsoleInstancesBySessionId.values());
+			// Sort the array by most recently used (MRU) so that we prefer the
+			// most recently created session
+			allInstances.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp);
+			for (const instance of allInstances) {
+				if (instance.runtimeMetadata.languageId === languageId &&
+					instance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console
+				) {
+					positronConsoleInstance = instance;
+					break;
+				}
+			}
+		}
+
+		// No existing Positron console instance was found, so create a new one
+		if (!positronConsoleInstance) {
+			// Get the preferred runtime for the language and start it
 			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 			if (languageRuntime) {
 				// Start the preferred runtime.
 				this._logService.trace(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-				await this._runtimeSessionService.startNewRuntimeSession(
+				sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 					languageRuntime.runtimeId,
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
@@ -634,24 +699,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				throw new Error(
 					`Cannot execute code because there is no registered runtime for the '${languageId}' language.`);
 			}
+
+			// If the runtime was started successfully, we should now have an entry for it
+			positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
 		}
 
-		// Get the Positron console instance for the language ID.
-		let positronConsoleInstance: PositronConsoleInstance | undefined;
-		if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
-			// Return the active console instance for the language if there is one
-			positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
-				this._activePositronConsoleInstance?.sessionId);
-		} else {
-			// Otherwise find the newest session for the languageId that is ready to use
-			positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
-				.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp)
-				.find(consoleInstance => {
-					return consoleInstance.runtimeMetadata.languageId === languageId &&
-						consoleInstance.state === PositronConsoleState.Ready;
-				});
-		}
-
+		// If we still don't have a Positron console instance, something went wrong.
 		if (!positronConsoleInstance) {
 			throw new Error(
 				`Could not find or create console for language ID ${languageId} ` +
@@ -675,6 +728,36 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	/**
+	 * Show or create a notebook console
+	 *
+	 * @param notebookUri The URI of the notebook
+	 * @param focus Whether to focus the console input
+	 */
+	showNotebookConsole(notebookUri: URI, focus: boolean): void {
+		// Check to see if we have a session to back this console
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session) {
+			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()));
+			return;
+		}
+
+		const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
+		if (positronConsoleInstance) {
+			// We already have a console instance! Focus it
+			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+			this.setActivePositronConsoleInstance(positronConsoleInstance);
+			if (focus) {
+				positronConsoleInstance.focusInput();
+			}
+			return;
+		}
+
+		// No console instance yet; start one
+		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, focus);
 	}
 
 	//#endregion IPositronConsoleService Implementation
@@ -856,8 +939,19 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 }
 
 /**
-* PositronConsoleInstance class.
-*/
+ * Pending code fragment with its execution metadata.
+ */
+interface IPendingCodeFragment {
+	code: string;
+	attribution: IConsoleCodeAttribution;
+	executionId: string | undefined;
+	mode: RuntimeCodeExecutionMode;
+	errorBehavior: RuntimeErrorBehavior;
+}
+
+/**
+ * PositronConsoleInstance class.
+ */
 class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 	//#region Private Properties
 
@@ -874,6 +968,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * in the console.
 	 */
 	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
+	 * Queue of pending code fragments waiting to be executed.
+	 */
+	private _pendingCodeQueue: IPendingCodeFragment[] = [];
 
 	/**
 	 * Gets or sets the session, if attached.
@@ -1360,7 +1459,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	toggleTrace() {
 		this._trace = !this._trace;
 		if (this._trace) {
-			this.addRuntimeItemTrace('Trace enabled');
+			this.addRuntimeItemTrace(`Trace enabled; console state is '${this._state}'`);
 		}
 		this._onDidChangeTraceEmitter.fire(this._trace);
 	}
@@ -1512,7 +1611,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
 		if (this._runtimeItemPendingInput) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(
+				code,
+				attribution,
+				executionId,
+				mode ?? RuntimeCodeExecutionMode.Interactive,
+				errorBehavior ?? RuntimeErrorBehavior.Continue
+			);
 			return;
 		}
 
@@ -1521,7 +1626,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// time the runtime becomes idle.
 		const runtimeState = this.session?.getRuntimeState() || RuntimeState.Uninitialized;
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(
+				code,
+				attribution,
+				executionId,
+				mode ?? RuntimeCodeExecutionMode.Interactive,
+				errorBehavior ?? RuntimeErrorBehavior.Continue
+			);
 			return;
 		}
 
@@ -1828,6 +1939,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				switch (this._state) {
 					// Remove the starting runtime item when we transition from starting to running.
 					case PositronConsoleState.Starting:
+					case PositronConsoleState.Busy:
 						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
 							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
 								const runtimeItem = this._runtimeItems[i] as RuntimeItemStarting;
@@ -1970,6 +2082,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.clearRestartItems();
 			}
 
+			// If we moved directly from Starting to Busy, we just reattached to
+			// a busy session. Update the state accordingly.
+			if (this._state === PositronConsoleState.Starting &&
+				runtimeState === RuntimeState.Busy) {
+				this.setState(PositronConsoleState.Busy);
+			}
+
 			if (runtimeState === RuntimeState.Exited || runtimeState === RuntimeState.Uninitialized) {
 				if (this._runtimeState === RuntimeState.Starting ||
 					this._runtimeState === RuntimeState.Initializing) {
@@ -2021,8 +2140,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._session.onDidCompleteStartup(languageRuntimeInfo => {
-			this.setState(PositronConsoleState.Ready);
-
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidCompleteStartup`);
@@ -2107,6 +2224,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 				// Fire the onDidExecuteCode event so the code gets added to the console history.
 				this._onDidExecuteCodeEmitter.fire({
+					executionId: languageRuntimeMessageInput.parent_id,
 					sessionId: this.sessionId,
 					languageId,
 					code: languageRuntimeMessageInput.code,
@@ -2255,14 +2373,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					}
 
 					case RuntimeOnlineState.Busy: {
-						// Generally speaking, we only want to set Busy/Idle state
-						// when that state is a result of processing one of our own
-						// messages, which begin with `fragment-`. However, if we
-						// are currently in the Offline state, the message that
-						// brings us back online may not be one of our own messages.
-						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						// Generally speaking, we only want to set Busy/Idle
+						// state when that state is a result of processing one
+						// of our own messages, which begin with `fragment-`.
+						if (languageRuntimeMessageState.parent_id.startsWith(POSITRON_CONSOLE_EXEC_PREFIX) ||
 							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
-							this.state === PositronConsoleState.Offline) {
+							this.state === PositronConsoleState.Offline ||
+							this.state === PositronConsoleState.Starting) {
 							this.setState(PositronConsoleState.Busy);
 						}
 						// Mark the associated input as busy.
@@ -2271,7 +2388,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					}
 
 					case RuntimeOnlineState.Idle: {
-						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						if (languageRuntimeMessageState.parent_id.startsWith(POSITRON_CONSOLE_EXEC_PREFIX) ||
 							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
 							this.state === PositronConsoleState.Offline) {
 							this.setState(PositronConsoleState.Ready);
@@ -2496,42 +2613,79 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code for the pending input.
 	 * @param attribution The attribution for the pending input.
 	 * @param executionId The execution ID for the pending input.
+	 * @param mode The code execution mode.
+	 * @param errorBehavior The error behavior.
 	 */
 	private addPendingInput(code: string,
 		attribution: IConsoleCodeAttribution,
-		executionId?: string) {
-		// If there is a pending input runtime item, remove it.
-		if (this._runtimeItemPendingInput) {
-			// Get the index of the pending input runtime item.
-			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+		executionId: string | undefined,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior) {
+		// Add to the pending code queue.
+		this._pendingCodeQueue.push({
+			code,
+			attribution,
+			executionId,
+			mode,
+			errorBehavior
+		});
 
-			// This index should always be > -1, but be defensive. Remove the pending input runtime
-			// item.
+		// Only create/update visual pending input for interactive mode.
+		if (mode === RuntimeCodeExecutionMode.Silent) {
+			// Silent code should not be displayed, so we're done.
+			return;
+		}
+
+		// If there is a pending input runtime item, we need to recreate it with the concatenated code
+		// of all interactive items.
+		if (this._runtimeItemPendingInput) {
+			// Remove the old pending input runtime item.
+			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
 			if (index > -1) {
 				this._runtimeItems.splice(index, 1);
 			}
 
-			// Set the code.
-			code = this._runtimeItemPendingInput.code + '\n' + code;
+			// Concatenate only the interactive code fragments from the queue.
+			const interactiveCode = this._pendingCodeQueue
+				.filter(item => item.mode === RuntimeCodeExecutionMode.Interactive)
+				.map(item => item.code)
+				.join('\n');
+
+			// Create a new pending input runtime item with the concatenated interactive code.
+			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+				generateUuid(),
+				this._session?.dynState.inputPrompt ?? '',
+				attribution,
+				executionId,
+				interactiveCode,
+				mode
+			);
+
+			// Add it back to the runtime items.
+			this.addRuntimeItem(this._runtimeItemPendingInput);
+		} else {
+			// Create the pending input runtime item for the first interactive code fragment.
+			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+				generateUuid(),
+				this._session?.dynState.inputPrompt ?? '',
+				attribution,
+				executionId,
+				code,
+				mode
+			);
+
+			// Add the pending input runtime item.
+			this.addRuntimeItem(this._runtimeItemPendingInput);
 		}
-
-		// Create the pending input runtime item.
-		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-			generateUuid(),
-			this._session?.dynState.inputPrompt ?? '',
-			attribution,
-			executionId,
-			code
-		);
-
-		// Add the pending input runtime item.
-		this.addRuntimeItem(this._runtimeItemPendingInput);
 	}
 
 	/**
 	 * Clears pending input.
 	 */
 	private clearPendingInput() {
+		// Clear the pending code queue.
+		this._pendingCodeQueue = [];
+
 		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
@@ -2667,147 +2821,124 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	private async processPendingInputImpl(): Promise<void> {
-		// If there isn't a pending input runtime item, return.
-		if (!this._runtimeItemPendingInput) {
+		// If there isn't a pending code queue or it's empty, return.
+		if (this._pendingCodeQueue.length === 0) {
 			return;
 		}
 
-		// If there's no session, return
+		// If there's no session, return.
 		if (!this._session) {
 			return;
 		}
 
-		// Save the attribution
-		const attribution = this._runtimeItemPendingInput.attribution;
+		// Process the first item in the queue.
+		const pendingItem = this._pendingCodeQueue[0];
 
-		// Find a complete code fragment to execute.
-		let code = undefined;
-		const codeLines: string[] = [];
+		// Check if the code fragment is complete.
+		const codeFragmentStatus = await this._session.isCodeFragmentComplete(pendingItem.code);
 
-		// Get the pending input lines. We keep this up to date at every iteration so it always
-		// reflects the current state of the pending input, even after an `await`, which may have
-		// allowed the user to append more pending input code.
-		let pendingInputLines = this._runtimeItemPendingInput.code.split('\n');
-
-		for (let i = 0; i < pendingInputLines.length; i++) {
-			// Push the pending input line to the code lines.
-			codeLines.push(pendingInputLines[i]);
-
-			// Determine whether the code lines are a complete code fragment.
-			const codeFragment = codeLines.join('\n');
-			const codeFragmentStatus = await this._session.isCodeFragmentComplete(codeFragment);
-
-			// If we have been interrupted, then `clearPendingInput()` has reset
-			// `_runtimeItemPendingInput` and there is nothing for us to do.
-			if (this._pendingInputState === 'Interrupted') {
-				return;
-			}
-
-			// SAFETY: We expect that `this._runtimeItemPendingInput.code` will only ever grow.
-			// Also, the update of `pendingInputLines` must happen before we break, because we use
-			// it below.
-			pendingInputLines = this._runtimeItemPendingInput.code.split('\n');
-
-			if (codeFragmentStatus === RuntimeCodeFragmentStatus.Complete) {
-				code = codeFragment;
-				break;
-			}
+		// If we have been interrupted, then `clearPendingInput()` has cleared the queue.
+		if (this._pendingInputState === 'Interrupted') {
+			return;
 		}
 
-		// Get the index of the pending input runtime item.
-		const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+		// If the code fragment is not complete, wait for more input.
+		// Move the incomplete code to pending code for user editing.
+		if (codeFragmentStatus !== RuntimeCodeFragmentStatus.Complete) {
+			// Remove the item from the queue.
+			this._pendingCodeQueue.shift();
 
-		// Remove the current pending input runtime item. We are either done with it entirely, or
-		// we are going to update it with a new one if we have remaining pending lines.
-		// This index should always be > -1, but be defensive.
-		if (index > -1) {
-			this._runtimeItems.splice(index, 1);
-		}
+			// Remove the pending input visual item if it exists.
+			if (this._runtimeItemPendingInput) {
+				const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+				if (index > -1) {
+					this._runtimeItems.splice(index, 1);
+				}
+				this._onDidChangeRuntimeItemsEmitter.fire();
+			}
 
-		// If we didn't find a complete fragment, set the pending code to everything in the
-		// (possibly updated) pending input item and let the pending code path handle it.
-		if (code === undefined) {
-			// We removed the pending input runtime item, so emit the change.
-			this._onDidChangeRuntimeItemsEmitter.fire();
+			// Set as pending code for user to complete.
+			this.setPendingCode(pendingItem.code, pendingItem.executionId);
 
-			// The pending input line(s) now become the pending code.
-			// This fires an event allowing the `ConsoleInput` to update its code editor widget,
-			// allowing the user to keep typing to eventually generate a complete code chunk.
-			this.setPendingCode(
-				this._runtimeItemPendingInput.code,
-				this._runtimeItemPendingInput.executionId);
-
-			// And we no longer have a pending input item.
+			// Clear the pending input item.
 			this._runtimeItemPendingInput = undefined;
 
 			return;
 		}
 
-		// Create the ID for the code fragment that will be executed.
-		const id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
+		// The code is complete, so execute it.
+		const id = pendingItem.executionId || this.generateExecutionId(pendingItem.code);
 
-		// Add the provisional ActivityItemInput for the code fragment.
-		const runtimeItemActivity = new RuntimeItemActivity(
-			id,
-			new ActivityItemInput(
+		// Add the provisional ActivityItemInput for the code fragment only if it's not a silent execution.
+		if (pendingItem.mode !== RuntimeCodeExecutionMode.Silent) {
+			const runtimeItemActivity = new RuntimeItemActivity(
 				id,
-				id,
-				new Date(),
-				ActivityItemInputState.Provisional,
-				this._session.dynState.inputPrompt,
-				this._session.dynState.continuationPrompt,
-				code
-			)
-		);
-		this._runtimeItems.push(runtimeItemActivity);
-		this._runtimeItemActivities.set(id, runtimeItemActivity);
-
-		// If there are remaining pending input lines, add them in a new pending input
-		// runtime item so they are processed the next time the runtime becomes idle.
-		const nCodeLines = codeLines.length;
-		const nPendingLines = pendingInputLines.length;
-
-		if (nCodeLines < nPendingLines) {
-			// Create the new pending input runtime item, preserving the
-			// attribution and the execution ID.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session.dynState.inputPrompt,
-				attribution,
-				id,
-				pendingInputLines.slice(nCodeLines).join('\n'),
+				new ActivityItemInput(
+					id,
+					id,
+					new Date(),
+					ActivityItemInputState.Provisional,
+					this._session.dynState.inputPrompt,
+					this._session.dynState.continuationPrompt,
+					pendingItem.code
+				)
 			);
-
-			// Add the pending input runtime item.
-			this._runtimeItems.push(this._runtimeItemPendingInput);
-		} else if (nCodeLines === nPendingLines) {
-			// We are about to execute everything available, so there isn't a new pending input item.
-			this._runtimeItemPendingInput = undefined;
-		} else {
-			throw new Error('Unexpected state. Can\'t have more code lines than pending lines.');
+			this._runtimeItems.push(runtimeItemActivity);
+			this._runtimeItemActivities.set(id, runtimeItemActivity);
 		}
 
-		// Fire the runtime items changed event once, now, after everything is set up.
+		// Remove the processed item from the queue.
+		this._pendingCodeQueue.shift();
+
+		// Remove the pending input visual item if this was the last item or update it for remaining items.
+		if (this._runtimeItemPendingInput) {
+			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+			if (index > -1) {
+				this._runtimeItems.splice(index, 1);
+			}
+
+			if (this._pendingCodeQueue.length > 0) {
+				// There are more items in the queue, create a new pending input visual
+				// for the next item if it's not silent.
+				const nextItem = this._pendingCodeQueue[0];
+				if (nextItem.mode !== RuntimeCodeExecutionMode.Silent) {
+					this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+						generateUuid(),
+						this._session.dynState.inputPrompt,
+						nextItem.attribution,
+						nextItem.executionId,
+						nextItem.code,
+						nextItem.mode
+					);
+					this._runtimeItems.push(this._runtimeItemPendingInput);
+				} else {
+					this._runtimeItemPendingInput = undefined;
+				}
+			} else {
+				// No more items in the queue.
+				this._runtimeItemPendingInput = undefined;
+			}
+		}
+
+		// Fire the runtime items changed event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// Execute the code fragment.
-		const mode = RuntimeCodeExecutionMode.Interactive;
-		const errorBehavior = RuntimeErrorBehavior.Continue;
-
 		this._session.execute(
-			code,
+			pendingItem.code,
 			id,
-			mode,
-			errorBehavior,
+			pendingItem.mode,
+			pendingItem.errorBehavior,
 		);
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId: id,
 			sessionId: this._session.sessionId,
-			code,
-			mode,
-			attribution,
-			errorBehavior,
+			code: pendingItem.code,
+			mode: pendingItem.mode,
+			attribution: pendingItem.attribution,
+			errorBehavior: pendingItem.errorBehavior,
 			languageId: this._session.runtimeMetadata.languageId,
 			runtimeName: this._session.runtimeMetadata.runtimeName
 		};
@@ -2828,7 +2959,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return storedExecutionId;
 		}
 
-		return `fragment-${generateUuid()}`;
+		return `${POSITRON_CONSOLE_EXEC_PREFIX}-${generateUuid()}`;
 	}
 
 	/**
@@ -2903,6 +3034,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId: id,
 			sessionId: this._session.sessionId,
 			code,
 			mode,

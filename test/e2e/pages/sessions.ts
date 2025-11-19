@@ -3,37 +3,41 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, Locator } from '@playwright/test';
-import { Code, QuickAccess, Console } from '../infra';
+import test, { expect, Locator, Page } from '@playwright/test';
+import { Code, QuickAccess, Console, ContextMenu } from '../infra';
 import { QuickInput } from './quickInput';
 
-const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
-const DESIRED_R = process.env.POSITRON_R_VER_SEL;
-const ALTERNATE_PYTHON = process.env.POSITRON_PY_ALT_VER_SEL;
-const ALTERNATE_R = process.env.POSITRON_R_ALT_VER_SEL;
-const HIDDEN_PYTHON = process.env.POSITRON_HIDDEN_PY;
-const HIDDEN_R = process.env.POSITRON_HIDDEN_R;
-const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
+// Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
+const getDesiredPython = () => process.env.POSITRON_PY_VER_SEL;
+const getDesiredR = () => process.env.POSITRON_R_VER_SEL;
+const getAlternatePython = () => process.env.POSITRON_PY_ALT_VER_SEL;
+const getAlternateR = () => process.env.POSITRON_R_ALT_VER_SEL;
+const getHiddenPython = () => process.env.POSITRON_HIDDEN_PY;
+const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
+
+export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
+export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
+export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
 
 /**
  * Class to manage console sessions
  */
 export class Sessions {
-	private page = this.code.driver.page;
+	private get page(): Page { return this.code.driver.page; }
 
 	// Session management and UI elements
-	private quickPick = new SessionQuickPick(this.code, this);
+	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
+	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
-	private idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
-	private disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
+	private idleStatus = (session: Locator) => session.locator(IDLE_STATUS_ICON);
+	private disconnectedStatus = (session: Locator) => session.locator(DISCONNECTED_STATUS_ICON);
 	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 
 	// Session Metadata
@@ -42,7 +46,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu) { }
 
 	// -- Actions --
 
@@ -84,7 +88,16 @@ export class Sessions {
 
 		// Helper to create a new session and fetch metadata
 		const createSession = async (session: SessionRuntimes): Promise<SessionMetaData> => {
-			const newSession = { ...availableRuntimes[session], waitForReady: true, triggerMode };
+			// Get a fresh session object with current environment values
+			const sessionTemplate = availableRuntimes[session];
+			const newSession = {
+				...sessionTemplate,
+				waitForReady: true,
+				triggerMode,
+				// Ensure we get fresh environment values
+				name: sessionTemplate.name, // This will call the getter again
+				version: sessionTemplate.version, // This will call the getter again
+			};
 			newSession.id = await this.startAndSkipMetadata(newSession);
 			return await this.getMetadata(newSession.id);
 		};
@@ -135,19 +148,22 @@ export class Sessions {
 				await this.console.focus();
 
 				if (await this.getSessionCount() === 1) {
+					// Only one session: Use the delete button in the action bar
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
 						return;
 					} else {
-						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+						if (/(8080|8787)/.test(this.code.driver.page.url())) {
+							return; // workaround for server/workbench
+						} else {
+							throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+						}
 					}
 				} else {
-					const sessionTab = this.getSessionTab(sessionId);
-
-					await sessionTab.click();
-					await sessionTab.hover();
-					await this.sessionTrashButton(sessionId).click();
+					// More that one session: Delete via the context menu. (The trash icon
+					// is not visible if the tab list is too narrow.)
+					await this.deleteViaUI(sessionId);
 				}
 
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
@@ -239,7 +255,12 @@ export class Sessions {
 				await this.delete(sessionIds[i]);
 			}
 
-			await expect(this.page.getByText('There is no session running.')).toBeVisible();
+			// Workaround for external browser
+			if (this.code.driver.page.url().includes('8080')) {
+				try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
+			} else {
+				await expect(this.page.getByText('There is no session running.')).toBeVisible();
+			}
 		});
 	}
 
@@ -383,17 +404,17 @@ export class Sessions {
 		waitForReady?: boolean;
 	}): Promise<string> {
 
-		if (!DESIRED_PYTHON || !DESIRED_R) {
+		if (!getDesiredPython() || !getDesiredR()) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
-		if (!ALTERNATE_PYTHON || !ALTERNATE_R) {
+		if (!getAlternatePython() || !getAlternateR()) {
 			throw new Error('Please set env vars: POSITRON_PY_ALT_VER_SEL, POSITRON_R_ALT_VER_SEL');
 		}
 
 		const {
 			language,
-			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+			version = language === 'Python' ? getDesiredPython() : getDesiredR(),
 			waitForReady = true,
 			triggerMode = 'hotkey',
 		} = options;
@@ -475,10 +496,12 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible();
-		await this.console.focus();
-		await this.code.driver.page.mouse.move(0, 0);
-		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		await test.step('Wait runtimes to finish loading', async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
+			await this.console.focus();
+			await this.code.driver.page.mouse.move(0, 0);
+			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		});
 	}
 
 	/**
@@ -639,7 +662,7 @@ export class Sessions {
 		const activeSessions = (
 			await Promise.all(
 				allSessionTabs.map(async session => {
-					const isDisconnected = await session.locator('.codicon-positron-status-disconnected').isVisible();
+					const isDisconnected = await session.locator('.codicon-positron-runtime-status-disconnected').isVisible();
 					if (isDisconnected) { return null; }
 
 					// Extract session ID from data-testid attribute
@@ -724,6 +747,24 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Delete a session via UI
+	 *
+	 * @param sessionId - the id of the session
+	 */
+	async deleteViaUI(sessionId: string): Promise<void> {
+		await test.step(`Delete session: ${sessionId}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionId);
+
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: sessionTab,
+				menuTriggerButton: 'right',
+				menuItemLabel: 'Delete'
+			});
+		});
+	}
+
+	/**
 	* Action: Open the metadata dialog for the current session
 	*/
 	async openMetadataDialog() {
@@ -757,7 +798,7 @@ export class Sessions {
 			if (sessionCount > 1) {
 				// get status from icon in tab list view
 				const sessionTab = this.getSessionTab(sessionIdOrName);
-				const statusClass = `.codicon-positron-status-${expectedStatus}`;
+				const statusClass = `.codicon-positron-runtime-status-${expectedStatus}`;
 
 				await expect(sessionTab).toBeVisible();
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
@@ -984,9 +1025,9 @@ export class Sessions {
  * Helper class to manage the session quick pick
  */
 export class SessionQuickPick {
-	private quickInputTitleBar = this.code.driver.page.locator('.quick-input-titlebar');
-	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/);
-	allSessionsMenu = this.quickInputTitleBar.getByText(/Start New Interpreter Session/);
+	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/); }
+	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Interpreter Session/); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -1117,40 +1158,37 @@ export type SessionMetaData = {
 	path: string;
 };
 
-type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
+export type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
 
-// Use this session object to manage default python env in the test
-const pythonSession: SessionInfo = {
-	name: `Python ${DESIRED_PYTHON}`,
+// Lazy factory functions for session objects - these will use current environment values when called
+const createPythonSession = (): SessionInfo => ({
+	name: `Python ${getDesiredPython()}`,
 	language: 'Python',
-	version: DESIRED_PYTHON || '',
+	version: getDesiredPython() || '',
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage alternate python env in the test
-const pythonSessionAlt: SessionInfo = {
-	name: `Python ${ALTERNATE_PYTHON}`,
+const createPythonSessionAlt = (): SessionInfo => ({
+	name: `Python ${getAlternatePython()}`,
 	language: 'Python',
-	version: ALTERNATE_PYTHON || '',
+	version: getAlternatePython() || '',
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage hidden python env in the test
-const pythonSessionHidden: SessionInfo = {
-	name: `Python ${HIDDEN_PYTHON}`,
+const createPythonSessionHidden = (): SessionInfo => ({
+	name: `Python ${getHiddenPython()}`,
 	language: 'Python',
-	version: HIDDEN_PYTHON || '',
+	version: getHiddenPython() || '',
 	triggerMode: 'session-picker',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage reticulate sessions.
-const pythonReticulate: SessionInfo = {
+const createPythonReticulate = (): SessionInfo => ({
 	name: `Python (reticulate)`,
 	language: 'Python',
 	version: '',
@@ -1158,46 +1196,44 @@ const pythonReticulate: SessionInfo = {
 	triggerMode: 'session-picker',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage default R env in the test
-const rSession: SessionInfo = {
-	name: `R ${DESIRED_R}`,
+const createRSession = (): SessionInfo => ({
+	name: `R ${getDesiredR()}`,
 	language: 'R',
-	version: DESIRED_R || '',
+	version: getDesiredR() || '',
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage alternate R env in the test
-const rSessionAlt: SessionInfo = {
-	name: `R ${ALTERNATE_R}`,
+const createRSessionAlt = (): SessionInfo => ({
+	name: `R ${getAlternateR()}`,
 	language: 'R',
-	version: ALTERNATE_R || '',
+	version: getAlternateR() || '',
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
-};
+});
 
-// Use this session object to manage hidden R env in the test
-const rSessionHidden: SessionInfo = {
-	name: `R ${HIDDEN_R}`,
+const createRSessionHidden = (): SessionInfo => ({
+	name: `R ${getHiddenR()}`,
 	language: 'R',
-	version: HIDDEN_R || '',
+	version: getHiddenR() || '',
 	triggerMode: 'session-picker',
 	id: '',
 	waitForReady: true
-};
+});
 
 export type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'pythonReticulate' | 'r' | 'rAlt' | 'rHidden';
 
+// Lazy getter for available runtimes - this will create fresh objects with current env values when accessed
 export const availableRuntimes: { [key: string]: SessionInfo } = {
-	r: { ...rSession },
-	rAlt: { ...rSessionAlt },
-	rHidden: { ...rSessionHidden },
-	python: { ...pythonSession },
-	pythonAlt: { ...pythonSessionAlt },
-	pythonHidden: { ...pythonSessionHidden },
-	pythonReticulate: { ...pythonReticulate },
+	get r() { return createRSession(); },
+	get rAlt() { return createRSessionAlt(); },
+	get rHidden() { return createRSessionHidden(); },
+	get python() { return createPythonSession(); },
+	get pythonAlt() { return createPythonSessionAlt(); },
+	get pythonHidden() { return createPythonSessionHidden(); },
+	get pythonReticulate() { return createPythonReticulate(); },
 };

@@ -9,13 +9,13 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType } from '../../common/executionHistoryService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -114,7 +114,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
 		return undefined;
 	}
 
@@ -131,6 +131,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		this._onWillStartSession.fire({
 			session,
 			startMode,
+			hasConsole: true,
 			activate: true
 		});
 	}
@@ -155,7 +156,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	getNotebookSessionForNotebookUri(_notebookUri: any): ILanguageRuntimeSession | undefined {
+	getNotebookSessionForNotebookUri(_notebookUri: any): INotebookLanguageRuntimeSession | undefined {
 		throw new Error('Method not implemented.');
 	}
 
@@ -187,7 +188,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	deleteSession(_sessionId: string): Promise<void> {
+	deleteSession(_sessionId: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -392,6 +393,7 @@ function createSerializedSessionMetadata(session: ILanguageRuntimeSession): Seri
 		sessionName: session.dynState.sessionName,
 		sessionState: RuntimeState.Idle,
 		workingDirectory: '',
+		hasConsole: false,
 		localWindowId: 'test-window-id',
 	};
 }
@@ -476,6 +478,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 
 	getRuntimeState(): any {
+		throw new Error('Method not implemented.');
+	}
+
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
 		throw new Error('Method not implemented.');
 	}
 
@@ -637,6 +643,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -652,6 +659,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -673,6 +681,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -724,6 +733,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -775,6 +785,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -829,6 +840,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -871,6 +883,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -913,6 +926,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -967,6 +981,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session: activeSession,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -1002,6 +1017,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session: runtimeSessionService.sessions.get(sessionId)!,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 

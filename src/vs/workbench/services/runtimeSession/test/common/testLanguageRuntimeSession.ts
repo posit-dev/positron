@@ -8,7 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, LanguageRuntimeSessionChannel, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
@@ -78,6 +78,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
+	private _runtimeInfo?: ILanguageRuntimeInfo;
+
+	public hasConsole: boolean;
+
 	constructor(
 		readonly metadata: IRuntimeSessionMetadata,
 		readonly runtimeMetadata: ILanguageRuntimeMetadata,
@@ -93,6 +97,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		};
 
 		this.sessionId = this.metadata.sessionId;
+
+		this.hasConsole = metadata.sessionMode === LanguageRuntimeSessionMode.Console;
 
 		// Track the runtime state.
 		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
@@ -147,6 +153,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
 		throw new Error('Not implemented.');
+	}
+
+	getDynState(): Promise<ILanguageRuntimeSessionState> {
+		return Promise.resolve(this.dynState);
 	}
 
 	async createClient(
@@ -215,6 +225,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return this._workingDirectory;
 	}
 
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
 	async start(): Promise<ILanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
 
@@ -223,11 +237,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			this._onDidChangeRuntimeState.fire(RuntimeState.Ready);
 		}, 0);
 
-		return {
+		this._runtimeInfo = {
 			banner: 'Test runtime started',
 			implementation_version: this.runtimeMetadata.runtimeVersion,
 			language_version: this.runtimeMetadata.languageVersion,
 		};
+		return this._runtimeInfo;
 	}
 
 	async interrupt(): Promise<void> {

@@ -9,7 +9,6 @@ import path = require('path');
 import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-supervisor';
 import { Barrier, PromiseHandles, withTimeout } from './async';
-import uuid = require('uuid');
 
 interface ReticulateSessionInfo {
 	reticulateSessionId: string;
@@ -179,7 +178,13 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				// We have a free R session, we can attach to it. First we need to figure out if there's
 				// a prefered one.
 				// TODO: maybe show a quick menu so the user can select the session they want to attach to?
-				return freeRSessions[0];
+				const session = freeRSessions[0];
+
+				// Resolve the session to a full session object. Note that this
+				// typecast is only safe because we ensure that this extension
+				// runs on the same extension host as the Python and R
+				// extensions, via declared dependencies in package.json.
+				return session as positron.LanguageRuntimeSession;
 			} else {
 				progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
 				// We need to create a new R session.
@@ -297,8 +302,10 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		progress.report({ increment: 10, message: vscode.l10n.t('Finding the host R session') });
 		const rSession = await (async () => {
 			for (let attempt = 1; attempt <= 5; attempt++) {
-				const sessions = await positron.runtime.getActiveSessions();
-				const hostRSession = sessions.find((sess) => sess.metadata.sessionId === hostRSessionId);
+				// Note that this typecast is only safe because we ensure that
+				// this extension runs on the same extension host as the Python
+				// and R extensions, via declared dependencies in package.json.
+				const hostRSession = await positron.runtime.getSession(hostRSessionId) as positron.LanguageRuntimeSession | undefined;
 				if (hostRSession) {
 					return hostRSession;
 				}
@@ -652,6 +659,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		);
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return this.pythonSession.getDynState();
+	}
+
 	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
@@ -746,8 +757,12 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.runtimeMetadata;
 	}
 
-	public get dynState() {
-		return this.pythonSession.dynState;
+	public get runtimeInfo() {
+		return this.pythonSession.runtimeInfo;
+	}
+
+	public async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		return await this.pythonSession.debug(request);
 	}
 
 	public execute(code: string,
@@ -847,7 +862,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 					cancellable: false
 				}, async (progress, _token) => {
 					this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
-					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${uuid.v4()}` };
+					const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
+					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${randomId}` };
 
 					// When the R session is ready, we can start a new Reticulate session.
 					this.pythonSession = this.createPythonRuntimeSession(

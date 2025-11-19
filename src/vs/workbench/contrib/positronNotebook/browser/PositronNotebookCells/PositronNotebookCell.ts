@@ -3,53 +3,121 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../../base/common/observableInternal/base.js';
+import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
-import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
+import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
+import { ScrollType } from '../../../../../editor/common/editorCommon.js';
+import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
-	kind!: CellKind;
+	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
-	private _editor: CodeEditorWidget | undefined;
+	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
+	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	protected readonly _internalMetadata;
+	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
+	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
-	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	public readonly executionStatus;
+	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
+	public readonly isActive = observableValue('cellIsActive', false);
+	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
 
 	constructor(
-		public cellModel: NotebookCellTextModel,
-		public _instance: PositronNotebookInstance,
-		@ITextModelService private readonly textModelResolverService: ITextModelService,
+		public readonly model: NotebookCellTextModel,
+		protected readonly _instance: PositronNotebookInstance,
+		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
+		@ITextModelService private readonly _textModelService: ITextModelService,
 	) {
 		super();
+
+		// Observable of internal metadata to derive execution status and timing info
+		// e.g. as used in PositronNotebookCodeCell
+		this._internalMetadata = observableFromEvent(
+			this,
+			this.model.onDidChangeInternalMetadata,
+			() => /** @description internalMetadata */ this.model.internalMetadata,
+		);
+
+		// Track this cell's current execution
+		this._register(this._executionStateService.onDidChangeExecution(e => {
+			if (e.type === NotebookExecutionType.cell && e.affectsCell(this.model.uri)) {
+				const execution = e.changed ?? this._executionStateService.getCellExecution(this.uri);
+				this._execution.set(execution, undefined);
+			}
+		}));
+
+		// Derive the execution status from the current execution and internal metadata
+		this.executionStatus = derived(this, (reader): ExecutionStatus => {
+			/** @description cellExecutionStatus */
+			const execution = this._execution.read(reader);
+			const { lastRunSuccess } = this._internalMetadata.read(reader);
+			const state = execution?.state;
+			if (!state) {
+				// TODO: Should we have separate "success" and "error" states?
+				return lastRunSuccess ? 'idle' : 'idle';
+			}
+			if (state === NotebookCellExecutionState.Pending || state === NotebookCellExecutionState.Unconfirmed) {
+				return 'pending';
+			} else if (state === NotebookCellExecutionState.Executing) {
+				return 'running';
+			} else {
+				throw new Error(`Unknown execution state: ${state}`);
+			}
+		});
+	}
+
+	get outputsViewModels(): IContextKeysCellOutputViewModel[] {
+		return [];
+	}
+
+	get index(): number {
+		return this._instance.cells.get().indexOf(this);
+	}
+
+	get editor(): ICodeEditor | undefined {
+		return this._editor.get();
 	}
 
 	get uri(): URI {
-		return this.cellModel.uri;
+		return this.model.uri;
 	}
 
 	get notebookUri(): URI {
 		return this._instance.uri;
 	}
 
-	get handleId(): number {
-		return this.cellModel.handle;
+	/**
+	 * Get the handle number for cell from cell model
+	 */
+	get handle(): number {
+		return this.model.handle;
 	}
 
 	getContent(): string {
-		return this.cellModel.getValue();
+		return this.model.getValue();
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {
-		const modelRef = await this.textModelResolverService.createModelReference(this.uri);
-		return modelRef.object.textEditorModel;
+		// Cache and reuse a single model reference for the lifetime of this cell.
+		// This reference will be disposed when the cell is disposed.
+		if (!this._modelRef) {
+			this._modelRef = this._register(await this._textModelService.createModelReference(this.uri));
+		}
+		return this._modelRef.object.textEditorModel;
 	}
 
 	delete(): void {
@@ -71,6 +139,16 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this.kind === CellKind.Code;
 	}
 
+	isLastCell(): boolean {
+		const cells = this._instance.cells.get();
+		return this.index === cells.length - 1;
+	}
+
+	isOnlyCell(): boolean {
+		const cells = this._instance.cells.get();
+		return cells.length === 1;
+	}
+
 	select(type: CellSelectionType): void {
 		this._instance.selectionStateMachine.selectCell(this, type);
 	}
@@ -79,34 +157,93 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._container = container;
 	}
 
+	get container(): HTMLElement | undefined {
+		return this._container;
+	}
 
 	attachEditor(editor: CodeEditorWidget): void {
-		this._editor = editor;
+		this._editor.set(editor, undefined);
 	}
 
 	detachEditor(): void {
-		this._editor = undefined;
+		this._editor.set(undefined, undefined);
 	}
 
-	focus(): void {
-		if (this._container) {
-			this._container.focus();
+	reveal(type?: CellRevealType): void {
+		// TODO: We may want to support type, but couldn't find any issues without it
+		if (this._container && this._instance.cellsContainer) {
+			// If the cell is less than 50% visible, scroll it to center
+			const rect = this._container.getBoundingClientRect();
+			const parentRect = this._instance.cellsContainer.getBoundingClientRect();
+			const visibleTop = Math.max(parentRect.top, rect.top);
+			const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
+			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+			const visibilityRatio = visibleHeight / rect.height;
+			if (visibilityRatio < 0.5) {
+				this._container.scrollIntoView({ behavior: 'instant', block: 'center' });
+			}
 		}
 	}
 
-	focusEditor(): void {
-		this._editor?.focus();
+	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		if (!options) {
+			return;
+		}
+
+		// Scroll the cell into view
+		this.reveal(options.cellRevealType);
+
+		// Select the cell in edit mode
+		this.select(CellSelectionType.Edit);
+
+		// Apply any editor options
+		await this.setEditorOptions(options.cellOptions?.options);
 	}
 
-	defocusEditor(): void {
-		// Send focus to the enclosing cell itself to blur the editor
-		this.focus();
+	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
+		if (options) {
+			const editor = await this.showEditor();
+			if (editor && !(options.preserveFocus ?? true)) {
+				// Request focus through the observable if preserveFocus is false
+				this.requestEditorFocus();
+			}
+			if (editor) {
+				applyTextEditorOptions(options, editor, ScrollType.Immediate);
+			}
+		}
+	}
+
+	/**
+	 * Request focus for the cell's editor.
+	 * React will handle the actual focus operation via useLayoutEffect when the editor is mounted.
+	 */
+	requestEditorFocus(): void {
+		this._editorFocusRequested.trigger(undefined, undefined);
+	}
+
+	async showEditor(): Promise<ICodeEditor | undefined> {
+		// Returns the current editor (may be undefined if not yet mounted)
+		// Focus is managed by React through the editorFocusRequested observable
+		return this._editor.get();
 	}
 
 	deselect(): void {
 		this._instance.selectionStateMachine.deselectCell(this);
 	}
+
+	insertCodeCellAbove(): void {
+		this._instance.insertCodeCellAndFocusContainer('above', this);
+	}
+
+	insertCodeCellBelow(): void {
+		this._instance.insertCodeCellAndFocusContainer('below', this);
+	}
+
+	insertMarkdownCellAbove(): void {
+		this._instance.insertMarkdownCellAndFocusContainer('above', this);
+	}
+
+	insertMarkdownCellBelow(): void {
+		this._instance.insertMarkdownCellAndFocusContainer('below', this);
+	}
 }
-
-
-

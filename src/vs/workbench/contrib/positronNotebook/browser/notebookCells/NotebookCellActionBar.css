@@ -15,6 +15,14 @@
 	display: flex;
 	gap: 0.25rem;
 
+	&.visible {
+		visibility: visible;
+	}
+
+	&.hidden {
+		visibility: hidden;
+	}
+
 	.action-button {
 		aspect-ratio: 1;
 		display: grid;
@@ -33,6 +41,12 @@
 			display: flex;
 			width: 16px;
 			aspect-ratio: 1;
+		}
+
+		/* The debug codicon (the icon itself) is misaligned with run above / run below icons by 1 pixel */
+		&.codicon-debug-alt-small {
+			position: relative;
+			top: -1px;
 		}
 
 		&.disabled {

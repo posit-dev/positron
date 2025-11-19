@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
 import { createErrorWithActions } from '../../../../../base/common/errorMessage.js';
@@ -347,12 +350,27 @@ export class NotebookProviderInfoStore extends Disposable {
 				notebookFactoryObject,
 			));
 			// Then register the schema handler as exclusive for that notebook
-			disposables.add(this._editorResolverService.registerEditor(
-				`${Schemas.vscodeNotebookCell}:/**/${globPattern}`,
-				{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
-				notebookEditorOptions,
-				notebookCellFactoryObject
-			));
+			// --- Start Positron ---
+			// disposables.add(this._editorResolverService.registerEditor(
+			// 	`${Schemas.vscodeNotebookCell}:/**/${ globPattern } `,
+			// 	{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+			// 	notebookEditorOptions,
+			// 	notebookCellFactoryObject
+			// ));
+
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority,
+			// so don't register this one if Positron notebooks are enabled.
+			if (!checkPositronNotebookEnabled(this._configurationService)) {
+				disposables.add(this._editorResolverService.registerEditor(
+					`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
+					{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+					notebookEditorOptions,
+					notebookCellFactoryObject
+				));
+			}
+			// --- End Positron ---
 		}
 
 		return disposables;

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,12 +45,14 @@
 		border-bottom: 2px solid;
 	}
 
+	h1,
 	h2,
 	h3,
 	h4,
 	h5,
 	h6 {
 		font-weight: normal;
+		line-height: 1.25;
 	}
 
 	h1 {
@@ -59,10 +61,6 @@
 
 	h2 {
 		font-size: 2em;
-	}
-
-	h3 {
-		font-size: 1.7em;
 	}
 
 	h3 {
@@ -77,24 +75,14 @@
 		font-size: 1.2em;
 	}
 
-	h1,
-	h2,
-	h3 {
-		font-weight: normal;
-	}
-
-	div {
-		width: 100%;
-	}
-
-	/* Adjust margin of first item in markdown cell */
+	/* Remove top margin from first element in markdown cell */
 	*:first-child {
-		margin-top: 0px;
+		margin-top: 0;
 	}
 
-	/* h1 tags don't need top margin */
-	h1:first-child {
-		margin-top: 0;
+	/* Remove bottom margin from last element in markdown cell */
+	*:last-child {
+		margin-bottom: 0;
 	}
 
 	/* Removes bottom margin when only one item exists in markdown cell */
@@ -107,6 +95,7 @@
 	/* makes all markdown cells consistent */
 	div {
 		min-height: 1rem;
+		width: 100%;
 	}
 
 	table {

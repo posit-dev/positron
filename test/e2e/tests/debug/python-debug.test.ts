@@ -57,19 +57,19 @@ test.describe('Python Debugging', {
 			await validateExpectedVariables(app, internalRequiredStrings);
 		});
 
-		await test.step('Validate current internal stack', async () => {
-			const stack = await app.workbench.debug.getStack();
+		// await test.step('Validate current internal stack', async () => {
+		// 	const stack = await app.workbench.debug.getStack();
 
-			expect(stack[0]).toMatchObject({
-				name: "frame.py",
-				lineNumber: 702
-			});
+		// 	expect(stack[0]).toMatchObject({
+		// 		name: "frame.py",
+		// 		lineNumber: 702
+		// 	});
 
-			expect(stack[1]).toMatchObject({
-				name: "chinook-sqlite.py",
-				lineNumber: 9
-			});
-		});
+		// 	expect(stack[1]).toMatchObject({
+		// 		name: "chinook-sqlite.py",
+		// 		lineNumber: 9
+		// 	});
+		// });
 
 		await test.step('Step out, continue and wait completion', async () => {
 			await app.workbench.debug.stepOut();

@@ -11,12 +11,12 @@ import { Toasts } from './dialog-toasts';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Add Model Provider..."]';
+const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Configure Model Providers..."]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
-const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-provider-button)';
+const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-api-provider-button)';
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
@@ -31,9 +31,14 @@ const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="bu
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
-const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
+const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
+const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
+const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
+const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
+const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage language models"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -76,7 +81,7 @@ export class Assistant {
 
 	async verifyAddModelButtonVisible() {
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Add Model Provider...');
+		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
 	}
 
 	async verifyInlineChatInputsVisible() {
@@ -92,14 +97,20 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
+	async verifyManageModelsOptionVisible() {
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
+	}
+
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
-			case 'anthropic':
+			case 'anthropic-api':
 				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
 				break;
 			case 'aws':
 			case 'bedrock':
 			case 'aws bedrock':
+			case 'amazon bedrock':
 				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'echo':
@@ -162,11 +173,15 @@ export class Assistant {
 		}
 	}
 
-	async enterChatMessage(message: string) {
+	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// Optionally wait for any loading state on the most recent response to finish
+		if (waitForResponse) {
+			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });
+		}
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {
@@ -227,13 +242,65 @@ export class Assistant {
 		};
 	}
 
-	async waitForReadyToSend(timeout: number = 5000) {
+	async waitForReadyToSend(timeout: number = 25000) {
 		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
 		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}
 
 	async waitForSendButtonVisible() {
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
+	}
+
+	async selectChatMode(mode: string) {
+		// Click the mode dropdown to open it
+		await this.code.driver.page.locator(MODE_DROPDOWN).click();
+
+		// Wait for the dropdown menu to appear
+		await this.code.driver.page.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+
+		// Find and click the item with the matching text
+		const items = this.code.driver.page.locator(MODE_DROPDOWN_ITEM);
+		const count = await items.count();
+
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const titleSpan = item.locator('span.title');
+			const text = await titleSpan.textContent();
+
+			if (text?.trim() === mode) {
+				// Use force: true to bypass the pointer block
+				await item.click({ force: true });
+				return;
+			}
+		}
+
+		throw new Error(`Mode "${mode}" not found in dropdown`);
+	}
+
+	async selectChatModel(model: string) {
+		// Click the model picker dropdown to open it
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+
+		// Wait for the dropdown menu to appear
+		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+
+		// Find and click the item with the matching text
+		const items = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM);
+		const count = await items.count();
+
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const titleSpan = item.locator('span.title');
+			const text = await titleSpan.textContent();
+
+			if (text?.trim() === model) {
+				// Use force: true to bypass the pointer block
+				await item.click({ force: true });
+				return;
+			}
+		}
+
+		throw new Error(`Model "${model}" not found in dropdown`);
 	}
 
 	async getChatResponseText(exportFolder?: string) {
@@ -305,6 +372,7 @@ export class Assistant {
 			const chatData = JSON.parse(fileContent);
 
 			const responses: string[] = [];
+			const toolCalls: string[] = [];
 
 			// Extract response text from all requests
 			if (chatData.requests && Array.isArray(chatData.requests)) {
@@ -314,12 +382,23 @@ export class Assistant {
 							if (responseItem.value && typeof responseItem.value === 'string') {
 								responses.push(responseItem.value);
 							}
+							// Check for tool calls
+							if (responseItem.toolId && typeof responseItem.toolId === 'string') {
+								toolCalls.push(responseItem.toolId);
+							}
 						}
 					}
 				}
 			}
 
-			return responses.join('\n');
+			let result = responses.join('\n');
+
+			// Add tool calls information if any were found
+			if (toolCalls.length > 0) {
+				result += '\n\nTools called: ' + toolCalls.join(', ');
+			}
+
+			return result;
 		} catch (error) {
 			throw new Error(`Failed to parse chat export file ${filePath}: ${error}`);
 		}

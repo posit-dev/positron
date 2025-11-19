@@ -5,7 +5,8 @@ on:
   pull_request:
     branches:
       - main
-      - 'prerelease/**'
+      - "prerelease/**"
+      - "release/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,6 +19,8 @@ jobs:
       tags: ${{ steps.pr-tags.outputs.tags }}
       win_tag_found: ${{ steps.pr-tags.outputs.win_tag_found }}
       web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
+      rhel_electron_tag_found: ${{ steps.pr-tags.outputs.rhel_electron_tag_found }}
+      rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
 
     steps:
       - uses: actions/checkout@v5
@@ -37,12 +40,12 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (ubuntu)"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
-      skip_tags: "@:nightly-only"
       upload_logs: false
+      workers: 3
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -54,10 +57,9 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (windows)"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
-      skip_tags: "@:nightly-only"
       upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -67,15 +69,49 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "browser (ubuntu)"
-      project: "e2e-browser"
-      currents_tags: "pull-request,browser/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
+      display_name: "chromium (ubuntu)"
+      project: "e2e-chromium"
+      currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
+      report_currents: false
+      install_undetectable_interpreters: false
+      install_license: true
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  e2e-rhel-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-rhel.yml
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.rhel_electron_tag_found == 'true' }}
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (RHEL)"
+      currents_tags: "pull-request,electron/rhel,${{ needs.pr-tags.outputs.tags }}"
+      report_currents: false
+      install_undetectable_interpreters: false
+      install_license: false
+      skip_tags: "@:nightly-only"
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  e2e-rhel-chromium:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.rhel_web_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-rhel.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "chromium (RHEL)"
+      project: "e2e-chromium"
+      currents_tags: "pull-request,chromium/rhel,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       skip_tags: "@:nightly-only"
-      upload_logs: true
+      upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   unit-tests:
@@ -89,4 +125,3 @@ jobs:
     secrets: inherit
     with:
       pull_request: true
-

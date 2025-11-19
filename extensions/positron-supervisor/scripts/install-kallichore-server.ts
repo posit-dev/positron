@@ -145,13 +145,15 @@ async function downloadAndReplaceKallichore(version: string,
 				throw new Error(`Could not find Kallichore ${version} in the releases.`);
 			}
 
+			const currentPlatform = platform();
+			const currentArch = arch();
 			let os: string;
-			switch (platform()) {
-				case 'win32': os = 'windows-x64'; break;
+			switch (currentPlatform) {
+				case 'win32': os = (currentArch === 'arm64' ? 'windows-arm64' : 'windows-x64'); break;
 				case 'darwin': os = 'darwin-universal'; break;
-				case 'linux': os = (arch() === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
+				case 'linux': os = (currentArch === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
 				default: {
-					throw new Error(`Unsupported platform ${platform()}.`);
+					throw new Error(`Unsupported platform ${currentPlatform}.`);
 				}
 			}
 
@@ -206,7 +208,7 @@ async function downloadAndReplaceKallichore(version: string,
 
 				console.log(`Successfully downloaded Kallichore ${version} (${binaryData.length} bytes).`);
 				const zipFileDest = path.join(kallichoreDir, 'kallichore.zip');
-				await writeFileAsync(zipFileDest, binaryData);
+				await writeFileAsync(zipFileDest, new Uint8Array(binaryData));
 
 				await decompress(zipFileDest, kallichoreDir).then(_files => {
 					console.log(`Successfully unzipped Kallichore ${version}.`);

@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup'
+
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
@@ -11,7 +13,6 @@ import { CURSOR, type, withFileEditor } from './editor-utils';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { delay, removeLeadingLines } from '../util';
 import { RSession } from '../session';
-import { env } from 'process';
 
 const snapshotsFolder = `${EXTENSION_ROOT_DIR}/src/test/snapshots`;
 const snippetsPath = `${snapshotsFolder}/indentation-cases.R`;

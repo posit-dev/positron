@@ -17,9 +17,9 @@ export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
- * the experimental Positron Notebook editor.
+ * the Positron Notebook editor.
  * @param configurationService The configuration service
- * @returns Whether to enable the experimental Positron Notebook editor
+ * @returns Whether to enable the Positron Notebook editor
  */
 export function checkPositronNotebookEnabled(
 	configurationService: IConfigurationService
@@ -42,9 +42,7 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
-			included: false, // Hide from Settings UI - can only be set directly in JSON
-			tags: ['experimental'],
+			default: true,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
 				'Enable the Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'

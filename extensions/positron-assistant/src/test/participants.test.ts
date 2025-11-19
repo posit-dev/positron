@@ -12,9 +12,10 @@ import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
+import { PromptRenderer } from '../promptRender.js';
 
-/** We expect 2 messages by default: 1 for the user's prompt, and 1 containing at least the default context */
-const DEFAULT_EXPECTED_MESSAGE_COUNT = 2;
+/** We expect 3 messages by default: 1 for the system prompt, 1 for the user's prompt, and 1 containing at least the default context */
+const DEFAULT_EXPECTED_MESSAGE_COUNT = 3;
 
 class TestLanguageModelChatResponse implements vscode.LanguageModelChatResponse {
 	stream: AsyncIterable<string> = {
@@ -81,6 +82,11 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	prepareToolInvocation(toolName: string): void {
 	}
+	clearToPreviousToolInvocation(reason: vscode.ChatResponseClearToPreviousToolInvocationReason): void {
+	}
+	thinkingProgress(thinkingDelta: vscode.ThinkingDelta): void {
+	}
+
 }
 
 suite('PositronAssistantParticipant', () => {
@@ -113,6 +119,8 @@ suite('PositronAssistantParticipant', () => {
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
+
+		new PromptRenderer(extensionContext);
 	});
 
 	teardown(() => {
@@ -144,7 +152,7 @@ suite('PositronAssistantParticipant', () => {
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const c = positronChatContext;
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<context>
 <shell description="Current active shell">
 ${c.shell}
@@ -187,7 +195,7 @@ Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Full contents of the file" language="${document.languageId}">
@@ -218,7 +226,7 @@ ${document.getText()}
 		const filePath = vscode.workspace.asRelativePath(folderReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Contents of the directory">
@@ -253,7 +261,7 @@ subfolder/
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
@@ -289,7 +297,7 @@ ${document.getText()}
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <img src="${reference.name}" />
@@ -298,36 +306,6 @@ ${attachmentsText}
 				mimeType: referenceBinaryData.mimeType,
 				data: data,
 			});
-	});
-
-	test('should include llms.txt instructions', async () => {
-		// Create an llms.txt file in the workspace.
-		const llmsTxtContent = `This is a test llms.txt file.
-It should be included in the chat message.`;
-		await vscode.workspace.fs.writeFile(llmsTxtUri, Buffer.from(llmsTxtContent));
-
-		try {
-			// Setup test inputs.
-			const request = makeChatRequest({ model, references: [] });
-			const context: vscode.ChatContext = { history: [] };
-			sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
-			const sendRequestSpy = sinon.spy(model, 'sendRequest');
-
-			// Call the method under test.
-			await chatParticipant.requestHandler(request, context, response, token);
-
-			// The first user message should contain the formatted context.
-			sinon.assert.calledOnce(sendRequestSpy);
-			const [messages,] = sendRequestSpy.getCall(0).args;
-			assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-			assertContextMessage(messages.at(-1)!,
-				`<instructions>
-${llmsTxtContent}
-</instructions>`);
-		} finally {
-			// Delete the llms.txt file from the workspace.
-			await vscode.workspace.fs.delete(llmsTxtUri);
-		}
 	});
 
 	test('should include editor information', async () => {
@@ -349,7 +327,7 @@ ${llmsTxtContent}
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<editor description="Current active editor" filePath="${filePath}" language="${document.languageId}" line="${selection.active.line + 1}" column="${selection.active.character + 1}" documentOffset="${document.offsetAt(selection.active)}">
 <document description="Full contents of the active file">
 ${document.getText()}
@@ -370,6 +348,7 @@ function makeChatRequest(
 ): vscode.ChatRequest {
 	return {
 		id: 'test-request-id',
+		sessionId: 'test-session-id',
 		prompt: 'Hello, world!',
 		command: undefined,
 		references: options.references,
@@ -429,3 +408,80 @@ function assertContextMessage(
 		assert.strictEqual(message.content.length, 1, `Unexpected message content: ${JSON.stringify(message.content)}`);
 	}
 }
+
+suite('PositronAssistantPromptRenderer', () => {
+	let chatParticipant: PositronAssistantChatParticipant;
+	let model: TestLanguageModelChat;
+	let document: vscode.TextDocument;
+	setup(() => {
+		model = new TestLanguageModelChat();
+		const extensionContext = mock<vscode.ExtensionContext>({});
+		const participantService = new ParticipantService();
+		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
+		new PromptRenderer(extensionContext);
+	});
+
+	test('Render prompt for Ask mode', async () => {
+		const request = makeChatRequest({ model, references: [] });
+		const sessions = [];
+		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, sessions });
+		assert.ok(metadata.mode.includes(positron.PositronChatMode.Ask), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
+		assert.ok(content.includes(`You are Positron Assistant`));
+		assert.ok(content.includes(`You are running in "Ask" mode`));
+		assert.ok(content.includes(`When the USER asks a question about Quarto`));
+		assert.ok(content.includes(`When the USER asks a question about Shiny`));
+		assert.ok(content.includes(`Start with a clear warning at the beginning of the response`));
+	});
+
+	test('Render prompt for Terminal', async () => {
+		const request = makeChatRequest({ model, references: [] });
+		const sessions = [];
+		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, sessions });
+		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Terminal), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
+		assert.ok(content.includes(`Return ONLY a single line terminal command that addresses the user's question.`));
+	});
+
+	test('Render prompt for Editor', async () => {
+		const document = await vscode.workspace.openTextDocument();
+		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0));
+		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0));
+		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const request = makeChatRequest({ model, references: [], location2: editorData });
+
+		const sessions = [];
+		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, sessions });
+		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Editor), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
+		assert.ok(content.includes(`You are Positron Assistant`));
+		assert.ok(content.includes(`The user has invoked you from the text editor.`));
+		assert.ok(content.includes(`Your goal is to generate a set of edits to the document that represent the requested change.`));
+		assert.ok(content.includes(`Start with a clear warning at the beginning of the response`));
+	});
+
+	test('Render prompt with non-empty selection and streaming edits', async () => {
+		const document = await vscode.workspace.openTextDocument();
+		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 10));
+		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 10));
+		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const request = makeChatRequest({ model, references: [], location2: editorData });
+
+		const sessions = [];
+		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { streamingEdits: true, request, sessions });
+		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Editor), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
+		assert.ok(content.includes(`You are Positron Assistant`));
+		assert.ok(content.includes(`The user has invoked you from the text editor.`));
+		assert.ok(content.includes(`Unless otherwise directed, focus on the selected text in the \`editor\` context.`));
+	});
+
+	test('Render prompt with active session', async () => {
+		const request = makeChatRequest({ model, references: [] });
+		const sessions = [
+			mock<positron.LanguageRuntimeMetadata>({
+				languageId: 'r'
+			}),
+		];
+
+		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { streamingEdits: true, request, sessions });
+		assert.ok(metadata.mode.includes(positron.PositronChatMode.Agent), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
+		assert.ok(content.includes(`When writing R code you generally follow tidyverse coding style and principles.`));
+	});
+});

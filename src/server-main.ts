@@ -4,13 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './bootstrap-server.js'; // this MUST come before other imports as it changes global state
-import * as path from 'path';
-import * as http from 'http';
-import { AddressInfo } from 'net';
-import * as os from 'os';
-import * as readline from 'readline';
-import { performance } from 'perf_hooks';
-import { fileURLToPath } from 'url';
+import * as path from 'node:path';
+import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import * as os from 'node:os';
+import * as readline from 'node:readline';
+import { performance } from 'node:perf_hooks';
 import minimist from 'minimist';
 import { devInjectNodeModuleLookupPath, removeGlobalNodeJsModuleLookupPaths } from './bootstrap-node.js';
 import { bootstrapESM } from './bootstrap-esm.js';
@@ -28,9 +27,8 @@ import * as https from 'https';
 // --- Start Positron ---
 import { spawn } from 'child_process';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
+import { FileAccess } from './vs/base/common/network.js';
 // --- End Positron ---
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 perf.mark('code/server/start');
 (globalThis as any).vscodeServerStartTime = performance.now();
@@ -58,7 +56,7 @@ const extensionInstallArgs = ['install-extension', 'install-builtin-extension', 
 
 const shouldSpawnCli = parsedArgs.help || parsedArgs.version || extensionLookupArgs.some(a => !!parsedArgs[a]) || (extensionInstallArgs.some(a => !!parsedArgs[a]) && !parsedArgs['start-server']);
 
-const nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, userDataPath: '', nlsMetadataPath: __dirname });
+const nlsConfiguration = await resolveNLSConfiguration({ userLocale: 'en', osLocale: 'en', commit: product.commit, userDataPath: '', nlsMetadataPath: import.meta.dirname });
 
 if (shouldSpawnCli) {
 	loadCode(nlsConfiguration).then((mod) => {
@@ -182,7 +180,20 @@ if (shouldSpawnCli) {
 	});
 
 	// --- Start Positron ---
-	await startKernelSupervisor();
+	// In web mode (used in Posit Workbench), start the Positron Kernel
+	// Supervisor process that will manage all the kernels for all the windows
+	// that connect to this server. This speeds session startup significantly
+	// since the supervisor is already running when the first window connects.
+	//
+	// If hasWebUi is false, then this is a headless REH server (probably remote
+	// SSH) and we'll let it manage its own kernels.
+	const hasWebUi =
+		fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
+	if (hasWebUi) {
+		await startKernelSupervisor();
+	} else {
+		console.info('Skipping Kernel Supervisor startup for headless REH server.');
+	}
 	// --- End Positron ---
 }
 
@@ -273,7 +284,7 @@ async function loadCode(nlsConfiguration: INLSConfiguration) {
 	if (process.env['VSCODE_DEV']) {
 		// When running out of sources, we need to load node modules from remote/node_modules,
 		// which are compiled against nodejs, not electron
-		process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] = process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] || path.join(__dirname, '..', 'remote', 'node_modules');
+		process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] = process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] || path.join(import.meta.dirname, '..', 'remote', 'node_modules');
 		devInjectNodeModuleLookupPath(process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH']);
 	} else {
 		delete process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'];
@@ -357,13 +368,13 @@ async function startKernelSupervisor() {
 	// Search local paths for the supervisor
 	const supervisorPaths = [
 		// Dev build of the supervisor in the kallichore repository (debug version)
-		path.join(__dirname, '..', '..',
+		path.join(import.meta.dirname, '..', '..',
 			'kallichore', 'target', 'debug', 'kcserver'),
 		// Dev build of the supervisor in the kallichore repository (release version)
-		path.join(__dirname, '..', '..',
+		path.join(import.meta.dirname, '..', '..',
 			'kallichore', 'target', 'release', 'kcserver'),
 		// Release build of the supervisor, or a dev build in the extensions folder
-		path.join(__dirname, '..',
+		path.join(import.meta.dirname, '..',
 			'extensions', 'positron-supervisor', 'resources', 'kallichore', 'kcserver'),
 	];
 

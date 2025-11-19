@@ -41,10 +41,11 @@ const commsFiles = comms.map(comm => comm + '.json');
 /// The directory to write the generated Typescript files to
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 
-/// The directory to write the generated Rust files to (note that this presumes
-/// that the ark repo is cloned into the same parent directory as the
-/// positron repo)
-const rustOutputDir = `${__dirname}/../../../ark/crates/amalthea/src/comm`;
+/// The directory to write the generated Rust files to
+/// By default, presumes that the ark repo is cloned into the same parent directory as the
+/// positron repo. Can be overridden with the ARK_DIRECTORY environment variable.
+const arkDirectory = process.env.ARK_DIRECTORY || `${__dirname}/../../../ark`;
+const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/posit/positron`;
@@ -460,12 +461,13 @@ function* oneOfVisitor(
  * Collect external references from contracts and returns them as arrays.
  *
  * @param contracts The OpenRPC contracts to process
+ * @param commName The name of the current comm being generated (to exclude self-references).
  * @returns An array of imported symbols grouped by external files. Each element
  * 	 represents one external file for which we detected external references.
  * 	 `fileName` is the bare name without `-backend/fronted-openrpc.json` suffix.
  * 	 `refs` is an array of imported type names.
  */
-function collectExternalReferences(contracts: any[]): Array<{fileName: string; refs: Array<string>}> {
+function collectExternalReferences(contracts: any[], commName: string): Array<{ fileName: string; refs: Array<string> }> {
 	const externalRefs = new Map<string, Set<string>>();
 
 	for (const contract of contracts) {
@@ -474,6 +476,14 @@ function collectExternalReferences(contracts: any[]): Array<{fileName: string; r
 			if (externalRef) {
 				const filePath = externalRef.filePath;
 				const refName = filePath.replace(/\.json$/, '').replace(/-(back|front)end-openrpc$/, '');
+
+				// Skip self-references (when the external reference points to the same
+				// comm being generated, i.e. a backend spec imports from a frontend
+				// spec)
+				if (refName === commName) {
+					continue;
+				}
+
 				if (!externalRefs.has(refName)) {
 					externalRefs.set(refName, new Set());
 				}
@@ -519,7 +529,7 @@ use serde::Serialize;
 `;
 
 	// Add imports for external references
-	const externalReferences = collectExternalReferences(contracts);
+	const externalReferences = collectExternalReferences(contracts, name);
 	if (externalReferences.length) {
 		for (const { fileName, refs } of externalReferences) {
 			if (refs.length) {
@@ -799,7 +809,7 @@ function* createRustValueTypes(source: any, contracts: any[]): Generator<string>
 			yield formatComment(`/// `,
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]));
-			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display, strum_macros::EnumString)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 		} else {
 			// Enum field within another interface
@@ -807,7 +817,7 @@ function* createRustValueTypes(source: any, contracts: any[]): Generator<string>
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display, strum_macros::EnumString)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 		}
 		for (let i = 0; i < values.length; i++) {
@@ -1023,7 +1033,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 	const contracts = [backend, frontend].filter(element => element !== undefined);
 
 	// Add imports for external references
-	const externalReferences = collectExternalReferences(contracts);
+	const externalReferences = collectExternalReferences(contracts, name);
 	if (externalReferences.length) {
 		for (const { fileName, refs } of externalReferences) {
 			if (refs.length) {
@@ -1284,7 +1294,7 @@ import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 	const contracts = [backend, frontend].filter(element => element !== undefined);
 
 	// Add imports for external references
-	const externalReferences = collectExternalReferences(contracts);
+	const externalReferences = collectExternalReferences(contracts, name);
 	if (externalReferences.length) {
 		for (const { fileName, refs } of externalReferences) {
 			if (refs.length) {
@@ -1747,7 +1757,9 @@ async function createCommInterface() {
 // Check that the ark repo is cloned
 if (!existsSync(rustOutputDir)) {
 	console.error('The ark repo must be cloned into the same parent directory as the ' +
-		'Positron rep, so that Rust output types can be written.');
+		'Positron repo, or the ARK_DIRECTORY environment variable must be set to the path ' +
+		'of the ark repo, so that Rust output types can be written.\n' +
+		`Expected Rust output directory: ${rustOutputDir}`);
 	process.exit(1);
 }
 

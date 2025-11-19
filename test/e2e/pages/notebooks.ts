@@ -85,9 +85,9 @@ export class Notebooks {
 
 			await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
 			await this.quickinput.waitForQuickInputOpened();
-			await this.code.driver.page.getByText('Select Another Kernel...').click();
-			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} Environments...`);
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+			await this.code.driver.page.getByText('Select Environment...').click();
+			await this.quickinput.type(desiredKernel);
+			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`);
 			await this.quickinput.waitForQuickInputClosed();
 
 			// Wait for kernel initialization
@@ -119,7 +119,7 @@ export class Notebooks {
 		});
 	}
 
-	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0) {
+	async addCodeToCellAtIndex(cellIndex: number, code: string, delay = 0) {
 		await test.step('Add code to first cell', async () => {
 			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
@@ -159,7 +159,7 @@ export class Notebooks {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
 	}
 
-	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
+	async expectMarkdownTagToBe(tag: string, expectedText: string): Promise<void> {
 		const markdownLocator = this.frameLocator.locator(`${MARKDOWN_TEXT} ${tag}`);
 		await expect(markdownLocator).toBeVisible();
 		await expect(markdownLocator).toHaveText(expectedText);

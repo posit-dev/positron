@@ -12,8 +12,10 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
-// Not running uv either because it is not installed on windows for now
-test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
+test.describe.skip('New Folder Flow: Python Project', {
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9999' }],
+	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB]
+}, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 
 	test.beforeAll(async function ({ settings }) {
@@ -38,7 +40,8 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 	});
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
-	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings }) {
+	// passing in python to ensure a valid version is used
+	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings, python }) {
 		const folderName = addRandomNumSuffix('git-init');
 		await settings.set({ 'files.exclude': { '**/.git': false, '**/.gitignore': false } }, { waitMs: 1000 });
 
@@ -76,7 +79,8 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyPyprojectTomlCreated(app);
 	});
 
-	test('New env: Venv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	// passing in python to ensure a valid version is used
+	test('New env: Venv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, python }) {
 		const folderName = addRandomNumSuffix('new-venv');
 
 		await createNewFolder(app, {
@@ -93,7 +97,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyPyprojectTomlNotCreated(app);
 	});
 
-	test('New env: uv environment', { tag: [tags.CRITICAL] }, async function ({ app }) {
+	test('New env: uv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const folderName = addRandomNumSuffix('new-uv');
 
 		await createNewFolder(app, {

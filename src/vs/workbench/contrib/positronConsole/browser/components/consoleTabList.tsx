@@ -20,6 +20,9 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { basename } from '../../../../../base/common/path.js';
+import { RuntimeIcon } from './runtimeIcon.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -35,22 +38,37 @@ interface ConsoleTabProps {
 }
 
 const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
+
 	// Context
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
+	// Compute session display name
+	const isNotebookSession =
+		positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+	const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
+	let sessionDisplayName = '';
+	if (session) {
+		// Ask the session directly
+		sessionDisplayName = session.session.getLabel();
+	} else {
+		// No session to ask, compute from the other metadata we have
+		sessionDisplayName = isNotebookSession ?
+			basename(positronConsoleInstance.sessionMetadata.notebookUri!.path) :
+			positronConsoleInstance.sessionName;
+	}
+
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
-	const [sessionName, setSessionName] = useState(positronConsoleInstance.sessionName);
+	const [sessionName, setSessionName] = useState(sessionDisplayName);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
 	// Variables
-	const sessionId = positronConsoleInstance.sessionId;
-	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId;
+	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -60,7 +78,24 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === positronConsoleInstance.sessionId) {
-					setSessionName(session.dynState.sessionName);
+					setSessionName(session.getLabel());
+				}
+			})
+
+		);
+
+		// Add the onDidUpdateNotebookSessionUri event handler.
+		//
+		// Notebook session URI changes can change what the label shows; if we
+		// get one of these events for our session and there's a new label for
+		// the session, pick it up.
+		disposableStore.add(
+			services.runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
+				if (e.sessionId === positronConsoleInstance.sessionId) {
+					const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
+					if (session) {
+						setSessionName(session.session.getLabel());
+					}
 				}
 			})
 		);
@@ -89,20 +124,26 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	};
 
 	/**
-	 * The mouse down handler for the parent element of the console tab instance.
-	 * This handler is used to show the context menu when the user right-clicks on a tab.
+	 * The mouse down handler for the parent element of the console tab
+	 * instance.  This handler is used to show the context menu when the user
+	 * right-clicks on a tab.
+	 *
+	 * Notebook consoles can't be renamed, so we currently do not show a context
+	 * menu for them.
 	 */
-	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-		// Prevent the default action and stop the event from propagating.
-		e.preventDefault();
-		e.stopPropagation();
+	const handleMouseDown = positronConsoleInstance.sessionMetadata.sessionMode ===
+		LanguageRuntimeSessionMode.Notebook ? undefined :
+		(e: MouseEvent<HTMLDivElement>) => {
+			// Prevent the default action and stop the event from propagating.
+			e.preventDefault();
+			e.stopPropagation();
 
-		// Show the context menu when the user right-clicks on a tab or
-		// when the user executes ctrl + left-click on macOS
-		if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
-			showContextMenu(e.clientX, e.clientY);
+			// Show the context menu when the user right-clicks on a tab or
+			// when the user executes ctrl + left-click on macOS
+			if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
+				showContextMenu(e.clientX, e.clientY);
+			}
 		}
-	}
 
 	/**
 	 * Shows the context menu when a user right-clicks on a console instance tab.
@@ -122,6 +163,16 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			class: undefined,
 			enabled: true,
 			run: () => showRenameInputField()
+		});
+
+		// Add the delete action
+		actions.push({
+			id: 'workbench.action.positronConsole.deleteConsoleSession',
+			label: localize('positron.console.deleteInstance', "Delete"),
+			tooltip: '',
+			class: undefined,
+			enabled: !deleteDisabled,
+			run: () => deleteSession()
 		});
 
 		// Show the context menu.
@@ -200,20 +251,20 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		try {
 			// Updated to support proper deletion of sessions that have
 			// been shutdown or exited.
-			if (services.runtimeSessionService.getSession(sessionId)) {
+			if (services.runtimeSessionService.getSession(positronConsoleInstance.sessionId)) {
 				// Attempt to delete the session from the runtime session service.
 				// This will throw an error if the session is not found.
-				await services.runtimeSessionService.deleteSession(sessionId);
+				await services.runtimeSessionService.deleteSession(positronConsoleInstance.sessionId);
 			} else {
 				// If the session is not found, it may have been deleted already
 				// or is a provisional session. In this case, we can delete the
 				// session from the Positron Console service.
-				services.positronConsoleService.deletePositronConsoleSession(sessionId);
+				services.positronConsoleService.deletePositronConsoleSession(positronConsoleInstance.sessionId);
 			}
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
 			services.notificationService.error(
-				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
+				localize('positronDeleteSessionError', "Failed to delete session: {0}", error.message || JSON.stringify(error))
 			);
 			// Re-enable the button if the session could not be deleted.
 			// If it is deleted, the component is destroyed and the
@@ -319,8 +370,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			ref={tabRef}
 			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			aria-label={positronConsoleInstance.sessionName}
-			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
-			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
+			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId}
+			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			role='tab'
 			tabIndex={isActiveTab ? 0 : -1}
@@ -328,9 +379,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			<img
-				className='icon'
-				src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
+			<RuntimeIcon
+				base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
+				sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 			/>
 			{isRenamingSession ? (
 				<input

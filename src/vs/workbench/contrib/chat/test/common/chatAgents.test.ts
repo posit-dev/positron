@@ -10,6 +10,13 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../common/chatAgents.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- Start Positron ---
+import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../common/languageModels.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+// --- End Positron ---
 
 const testAgentId = 'testAgent';
 const testAgentData: IChatAgentData = {
@@ -17,6 +24,7 @@ const testAgentData: IChatAgentData = {
 	name: 'Test Agent',
 	extensionDisplayName: '',
 	extensionId: new ExtensionIdentifier(''),
+	extensionVersion: undefined,
 	extensionPublisherId: '',
 	locations: [],
 	modes: [],
@@ -36,6 +44,34 @@ class TestingContextKeyService extends MockContextKeyService {
 	}
 }
 
+// --- Start Positron ---
+class TestLanguageModelsService implements ILanguageModelsService {
+	onDidChangeProviders: Event<ILanguageModelsChangeEvent> = new Emitter<ILanguageModelsChangeEvent>().event;
+	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void { }
+	getVendors(): IUserFriendlyLanguageModel[] { return []; }
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
+		return Disposable.None;
+	}
+	readonly _serviceBrand: undefined;
+
+	onDidChangeLanguageModels = new Emitter<any>().event;
+	onDidChangeCurrentProvider = new Emitter<any>().event;
+
+	get currentProvider() { return undefined; }
+	set currentProvider(provider: any) { }
+
+	getLanguageModelIdsForCurrentProvider() { return []; }
+	getLanguageModelProviders() { return []; }
+	getLanguageModelIds() { return []; }
+	lookupLanguageModel() { return undefined; }
+	async selectLanguageModels() { return []; }
+	registerLanguageModelChat() { return { dispose: () => { } }; }
+	async sendChatRequest(): Promise<any> { throw new Error('Not implemented'); }
+	async computeTokenLength() { return 0; }
+	getExtensionIdentifierForProvider(vendor: string) { return undefined; }
+}
+// --- End Positron ---
+
 suite('ChatAgents', function () {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -49,8 +85,15 @@ suite('ChatAgents', function () {
 		// --- Start Positron ---
 		// Add configuration service to chat
 		configurationService = new TestConfigurationService();
+		const logService = new NullLogService();
+		const languageModelsService = new TestLanguageModelsService();
+		const positronAssistantConfigurationService = {
+			_serviceBrand: undefined,
+			copilotEnabled: true,
+			onChangeCopilotEnabled: Event.None,
+		} satisfies IPositronAssistantConfigurationService;
 		configurationService.setUserConfiguration('positron.assistant.enable', true);
-		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService));
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService, positronAssistantConfigurationService));
 		// --- End Positron ---
 	});
 

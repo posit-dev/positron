@@ -10,13 +10,14 @@ import './dataGridColumnHeader.css';
 import React, { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import * as nls from '../../../../nls.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
-import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { selectionType } from '../utilities/mouseUtilities.js';
-import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { ColumnSelectionState } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { renderLeadingTrailingWhitespace } from '../../../services/positronDataExplorer/browser/components/tableDataCell.js';
 
 /**
@@ -31,6 +32,8 @@ interface DataGridColumnHeaderProps {
 	column?: IDataColumn;
 	columnIndex: number;
 	left: number;
+	pinned: boolean;
+	width: number;
 }
 
 /**
@@ -45,6 +48,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const titleRef = useRef<HTMLDivElement>(undefined!);
 
 	/**
 	 * onMouseDown handler.
@@ -95,6 +99,39 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		await context.instance.showColumnContextMenu(props.columnIndex, sortingButtonRef.current);
 	};
 
+	/**
+	 * titleMouseOver event handler.
+	 */
+	const titleMouseOver = () => {
+		if (!props.column || !context.instance.hoverManager) {
+			return;
+		}
+
+		// Check if this is a PositronDataExplorerColumn with access to columnSchema
+		const explorerColumn = props.column as any;
+		if (!explorerColumn.columnSchema) {
+			return;
+		}
+
+		// Create tooltip content with type and label if present
+		const typePrefix = nls.localize('positronDataGrid.columnHeader.type', "Type:");
+		let tooltipContent = `${typePrefix} ${explorerColumn.columnSchema.type_name}`;
+
+		if (explorerColumn.columnSchema.column_label) {
+			tooltipContent += `\n${explorerColumn.columnSchema.column_label}`;
+		}
+
+		// Show hover with text content
+		context.instance.hoverManager.showHover(titleRef.current, tooltipContent);
+	};
+
+	/**
+	 * titleMouseLeave event handler.
+	 */
+	const titleMouseLeave = () => {
+		context.instance.hoverManager?.hideHover();
+	};
+
 	// Get the column sort key.
 	const columnSortKey = context.instance.columnSortKey(props.columnIndex);
 
@@ -104,19 +141,25 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
+	// Render the column title
 	const renderedColumn = renderLeadingTrailingWhitespace(props.column?.name);
 
 	// Render.
 	return (
 		<div
 			ref={ref}
-			className='data-grid-column-header'
+			className={positronClassNames(
+				'data-grid-column-header',
+				{ pinned: props.pinned },
+			)}
+			data-column-index={props.columnIndex}
 			style={{
 				left: props.left,
-				width: context.instance.getColumnWidth(props.columnIndex)
+				width: props.width,
 			}}
 			onMouseDown={mouseDownHandler}
 		>
+			{props.pinned && <div className='pinned-indicator' />}
 			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />
@@ -140,7 +183,14 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}}
 			>
 				<div className='title-description'>
-					<div className='title'>{renderedColumn}</div>
+					<div
+						ref={titleRef}
+						className='title'
+						onMouseLeave={titleMouseLeave}
+						onMouseOver={titleMouseOver}
+					>
+						{renderedColumn}
+					</div>
 					{props.column?.description &&
 						<div className='description'>{props.column.description}</div>
 					}
@@ -170,13 +220,12 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
 				</Button>
 			</div>
-
 			{context.instance.columnResize &&
 				<VerticalSplitter
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,
-						startingWidth: context.instance.getColumnWidth(props.columnIndex)
+						startingWidth: props.width
 					})}
 					onResize={async columnWidth =>
 						await context.instance.setColumnWidth(props.columnIndex, columnWidth)

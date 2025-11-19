@@ -53,7 +53,10 @@ export const enum LayoutSettings {
 	EDITOR_TABS_MODE = 'workbench.editor.showTabs',
 	EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
 	COMMAND_CENTER = 'window.commandCenter',
-	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled'
+	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
+	// --- Start Positron ---
+	TOP_ACTION_BAR_VISIBLE = 'workbench.topActionBar.visible'
+	// --- End Positron ---
 }
 
 export const enum ActivityBarPosition {

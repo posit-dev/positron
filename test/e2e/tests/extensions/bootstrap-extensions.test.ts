@@ -13,7 +13,7 @@ test.use({
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH],
 }, () => {
 
 	test.beforeAll('Skip during main run', async function () {
@@ -22,9 +22,15 @@ test.describe('Bootstrap Extensions', {
 		}
 	});
 
-	test('Verify All Bootstrap extensions are installed', async function ({ options }) {
+	test('Verify All Bootstrap extensions are installed', async function ({ options, runDockerCommand }, testInfo) {
 		const extensions = readProductJson();
-		await waitForExtensions(extensions, options.extensionsPath);
+		const isWorkbench = testInfo.project.name === 'e2e-workbench';
+		const containerExtensionsPath = '/home/user1/.positron-server/extensions';
+		await waitForExtensions(
+			extensions,
+			isWorkbench ? containerExtensionsPath : options.extensionsPath!,
+			isWorkbench ? runDockerCommand : undefined
+		);
 	});
 });
 
@@ -47,10 +53,34 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-function getInstalledExtensions(extensionsDir: string): Map<string, string> {
+async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
 	const installed = new Map<string, string>();
-	if (!fs.existsSync(extensionsDir)) { return installed; }
 
+	// Workbench: read extensions from Docker container
+	if (runDockerCommand) {
+		try {
+			const { stdout } = await runDockerCommand(`docker exec test bash -lc "ls -1 ${extensionsDir} || true"`, 'List extensions in container');
+			const dirs = stdout.split('\n').map(s => s.trim()).filter(Boolean);
+			for (const extDir of dirs) {
+				try {
+					const remotePkgPath = `${extensionsDir}/${extDir}/package.json`;
+					const { stdout: pkgStr } = await runDockerCommand(`docker exec test cat "${remotePkgPath}"`, `Read package.json for ${extDir}`);
+					const pkg = JSON.parse(pkgStr);
+					if (pkg.name && pkg.version) {
+						installed.set(pkg.name, pkg.version);
+					}
+				} catch {
+					// ignore dirs without package.json or unreadable files
+				}
+			}
+		} catch {
+			// If listing fails, treat as no installed extensions
+		}
+		return installed;
+	}
+
+	// Default: read from local filesystem
+	if (!fs.existsSync(extensionsDir)) { return installed; }
 	for (const extDir of fs.readdirSync(extensionsDir)) {
 		const packageJsonPath = path.join(extensionsDir, extDir, 'package.json');
 		if (fs.existsSync(packageJsonPath)) {
@@ -60,25 +90,32 @@ function getInstalledExtensions(extensionsDir: string): Map<string, string> {
 			}
 		}
 	}
-
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string) {
+async function waitForExtensions(
+	extensions: { fullName: string; shortName: string; version: string }[],
+	extensionsPath: string,
+	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>,
+	mismatchGraceMs: number = 60_000, // wait up to 1 minute for mismatches to self-resolve
+) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
+	// Phase 1: wait for all to be installed (mismatches are noted, but we continue)
 	while (missing.size > 0) {
-		const installed = getInstalledExtensions(extensionsPath);
+		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
 
 		for (const ext of extensions) {
-			if (!missing.has(ext.fullName)) { continue; }
+			if (!missing.has(ext.fullName)) {
+				continue;
+			}
 
 			const installedVersion = installed.get(ext.shortName);
 			if (!installedVersion) {
 				console.log(`❌ ${ext.fullName} not yet installed`);
 			} else if (installedVersion !== ext.version) {
-				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
+				console.log(`⚠️  ${ext.fullName} installed with version ${installedVersion}, currently ${ext.version} in product.json`);
 				missing.delete(ext.fullName);
 				mismatched.add(ext.fullName);
 			} else {
@@ -93,21 +130,48 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		}
 	}
 
+	// Phase 2: give mismatches time to auto-resolve (e.g., post-install updates settling)
 	if (mismatched.size > 0) {
-		console.log('\n❌ Some extensions were installed with mismatched versions:');
-		for (const ext of mismatched) {
-			console.log(`  * ${ext}`);
-		}
-		console.log('\n🔄  Please follow instructions to update extension(s):');
-		console.log(' 1. Find the outdated package in Open VSX Registry: https://open-vsx.org/extension/posit/publisher');
-		console.log(' 2. If SHA is needed, download package and follow instructions here: https://connect.posit.it/positron-wiki/updating-extensions.html#updating-extensions');
-		console.log(' 3. Update the `product.json` file with the correct version and (as needed) SHA');
+		console.log(`\n⏳ Detected mismatches. Allowing up to ${Math.round(mismatchGraceMs / 1000)}s for auto-resolution...`);
+		const deadline = Date.now() + mismatchGraceMs;
 
-		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
-			throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
+		while (mismatched.size > 0 && Date.now() < deadline) {
+			await sleep(1000);
+			const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
+
+			// Re-evaluate each previously mismatched extension
+			for (const ext of [...mismatched]) {
+				const installedVersion = installed.get(ext.split('@')[0] /* if your fullName is like 'short@scope' adjust accordingly */)
+					?? installed.get(extensions.find(e => e.fullName === ext)?.shortName ?? '');
+
+				// Find the expected version for this ext
+				const expected = extensions.find(e => e.fullName === ext)?.version;
+
+				if (installedVersion && expected && installedVersion === expected) {
+					console.log(`✅ Resolved: ${ext} now matches (${installedVersion})`);
+					mismatched.delete(ext);
+				} else {
+					// Keep it in the set; optional: log occasionally to avoid spam
+				}
+			}
 		}
 	}
 
-	console.log('\n🎉 All extensions installed with correct versions.');
+	if (mismatched.size > 0) {
+		console.log('\n❌ Some extensions are still mismatched after the grace period:');
+		for (const ext of mismatched) {
+			console.log(`   * ${ext}`);
+		}
+		console.log('\n👉 Run script and commit changes:');
+		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}\n`);
+
+		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
+			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');
+		}
+		return; // warn-only mode
+	}
+
+	console.log('\n🎉 All extensions installed with correct versions (after waiting for auto-resolution if needed).');
 }
+
 

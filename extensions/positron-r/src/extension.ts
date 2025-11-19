@@ -14,6 +14,8 @@ import { RRuntimeManager } from './runtime-manager';
 import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
+import { PositronSupervisorApi } from './positron-supervisor';
+import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -42,6 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// Register file associations.
 	registerFileAssociations();
 
+	// Register R file paste and drop provider.
+	registerRFilePasteAndDropProvider(context);
+
 	// Prepare to handle cli-produced hyperlinks that target the positron-r extension.
 	registerUriHandler();
 
@@ -52,4 +57,17 @@ export function activate(context: vscode.ExtensionContext) {
 			refreshTestExplorer(context);
 		}
 	});
+}
+
+export async function supervisorApi(): Promise<PositronSupervisorApi> {
+	const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+	if (!ext) {
+		throw new Error('Positron Supervisor extension not found');
+	}
+
+	if (!ext.isActive) {
+		await ext.activate();
+	}
+
+	return ext?.exports as PositronSupervisorApi;
 }

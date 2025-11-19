@@ -6,14 +6,16 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, PlotResult, PlotRenderFormat } from './positronPlotComm.js';
+import { IntrinsicSize, PlotResult, PlotRenderFormat, PlotSize } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { padBase64 } from './utils.js';
 
-export const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
+export const OldFreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
+export const FreezeSlowPlotsConfigKey = 'plots.freezeSlowPlots';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */
@@ -195,7 +197,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			// The policy should normally be defined in a pre-render result but we
 			// check just in case
 			if (preRender.settings) {
-				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				const uri = `data:${preRender.mime_type};base64,${padBase64(preRender.data)}`;
 				this._lastRender = {
 					uri,
 					size: preRender.settings.size,
@@ -241,10 +243,54 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			this._state = state;
 		}));
 
+		let needsSelect = true;
+
 		// Listen for plot updates
-		this._register(this._commProxy.onDidRenderUpdate(async () => {
+		this._register(this._commProxy.onDidRenderUpdate(async (evt) => {
+			const preRender = evt.pre_render;
+
+			// If there's a pre-rendering, check if we can use it for immediate display
+			if (preRender && preRender.settings) {
+				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				const preRenderPlot: IRenderedPlot = {
+					uri,
+					size: preRender.settings.size,
+					pixel_ratio: preRender.settings.pixel_ratio,
+					renderTimeMs: 0,
+				};
+
+				// Store the pre-rendering as the last render
+				this._lastRender = preRenderPlot;
+
+				// Fire the complete render event to actually update the plot instance
+				this._completeRenderEmitter.fire(preRenderPlot);
+
+				// Fire the render update event to select the updated plot in the UI
+				this._renderUpdateEmitter.fire(preRenderPlot);
+
+				// Check if the current render settings match
+				const currentRenderRequest = this._currentRender?.renderRequest ?? this._lastRender;
+
+				if (currentRenderRequest && this.settingsEqual(
+					preRender.settings,
+					currentRenderRequest
+				)) {
+					// The settings match, return without queueing a render request
+					return;
+				}
+
+				// Otherwise fallthrough. But don't select plot again to avoid
+				// unexpected jerkiness.
+				needsSelect = false;
+			}
+
+			// No pre-rendering or settings mismatch: Queue a render request
 			const rendered = await this.queuePlotUpdateRequest();
-			this._renderUpdateEmitter.fire(rendered);
+
+			// Fire the update event to select it in the UI
+			if (needsSelect) {
+				this._renderUpdateEmitter.fire(rendered);
+			}
 		}));
 
 		// Listn for plot show events
@@ -290,6 +336,41 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
+
+	/**
+	 * Check if the render settings match
+	 */
+	private settingsEqual(
+		left: { size?: PlotSize; pixel_ratio: number; format?: PlotRenderFormat },
+		right: { size?: PlotSize; pixel_ratio: number; format?: PlotRenderFormat },
+	): boolean {
+		if (left.size?.height !== right.size?.height) {
+			return false;
+		}
+		if (left.size?.width !== right.size?.width) {
+			return false;
+		}
+		if (left.pixel_ratio !== right.pixel_ratio) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Gets the freeze slow plots setting value, checking both new and old settings.
+	 * @returns The boolean value indicating whether to freeze slow plots
+	 */
+	private getFreezeSlowPlotsSetting(): boolean {
+		// First check the new setting
+		const newValue = this._configurationService.getValue<boolean>(FreezeSlowPlotsConfigKey);
+		if (newValue !== undefined) {
+			return newValue;
+		}
+
+		// Fall back to the old setting
+		return this._configurationService.getValue<boolean>(OldFreezeSlowPlotsConfigKey) ?? true;
+	}
+
 	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		const sizeInt = size && {
@@ -300,10 +381,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
-		if (this._lastRender &&
-			this._lastRender.size?.height === sizeInt?.height &&
-			this._lastRender.size?.width === sizeInt?.width &&
-			this._lastRender.pixel_ratio === pixel_ratio) {
+		if (sizeInt && this._lastRender?.size && this._lastRender && this.settingsEqual(
+			{ size: sizeInt, pixel_ratio, format },
+			this._lastRender
+		)) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
 			return Promise.resolve(this._lastRender);
@@ -363,7 +444,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			this._stateEmitter.fire(PlotClientState.Rendering);
 
 			request.promise.then((rendered) => {
-				const frozen = this._configurationService.getValue(FreezeSlowPlotsConfigKey);
+				const frozen = this.getFreezeSlowPlotsSetting();
 
 				if (rendered.renderTimeMs > 3000 && rendered.size && !this._lastRender && frozen) {
 					// Set sizing policy to the current size to avoid redraws

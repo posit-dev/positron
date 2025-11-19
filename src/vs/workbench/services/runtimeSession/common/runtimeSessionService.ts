@@ -60,6 +60,9 @@ export interface IRuntimeSessionWillStartEvent {
 	/** Whether the runtime should be activated when it starts */
 	activate: boolean;
 
+	/** Whether the runtime has a console */
+	hasConsole: boolean;
+
 	/** The session about to start */
 	session: ILanguageRuntimeSession;
 }
@@ -108,6 +111,9 @@ export interface IRuntimeSessionMetadata {
 export interface ILanguageRuntimeSession extends IDisposable {
 	/** The language runtime's static metadata */
 	readonly runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/** Information about the runtime that is only available after starting. */
+	readonly runtimeInfo: ILanguageRuntimeInfo | undefined;
 
 	/** The session's static metadata */
 	readonly metadata: IRuntimeSessionMetadata;
@@ -233,6 +239,14 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
+}
+
+export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
+	notebookUri: URI;
+}
+
+export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
+	metadata: INotebookRuntimeSessionMetadata;
 }
 
 /**
@@ -379,7 +393,7 @@ export interface IRuntimeSessionService {
 	 * Gets a specific notebook session by notebook URI. Currently, only one
 	 * notebook session can exist per notebook URI.
 	 */
-	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined;
+	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined;
 
 	/**
 	 * List all active runtime sessions.
@@ -439,12 +453,14 @@ export interface IRuntimeSessionService {
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
 	 * @param sessionName A human-readable (displayed) name for the session.
+	 * @param createConsole Whether to create a console for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
+		createConsole: boolean,
 		activate: boolean): Promise<void>;
 
 	/**
@@ -472,7 +488,7 @@ export interface IRuntimeSessionService {
 	 */
 	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
 
-	deleteSession(sessionId: string): Promise<void>;
+	deleteSession(sessionId: string): Promise<boolean>;
 
 	/**
 	 * Focus the runtime session by making it the foreground session if it's
@@ -543,7 +559,7 @@ export interface IRuntimeSessionService {
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined;
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined>;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update

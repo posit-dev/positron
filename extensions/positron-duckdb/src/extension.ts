@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import {
 	BackendState,
+	CodeSyntaxName,
 	ColumnDisplayType,
 	ColumnFilter,
 	ColumnFilterType,
@@ -21,12 +22,15 @@ import {
 	ColumnSortKey,
 	ColumnSummaryStats,
 	ColumnValue,
+	ConvertedCode,
+	ConvertToCodeParams,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
 	DataExplorerRpc,
 	DataExplorerUiEvent,
 	DataSelectionCellRange,
+	DataSelectionCellIndices,
 	DataSelectionIndices,
 	DataSelectionRange,
 	DataSelectionSingleCell,
@@ -147,21 +151,20 @@ const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 11;
 
 // TODO
-// - Decimal
 // - Nested types
 // - JSON
 const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['BOOLEAN', ColumnDisplayType.Boolean],
-	['UTINYINT', ColumnDisplayType.Number],
-	['TINYINT', ColumnDisplayType.Number],
-	['USMALLINT', ColumnDisplayType.Number],
-	['SMALLINT', ColumnDisplayType.Number],
-	['UINTEGER', ColumnDisplayType.Number],
-	['INTEGER', ColumnDisplayType.Number],
-	['UBIGINT', ColumnDisplayType.Number],
-	['BIGINT', ColumnDisplayType.Number],
-	['FLOAT', ColumnDisplayType.Number],
-	['DOUBLE', ColumnDisplayType.Number],
+	['UTINYINT', ColumnDisplayType.Integer],
+	['TINYINT', ColumnDisplayType.Integer],
+	['USMALLINT', ColumnDisplayType.Integer],
+	['SMALLINT', ColumnDisplayType.Integer],
+	['UINTEGER', ColumnDisplayType.Integer],
+	['INTEGER', ColumnDisplayType.Integer],
+	['UBIGINT', ColumnDisplayType.Integer],
+	['BIGINT', ColumnDisplayType.Integer],
+	['FLOAT', ColumnDisplayType.Floating],
+	['DOUBLE', ColumnDisplayType.Floating],
 	['VARCHAR', ColumnDisplayType.String],
 	['UUID', ColumnDisplayType.String],
 	['DATE', ColumnDisplayType.Date],
@@ -171,7 +174,7 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIME', ColumnDisplayType.Time],
 	['INTERVAL', ColumnDisplayType.Interval],
-	['DECIMAL', ColumnDisplayType.Number]
+	['DECIMAL', ColumnDisplayType.Decimal]
 ]);
 
 function formatLiteral(value: string, schema: ColumnSchema) {
@@ -445,11 +448,11 @@ class ColumnProfileEvaluator {
 			SELECT ${quotedName} AS value, COUNT(*) AS freq
 			FROM ${this.tableName} ${composedPred}
 			GROUP BY 1
-			LIMIT ${params.limit}
 		)
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
-		ORDER BY freq DESC, value ASC;`) as Table<any>;
+		ORDER BY freq DESC, value ASC
+		LIMIT ${params.limit};`) as Table<any>;
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -609,7 +612,7 @@ class ColumnProfileEvaluator {
 
 		if (isNumeric(columnSchema.column_type)) {
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: getNumericDisplayType(columnSchema.column_type),
 				number_stats: {
 					min_value: formatNumber(getStat('min')),
 					max_value: formatNumber(getStat('max')),
@@ -620,7 +623,7 @@ class ColumnProfileEvaluator {
 			};
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: ColumnDisplayType.Decimal,
 				number_stats: {
 					min_value: getStat('string_min'),
 					max_value: getStat('string_max'),
@@ -723,9 +726,13 @@ class ColumnProfileEvaluator {
 
 function isInteger(duckdbName: string) {
 	switch (duckdbName) {
+		case 'UTINYINT':
 		case 'TINYINT':
+		case 'USMALLINT':
 		case 'SMALLINT':
+		case 'UINTEGER':
 		case 'INTEGER':
+		case 'UBIGINT':
 		case 'BIGINT':
 			return true;
 		default:
@@ -733,12 +740,28 @@ function isInteger(duckdbName: string) {
 	}
 }
 
+function isFloating(duckdbName: string) {
+	return duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
+}
+
 function isNumeric(duckdbName: string) {
 	return (
 		isInteger(duckdbName) ||
-		duckdbName === 'FLOAT' ||
-		duckdbName === 'DOUBLE'
+		isFloating(duckdbName)
 	);
+}
+
+function getNumericDisplayType(duckdbName: string): ColumnDisplayType {
+	if (isInteger(duckdbName)) {
+		return ColumnDisplayType.Integer;
+	} else if (isFloating(duckdbName)) {
+		return ColumnDisplayType.Floating;
+	} else if (duckdbName.startsWith('DECIMAL')) {
+		return ColumnDisplayType.Decimal;
+	} else {
+		// Fallback to Floating for any other numeric type
+		return ColumnDisplayType.Floating;
+	}
 }
 
 /**
@@ -807,9 +830,9 @@ export class DuckDBTableView {
 					type_display = ColumnDisplayType.Unknown;
 				}
 
-				// If entry.column_type is like DECIMAL($p,$s), set type_display to Number
+				// If entry.column_type is like DECIMAL($p,$s), set type_display to Decimal
 				if (entry.column_type.startsWith('DECIMAL')) {
-					type_display = ColumnDisplayType.Number;
+					type_display = ColumnDisplayType.Decimal;
 				}
 
 				return {
@@ -845,7 +868,7 @@ export class DuckDBTableView {
 					displayType = ColumnDisplayType.Unknown;
 				}
 				if (columnType.startsWith('DECIMAL')) {
-					displayType = ColumnDisplayType.Number;
+					displayType = ColumnDisplayType.Decimal;
 				}
 
 				// Apply each filter
@@ -1325,7 +1348,8 @@ END`;
 					]
 				},
 				convert_to_code: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{ code_syntax_name: 'SQL' }]
 				}
 			}
 		};
@@ -1343,8 +1367,11 @@ END`;
 	 */
 	private createEmptySummaryStats(columnSchema: SchemaEntry): ColumnSummaryStats {
 		if (isNumeric(columnSchema.column_type) || columnSchema.column_type.startsWith('DECIMAL')) {
+			const displayType = columnSchema.column_type.startsWith('DECIMAL')
+				? ColumnDisplayType.Decimal
+				: getNumericDisplayType(columnSchema.column_type);
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: displayType,
 				number_stats: {}
 			};
 		} else if (columnSchema.column_type === 'VARCHAR') {
@@ -1488,6 +1515,10 @@ END`;
 			sortExprs.push(`${quotedName}${modifier}`);
 		}
 
+		// Add rowid as the final sort key to ensure stable sorting
+		// This prevents inconsistencies when there are duplicate values in the sort columns
+		sortExprs.push('rowid');
+
 		this._sortClause = `\nORDER BY ${sortExprs.join(', ')}`;
 	}
 
@@ -1573,7 +1604,7 @@ END`;
 				const columnIndex = selection.column_index;
 				const schema = this.fullSchema[columnIndex];
 				const selector = getColumnSelectors([schema])[0];
-				const query = `SELECT ${selector} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const query = `SELECT ${selector} FROM ${this.tableName}${this._whereClause}${this._sortClause} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
 				return {
 					data: result.toArray()[0][result.schema.names[0]],
@@ -1588,7 +1619,7 @@ END`;
 				const columnEnd = selection.last_column_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, columns);
 			}
@@ -1597,7 +1628,7 @@ END`;
 				const rowStart = selection.first_index;
 				const rowEnd = selection.last_index;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
@@ -1607,15 +1638,17 @@ END`;
 				const columnEnd = selection.last_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
+				const whereCondition = this._whereClause
+					? `${this._whereClause} AND rowid IN (${indices.join(', ')})`
+					: `\nWHERE rowid IN (${indices.join(', ')})`;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
-				WHERE rowid IN (${indices.join(', ')})`;
+				FROM ${this.tableName}${whereCondition}${this._sortClause}`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnIndices: {
@@ -1623,8 +1656,37 @@ END`;
 				const indices = selection.indices;
 				const columns = indices.map(i => this.fullSchema[i]);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
+			}
+			case TableSelectionKind.CellIndices: {
+				const selection = params.selection.selection as DataSelectionCellIndices;
+				const rowIndices = selection.row_indices;
+				const columnIndices = selection.column_indices;
+				const columns = columnIndices.map(i => this.fullSchema[i]);
+
+				// For CellIndices, we need to respect both the table's sort order and the specific row selection order
+				// First apply table filters and sorting to get the sorted view, then select specific rows from that
+				if (this._sortClause || this._whereClause) {
+					// Create a subquery with the sorted/filtered table, then select specific rows
+					const sortedTableQuery = `SELECT *, ROW_NUMBER() OVER(${this._sortClause || 'ORDER BY rowid'}) - 1 AS sorted_row_index
+					FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
+
+					const orderValues = rowIndices.map((rowIdx, idx) => `(${rowIdx}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM (${sortedTableQuery}) sorted_table
+					JOIN (VALUES ${orderValues}) AS row_order(sorted_row_index, selection_order) ON sorted_table.sorted_row_index = row_order.sorted_row_index
+					ORDER BY row_order.selection_order`;
+					return await exportQueryOutput(query, columns);
+				} else {
+					// No sorting/filtering, use the original simple approach
+					const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM ${this.tableName}
+					JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
+					ORDER BY row_order.sort_order`;
+					return await exportQueryOutput(query, columns);
+				}
 			}
 		}
 	}
@@ -1638,6 +1700,42 @@ END`;
 		// The count comes back as BigInt
 		const numRows = Number(result.toArray()[0].num_rows);
 		return [numRows, numColumns];
+	}
+
+	async suggestCodeSyntaxes(): RpcResponse<CodeSyntaxName> {
+		return {
+			code_syntax_name: 'SQL'
+		};
+	}
+
+	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
+		const parsedUri = vscode.Uri.parse(uri);
+		const filename = path.basename(parsedUri.path, path.extname(parsedUri.path));
+
+		// Escape any quotes in the filename to prevent SQL injection
+		const escapedFilename = filename.replace(/"/g, '""');
+		const result = ["SELECT * ", `FROM "${escapedFilename}"`];
+
+		if (this._whereClause) {
+			const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
+			result.push(whereClause);
+		}
+
+		if (this.sortKeys.length > 0) {
+			// Generate user-facing sort clause without the auxiliary rowid
+			const sortExprs = [];
+			for (const sortKey of this.sortKeys) {
+				const columnSchema = this.fullSchema[sortKey.column_index];
+				const quotedName = quoteIdentifier(columnSchema.column_name);
+				const modifier = sortKey.ascending ? '' : ' DESC';
+				sortExprs.push(`${quotedName}${modifier}`);
+			}
+			result.push(`ORDER BY ${sortExprs.join(', ')}`);
+		}
+
+		return {
+			converted_code: result
+		};
 	}
 }
 
@@ -1721,6 +1819,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			const options: Array<string> = [];
+
+			// Always treat the first row as header to avoid inference issues
+			options.push('header=true');
+
 			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
 			} else if (fileExt !== '.csv' && fileExt !== '.tsv') {
@@ -1788,7 +1890,17 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
-		const table = this._uriToTableView.get(rpc.uri.toString()) as DuckDBTableView;
+
+		// Check if table view exists, and recreate it if missing (e.g., after extension host restart)
+		let table = this._uriToTableView.get(rpc.uri.toString());
+		if (!table) {
+			// Recreate the table view by calling openDataset
+			await this.openDataset({ uri: rpc.uri });
+			table = this._uriToTableView.get(rpc.uri.toString());
+			if (!table) {
+				return `Failed to recreate table view for URI: ${rpc.uri}`;
+			}
+		}
 		switch (rpc.method) {
 			case DataExplorerBackendRequest.ExportDataSelection:
 				return table.exportDataSelection(rpc.params as ExportDataSelectionParams);
@@ -1808,6 +1920,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				return table.setSortColumns(rpc.params as SetSortColumnsParams);
 			case DataExplorerBackendRequest.SearchSchema:
 				return table.searchSchema(rpc.params as SearchSchemaParams);
+			case DataExplorerBackendRequest.SuggestCodeSyntax:
+				return table.suggestCodeSyntaxes();
+			case DataExplorerBackendRequest.ConvertToCode:
+				return table.convertToCode(rpc.params as ConvertToCodeParams, rpc.uri!);
 			case DataExplorerBackendRequest.SetColumnFilters:
 				return `${rpc.method} not yet implemented`;
 			default:

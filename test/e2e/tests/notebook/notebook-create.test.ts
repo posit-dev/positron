@@ -39,30 +39,34 @@ test.describe('Notebooks', {
 			await cleanup.removeTestFiles([newFileName]);
 		});
 
-		test('Python - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval("8**2")');
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('64');
-		});
+		test('Python - Verify code cell execution and markdown formatting in notebook', async function ({ app }) {
+			const { notebooks } = app.workbench;
 
-		test('Python - Verify markdown formatting in notebook', async function ({ app }) {
-			const randomText = Math.random().toString(36).substring(7);
+			await test.step('Verify code cell execution in notebook', async () => {
+				await notebooks.addCodeToCellAtIndex(0, 'eval("8**2")');
+				await notebooks.executeCodeInCell();
+				await notebooks.assertCellOutput('64');
+			});
 
-			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
-			await app.workbench.notebooks.stopEditingCell();
-			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
+			await test.step('Verify markdown formatting in notebook', async () => {
+				const randomText = Math.random().toString(36).substring(7);
+
+				await notebooks.insertNotebookCell('markdown');
+				await notebooks.typeInEditor(`## ${randomText} `);
+				await notebooks.stopEditingCell();
+				await notebooks.expectMarkdownTagToBe('h2', randomText);
+			});
 		});
 
 		test('Python - Save untitled notebook and preserve session', async function ({ app, runCommand }) {
-			const { notebooks, variables, layouts, quickInput } = app.workbench;
+			const { notebooks, variables, layouts, quickInput, hotKeys } = app.workbench;
 
 			// Ensure auxiliary sidebar is open to see variables pane
 			await layouts.enterLayout('notebook');
-			await runCommand('workbench.action.toggleAuxiliaryBar');
+			await hotKeys.showSecondarySidebar();
 
 			// First, create and execute a cell to verify initial session
-			await notebooks.addCodeToCellAtIndex('foo = "bar"');
+			await notebooks.addCodeToCellAtIndex(0, 'foo = "bar"');
 
 			await expect.poll(
 				async () => {
@@ -102,7 +106,7 @@ test.describe('Notebooks', {
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
-			await notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
+			await notebooks.addCodeToCellAtIndex(1, 'baz = "baz"');
 			await expect(async () => {
 				await notebooks.selectCellAtIndex(1);
 				await notebooks.executeActiveCell();
@@ -111,14 +115,12 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Ensure LSP works across cells', async function ({ app }) {
+			const { notebooks } = app.workbench;
 
-			await app.workbench.notebooks.insertNotebookCell('code');
-
-			await app.workbench.notebooks.addCodeToCellAtIndex('import torch');
-
-			await app.workbench.notebooks.insertNotebookCell('code');
-
-			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(0, 'import torch');
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(1, 'torch.rand(10)');
 
 			// toPass block seems to be needed on Ubuntu
 			await expect(async () => {
@@ -147,21 +149,21 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test('R - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('[1] 64');
-		});
+		test('R - Verify code cell execution and markdown formatting in notebook', async function ({ app }) {
+			await test.step('Verify code cell execution in notebook', async () => {
+				await app.workbench.notebooks.addCodeToCellAtIndex(0, 'eval(parse(text="8**2"))');
+				await app.workbench.notebooks.executeCodeInCell();
+				await app.workbench.notebooks.assertCellOutput('[1] 64');
+			});
 
-		test('R - Verify markdown formatting in notebook', async function ({ app }) {
-			const randomText = Math.random().toString(36).substring(7);
+			await test.step('Verify markdown formatting in notebook', async () => {
+				const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
-			await app.workbench.notebooks.stopEditingCell();
-			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
+				await app.workbench.notebooks.insertNotebookCell('markdown');
+				await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
+				await app.workbench.notebooks.stopEditingCell();
+				await app.workbench.notebooks.expectMarkdownTagToBe('h2', randomText);
+			});
 		});
 	});
 });
-
-

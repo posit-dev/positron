@@ -115,7 +115,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The Runtime is externally managed. eg. a reticulate runtime */
     private _isExternallyManaged: boolean;
 
-    dynState: positron.LanguageRuntimeDynState;
+    /** Information about the runtime that is only available after starting */
+    private _runtimeInfo?: positron.LanguageRuntimeInfo;
+
+    private dynState: positron.LanguageRuntimeDynState;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
@@ -159,6 +162,22 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
+    }
+
+    get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+        return this._runtimeInfo;
+    }
+
+    getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+        return Promise.resolve(this.dynState);
+    }
+
+    async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+        if (this._kernel) {
+            return await this._kernel.debug(request);
+        } else {
+            throw new Error(`Cannot debug; kernel not started`);
+        }
     }
 
     execute(
@@ -463,12 +482,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             });
         }
 
-        return this._kernel!.start().then((info) => {
-            if (this.kernelSpec) {
-                this.enableAutoReloadIfEnabled(info);
-            }
-            return info;
-        });
+        this._runtimeInfo = await this._kernel.start();
+        if (this.kernelSpec) {
+            this.enableAutoReloadIfEnabled(this._runtimeInfo);
+        }
+        return this._runtimeInfo;
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {

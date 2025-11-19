@@ -6,37 +6,47 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig } from './config';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createAzure } from '@ai-sdk/azure';
-import { createVertex } from '@ai-sdk/google-vertex';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createMistral } from '@ai-sdk/mistral';
-import { createOllama } from 'ollama-ai-provider';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './utils';
-import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { getMaxConnectionAttempts, getProviderTimeoutMs, ModelConfig, SecretStorage } from './config';
+import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
+import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
+import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
+import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
+import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
+import { createMistral, MistralProvider } from '@ai-sdk/mistral';
+import { createOllama, OllamaProvider } from 'ollama-ai-provider';
+import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
+import { processMessages, toAIMessage } from './utils';
+import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { AnthropicLanguageModel } from './anthropic';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { TokenUsage } from './tokens.js';
+import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
+import { PositLanguageModel } from './posit.js';
+import { applyModelFilters } from './modelFilters';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
  */
 
+export interface BedrockProviderVariables {
+	AWS_REGION?: string;
+	AWS_PROFILE?: string;
+}
+
 //#region Test Models
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
 	readonly provider = 'error';
-	readonly identifier = 'error-language-model';
+	readonly id = 'error-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
-	private readonly _message = 'This language model always throws an error message.';
+	private readonly _message = '[ErrorLanguageModel] This language model always throws an error message.';
 
 	constructor(
 		_config: ModelConfig,
-		private readonly _context?: vscode.ExtensionContext
+		private readonly _context?: vscode.ExtensionContext,
+		private readonly _storage?: SecretStorage,
 	) {
 		// No additional setup needed for error model
 	}
@@ -59,7 +69,11 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return ErrorLanguageModel.source.provider.displayName;
 	}
 
-	provideLanguageModelResponse(): Promise<any> {
+	provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+		throw new Error(this._message);
+	}
+
+	provideLanguageModelChatResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
 
@@ -70,27 +84,32 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
 		throw new Error(this._message);
 	}
+
+	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
+		throw new Error(this._message);
+	}
 }
 
 class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
-	readonly identifier = 'echo-language-model';
+	readonly id = 'echo-language-model';
+	readonly maxInputTokens = DEFAULT_MAX_TOKEN_INPUT;
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+	protected modelListing?: vscode.LanguageModelChatInformation[];
 
 	constructor(
-		_config: ModelConfig,
-		private readonly _context?: vscode.ExtensionContext
-	) {
-		// No additional setup needed for echo model
-	}
+		private readonly _config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext,
+		private readonly _storage?: SecretStorage,
+	) { }
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
 		signedIn: false,
 		provider: {
 			id: 'echo',
-			displayName: 'Echo Language Model',
+			displayName: 'Echo',
 		},
 		supportedOptions: [],
 		defaults: {
@@ -109,22 +128,32 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return EchoLanguageModel.source.provider.displayName;
 	}
 
-	async provideLanguageModelResponse(
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
+		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		return this.filterModels(models);
+	}
+
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [name: string]: any },
-		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		const message = _messages.length > 1 ? _messages[_messages.length - 2] : _messages[0]; // Get the last user message, the last message is the context
+		const message = this.getUserPrompt(_messages);
+
+		if (!message) {
+			throw new Error(`[${this.providerName}] No user prompt provided to echo language model.`);
+		}
 
 		if (typeof message.content === 'string') {
 			message.content = [{ type: 'text', text: message.content }];
 		}
 
 		if (message.content[0].type !== 'text') {
-			throw new Error('Echo language model only supports text messages.');
+			throw new Error(`[${this.providerName}] Echo language model only supports text messages.`);
 		}
 
 		const inputText = message.content[0].text;
@@ -137,6 +166,9 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		else if (inputText === 'Send R Code') {
 			response = '```r\nfoo <- 200\n```';
 		}
+		else if (inputText === 'Return model') {
+			response = model.id;
+		}
 		else {
 			// Default case: echo back the input message
 			response = inputText;
@@ -146,26 +178,21 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 		// Record token usage if context is available
 		if (this._context) {
-			const inputCount = await this.provideTokenCount(inputText, token);
-			const outputCount = await this.provideTokenCount(response, token);
-			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
-			tokenUsage = {
-				provider: this.provider,
-				inputTokens: inputCount,
-				outputTokens: outputCount,
-			};
-
+			const inputTokens = await this.provideTokenCount(model, inputText, token);
+			const outputTokens = await this.provideTokenCount(model, response, token);
+			tokenUsage = { inputTokens, outputTokens, cachedTokens: 0 };
+			recordTokenUsage(this._context, this.provider, tokenUsage);
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+				recordRequestTokenUsage(requestId, this.provider, tokenUsage);
 			}
 		}
 
 		// Output the response character by character
 		for await (const i of response.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
-			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(i) });
+			progress.report(new vscode.LanguageModelTextPart(i));
 			if (token.isCancellationRequested) {
 				return;
 			}
@@ -174,7 +201,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return { tokenUsage };
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
 		if (typeof text === 'string') {
 			return text.length;
 		} else {
@@ -183,8 +210,53 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		}
 	}
 
-	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		return Promise.resolve(undefined);
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const models = [{
+			id: this.id,
+			name: this.name,
+			family: this.provider,
+			version: '1.0.0',
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isDefault: true,
+			isUserSelectable: true,
+		}, {
+			id: 'echo-language-model-v2',
+			name: 'Echo Language Model v2',
+			family: this.provider,
+			version: '1.0.0',
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isUserSelectable: true,
+		}];
+		this.modelListing = models;
+		return models;
+	}
+
+	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
+	}
+
+	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+		if (messages.length === 0) {
+			return undefined;
+		}
+		if (messages.length === 1) {
+			return messages[0];
+		}
+		// If there are multiple messages, the last message is the user message.
+		// See defaultRequestHandler in extensions/positron-assistant/src/participants.ts for the message ordering.
+		const userPrompt = messages[messages.length - 1];
+		if (userPrompt.role !== 'user') {
+			return undefined;
+		}
+		return userPrompt;
 	}
 }
 
@@ -194,9 +266,11 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
 	public readonly provider;
-	public readonly identifier;
-	public readonly maxOutputTokens: number;
-	protected abstract model: ai.LanguageModelV1;
+	public readonly id;
+	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	protected aiOptions: Record<string, any> = {};
+
+	protected modelListing?: vscode.LanguageModelChatInformation[];
 
 	capabilities = {
 		vision: true,
@@ -206,68 +280,128 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	constructor(
 		protected readonly _config: ModelConfig,
-		protected readonly _context?: vscode.ExtensionContext
+		protected readonly _context?: vscode.ExtensionContext,
+		private readonly _storage?: SecretStorage,
 	) {
-		this.identifier = _config.id;
+		this.id = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
-		const maxOutputTokens = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {} as Record<string, number>);
-		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
-
-		// Override maxOutputTokens if specified in the configuration
-		for (const [key, value] of Object.entries(maxOutputTokens)) {
-			if (_config.model.indexOf(key) !== -1 && value) {
-				let maxOutputTokens = value;
-				if (typeof maxOutputTokens !== 'number') {
-					log.warn(`Invalid maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}); ignoring`);
-					continue;
-				}
-				if (maxOutputTokens < 512) {
-					log.warn(`Specified maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}) is too low; using 512 instead`);
-					maxOutputTokens = 512;
-				}
-				log.debug(`Setting maxOutputTokens for ${key} (${_config.model}) to ${maxOutputTokens}`);
-				this.maxOutputTokens = maxOutputTokens;
-				break;
-			}
-		}
 	}
 
 	get providerName(): string {
 		return this.providerName;
 	}
 
+	protected getMaxTokens(id: string, type: 'input' | 'output'): number {
+		const defaultTokens = type === 'input'
+			? (this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT)
+			: (this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT);
+
+		const fixedModels = availableModels.get(this._config.provider);
+		const fixedValue = type === 'input'
+			? fixedModels?.find(m => m.identifier === id)?.maxInputTokens
+			: fixedModels?.find(m => m.identifier === id)?.maxOutputTokens;
+		let maxTokens = fixedValue ?? defaultTokens;
+
+		const configKey = type === 'input' ? 'maxInputTokens' : 'maxOutputTokens';
+		const tokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get(configKey, {});
+		for (const [key, value] of Object.entries(tokensConfig)) {
+			if (id.indexOf(key) !== -1 && value) {
+				if (typeof value !== 'number') {
+					log.warn(`[${this.providerName}] Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
+					continue;
+				}
+				if (value < 512) {
+					log.warn(`[${this.providerName}] Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
+					maxTokens = 512;
+				}
+				maxTokens = value;
+				break;
+			}
+		}
+
+		log.trace(`[${this.providerName}] Setting ${configKey} for (${id}) to ${maxTokens}`);
+		return maxTokens;
+	}
+
+	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
+	}
+
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		log.debug(`[${this.providerName}] Resolving connection...`);
+
 		token.onCancellationRequested(() => {
 			return false;
 		});
 
-		try {
-			// send a test message to the model
-			const result = await ai.generateText({
-				model: this.model,
-				prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
-			});
+		let models = await this.resolveModels(token);
+		if (!models || models.length === 0) {
+			return new Error(`[${this.providerName}] No models available for provider`);
+		}
 
-			// if the model responds, the config works
-			return undefined;
-		} catch (error) {
-			if (ai.AISDKError.isInstance(error)) {
-				return new Error(error.message);
+		models = this.filterModels(models);
+		if (models.length === 0) {
+			return new Error(`[${this.providerName}] No models available after applying filters`);
+		}
+
+		const maxModelsToTest = getMaxConnectionAttempts();
+		const modelsToTest = models.slice(0, maxModelsToTest);
+
+		log.debug(`[${this.providerName}] Testing up to ${modelsToTest.length} models for connectivity...`);
+
+		const errors: string[] = [];
+
+		// Try each model until one succeeds
+		for (const modelInfo of modelsToTest) {
+			if (token.isCancellationRequested) {
+				return new Error(`[${this.providerName}] Connection test cancelled`);
 			}
-			else {
-				return new Error(JSON.stringify(error));
+
+			const model = modelInfo.id;
+
+			try {
+				log.debug(`[${this.providerName}] '${model}' Sending test message...`);
+
+				const result = await ai.generateText({
+					model: this.aiProvider(model, this.aiOptions),
+					prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
+					abortSignal: AbortSignal.timeout(getProviderTimeoutMs()),
+					maxRetries: 1, // Retry the request once in case of transient errors
+				});
+
+				log.debug(`[${this.providerName}] '${model}' Test message sent successfully.`);
+				log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
+				return undefined; // Success! At least one model is working
+			} catch (error) {
+				const messagePrefix = `[${this.providerName}] '${model}'`;
+				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
+				const errorMsg = this.parseProviderError(error) ||
+					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
+				errors.push(errorMsg);
 			}
 		}
+
+		// If we get here, all tested models failed
+		const allErrors = errors.join('; ');
+		log.error(`[${this.providerName}] All ${modelsToTest.length} tested models failed: ${allErrors}`);
+		return new Error(`[${this.providerName}] All tested models failed: ${allErrors}`);
 	}
 
-	async provideLanguageModelResponse(
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
+		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		return this.filterModels(models);
+	}
+
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
-		options: vscode.LanguageModelChatRequestOptions,
-		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
+		const aiModel = this.aiProvider(model.id);
 		const modelOptions = options.modelOptions ?? {};
 
 		const controller = new AbortController();
@@ -280,50 +414,49 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic' ||
-			this.model.modelId.startsWith('us.anthropic');
+		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
+			aiModel.modelId.includes('anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
 		//
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
-		const bedrockCacheBreakpoint = this.provider === 'bedrock' &&
-			!this.model.modelId.startsWith('us.anthropic.claude-3-5')
+		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
+			!aiModel.modelId.includes('anthropic.claude-3-5');
 
-		const aiMessages: ai.CoreMessage[] = [];
-
-		// The system message we will send to the model.
-		let systemMessage: string | undefined = modelOptions.system;
-
-		if (bedrockCacheBreakpoint && systemMessage) {
-			// Add the system prompt as the first message if we have a system
-			// prompt and cache breakpoints are enabled.
-			//
-			// This must be done in order to set a cache breakpoint for the
-			// system message. In general we prefer to send the system message
-			// using the 'system' option in streamText; see the
-			// CoreSystemMessage documentation for a detailed explanation.
-			const aiSystemMessage: ai.CoreSystemMessage = {
-				role: 'system',
-				content: systemMessage,
-			};
-			markBedrockCacheBreakpoint(aiSystemMessage);
-			aiMessages.push(aiSystemMessage);
-
-			// Consume the system message so it doesn't get sent a second time
-			systemMessage = undefined;
+		// Add system prompt from `modelOptions.system`, if provided.
+		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
+		// we can remove the `system` parameter and use the given system messages only.
+		if (modelOptions.system) {
+			processedMessages.unshift(new vscode.LanguageModelChatMessage(
+				vscode.LanguageModelChatMessageRole.System,
+				modelOptions.system
+			));
 		}
 
-		// Convert all other messages to the Vercel AI format.
-		aiMessages.push(...toAIMessage(processedMessages, toolResultExperimentalContent,
-			bedrockCacheBreakpoint));
+		// Convert all messages to the Vercel AI format.
+		const aiMessages: ai.CoreMessage[] = toAIMessage(
+			processedMessages,
+			toolResultExperimentalContent,
+			bedrockCacheBreakpoint
+		);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+				// Some providers like AWS Bedrock require a type for all tool input schemas; default to 'object' if not provided.
+				// See similar handling for Anthropic in toAnthropicTool in extensions/positron-assistant/src/anthropic.ts
+				const input_schema = tool.inputSchema as Record<string, any> ?? {
+					type: 'object',
+					properties: {},
+				};
+				if (!input_schema.type) {
+					log.warn(`[${this.providerName}] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+					input_schema.type = 'object';
+				}
 				acc[tool.name] = ai.tool({
 					description: tool.description,
-					parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
+					parameters: ai.jsonSchema(input_schema),
 				});
 				return acc;
 			}, {});
@@ -332,23 +465,26 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[vercel] Start request ${requestId} to ${this._config.name}: ${aiMessages.length} messages`);
-		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
+		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		log.debug(`[${this.providerName}] [${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
-			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
+			log.trace(`[${this.providerName}] tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
 		}
+
+		const systemMessage = aiMessages.find(m => m.role === 'system');
 		if (systemMessage) {
-			log.trace(`system: ${systemMessage.length > 100 ? `${systemMessage.substring(0, 100)}...` : systemMessage} (${systemMessage.length} chars)`);
+			const content = systemMessage.content;
+			log.trace(`[${this.providerName}] system: ${content.length > 100 ? `${content.substring(0, 100)}...` : content} (${content.length} chars)`);
 		}
-		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
+
+		log.trace(`[${this.providerName}] messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
-			model: this.model,
-			system: systemMessage,
+			model: aiModel,
 			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
+			maxTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -356,7 +492,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const flushAccumulatedTextDeltas = () => {
 			if (accumulatedTextDeltas.length > 0) {
 				const combinedText = accumulatedTextDeltas.join('');
-				log.trace(`[${this._config.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
+				log.trace(`[${this.providerName}] [${model.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
 				accumulatedTextDeltas = [];
 			}
 		};
@@ -368,42 +504,28 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			if (part.type === 'reasoning') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelTextPart(part.textDelta)
-				});
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.textDelta}`);
+				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
 			if (part.type === 'text-delta') {
 				accumulatedTextDeltas.push(part.textDelta);
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelTextPart(part.textDelta)
-				});
+				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
-				});
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
 			}
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
-				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
-				// TODO: Deal with various LLM providers' different error response formats
-				if (typeof part.error === 'string') {
-					throw new Error(part.error);
-				}
-				if ((part.error as any).responseBody) {
-					const error = (part.error as any).responseBody as string;
-					throw new Error(error);
-				}
-				throw new Error(JSON.stringify(part.error));
+				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
+				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
+				const errorMsg = this.parseProviderError(part.error) ||
+					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
+				return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 			}
 		}
 
@@ -414,69 +536,165 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`[${this.model}] (${this.identifier}) warn: ${warning}`);
+					log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
 				}
 			}
 		});
 
 		// ai-sdk provides token usage in the result but it's not clear how it is calculated
 		const usage = await result.usage;
-		const outputCount = usage.completionTokens;
-		const inputCount = usage.promptTokens;
+		const metadata = await result.providerMetadata;
+		const tokens: TokenUsage = {
+			inputTokens: usage.promptTokens,
+			outputTokens: usage.completionTokens,
+			cachedTokens: 0,
+			providerMetadata: metadata,
+		};
+
+		// Log Bedrock usage if available
+		if (metadata && metadata.bedrock && metadata.bedrock.usage) {
+			// Get the Bedrock usage object; it typically contains
+			// `cacheReadInputTokens` and `cacheWriteInputTokens`
+			const metaUsage = metadata.bedrock.usage as Record<string, any>;
+
+			// Update the usage to take into account cache hits
+			tokens.inputTokens += metaUsage.cacheWriteInputTokens || 0;
+			tokens.cachedTokens += metaUsage.cacheReadInputTokens || 0;
+
+			// Report token usage information as part of the output stream.
+			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
+			progress.report(part);
+
+			// Log the Bedrock usage
+			log.debug(`[${this.providerName}] [${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+		}
 
 		if (requestId) {
-			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+			recordRequestTokenUsage(requestId, this.provider, tokens);
 		}
 
 		if (this._context) {
-			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+			recordTokenUsage(this._context, this.provider, tokens);
 		}
 
-		const other = await result.providerMetadata;
-
-		log.info(`[vercel]: End request ${requestId}; usage: ${inputCount} input tokens, ${outputCount} output tokens`);
-
-		// Log Bedrock usage if available
-		if (other && other.bedrock && other.bedrock.usage) {
-			// Get the Bedrock usage object; it typically contains
-			// `cacheReadInputTokens` and `cacheWriteInputTokens`
-			const usage = other.bedrock.usage as Record<string, any>;
-
-			// Add the input and output tokens to the usage object
-			usage.inputTokens = inputCount;
-			usage.outputTokens = outputCount;
-
-			// Log the Bedrock usage
-			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
-		}
+		log.info(`[${this.providerName}] [vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
-		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
-		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
+		// TODO: This is a naive approximation, a model specific tokenizer should be used.
+		const len = typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+		return Math.ceil(len / 4);
+	}
+
+	/**
+	 * Parses for specific ai-sdk errors.
+	 * @param error The error object returned by the provider.
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
+	parseProviderError(error: any): string | undefined {
+		// Try to extract an API error message with ai-sdk
+		if (ai.APICallError.isInstance(error)) {
+			const responseBody = error.responseBody;
+			if (responseBody) {
+				try {
+					const json = JSON.parse(responseBody);
+					return `${json.message ?? JSON.stringify(json)}`;
+				} catch (_error) {
+					return `API Error: ${responseBody}`;
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Resolves the available language models. Each provider will have their own way of fetching the model listing.
+	 * @param token The cancellation token.
+	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
+	 */
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		log.debug(`[${this.providerName}] Resolving models...`);
+
+		const availableModelsForProvider = availableModels.get(this._config.provider);
+		if (!availableModelsForProvider || availableModelsForProvider.length === 0) {
+			log.info(`[${this.providerName}] No models available; returning default model information.`);
+			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
+			return [
+				{
+					id: aiModel.modelId,
+					name: this.name,
+					family: aiModel.provider,
+					version: aiModel.specificationVersion,
+					maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
+					maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
+					capabilities: this.capabilities,
+					isDefault: true,
+					isUserSelectable: true,
+				} satisfies vscode.LanguageModelChatInformation
+			];
+		}
+
+		const models: vscode.LanguageModelChatInformation[] = availableModelsForProvider.map(model => ({
+			id: model.identifier,
+			name: model.name,
+			family: this.provider,
+			version: this.aiProvider(model.identifier).specificationVersion,
+			maxInputTokens: 0,
+			maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+			capabilities: this.capabilities,
+			isDefault: this.isDefaultUserModel(model.identifier, model.name),
+			isUserSelectable: true,
+		} satisfies vscode.LanguageModelChatInformation));
+
+		// If no models match the default ID, make the first model the default.
+		if (models.length > 0 && !models.some(m => m.isDefault)) {
+			models[0] = {
+				...models[0],
+				isDefault: true,
+			};
+		}
+
+		this.modelListing = models;
+		return models;
+	}
+
+	protected isDefaultUserModel(id: string, name?: string): boolean {
+		const config = vscode.workspace.getConfiguration('positron.assistant');
+		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
+		if (this.provider in defaultModels) {
+			if (id.includes(defaultModels[this.provider]) || name?.includes(defaultModels[this.provider])) {
+				return true;
+			}
+		}
+		return this._config.model === id;
 	}
 }
 
 class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AnthropicProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'anthropic',
+			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
+			// use 'anthropic-api' instead to make it possible to differentiate
+			// the two.
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey'],
+		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
-			model: 'claude-3-5-sonnet-latest',
+			name: DEFAULT_ANTHROPIC_MODEL_NAME,
+			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
+			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
+		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
 	}
 
 	get providerName(): string {
@@ -484,19 +702,33 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	}
 }
 
-class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+export class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected aiProvider: OpenAIProvider;
+
+	// Model name words to filter out (case-insensitive)
+	// These models are typically not suitable for chat use cases,
+	// i.e. they may not support the /chat/completions endpoint.
+	public static readonly FILTERED_MODEL_PATTERNS = [
+		'audio',
+		'image',
+		'moderation',
+		'realtime',
+		'search',
+		'transcribe',
+		'dall-e',
+		'o3-pro',
+	] as const;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
+			name: 'OpenAI',
+			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
 			completions: true,
@@ -505,19 +737,132 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOpenAI({
+		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
-		})(this._config.model);
+			baseURL: this.baseUrl,
+		});
 	}
 
 	get providerName(): string {
 		return OpenAILanguageModel.source.provider.displayName;
 	}
+
+	get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
+		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		return this.filterModels(models);
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		log.debug(`[${this.providerName}] Resolving models...`);
+
+		const data = await this.fetchModelsFromAPI();
+		if (!data?.data || !Array.isArray(data.data)) {
+			log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
+			return undefined;
+		}
+		log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
+
+		const models = data.data.map((model: any) => ({
+			id: model.id,
+			name: model.id,
+			family: this.provider,
+			version: model.id,
+			maxInputTokens: 0,
+			maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+			capabilities: this.capabilities,
+			isDefault: this.isDefaultUserModel(model.id, model.name),
+			isUserSelectable: true,
+		} satisfies vscode.LanguageModelChatInformation));
+
+		this.modelListing = models;
+		return this.modelListing;
+	}
+
+	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		const removedModels: string[] = [];
+		const filteredModels = applyModelFilters(models, this.provider, this.providerName)
+			.filter((model: any) => {
+				const modelName = model.id.toLowerCase();
+				const shouldRemove = OpenAILanguageModel.FILTERED_MODEL_PATTERNS.some(pattern => {
+					const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
+					return regex.test(modelName);
+				});
+				if (shouldRemove) {
+					removedModels.push(model.id);
+				}
+				return !shouldRemove;
+			});
+		if (removedModels.length > 0) {
+			log.debug(`[${this.providerName}] Removed ${removedModels.length} incompatible models: ${removedModels.join(', ')}`);
+		}
+		if (filteredModels.length === 0) {
+			log.warn(`[${this.providerName}] No models remain after filtering.`);
+		} else if (filteredModels.length === 1) {
+			log.debug(`[${this.providerName}] 1 model remains after filtering: ${filteredModels[0].id}`);
+		} else {
+			log.debug(`[${this.providerName}] ${filteredModels.length} models remain after filtering: ${filteredModels.map(m => m.id).join(', ')}`);
+		}
+		return filteredModels;
+	}
+
+	private async fetchModelsFromAPI(): Promise<any> {
+		const modelsUrl = `${this.baseUrl}/models`;
+		log.info(`[${this.providerName}] Fetching models from ${modelsUrl}...`);
+
+		const response = await fetch(modelsUrl, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Bearer ${this._config.apiKey}`,
+				'Content-Type': 'application/json'
+			}
+		});
+
+		const data = await response.json();
+
+		if (!response.ok || data?.error) {
+			log.error(`[${this.providerName}] Error fetching models: ${response.status} ${response.statusText} - ${JSON.stringify(data?.error.code)}`);
+			const errorMsg = `Error fetching models: ${response.status} ${response.statusText} - ${data.error.code || JSON.stringify(data.error)}`;
+			throw new Error(errorMsg);
+		}
+
+		return data;
+	}
+}
+
+class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider {
+	// This class is identical to OpenAILanguageModel but uses a different provider ID
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'openai-compatible',
+			displayName: 'Custom Provider'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'Custom Provider',
+			model: 'openai-compatible',
+			baseUrl: 'https://localhost:1337/v1',
+			toolCalls: true,
+			completions: false,
+		},
+	};
+
+	override get providerName(): string {
+		return OpenAICompatibleLanguageModel.source.provider.displayName;
+	}
+
+	override get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
 }
 
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: MistralProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -537,10 +882,10 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createMistral({
+		this.aiProvider = createMistral({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -549,7 +894,7 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 }
 
 class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: OpenRouterProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -568,10 +913,10 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOpenRouter({
+		this.aiProvider = createOpenRouter({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -580,7 +925,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 }
 
 class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model;
+	protected aiProvider: OllamaProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -600,9 +945,10 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model, {
+		this.aiOptions = {
 			numCtx: this._config.numCtx,
-		});
+		};
+		this.aiProvider = createOllama({ baseURL: this._config.baseUrl });
 	}
 
 	get providerName(): string {
@@ -611,7 +957,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AzureOpenAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -630,10 +976,10 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createAzure({
+		this.aiProvider = createAzure({
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -642,7 +988,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 }
 
 class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: GoogleVertexProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -662,10 +1008,10 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createVertex({
+		this.aiProvider = createVertex({
 			project: this._config.project,
 			location: this._config.location,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -674,36 +1020,231 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AmazonBedrockProvider;
+	static SUPPORTED_BEDROCK_PROVIDERS = ['Anthropic'];
+	static LEGACY_MODELS_REGEX = [
+		'.*anthropic\.claude-3-opus.*',
+		'.*anthropic\.claude-3-5-sonnet.*',
+	];
+	static DEFAULT_MAX_TOKENS_INPUT = DEFAULT_MAX_TOKEN_INPUT;
+	static DEFAULT_MAX_TOKENS_OUTPUT = 8192;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'bedrock',
-			displayName: 'AWS Bedrock'
+			id: 'amazon-bedrock',
+			displayName: 'Amazon Bedrock'
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2 Bedrock',
-			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+			name: 'Claude 4 Sonnet Bedrock',
+			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
 		},
 	};
+	bedrockClient: BedrockClient;
+	inferenceProfiles: InferenceProfileSummary[] = [];
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		// Update a stale model configuration to the latest defaults
+		const models = availableModels.get('amazon-bedrock')?.map(m => m.identifier) || [];
+		if (!(_config.model in models)) {
+			_config.name = AWSLanguageModel.source.defaults.name;
+			_config.model = AWSLanguageModel.source.defaults.model;
+		}
 		super(_config, _context);
 
-		this.model = createAmazonBedrock({
+		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<BedrockProviderVariables>('bedrock', {});
+		log.debug(`[BedrockLanguageModel] positron.assistant.providerVariables.bedrock settings: ${JSON.stringify(environmentSettings)}`);
+
+		const { AWS_REGION, AWS_PROFILE }: BedrockProviderVariables = { ...process.env as BedrockProviderVariables, ...environmentSettings };
+		const region = AWS_REGION ?? 'us-east-1';
+		const profile = AWS_PROFILE ?? 'default';
+		const credentials = fromNodeProviderChain({ profile });
+
+		log.info(`[BedrockLanguageModel] Using AWS region: ${region} and profile: ${AWS_PROFILE ?? 'default'}`);
+
+		// We use ai-sdk for generating text for chat
+		this.aiProvider = createAmazonBedrock({
 			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
-			// sets the AWS region where the models are available
-			region: process.env.AWS_REGION ?? 'us-east-1',
-			credentialProvider: fromNodeProviderChain(),
-		})(this._config.model) as ai.LanguageModelV1;
+			region, // sets the AWS region where the models are available
+			credentialProvider: credentials
+		});
+
+		// We use the Bedrock SDK to retrieve the list of available models instead
+		// of a predefined list.
+		this.bedrockClient = new BedrockClient({
+			region,
+			credentials: credentials
+		});
 	}
 
 	get providerName(): string {
 		return AWSLanguageModel.source.provider.displayName;
 	}
+
+	/**
+	 * Parses the error returned by Bedrock.
+	 * @param error The error object
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
+	override parseProviderError(error: any): string | undefined {
+		const aiSdkError = super.parseProviderError(error);
+		if (aiSdkError) {
+			return aiSdkError;
+		}
+
+		if (!(error instanceof Error)) {
+			return undefined;
+		}
+
+		const name = error.name;
+		const message = error.message;
+
+		if (!message) {
+			return super.parseProviderError(error);
+		}
+
+		if (name === 'CredentialsProviderError') {
+			return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+		}
+
+		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
+	}
+
+	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
+		// means the credentials are valid.
+		log.debug(`[${this.providerName}] Resolving connection by fetching available models...`);
+		await this.resolveModels(token);
+
+		return undefined;
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const command = new ListFoundationModelsCommand();
+
+		log.info(`[${this.providerName}] Fetching available Amazon Bedrock models for these providers: ` + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
+
+		const response = await this.bedrockClient.send(command);
+		const modelSummaries = response.modelSummaries;
+
+		if (!modelSummaries || modelSummaries.length === 0) {
+			log.error(`[${this.providerName}] No Amazon Bedrock models available`);
+			return [];
+		}
+		log.info(`[${this.providerName}] Found ${modelSummaries.length} available models.`);
+
+		log.debug(`[${this.providerName}] Fetching available Amazon Bedrock inference profiles...`);
+		const inferenceResponse = await this.bedrockClient.send(new ListInferenceProfilesCommand());
+		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
+
+		if (this.inferenceProfiles.length === 0) {
+			log.error(`[${this.providerName}] No Amazon Bedrock inference profiles available`);
+			return [];
+		}
+		log.debug(`[${this.providerName}] Total inference profiles available: ${this.inferenceProfiles.length}`);
+
+		// Filter for basic eligibility before creating model objects
+		const filteredModelSummaries = this.filterModelSummaries(modelSummaries);
+		log.debug(`[${this.providerName}] ${filteredModelSummaries.length} models available (from ${modelSummaries.length} total) after removing ineligible models.`);
+
+		// Convert eligible model summaries to LanguageModelChatInformation objects
+		const models = filteredModelSummaries.map(m => {
+			const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
+			const modelInfo: vscode.LanguageModelChatInformation = {
+				id: modelId,
+				name: m.modelName ?? modelId,
+				family: 'Amazon Bedrock',
+				version: '',
+				maxInputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
+				maxOutputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT,
+				capabilities: this.capabilities,
+				isDefault: this.isDefaultUserModel(modelId, m.modelName),
+				isUserSelectable: true,
+			};
+			return modelInfo;
+		}).filter(m => {
+			if (!m.id) {
+				log.debug(`[${this.providerName}] Filtering out model without inference profile ARN: ${m.name}`);
+				return false;
+			}
+			return true;
+		});
+
+		log.debug(`[${this.providerName}] Available models after processing: ${models.map(m => m.name).join(', ')}`);
+
+		this.modelListing = models;
+		return models;
+	}
+
+	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
+	}
+
+	/**
+	 * Filter model summaries for eligibility before converting to LanguageModelChatInformation.
+	 * This handles all Bedrock-specific filtering at the source data level.
+	 */
+	private filterModelSummaries(modelSummaries: FoundationModelSummary[]): FoundationModelSummary[] {
+		return modelSummaries.filter(m => {
+			// Filter for ACTIVE models only
+			if (m.modelLifecycle?.status !== 'ACTIVE') {
+				log.debug(`[${this.providerName}] Filtering out non-ACTIVE model: ${m.modelName}`);
+				return false;
+			}
+
+			// Filter for supported Bedrock providers
+			if (!AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.includes(m.providerName as string)) {
+				log.debug(`[${this.providerName}] Filtering out unsupported provider model: ${m.modelName} (provider: ${m.providerName})`);
+				return false;
+			}
+
+			// Filter for models that support INFERENCE_PROFILE inference type
+			// INFERENCE_PROFILE doesn't exist in the Bedrock types but it can actually return it so it casts the field to string[] to avoid typescript errors
+			if (!m.inferenceTypesSupported || !(m.inferenceTypesSupported as string[]).includes('INFERENCE_PROFILE')) {
+				log.debug(`[${this.providerName}] Filtering out model without INFERENCE_PROFILE support: ${m.modelName}`);
+				return false;
+			}
+
+			// Filter out legacy models based on regex patterns using the original modelId
+			if (AWSLanguageModel.LEGACY_MODELS_REGEX.some(regex => {
+				const re = new RegExp(`${regex}`);
+				return re.test(m.modelId);
+			})) {
+				log.debug(`[${this.providerName}] Filtering out legacy model: ${m.modelName} (modelId: ${m.modelId})`);
+				return false;
+			}
+
+			// Filter out models without ARN
+			if (!m.modelArn) {
+				log.debug(`[${this.providerName}] Filtering out model without ARN: ${m.modelName}`);
+				return false;
+			}
+
+			return true;
+		});
+	}
+
+	/**
+	 * Find the inference profile ARN for a specific model.
+	 * This ensures that we can use the model and AWS will handle
+	 * routing for regions and resource allocation.
+	 *
+	 * @param modelArn the model ARN to get the inference ARN
+	 * @param inferenceProfiles profiles that the authenticated client can use
+	 * @returns the inference profile ARN or undefined if not found
+	 */
+	private findInferenceProfileForModel(modelArn: string, inferenceProfiles: InferenceProfileSummary[]): string | undefined {
+		for (const profile of inferenceProfiles) {
+			const models = profile.models?.map(m => m.modelArn);
+			if (models?.includes(modelArn)) {
+				return profile.inferenceProfileArn;
+			}
+		}
+		return undefined;
+	}
+
 }
 
 //#endregion
@@ -727,22 +1268,60 @@ export function getLanguageModels() {
 		MistralLanguageModel,
 		OllamaLanguageModel,
 		OpenAILanguageModel,
+		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
+		PositLanguageModel,
 		VertexLanguageModel,
 	];
 	return languageModels;
 }
 
-export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
+/**
+ * Creates model configurations from environment variables.
+ * Only compatible with providers that have an API key environment variable.
+ *
+ * @returns The model configurations that are configured by the environment.
+ */
+export function createModelConfigsFromEnv(): ModelConfig[] {
+	const models = getLanguageModels();
+	const modelConfigs: ModelConfig[] = [];
+
+	models.forEach(model => {
+		if ('apiKeyEnvVar' in model.source.defaults) {
+			const key = model.source.defaults.apiKeyEnvVar?.key;
+			// pragma: allowlist nextline secret
+			const apiKey = key ? process.env[key] : undefined;
+
+			if (key && apiKey) {
+				const modelConfig = {
+					id: `${model.source.provider.id}`,
+					provider: model.source.provider.id,
+					type: positron.PositronLanguageModelType.Chat,
+					name: model.source.provider.displayName,
+					model: model.source.defaults.model,
+					apiKey: apiKey,
+					// pragma: allowlist nextline secret
+					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
+				};
+				modelConfigs.push(modelConfig);
+			}
+		}
+	});
+
+	return modelConfigs;
+}
+
+// export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
+export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): positron.ai.LanguageModelChatProvider {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
-	return new providerClass(config, context);
+	return new providerClass(config, context, storage);
 }
 
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: GoogleGenerativeAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -761,12 +1340,12 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 	};
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		super(_config, _context);
-		this.model = createGoogleGenerativeAI({
+		this.aiProvider = createGoogleGenerativeAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -774,30 +1353,36 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+interface ModelDefinition {
+	name: string;
+	identifier: string;
+	maxInputTokens?: number;
+	maxOutputTokens?: number;
+}
+
 // Note: we don't query for available models using any provider API since it may return ones that are not
 // suitable for chat and we don't want the selection to be too large
-export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
+export const availableModels = new Map<string, ModelDefinition[]>(
 	[
-		['anthropic', [
+		//
+		['anthropic-api', [
 			{
-				name: 'Claude 4 Sonnet',
-				identifier: 'claude-sonnet-4-20250514',
+				name: 'Claude Sonnet 4.5',
+				identifier: 'claude-sonnet-4-5',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
-				name: 'Claude 4 Opus',
-				identifier: 'claude-opus-4-20250514',
+				name: 'Claude Opus 4.1',
+				identifier: 'claude-opus-4-1',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
-				name: 'Claude 3.7 Sonnet v1',
-				identifier: 'claude-3-7-sonnet-latest',
+				name: 'Claude Haiku 4.5',
+				identifier: 'claude-haiku-4-5',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet-latest',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]],
 		['google', [
@@ -817,7 +1402,7 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
 			},
 		]],
-		['bedrock', [
+		['amazon-bedrock', [
 			{
 				name: 'Claude 4 Sonnet Bedrock',
 				identifier: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
@@ -832,16 +1417,6 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-			{
-				name: 'Claude 3.5 Sonnet v2 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Sonnet v1 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]]
 	]

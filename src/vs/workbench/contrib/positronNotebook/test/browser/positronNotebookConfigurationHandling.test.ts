@@ -12,7 +12,7 @@ import { EditorResolverService } from '../../../../services/editor/browser/edito
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 // Mock implementation for testing static editor registration
@@ -37,7 +37,7 @@ class MockPositronNotebookContribution extends DisposableStore {
 		this._currentRegistration = this.editorResolverService.registerEditor(
 			'*.ipynb',
 			{
-				id: PositronNotebookEditorInput.EditorID,
+				id: POSITRON_NOTEBOOK_EDITOR_ID,
 				label: 'Positron Notebook',
 				priority: RegisteredEditorPriority.option
 			},
@@ -53,7 +53,6 @@ class MockPositronNotebookContribution extends DisposableStore {
 						this.instantiationService,
 						resource,
 						undefined,
-						'jupyter-notebook',
 						{ startDirty: false }
 					);
 					return { editor: editorInput };
@@ -139,7 +138,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 		// Verify editor is registered
 		let editors = editorResolverService.getEditors();
-		let positronEditor = editors.find(e => e.id === PositronNotebookEditorInput.EditorID);
+		let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
 		assert.ok(positronEditor);
 
 		// Dispose contribution
@@ -147,7 +146,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 		// Verify editor is no longer registered
 		editors = editorResolverService.getEditors();
-		positronEditor = editors.find(e => e.id === PositronNotebookEditorInput.EditorID);
+		positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
 		assert.strictEqual(positronEditor, undefined);
 	});
 });

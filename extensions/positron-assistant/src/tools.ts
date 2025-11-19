@@ -5,12 +5,13 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
+import { DirectoryStructureTool } from './tools/directoryStructureTool.js';
 import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
+import { registerNotebookTools } from './tools/notebookTools.js';
 
 
 /**
@@ -119,6 +120,7 @@ export function registerAssistantTools(
 	context.subscriptions.push(selectionEditTool);
 
 	const executeCodeTool = vscode.lm.registerTool<{
+		sessionIdentifier: string;
 		code: string;
 		language: string;
 		summary: string;
@@ -133,20 +135,25 @@ export function registerAssistantTools(
 		 *
 		 * @returns A vscode.PreparedToolInvocation object
 		 */
-		prepareInvocation2: async (options, token) => {
+		prepareInvocation: async (options, token) => {
+			const codeBlock = new vscode.MarkdownString();
+			codeBlock.appendCodeblock(options.input.code, options.input.language);
 
 			// Ask user for confirmation before proceeding
-			const result: vscode.PreparedTerminalToolInvocation = {
+			const result: vscode.PreparedToolInvocation = {
 				// The command (code to run)
-				command: options.input.code,
+				// Now a Markdown string to enable rich code block rendering
+				invocationMessage: codeBlock,
 
 				// The language (used for syntax highlighting)
-				language: options.input.language,
+				// language: options.input.language,
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
-					title: options.input.summary ?? vscode.l10n.t('Run in Console'),
-					message: ''
+					title: options.input.summary ?? vscode.l10n.t('Run Code'),
+					// Markdown string to enable rich code block rendering
+					// Standard string loses copy/apply in editor actions
+					message: codeBlock
 				},
 			};
 			return result;
@@ -195,7 +202,8 @@ export function registerAssistantTools(
 						true,  // allow incomplete input, so that incomplete statements error right away
 						positron.RuntimeCodeExecutionMode.Interactive,
 						positron.RuntimeErrorBehavior.Stop,
-						observer);
+						observer,
+						options.input.sessionIdentifier);
 
 				// Currently just the text/plain output is returned
 				const output = execResult['text/plain'];
@@ -242,11 +250,13 @@ export function registerAssistantTools(
 				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
 			}
 
-			// HACK: Return the image data as a prompt tsx part.
-			// See languageModelParts.ts for an explanation.
-			const image = new LanguageModelImage(matches[1], matches[2]);
-			const imageJson = image.toJSON();
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
+			// Return the plot image data to the model.
+			const { 1: mimeType, 2: base64Data } = matches;
+			const imageBuffer = Buffer.from(base64Data, 'base64');
+			const imageData = new Uint8Array(imageBuffer);
+			return new vscode.LanguageModelToolResult2([
+				new vscode.LanguageModelDataPart(imageData, mimeType)
+			]);
 		},
 	});
 
@@ -315,21 +325,15 @@ export function registerAssistantTools(
 				]);
 			}
 
-			// temporarily only enable for Python sessions
-			let session: positron.LanguageRuntimeSession | undefined;
-			const sessions = await positron.runtime.getActiveSessions();
-			if (sessions && sessions.length > 0) {
-				session = sessions.find(
-					(session) => session.metadata.sessionId === options.input.sessionIdentifier,
-				);
-			}
+			const session = await positron.runtime.getSession(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
 			}
 
-			if (session.runtimeMetadata.languageId !== 'python') {
+			// Enable only for R and Python sessions
+			if (session.runtimeMetadata.languageId !== 'python' && session.runtimeMetadata.languageId !== 'r') {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
@@ -352,14 +356,13 @@ export function registerAssistantTools(
 	const installPythonPackageTool = vscode.lm.registerTool<{
 		packages: string[];
 	}>(PositronAssistantToolName.InstallPythonPackage, {
-		prepareInvocation2: async (options, _token) => {
+		prepareInvocation: async (options, _token) => {
 			const packageNames = options.input.packages.join(', ');
-			const result: vscode.PreparedTerminalToolInvocation = {
+			const result: vscode.PreparedToolInvocation = {
 				// Display a generic command description rather than a specific pip command
 				// The actual implementation uses environment-aware package management (pip, conda, poetry, etc.)
 				// via the Python extension's installPackages command, not direct pip execution
-				command: `Install Python packages: ${packageNames}`,
-				language: 'text', // Not actually a bash command
+				invocationMessage: `Install Python packages: ${packageNames}`,
 				confirmationMessages: {
 					title: vscode.l10n.t('Install Python Packages'),
 					message: options.input.packages.length === 1
@@ -409,7 +412,17 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(ProjectTreeTool);
 
+	context.subscriptions.push(DirectoryStructureTool);
+
 	context.subscriptions.push(DocumentCreateTool);
+
+	// Register notebook-specific tools for notebook participant
+	// These tools enable the assistant to interact with Jupyter notebooks:
+	// - RunNotebookCells: Execute cells and retrieve outputs
+	// - AddNotebookCell: Add new code or markdown cells
+	// - UpdateNotebookCell: Update existing cell content
+	// - GetCellOutputs: Retrieve outputs from executed cells
+	registerNotebookTools(context);
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
+import { posix } from '../../../base/common/path.js';
 import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
@@ -22,6 +23,7 @@ import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { IPathService } from '../../services/path/common/pathService.js';
 
 export class TestNotebookExecutionService implements INotebookExecutionService {
 	declare readonly _serviceBrand: undefined;
@@ -114,9 +116,13 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 		throw new Error('Method not implemented.');
 	}
 	showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean> {
-		throw new Error('Method not implemented.');
+		// implement this one for runtimeSession tests
+		return Promise.resolve(true);
 	}
 	showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
+		throw new Error('Method not implemented.');
+	}
+	showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
 		throw new Error('Method not implemented.');
 	}
 }
@@ -219,7 +225,7 @@ export class TestDirectoryFileService implements IFileService {
 	canDelete(): Promise<true | Error> { return Promise.resolve(true); }
 	exists(): Promise<boolean> { return Promise.resolve(true); }
 	resolve(): Promise<IFileStatWithMetadata> { return this.stat(URI.file('/')); }
-	realpath(): Promise<URI> { return Promise.resolve(URI.file('/')); }
+	realpath(resource: URI): Promise<URI> { return Promise.resolve(resource); }
 	resolveAll(): Promise<any[]> { return Promise.resolve([]); }
 	readFile(): Promise<any> { throw new Error('Not implemented'); }
 	readFileStream(): Promise<any> { throw new Error('Not implemented'); }
@@ -236,6 +242,39 @@ export class TestDirectoryFileService implements IFileService {
 	watch(): IDisposable { return { dispose: () => { } }; }
 	getWriteEncoding(): any { throw new Error('Not implemented'); }
 	dispose(): void { }
+}
+
+export class TestPathService implements IPathService {
+	declare readonly _serviceBrand: undefined;
+
+	get path(): Promise<any> {
+		// For tests, return posix path since most tests expect Unix-like behavior
+		return Promise.resolve(posix);
+	}
+
+	get defaultUriScheme(): string {
+		return 'file';
+	}
+
+	get resolvedUserHome(): URI | undefined {
+		return URI.file('/home/test');
+	}
+
+	userHome(options: { preferLocal: true }): URI;
+	userHome(options?: { preferLocal: boolean }): Promise<URI>;
+	userHome(options?: { preferLocal: boolean }): URI | Promise<URI> {
+		return URI.file('/home/test');
+	}
+
+	hasValidBasename(resource: URI, basename?: string): Promise<boolean>;
+	hasValidBasename(resource: URI, os: any, basename?: string): boolean;
+	hasValidBasename(_resource: URI, _osOrBasename?: string | any, _basename?: string): boolean | Promise<boolean> {
+		throw new Error('Method not implemented.');
+	}
+
+	fileURI(_path: string): Promise<URI> {
+		throw new Error('Method not implemented.');
+	}
 }
 
 /**

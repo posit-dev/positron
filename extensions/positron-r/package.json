@@ -4,11 +4,14 @@
   "description": "%description%",
   "version": "0.0.2",
   "publisher": "positron",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Data Science",
+    "Debuggers"
   ],
   "main": "./out/extension.js",
   "capabilities": {
@@ -158,7 +161,14 @@
             "scope": "window",
             "type": "boolean",
             "default": false,
-            "description": "%r.configuration.restoreWorkspace.description%"
+            "description": "%r.configuration.restoreWorkspace.description%",
+            "deprecationMessage": "%r.configuration.restoreWorkspace.deprecationMessage%"
+          },
+          "positron.r.saveAndRestoreWorkspace": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%r.configuration.saveAndRestoreWorkspace.description%"
           },
           "positron.r.quietMode": {
             "scope": "window",
@@ -193,6 +203,11 @@
             "type": "boolean",
             "default": false,
             "description": "%r.configuration.workspaceSymbols.includeCommentSections.description%"
+          },
+          "positron.r.autoConvertFilePaths": {
+            "type": "boolean",
+            "default": true,
+            "description": "%r.configuration.autoConvertFilePaths.description%"
           }
         }
       },
@@ -348,6 +363,11 @@
             ],
             "default": "auto",
             "markdownDescription": "%r.configuration.defaultRepositories.description%"
+          },
+          "positron.r.packageManagerRepository": {
+            "scope": "window",
+            "type": "string",
+            "markdownDescription": "%r.configuration.packageManagerRepository.description%"
           }
         }
       }
@@ -482,7 +502,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.sourceCurrentFile",
+        "command": "r.sourceCurrentFileWithEcho",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorLangId == r && !isRPackage && !positron.hasCodeCells"
@@ -601,17 +621,17 @@
       ],
       "editor/title/run": [
         {
-          "command": "r.sourceCurrentFile",
-          "group": "navigation@0",
-          "icon": "$(play)",
-          "title": "%r.command.sourceCurrentFile.title%",
-          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
-        },
-        {
           "command": "r.sourceCurrentFileWithEcho",
           "group": "navigation@0",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFileWithEcho.title%",
+          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
+        },
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "navigation@1",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
           "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
         },
         {
@@ -730,64 +750,6 @@
       }
     ],
     "languageModelTools": [
-      {
-        "name": "getAttachedRPackages",
-        "displayName": "Get Attached R Packages",
-        "userDescription": "Get a list of the R packages being used in the current R session.",
-        "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
-        "toolReferenceName": "getAttachedRPackages",
-        "canBeReferencedInPrompt": true,
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionIdentifier": {
-              "type": "string",
-              "description": "The identifier of the R session to query for installed packages."
-            }
-          },
-          "required": [
-            "sessionIdentifier"
-          ]
-        },
-        "tags": [
-          "positron-assistant",
-          "requires-session:r"
-        ]
-      },
-      {
-        "name": "getInstalledRPackageVersions",
-        "displayName": "Get Installed R Package Versions",
-        "userDescription": "Get the version of one or more installed R packages.",
-        "modelDescription": "Given an array of R package names, returns, for each package, the version of the package that's installed in the given R session, or NULL if the package is not installed.",
-        "canBeReferencedInPrompt": true,
-        "toolReferenceName": "getInstalledRPackageVersion",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionIdentifier": {
-              "type": "string",
-              "description": "The identifier of the R session to query for installed packages."
-            },
-            "packageNames": {
-              "type": "array",
-              "description": "An array of R package names to get the version of.",
-              "items": {
-                "type": "string",
-                "description": "The name of an R package to get the version of."
-              },
-              "minItems": 1
-            }
-          },
-          "required": [
-            "sessionIdentifier",
-            "packageNames"
-          ]
-        },
-        "tags": [
-          "positron-assistant",
-          "requires-session:r"
-        ]
-      },
       {
         "name": "listPackageHelpTopics",
         "displayName": "List R Package Help Topics",
@@ -966,7 +928,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.201"
+      "ark": "0.1.217"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

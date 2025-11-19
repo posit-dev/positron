@@ -1,0 +1,285 @@
+name: "Test: E2E (RHEL)"
+
+on:
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "@:critical"
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-rhel"
+        type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: "@rhel"
+        type: string
+      report_currents:
+        required: false
+        description: "Whether or not to report results to Currents."
+        type: boolean
+        default: true
+      install_undetectable_interpreters:
+        required: false
+        description: "Whether or not to install undetectable interpreters."
+        type: boolean
+        default: false
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
+      skip_tags:
+        required: false
+        description: "Comma-separated list of tags to skip."
+        type: string
+        default: ""
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+
+  workflow_dispatch:
+    inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: choice
+        options:
+          - e2e-electron
+          - e2e-chromium
+      grep:
+        required: false
+        description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-chromium`, tests tagged with @:web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
+        default: "@:critical"
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  e2e-rhel:
+    name: ${{ inputs.display_name || 'e2e-rhel' }}
+    timeout-minutes: 120
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-rocky8-amd64:57
+      options: --user 0:0
+      # Static PAT is needed because the bot can't pass a token to the job for security reasons
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    services:
+      postgres:
+        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:57
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      RETICULATE_PYTHON: /root/.venv/bin/python
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # - name: Load secret
+      #   uses: 1password/load-secrets-action@v3
+      #   with:
+      #     # Export loaded secrets as environment variables
+      #     export-env: true
+      #   env:
+      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      #     ANTHROPIC: "op://Positron/Anthropic/credential"
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Attempt 1 - Setup Build and Compile
+        id: attempt1
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 2 - Setup Build and Compile
+        if: ${{ steps.attempt1.outcome == 'failure' }}
+        id: attempt2
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 3 - Setup Build and Compile
+        id: attempt3
+        if: ${{ steps.attempt2.outcome == 'failure' }}
+        uses: ./.github/actions/setup-build-env
+
+      - name: Fail if Retries Exhausted
+        if: ${{ steps.attempt3.outcome == 'failure' }}
+        run: exit 1
+
+      - name: Move Positron License
+        if: ${{ inputs.install_license }}
+        run: |
+          mv /positron-license /__w/positron &&
+          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        if: ${{ inputs.project == 'e2e-chromium' }}
+        run: npm run gulp node
+
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Run Playwright Tests
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
+          POSITRON_HIDDEN_R: 4.4.1
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/rhel' }}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          PW_JSON_FILE: test-results/rhel.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+        run: |
+          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
+
+          # Convert comma-separated skip_tags input into a pipe-separated string
+          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
+
+          # Build a single lookahead regex pattern
+          if [ "${{ inputs.project }}" == "e2e-electron" ]; then
+            if [ -n "$SKIP_TAGS_PATTERN" ]; then
+              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
+            else
+              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
+            fi
+          else
+            if [ -n "$SKIP_TAGS_PATTERN" ]; then
+              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN))"
+            else
+              SKIP_TAGS_REGEX=""
+            fi
+          fi
+
+          # Build the --grep-invert argument if needed
+          GREP_INVERT_ARG=""
+          if [ -n "$SKIP_TAGS_REGEX" ]; then
+            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
+          fi
+
+          # Build the --grep argument only if PW_TAGS is non-empty
+          if [ -z "${{ env.PW_TAGS }}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${{ env.PW_TAGS }}\""
+          fi
+
+          # Log the arguments
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
+
+          # Don't run this test in parallel & don't allow skipping it
+          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+
+          # Run the Playwright test command directly using eval
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
+
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-rhel-json-results
+          path: test-results/rhel.json
+          if-no-files-found: ignore
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-logs
+          path: test-logs
+          if-no-files-found: ignore

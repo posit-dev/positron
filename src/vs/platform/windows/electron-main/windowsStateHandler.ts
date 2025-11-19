@@ -375,7 +375,7 @@ export class WindowsStateHandler extends Disposable {
 		// Compute x/y based on display bounds
 		// Note: important to use Math.round() because Electron does not seem to be too happy about
 		// display coordinates that are not absolute numbers.
-		let state = defaultWindowState();
+		let state = defaultWindowState(undefined, isWorkspaceIdentifier(configuration.workspace) || isSingleFolderWorkspaceIdentifier(configuration.workspace));
 		// --- Start Positron ---
 		// If there isn't a last active window, size the window to be 3/4's of the height in a 4:3
 		// aspect ratio.

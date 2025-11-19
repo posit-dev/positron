@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Autocomplete', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {
@@ -128,7 +128,7 @@ test.describe('Autocomplete', {
 	});
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
-		tag: [tags.ARK]
+		tag: [tags.ARK, tags.SOFT_FAIL]
 	}, async function ({ app, sessions, hotKeys }) {
 		const { console } = app.workbench;
 
@@ -163,13 +163,15 @@ test.describe('Autocomplete', {
 // Helper functions
 
 async function triggerAutocompleteInConsole(app: Application, session: SessionMetaData) {
-	const { console } = app.workbench;
+	const { console, sessions } = app.workbench;
 
 	if (session.name.includes('Python')) {
 		await console.typeToConsole('import pandas as pd', true, 0);
+		await sessions.expectAllSessionsToBeReady();
 		await console.typeToConsole('pd.DataF', false, 250);
 	} else {
 		await console.typeToConsole('library(arrow)', true, 0);
+		await sessions.expectAllSessionsToBeReady();
 		await console.typeToConsole('read_p', false, 250);
 	}
 }

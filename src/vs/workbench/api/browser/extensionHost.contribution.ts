@@ -91,6 +91,9 @@ import './mainThreadAiEmbeddingVector.js';
 import './mainThreadAiSettingsSearch.js';
 import './mainThreadMcp.js';
 import './mainThreadChatStatus.js';
+import './mainThreadChatOutputRenderer.js';
+import './mainThreadChatSessions.js';
+import './mainThreadDataChannels.js';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime.js';
@@ -102,6 +105,7 @@ import './positron/mainThreadConnections.js';
 import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
 import './positron/mainThreadPlotsService.js';
+import './positron/mainThreadNotebookFeatures.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

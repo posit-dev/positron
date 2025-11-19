@@ -7,7 +7,7 @@
 import './positronModalDialogs.css';
 
 // React.
-import React from 'react';
+import React, { useState } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
@@ -18,6 +18,7 @@ import { VerticalStack } from '../../../browser/positronComponents/positronModal
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { OKCancelActionBar } from '../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
 import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
+import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
@@ -73,6 +74,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A dialog instance, with an event that fires when the user makes a selection.
 	 */
@@ -80,7 +82,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		height?: number,
 	): IModalDialogPromptInstance {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer();
@@ -98,9 +101,10 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.fire(false);
 			choiceEmitter.dispose();
 		};
+		const heightValue = height ?? 200;
 
 		renderer.render(
-			<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+			<PositronModalDialog height={heightValue} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
 				<ContentArea>
 					{renderHtml(
 						message,
@@ -202,6 +206,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A promise that resolves to true if the user clicked OK, or false
 	 *   if the user clicked Cancel.
@@ -209,10 +214,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	showSimpleModalDialogPrompt(title: string,
 		message: string,
 		okButtonTitle?: string | undefined,
-		cancelButtonTitle?: string | undefined): Promise<boolean> {
+		cancelButtonTitle?: string | undefined,
+		height?: number,
+	): Promise<boolean> {
 
 		// Show the dialog and return a promise that resolves to the user's choice.
-		const dialog = this.showModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+		const dialog = this.showModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle, height);
 		return new Promise<boolean>((resolve) => {
 			const disposable = dialog.onChoice((choice) => {
 				disposable.dispose();
@@ -242,5 +249,106 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				resolve(null);
 			});
 		});
+	}
+
+	/**
+	 * Shows a modal dialog with a text input field.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param defaultValue The default value to show in the input field (optional)
+	 * @param placeholder The placeholder text for the input field (optional)
+	 * @param timeout The maximum time to wait for user input, in seconds (optional)
+	 *
+	 * @returns A promise that resolves to the text entered by the user, or null if cancelled.
+	 */
+	showSimpleModalDialogInput(
+		title: string,
+		message: string,
+		defaultValue?: string,
+		placeholder?: string,
+		timeout?: number
+	): Promise<string | null> {
+		// Create the modal React renderer.
+		const renderer = new PositronModalReactRenderer();
+
+		// Track if dialog is resolved to prevent multiple resolutions
+		let isResolved = false;
+
+		// Promise to handle the user's input
+		let resolve: (value: string | null) => void;
+		const promise = new Promise<string | null>((res) => {
+			resolve = res;
+		});
+
+		// Helper function to resolve once and cleanup
+		const resolveOnce = (value: string | null) => {
+			if (!isResolved) {
+				isResolved = true;
+				if (timeoutId !== undefined) {
+					clearTimeout(timeoutId);
+				}
+				renderer.dispose();
+				resolve(value);
+			}
+		};
+
+		// Set up timeout if specified
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		if (timeout !== undefined && timeout > 0) {
+			timeoutId = setTimeout(() => {
+				// Timeout occurred - treat as cancellation
+				resolveOnce(null);
+			}, timeout * 1000); // Convert seconds to milliseconds
+		}
+
+		// Component to handle the input dialog
+		const InputDialogComponent = () => {
+			const [inputValue, setInputValue] = useState(defaultValue || '');
+
+			const acceptHandler = () => {
+				resolveOnce(inputValue);
+			};
+
+			const cancelHandler = () => {
+				resolveOnce(null);
+			};
+
+			return (
+				<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+					<ContentArea>
+						<VerticalStack>
+							{message && (
+								<div>
+									{renderHtml(
+										message,
+										{
+											componentOverrides: {
+												a: (props) => <ExternalLink {...props} />
+											}
+										}
+									)}
+								</div>
+							)}
+							<LabeledTextInput
+								label=""
+								value={inputValue}
+								autoFocus={true}
+								onChange={(e) => setInputValue(e.target.value)}
+								{...placeholder && { placeholder }}
+							/>
+						</VerticalStack>
+					</ContentArea>
+					<OKCancelActionBar
+						onAccept={acceptHandler}
+						onCancel={cancelHandler}
+					/>
+				</PositronModalDialog>
+			);
+		};
+
+		renderer.render(<InputDialogComponent />);
+
+		return promise;
 	}
 }

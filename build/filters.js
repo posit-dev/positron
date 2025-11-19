@@ -2,6 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+// @ts-check
 
 /**
  * Hygiene works by creating cascading subsets of all our files and
@@ -24,8 +25,10 @@ module.exports.all = [
 	'test/**/*',
 	'!cli/**/*',
 	'!out*/**',
+	'!extensions/**/out*/**',
 	'!test/**/out/**',
 	'!**/node_modules/**',
+	'!**/*.js.map',
 
 	// --- Start Positron ---
 	// Excluded since it's generated code (an OpenAPI client)
@@ -34,10 +37,6 @@ module.exports.all = [
 	// Excluded since it comes from an external source with its own hygiene
 	// rules
 	'!extensions/positron-python/**/*',
-
-	// Excluded since it comes from an external source with its own hygiene
-	// rules
-	'!extensions/open-remote-ssh/**/*',
 
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
@@ -53,6 +52,7 @@ module.exports.unicodeFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!LICENSES.chromium.html',
 	'!**/LICENSE',
+	'!**/NOTICE',
 
 	'!**/*.{dll,exe,png,bmp,jpg,scpt,cur,ttf,woff,eot,template,ico,icns,opus,wasm}',
 	'!**/test/**',
@@ -77,6 +77,7 @@ module.exports.unicodeFilter = [
 
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
+	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
 
 	// --- Start Positron ---
 	'!scripts/positron/**/*',
@@ -92,6 +93,7 @@ module.exports.indentationFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!LICENSES.chromium.html',
 	'!**/LICENSE',
+	'!**/NOTICE',
 	'!**/*.mp3',
 	'!src/vs/loader.js',
 	'!src/vs/base/browser/dompurify/*',
@@ -123,6 +125,7 @@ module.exports.indentationFilter = [
 	'!build/monaco/**',
 	'!build/win32/**',
 	'!build/checker/**',
+	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
 
 	// except multiple specific files
 	'!**/package.json',
@@ -213,6 +216,7 @@ module.exports.copyrightFilter = [
 	'!extensions/html-language-features/server/src/modes/typescript/*',
 	'!extensions/*/server/bin/*',
 	'!src/vs/editor/test/node/classification/typescript-test.ts',
+	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
 
 	// --- Start Positron ---
 	'!extensions/positron-r/resources/testing/**',

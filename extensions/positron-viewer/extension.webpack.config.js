@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const withDefaults = require('../shared.webpack.config');
+const withDefaults = require('../shared.webpack.config.mjs').default;
 
-module.exports = withDefaults({
+module.exports.default = withDefaults({
 	context: __dirname,
 	resolve: {
 		mainFields: ['module', 'main']

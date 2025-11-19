@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { StringSHA1 } from '../../../../../base/common/hash.js';
+import { hashAsync } from '../../../../../base/common/hash.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { joinPath } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -12,6 +12,7 @@ import { IEnvironmentService } from '../../../../../platform/environment/common/
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
+import { EditSuggestionId } from '../../../../../editor/common/textModelEditSource.js';
 import { WorkingSetDisplayMetadata, ModifiedFileEntryState, ISnapshotEntry } from '../../common/chatEditingService.js';
 
 const STORAGE_CONTENTS_FOLDER = 'contents';
@@ -66,11 +67,11 @@ export class ChatEditingSessionStorage {
 			if ('stops' in snapshot) {
 				return snapshot;
 			}
-			return { requestId: snapshot.requestId, stops: [{ stopId: undefined, entries: snapshot.entries }], postEdit: undefined };
+			return { requestId: snapshot.requestId, stops: [{ stopId: undefined, entries: snapshot.entries }] };
 		};
 		const deserializeChatEditingSessionSnapshot = async (startIndex: number, snapshot: IChatEditingSessionSnapshotDTO2): Promise<IChatEditingSessionSnapshot> => {
 			const stops = await Promise.all(snapshot.stops.map(deserializeChatEditingStopDTO));
-			return { startIndex, requestId: snapshot.requestId, stops, postEdit: snapshot.postEdit && await deserializeSnapshotEntriesDTO(snapshot.postEdit) };
+			return { startIndex, requestId: snapshot.requestId, stops };
 		};
 		const deserializeSnapshotEntry = async (entry: ISnapshotEntryDTO) => {
 			return {
@@ -80,7 +81,17 @@ export class ChatEditingSessionStorage {
 				current: await getFileContent(entry.currentHash),
 				state: entry.state,
 				snapshotUri: URI.parse(entry.snapshotUri),
-				telemetryInfo: { requestId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, sessionId: this.chatSessionId, result: undefined }
+				telemetryInfo: {
+					requestId: entry.telemetryInfo.requestId,
+					agentId: entry.telemetryInfo.agentId,
+					command: entry.telemetryInfo.command,
+					sessionId: this.chatSessionId,
+					result: undefined,
+					modelId: entry.telemetryInfo.modelId,
+					modeId: entry.telemetryInfo.modeId,
+					applyCodeBlockSuggestionId: entry.telemetryInfo.applyCodeBlockSuggestionId,
+					feature: entry.telemetryInfo.feature,
+				}
 			} satisfies ISnapshotEntry;
 		};
 		try {
@@ -147,39 +158,50 @@ export class ChatEditingSessionStorage {
 			}
 		}
 
-		const fileContents = new Map<string, string>();
-		const addFileContent = (content: string): string => {
-			const shaComputer = new StringSHA1();
-			shaComputer.update(content);
-			const sha = shaComputer.digest().substring(0, 7);
-			fileContents.set(sha, content);
-			return sha;
+		const contentWritePromises = new Map<string, Promise<string>>();
+
+		// saves a file content under a path containing a hash of the content.
+		// Returns the hash to represent the content.
+		const writeContent = async (content: string): Promise<string> => {
+			const buffer = VSBuffer.fromString(content);
+			const hash = (await hashAsync(buffer)).substring(0, 7);
+			if (!existingContents.has(hash)) {
+				await this._fileService.writeFile(joinPath(contentsFolder, hash), buffer);
+			}
+			return hash;
 		};
-		const serializeResourceMap = <T>(resourceMap: ResourceMap<T>, serialize: (value: T) => any): ResourceMapDTO<T> => {
-			return Array.from(resourceMap.entries()).map(([resourceURI, value]) => [resourceURI.toString(), serialize(value)]);
+		const addFileContent = async (content: string): Promise<string> => {
+			let storedContentHash = contentWritePromises.get(content);
+			if (!storedContentHash) {
+				storedContentHash = writeContent(content);
+				contentWritePromises.set(content, storedContentHash);
+			}
+			return storedContentHash;
 		};
-		const serializeChatEditingSessionStop = (stop: IChatEditingSessionStop): IChatEditingSessionStopDTO => {
+		const serializeResourceMap = async <T, U>(resourceMap: ResourceMap<T>, serialize: (value: T) => Promise<U>): Promise<ResourceMapDTO<U>> => {
+			return await Promise.all(Array.from(resourceMap.entries()).map(async ([resourceURI, value]) => [resourceURI.toString(), await serialize(value)]));
+		};
+		const serializeChatEditingSessionStop = async (stop: IChatEditingSessionStop): Promise<IChatEditingSessionStopDTO> => {
 			return {
 				stopId: stop.stopId,
-				entries: Array.from(stop.entries.values()).map(serializeSnapshotEntry)
+				entries: await Promise.all(Array.from(stop.entries.values()).map(serializeSnapshotEntry))
 			};
 		};
-		const serializeChatEditingSessionSnapshot = (snapshot: IChatEditingSessionSnapshot): IChatEditingSessionSnapshotDTO2 => {
+		const serializeChatEditingSessionSnapshot = async (snapshot: IChatEditingSessionSnapshot): Promise<IChatEditingSessionSnapshotDTO2> => {
 			return {
 				requestId: snapshot.requestId,
-				stops: snapshot.stops.map(serializeChatEditingSessionStop),
-				postEdit: snapshot.postEdit ? Array.from(snapshot.postEdit.values()).map(serializeSnapshotEntry) : undefined
+				stops: await Promise.all(snapshot.stops.map(serializeChatEditingSessionStop)),
 			};
 		};
-		const serializeSnapshotEntry = (entry: ISnapshotEntry): ISnapshotEntryDTO => {
+		const serializeSnapshotEntry = async (entry: ISnapshotEntry): Promise<ISnapshotEntryDTO> => {
 			return {
 				resource: entry.resource.toString(),
 				languageId: entry.languageId,
-				originalHash: addFileContent(entry.original),
-				currentHash: addFileContent(entry.current),
+				originalHash: await addFileContent(entry.original),
+				currentHash: await addFileContent(entry.current),
 				state: entry.state,
 				snapshotUri: entry.snapshotUri.toString(),
-				telemetryInfo: { requestId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command }
+				telemetryInfo: { requestId: entry.telemetryInfo.requestId, agentId: entry.telemetryInfo.agentId, command: entry.telemetryInfo.command, modelId: entry.telemetryInfo.modelId, modeId: entry.telemetryInfo.modeId }
 			};
 		};
 
@@ -187,20 +209,14 @@ export class ChatEditingSessionStorage {
 			const data: IChatEditingSessionDTO = {
 				version: STORAGE_VERSION,
 				sessionId: this.chatSessionId,
-				linearHistory: state.linearHistory.map(serializeChatEditingSessionSnapshot),
+				linearHistory: await Promise.all(state.linearHistory.map(serializeChatEditingSessionSnapshot)),
 				linearHistoryIndex: state.linearHistoryIndex,
-				initialFileContents: serializeResourceMap(state.initialFileContents, value => addFileContent(value)),
-				pendingSnapshot: state.pendingSnapshot ? serializeChatEditingSessionStop(state.pendingSnapshot) : undefined,
-				recentSnapshot: serializeChatEditingSessionStop(state.recentSnapshot),
+				initialFileContents: await serializeResourceMap(state.initialFileContents, value => addFileContent(value)),
+				pendingSnapshot: state.pendingSnapshot ? await serializeChatEditingSessionStop(state.pendingSnapshot) : undefined,
+				recentSnapshot: await serializeChatEditingSessionStop(state.recentSnapshot),
 			};
 
-			this._logService.debug(`chatEditingSession: Storing editing session at ${storageFolder.toString()}: ${fileContents.size} files`);
-
-			for (const [hash, content] of fileContents) {
-				if (!existingContents.has(hash)) {
-					await this._fileService.writeFile(joinPath(contentsFolder, hash), VSBuffer.fromString(content));
-				}
-			}
+			this._logService.debug(`chatEditingSession: Storing editing session at ${storageFolder.toString()}: ${contentWritePromises.size} files`);
 
 			await this._fileService.writeFile(joinPath(storageFolder, STORAGE_STATE_FILE), VSBuffer.fromString(JSON.stringify(data)));
 		} catch (e) {
@@ -236,9 +252,6 @@ export interface IChatEditingSessionSnapshot {
 	 * Invariant: never empty.
 	 */
 	readonly stops: IChatEditingSessionStop[];
-
-	/** Stop that represents changes after the last undo stop, kept for diffing purposes. */
-	readonly postEdit: ResourceMap<ISnapshotEntry> | undefined;
 }
 
 export interface IChatEditingSessionStop {
@@ -263,7 +276,6 @@ interface IChatEditingSessionSnapshotDTO {
 interface IChatEditingSessionSnapshotDTO2 {
 	readonly requestId: string | undefined;
 	readonly stops: IChatEditingSessionStopDTO[];
-	readonly postEdit: ISnapshotEntryDTO[] | undefined;
 }
 
 interface ISnapshotEntryDTO {
@@ -280,6 +292,11 @@ interface IModifiedEntryTelemetryInfoDTO {
 	readonly requestId: string;
 	readonly agentId?: string;
 	readonly command?: string;
+
+	readonly modelId?: string;
+	readonly modeId?: 'ask' | 'edit' | 'agent' | 'custom' | 'applyCodeBlock' | undefined;
+	readonly applyCodeBlockSuggestionId?: EditSuggestionId | undefined;
+	readonly feature?: string;
 }
 
 type ResourceMapDTO<T> = [string, T][];

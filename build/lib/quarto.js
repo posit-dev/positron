@@ -1,8 +1,4 @@
 "use strict";
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
- *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -42,11 +38,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getQuartoStream = getQuartoStream;
 exports.getQuarto = getQuarto;
+exports.getQuartoBinaries = getQuartoBinaries;
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 const fancy_log_1 = __importDefault(require("fancy-log"));
 const fetch_1 = require("./fetch");
 const es = __importStar(require("event-stream"));
 const gulp = require("gulp");
 const util = require("./util");
+const rename = require("gulp-rename");
+const path = require("path");
 /**
  * Get the base URL for the quarto download
  *
@@ -70,7 +73,7 @@ function getQuartoWindows(version) {
         verbose: true,
         timeoutSeconds: 90,
     })
-        .pipe(unzip());
+        .pipe(unzip({ keepEmpty: true }));
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable for macOS
@@ -150,6 +153,35 @@ function getQuarto() {
             .on('error', reject)
             .on('end', resolve);
     });
+}
+/**
+ * Helper to package the quarto binaries into a `quarto` subdirectory with
+ * the executable bit set.
+ *
+ * @returns A stream that provides the quarto binaries
+ */
+function getQuartoBinaries() {
+    return getQuartoStream()
+        // Move the Quarto binaries into a `quarto` subdirectory
+        .pipe(rename(f => { f.dirname = path.join('quarto', f.dirname || ''); }))
+        // Skip generated files that start with '._'
+        .pipe(es.mapSync((f) => {
+        if (!f.basename.startsWith('._')) {
+            return f;
+        }
+    }))
+        // Restore the executable bit on the Quarto binaries. (It's very
+        // unfortunate that gulp doesn't preserve the executable bit when
+        // copying files.)
+        .pipe(util.setExecutableBit([
+        '**/dart',
+        '**/deno',
+        '**/esbuild',
+        '**/pandoc',
+        '**/quarto',
+        '**/sass',
+        '**/typst'
+    ]));
 }
 if (require.main === module) {
     getQuarto().then(() => process.exit(0)).catch(err => {

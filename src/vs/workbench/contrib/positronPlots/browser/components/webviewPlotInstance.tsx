@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { WebviewPlotClient } from '../webviewPlotClient.js';
@@ -36,7 +36,9 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		// the parent view pane is collapsed.
 		if (props.visible) {
 			client.activate().then(() => {
-				client.claim(this);
+				// Pass the element ref so the webview gets the correct window context
+				// (important for auxiliary windows)
+				client.claim(this, webviewRef.current || undefined);
 				setClientIsClaimed(true);
 			});
 		}
@@ -46,21 +48,35 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		};
 	}, [props.plotClient, props.visible]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		// If the client is not claimed, do nothing.
 		// This is to avoid activating the client when it isn't claimed, which could happen
 		// if the previous effect is cleaned up before this one runs.
-		if (!clientIsClaimed) {
+		if (!clientIsClaimed || !webviewRef.current) {
 			return;
 		}
 
 		const client = props.plotClient;
-		client.activate().then(() => {
-			if (webviewRef.current) {
-				client.layoutWebviewOverElement(webviewRef.current);
+		const element = webviewRef.current;
+
+		// Use ResizeObserver to detect when the element gets dimensions.
+		// This is especially important in auxiliary windows where the element
+		// might not have its final dimensions immediately after mounting.
+		const resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				// Only layout if the element has non-zero dimensions
+				if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+					client.layoutWebviewOverElement(element);
+				}
 			}
 		});
-	});
+
+		resizeObserver.observe(element);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	}, [clientIsClaimed, props.plotClient]);
 
 	const style = {
 		width: `${props.width}px`,

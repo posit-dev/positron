@@ -1,3 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
+// which is licensed under the MIT license.
+
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';

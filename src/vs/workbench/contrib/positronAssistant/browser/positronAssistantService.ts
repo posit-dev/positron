@@ -8,7 +8,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -17,6 +17,31 @@ import { URI } from '../../../../base/common/uri.js';
 import * as glob from '../../../../base/common/glob.js';
 import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+
+/**
+ * PositronAssistantConfigurationService class.
+ * Broken out from PositronAssistantService to avoid a circular dependency
+ * between PositronAssistantService and ChatAgentService (through IChatService).
+ */
+export class PositronAssistantConfigurationService extends Disposable implements IPositronAssistantConfigurationService {
+	declare readonly _serviceBrand: undefined;
+	private _copilotEnabled = false;
+	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
+
+	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
+
+
+	get copilotEnabled(): boolean {
+		return this._copilotEnabled;
+	}
+
+	set copilotEnabled(value: boolean) {
+		this._copilotEnabled = value;
+		this._copilotEnabledEmitter.fire(this._copilotEnabled);
+	}
+}
+
 
 /**
  * PositronAssistantService class.
@@ -37,9 +62,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IChatService private readonly _chatService: IChatService,
 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@IProductService protected readonly _productService: IProductService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
+		@IPositronAssistantConfigurationService private readonly _assistantConfigurationService: PositronAssistantConfigurationService,
 	) {
 		super();
 	}
@@ -93,30 +120,57 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._languageModelRegistry.add(source.provider.id);
 
+		if (source.provider.id === 'copilot') {
+			this._assistantConfigurationService.copilotEnabled = !!source.signedIn;
+		}
+
 		this._onLanguageModelConfigEmitter.fire(source);
 	}
 
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._languageModelRegistry.delete(source.provider.id);
 
+		if (source.provider.id === 'copilot') {
+			this._assistantConfigurationService.copilotEnabled = false;
+		}
+
 		this._onLanguageModelConfigEmitter.fire(source);
 	}
 
 	areCompletionsEnabled(uri: URI): boolean {
-		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+		// First, check the language-specific enable setting
+		const enableSettings = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.inlineCompletions.enable');
 
-		if (!globPattern || globPattern.length === 0) {
-			return false; // No glob patterns configured, so no files are excluded
-		}
+		if (enableSettings && typeof enableSettings === 'object') {
+			// Get the language ID from the URI
+			const languageId = this._languageService.guessLanguageIdByFilepathOrFirstLine(uri);
 
-		// Check all of the glob patterns and return true if any match
-		for (const pattern of globPattern) {
-			if (glob.match(pattern, uri.path)) {
-				return true; // File matches an exclusion pattern
+			// Check if the specific language is disabled
+			if (languageId && enableSettings.hasOwnProperty(languageId) && !enableSettings[languageId]) {
+				return false; // Language is explicitly disabled
+			}
+
+			// Check if all languages are disabled via the "*" key
+			if (enableSettings.hasOwnProperty('*') && !enableSettings['*']) {
+				return false; // All languages are disabled
 			}
 		}
 
-		return false; // No patterns matched, so the file is not excluded
+		// Then, check the exclusion patterns
+		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+
+		if (!globPattern || globPattern.length === 0) {
+			return true; // No glob patterns configured, so completions are enabled
+		}
+
+		// Check all of the glob patterns and return false if any match
+		for (const pattern of globPattern) {
+			if (glob.match(pattern, uri.path)) {
+				return false; // File matches an exclusion pattern, so it is excluded from completions
+			}
+		}
+
+		return true; // No patterns matched, so completions are enabled
 	}
 
 	//#endregion
@@ -135,11 +189,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	getSupportedProviders(): string[] {
-		const providers = ['anthropic', 'copilot'];
+		const providers = ['anthropic-api', 'copilot'];
 		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
 
 		if (useTestModels) {
-			providers.push('bedrock', 'error', 'echo', 'google');
+			providers.push('amazon-bedrock', 'error', 'echo', 'google');
 		}
 		return providers;
 	}
@@ -160,6 +214,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	//#endregion
 }
+
+// Register the Positron assistant configuration service.
+registerSingleton(
+	IPositronAssistantConfigurationService,
+	PositronAssistantConfigurationService,
+	InstantiationType.Delayed
+);
 
 // Register the Positron assistant service.
 registerSingleton(

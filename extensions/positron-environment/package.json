@@ -4,6 +4,7 @@
   "description": "%description%",
   "version": "0.0.1",
   "publisher": "positron",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -32,7 +33,8 @@
             },
             "default": {
               "SF_PARTNER": "posit_positron",
-              "SPARK_CONNECT_USER_AGENT": "posit-positron"
+              "SPARK_CONNECT_USER_AGENT": "posit-positron",
+              "JUPYTER_PREFER_ENV_PATH": "1"
             },
             "description": "%environment.configuration.variables.set.description%",
             "order": 2

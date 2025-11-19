@@ -12,20 +12,24 @@ export interface Range {
 }
 
 /**
- * Creates an array from an index range.
- * @param startIndex The start index.
- * @param endIndex The end index.
- * @returns An array with the specified index range.
+ * Determines whether an array of numbers is contiguous.
+ * @param array The array of numbers.
+ * @returns true if the array is contiguous; otherwise, false.
  */
-export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
-	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
+export const isContiguous = (array: number[]) => {
+	if (array.length === 0) {
+		return false;
+	}
 
-/**
- * Performs a linear conversion from one range to another range.
- * @param value The value to convert.
- * @param from The from range.
- * @param to The to range.
- * @returns The converted value.
- */
-export const linearConversion = (value: number, from: Range, to: Range) =>
-	((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min;
+	if (array.length === 1) {
+		return true;
+	}
+
+	for (let i = 1; i < array.length; i++) {
+		if (array[i - 1] + 1 !== array[i]) {
+			return false;
+		}
+	}
+
+	return true;
+};

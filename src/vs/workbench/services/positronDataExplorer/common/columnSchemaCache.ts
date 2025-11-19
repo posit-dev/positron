@@ -11,24 +11,14 @@ import { DataExplorerClientInstance } from '../../languageRuntime/common/languag
 /**
  * Constants.
  */
-const OVERSCAN_FACTOR = 3;
-
-/**
- * Creates an array from an index range.
- * @param startIndex The start index.
- * @param endIndex The end index.
- * @returns An array with the specified index range.
- */
-const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
-	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
+const TRIM_CACHE_TIMEOUT = 3000; // 3 seconds
 
 /**
  * CacheUpdateDescriptor interface.
  */
 interface CacheUpdateDescriptor {
-	searchText?: string;
-	firstColumnIndex: number;
-	visibleColumns: number;
+	columnIndices: number[];
+	invalidateCache: boolean;
 }
 
 /**
@@ -45,12 +35,12 @@ export class ColumnSchemaCache extends Disposable {
 	/**
 	 * Gets or sets the cache update descriptor.
 	 */
-	private _cacheUpdateDescriptor?: CacheUpdateDescriptor;
+	private _pendingCacheUpdateDescriptor?: CacheUpdateDescriptor;
 
 	/**
-	 * The search text.
+	 * Gets or sets the trim cache timeout.
 	 */
-	private _searchText?: string;
+	private _trimCacheTimeout?: Timeout;
 
 	/**
 	 * Gets or sets the columns.
@@ -86,6 +76,17 @@ export class ColumnSchemaCache extends Disposable {
 		));
 	}
 
+	/**
+	 * Dispose method
+	 */
+	override dispose(): void {
+		// Clear the pending trim cache timeout
+		this.clearTrimCacheTimeout();
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region Public Properties
@@ -111,16 +112,96 @@ export class ColumnSchemaCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Updates the cache.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 * Updates the cache with the specified column indices.
+	 * @param param0 The column indices.
 	 * @returns A Promise<void> that resolves when the update is complete.
 	 */
 	async update(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
-		// Update the cache.
-		await this.doUpdateCache(cacheUpdateDescriptor);
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
+		// If there are no column indices, return.
+		if (cacheUpdateDescriptor.columnIndices.length === 0 && !cacheUpdateDescriptor.invalidateCache) {
+			return;
+		}
+
+		// If a cache update is already in progress, set the pending cache update descriptor and
+		// return. This allows cache updates that are happening in rapid succession to overwrite one
+		// another so that only the last one gets processed. (For example, this happens when a user
+		// drags a scrollbar rapidly.)
+		if (this._updatingCache) {
+			this._pendingCacheUpdateDescriptor = cacheUpdateDescriptor;
+			return;
+		}
+
+		// Set the updating cache flag.
+		this._updatingCache = true;
+
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+
+		// Set the column indices of the column schema we need to load.
+		let columnIndices: number[];
+		if (cacheUpdateDescriptor.invalidateCache) {
+			columnIndices = cacheUpdateDescriptor.columnIndices;
+		} else {
+			columnIndices = [];
+			for (const index of cacheUpdateDescriptor.columnIndices) {
+				if (!this._columnSchemaCache.has(index)) {
+					columnIndices.push(index);
+				}
+			}
+		}
+
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Invalidate the cache, if we're supposed to.
+		if (cacheUpdateDescriptor.invalidateCache) {
+			this._columnSchemaCache.clear();
+		}
+
+		// Cache the column schema that was returned.
+		for (const columnSchema of tableSchema.columns) {
+			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+		}
 
 		// Fire the onDidUpdateCache event.
 		this._onDidUpdateCacheEmitter.fire();
+
+		// Clear the updating cache flag.
+		this._updatingCache = false;
+
+		// If there is a pending cache update descriptor, update the cache for it.
+		if (this._pendingCacheUpdateDescriptor) {
+			// Get the pending cache update descriptor and clear it.
+			const pendingCacheUpdateDescriptor = this._pendingCacheUpdateDescriptor;
+			this._pendingCacheUpdateDescriptor = undefined;
+
+			// Update the cache for the pending cache update descriptor.
+			await this.update(pendingCacheUpdateDescriptor);
+		}
+
+		// Schedule trimming the cache if we didn't already invalidate the cache and we have
+		// column indices to keep. We don't want to schedule a trim if columnIndices is empty
+		// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
+		// is 0) because that would clear all cached data.
+		if (!cacheUpdateDescriptor.invalidateCache && cacheUpdateDescriptor.columnIndices.length) {
+			// Clear previously scheduled trim calls before scheduling a new one
+			// to prevent previously scheduled trim calls from clearing data that
+			// is now visible and should be in the cache. This can happen when a
+			// user is scrolling rapidly.
+			this.clearTrimCacheTimeout();
+
+			// Set the trim cache timeout.
+			this._trimCacheTimeout = setTimeout(() => {
+				// Release the trim cache timeout.
+				this._trimCacheTimeout = undefined;
+				// Trim the cache.
+				this.trimCache(new Set(cacheUpdateDescriptor.columnIndices));
+			}, TRIM_CACHE_TIMEOUT);
+		}
 	}
 
 	/**
@@ -137,98 +218,26 @@ export class ColumnSchemaCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Updates the cache.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 * Clears the trim cache timeout.
 	 */
-	private async doUpdateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
-		// If a cache update is already in progress, set the pending cache update descriptor and
-		// return. This allows cache updates that are happening in rapid succession to overwrite one
-		// another so that only the last one gets processed. (For example, this happens when a user
-		// drags a scrollbar rapidly.)
-		if (this._updatingCache) {
-			this._cacheUpdateDescriptor = cacheUpdateDescriptor;
-			return;
+	private clearTrimCacheTimeout() {
+		// If there is a trim cache timeout scheduled, clear it.
+		if (this._trimCacheTimeout) {
+			clearTimeout(this._trimCacheTimeout);
+			this._trimCacheTimeout = undefined;
 		}
+	}
 
-		// Set the updating cache flag.
-		this._updatingCache = true;
-
-		// Destructure the cache update descriptor.
-		const {
-			searchText,
-			firstColumnIndex,
-			visibleColumns,
-		} = cacheUpdateDescriptor;
-
-		// If the search text has changed, clear the column schema cache.
-		if (searchText !== this._searchText) {
-			this._columnSchemaCache.clear();
-		}
-
-		this._searchText = searchText;
-
-		// // Get the size of the data.
-		// const tableState = await this._dataExplorerClientInstance.getBackendState();
-		// this._columns = tableState.table_shape.num_columns;
-
-		// Set the start column index and the end column index of the columns to cache.
-		const startColumnIndex = Math.max(
-			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
-			0
-		);
-		const endColumnIndex = startColumnIndex +
-			visibleColumns +
-			(visibleColumns * OVERSCAN_FACTOR * 2);
-
-		// Build an array of the column indices to cache.
-		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-
-		// Build an array of the column schema indices that need to be cached.
-		const columnSchemaIndices = columnIndices.filter(columnIndex =>
-			!this._columnSchemaCache.has(columnIndex)
-		);
-
-		// Initialize the cache updated flag.
-		let cacheUpdated = false;
-
-		// If there are column schema indices that need to be cached, cache them.
-		if (columnSchemaIndices.length) {
-			// Get the schema.
-			const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
-				searchText,
-				startIndex: columnSchemaIndices[0],
-				numColumns: columnSchemaIndices[columnSchemaIndices.length - 1] -
-					columnSchemaIndices[0] + 1
-			});
-
-			// Set the columns.
-			this._columns = tableSchemaSearchResult.matching_columns;
-
-			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
-				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaSearchResult.columns[i]);
+	/**
+	 * Trims the data in the cache if the key is not in the provided list.
+	 * @param columnIndicesToKeep The array of column indices to keep in the cache.
+	 */
+	private trimCache(columnIndices: Set<number>) {
+		// Trim the column schema cache.
+		for (const columnIndex of this._columnSchemaCache.keys()) {
+			if (!columnIndices.has(columnIndex)) {
+				this._columnSchemaCache.delete(columnIndex);
 			}
-
-			// Update the cache updated flag.
-			cacheUpdated = true;
-		}
-
-		// If the cache was updated, fire the onDidUpdateCache event.
-		if (cacheUpdated) {
-			this._onDidUpdateCacheEmitter.fire();
-		}
-
-		// Clear the updating cache flag.
-		this._updatingCache = false;
-
-		// If there is a pending cache update descriptor, update the cache for it.
-		if (this._cacheUpdateDescriptor) {
-			// Get the pending cache update descriptor and clear it.
-			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
-			this._cacheUpdateDescriptor = undefined;
-
-			// Update the cache for the pending cache update descriptor.
-			await this.doUpdateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 

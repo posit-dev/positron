@@ -4,12 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-
-import { EXTENSION_ROOT_DIR } from '../constants';
 import { toLanguageModelChatMessage } from '../utils';
-
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
+import { PromptRenderer } from '../promptRender.js';
 
 export const EXPORT_QUARTO_COMMAND = 'exportQuarto';
 
@@ -22,7 +18,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const system = await fs.promises.readFile(`${mdDir}/prompts/chat/quarto.md`, 'utf8');
+	const system = PromptRenderer.renderCommandPrompt(EXPORT_QUARTO_COMMAND, request).content;
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));
@@ -32,15 +28,14 @@ export async function quartoHandler(
 	});
 	const editor = await vscode.window.showTextDocument(document);
 
-	const messages = toLanguageModelChatMessage(context.history);
-	messages.push(...[
+	const messages = [
+		new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
+		...toLanguageModelChatMessage(context.history),
 		vscode.LanguageModelChatMessage.User(vscode.l10n.t('Convert to Qmd.')),
-	]);
+	];
 
 	response.progress(vscode.l10n.t('Writing Quarto document...'));
-	const modelResponse = await request.model.sendRequest(messages, {
-		modelOptions: { system },
-	}, token);
+	const modelResponse = await request.model.sendRequest(messages, {}, token);
 
 	for await (const chunk of modelResponse.text) {
 		if (token.isCancellationRequested) {

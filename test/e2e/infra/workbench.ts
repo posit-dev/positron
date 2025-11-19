@@ -99,7 +99,7 @@ export class Workbench {
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
-		this.variables = new Variables(code, this.hotKeys);
+		this.variables = new Variables(code, this.hotKeys, this.contextMenu);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);
@@ -115,12 +115,12 @@ export class Workbench {
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts, this.console);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
+		this.clipboard = new Clipboard(code, this.hotKeys);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
-		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
+		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.welcome = new Welcome(code);
-		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code);
@@ -128,7 +128,7 @@ export class Workbench {
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new UserSettings(code, this.hotKeys);
-		this.debug = new Debug(code);
+		this.debug = new Debug(code, this.hotKeys, this.quickaccess);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);

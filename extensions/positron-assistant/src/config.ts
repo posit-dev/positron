@@ -9,6 +9,9 @@ import { getLanguageModels } from './models';
 import { completionModels } from './completion';
 import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
+import { PositronAssistantApi } from './api.js';
+import { PositLanguageModel } from './posit.js';
+import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -130,6 +133,22 @@ export async function getEnabledProviders(): Promise<string[]> {
 	return enabledProviders;
 }
 
+export function getProviderTimeoutMs(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const timeoutSec = cfg.get<number>('providerTimeout', 60);
+	return timeoutSec * 1000;
+}
+
+export function getMaxConnectionAttempts(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
+	if (maxAttempts < 1) {
+		log.warn(`Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
+		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
+	}
+	return maxAttempts;
+}
+
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers
@@ -138,12 +157,33 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const sources = [...getLanguageModels(), ...completionModels]
 		.map((provider) => {
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
-			provider.source.signedIn = !!isRegistered;
-			return provider.source;
+			return {
+				...provider.source,
+				signedIn: !!isRegistered,
+				defaults: isRegistered
+					? { ...provider.source.defaults, ...isRegistered }
+					: provider.source.defaults
+			};
 		})
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
 			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
+		})
+		.map((source) => {
+			// Resolve environment variables in apiKeyEnvVar
+			if ('apiKeyEnvVar' in source.defaults && source.defaults.apiKeyEnvVar) {
+				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
+				const envVarValue = process.env[envVarName];
+
+				return {
+					...source,
+					defaults: {
+						...source.defaults,
+						apiKeyEnvVar: { key: envVarName, signedIn: !!envVarValue }
+					},
+				};
+			}
+			return source;
 		});
 
 	// Show a modal asking user for configuration details
@@ -164,6 +204,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
 				CopilotService.instance().cancelCurrentOperation();
+				PositLanguageModel.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
@@ -217,12 +258,22 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		[...existingConfigs, newConfig]
 	);
 
-	// Register the new model
+	// Register the new model FIRST, before saving configuration
 	try {
-		// Make the model the default if it is the first one registered.
-		await registerModel(newConfig, context, storage, existingConfigs.length === 0);
+		await registerModel(newConfig, context, storage);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
+
+		// Refresh CopilotService signed-in state if this is a copilot model
+		if (newConfig.provider === 'copilot') {
+			try {
+				CopilotService.instance().refreshSignedInState();
+			} catch (error) {
+				// CopilotService might not be initialized yet, which is fine
+			}
+		}
+
+		PositronAssistantApi.get().notifySignIn(name);
 
 		vscode.window.showInformationMessage(
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
@@ -253,11 +304,17 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 			case 'copilot':
 				await CopilotService.instance().signIn();
 				break;
+			case 'posit-ai':
+				await PositLanguageModel.signIn(storage);
+				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
 		}
 
 		await saveModel(userConfig, sources, storage, context);
+
+		PositronAssistantApi.get().notifySignIn(userConfig.provider);
+
 	} catch (error) {
 		if (error instanceof vscode.CancellationError) {
 			return;
@@ -274,6 +331,9 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 		switch (userConfig.provider) {
 			case 'copilot':
 				oauthCompleted = await CopilotService.instance().signOut();
+				break;
+			case 'posit-ai':
+				oauthCompleted = await PositLanguageModel.signOut(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));
@@ -333,6 +393,15 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	clearTokenUsage(context, targetConfig.provider);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+
+	// Refresh CopilotService signed-in state if this was a copilot model
+	if (targetConfig.provider === 'copilot') {
+		try {
+			CopilotService.instance().refreshSignedInState();
+		} catch (error) {
+			// CopilotService might not be initialized yet, which is fine
+		}
+	}
 }
 
 export function logStoredModels(context: vscode.ExtensionContext): void {

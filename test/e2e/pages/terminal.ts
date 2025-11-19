@@ -25,6 +25,7 @@ export class Terminal {
 		await this.terminalTab.click();
 	}
 
+	// Note, this doesn't work for Windows
 	async waitForTerminalText(
 		terminalText: string,
 		options: {
@@ -136,13 +137,15 @@ export class Terminal {
 	 * @param action Which action to perform on the context menu
 	 */
 	async handleContextMenu(locator: Locator, action: 'Select All' | 'Copy' | 'Paste') {
-		await locator.click({ button: 'right' });
+		try {
+			await locator.click({ button: 'right', timeout: 2000 });
+		} catch { }
 		const menu = this.code.driver.page.locator('.monaco-menu');
 
 		// dismissing dialog can be erratic, allow retries
 		for (let i = 0; i < 4; i++) {
 			try {
-				await menu.locator(`[aria-label="${action}"]`).click();
+				await menu.locator(`[aria-label="${action}"]`).click({ timeout: 2000 });
 				await expect(menu).toBeHidden({ timeout: 2000 });
 				break;
 			} catch {

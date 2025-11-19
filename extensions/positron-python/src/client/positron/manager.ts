@@ -143,14 +143,23 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 return { path: undefined, isImmediate };
             }
         } else if (await hasFiles(['.venv/**/*'])) {
-            interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+            interpreterPath =
+                os.platform() === 'win32'
+                    ? path.join(workspaceUri.fsPath, '.venv', 'Scripts', 'python.exe')
+                    : path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
             isImmediate = true;
         } else if (await hasFiles(['.conda/**/*'])) {
-            interpreterPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+            interpreterPath =
+                os.platform() === 'win32'
+                    ? path.join(workspaceUri.fsPath, '.conda', 'Scripts', 'python.exe')
+                    : path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
             isImmediate = true;
-        } else if (await hasFiles(['*/bin/python'])) {
-            // if we found */bin/python but not .venv or .conda, use the first one we find
-            const files = await vscode.workspace.findFiles('*/bin/python', '**/node_modules/**');
+        } else if (await hasFiles(['*/bin/python', '*/Scripts/python.exe'])) {
+            // if we found */bin/python or */Scripts/python.exe but not .venv or .conda, use the first one we find
+            const files = await vscode.workspace.findFiles(
+                os.platform() === 'win32' ? '*/Scripts/python.exe' : '*/bin/python',
+                '**/node_modules/**',
+            );
             if (files.length > 0) {
                 interpreterPath = files[0].fsPath;
                 isImmediate = true;
@@ -276,6 +285,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // displayed to fill the webview.
             env.PLOTLY_RENDERER = 'browser';
         }
+        // For debugging notebook cells: https://github.com/microsoft/debugpy/issues/869
+        env.PYDEVD_IPYTHON_COMPATIBLE_DEBUGGING = '1';
         const kernelSpec: JupyterKernelSpec = {
             argv: args,
             display_name: `${runtimeMetadata.runtimeName}`,
@@ -433,7 +444,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             if (sessionsToShutdown.length > 0) {
                 traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
                 await Promise.all(
-                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
+                    sessionsToShutdown.map(async (session) => {
+                        session.shutdown(positron.RuntimeExitReason.Shutdown);
+                    }),
                 );
                 // Remove the runtime from our registry so we can recreate it
                 this.registeredPythonRuntimes.delete(pythonPath);

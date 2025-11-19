@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Error indicator shown when a widget fails to render.
+ * Displays a small error icon with tooltip explaining the failure.
+ */
+.action-bar-widget-error {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vscode-errorForeground);
+	cursor: help;
+}
+
+.action-bar-widget-error .codicon {
+	font-size: 12px;
+}

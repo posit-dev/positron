@@ -17,6 +17,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -50,6 +51,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -113,6 +115,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
+	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _lastUsed: number = 0;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
@@ -143,6 +146,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		private readonly _commandService: ICommandService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
+		private readonly _pathService: IPathService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape,
 		private readonly _openerService: IOpenerService
 	) {
@@ -155,7 +159,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			busy: false,
 			// If the session is a notebook session, set the current notebook URI
 			// to dynamic data so that it can be displayed in the UI.
-			currentNotebookUri: metadata.notebookUri || undefined,
+			currentNotebookUri: metadata.notebookUri,
 			currentWorkingDirectory: '',
 			...initialState.dynState,
 		};
@@ -234,9 +238,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 
-				let file = URI.parse(ed.file);
-				if (!file.scheme) {
-					// If the URI doesn't have a scheme, assume it's a file URI
+				let file;
+				if (ed.kind === 'uri') {
+					file = URI.parse(ed.file);
+				} else {
 					file = URI.file(ed.file);
 				}
 
@@ -248,7 +253,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
 				// Open a workspace
 				const ws = ev.data as OpenWorkspaceEvent;
-				const uri = URI.file(ws.path);
+				const uri = URI.from({
+					scheme: this._pathService.defaultUriScheme,
+					path: ws.path
+				});
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
@@ -362,6 +370,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	}
 
 	/**
+	 * Returns the information about the runtime that is only available after starting
+	 */
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
+	/**
 	 * Returns the current set of client instances
 	 */
 	get clientInstances(): IRuntimeClientInstance<any, any>[] {
@@ -453,6 +468,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
 		return this._proxy.$isCodeFragmentComplete(this.handle, code);
+	}
+
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return this._proxy.$callMethod(this.handle, method, args);
 	}
 
 	/** Create a new client inside the runtime */
@@ -614,6 +633,9 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	start(): Promise<ILanguageRuntimeInfo> {
 		return new Promise((resolve, reject) => {
 			this._proxy.$startLanguageRuntime(this.handle).then((info) => {
+				// Store the runtime information.
+				this._runtimeInfo = info;
+
 				// Update prompts in case user has customised them. Trim
 				// trailing whitespace as the rendering code adds its own
 				// whitespace.
@@ -1157,7 +1179,14 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 */
 	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
-		const messageId = generateUuid();
+		let messageId;
+		if ((request as any)?.id) {
+			// If the request already has an id field, use it as id. This is typically
+			// the case with nested JSON-RPC messages.
+			messageId = (request as any).id;
+		} else {
+			messageId = generateUuid();
+		}
 
 		// Add the promise to the list of pending RPCs.
 		const pending = new PendingRpc<T>(responseKeys);
@@ -1339,7 +1368,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	public override dispose(): void {
 		// Cancel any pending RPCs
 		for (const [id, pending] of this._pendingRpcs) {
-			pending.error(new Error('The language runtime exited before the RPC completed.'));
+			pending.error(new Error(`The language runtime exited before RPC completed for client '${this.getClientId()}'.`));
 			this.deletePendingRpc(id);
 		}
 
@@ -1400,6 +1429,7 @@ export class MainThreadLanguageRuntime
 		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPathService private readonly _pathService: IPathService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -1477,16 +1507,16 @@ export class MainThreadLanguageRuntime
 		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
-		this.findSession(handle).handleRuntimeMessage(message.value, handled);
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this.findSession(sessionId).handleRuntimeMessage(message.value, handled);
 	}
 
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findSession(handle).emitState(clock, state);
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void {
+		this.findSession(sessionId).emitState(clock, state);
 	}
 
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
-		this.findSession(handle).emitExit(exit);
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void {
+		this.findSession(sessionId).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime
@@ -1499,24 +1529,49 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
-	$getActiveSessions(): Promise<IRuntimeSessionMetadata[]> {
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]> {
 		return Promise.resolve(
 			this._runtimeSessionService.getActiveSessions().map(
-				activeSession => activeSession.session.metadata));
+				activeSession => this.toActiveSessionMetadata(activeSession.session)!));
 	}
 
-	$getForegroundSession(): Promise<string | undefined> {
-		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
+	toActiveSessionMetadata(session?: ILanguageRuntimeSession): ActiveRuntimeSessionMetadata | undefined {
+		if (!session) {
+			return undefined;
+		}
+		return {
+			metadata: session.metadata,
+			runtimeMetadata: session.runtimeMetadata,
+		};
 	}
 
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined> {
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.foregroundSession;
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
 		// Get the session for the notebook URI
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
 
-		return Promise.resolve(session?.sessionId);
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState> {
+		const session = this.findSession(sessionId);
+		return Promise.resolve(session.dynState);
+	}
+
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any> {
+		const session = this.findSession(sessionId);
+		return session.callMethod(method, args);
 	}
 
 	// Called by the extension host to select a previously registered language runtime
@@ -1554,26 +1609,26 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartSession(handle: number): Promise<void> {
+	$restartSession(sessionId: string): Promise<void> {
 		return this._runtimeSessionService.restartSession(
-			this.findSession(handle).sessionId,
+			sessionId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
 	// Called by the extension host to interrupt a running session
-	$interruptSession(handle: number): Promise<void> {
-		return this._runtimeSessionService.interruptSession(
-			this.findSession(handle).sessionId);
+	$interruptSession(sessionId: string): Promise<void> {
+		return this._runtimeSessionService.interruptSession(sessionId);
 	}
 
-	$focusSession(handle: number): void {
-		return this._runtimeSessionService.focusSession(
-			this.findSession(handle).sessionId
-		);
+	$focusSession(sessionId: string): void {
+		return this._runtimeSessionService.focusSession(sessionId);
 	}
 
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$deleteSession(sessionId: string): Promise<boolean> {
+		return this._runtimeSessionService.deleteSession(sessionId);
+	}
+
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1602,8 +1657,7 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1644,8 +1698,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	$executeCode(languageId: string,
-		code: string,
 		extensionId: string,
+		sessionId: string | undefined,
+		code: string,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
@@ -1661,7 +1716,23 @@ export class MainThreadLanguageRuntime
 		};
 
 		return this._positronConsoleService.executeCode(
-			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+	}
+
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${id}`));
+		}
+		return Promise.resolve(session.execute(code, id, mode, errorBehavior));
+	}
+
+	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${sessionId}`));
+		}
+		return Promise.resolve(session.shutdown(exitReason));
 	}
 
 	public dispose(): void {
@@ -1784,16 +1855,24 @@ export class MainThreadLanguageRuntime
 			this._commandService,
 			this._notebookService,
 			this._editorService,
+			this._pathService,
 			this._proxy,
 			this._openerService);
 	}
 
-	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
-		const session = this._sessions.get(handle);
-		if (!session) {
-			throw new Error(`Unknown language runtime session handle: ${handle}`);
+	/**
+	 * Finds a language runtime session by its ID.
+	 *
+	 * @param sessionId The ID of the session to find.
+	 * @returns The found language runtime session.
+	 * @throws An error if the session ID is not known.
+	 */
+	private findSession(sessionId: string): ExtHostLanguageRuntimeSessionAdapter {
+		for (const session of this._sessions.values()) {
+			if (session.sessionId === sessionId) {
+				return session;
+			}
 		}
-
-		return session;
+		throw new Error(`Unknown language runtime session ID: ${sessionId}`);
 	}
 }

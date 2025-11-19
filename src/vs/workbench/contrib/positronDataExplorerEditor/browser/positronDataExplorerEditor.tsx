@@ -28,8 +28,6 @@ import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
-import { checkDataExplorerConvertToCodeEnabled, DATA_EXPLORER_CONVERT_TO_CODE } from '../../../services/positronDataExplorer/common/positronDataExplorerConvertToCodeConfig.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
@@ -220,7 +218,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -257,15 +254,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isRowFilteringContextKey = POSITRON_DATA_EXPLORER_IS_ROW_FILTERING.bindTo(
 			this._group.scopedContextKeyService
 		);
-
-		// Listen for configuration changes to the convert to code setting and update the context key accordingly.
-		this._register(this._configurationService.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration(DATA_EXPLORER_CONVERT_TO_CODE)) {
-				this._isConvertToCodeEnabledContextKey.set(
-					checkDataExplorerConvertToCodeEnabled(this._configurationService)
-				);
-			}
-		}));
 	}
 
 	/**
@@ -288,27 +276,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * @param parent The parent HTML element.
 	 */
 	protected override createEditor(parent: HTMLElement): void {
-		// Create the focus tracker.
-		const focusTracker = this._register(DOM.trackFocus(parent));
-
-		// Add the onDidFocus event handler.
-		this._register(focusTracker.onDidFocus(() => {
-			// If there is an identifier, meaning there is an input, set the focused Positron data
-			// explorer.
-			if (this._identifier) {
-				this._positronDataExplorerService.setFocusedPositronDataExplorer(this._identifier);
-			}
-		}));
-
-		// Add the onDidBlur event handler.
-		this._register(focusTracker.onDidBlur(() => {
-			// If there is an identifier, meaning there is an input, clear the focused Positron data
-			// explorer.
-			if (this._identifier) {
-				this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
-			}
-		}));
-
 		// Append the Positron data explorer container.
 		parent.appendChild(this._positronDataExplorerContainer);
 	}
@@ -360,7 +327,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					const convertToCode = backendState.supported_features.convert_to_code;
 
 					this._isConvertToCodeEnabledContextKey.set((
-						convertToCode.support_status === SupportStatus.Supported) && checkDataExplorerConvertToCodeEnabled(this._configurationService)
+						convertToCode.support_status === SupportStatus.Supported)
 					);
 					this._codeSyntaxesAvailableContextKey.set(
 						!!(convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0)
@@ -442,15 +409,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	override clearInput(): void {
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
-
-		// If there is an identifier, clear it.
-		if (this._identifier) {
-			// Clear the focused Positron data explorer.
-			this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
-
-			// Clear the identifier.
-			this._identifier = undefined;
-		}
 
 		// Call the base class's method.
 		super.clearInput();

@@ -120,8 +120,12 @@
 	color: var(--vscode-disabledForeground);
 }
 
-#model-tos {
+#model-tos, .language-model-external-api-key {
 	font-size: 0.7rem;
+}
+
+.language-model-external-api-key > p {
+	margin-bottom: 0;
 }
 
 #model-tos a {
@@ -137,4 +141,8 @@
 
 .language-model-modal-dialog .content-area {
 	padding: 16px 16px 0 16px;
+}
+
+.language-model-error.error-msg {
+	word-break: break-word;
 }

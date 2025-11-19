@@ -71,7 +71,38 @@
        "command": "workbench.action.minimizePanel" // View: Minimize Bottom Panel
     },
 	{
+        "key": "cmd+j v",
+        "command": "workbench.action.restorePanel" // Restore Bottom Panel
+    },
+	{
         "key": "cmd+j q",
         "command": "workbench.action.files.openFolder" // Open Folder
-    }
+    },
+    {
+        "key": "cmd+j z",
+        "command": "workbench.action.positronDataExplorer.collapseSummary" // Collapse the Summary Panel in DE
+    },
+    {
+        "key": "cmd+j y",
+        "command": "workbench.action.positronDataExplorer.expandSummary" // Show the Summary Panel in DE
+    },
+    {
+        "key": "cmd+j m",
+        "command": "workbench.action.positronDataExplorer.summaryOnRight" // Move the DE Summary Panel to the right side
+    },
+    {
+        "key": "cmd+j t",
+        "command": "workbench.action.terminal.killAll" // Kill all terminals
+    },
+    {
+        "key": "cmd+j d",
+        "command": "positronNotebook.selectKernel" // Select Notebook Kernel
+    },
+    {
+        "key": "cmd+j s",
+        "command": "workbench.debug.viewlet.action.removeAllBreakpoints" // Debugger: Clear All Breakpoints
+    },    {
+        "key": "cmd+l a",
+        "command": "notebook.debugCell" // Debugger: Debug Cell
+    },
 ]

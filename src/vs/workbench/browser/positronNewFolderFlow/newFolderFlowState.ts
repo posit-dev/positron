@@ -970,7 +970,8 @@ export class NewFolderFlowStateManager
 		// Once the runtime startup is complete, we can return the filtered list of interpreters.
 		const langId = this._getLangId();
 		let runtimesForLang = this._services.languageRuntimeService.registeredRuntimes
-			.filter(runtime => runtime.languageId === langId);
+			.filter(runtime => runtime.languageId === langId)
+			.filter(runtime => runtime.extraRuntimeData?.supported ?? true);
 
 		// If we're creating a new Python environment, only return Global runtimes.
 		if (langId === LanguageIds.Python

@@ -8,11 +8,11 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode } from './positronDataExplorerComm.js';
+import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode, SearchSchemaSortOrder, SearchSchemaResult, ColumnFilterType, TextSearchType } from './positronDataExplorerComm.js';
 
 /**
- * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
- * becomespart of the PositronDataExplorerComm.
+ * TableSchemaSearchResult interface. This is here temporarily until searching the table schema
+ * becomes part of the PositronDataExplorerComm.
  */
 export interface TableSchemaSearchResult {
 	/**
@@ -63,6 +63,7 @@ export interface IDataExplorerBackendClient extends Disposable {
 	onDidReturnColumnProfiles: Event<ReturnColumnProfilesEvent>;
 	getState(): Promise<BackendState>;
 	getSchema(columnIndices: Array<number>): Promise<TableSchema>;
+	searchSchema(filters: Array<ColumnFilter>, sortOrder: SearchSchemaSortOrder): Promise<SearchSchemaResult>;
 	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
@@ -283,21 +284,31 @@ export class DataExplorerClientInstance extends Disposable {
 		return this._backendClient.clientId;
 	}
 
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions(): FormatOptions {
+		return this._profileFormatOptions;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Methods
 
 	/**
 	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current backend state.
+	 * @returns A promise that resolves to the current backend state.
 	 */
-	async getBackendState(): Promise<BackendState> {
+	async getBackendState(waitForCompletedTasks?: boolean): Promise<BackendState> {
 		if (this._backendPromise) {
 			// If there is a request for the state pending
 			return this._backendPromise;
 		} else if (this.cachedBackendState === undefined) {
 			// The state is being requested for the first time
 			return this.updateBackendState();
+		} else if (this._numPendingTasks > 0 && waitForCompletedTasks) {
+			// There are pending tasks, so refresh the state
+			return this.updateBackendState(waitForCompletedTasks);
 		} else {
 			// The state was previously computed
 			return this.cachedBackendState;
@@ -306,11 +317,35 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Requests a fresh update of the backend state and fires event to notify state listeners.
+	 * Ensures all in-flight backend tasks complete before getting the state.
 	 * @returns A promise that resolves to the latest table state.
 	 */
-	async updateBackendState(): Promise<BackendState> {
+	async updateBackendState(waitForCompletedTasks?: boolean): Promise<BackendState> {
 		if (this._backendPromise) {
 			return this._backendPromise;
+		}
+
+		// If there are pending tasks, wait for them to complete first
+		if (this._numPendingTasks > 0 && waitForCompletedTasks) {
+			// Wait for the status to become Idle
+			await new Promise<void>((resolve, reject) => {
+				const timeout = 30000;
+
+				const disposable = this.onDidStatusUpdate(status => {
+					if (status === DataExplorerClientStatus.Idle) {
+						disposable.dispose();
+						clearTimeout(timeoutHandle);
+						resolve();
+					}
+				});
+
+				// Don't wait indefinitely; reject after timeout
+				const timeoutHandle = setTimeout(() => {
+					disposable.dispose();
+					const timeoutSeconds = Math.round(timeout / 100) / 10;
+					reject(new Error(`Waiting for pending tasks timed out after ${timeoutSeconds} seconds`));
+				}, timeout);
+			});
 		}
 
 		this._backendPromise = this.runBackendTask(
@@ -375,7 +410,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Search the columns finding every matching one.
 		const columns = tableSchema.columns.filter(columnSchema =>
-			!options.searchText ? true : columnSchema.column_name.trim().toLocaleLowerCase().includes(options.searchText.trim().toLocaleLowerCase())
+			!options.searchText ? true : columnSchema.column_name.includes(options.searchText)
 		);
 
 		// Return the result.
@@ -383,6 +418,45 @@ export class DataExplorerClientInstance extends Disposable {
 			matching_columns: columns.length,
 			columns: columns.slice(options.startIndex, options.numColumns)
 		};
+	}
+
+	/**
+	 * This is the new search method that is used by the summary panel.
+	 *
+	 * This method utilizes the backend search_schema method and is intentionally
+	 * kept separate from the existing searchSchema method to avoid changing the
+	 * column filtering functionality that is currently implemented.
+	 *
+	 * @param options The search options.
+	 * @param options.searchText The search text, if any, to filter the schema by.
+	 * @param options.sortOption The sort option to apply to the search results, defaults to SearchSchemaSortOrder.Original.
+	 * @returns A promise that resolves to an array of matching column indices.
+	 */
+	async searchSchema2(options: {
+		searchText?: string;
+		sortOption?: SearchSchemaSortOrder;
+	}): Promise<SearchSchemaResult> {
+		// Use the provided sort order or default to Original
+		const sortOrder = options.sortOption ?? SearchSchemaSortOrder.Original;
+
+		// If we have search text, create a text search filter
+		const filters: ColumnFilter[] = [];
+		const trimmedSearchText = options.searchText?.trim();
+		if (trimmedSearchText) {
+			filters.push({
+				filter_type: ColumnFilterType.TextSearch,
+				params: {
+					search_type: TextSearchType.Contains,
+					term: trimmedSearchText,
+					case_sensitive: false
+				}
+			});
+		}
+
+		return this.runBackendTask(
+			() => this._backendClient.searchSchema(filters, sortOrder),
+			() => ({ matches: [] })
+		);
 	}
 
 	/**
@@ -518,7 +592,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the converted code.
 	 */
 	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<ConvertedCode> {
-		const state = await this.getBackendState();
+		const state = await this.getBackendState(true);
 		await this.isSyntaxSupported(desiredSyntax, state);
 
 		const columnFilters: Array<ColumnFilter> = state.column_filters;

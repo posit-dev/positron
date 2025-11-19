@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 // --- End Positron ---
 
+import * as path from 'path';
 import { ICommandManager, IDocumentManager } from '../../common/application/types';
 import { Commands } from '../../common/constants';
 import '../../common/extensions';
@@ -45,6 +46,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 this.disposableRegistry.push(
                     this.commandManager.registerCommand(cmd as any, async (file: Resource) => {
                         traceVerbose(`Attempting to run Python file`, file?.fsPath);
+                        const trigger = cmd === Commands.Exec_In_Terminal ? 'command' : 'icon';
+                        const newTerminalPerFile = cmd === Commands.Exec_In_Separate_Terminal;
 
                         if (useEnvExtension()) {
                             try {
@@ -52,6 +55,14 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                             } catch (ex) {
                                 traceError('Failed to execute file in terminal', ex);
                             }
+                            sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, {
+                                trigger: 'run-in-terminal',
+                            });
+                            sendTelemetryEvent(EventName.EXECUTION_CODE, undefined, {
+                                scope: 'file',
+                                trigger,
+                                newTerminalPerFile,
+                            });
                             return;
                         }
 
@@ -67,9 +78,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                             trigger: 'run-in-terminal',
                         });
                         triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
-                        const trigger = cmd === Commands.Exec_In_Terminal ? 'command' : 'icon';
+
                         await this.executeFileInTerminal(file, trigger, {
-                            newTerminalPerFile: cmd === Commands.Exec_In_Separate_Terminal,
+                            newTerminalPerFile,
                         })
                             .then(() => {
                                 if (this.shouldTerminalFocusOnStart(file))
@@ -82,17 +93,22 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         );
         // --- Start Positron ---
         this.disposableRegistry.push(
-            this.commandManager.registerCommand(Commands.Exec_In_Console as any, async () => {
-                // Get the active text editor.
-                // We get the editor here, rather than passing it in, because passing it in also
-                // confuses the Positron Console for a file
-                const editor = vscode.window.activeTextEditor;
-                if (!editor) {
-                    // No editor; nothing to do
-                    return;
+            this.commandManager.registerCommand(Commands.Exec_In_Console as any, async (resource?: Uri) => {
+                let filePath: string | undefined;
+
+                if (resource) {
+                    // Use the provided resource URI (from editor action bar button)
+                    filePath = resource.fsPath;
+                } else {
+                    // Fall back to active text editor (from command palette or other invocations)
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        // No editor; nothing to do
+                        return;
+                    }
+                    filePath = editor.document.uri.fsPath;
                 }
 
-                const filePath = editor.document.uri.fsPath;
                 if (!filePath) {
                     // File is unsaved; show a warning
                     vscode.window.showWarningMessage('Cannot source unsaved file.');
@@ -101,7 +117,16 @@ export class CodeExecutionManager implements ICodeExecutionManager {
 
                 // Save the file before sourcing it to ensure that the contents are
                 // up to date with editor buffer.
-                await vscode.commands.executeCommand('workbench.action.files.save');
+                if (resource) {
+                    // Save the specific document
+                    const document = await vscode.workspace.openTextDocument(resource);
+                    if (document.isDirty) {
+                        await document.save();
+                    }
+                } else {
+                    // Save the active editor
+                    await vscode.commands.executeCommand('workbench.action.files.save');
+                }
 
                 try {
                     // Check to see if the fsPath is an actual path to a file using
@@ -117,7 +142,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     // For now, just use the full path, passed through JSON encoding
                     // to ensure that it is properly escaped.
                     if (fsStat) {
-                        const command = `%run ${JSON.stringify(filePath)}`;
+                        // Use -- to ensure everything after is treated as the path, not flags
+                        // This prevents paths with -m (or other dash options) from being misinterpreted
+                        const command = `%run -- ${JSON.stringify(filePath)}`;
                         positron.runtime.executeCode('python', command, false, true);
                     }
                 } catch (e) {
@@ -183,6 +210,15 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         if (!fileToExecute) {
             return;
         }
+
+        // Check on setting terminal.executeInFileDir
+        const pythonSettings = this.configSettings.getSettings(file);
+        let cwd = pythonSettings.terminal.executeInFileDir ? path.dirname(fileToExecute.fsPath) : undefined;
+
+        // Check on setting terminal.launchArgs
+        const launchArgs = pythonSettings.terminal.launchArgs;
+        const totalArgs = [...launchArgs, fileToExecute.fsPath.fileToCommandArgumentForPythonExt()];
+
         const fileAfterSave = await codeExecutionHelper.saveFileIfDirty(fileToExecute);
         if (fileAfterSave) {
             fileToExecute = fileAfterSave;
@@ -191,19 +227,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         const show = this.shouldTerminalFocusOnStart(fileToExecute);
         let terminal: Terminal | undefined;
         if (dedicated) {
-            terminal = await runInDedicatedTerminal(
-                fileToExecute,
-                [fileToExecute.fsPath.fileToCommandArgumentForPythonExt()],
-                undefined,
-                show,
-            );
+            terminal = await runInDedicatedTerminal(fileToExecute, totalArgs, cwd, show);
         } else {
-            terminal = await runInTerminal(
-                fileToExecute,
-                [fileToExecute.fsPath.fileToCommandArgumentForPythonExt()],
-                undefined,
-                show,
-            );
+            terminal = await runInTerminal(fileToExecute, totalArgs, cwd, show);
         }
 
         if (terminal) {

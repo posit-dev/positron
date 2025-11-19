@@ -1,40 +1,61 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { observableFromEvent } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { parseOutputData } from '../getOutputContents.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
+import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
-	outputs: ISettableObservable<NotebookCellOutputs[]>;
+	outputs;
+
+	// Execution timing observables
+	lastExecutionDuration;
+	lastExecutionOrder;
+	lastRunSuccess;
+	lastRunEndTime;
 
 	constructor(
 		cellModel: NotebookCellTextModel,
 		private instance: PositronNotebookInstance,
+		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelResolverService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
-		super(cellModel, instance, _textModelResolverService);
+		super(cellModel, instance, _executionStateService, _textModelResolverService);
 
-		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', this.parseCellOutputs());
+		this.outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
+			/** @description cellOutputs */
+			return this.parseCellOutputs();
+		});
 
-		// Listen for changes to the cell outputs and update the observable
-		this._register(
-			this.cellModel.onDidChangeOutputs(() => {
-				this.outputs.set(this.parseCellOutputs(), undefined);
-			})
-		);
+		// Execution timing observables
+		this.lastExecutionDuration = this._internalMetadata.map(({ runStartTime, runEndTime }) => {
+			/** @description lastExecutionDuration */
+			if (typeof runStartTime === 'number' && typeof runEndTime === 'number') {
+				return Math.max(0, runEndTime - runStartTime);
+			}
+			return undefined;
+		});
+		this.lastExecutionOrder = this._internalMetadata.map(m => /** @description lastExecutionOrder */ m.executionOrder);
+		this.lastRunSuccess = this._internalMetadata.map(m => /** @description lastRunSuccess */ m.lastRunSuccess);
+		this.lastRunEndTime = this._internalMetadata.map(m => /** @description lastRunEndTime */ m.runEndTime);
+	}
+
+	override get outputsViewModels(): IPositronCellOutputViewModel[] {
+		return this.outputs.get();
 	}
 
 	/**
@@ -44,28 +65,26 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	parseCellOutputs(): NotebookCellOutputs[] {
 		const parsedOutputs: NotebookCellOutputs[] = [];
 
-		this.cellModel.outputs.forEach((output) => {
-			const outputs = output.outputs || [];
-			const preferredOutput = pickPreferredOutputItem(outputs);
-			if (!preferredOutput) {
+		this.model.outputs.forEach((output) => {
+			const outputItems = output.outputs || [];
+			const preferredOutputItem = pickPreferredOutputItem(outputItems);
+			if (!preferredOutputItem) {
 				return;
 			}
 
 			const parsedOutput: NotebookCellOutputs = {
-				...output,
-				// For some reason the outputs don't make it across the spread operator sometimes,
-				// so we'll just set them explicitly.
-				outputs,
-				parsed: parseOutputData(preferredOutput),
+				outputId: output.outputId,
+				outputs: outputItems,
+				parsed: parseOutputData(preferredOutputItem),
 			};
 
-			const preloadMessageType = getWebviewMessageType(outputs);
+			const preloadMessageType = getWebviewMessageType(outputItems);
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
 					instance: this.instance,
 					outputId: output.outputId,
-					outputs,
+					outputs: outputItems,
 				});
 			}
 

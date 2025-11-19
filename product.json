@@ -2,13 +2,13 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.09.0",
+	"positronVersion": "2025.12.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",
 	"licenseName": "Software Evaluation License",
-	"licenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
+	"licenseUrl": "https://positron.posit.co/licensing",
 	"serverLicenseUrl": "https://posit.co/about/eula/",
 	"serverGreeting": [],
 	"serverLicense": [],
@@ -61,8 +61,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.102.0",
-			"sha256": "0e8ed27ba2d707bcfb008e89e490c2d287d9537d84893b0792a4ee418274fa0b",
+			"version": "1.105.0",
+			"sha256": "0c45b90342e8aafd4ff2963b4006de64208ca58c2fd01fea7a710fe61dcfd12a",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.72",
+			"version": "1.6.34",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "59e50a76fe856c2686867a1af5906a92c0ce6e4681a61ceb2218cf2c2c573210",
+			"sha256": "4d95688030d3921528ddacf7a0cf74a2cd9b9ed8e497546645df16eabcc8c2f2",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2025.24.0",
+			"version": "2025.28.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -182,8 +182,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.7.0",
-			"sha256sum": "aa051fc2e5d292c35121a3cb2b369116406e0a72dd5215b4b659af367e019b6a",
+			"version": "2025.9.1",
+			"sha256sum": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -214,7 +214,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.6.0",
+			"version": "2025.14.1",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.18.1",
+			"version": "1.24.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.123.0",
-			"sha256sum": "e1ec25968a956c9bc7cf3de590df8f65b4dcce2695bea484edd99d6fcd0c8c8c",
+			"version": "1.126.0",
+			"sha256sum": "90e53ab8d278a7f4faf0f929caeeafbf69114f0bede849298c5a35a843d431a5",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -258,7 +258,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.16.0",
+			"version": "0.18.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -268,9 +268,21 @@
 			"publisherDisplayName": "Posit Software, PBC"
 		},
 		{
+			"name": "posit.shiny",
+			"version": "1.3.2",
+			"sha256sum": "c030931ff473103523c5ec167cbadc377737bdaa2ab7a09005fa1cda390cc19a",
+			"repo": "https://github.com/posit-dev/shiny-vscode",
+			"metadata": {
+				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Shiny"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
+		},
+		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.114.3",
-			"sha256": "344b9dde5a0fcf83c42ee58c75cd8ddb33201412295d92f142ba351c0bc665bc",
+			"version": "0.120.2",
+			"sha256": "16c2825b184b8068b40360f242cf1d772b3c5b12de50affeb0f49d00a93b45f4",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
@@ -292,6 +304,9 @@
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
+	"trustedExtensionAuthAccess": [
+		"GitHub.copilot-chat"
+	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",
@@ -301,8 +316,24 @@
 		"https://connect.posit.cloud",
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
-		"https://posit.co"
+		"https://posit.co",
+		"https://support.posit.co"
 	],
+	"defaultChatAgent": {
+		"extensionId": "positron.positron-assistant",
+		"chatExtensionId": "positron.positron-assistant",
+		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"provider": {
+			"default": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			},
+			"enterprise": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			}
+		}
+	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
 	],

@@ -137,6 +137,10 @@ if __name__ == "__main__":
     if args.quiet:
         app.kernel.shell.banner1 = ""
 
+    # On Windows, manually start the poller thread for interrupt handling
+    if sys.platform == "win32" and app.poller is not None:
+        app.poller.start()
+
     app.kernel.start()
 
     logger.info(f"Process ID {os.getpid()}")

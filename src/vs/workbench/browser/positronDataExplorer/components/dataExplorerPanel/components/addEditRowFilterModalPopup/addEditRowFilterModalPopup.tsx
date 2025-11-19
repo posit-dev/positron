@@ -50,8 +50,10 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 
 	// Validate the row filter value that was supplied based on the column schema type.
 	switch (columnSchema.type_display) {
-		// Number.
-		case ColumnDisplayType.Number:
+		// Number (including all numeric subtypes).
+		case ColumnDisplayType.Floating:
+		case ColumnDisplayType.Integer:
+		case ColumnDisplayType.Decimal:
 			return isNumber();
 
 		// Boolean.
@@ -113,6 +115,18 @@ const isSingleParam = (filterType: RowFilterDescrType | undefined) => {
 	}
 	return filterNumParams(filterType) === 1;
 };
+
+/**
+ * Checks whether a RowFilterDescrType takes two parameters.
+ * @param filterType A row filter descr type.
+ * @returns Whether the filter takes two parameters.
+ */
+const isTwoParams = (filterType: RowFilterDescrType | undefined) => {
+	if (filterType === undefined) {
+		return false;
+	}
+	return filterNumParams(filterType) === 2;
+}
 
 /**
  * AddEditRowFilterModalPopupProps interface.
@@ -209,7 +223,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			identifier: RowFilterDescrType.IS_NULL,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNull',
-				"is null"
+				"is missing"
 			),
 			value: RowFilterDescrType.IS_NULL
 		}));
@@ -217,7 +231,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			identifier: RowFilterDescrType.IS_NOT_NULL,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNotNull',
-				"is not null"
+				"is not missing"
 			),
 			value: RowFilterDescrType.IS_NOT_NULL
 		}));
@@ -287,7 +301,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is less than / is greater than conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
 			case ColumnDisplayType.Time:
@@ -328,7 +344,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is equal to, is not equal to conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 			case ColumnDisplayType.String:
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
@@ -375,7 +393,9 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is between / is not between conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
 			case ColumnDisplayType.Time:
@@ -404,6 +424,18 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	};
 
 	const numParams = filterNumParams(selectedFilterType);
+
+	/**
+	 * Handles key down events on the filter parameter input fields.
+	 * @param e The keyboard event.
+	 */
+	const handleParameterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		// If Enter is pressed, try to apply the filters
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			applyRowFilter();
+		}
+	};
 
 	// Set the first row filter parameter component.
 	const firstRowFilterParameterComponent = (() => {
@@ -438,6 +470,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				ref={firstRowFilterParameterRef}
 				placeholder={placeholderText}
 				value={firstRowFilterValue}
+				onKeyDown={handleParameterKeyDown}
 				onTextChanged={text => {
 					// Set the first row filter value.
 					setFirstRowFilterValue(text);
@@ -474,6 +507,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				ref={secondRowFilterParameterRef}
 				placeholder={placeholderText}
 				value={secondRowFilterValue}
+				onKeyDown={handleParameterKeyDown}
 				onTextChanged={text => {
 					// Set the second row filter value.
 					setSecondRowFilterValue(text);
@@ -754,13 +788,39 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		setErrorText(undefined);
 	};
 
+	const handleSelectionChanged = (dropDownListBoxItem: DropDownListBoxItem<RowFilterDescrType, void>) => {
+		const prevSelected = selectedFilterType;
+		const nextSelected = dropDownListBoxItem.options.identifier;
+
+		// Set the selected condition.
+		setSelectedFilterType(nextSelected);
+
+		// We need to clear the filter values and error text if we are changing
+		// between filter types that have a different numbers of parameters.
+		if (filterNumParams(prevSelected) !== filterNumParams(nextSelected)) {
+			if (
+				(isSingleParam(prevSelected) && isTwoParams(nextSelected)) ||
+				(isTwoParams(prevSelected) && isSingleParam(nextSelected))
+			) {
+				// If we are going from single param to two params, or
+				// from two params to single param, we keep the first
+				// param value and clear everything else.
+				setSecondRowFilterValue('');
+				setErrorText(undefined);
+			} else {
+				// In all other cases, we clear everything.
+				clearFilterValuesAndErrorText();
+			}
+		}
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			fixedHeight={true}
 			height={'auto'}
-			keyboardNavigationStyle='dialog'
+			keyboardNavigationStyle='menu'
 			popupAlignment='auto'
 			popupPosition='auto'
 			renderer={props.renderer}
@@ -795,17 +855,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						'positron.addEditRowFilter.selectCondition',
 						"Select Condition"
 					))()}
-					onSelectionChanged={dropDownListBoxItem => {
-						const prevSelected = selectedFilterType;
-						const nextSelected = dropDownListBoxItem.options.identifier;
-						// Set the selected condition.
-						setSelectedFilterType(nextSelected);
-
-						// Clear the filter values and error text.
-						if (!(isSingleParam(prevSelected) && isSingleParam(nextSelected))) {
-							clearFilterValuesAndErrorText();
-						}
-					}}
+					onSelectionChanged={handleSelectionChanged}
 				/>
 
 				{firstRowFilterParameterComponent}

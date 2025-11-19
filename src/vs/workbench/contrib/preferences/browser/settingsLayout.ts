@@ -258,6 +258,13 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('chat', 'Chat'),
 					settings: ['chat.*', 'inlineChat.*', 'mcp']
 				},
+				// --- Start Positron ---
+				{
+					id: 'features/plots',
+					label: localize('plots', 'Plots'),
+					settings: ['plots.*']
+				},
+				// --- End Positron ---
 				{
 					id: 'features/issueReporter',
 					label: localize('issueReporter', 'Issue Reporter'),

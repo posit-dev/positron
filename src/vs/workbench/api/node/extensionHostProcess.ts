@@ -21,7 +21,7 @@ import { boolean } from '../../../editor/common/config/editorOptions.js';
 import product from '../../../platform/product/common/product.js';
 import { ExtensionHostMain, IExitFn } from '../common/extensionHostMain.js';
 import { IHostUtils } from '../common/extHostExtensionService.js';
-import { createURITransformer } from './uriTransformer.js';
+import { createURITransformer } from '../../../base/common/uriTransformer.js';
 import { ExtHostConnectionType, readExtHostConnection } from '../../services/extensions/common/extensionHostEnv.js';
 import { ExtensionHostExitCode, IExtHostReadyMessage, IExtHostReduceGraceTimeMessage, IExtHostSocketMessage, IExtensionHostInitData, MessageType, createMessageOfType, isMessageOfType } from '../../services/extensions/common/extensionHostProtocol.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
@@ -35,6 +35,19 @@ interface ParsedExtHostArgs {
 	skipWorkspaceStorageLock?: boolean;
 	supportGlobalNavigator?: boolean; // enable global navigator object in nodejs
 	useHostProxy?: 'true' | 'false'; // use a string, as undefined is also a valid value
+}
+
+// silence experimental warnings when in development
+if (process.env.VSCODE_DEV) {
+	const warningListeners = process.listeners('warning');
+	process.removeAllListeners('warning');
+	process.on('warning', (warning: any) => {
+		if (warning.code === 'ExperimentalWarning' || warning.name === 'ExperimentalWarning') {
+			return;
+		}
+
+		warningListeners[0](warning);
+	});
 }
 
 // workaround for https://github.com/microsoft/vscode/issues/85490

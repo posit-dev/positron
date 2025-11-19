@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HttpError } from './kcclient/api';
+import { AxiosError, isAxiosError } from 'axios';
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 
@@ -25,9 +25,9 @@ export function createUniqueId(): string {
  * @returns A human-readable string summarizing the error.
  */
 export function summarizeError(err: any): string {
-	if (err instanceof HttpError) {
+	if (isAxiosError(err)) {
 		// HTTP errors are common and should be summarized
-		return summarizeHttpError(err);
+		return summarizeAxiosError(err);
 	} else if (err.errors) {
 		// If we have multiple errors (as in the case of an AggregateError),
 		// summarize each one
@@ -51,32 +51,25 @@ export function summarizeError(err: any): string {
  * @param err The error to summarize.
  * @returns A human-readable string summarizing the error.
  */
-export function summarizeHttpError(err: HttpError): string {
+export function summarizeAxiosError(err: AxiosError): string {
 	let result = '';
 
-	// Add the URL if it's available
-	if (err.response && err.response.url) {
-		result += `${err.response.url}: `;
-	}
-
 	// Add the status code
-	if (err.statusCode) {
-		result += `HTTP ${err.statusCode}. `;
+	if (err.status) {
+		result += `HTTP ${err.status}. `;
 	}
 
 	// Add the message if it's available
-	if (err.body) {
-		if (err.body.message) {
-			// If the error has a specific message, return that.
-			result += `${err.body.message}`;
+	if (err.message) {
+		// If the error has a specific message, return that.
+		result += `${err.message}`;
+	} else {
+		if (typeof err.response?.data === 'string') {
+			// If the body is a string, return that.
+			result += err.response.data;;
 		} else {
-			if (typeof err.body === 'string') {
-				// If the body is a string, return that.
-				result += err.body;
-			} else {
-				// Otherwise, return the JSON representation of the body.
-				result += JSON.stringify(err.body);
-			}
+			// Otherwise, return the JSON representation of the body.
+			result += JSON.stringify(err.response?.data);
 		}
 	}
 	return result;
@@ -123,8 +116,8 @@ type PayloadStructure = {
 
 /**
  * @description Type predicate to check if an object is VSBufferLike ({ buffer: Buffer }).
- * @param {unknown} item - The item to check.
- * @returns {boolean} True if the item is VSBufferLike, false otherwise.
+ * @param item - The item to check.
+ * @returns True if the item is VSBufferLike, false otherwise.
  */
 function isVSBufferLike(item: unknown): item is VSBufferLike {
 	return (
@@ -144,8 +137,8 @@ type PayloadWithDataValue = PayloadStructure & {
 
 /**
  * @description Type predicate to check if the payload has the required nested data.value structure.
- * @param {unknown} payload - The payload to check.
- * @returns {boolean} True if the payload has the expected structure, false otherwise.
+ * @param payload - The payload to check.
+ * @returns True if the payload has the expected structure, false otherwise.
  */
 function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataValue {
 	return (
@@ -164,9 +157,9 @@ function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataVal
 
 /**
  * @description Validates if an item is a Buffer or VSBufferLike and within the size limit.
- * @param {unknown} item - The item to validate.
- * @param {number} maxSize - The maximum allowed buffer size in bytes.
- * @returns {Buffer | undefined} The Buffer instance if valid, otherwise undefined.
+ * @param item - The item to validate.
+ * @param maxSize - The maximum allowed buffer size in bytes.
+ * @returns The Buffer instance if valid, otherwise undefined.
  */
 function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | undefined {
 	let bufferInstance: Buffer | undefined;
@@ -195,8 +188,8 @@ function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | 
  *              found in `payload.data.value.buffers`, converts them to base64 strings,
  *              and restructures the content payload. If the expected structure isn't found,
  *              the original payload is returned as content with empty buffers.
- * @param {unknown} payload - The input payload, potentially containing serialized data and buffers.
- * @returns {UnpackedResult} An object containing the processed content and an array of base64 buffer strings.
+ * @param payload - The input payload, potentially containing serialized data and buffers.
+ * @returns An object containing the processed content and an array of base64 buffer strings.
  * @export
  */
 export function unpackSerializedObjectWithBuffers(payload: unknown): {
@@ -250,4 +243,8 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
  */
 export function isEnumMember<T extends Record<string, unknown>>(value: unknown, enumObj: T): value is T[keyof T] {
 	return Object.values(enumObj).includes(value as T[keyof T]);
+}
+
+export function delay(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
 }

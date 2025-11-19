@@ -92,6 +92,12 @@ export enum LanguageRuntimeMessageType {
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
 
+	/** A message representing a debug event to the frontend */
+	DebugEvent = 'debug_event',
+
+	/** A message representing a debug reply to the frontend */
+	DebugReply = 'debug_reply',
+
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
 
@@ -179,7 +185,6 @@ export enum PositronChatMode {
 export enum RuntimeClientType {
 	Variables = 'positron.variables',
 	Lsp = 'positron.lsp',
-	Dap = 'positron.dap',
 	Plot = 'positron.plot',
 	DataExplorer = 'positron.dataExplorer',
 	Ui = 'positron.ui',
@@ -409,6 +414,17 @@ export enum CodeAttributionSource {
 	Notebook = 'notebook',
 	Paste = 'paste',
 	Script = 'script',
+}
+
+/**
+ * Type of notebook cell
+ */
+export enum NotebookCellType {
+	/** A code cell */
+	Code = 'code',
+
+	/** A markdown cell */
+	Markdown = 'markdown',
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';

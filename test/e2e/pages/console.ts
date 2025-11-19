@@ -8,7 +8,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
-import { ContextMenu } from './dialog-contextMenu.js';
+import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
@@ -93,15 +93,11 @@ export class Console {
 	 * @param contextMenu the context menu instance to use for interaction
 	 * @param runtimes the runtime names to expect in the context menu
 	 */
-	async expectSessionContextMenuToContain(runtimes: string[]) {
+	async expectSessionContextMenuToContain(runtimes: MenuItemState[]) {
 		await test.step('Verify `+` menu contains runtime(s)', async () => {
-			const menuItems = await this.contextMenu.getMenuItems(this.addSessionExpandMenuButton);
-			const filteredMenuItems = menuItems.filter(item => item !== 'Start Another...');
-
-			// Check if expected runtimes are present
-			expect(filteredMenuItems).toHaveLength(runtimes.length);
-			runtimes.forEach(runtime => {
-				expect(filteredMenuItems).toContain(runtime);
+			await this.contextMenu.triggerAndVerifyMenuItems({
+				menuTrigger: this.addSessionExpandMenuButton,
+				menuItemStates: runtimes
 			});
 		});
 	}
@@ -184,10 +180,10 @@ export class Console {
 		await expect(activeLine).toHaveText(prompt, { timeout });
 	}
 
-	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
+	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
 			await this.waitForReady(prompt, timeout);
-			await this.waitForConsoleContents('started', { timeout });
+			await this.waitForConsoleContents('started', { timeout, expectedCount });
 		});
 	}
 
@@ -358,7 +354,7 @@ export class Console {
 
 	async expectSuggestionListCount(count: number): Promise<void> {
 		await test.step(`Expect console suggestion list count to be ${count}`, async () => {
-			await expect(this.suggestionList).toHaveCount(count);
+			await expect(this.suggestionList).toHaveCount(count, { timeout: 15000 });
 		});
 	}
 

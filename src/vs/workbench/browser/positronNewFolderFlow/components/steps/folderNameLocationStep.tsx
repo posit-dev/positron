@@ -148,14 +148,19 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		);
 	};
 
-	// Navigate to the next step in the flow, based on the selected project type.
-	const nextStep = async () => {
-		// Update the parent folder URI in the context before navigating to the next step.
+	// Update the parent folder URI in the context.
+	const updateParentFolder = async () => {
 		context.parentFolder = await combineLabelWithPathUri(
 			parentFolder,
 			context.parentFolder,
 			pathService
 		);
+	};
+
+	// Navigate to the next step in the flow, based on the selected project type.
+	const nextStep = async () => {
+		// Update the parent folder URI in the context before navigating to the next step.
+		await updateParentFolder();
 
 		switch (context.folderTemplate) {
 			case FolderTemplate.RProject:
@@ -202,7 +207,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	} else {
 		okNextButtonConfig = {
 			okButtonConfig: {
-				onClick: props.accept,
+				onClick: async () => {
+					await updateParentFolder();
+					props.accept();
+				},
 				disable: okNextButtonDisabled,
 				title: (() => localize(
 					'positronNewFolderFlow.createButtonTitle',

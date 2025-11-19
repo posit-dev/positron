@@ -100,6 +100,7 @@ import { ResourceMap } from '../../../base/common/map.js';
 import { IWebWorkerDescriptor } from '../../../base/browser/webWorkerFactory.js';
 import { ITreeSitterLibraryService } from '../../common/services/treeSitter/treeSitterLibraryService.js';
 import { StandaloneTreeSitterLibraryService } from './standaloneTreeSitterLibraryService.js';
+import { IDataChannelService, NullDataChannelService } from '../../../platform/dataChannel/common/dataChannel.js';
 
 class SimpleModel implements IResolvedTextEditorModel {
 
@@ -229,6 +230,7 @@ class StandaloneEnvironmentService implements IEnvironmentService {
 	readonly debugExtensionHost: IExtensionHostDebugParams = { port: null, break: false };
 	readonly isExtensionDevelopment: boolean = false;
 	readonly disableExtensions: boolean | string[] = false;
+	readonly disableExperiments: boolean = false;
 	readonly enableExtensions?: readonly string[] | undefined = undefined;
 	readonly extensionDevelopmentLocationURI?: URI[] | undefined = undefined;
 	readonly extensionDevelopmentKind?: ExtensionKind[] | undefined = undefined;
@@ -1166,6 +1168,7 @@ registerSingleton(IMenuService, MenuService, InstantiationType.Eager);
 registerSingleton(IAccessibilitySignalService, StandaloneAccessbilitySignalService, InstantiationType.Eager);
 registerSingleton(ITreeSitterLibraryService, StandaloneTreeSitterLibraryService, InstantiationType.Eager);
 registerSingleton(ILoggerService, NullLoggerService, InstantiationType.Eager);
+registerSingleton(IDataChannelService, NullDataChannelService, InstantiationType.Eager);
 
 /**
  * We don't want to eagerly instantiate services because embedders get a one time chance

@@ -34,7 +34,7 @@ const types_2 = require("./rpm/types");
 // different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/134.0.6998.205:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/138.0.7204.235:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [

@@ -12,12 +12,14 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { DataGridRowHeader } from './dataGridRowHeader.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { RowDescriptors } from '../classes/dataGridInstance.js';
 
 /**
  * DataGridRowHeadersProps interface.
  */
 interface DataGridRowHeadersProps {
 	height: number;
+	rowDescriptors: RowDescriptors;
 }
 
 /**
@@ -27,22 +29,31 @@ interface DataGridRowHeadersProps {
  */
 export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	// Context hooks.
-	// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging this line as a violation of
-	// the rules of hooks. See: https://github.com/facebook/react/issues/31687
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const context = usePositronDataGridContext();
 
-	// Create the data grid rows headers.
+	// Create the pinned data grid row header elements.
 	const dataGridRowHeaders: JSX.Element[] = [];
-	for (let rowDescriptor = context.instance.firstRow;
-		rowDescriptor && rowDescriptor.top < context.instance.layoutBottom;
-		rowDescriptor = context.instance.getRow(rowDescriptor.rowIndex + 1)
-	) {
+	for (const pinnedRowDescriptor of props.rowDescriptors.pinnedRowDescriptors) {
 		dataGridRowHeaders.push(
 			<DataGridRowHeader
-				key={rowDescriptor.rowIndex}
-				rowIndex={rowDescriptor.rowIndex}
-				top={rowDescriptor.top - context.instance.verticalScrollOffset}
+				key={`pinned-row-${pinnedRowDescriptor.rowIndex}`}
+				height={pinnedRowDescriptor.height}
+				pinned={true}
+				rowIndex={pinnedRowDescriptor.rowIndex}
+				top={pinnedRowDescriptor.top}
+			/>
+		);
+	}
+
+	// Create the unpinned data grid row header elements.
+	for (const unpinnedRowDescriptor of props.rowDescriptors.unpinnedRowDescriptors) {
+		dataGridRowHeaders.push(
+			<DataGridRowHeader
+				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
+				height={unpinnedRowDescriptor.height}
+				pinned={false}
+				rowIndex={unpinnedRowDescriptor.rowIndex}
+				top={unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
 			/>
 		);
 	}

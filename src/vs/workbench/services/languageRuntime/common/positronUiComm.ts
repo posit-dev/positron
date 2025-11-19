@@ -183,6 +183,14 @@ export interface Range {
 }
 
 /**
+ * Possible values for Kind in OpenEditor
+ */
+export enum OpenEditorKind {
+	Path = 'path',
+	Uri = 'uri'
+}
+
+/**
  * Parameters for the Busy method.
  */
 export interface BusyParams {
@@ -210,6 +218,12 @@ export interface OpenEditorParams {
 	 * The column number to jump to
 	 */
 	column: number;
+
+	/**
+	 * How to interpret the 'file' argument: as a file path or as a URI. If
+	 * omitted, defaults to 'path'.
+	 */
+	kind: OpenEditorKind;
 }
 
 /**
@@ -275,6 +289,33 @@ export interface ShowDialogParams {
 	 * The message to display in the dialog
 	 */
 	message: string;
+}
+
+/**
+ * Parameters for the ShowPrompt method.
+ */
+export interface ShowPromptParams {
+	/**
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
+	 */
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?'
+	 */
+	message: string;
+
+	/**
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
 }
 
 /**
@@ -491,6 +532,12 @@ export interface OpenEditorEvent {
 	 */
 	column: number;
 
+	/**
+	 * How to interpret the 'file' argument: as a file path or as a URI. If
+	 * omitted, defaults to 'path'.
+	 */
+	kind?: OpenEditorKind;
+
 }
 
 /**
@@ -681,6 +728,36 @@ export interface ShowDialogRequest {
 }
 
 /**
+ * Request: Show a prompt
+ *
+ * Use this for an input box where user can input any string
+ */
+export interface ShowPromptRequest {
+	/**
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
+	 */
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?'
+	 */
+	message: string;
+
+	/**
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
+
+}
+
+/**
  * Request: Ask the user for a password
  *
  * Use this for an input box where the user can input a password
@@ -816,6 +893,7 @@ export enum UiFrontendRequest {
 	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
+	ShowPrompt = 'show_prompt',
 	AskForPassword = 'ask_for_password',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
@@ -839,7 +917,7 @@ export class PositronUiComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
 		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
-		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);
+		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column', 'kind']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);

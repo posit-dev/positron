@@ -9,6 +9,7 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
+import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -24,7 +25,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		extHostContext: IExtHostContext,
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
 		@IChatService private readonly _chatService: IChatService,
-		@IChatAgentService private readonly _chatAgentService: IChatAgentService
+		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
+		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -116,7 +118,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Check if a file should be excluded from AI completions based on configuration settings.
+	 * Check if a file should be enabled for AI completions based on configuration settings.
 	 */
 	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
 		const uri = URI.revive(file);
@@ -126,5 +128,28 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 
 		// Use the language model ignored files service to check if the file should be excluded
 		return this._positronAssistantService.areCompletionsEnabled(uri);
+	}
+
+	/**
+	 * Get the current langauge model provider.
+	 */
+	async $getCurrentProvider(): Promise<IPositronChatProvider | undefined> {
+		return this._languageModelsService.currentProvider;
+	}
+
+	/**
+	 * Get all the available langauge model providers.
+	 */
+	async $getProviders(): Promise<IPositronChatProvider[]> {
+		return this._languageModelsService.getLanguageModelProviders();
+	}
+
+	/**
+	 * Set the current language chat provider.
+	 */
+	async $setCurrentProvider(id: string): Promise<IPositronChatProvider | undefined> {
+		const provider = this._languageModelsService.getLanguageModelProviders().find(p => p.id === id);
+		this._languageModelsService.currentProvider = provider;
+		return provider;
 	}
 }

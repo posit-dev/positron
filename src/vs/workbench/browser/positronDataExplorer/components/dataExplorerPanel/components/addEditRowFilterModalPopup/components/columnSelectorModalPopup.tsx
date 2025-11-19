@@ -65,7 +65,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [props, props.columnSelectorDataGridInstance]);
+	}, [props]);
 
 	const onKeyDown = (evt: React.KeyboardEvent) => {
 		if (evt.code === 'Enter' || evt.code === 'Space') {
@@ -113,7 +113,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 							initialSearchText={props.searchInput}
 							onConfirmSearch={() => {
 								props.columnSelectorDataGridInstance.selectItem(
-									props.columnSelectorDataGridInstance.cursorColumnIndex
+									props.columnSelectorDataGridInstance.cursorRowIndex
 								);
 							}}
 							onNavigateOut={() => {

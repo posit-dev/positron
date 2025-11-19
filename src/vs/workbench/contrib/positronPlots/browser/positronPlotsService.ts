@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -41,6 +41,7 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { PlotSizingPolicyIntrinsic } from '../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ACTIVE_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -66,9 +67,6 @@ const WebviewPlotInactiveInterval = 1_000;
 /** The key used to store the cached plot thumbnail descriptors */
 const CachedPlotThumbnailDescriptorsKey = 'positron.plots.cachedPlotThumbnailDescriptors';
 
-/** The key used to store the preferred history policy */
-const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
-
 /** The key used to store the preferred plot sizing policy */
 const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 
@@ -76,7 +74,14 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
 /** The config key used to store the dark mode setting */
-const DarkFilterModeConfigKey = 'positron.plots.darkFilter';
+const OldDarkFilterModeConfigKey = 'positron.plots.darkFilter';
+const DarkFilterModeConfigKey = 'plots.darkFilter';
+
+/** The config key used to store the default plot sizing policy setting */
+const DefaultSizingPolicyConfigKey = 'plots.defaultSizingPolicy';
+
+/** The config key used to store the history policy setting */
+const HistoryPolicyConfigKey = 'plots.historyPolicy';
 
 interface DataUri {
 	mime: string;
@@ -132,6 +137,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
 
+	/** The emitter for the onDidChangeDisplayLocation event */
+	private readonly _onDidChangeDisplayLocationEmitter = new Emitter<PlotsDisplayLocation>();
+
+	/** The current display location of the plots pane */
+	private _displayLocation: PlotsDisplayLocation = PlotsDisplayLocation.MainWindow;
+
+	/** Context key for tracking display location */
+	private _displayLocationContextKey: IContextKey<string>;
+
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
 
@@ -182,6 +196,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	constructor(
 		@IClipboardService private _clipboardService: IClipboardService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -198,6 +213,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IViewsService private _viewsService: IViewsService,
 	) {
 		super();
+
+		// Initialize the display location context key
+		this._displayLocationContextKey = POSITRON_PLOTS_LOCATION_CONTEXT.bindTo(contextKeyService);
+		this._displayLocationContextKey.set(PlotsDisplayLocation.MainWindow);
 
 		// Register for language runtime service startups
 		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
@@ -249,12 +268,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
 		this._register(this._storageService.onWillSaveState(() => {
-			this._storageService.store(
-				HistoryPolicyStorageKey,
-				this._selectedHistoryPolicy,
-				StorageScope.WORKSPACE,
-				StorageTarget.MACHINE);
-
 			this._storageService.store(
 				SizingPolicyStorageKey,
 				this._selectedSizingPolicy.id,
@@ -320,13 +333,24 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 
 		// Listen for changes to the dark mode configuration
-		this._selectedDarkFilterMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey) ?? DarkFilter.Auto;
+		this._selectedDarkFilterMode = this.getDarkFilterSetting();
 		this._register(this._configurationService.onDidChangeConfiguration((evt) => {
-			if (evt.affectsConfiguration(DarkFilterModeConfigKey)) {
-				const newMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey);
+			if (evt.affectsConfiguration(DarkFilterModeConfigKey) || evt.affectsConfiguration(OldDarkFilterModeConfigKey)) {
+				const newMode = this.getDarkFilterSetting();
 				if (newMode && newMode !== this.darkFilterMode) {
 					this._selectedDarkFilterMode = newMode;
 					this._onDidChangeDarkFilterMode.fire(newMode);
+				}
+			}
+		}));
+
+		// Listen for changes to the history policy configuration
+		this._register(this._configurationService.onDidChangeConfiguration((evt) => {
+			if (evt.affectsConfiguration(HistoryPolicyConfigKey)) {
+				const newPolicy = this.getHistoryPolicySetting();
+				if (newPolicy && newPolicy !== this.historyPolicy) {
+					this._selectedHistoryPolicy = newPolicy;
+					this._onDidChangeHistoryPolicy.fire(newPolicy);
 				}
 			}
 		}));
@@ -386,13 +410,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}
 
-		// See if there's a preferred history policy in storage, and select it if so
-		const preferredHistoryPolicy = this._storageService.get(
-			HistoryPolicyStorageKey,
-			StorageScope.WORKSPACE);
-		if (preferredHistoryPolicy && preferredHistoryPolicy) {
-			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
-		}
+		// Initialize history policy from configuration
+		this._selectedHistoryPolicy = this.getHistoryPolicySetting();
 
 		// Load the cached plot thumbnail descriptors from workspace storage.
 		const cachedPlotThumbnailDescriptorsJSON = this._storageService.get(CachedPlotThumbnailDescriptorsKey, StorageScope.WORKSPACE);
@@ -455,7 +474,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private _showPlotsPane() {
-		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+		// Only open the plots view in the main window if that's where plots are currently displayed.
+		// If plots are in the auxiliary window, don't open the main window view.
+		if (this._displayLocation === PlotsDisplayLocation.MainWindow) {
+			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+		}
 	}
 
 	openPlotInNewWindow(): void {
@@ -500,10 +523,63 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Gets the current dark filter mode
+	 * Gets the dark filter setting value, checking both new and old settings.
+	 * @returns The dark filter mode
 	 */
+	private getDarkFilterSetting(): DarkFilter {
+		// First check the new setting
+		const newValue = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey);
+		if (newValue !== undefined) {
+			return newValue;
+		}
+
+		// Fall back to the old setting
+		return this._configurationService.getValue<DarkFilter>(OldDarkFilterModeConfigKey) ?? DarkFilter.Auto;
+	}
+
+	/**
+	 * Gets the history policy setting value from configuration.
+	 * @returns The history policy
+	 */
+	private getHistoryPolicySetting(): HistoryPolicy {
+		return this._configurationService.getValue<HistoryPolicy>(HistoryPolicyConfigKey) ?? HistoryPolicy.Automatic;
+	}
+
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the current display location.
+	 */
+	get displayLocation(): PlotsDisplayLocation {
+		return this._displayLocation;
+	}
+
+	/**
+	 * Event fired when the display location changes.
+	 */
+	readonly onDidChangeDisplayLocation: Event<PlotsDisplayLocation> = this._onDidChangeDisplayLocationEmitter.event;
+
+	/**
+	 * Sets the display location of the plots pane.
+	 */
+	setDisplayLocation(location: PlotsDisplayLocation): void {
+		if (this._displayLocation !== location) {
+			this._displayLocation = location;
+			// Update the context key to show/hide the view
+			this._displayLocationContextKey.set(location);
+			this._onDidChangeDisplayLocationEmitter.fire(location);
+		}
+	}
+
+	/**
+	 * Gets the default sizing policy as defined in the setting.
+	 */
+	getDefaultSizingPolicy(): IPositronPlotSizingPolicy {
+		const defaultPolicyId = this._configurationService.getValue<string>(DefaultSizingPolicyConfigKey) ?? 'auto';
+		const policy = this._sizingPolicies.find(policy => policy.id === defaultPolicyId);
+		return policy ?? this._sizingPolicies.find(policy => policy.id === 'auto')!;
 	}
 
 	/**
@@ -1497,10 +1573,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
-		// for Python plots, use intrinsic sizing policy as default
-		this._selectedSizingPolicy = metadata.language === 'python' ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
-		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
-			?? this._selectedSizingPolicy;
+		// Get the default sizing policy from configuration
+		let defaultSizingPolicy = this.getDefaultSizingPolicy();
+
+		// for Python plots, use intrinsic sizing policy as default if configured policy is auto
+		if (metadata.language === 'python' && defaultSizingPolicy.id === 'auto') {
+			defaultSizingPolicy = this._intrinsicSizingPolicy;
+		}
+
+		// Use existing sizing policy if specified, otherwise use the default
+		const sizingPolicy =
+			this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
+			?? defaultSizingPolicy;
+
 		metadata.sizing_policy = {
 			id: sizingPolicy.id,
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined

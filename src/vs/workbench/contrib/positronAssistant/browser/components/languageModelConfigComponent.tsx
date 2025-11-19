@@ -23,7 +23,6 @@ interface LanguageModelConfigComponentProps {
 type IProvider = IPositronLanguageModelSource['provider'];
 
 const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit EULA');
-const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
@@ -31,33 +30,37 @@ const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
 
-function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
-	return localize(
-		'positron.languageModelConfig.completionsOnlyNotice',
-		'{0} functions for {code-completions-only} in Positron at this time.',
-		providerDisplayName,
-	);
-}
-
-function getProviderTermsOfServiceText(providerDisplayName: string) {
+function getProviderTermsOfServiceText(provider: IProvider) {
+	if (provider.id === 'openai-compatible') {
+		return localize(
+			'positron.languageModelConfig.openAiCompatible.tos',
+			'A custom provider is considered "Third Party Materials" as defined in the {posit-eula} and subject to the its {provider-tos} and {provider-privacy-policy}.',
+		);
+	}
 	return localize(
 		'positron.languageModelConfig.tos',
 		'{0} is considered "Third Party Materials" as defined in the {posit-eula} and subject to the {0} {provider-tos} and {provider-privacy-policy}.',
-		providerDisplayName,
+		provider.displayName,
 	);
 }
 
-function getProviderUsageDisclaimerText(providerDisplayName: string) {
+function getProviderUsageDisclaimerText(provider: IProvider) {
+	if (provider.id === 'openai-compatible') {
+		return localize(
+			'positron.languageModelConfig.openAiCompatible.tos2',
+			'Your use of the custom provider is optional and at your sole risk.',
+		);
+	}
 	return localize(
 		'positron.languageModelConfig.tos2',
 		'Your use of {0} is optional and at your sole risk.',
-		providerDisplayName,
+		provider.displayName,
 	);
 }
 
 function getProviderTermsOfServiceLink(providerId: string) {
 	switch (providerId) {
-		case 'anthropic':
+		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/consumer-terms';
 		case 'google':
 			return 'https://cloud.google.com/terms/service-terms';
@@ -70,7 +73,7 @@ function getProviderTermsOfServiceLink(providerId: string) {
 
 function getProviderPrivacyPolicyLink(providerId: string) {
 	switch (providerId) {
-		case 'anthropic':
+		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/privacy';
 		case 'google':
 			return 'https://policies.google.com/privacy';
@@ -79,19 +82,6 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 		default:
 			return undefined;
 	}
-}
-
-function getProviderCompletionsOnlyNotice(provider: IProvider) {
-	if (provider.id === 'copilot') {
-		const text = getProviderCompletionsOnlyNoticeText(provider.displayName);
-		return interpolate(
-			text,
-			(key) => key === 'code-completions-only' ?
-				<strong>{completionsOnlyEmphasizedText}</strong> :
-				undefined
-		);
-	}
-	return undefined;
 }
 
 /**
@@ -140,8 +130,10 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
-	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN;
-	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN;
+	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
+	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
+	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
+	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl');
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -150,7 +142,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	return <>
-		<div className='language-model-container input'>
+		{!hasEnvApiKey && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
@@ -158,12 +150,32 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					{localize('positron.languageModelConfig.cancel', "Cancel")}
 				</Button>
 			}
-		</div>
+		</div>}
+		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
 
 // Language config parts
+const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void, provider: IProvider }) => {
+	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
+	return (<>
+		<div className='language-model-authentication-container' id='base-url-input'>
+			{
+				props.signedIn ?
+					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", props.baseUrl)}</p>
+					:
+					<LabeledTextInput
+						label={baseUrlLabel}
+						type='text'
+						value={props.baseUrl ?? ''}
+						onChange={e => { props.onChange(e.currentTarget.value) }} />
+			}
+		</div>
+	</>)
+}
+
 const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void }) => {
 	return (<>
 		<div className='language-model-authentication-container' id='api-key-input'>
@@ -190,9 +202,7 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	const completionsOnlyNotice = getProviderCompletionsOnlyNotice(props.provider);
-
-	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
+	const termsOfServiceText = getProviderTermsOfServiceText(props.provider);
 	const termsOfService = interpolate(
 		termsOfServiceText,
 		(key) => {
@@ -217,10 +227,9 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 		},
 	)
 
-	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
+	const disclaimerText = getProviderUsageDisclaimerText(props.provider);
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
-		{completionsOnlyNotice ? <p>{completionsOnlyNotice}</p> : null}
 		<p>{termsOfService}</p>
 		<p>{disclaimerText}</p>
 	</div>;
@@ -230,4 +239,19 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 	return <a href={props.href} rel='noreferrer' target='_blank'>
 		{props.children}
 	</a>;
+}
+
+const ExternalAPIKey = (props: { provider: string, envKeyName?: { key: string; signedIn: boolean } }) => {
+
+	return (
+		props.envKeyName ?
+			<div className='language-model-external-api-key'>
+				{
+					props.envKeyName && props.envKeyName.signedIn ?
+						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use.", props.envKeyName?.key)}</p>
+						:
+						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.envKeyName.key)}</p>
+				}
+			</div> : null
+	);
 }

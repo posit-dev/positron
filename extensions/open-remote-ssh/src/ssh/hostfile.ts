@@ -1,3 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
+// which is licensed under the MIT license.
+
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -11,33 +19,33 @@ const HASH_MAGIC = '|1|';
 const HASH_DELIM = '|';
 
 export async function checkNewHostInHostkeys(host: string): Promise<boolean> {
-    const fileContent = await fs.promises.readFile(KNOW_HOST_FILE, { encoding: 'utf8' });
-    const lines = fileContent.split(/\r?\n/);
-    for (let line of lines) {
-        line = line.trim();
-        if (!line.startsWith(HASH_MAGIC)) {
-            continue;
-        }
+	const fileContent = await fs.promises.readFile(KNOW_HOST_FILE, { encoding: 'utf8' });
+	const lines = fileContent.split(/\r?\n/);
+	for (let line of lines) {
+		line = line.trim();
+		if (!line.startsWith(HASH_MAGIC)) {
+			continue;
+		}
 
-        const [hostEncripted_] = line.split(' ');
-        const [salt_, hostHash_] = hostEncripted_.substring(HASH_MAGIC.length).split(HASH_DELIM);
-        const hostHash = crypto.createHmac('sha1', Buffer.from(salt_, 'base64') as BinaryLike).update(host).digest();
-        if (hostHash.toString('base64') === hostHash_) {
-            return false;
-        }
-    }
+		const [hostEncripted_] = line.split(' ');
+		const [salt_, hostHash_] = hostEncripted_.substring(HASH_MAGIC.length).split(HASH_DELIM);
+		const hostHash = crypto.createHmac('sha1', Buffer.from(salt_, 'base64') as BinaryLike).update(host).digest();
+		if (hostHash.toString('base64') === hostHash_) {
+			return false;
+		}
+	}
 
-    return true;
+	return true;
 }
 
 export async function addHostToHostFile(host: string, hostKey: Buffer, type: string): Promise<void> {
-    if (!folderExists(PATH_SSH_USER_DIR)) {
-        await fs.promises.mkdir(PATH_SSH_USER_DIR, 0o700);
-    }
+	if (!folderExists(PATH_SSH_USER_DIR)) {
+		await fs.promises.mkdir(PATH_SSH_USER_DIR, 0o700);
+	}
 
-    const salt = crypto.randomBytes(20);
-    const hostHash = crypto.createHmac('sha1', salt as BinaryLike).update(host).digest();
+	const salt = crypto.randomBytes(20);
+	const hostHash = crypto.createHmac('sha1', salt as BinaryLike).update(host).digest();
 
-    const entry = `${HASH_MAGIC}${salt.toString('base64')}${HASH_DELIM}${hostHash.toString('base64')} ${type} ${hostKey.toString('base64')}\n`;
-    await fs.promises.appendFile(KNOW_HOST_FILE, entry);
+	const entry = `${HASH_MAGIC}${salt.toString('base64')}${HASH_DELIM}${hostHash.toString('base64')} ${type} ${hostKey.toString('base64')}\n`;
+	await fs.promises.appendFile(KNOW_HOST_FILE, entry);
 }

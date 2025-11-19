@@ -179,8 +179,10 @@ const apiTestSerializer: vscode.NotebookSerializer = {
 		assert.strictEqual(firstNotebookEditor?.notebook, secondNotebookEditor?.notebook, 'split notebook editors share the same document');
 	});
 
-	test('#106657. Opening a notebook from markers view is broken ', async function () {
-
+	// --- Start Positron ---
+	// Skipping due to https://github.com/posit-dev/positron/issues/10114
+	test.skip('#106657. Opening a notebook from markers view is broken ', async function () {
+	// --- End Positron ---
 		const document = await openRandomNotebookDocument();
 		const [cell] = document.getCells();
 
@@ -244,7 +246,7 @@ const apiTestSerializer: vscode.NotebookSerializer = {
 		// no kernel -> no default language
 		assert.strictEqual(getFocusedCell(editor)?.document.languageId, 'typescript');
 
-		await vscode.commands.executeCommand('vscode.openWith', notebook.uri, 'default');
+		await vscode.window.showNotebookDocument(await vscode.workspace.openNotebookDocument(notebook.uri));
 		assert.strictEqual(vscode.window.activeTextEditor?.document.uri.path, notebook.uri.path);
 	});
 

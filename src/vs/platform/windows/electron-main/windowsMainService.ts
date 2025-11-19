@@ -1538,6 +1538,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			accessibilitySupport: app.accessibilitySupportEnabled,
 			colorScheme: this.themeMainService.getColorScheme(),
 			policiesData: this.policyService.serialize(),
+			// --- Start PWB ---
+			adminPoliciesData: process.env['POSITRON_ENFORCED_SETTINGS'], // Start PWB: Pass enforced settings to renderer
+			// --- End PWB ---
 			continueOn: this.environmentMainService.continueOn,
 
 			cssModules: this.cssDevelopmentService.isEnabled ? await this.cssDevelopmentService.getCssModules() : undefined
@@ -1557,7 +1560,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			mark('code/didCreateCodeWindow');
 
 			// Add as window tab if configured (macOS only)
-			if (options.forceNewTabbedWindow) {
+			// --- Start Positron ---
+			// Force opening in tabbed windows if `window.nativeTabs` is set to `true`.
+			// https://github.com/microsoft/vscode/issues/250042
+			const forceNewTabbedWindow = this.configurationService.getValue<boolean>('window.nativeTabs');
+			if (forceNewTabbedWindow || options.forceNewTabbedWindow) {
+				// --- End Positron ---
 				const activeWindow = this.getLastActiveWindow();
 				activeWindow?.addTabbedWindow(createdWindow);
 			}

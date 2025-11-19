@@ -8,28 +8,33 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
-import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
 import { COLUMN_PROFILE_OBJECT_LINE_COUNT } from './components/columnProfileObject.js';
 import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
-import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
-import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
+import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
  */
 const SUMMARY_HEIGHT = 34;
 const PROFILE_LINE_HEIGHT = 20;
+const OVERSCAN_FACTOR = 3
 
 /**
  * TableSummaryDataGridInstance class.
+ *
+ * This class is used to display a summary of each column in the dataset.
+ * This instance manages represents a column from the dataset and displays
+ * summary information such as data type, null count, and summary statistics.
  */
 export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
@@ -42,7 +47,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * The current column name search filter text.
 	 */
-	private _searchText?: string;
+	private _searchText = '';
+
+	/**
+	 * The current sort option for the summary rows
+	 *
+	 * If no sort option is set, the summary rows
+	 * are displayed in their original order.
+	 */
+	private _sortOption: SearchSchemaSortOrder = SearchSchemaSortOrder.Original;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -72,6 +85,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			defaultRowHeight: SUMMARY_HEIGHT,
 			columnResize: false,
 			rowResize: false,
+			columnPinning: false,
+			// We need to enable row pinning so the layout height is properly calculated
+			// when there are pinned rows in the TableSummaryDataGridInstance.
+			// In TableSummaryDataGridInstance, pinned rows are actually pinned columns
+			// There is no UI in the table summary panel to pin/unpin rows. Instead, rows
+			// are pinned/unpinned programatically when a user pin/unpins a column in the main
+			// data grid.
+			rowPinning: true,
+			maximumPinnedRows: 10,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -84,33 +106,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		});
 
 		// Set the column layout entries. There is always one column.
-		this._columnLayoutManager.setLayoutEntries(1);
-
-		/**
-		 * Updates the layout entries.
-		 * @param state The backend state, if known; otherwise, undefined.
-		 */
-		const updateLayoutEntries = async (state?: BackendState) => {
-			// Get the backend state, if was not provided.
-			if (!state) {
-				state = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Set the layout entries.
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
-
-			// Adjust the vertical scroll offset, if needed.
-			if (!this.firstRow) {
-				this._verticalScrollOffset = 0;
-			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
-				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
-			}
-		};
+		this._columnLayoutManager.setEntries(1);
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the layout entries.
-			await updateLayoutEntries();
+			await this.updateLayoutEntries();
 
 			// Perform a soft reset.
 			this.softReset();
@@ -122,7 +123,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			// Update the layout entries.
-			await updateLayoutEntries();
+			await this.updateLayoutEntries();
 
 			// Refresh the column profiles because they rely on the data.
 			await this._tableSummaryCache.refreshColumnProfiles();
@@ -133,17 +134,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await updateLayoutEntries(state);
-
-			// Invalidate cache and fetch data, profiles
-			await this.fetchData(/* invalidateCache=*/true);
+			// Always update layout entries and invalidate cache when backend state changes
+			// Backend state changes represent changes to the underlying data (like row filters)
+			// so column profiles need to be recalculated regardless of search/sort state
+			await this.updateLayoutEntries(state);
+			await this.fetchData(true);
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 
 		// Create the hover manager.
@@ -153,7 +154,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._services.hoverService
 		));
 
-		// Show tooltip hovers right away
+		// Show tooltip hovers right away.
 		this._hoverManager.setCustomHoverDelay(0);
 	}
 
@@ -176,6 +177,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the search text.
+	 */
+	get searchText() {
+		return this._searchText;
+	}
+
+	/**
+	 * Gets the sort option.
+	 */
+	get sortOption() {
+		return this._sortOption;
+	}
+
+	/**
 	 * Gets the scroll width.
 	 */
 	override get scrollWidth() {
@@ -188,7 +203,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
-			left: 0
+			left: 0,
+			width: 0,
 		};
 	}
 
@@ -204,21 +220,29 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
-			await this._tableSummaryCache.update({
-				invalidateCache: !!invalidateCache,
-				searchText: this._searchText,
-				firstColumnIndex: rowDescriptor.rowIndex,
-				screenColumns: this.screenRows
-			});
+			// Get the layout indices for visible data.
+			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
+
+			// Only update the cache if layout indices array is not empty.
+			// This avoids accidentally clearing the cache during UI state
+			// transitions (like resizing) which cause layout indices to be
+			// temporarily empty.
+			if (columnIndices.length > 0 || invalidateCache) {
+				await this._tableSummaryCache.update({
+					invalidateCache: !!invalidateCache,
+					columnIndices,
+				});
+			}
 		}
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	override getColumnWidth(columnIndex: number): number {
-		return this.layoutWidth;
+	override getCustomColumnWidth(columnIndex: number): number | undefined {
+		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
 	/**
@@ -273,8 +297,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the hover manager.
 	 */
-	get hoverManager() {
+	override get hoverManager() {
 		return this._hoverManager;
+	}
+
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions() {
+		return this._dataExplorerClientInstance.profileFormatOptions;
 	}
 
 	//#endregion Public Properties
@@ -299,16 +330,86 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Determines whether summary stats is supported.
+	 * @returns true, if summary stats is supported; otherwise, false.
+	 */
+	isSummaryStatsSupported(): boolean {
+		// Check if summary stats feature is enabled globally
+		const columnProfilesFeatures = this.getSupportedFeatures().get_column_profiles;
+		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.SummaryStats
+		);
+
+		// If the summary status support status is undefined, return false.
+		if (!summaryStatsSupportStatus) {
+			return false;
+		}
+
+		// Return the summary stats support status.
+		return summaryStatsSupportStatus.support_status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Determines whether the specified column index can be expanded or collapsed.
+	 * @param columnIndex The columm index.
+	 * @returns true if the column can be expanded or collapsed; otherwise, false.
+	 */
+	canToggleColumnExpansion(columnIndex: number): boolean {
+		// Get the column schema. If it hasn't been loaded yet, return false.
+		const columnSchema = this._tableSummaryCache.getColumnSchema(columnIndex);
+		if (!columnSchema) {
+			return false;
+		}
+
+		let summaryStatsSupported;
+		switch (columnSchema.type_display) {
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
+			case ColumnDisplayType.Boolean:
+			case ColumnDisplayType.String:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Object:
+				summaryStatsSupported = this.isSummaryStatsSupported();
+				break;
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown:
+				summaryStatsSupported = false;
+				break;
+
+			// This shouldn't ever happen.
+			default:
+				summaryStatsSupported = false;
+				break;
+		}
+
+		return summaryStatsSupported;
+	}
+
+	/**
 	 * Toggles the expanded state of the specified column index.
 	 * @param columnIndex The columm index.
 	 */
 	async toggleExpandColumn(columnIndex: number) {
 		if (this._tableSummaryCache.isColumnExpanded(columnIndex)) {
-			this._rowLayoutManager.clearLayoutOverride(columnIndex);
+			this._rowLayoutManager.clearSizeOverride(columnIndex);
 		} else {
-			this._rowLayoutManager.setLayoutOverride(columnIndex, this.expandedRowHeight(columnIndex));
+			this._rowLayoutManager.setSizeOverride(columnIndex, this.expandedRowHeight(columnIndex));
 		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
+	}
+
+	/**
+	 * Gets the column schema for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column schema for the specified column index
+	 */
+	getColumnSchema(columnIndex: number) {
+		return this._tableSummaryCache.getColumnSchema(columnIndex);
 	}
 
 	/**
@@ -326,11 +427,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns The column profile null percent for the specified column index
 	 */
 	getColumnProfileNullPercent(columnIndex: number) {
-		// If the table has no rows, it's meaningless to calculate the column null percent. Return
-		// undefined in this case.
 		const rows = this._tableSummaryCache.rows;
+
+		// If the table has no rows, the null percent is 0% (0 nulls out of 0 total).
 		if (!rows) {
-			return undefined;
+			return 0;
 		}
 
 		// Get the null count. If it hasn't been loaded yet, return undefined.
@@ -389,18 +490,130 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Updates the pinned rows in the summary panel.
+	 *
+	 * Note: The summary panel pins column indices as rows.
+	 * This is because the summary panel is a single column data grid
+	 * where each row represents a column from the main data grid.
+	 *
+	 * @param pinnedColumnIndices An array of column indices to pin as rows in the summary panel.
+	 */
+	async updatePinnedRows(pinnedColumnIndices: number[]): Promise<void> {
+
+		// Temporarily reset the layout to allow pinning any column index
+		// This is needed for the case where we have an active search/sort
+		// because the layout manager checks against the current entry map
+		// of filtered columns, but we want to be able to pin columns that
+		// are not in the current entry map.
+		const state = await this._dataExplorerClientInstance.getBackendState();
+		this._rowLayoutManager.setEntries(state.table_shape.num_columns);
+
+		// Now update the pinned indexes in the row layout manager.
+		this._rowLayoutManager.setPinnedIndexes(pinnedColumnIndices);
+
+		if (this.hasNoSearchOrSort()) {
+			this.fetchData(false);
+		} else {
+			// If there's an active search or sort, we need to refresh the layout entries
+			// to ensure the new pinned columns are included in the combined entry map
+			await this.updateLayoutEntries();
+			// Invalidate the cache when pinned columns change with active search/sort
+			await this.fetchData(true);
+		}
+
+		// Force a re-render when the pinned columns change
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
 	 * Sets the column name search filter.
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
 	async setSearchText(searchText: string): Promise<void> {
-		this._searchText = searchText || undefined;
-		// Invalidate the cache when the search text is cleared
-		await this.fetchData(!this._searchText);
+		if (this._searchText !== searchText) {
+			this._searchText = searchText;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Sets the sort option for the summary rows.
+	 * @param sortOption The sort option used to order the rows.
+	 */
+	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
+		if (this._sortOption !== sortOption) {
+			this._sortOption = sortOption;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Helper function to determine if there is a search or sort option applied.
+	 * Used to determine when the cache should be invalidated.
+	 * @returns A value which indicates whether there is a search or sort option applied.
+	 */
+	private hasNoSearchOrSort(): boolean {
+		return this._searchText === '' && this._sortOption === SearchSchemaSortOrder.Original;
+	}
+
+	/**
+	 * Updates the layout entries to render.
+	 * @param state The backend state, if known; otherwise, undefined.
+	 */
+	private async updateLayoutEntries(state?: BackendState) {
+		if (this.hasNoSearchOrSort()) {
+			// When there is no search or sort option, we need to tell the layout manager
+			// to use the original table shape and render all the data
+			if (!state) {
+				state = await this._dataExplorerClientInstance.getBackendState();
+			}
+			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
+		} else {
+			// Get current pinned indexes from the layout manager BEFORE doing anything else
+			// This is important because setEntries() can clear the pinned indexes if they're not
+			// in the new entry map
+			const pinnedColumns = this._rowLayoutManager.pinnedIndexes;
+
+			// When there is a search or sort option, we need to tell the layout manager
+			// to use the filtered table shape and render both pinned columns and search results.
+			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
+				searchText: this._searchText,
+				sortOption: this._sortOption,
+			});
+
+			// Create a combined entry map that includes both pinned columns and search results
+			// Pinned columns should appear first, followed by search results that aren't already pinned
+			const pinnedSet = new Set(pinnedColumns);
+			const combinedEntries: number[] = [
+				...pinnedColumns,
+				...searchResults.matches.filter(matchedColumn => !pinnedSet.has(matchedColumn))
+			];
+
+			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
+		}
+
+		// Ensures the user is not scrolled off the screen
+		// For example: this can happen if the user is scrolled to the end of the table,
+		// adds a search filter, which results in a single entry. We need to reset the
+		// scroll position back to the top so the user can see the data.
+		if (!this.firstRow) {
+			this._verticalScrollOffset = 0;
+		} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+		}
+	}
 
 	/**
 	 * Gets an expanded row height.
@@ -440,8 +653,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number:
+			// Number (including all numeric subtypes).
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return rowHeight(true, COLUMN_PROFILE_NUMBER_LINE_COUNT);
 
 			// Boolean.

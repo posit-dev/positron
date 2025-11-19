@@ -1,8 +1,4 @@
 "use strict";
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -40,6 +36,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const minimatch_1 = __importDefault(require("minimatch"));
@@ -192,7 +192,7 @@ async function main(buildDir) {
         '**/Credits.rtf',
         '**/policies/{*.mobileconfig,**/*.plist}',
         // TODO: Should we consider expanding this to other files in this area?
-        '**/node_modules/@parcel/node-addon-api/nothing.target.mk'
+        '**/node_modules/@parcel/node-addon-api/nothing.target.mk',
     ];
     // --- Start Positron ---
     // We split the original main function in two parts so that we can call the
@@ -218,7 +218,7 @@ async function origMain(x64AppPath, arm64AppPath, asarRelativePath, outAppPath, 
         outAppPath,
         force: true,
         mergeASARs: true,
-        x64ArchFiles: '*/kerberos.node',
+        x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node}',
         filesToSkipComparison: (file) => {
             for (const expected of filesToSkip) {
                 if ((0, minimatch_1.default)(file, expected)) {

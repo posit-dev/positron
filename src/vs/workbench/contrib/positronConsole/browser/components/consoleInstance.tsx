@@ -23,7 +23,7 @@ import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
-import { POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
+import { PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
@@ -262,8 +262,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidSelectPlot event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
-			// Ensure that the Plots pane is visible.
-			services.viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			// Ensure that the Plots pane is visible in the main window.
+			// Don't open the main window view if plots are displayed in the auxiliary window.
+			if (services.positronPlotsService.displayLocation === PlotsDisplayLocation.MainWindow) {
+				services.viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			}
 
 			// Select the plot in the Plots pane.
 			services.positronPlotsService.selectPlot(plotId);

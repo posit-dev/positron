@@ -42,6 +42,10 @@ export class QuickAccess {
 		// Clear editor history to ensure Quick Access is not "polluted"
 		await this.runCommand('workbench.action.clearEditorHistory');
 
+		if (/(8080|8787)/.test(this.code.driver.page.url())) {
+			await this.code.driver.page.getByRole('button', { name: 'Clear', exact: true }).click();
+		}
+
 		await expect(async () => {
 			// Open Quick Access and wait for the elements to appear
 			await this.openQuickAccessWithRetry(QuickAccessKind.Files, searchValue);

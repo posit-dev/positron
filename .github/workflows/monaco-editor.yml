@@ -23,9 +23,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
+          package-manager-cache: false
 
       - name: Compute node modules cache key
         id: nodeModulesCacheKey

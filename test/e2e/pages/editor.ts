@@ -17,13 +17,9 @@ const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-
 
 export class Editor {
 
-	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
-	playButton = this.code.driver.page.locator(PLAY_BUTTON);
-	editorPane = this.code.driver.page.locator('[id="workbench.parts.editor"]');
-
-	getEditorViewerLocator(locator: string,): Locator {
-		return this.viewerFrame.locator(locator);
-	}
+	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
+	get playButton(): Locator { return this.code.driver.page.locator(PLAY_BUTTON); }
+	get editorPane(): Locator { return this.code.driver.page.locator('[id="workbench.parts.editor"]'); }
 
 	getEditorViewerFrame(): FrameLocator {
 		return this.viewerFrame;
@@ -223,5 +219,25 @@ export class Editor {
 			await this.clickOnTerm(file, term, line, true);
 			await this.code.driver.page.keyboard.type(replaceWith);
 		});
+	}
+
+	async getMonacoFilenames(): Promise<string[]> {
+		const loc = this.code.driver.page.locator('.monaco-editor[data-uri]');
+		const uris = await loc.evaluateAll(els =>
+			els.map(el => el.getAttribute('data-uri') ?? '')
+		);
+
+		const names = uris
+			.map(u => {
+				// drop query/hash and decode
+				const clean = decodeURIComponent(u.split('#')[0].split('?')[0]);
+				// take last path-ish segment (handles file:///… , /…, untitled:…, etc.)
+				const segs = clean.split(/[\\/:\u2215]/); // handle /, \, :
+				return segs[segs.length - 1] || '';
+			})
+			.filter(Boolean);
+
+		// if you only want unique filenames:
+		return [...new Set(names)];
 	}
 }

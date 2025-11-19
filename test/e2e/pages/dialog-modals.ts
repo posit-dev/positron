@@ -3,18 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code.js';
 import { Console } from '../infra';
 import { Toasts } from './dialog-toasts.js';
 
 export class Modals {
-	public modalBox = this.code.driver.page.locator('.positron-modal-dialog-box');
-	public modalTitle = this.modalBox.locator('.simple-title-bar-title');
-	public modalMessage = this.code.driver.page.locator('.dialog-box .message');
-	public okButton = this.modalBox.getByRole('button', { name: 'OK' });
-	public cancelButton = this.modalBox.getByRole('button', { name: 'Cancel' });
-	public button = (label: string | RegExp) => this.modalBox.getByRole('button', { name: label });
+	public get modalBox(): Locator { return this.code.driver.page.locator('.positron-modal-dialog-box'); }
+	public get modalTitle(): Locator { return this.modalBox.locator('.simple-title-bar-title'); }
+	public get modalMessage(): Locator { return this.code.driver.page.locator('.dialog-box .message'); }
+	public get okButton(): Locator { return this.modalBox.getByRole('button', { name: 'OK' }); }
+	public get cancelButton(): Locator { return this.modalBox.getByRole('button', { name: 'Cancel' }); }
+	public getButton(label: string | RegExp): Locator { return this.modalBox.getByRole('button', { name: label }); }
 
 	constructor(private readonly code: Code, private toasts: Toasts, private console: Console) { }
 
@@ -34,7 +34,7 @@ export class Modals {
 
 	async clickButton(label: string | RegExp) {
 		await test.step(`Click button in modal dialog box: ${label}`, async () => {
-			await this.button(label).click();
+			await this.getButton(label).click();
 		});
 	}
 
@@ -44,7 +44,7 @@ export class Modals {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
 			await this.expectToBeVisible();
-			await this.clickOk();
+			await this.clickButton('Install');
 			this.code.logger.log('Installing ipykernel');
 			await this.toasts.expectToBeVisible();
 			await this.toasts.expectNotToBeVisible();
@@ -68,10 +68,10 @@ export class Modals {
 
 			if (action === 'install') {
 				this.code.logger.log('Install Renv modal detected: clicking `Install now`');
-				await this.button('Install now').click();
+				await this.getButton('Install now').click();
 			} else if (action === 'cancel') {
 				this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
-				await this.button('Cancel').click();
+				await this.getButton('Cancel').click();
 			}
 		} catch (error) {
 			this.code.logger.log('No Renv modal detected; interacting with console directly');

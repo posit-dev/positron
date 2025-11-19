@@ -228,22 +228,6 @@ suite('Web app commands', () => {
         );
     });
 
-    test('Exec Shiny in terminal - without urlPrefix', async () => {
-        await verifyRunAppCommand(Commands.Exec_Shiny_In_Terminal, {
-            commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
-        });
-    });
-
-    test('Exec Shiny in terminal - with urlPrefix', async () => {
-        await verifyRunAppCommand(
-            Commands.Exec_Shiny_In_Terminal,
-            {
-                commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
-            },
-            { urlPrefix },
-        );
-    });
-
     test('Exec Streamlit in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Streamlit_In_Terminal, {
             commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
@@ -345,22 +329,6 @@ suite('Web app commands', () => {
                 stopOnEntry: false,
                 program: documentPath,
                 env: {},
-            },
-            { urlPrefix },
-        );
-    });
-
-    test('Debug Shiny in terminal - with purlPrefix', async () => {
-        await verifyDebugAppCommand(
-            Commands.Debug_Shiny_In_Terminal,
-            {
-                type: 'python',
-                name: 'Shiny',
-                request: 'launch',
-                jinja: true,
-                stopOnEntry: false,
-                module: 'shiny',
-                args: ['run', '--reload', documentPath],
             },
             { urlPrefix },
         );

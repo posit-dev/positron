@@ -157,6 +157,11 @@ export interface ColumnSchema {
 	column_name: string;
 
 	/**
+	 * Display label for column (e.g., from R's label attribute)
+	 */
+	column_label?: string;
+
+	/**
 	 * The position of the column within the table without any column filters
 	 */
 	column_index: number;
@@ -1053,6 +1058,23 @@ export interface DataSelectionCellRange {
 }
 
 /**
+ * A rectangular cell selection defined by arrays of row and column
+ * indices
+ */
+export interface DataSelectionCellIndices {
+	/**
+	 * The selected row indices
+	 */
+	row_indices: Array<number>;
+
+	/**
+	 * The selected column indices
+	 */
+	column_indices: Array<number>;
+
+}
+
+/**
  * A contiguous selection bounded by inclusive start and end indices
  */
 export interface DataSelectionRange {
@@ -1108,7 +1130,7 @@ export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
 export type ColumnProfileParams = ColumnHistogramParams | ColumnHistogramParams | ColumnFrequencyTableParams | ColumnFrequencyTableParams;
 
 /// A union of selection types
-export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
+export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionCellIndices | DataSelectionRange | DataSelectionIndices;
 
 /// Union of selection specifications for array_selection
 export type ArraySelection = DataSelectionRange | DataSelectionIndices;
@@ -1128,7 +1150,6 @@ export enum SearchSchemaSortOrder {
  * Possible values for ColumnDisplayType
  */
 export enum ColumnDisplayType {
-	Number = 'number',
 	Boolean = 'boolean',
 	String = 'string',
 	Date = 'date',
@@ -1138,7 +1159,10 @@ export enum ColumnDisplayType {
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
-	Unknown = 'unknown'
+	Unknown = 'unknown',
+	Floating = 'floating',
+	Integer = 'integer',
+	Decimal = 'decimal'
 }
 
 /**
@@ -1228,7 +1252,8 @@ export enum TableSelectionKind {
 	ColumnRange = 'column_range',
 	RowRange = 'row_range',
 	ColumnIndices = 'column_indices',
-	RowIndices = 'row_indices'
+	RowIndices = 'row_indices',
+	CellIndices = 'cell_indices'
 }
 
 /**
@@ -1245,8 +1270,7 @@ export enum ExportFormat {
  */
 export enum SupportStatus {
 	Unsupported = 'unsupported',
-	Supported = 'supported',
-	Experimental = 'experimental'
+	Supported = 'supported'
 }
 
 /**

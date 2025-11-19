@@ -965,11 +965,11 @@ def test_query_table_summary(shell: PositronShell, variables_comm: DummyComm):
                 "num_rows": 5,
                 "num_columns": 2,
                 "column_schemas": [
-                    '{"column_name": "a", "column_index": 0, "type_name": "int64", "type_display": "number", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
-                    '{"column_name": "b", "column_index": 1, "type_name": "bool", "type_display": "boolean", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                    '{"column_name": "a", "column_label": null, "column_index": 0, "type_name": "int64", "type_display": "integer", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                    '{"column_name": "b", "column_label": null, "column_index": 1, "type_name": "bool", "type_display": "boolean", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
                 ],
                 "column_profiles": [
-                    '{"column_name": "a", "type_display": "number", "summary_stats": {"type_display": "number", "number_stats": {"min_value": "1.0000", "max_value": "5.0000", "mean": "3.0000", "median": "3.0000", "stdev": "1.5811"}, "string_stats": null, "boolean_stats": null, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
+                    '{"column_name": "a", "type_display": "integer", "summary_stats": {"type_display": "integer", "number_stats": {"min_value": "1", "max_value": "5", "mean": "3.0000", "median": "3.0000", "stdev": "1.5811"}, "string_stats": null, "boolean_stats": null, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
                     '{"column_name": "b", "type_display": "boolean", "summary_stats": {"type_display": "boolean", "number_stats": null, "string_stats": null, "boolean_stats": {"true_count": 3, "false_count": 1}, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
                 ],
             }

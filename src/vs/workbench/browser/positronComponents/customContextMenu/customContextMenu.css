@@ -84,7 +84,7 @@
 }
 
 .custom-context-menu-item .shortcut {
-	padding: 10px;
+	padding-inline: 10px; /* Vertical padding can cause overflow and supurious scrollbars. */
 	white-space: nowrap;
 	grid-column: shortcut / end;
 }

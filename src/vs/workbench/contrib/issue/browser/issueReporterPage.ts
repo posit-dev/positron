@@ -174,4 +174,5 @@ export default (): string => `
 			</label>
 		</div>
 	</div>
+
 </div>`;

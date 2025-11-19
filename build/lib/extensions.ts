@@ -44,7 +44,7 @@ function minifyExtensionResources(input: Stream): Stream {
 		.pipe(buffer())
 		.pipe(es.mapSync((f: File) => {
 			const errors: jsoncParser.ParseError[] = [];
-			const value = jsoncParser.parse(f.contents.toString('utf8'), errors, { allowTrailingComma: true });
+			const value = jsoncParser.parse(f.contents!.toString('utf8'), errors, { allowTrailingComma: true });
 			if (errors.length === 0) {
 				// file parsed OK => just stringify to drop whitespace and comments
 				f.contents = Buffer.from(JSON.stringify(value));
@@ -60,7 +60,7 @@ function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): 
 		.pipe(packageJsonFilter)
 		.pipe(buffer())
 		.pipe(es.mapSync((f: File) => {
-			const data = JSON.parse(f.contents.toString('utf8'));
+			const data = JSON.parse(f.contents!.toString('utf8'));
 			f.contents = Buffer.from(JSON.stringify(update(data)));
 			return f;
 		}))
@@ -69,11 +69,9 @@ function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): 
 
 function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolean): Stream {
 
-	const esm = JSON.parse(fs.readFileSync(path.join(extensionPath, 'package.json'), 'utf8')).type === 'module';
-
 	const webpackConfigFileName = forWeb
-		? `extension-browser.webpack.config.${!esm ? 'js' : 'cjs'}`
-		: `extension.webpack.config.${!esm ? 'js' : 'cjs'}`;
+		? `extension-browser.webpack.config.js`
+		: `extension.webpack.config.js`;
 
 	const isWebPacked = fs.existsSync(path.join(extensionPath, webpackConfigFileName));
 	let input = isWebPacked
@@ -95,7 +93,6 @@ function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolea
 	return input;
 }
 
-
 function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, disableMangle: boolean): Stream {
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const webpack = require('webpack');
@@ -105,7 +102,8 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const packagedDependencies: string[] = [];
 	const packageJsonConfig = require(path.join(extensionPath, 'package.json'));
 	if (packageJsonConfig.dependencies) {
-		const webpackRootConfig = require(path.join(extensionPath, webpackConfigFileName));
+		const webpackRootConfig = require(path.join(extensionPath, webpackConfigFileName)).default;
+		fancyLog('Webpack config:', ansiColors.yellow(path.join(path.basename(extensionPath), webpackConfigFileName)));
 		for (const key in webpackRootConfig.externals) {
 			if (key in packageJsonConfig.dependencies) {
 				packagedDependencies.push(key);
@@ -129,7 +127,8 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	// strategy.
 	const extensionsWithNpmDeps = [
 		'positron-proxy',
-		'positron-duckdb'
+		'positron-duckdb',
+		'positron-catalog-explorer'
 	];
 
 	// If the extension has npm dependencies, use the Npm package manager
@@ -141,15 +140,6 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
 	listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
-		const files = fileNames
-			.map(fileName => path.join(extensionPath, fileName))
-			.map(filePath => new File({
-				path: filePath,
-				stat: fs.statSync(filePath),
-				base: extensionPath,
-				contents: fs.createReadStream(filePath) as any
-			}));
-
 		// check for a webpack configuration files, then invoke webpack
 		// and merge its output with the files stream.
 		const webpackConfigLocations = (<string[]>glob.sync(
@@ -173,7 +163,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 				}
 			};
 
-			const exportedConfig = require(webpackConfigPath);
+			const exportedConfig = require(webpackConfigPath).default;
 			return (Array.isArray(exportedConfig) ? exportedConfig : [exportedConfig]).map(config => {
 				const webpackConfig = {
 					...config,
@@ -216,7 +206,9 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 			});
 		});
 
-		es.merge(...webpackStreams, es.readArray(files))
+		const localFilesStream = createSequentialFileStream(extensionPath, fileNames);
+
+		es.merge(...webpackStreams, localFilesStream)
 			// .pipe(es.through(function (data) {
 			// 	// debug
 			// 	console.log('out', data.path, data.contents.length);
@@ -242,16 +234,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
 	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
 		.then(fileNames => {
-			const files = fileNames
-				.map(fileName => path.join(extensionPath, fileName))
-				.map(filePath => new File({
-					path: filePath,
-					stat: fs.statSync(filePath),
-					base: extensionPath,
-					contents: fs.createReadStream(filePath) as any
-				}));
-
-			es.readArray(files).pipe(result);
+			createSequentialFileStream(extensionPath, fileNames).pipe(result);
 		})
 		.catch(err => result.emit('error', err));
 	// --- End PWB: from Positron ---
@@ -267,6 +250,7 @@ const baseHeaders = {
 };
 
 // --- Start Positron ---
+
 function getPlatformDownloads(bootstrap: boolean): string[] {
 	// return both architectures for mac universal installer
 	if (bootstrap && process.platform === 'darwin' && !process.env['VSCODE_DEV']) {
@@ -469,6 +453,14 @@ const excludedExtensions = [
 	'positron-javascript',
 	// --- End Positron ---
 ];
+
+// --- Start Positron ---
+// If this is not Windows, exclude the open-remote-wsl extension, which is only
+// relevant on Windows.
+if (process.platform !== 'win32') {
+	excludedExtensions.push('open-remote-wsl');
+}
+// --- End Positron ---
 
 const marketplaceWebExtensionsExclude = new Set([
 	'ms-vscode.node-debug',
@@ -741,12 +733,13 @@ const extensionsPath = path.join(root, 'extensions');
 
 // Additional projects to run esbuild on. These typically build code for webviews
 const esbuildMediaScripts = [
-	'markdown-language-features/esbuild-notebook.js',
-	'markdown-language-features/esbuild-preview.js',
-	'markdown-math/esbuild.js',
-	'notebook-renderers/esbuild.js',
-	'ipynb/esbuild.js',
-	'simple-browser/esbuild-preview.js',
+	'ipynb/esbuild.mjs',
+	'markdown-language-features/esbuild-notebook.mjs',
+	'markdown-language-features/esbuild-preview.mjs',
+	'markdown-math/esbuild.mjs',
+	'mermaid-chat-features/esbuild-chat-webview.mjs',
+	'notebook-renderers/esbuild.mjs',
+	'simple-browser/esbuild-preview.mjs',
 	// --- Start Positron ---
 	'positron-ipywidgets/renderer/esbuild.js',
 	// --- End Positron ---
@@ -758,7 +751,7 @@ export async function webpackExtensions(taskName: string, isWatch: boolean, webp
 	const webpackConfigs: webpack.Configuration[] = [];
 
 	for (const { configPath, outputRoot } of webpackConfigLocations) {
-		const configOrFnOrArray = require(configPath);
+		const configOrFnOrArray = require(configPath).default;
 		function addConfig(configOrFnOrArray: webpack.Configuration | ((env: unknown, args: unknown) => webpack.Configuration) | webpack.Configuration[]) {
 			for (const configOrFn of Array.isArray(configOrFnOrArray) ? configOrFnOrArray : [configOrFnOrArray]) {
 				const config = typeof configOrFn === 'function' ? configOrFn({}, {}) : configOrFn;
@@ -770,6 +763,7 @@ export async function webpackExtensions(taskName: string, isWatch: boolean, webp
 		}
 		addConfig(configOrFnOrArray);
 	}
+
 	function reporter(fullStats: any) {
 		if (Array.isArray(fullStats.children)) {
 			for (const stats of fullStats.children) {
@@ -858,6 +852,115 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 
 // --- Start PWB: from Positron ---
 
+/**
+ * Create a stream that emits files in the order of `fileNames`, one at a time,
+ * reading each file from disk before emitting it.
+ *
+ * This is used to serialize file reads when packaging extensions, to avoid
+ * running out of file descriptors (EMFILE) when building.
+ *
+ * @param extensionPath The root path of the extension
+ * @param fileNames The list of file names to emit, relative to `extensionPath`
+ * @returns A stream that emits the files in order
+ */
+function createSequentialFileStream(extensionPath: string, fileNames: string[]): Stream {
+	const stream = es.through();
+	const queue = [...fileNames];
+	let ended = false;
+
+	const finish = () => {
+		if (!ended) {
+			ended = true;
+			stream.emit('end');
+		}
+	};
+
+	stream.on('close', () => {
+		ended = true;
+		queue.length = 0;
+	});
+
+	stream.on('error', () => {
+		ended = true;
+		queue.length = 0;
+	});
+
+	const pump = () => {
+		if (ended) {
+			return;
+		}
+		if (queue.length === 0) {
+			finish();
+			return;
+		}
+
+		const relativePath = queue.shift()!;
+		const absolutePath = path.join(extensionPath, relativePath);
+		let stats: fs.Stats;
+		try {
+			stats = fs.statSync(absolutePath);
+		} catch (error) {
+			ended = true;
+			queue.length = 0;
+			stream.emit('error', error);
+			return;
+		}
+
+		let fileStream: fs.ReadStream;
+		try {
+			fileStream = fs.createReadStream(absolutePath);
+		} catch (error) {
+			ended = true;
+			queue.length = 0;
+			stream.emit('error', error);
+			return;
+		}
+
+		let settled = false;
+		const cleanup = () => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			fileStream.removeListener('end', cleanup);
+			fileStream.removeListener('close', cleanup);
+			fileStream.removeListener('error', onError);
+			setImmediate(pump);
+		};
+
+		const onError = (err: Error) => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			fileStream.removeListener('end', cleanup);
+			fileStream.removeListener('close', cleanup);
+			fileStream.removeListener('error', onError);
+			ended = true;
+			queue.length = 0;
+			stream.emit('error', err);
+		};
+
+		fileStream.on('end', cleanup);
+		fileStream.on('close', cleanup);
+		fileStream.on('error', onError);
+
+		const file = new File({
+			path: absolutePath,
+			stat: stats,
+			base: extensionPath,
+			contents: fileStream as any
+		});
+
+		stream.emit('data', file);
+	};
+
+	setImmediate(pump);
+
+	return stream;
+}
+
+
 // Node 20 consistently crashes when there are too many `vsce.listFiles`
 // operations in flight at once; these operations are expensive as they recurse
 // back into `yarn`. The code below serializes these operations when building
@@ -923,7 +1026,7 @@ function processListQueue() {
 	vsce.listFiles(next.opts).then((fileNames) => {
 		next.resolve(fileNames);
 	}).catch((e) => {
-		next.reject(e)
+		next.reject(e);
 	}).finally(() => {
 		// When work is complete, mark no longer busy and move to the next
 		// element in the queue, if any

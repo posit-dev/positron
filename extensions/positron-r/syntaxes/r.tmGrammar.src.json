@@ -265,7 +265,7 @@
 		},
 		"keywords-constant": {
 			"name": "constant.language",
-			"match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA|T|F)\\b"
+			"match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA)\\b"
 		},
 		"latex": {
 			"patterns": [
@@ -455,13 +455,23 @@
 			]
 		},
 		"roxygen-example": {
-			"begin": "(^\\s*#+')\\s*(@examples)\\s*$",
+			"begin": "(^\\s*#+')\\s*(?:(@examples)\\s*|(@examplesIf)\\s+(.*))$",
 			"beginCaptures": {
 				"1": {
 					"name": "comment.line"
 				},
 				"2": {
 					"name": "{{ roxygen-tag }}"
+				},
+				"3": {
+					"name": "{{ roxygen-tag }}"
+				},
+				"4": {
+					"patterns": [
+						{
+							"include": "#expression"
+						}
+					]
 				}
 			},
 			"end": "(?:^\\s*(?=#+'\\s*@))|(?:^\\s*(?!#+'))",

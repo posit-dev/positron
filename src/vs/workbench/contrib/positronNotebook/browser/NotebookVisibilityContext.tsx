@@ -5,14 +5,14 @@
 
 // React.
 import React, { PropsWithChildren, createContext, useContext } from 'react';
+import { IObservable } from '../../../../base/common/observable.js';
 
 // Other dependencies.
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 
 /**
  * Create the notebook visibility context.
  */
-const NotebookVisibilityContext = createContext<ISettableObservable<boolean>>(undefined!);
+const NotebookVisibilityContext = createContext<IObservable<boolean>>(undefined!);
 
 /**
  * Provider component for notebook visibility state
@@ -20,7 +20,7 @@ const NotebookVisibilityContext = createContext<ISettableObservable<boolean>>(un
 export const NotebookVisibilityProvider = ({
 	isVisible,
 	children
-}: PropsWithChildren<{ isVisible: ISettableObservable<boolean> }>) => {
+}: PropsWithChildren<{ isVisible: IObservable<boolean> }>) => {
 	return (
 		<NotebookVisibilityContext.Provider value={isVisible}>
 			{children}

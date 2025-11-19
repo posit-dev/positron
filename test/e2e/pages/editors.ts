@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
 export class Editors {
 
-	activeEditor = this.code.driver.page.locator('div.tab.tab-actions-right.active.selected');
-	editorIcon = this.code.driver.page.locator('.monaco-icon-label.file-icon');
-	editorPart = this.code.driver.page.locator('.split-view-view .part.editor');
-	suggestionList = this.code.driver.page.locator('.suggest-widget .monaco-list-row');
+	get activeEditor(): Locator { return this.code.driver.page.locator('div.tab.tab-actions-right.active.selected'); }
+	get editorIcon(): Locator { return this.code.driver.page.locator('.monaco-icon-label.file-icon'); }
+	get editorPart(): Locator { return this.code.driver.page.locator('.split-view-view .part.editor'); }
+	get suggestionList(): Locator { return this.code.driver.page.locator('.suggest-widget .monaco-list-row'); }
 
 	constructor(private code: Code) { }
 
@@ -41,10 +41,24 @@ export class Editors {
 		});
 	}
 
-	async waitForActiveTab(fileName: string, isDirty: boolean = false): Promise<void> {
-		await expect(this.code.driver.page.locator(`.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"][data-resource-name$="${fileName}"]`)).toBeVisible();
+	escapeRegex(s: string) {
+		return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 
+	async waitForActiveTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
+		const { page } = this.code.driver;
+		const base = `.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"]`;
+		const active = page.locator(base);
+
+		// Ensure we’re looking at exactly one active tab
+		await expect(active).toHaveCount(1);
+		await expect(active).toBeVisible();
+
+		const attrMatcher =
+			fileName instanceof RegExp ? fileName : new RegExp(`${this.escapeRegex(fileName)}$`);
+
+		await expect(active).toHaveAttribute('data-resource-name', attrMatcher);
+	}
 	async waitForActiveTabNotDirty(fileName: string): Promise<void> {
 		await expect(
 			this.code.driver.page.locator(
@@ -87,8 +101,38 @@ export class Editors {
 		}).toPass();
 	}
 
-	async waitForTab(fileName: string, isDirty: boolean = false): Promise<void> {
-		await expect(this.code.driver.page.locator(`.tabs-container div.tab${isDirty ? '.dirty' : ''}[data-resource-name$="${fileName}"]`)).toBeVisible();
+	async waitForTab(fileName: string | RegExp, isDirty: boolean = false): Promise<void> {
+		const { page } = this.code.driver;
+		const base = `.tabs-container div.tab${isDirty ? '.dirty' : ''}`;
+
+		if (fileName instanceof RegExp) {
+			// Find the *exact* data-resource-name of the first tab whose value matches the regex
+			const matchedName = await page.locator(`${base}[data-resource-name]`).evaluateAll(
+				(els, pattern) => {
+					const rx = new RegExp(pattern.source, pattern.flags);
+					for (const el of els) {
+						const v = el.getAttribute('data-resource-name') || '';
+						if (rx.test(v)) { return v; }
+					}
+					return null;
+				},
+				{ source: fileName.source, flags: fileName.flags }
+			);
+
+			if (!matchedName) {
+				throw new Error(`No tab found with data-resource-name matching ${fileName}`);
+			}
+
+			await expect(
+				page.locator(`${base}[data-resource-name="${matchedName}"]`)
+			).toBeVisible();
+
+		} else {
+			// Original ends-with behavior for plain strings
+			await expect(
+				page.locator(`${base}[data-resource-name$="${fileName}"]`)
+			).toBeVisible();
+		}
 	}
 
 	async waitForSCMTab(fileName: string): Promise<void> {

@@ -11,6 +11,8 @@ export interface IConnectionMetadata {
 	host?: string;
 	type?: string;
 	code?: string;
+	// URI for an icon or a base64 encoded image.
+	// starting with data:image/<mime-type>;base64,
 	icon?: string;
 }
 
@@ -34,6 +36,11 @@ export class ConnectionMetadata implements IConnectionMetadata {
 	}
 }
 
+export interface IPositronConnectionsEntriesChangedEvent {
+	entries: IPositronConnectionEntry[] | undefined;
+	error?: Error;
+}
+
 /***
  * A Connection Instance represents the root of a connection to a data
  * source. Children of a connection instance are tables, views, and other
@@ -48,10 +55,13 @@ export interface IPositronConnectionInstance {
 	disconnect?(): Promise<void>;
 	refresh?(): Promise<void>;
 
-	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+	onDidChangeEntries: Event<IPositronConnectionsEntriesChangedEvent>;
 	onDidChangeStatus: Event<boolean>;
 	refreshEntries(): Promise<void>;
-	getEntries(): IPositronConnectionEntry[];
+	// Returns undefined if entries have not been loaded yet
+	// or if there was an error loading them.
+	// Otherwise returns a list of entries.
+	getEntries(): IPositronConnectionEntry[] | undefined;
 
 	onToggleExpandEmitter: Emitter<string>;
 }

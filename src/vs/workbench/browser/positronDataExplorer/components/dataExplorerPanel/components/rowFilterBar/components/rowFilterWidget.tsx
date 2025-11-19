@@ -12,6 +12,7 @@ import React, { forwardRef } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../../../nls.js';
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { usePositronDataExplorerContext } from '../../../../../positronDataExplorerContext.js';
 import {
 	RowFilterDescriptor,
 	RowFilterDescriptorComparison,
@@ -41,6 +42,8 @@ interface RowFilterWidgetProps {
  * @returns The rendered component.
  */
 export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProps>((props, ref) => {
+	const context = usePositronDataExplorerContext();
+
 	// Compute the title.
 	const title = (() => {
 		if (props.rowFilter instanceof RowFilterDescriptorIsEmpty) {
@@ -61,14 +64,14 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
-					{localize('positron.dataExplorer.rowFilterWidget.isNull', "is null")}
+					{localize('positron.dataExplorer.rowFilterWidget.isNull', "is missing")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotNull) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
-					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not null")}
+					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not missing")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsTrue) {
@@ -137,6 +140,8 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 		<Button
 			ref={ref}
 			className={buttonClass}
+			hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
+			tooltip={localize('positron.dataExplorer.editFilter', "Edit Filter")}
 			onPressed={() => props.onEdit()}
 		>
 			<div className='title'>
@@ -144,6 +149,8 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			</div>
 			<Button
 				className='clear-filter-button'
+				hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
+				tooltip={localize('positron.dataExplorer.clearFilter', "Clear Filter")}
 				onPressed={() => props.onClear()}>
 				<div className={'codicon codicon-positron-clear-filter'} />
 			</Button>

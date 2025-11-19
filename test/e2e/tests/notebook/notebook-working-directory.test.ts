@@ -13,10 +13,13 @@ test.use({
 	suiteId: __filename
 });
 
-// Untagged for WEB due to https://github.com/posit-dev/positron/issues/8828
 test.describe('Notebook Working Directory Configuration', {
-	tag: [tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
+
+	test.beforeAll(async function ({ python, app }) {
+		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
+	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();
@@ -30,14 +33,14 @@ test.describe('Notebook Working Directory Configuration', {
 	test('workspaceFolder works', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${workspaceFolder}'
-		});
+		}, { reload: 'web' });
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'qa-example-content');
 	});
 
 	test('fileDirname works', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${fileDirname}'
-		});
+		}, { reload: 'web' });
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
@@ -47,27 +50,28 @@ test.describe('Notebook Working Directory Configuration', {
 
 		await settings.set({
 			'notebook.workingDirectory': tempDir
-		});
+		}, { reload: 'web' });
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(tempDir));
 	});
 
 	test('Paths that do not exist result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '/does/not/exist'
-		});
+		}, { reload: 'web' });
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
 	test('Bad variables result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${asdasd}'
-		});
+		}, { reload: 'web' });
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 });
 
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
 	await notebooks.openNotebook('working-directory.ipynb');
+	await notebooks.selectInterpreter('Python');
 	await notebooks.runAllCells();
 	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
 }

@@ -16,6 +16,7 @@ import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, I
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
+import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -36,6 +37,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			...agentData,
 			modes: agentData.modes as any as ChatModeKind[],
 			extensionId: extension.identifier,
+			extensionVersion: extension.version,
 			extensionPublisherId: extension.publisher,
 			extensionDisplayName: extension.displayName ?? extension.publisher,
 			locations: agentData.locations.map((v) => ChatAgentLocation.fromRaw(v)),
@@ -108,4 +110,17 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	async areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 		return this._proxy.$areCompletionsEnabled(file);
 	}
+
+	async getCurrentProvider(): Promise<IPositronChatProvider | undefined> {
+		return this._proxy.$getCurrentProvider();
+	}
+
+	async getProviders(): Promise<IPositronChatProvider[]> {
+		return this._proxy.$getProviders();
+	}
+
+	async setCurrentProvider(id: string): Promise<IPositronChatProvider | undefined> {
+		return this._proxy.$setCurrentProvider(id);
+	}
+
 }

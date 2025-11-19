@@ -38,8 +38,25 @@
 	min-width: 0;
 	min-height: 0;
 	display: grid;
+	grid-template-columns: 100%;
 	grid-row: main-row / end-rows;
 	grid-column: left-column / collapsed-left-spacer;
+}
+
+/* When summary is on left, left column needs space for action bar */
+.data-explorer-panel .data-explorer.summary-on-left .left-column {
+	grid-template-rows: [summary-row-action-bar] 36px [data-grid] 1fr [end-rows];
+}
+
+/* When summary is on left, right column shows main data (no action bar space needed) */
+.data-explorer-panel .data-explorer.summary-on-left .right-column {
+	grid-template-rows: [data-grid] 1fr [end-rows];
+}
+
+.data-explorer-panel .data-explorer .left-column .data-grid-container {
+	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
+	min-height: 0;
+	grid-row: data-grid / end-rows;
 }
 
 .data-explorer-panel .data-explorer .collapsed-left-spacer {
@@ -72,6 +89,23 @@
 	min-width: 0;
 	min-height: 0;
 	display: grid;
+	grid-template-columns: 100%;
 	grid-row: main-row / end-rows;
 	grid-column: right-column / end-columns;
+}
+
+/* When summary is on right, left column shows main data (no action bar space needed) */
+.data-explorer-panel .data-explorer.summary-on-right .left-column {
+	grid-template-rows: [data-grid] 1fr [end-rows];
+}
+
+/* When summary is on right, right column needs space for action bar */
+.data-explorer-panel .data-explorer.summary-on-right .right-column {
+	grid-template-rows: [summary-row-action-bar] 36px [data-grid] 1fr [end-rows];
+}
+
+.data-explorer-panel .data-explorer .right-column .data-grid-container {
+	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
+	min-height: 0;
+	grid-row: data-grid / end-rows;
 }

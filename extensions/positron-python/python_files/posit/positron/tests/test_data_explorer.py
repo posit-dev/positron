@@ -58,6 +58,11 @@ from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
 
+try:
+    import ibis
+except ImportError:
+    ibis = None
+
 TARGET_NAME = "positron.dataExplorer"
 
 
@@ -121,7 +126,7 @@ SIMPLE_DATA = {
     "a": [1, 2, 3, 4, 5],
     "b": [True, False, True, None, True],
     "c": ["foo", "bar", None, "bar", "None"],
-    "d": [0, 1.2, -4.5, 6, np.nan],
+    "d": [0.0, 1.2, -4.5, 6, np.nan],
     "e": pd.to_datetime(
         [
             "2024-01-01 00:00:00",
@@ -137,6 +142,17 @@ SIMPLE_DATA = {
 }
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
+
+if ibis:
+    SIMPLE_IBIS_DF = ibis.memtable(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+else:
+    SIMPLE_IBIS_DF = None
 
 
 def test_service_properties(de_service: DataExplorerService):
@@ -641,12 +657,12 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
     cases = [
-        ([1, 2, 3, 4, 5], "int64", "number", None),
+        ([1, 2, 3, 4, 5], "int64", "integer", None),
         ([True, False, True, None, True], "bool", "boolean", None),
         (["foo", "bar", None, "bar", "None"], "string", "string", None),
-        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16), "float16", "number", None),
-        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32), "float32", "number", None),
-        ([0, 1.2, -4.5, 6, np.nan], "float64", "number", None),
+        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16), "float16", "floating", None),
+        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32), "float32", "floating", None),
+        ([0, 1.2, -4.5, 6, np.nan], "float64", "floating", None),
         (
             pd.to_datetime(
                 [
@@ -667,22 +683,22 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         (
             np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex64"),
             "complex64",
-            "number",
+            "floating",
             None,
         ),
-        ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number", None),
+        ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "floating", None),
         ([None] * 5, "empty", "unknown", None),
         # NA-enabled numbers
-        (pd.Series([1, 2, None, 3, 4], dtype="Int8"), "Int8", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int16"), "Int16", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int32"), "Int32", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int64"), "Int64", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt8"), "UInt8", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt16"), "UInt16", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt32"), "UInt32", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt64"), "UInt64", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "number", None),
-        (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int8"), "Int8", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int16"), "Int16", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int32"), "Int32", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int64"), "Int64", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt8"), "UInt8", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt16"), "UInt16", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt32"), "UInt32", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt64"), "UInt64", "integer", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "floating", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "floating", None),
         # NA boolean
         (pd.Series([True, False, None, None, True], dtype="boolean"), "boolean", "boolean", None),
         # NA string
@@ -736,7 +752,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "string",
             None,
         ),
-        (pd.Series([0, 1, 0, 1, 0], dtype="category"), "category", "number", None),
+        (pd.Series([0, 1, 0, 1, 0], dtype="category"), "category", "integer", None),
     ]
 
     if hasattr(np, "complex256"):
@@ -748,7 +764,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                     dtype="complex256",
                 ),
                 "complex256",
-                "number",
+                "floating",
                 None,
             )
         )
@@ -828,7 +844,7 @@ def test_pandas_series(dxf: DataExplorerFixture):
                 "column_name": "a",
                 "column_index": 0,
                 "type_name": "int64",
-                "type_display": "number",
+                "type_display": "integer",
             },
         ],
     )
@@ -847,7 +863,7 @@ def test_pandas_series(dxf: DataExplorerFixture):
                 "column_name": "unnamed",
                 "column_index": 0,
                 "type_name": "int64",
-                "type_display": "number",
+                "type_display": "integer",
             },
         ],
     )
@@ -1044,12 +1060,24 @@ def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
 
     # Test ascending type sort
     result = dxf.search_schema("type_sort_test_df", [], "ascending_type")
-    # is_active(6), birth_date(7), created_at(5), id(0), user_id(1), age(4), salary(8), name(2), full_name(3)
-    expected_ascending_type = [6, 7, 5, 0, 1, 4, 8, 2, 3]  # boolean, date, datetime, number, string
+    # With new types: boolean, date, datetime, floating, integer, string
+    # is_active(6), birth_date(7), created_at(5), salary(8), id(0), user_id(1), age(4), name(2), full_name(3)
+    expected_ascending_type = [
+        6,
+        7,
+        5,
+        8,
+        0,
+        1,
+        4,
+        2,
+        3,
+    ]  # boolean, date, datetime, floating, integer, string
     assert result["matches"] == expected_ascending_type
 
     # Test descending type sort
     result = dxf.search_schema("type_sort_test_df", [], "descending_type")
+    # With new types reversed: string, integer, floating, datetime, date, boolean
     # name(2), full_name(3), id(0), user_id(1), age(4), salary(8), created_at(5), birth_date(7), is_active(6)
     expected_descending_type = [
         2,
@@ -1061,13 +1089,15 @@ def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
         5,
         7,
         6,
-    ]  # string, number, datetime, date, boolean
+    ]  # string, integer, floating, datetime, date, boolean
     assert result["matches"] == expected_descending_type
 
-    # Test type sort with filters
-    number_filter = _match_types_filter([ColumnDisplayType.Number])
+    # Test type sort with filters - test for both integer and floating types
+    number_filter = _match_types_filter([ColumnDisplayType.Integer, ColumnDisplayType.Floating])
     result = dxf.search_schema("type_sort_test_df", [number_filter], "ascending_type")
-    expected_number_columns = [0, 1, 4, 8]
+    # With ascending type sort: floating comes before integer
+    # salary (8) is floating, id (0), user_id (1), age (4) are integer
+    expected_number_columns = [8, 0, 1, 4]  # floating first, then integers
     assert result["matches"] == expected_number_columns
 
 
@@ -2283,6 +2313,16 @@ def _select_cell_range(
     }
 
 
+def _select_cell_indices(row_indices: List[int], column_indices: List[int]):
+    return {
+        "kind": "cell_indices",
+        "selection": {
+            "row_indices": row_indices,
+            "column_indices": column_indices,
+        },
+    }
+
+
 def _select_range(first_index: int, last_index: int, kind: str):
     return {
         "kind": kind,
@@ -2311,6 +2351,25 @@ def _select_column_indices(indices: List[int]):
 
 def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
+
+
+def _strip_newline(x):
+    """Helper to strip only the final newline character for cross-platform compatibility."""
+    if x[-1] == "\n":
+        x = x[:-1]
+    return x
+
+
+def _pandas_export_table(x, fmt):
+    """Helper to export pandas DataFrame to various formats with proper line ending handling."""
+    buf = StringIO()
+    if fmt == "csv":
+        x.to_csv(buf, index=False, sep=",")
+    elif fmt == "tsv":
+        x.to_csv(buf, sep="\t", index=False)
+    elif fmt == "html":
+        x.to_html(buf, index=False)
+    return _strip_newline(buf.getvalue())
 
 
 def test_export_data_selection(dxf: DataExplorerFixture):
@@ -2345,22 +2404,15 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         (_select_row_range(1, 5), (slice(1, 6), slice(None))),
         (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
         (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+        # Test cell_indices selections - Cartesian product of specified rows/columns
+        (_select_cell_indices([1, 3, 5], [10, 15, 19]), ([1, 3, 5], [10, 15, 19])),
+        (_select_cell_indices([0, 2, 4], [0, 1, 2]), ([0, 2, 4], [0, 1, 2])),
+        (_select_cell_indices([10], [5, 10, 15]), ([10], [5, 10, 15])),
+        (_select_cell_indices([1, 3], [7]), ([1, 3], [7])),
+        # Test cell_indices with non-strictly-increasing indices (order preservation)
+        (_select_cell_indices([5, 1, 3], [15, 10, 19]), ([5, 1, 3], [15, 10, 19])),
+        (_select_cell_indices([4, 0, 2], [2, 0, 1]), ([4, 0, 2], [2, 0, 1])),
     ]
-
-    def strip_newline(x):
-        if x[-1] == "\n":
-            x = x[:-1]
-        return x
-
-    def pandas_export_table(x, fmt):
-        buf = StringIO()
-        if fmt == "csv":
-            x.to_csv(buf, index=False)
-        elif fmt == "tsv":
-            x.to_csv(buf, sep="\t", index=False)
-        elif fmt == "html":
-            x.to_html(buf, index=False)
-        return strip_newline(buf.getvalue())
 
     def pandas_export_cell(x, i, j):
         return str(x.iloc[i, j])
@@ -2383,7 +2435,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         return str(x[i, j])
 
     data_cases = {
-        ("test_df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("test_df", pandas_export_cell, _pandas_export_table, pandas_iloc),
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 
@@ -2425,6 +2477,146 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 filt_result = dxf.export_data_selection(f"{name}_filtered", rpc_selection, fmt)
                 filt_expected = export_table(filtered_selected, fmt)
                 assert filt_result["data"] == filt_expected
+
+
+def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
+    """Test that export_data_selection respects sort order for column selections."""
+    # Create test DataFrames
+    df_pandas = pd.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    df_polars = pl.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    # Register tables
+    dxf.register_table("pandas_sorted", df_pandas)
+    dxf.register_table("polars_sorted", df_polars)
+
+    # Test cases: (table_name, sort_keys, expected_column_B_values)
+    test_cases = [
+        # Sort by column A ascending
+        ("pandas_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        # Sort by column A descending
+        ("pandas_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        # Sort by column C ascending
+        ("pandas_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+    ]
+
+    for table_name, sort_keys, expected_b_values in test_cases:
+        # Apply sort
+        dxf.set_sort_columns(table_name, sort_keys)
+
+        # Export column B (whole column selection using ColumnIndices)
+        selection = _select_column_indices([1])
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        # Parse the CSV result to get the values
+        lines = result["data"].splitlines()
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Check that values are in expected sorted order
+        assert header == "B", f"Expected header 'B', got '{header}'"
+        assert values == expected_b_values, (
+            f"Table {table_name} with sort {sort_keys}: Expected {expected_b_values}, got {values}"
+        )
+
+        # Also test ColumnRange selection (columns B and C)
+        selection_range = _select_column_range(1, 2)
+        result_range = dxf.export_data_selection(table_name, selection_range, "csv")
+
+        # Parse the CSV result
+        lines_range = result_range["data"].splitlines()
+        header_range = lines_range[0]
+        values_range = [line.split(",")[0] for line in lines_range[1:] if line.strip()]
+
+        assert "B,C" in header_range or "B\tC" in header_range, (
+            f"Expected 'B,C' in header, got '{header_range}'"
+        )
+        assert values_range == expected_b_values, (
+            f"Table {table_name} column range with sort {sort_keys}: Expected {expected_b_values}, got {values_range}"
+        )
+
+    # Test with filters and sort
+    schema = dxf.get_schema("pandas_sorted")
+    # Filter: A > 2
+    filter_params = [_compare_filter(schema[0], ">", "2")]
+
+    dxf.set_row_filters("pandas_sorted", filter_params)
+    # Sort by C ascending (filtered rows: A=[3,5,4], B=['c','e','d'], C=[30,50,40])
+    # After sort by C: B=['c','d','e']
+    dxf.set_sort_columns("pandas_sorted", [{"column_index": 2, "ascending": True}])
+
+    selection = _select_column_indices([1])
+    result = dxf.export_data_selection("pandas_sorted", selection, "csv")
+
+    lines = result["data"].splitlines()
+    values = [line.strip() for line in lines[1:] if line.strip()]
+    expected_filtered_sorted = ["c", "d", "e"]
+
+    assert values == expected_filtered_sorted, (
+        f"Filtered and sorted export: Expected {expected_filtered_sorted}, got {values}"
+    )
+
+
+def test_export_data_selection_cell_indices_with_sort(dxf: DataExplorerFixture):
+    """Test that CellIndices selection respects table sort order."""
+    # Create test DataFrames with clear sort order differences
+    df_pandas = pd.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    df_polars = pl.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    # Register tables
+    dxf.register_table("pandas_cell_indices", df_pandas)
+    dxf.register_table("polars_cell_indices", df_polars)
+
+    for table_name in ["pandas_cell_indices", "polars_cell_indices"]:
+        # Sort by sort_col ascending - should reorder to: 1,2,3,4,5
+        # Original indices: [1,3,0,2,4] -> rows with IDs: [100,200,300,400,500]
+        dxf.set_sort_columns(table_name, [{"column_index": 0, "ascending": True}])
+
+        # Test CellIndices selection: rows 0,1 from sorted view should be rows with IDs 100,200
+        selection = _select_cell_indices([0, 1], [1, 2])  # id and data columns
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        lines = result["data"].splitlines()
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Should get first two rows from sorted table: ID 100,200 with data row1,row2
+        assert header == "id,data", f"Expected header 'id,data', got '{header}'"
+        assert values == ["100,row1", "200,row2"], (
+            f"CellIndices with sort on {table_name}: Expected ['100,row1', '200,row2'], got {values}"
+        )
+
+        # Test reverse order selection to ensure selection order is preserved
+        selection_reverse = _select_cell_indices([2, 0], [0, 1])  # sort_col and id columns
+        result_reverse = dxf.export_data_selection(table_name, selection_reverse, "csv")
+
+        lines_reverse = result_reverse["data"].splitlines()
+        values_reverse = [line.strip() for line in lines_reverse[1:] if line.strip()]
+
+        # Should get rows 2,0 from sorted view: (3,300) then (1,100)
+        assert values_reverse == ["3,300", "1,100"], (
+            f"CellIndices reverse order on {table_name}: Expected ['3,300', '1,100'], got {values_reverse}"
+        )
 
 
 def _profile_request(column_index, profiles):
@@ -2536,6 +2728,45 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
         assert results == ex_results
 
 
+def test_zero_row_null_count(dxf: DataExplorerFixture):
+    """Test null count for zero-row DataFrames."""
+    # Create empty pandas DataFrame
+    empty_pd = pd.DataFrame(
+        {
+            "str_col": pd.Series([], dtype=str),
+            "num_col": pd.Series([], dtype=int),
+            "bool_col": pd.Series([], dtype=bool),
+        }
+    )
+
+    # Create empty polars DataFrame
+    empty_pl = pl.DataFrame(
+        {
+            "str_col": pl.Series([], dtype=pl.String),
+            "num_col": pl.Series([], dtype=pl.Int64),
+            "bool_col": pl.Series([], dtype=pl.Boolean),
+        }
+    )
+
+    dxf.register_table("empty_pd", empty_pd)
+    dxf.register_table("empty_pl", empty_pl)
+
+    # Test null count for each column type on both pandas and polars
+    for table_name in ["empty_pd", "empty_pl"]:
+        results = dxf.get_column_profiles(
+            table_name,
+            [
+                _get_null_count(0),  # str_col
+                _get_null_count(1),  # num_col
+                _get_null_count(2),  # bool_col
+            ],
+        )
+
+        # All null counts should be 0 for zero-row table
+        expected = [ColumnProfileResult(null_count=0) for _ in range(3)]
+        assert results == expected
+
+
 EPSILON = 1e-7
 
 
@@ -2551,7 +2782,11 @@ def _assert_close(expected, actual):
 
 
 def assert_summary_stats_equal(display_type, result, ex_result):
-    if display_type == ColumnDisplayType.Number:
+    if display_type in (
+        ColumnDisplayType.Floating,
+        ColumnDisplayType.Integer,
+        ColumnDisplayType.Decimal,
+    ):
         _assert_numeric_stats_equal(ex_result, result["number_stats"])
     elif display_type == ColumnDisplayType.String:
         _assert_string_stats_equal(ex_result, result["string_stats"])
@@ -3203,7 +3438,7 @@ def test_profile_histogram_windows_int32_bug():
     )
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
-    assert (result == expected).all()
+    assert result == expected
 
 
 def test_histogram_single_value_special_case():
@@ -3251,50 +3486,37 @@ def test_histogram_single_value_special_case():
 
 
 POLARS_TYPE_EXAMPLES = [
-    (pl.Null, [None, None, None, None], "Null", "unknown"),
-    (pl.Boolean, [False, None, True, False], "Boolean", "boolean"),
-    (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
-    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
-    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
-    (
-        pl.Int64,
-        [-10000000000, 20000000000, 30000000000, None],
-        "Int64",
-        "number",
-    ),
-    (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
-    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
-    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
-    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
-    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
-    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
-    (
-        pl.Binary,
-        [b"testing", b"some", b"strings", None],
-        "Binary",
-        "string",
-    ),
-    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
-    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
+    (pl.Null, [None, None, None, None], "Null", "unknown", None),
+    (pl.Boolean, [False, None, True, False], "Boolean", "boolean", None),
+    (pl.Int8, [-1, 2, 3, None], "Int8", "integer", None),
+    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "integer", None),
+    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "integer", None),
+    (pl.Int64, [-10000000000, 20000000000, 30000000000, None], "Int64", "integer", None),
+    (pl.UInt8, [0, 2, 3, None], "UInt8", "integer", None),
+    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "integer", None),
+    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "integer", None),
+    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "integer", None),
+    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "floating", None),
+    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "floating", None),
+    (pl.Binary, [b"testing", b"some", b"strings", None], "Binary", "string", None),
+    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string", None),
+    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time", None),
     (
         pl.Datetime("ms"),
         [1704394167126, 946730085000, 0, None],
         "Datetime(time_unit='ms', time_zone=None)",
         "datetime",
+        None,
     ),
     (
         pl.Datetime("us", "America/New_York"),
         [1704394167126123, 946730085000123, 0, None],
         "Datetime(time_unit='us', time_zone='America/New_York')",
         "datetime",
+        "America/New_York",
     ),
-    (pl.Date, [130120, 0, -1, None], "Date", "date"),
-    (
-        pl.Duration("ms"),
-        [0, 1000, 2000, None],
-        "Duration(time_unit='ms')",
-        "interval",
-    ),
+    (pl.Date, [130120, 0, -1, None], "Date", "date", None),
+    (pl.Duration("ms"), [0, 1000, 2000, None], "Duration(time_unit='ms')", "interval", None),
     (
         pl.Decimal(12, 4),
         [
@@ -3304,9 +3526,10 @@ POLARS_TYPE_EXAMPLES = [
             None,
         ],
         "Decimal(precision=12, scale=4)",
-        "number",
+        "decimal",
+        None,
     ),
-    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array"),
+    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array", None),
     (
         pl.Struct({"a": pl.Int64, "b": pl.List(pl.String)}),
         [
@@ -3317,16 +3540,17 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
+        None,
     ),
-    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
-    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string", None),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object", None),
 ]
 
 
 def example_polars_df():
     full_schema = []
     full_data = []
-    for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
+    for i, (dtype, data, type_name, type_display, timezone) in enumerate(POLARS_TYPE_EXAMPLES):
         name = f"f{i}"
         s = pl.Series(name=name, values=data, dtype=dtype)
         full_data.append(s)
@@ -3343,6 +3567,7 @@ def example_polars_df():
                 "column_index": i,
                 "type_name": type_name,
                 "type_display": type_display,
+                "timezone": timezone,
             }
         )
 
@@ -3730,9 +3955,10 @@ def test_polars_filter_set_membership(dxf: DataExplorerFixture):
         # TODO(wesm): improve this test once
         # https://github.com/pola-rs/polars/issues/17771 has a
         # resolution.
+        # Note: column 'a' is Int64, so we use integer values for filtering
         (
-            [_set_member_filter(schema[0], [2, 3.5, 4.0, 5, 6.5])],
-            test_df.filter(test_df["a"].is_in(pl.Series([2, 3.5, 4.0, 5, 6.5], dtype=pl.Float64))),
+            [_set_member_filter(schema[0], [2, 3, 4, 5, 6])],
+            test_df.filter(test_df["a"].is_in(pl.Series([2, 3, 4, 5, 6], dtype=pl.Int64))),
         ),
         (
             [_set_member_filter(schema[0], [2, 4])],
@@ -4009,3 +4235,124 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+@pytest.mark.skipif(ibis is None, reason="ibis is not available")
+def test_ibis_supported_features(dxf: DataExplorerFixture):
+    dxf.register_table("example", SIMPLE_IBIS_DF)
+    features = dxf.get_state("example")["supported_features"]
+
+    search_schema = features["search_schema"]
+    row_filters = features["set_row_filters"]
+    column_profiles = features["get_column_profiles"]
+
+    assert search_schema["support_status"] == SupportStatus.Supported
+
+    column_filters = features["set_column_filters"]
+    assert column_filters["support_status"] == SupportStatus.Unsupported
+    assert column_filters["supported_types"] == []
+
+    assert row_filters["support_status"] == SupportStatus.Supported
+    assert row_filters["supports_conditions"] == SupportStatus.Unsupported
+
+    row_filter_types = list(RowFilterType)
+    for tp in row_filter_types:
+        assert (
+            RowFilterTypeSupportStatus(row_filter_type=tp, support_status=SupportStatus.Supported)
+            in row_filters["supported_types"]
+        )
+    assert len(row_filter_types) == len(row_filters["supported_types"])
+
+    assert column_profiles["support_status"] == SupportStatus.Supported
+
+    profile_types = [
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
+    ]
+
+    for tp in profile_types:
+        assert tp in column_profiles["supported_types"]
+
+    assert features["convert_to_code"]["support_status"] == SupportStatus.Unsupported
+
+
+def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
+    """Test histogram behavior for 0-row and 1-row DataFrames."""
+    # Test 0-row DataFrames
+    empty_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([], dtype="float64"),
+            "integers": pd.Series([], dtype="int64"),
+        }
+    )
+    empty_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([], dtype=pl.Float64),
+            "integers": pl.Series([], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("empty_pd", empty_pd)
+    dxf.register_table("empty_pl", empty_pl)
+
+    # Test 1-row DataFrames
+    single_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([42.5], dtype="float64"),
+            "integers": pd.Series([7], dtype="int64"),
+        }
+    )
+    single_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([42.5], dtype=pl.Float64),
+            "integers": pl.Series([7], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("single_pd", single_pd)
+    dxf.register_table("single_pl", single_pl)
+
+    # Test histogram profiles for empty DataFrames
+    for table_name in ["empty_pd", "empty_pl"]:
+        # Test numeric column histogram
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == []
+        assert histogram_result["bin_edges"] == ["0.00", "1.00"]  # Default empty histogram range
+
+        # Test different histogram methods with empty data
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == []
+            assert histogram_result["bin_edges"] == ["0.00", "1.00"]
+
+    # Test histogram profiles for single-row DataFrames
+    for table_name in ["single_pd", "single_pl"]:
+        # Test numeric column histogram - should create single bin with same min/max
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        # For single values, should create single bin with identical edges
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["42.50", "42.50"]
+
+        # Test integer column histogram
+        hist_profiles = [_get_histogram(1, bins=10, method="fixed")]  # integers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["7", "7"]
+
+        # Test different histogram methods with single values
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == [1]
+            assert histogram_result["bin_edges"] == ["42.50", "42.50"]

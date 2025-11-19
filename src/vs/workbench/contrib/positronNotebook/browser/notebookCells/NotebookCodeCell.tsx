@@ -10,41 +10,26 @@ import './NotebookCodeCell.css';
 import React from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
-import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { CellTextOutput } from './CellTextOutput.js';
-import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
+import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 
-interface CellExecutionControlsProps {
-	isRunning: boolean;
-	onRun: () => void;
-}
-
-function CellExecutionControls({ isRunning, onRun }: CellExecutionControlsProps) {
-	return (
-		<ActionButton
-			ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-			onPressed={onRun}
-		>
-			<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-		</ActionButton>
-	);
-}
 
 interface CellOutputsSectionProps {
-	outputs: NotebookCellOutputs[] | undefined;
+	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
+function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
 	return (
-		<div className='positron-notebook-code-cell-outputs'>
+		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? 'has-outputs' : 'no-outputs'}`} data-testid='cell-output'>
 			{outputs?.map((output) => (
 				<CellOutput key={output.outputId} {...output} />
 			))}
@@ -54,18 +39,20 @@ function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
-	const executionStatus = useObservedValue(cell.executionStatus);
-	const isRunning = executionStatus === 'running';
+	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
 	return (
-		<NotebookCellWrapper cell={cell}>
-			<NotebookCellActionBar cell={cell}>
-				<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />
-			</NotebookCellActionBar>
+		<NotebookCellWrapper
+			cell={cell}
+			hasError={hasError}
+		>
 			<div className='positron-notebook-code-cell-contents'>
-				<CellEditorMonacoWidget cell={cell} />
+				<div className='positron-notebook-editor-container'>
+					<CellEditorMonacoWidget cell={cell} />
+				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
+			<CellLeftActionMenu cell={cell} hasError={hasError} />
 		</NotebookCellWrapper>
 	);
 }
@@ -75,7 +62,7 @@ function CellOutput(output: NotebookCellOutputs) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs } = output;
+	const { parsed } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -88,9 +75,11 @@ function CellOutput(output: NotebookCellOutputs) {
 			</div>;
 		case 'image':
 			return <img alt='output image' src={parsed.dataUrl} />;
+		case 'html':
+			return renderHtml(parsed.content);
 		case 'unknown':
 			return <div className='unknown-mime-type'>
-				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}
+				{parsed.content}
 			</div>;
 	}
 }

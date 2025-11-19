@@ -219,7 +219,7 @@ class ViewWelcomeController {
 
 	private render(): void {
 		this.renderDisposables.clear();
-		this.element!.innerText = '';
+		this.element!.textContent = '';
 
 		const contents = this.getContentDescriptors();
 
@@ -342,8 +342,8 @@ export abstract class ViewPane extends Pane implements IView {
 
 	readonly menuActions: ViewMenuActions;
 
-	private progressBar!: ProgressBar;
-	private progressIndicator!: IProgressIndicator;
+	private progressBar?: ProgressBar;
+	private progressIndicator?: IProgressIndicator;
 
 	private toolbar?: WorkbenchToolBar;
 	private readonly showActions: ViewPaneShowActions;
@@ -355,7 +355,7 @@ export abstract class ViewPane extends Pane implements IView {
 	private iconContainer?: HTMLElement;
 	private iconContainerHover?: IManagedHover;
 	protected twistiesContainer?: HTMLElement;
-	private viewWelcomeController!: ViewWelcomeController;
+	private viewWelcomeController?: ViewWelcomeController;
 
 	private readonly headerActionViewItems: DisposableMap<string, IActionViewItem> = this._register(new DisposableMap());
 
@@ -613,7 +613,7 @@ export abstract class ViewPane extends Pane implements IView {
 		const viewDescriptor = this.viewDescriptorService.getViewDescriptorById(this.id);
 		const isDefault = this.viewDescriptorService.getDefaultContainerById(this.id) === viewContainer;
 
-		if (!isDefault && viewDescriptor?.containerTitle && model.title !== viewDescriptor.containerTitle) {
+		if (!isDefault && viewDescriptor?.containerTitle && model.title !== viewDescriptor.containerTitle && title !== viewDescriptor.containerTitle) {
 			return `${viewDescriptor.containerTitle}: ${title}`;
 		}
 
@@ -625,7 +625,7 @@ export abstract class ViewPane extends Pane implements IView {
 	}
 
 	protected layoutBody(height: number, width: number): void {
-		this.viewWelcomeController.layout(height, width);
+		this.viewWelcomeController?.layout(height, width);
 	}
 
 	onDidScrollRoot() {
@@ -634,19 +634,18 @@ export abstract class ViewPane extends Pane implements IView {
 
 	getProgressIndicator() {
 		if (this.progressBar === undefined) {
-			// Progress bar
 			this.progressBar = this._register(new ProgressBar(this.element, defaultProgressBarStyles));
 			this.progressBar.hide();
 		}
 
 		if (this.progressIndicator === undefined) {
 			const that = this;
-			this.progressIndicator = this._register(new ScopedProgressIndicator(assertReturnsDefined(this.progressBar), new class extends AbstractProgressScope {
+			this.progressIndicator = this._register(new ScopedProgressIndicator(assertReturnsDefined(this.progressBar), this._register(new class extends AbstractProgressScope {
 				constructor() {
 					super(that.id, that.isBodyVisible());
 					this._register(that.onDidChangeBodyVisibility(isVisible => isVisible ? this.onScopeOpened(that.id) : this.onScopeClosed(that.id)));
 				}
-			}()));
+			}())));
 		}
 		return this.progressIndicator;
 	}
@@ -660,7 +659,7 @@ export abstract class ViewPane extends Pane implements IView {
 	}
 
 	focus(): void {
-		if (this.viewWelcomeController.enabled) {
+		if (this.viewWelcomeController?.enabled) {
 			this.viewWelcomeController.focus();
 		} else if (this.element) {
 			this.element.focus();

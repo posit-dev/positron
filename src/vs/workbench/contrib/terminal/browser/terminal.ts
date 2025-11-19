@@ -22,7 +22,7 @@ import { IEditableData } from '../../../common/views.js';
 import { ITerminalStatusList } from './terminalStatusList.js';
 import { XtermTerminal } from './xterm/xtermTerminal.js';
 import { IRegisterContributedProfileArgs, IRemoteTerminalAttachTarget, IStartExtensionTerminalRequest, ITerminalConfiguration, ITerminalFont, ITerminalProcessExtHostProxy, ITerminalProcessInfo } from '../common/terminal.js';
-import type { IMarker, ITheme, Terminal as RawXtermTerminal, IBufferRange } from '@xterm/xterm';
+import type { IMarker, ITheme, Terminal as RawXtermTerminal, IBufferRange, IMarker as IXtermMarker } from '@xterm/xterm';
 import { ScrollPosition } from './xterm/markNavigationAddon.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { GroupIdentifier } from '../../../common/editor.js';
@@ -32,10 +32,13 @@ import type { IXtermCore } from './xterm-private.js';
 import type { IMenu } from '../../../../platform/actions/common/actions.js';
 import type { Barrier } from '../../../../base/common/async.js';
 import type { IProgressState } from '@xterm/addon-progress';
+import type { IEditorOptions } from '../../../../platform/editor/common/editor.js';
+import type { TerminalEditorInput } from './terminalEditorInput.js';
 
 export const ITerminalService = createDecorator<ITerminalService>('terminalService');
 export const ITerminalConfigurationService = createDecorator<ITerminalConfigurationService>('terminalConfigurationService');
 export const ITerminalEditorService = createDecorator<ITerminalEditorService>('terminalEditorService');
+export const ITerminalEditingService = createDecorator<ITerminalEditingService>('terminalEditingService');
 export const ITerminalGroupService = createDecorator<ITerminalGroupService>('terminalGroupService');
 export const ITerminalInstanceService = createDecorator<ITerminalInstanceService>('terminalInstanceService');
 
@@ -84,7 +87,7 @@ export interface ITerminalInstanceService {
 	 * @param launchConfig The shell launch config.
 	 * @param target The target of the terminal.
 	 */
-	createInstance(launchConfig: IShellLaunchConfig, target: TerminalLocation): ITerminalInstance;
+	createInstance(launchConfig: IShellLaunchConfig, target: TerminalLocation, editorOptions?: TerminalEditorLocation): ITerminalInstance;
 
 	/**
 	 * Gets the registered backend for a remote authority (undefined = local). This is a convenience
@@ -95,6 +98,48 @@ export interface ITerminalInstanceService {
 
 	getRegisteredBackends(): IterableIterator<ITerminalBackend>;
 	didRegisterBackend(backend: ITerminalBackend): void;
+}
+
+/**
+ * A service responsible for managing terminal editing state and functionality. This includes
+ * tracking which terminal is currently being edited and managing editable data associated with
+ * terminal instances.
+ */
+export interface ITerminalEditingService {
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Get the editable data for a terminal instance.
+	 * @param instance The terminal instance.
+	 * @returns The editable data if the instance is editable, undefined otherwise.
+	 */
+	getEditableData(instance: ITerminalInstance): IEditableData | undefined;
+
+	/**
+	 * Set the editable data for a terminal instance.
+	 * @param instance The terminal instance.
+	 * @param data The editable data to set, or null to clear.
+	 */
+	setEditable(instance: ITerminalInstance, data: IEditableData | null): void;
+
+	/**
+	 * Check if a terminal instance is currently editable.
+	 * @param instance The terminal instance to check.
+	 * @returns True if the instance is editable, false otherwise.
+	 */
+	isEditable(instance: ITerminalInstance | undefined): boolean;
+
+	/**
+	 * Get the terminal instance that is currently being edited.
+	 * @returns The terminal instance being edited, or undefined if none.
+	 */
+	getEditingTerminal(): ITerminalInstance | undefined;
+
+	/**
+	 * Set the terminal instance that is currently being edited.
+	 * @param instance The terminal instance to set as editing, or undefined to clear.
+	 */
+	setEditingTerminal(instance: ITerminalInstance | undefined): void;
 }
 
 export const enum Direction {
@@ -251,7 +296,6 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	readonly instances: readonly ITerminalInstance[];
 	/** Gets detached terminal instances created via {@link createDetachedXterm}. */
 	readonly detachedInstances: Iterable<IDetachedTerminalInstance>;
-	readonly defaultLocation: TerminalLocation;
 
 	readonly isProcessSupportRegistered: boolean;
 	readonly connectionState: TerminalConnectionState;
@@ -288,6 +332,13 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	createTerminal(options?: ICreateTerminalOptions): Promise<ITerminalInstance>;
 
 	/**
+	 * Creates and focuses a terminal.
+	 * @param options The options to create the terminal with, when not specified the default
+	 * profile will be used at the default target.
+	 */
+	createAndFocusTerminal(options?: ICreateTerminalOptions): Promise<ITerminalInstance>;
+
+	/**
 	 * Creates a detached xterm instance which is not attached to the DOM or
 	 * tracked as a terminal instance.
 	 * @params options The options to create the terminal with
@@ -298,7 +349,6 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	 * Creates a raw terminal instance, this should not be used outside of the terminal part.
 	 */
 	getInstanceFromId(terminalId: number): ITerminalInstance | undefined;
-	getInstanceFromIndex(terminalIndex: number): ITerminalInstance;
 
 	/**
 	 * An owner of terminals might be created after reconnection has occurred,
@@ -328,9 +378,6 @@ export interface ITerminalService extends ITerminalInstanceHost {
 
 	requestStartExtensionTerminal(proxy: ITerminalProcessExtHostProxy, cols: number, rows: number): Promise<ITerminalLaunchError | undefined>;
 	isAttachedToTerminal(remoteTerm: IRemoteTerminalAttachTarget): boolean;
-	getEditableData(instance: ITerminalInstance): IEditableData | undefined;
-	setEditable(instance: ITerminalInstance, data: IEditableData | null): void;
-	isEditable(instance: ITerminalInstance | undefined): boolean;
 	safeDisposeTerminal(instance: ITerminalInstance): Promise<void>;
 
 	getDefaultInstanceHost(): ITerminalInstanceHost;
@@ -338,9 +385,6 @@ export interface ITerminalService extends ITerminalInstanceHost {
 
 	resolveLocation(location?: ITerminalLocationOptions): Promise<TerminalLocation | undefined>;
 	setNativeDelegate(nativeCalls: ITerminalServiceNativeDelegate): void;
-
-	getEditingTerminal(): ITerminalInstance | undefined;
-	setEditingTerminal(instance: ITerminalInstance | undefined): void;
 
 	/**
 	 * Creates an instance event listener that listens to all instances, dynamically adding new
@@ -368,6 +412,11 @@ export interface ITerminalConfigurationService {
 	 * A typed and partially validated representation of the terminal configuration.
 	 */
 	readonly config: Readonly<ITerminalConfiguration>;
+
+	/**
+	 * The default location for terminals.
+	 */
+	readonly defaultLocation: TerminalLocation;
 
 	/**
 	 * Fires when something within the terminal configuration changes.
@@ -402,7 +451,7 @@ export interface ITerminalEditorService extends ITerminalInstanceHost {
 	revealActiveEditor(preserveFocus?: boolean): Promise<void>;
 	resolveResource(instance: ITerminalInstance): URI;
 	reviveInput(deserializedInput: IDeserializedTerminalEditorInput): EditorInput;
-	getInputFromResource(resource: URI): EditorInput;
+	getInputFromResource(resource: URI): TerminalEditorInput;
 }
 
 export const terminalEditorId = 'terminalEditor';
@@ -462,6 +511,7 @@ export interface ICreateTerminalOptions {
 export interface TerminalEditorLocation {
 	viewColumn: GroupIdentifier | SIDE_GROUP_TYPE | ACTIVE_GROUP_TYPE | AUX_WINDOW_GROUP_TYPE;
 	preserveFocus?: boolean;
+	auxiliary?: IEditorOptions['auxiliary'];
 }
 
 /**
@@ -772,6 +822,11 @@ export interface ITerminalInstance extends IBaseTerminalInstance {
 	 * The xterm.js instance for this terminal.
 	 */
 	readonly xterm?: XtermTerminal;
+
+	/**
+	 * Resolves when the xterm.js instance for this terminal is ready.
+	 */
+	readonly xtermReadyPromise: Promise<XtermTerminal | undefined>;
 
 	/**
 	 * Returns an array of data events that have fired within the first 10 seconds. If this is
@@ -1218,6 +1273,12 @@ export interface IXtermTerminal extends IDisposable {
 	 * Returns a reverse iterator of buffer lines as strings
 	 */
 	getBufferReverseIterator(): IterableIterator<string>;
+
+	/**
+	 * Gets the contents of the buffer from a start marker (or line 0) to the end marker (or the
+	 * last line).
+	 */
+	getContentsAsText(startMarker?: IXtermMarker, endMarker?: IXtermMarker): string;
 
 	/**
 	 * Gets the buffer contents as HTML.

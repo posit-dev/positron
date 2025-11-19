@@ -16,7 +16,6 @@ import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
-The tool will return the contents of the file as a string, along with its size and encoding.
 `;
 
 export const ExtensionFileContentsToolId = 'positron_getFileContents';
@@ -29,16 +28,24 @@ export const FileContentsToolData: IToolData = {
 	tags: [
 		'positron-assistant',
 		'requires-workspace',
-		'high-token-usage',
 	],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
 		type: 'object',
 		properties: {
 			filePath: {
+				// --- Start Positron ---
 				type: 'string',
-				description: 'The absolute file path to get the contents of. The file path must be a path to a file in the workspace or a file that is currently open in the editor.',
+				description: 'The file path to get the contents of. Only use absolute paths if you are sure the file you are retrieving is outside of the current workspace, otherwise use relative paths.',
 			},
+			lines: {
+				type: 'array',
+				items: { type: 'number' },
+				minItems: 2,
+				maxItems: 2,
+				description: 'Optional line range [start, end] to read (1-indexed, inclusive). If omitted, file must be <=500 lines.',
+			},
+			// --- End Positron ---
 		},
 		required: ['filePath']
 	}
@@ -53,7 +60,9 @@ export class FileContentsTool implements IToolImpl {
 	) { }
 
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
-		const { filePath } = invocation.parameters as FileContentsToolParams;
+		// --- Start Positron ---
+		const { filePath, lines } = invocation.parameters as FileContentsToolParams;
+		// --- End Positron ---
 
 		// Construct the file URI
 		let uri: URI | undefined = undefined;
@@ -64,7 +73,51 @@ export class FileContentsTool implements IToolImpl {
 		}
 
 		// The file is in the workspace, so grab the file contents
-		const { value, size, encoding } = await this._textFileService.read(uri);
+		// --- Start Positron ---
+		const { value, encoding } = await this._textFileService.read(uri);
+		// Count lines and validate
+		const allLines = value.split('\n');
+		const totalLines = allLines.length;
+
+		// If no line range specified and file is too large, error
+		if (!lines && totalLines > 500) {
+			const fileName = uri.path.split('/').pop() || uri.path;
+			throw new Error(
+				`Error: file ${fileName} contains ${totalLines} lines and is too large (>500 lines) to return here. ` +
+				`Set the \`lines\` argument to read a subset of lines. Try lines: [1, 500]`
+			);
+		}
+
+		// Apply line range if specified
+		let contentsToReturn: string;
+		let startLine: number;
+		let endLine: number;
+
+		if (lines) {
+			const [requestedStart, requestedEnd] = lines;
+
+			// Validate line numbers (1-indexed input)
+			if (requestedStart < 1) {
+				throw new Error(`Start line must be >=1, got ${requestedStart}`);
+			}
+			if (requestedEnd < requestedStart) {
+				throw new Error(`End line (${requestedEnd}) must be >= start line (${requestedStart})`);
+			}
+
+			// Convert to 0-indexed, clamp endLine to totalLines
+			const start = requestedStart - 1;
+			const end = Math.min(requestedEnd, totalLines);
+
+			// Slice and rejoin
+			contentsToReturn = allLines.slice(start, end).join('\n');
+			startLine = requestedStart;
+			endLine = end;
+		} else {
+			contentsToReturn = value;
+			startLine = 1;
+			endLine = totalLines;
+		}
+		// --- End Positron ---
 
 		// If we have a chat context, create a clickable file reference
 		if (invocation.context) {
@@ -76,9 +129,19 @@ export class FileContentsTool implements IToolImpl {
 			});
 		}
 
+		// --- Start Positron ---
 		return {
-			content: [{ kind: 'text', value: JSON.stringify({ contents: value, size, encoding, }) }],
+			content: [{
+				kind: 'text', value: JSON.stringify({
+					contents: contentsToReturn,
+					startLine,
+					endLine,
+					totalLines,
+					encoding,
+				})
+			}],
 		};
+		// --- End Positron ---
 	}
 
 	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
@@ -91,5 +154,7 @@ export class FileContentsTool implements IToolImpl {
 
 export interface FileContentsToolParams {
 	filePath: string;
+	// --- Start Positron ---
+	lines?: [number, number];
+	// --- End Positron ---
 }
-

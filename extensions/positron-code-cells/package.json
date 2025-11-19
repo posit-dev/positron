@@ -4,6 +4,7 @@
   "description": "%description%",
   "publisher": "positron",
   "version": "0.0.1",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -201,6 +202,11 @@
             "%positron.codeCells.configuration.cellStyle.both%"
           ],
           "markdownDescription": "%positron.codeCells.configuration.cellStyle%"
+        },
+        "codeCells.additionalCellDelimiter": {
+          "type": "string",
+          "default": "# COMMAND ----------",
+          "markdownDescription": "%positron.codeCells.configuration.additionalCellDelimiter%"
         }
       }
     }

@@ -5,19 +5,22 @@
 
 import assert from 'assert';
 import { AsyncIterableSource, DeferredPromise, timeout } from '../../../../../base/common/async.js';
-import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { mock } from '../../../../../base/test/common/mock.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { ChatMessageRole, IChatResponseFragment, languageModelExtensionPoint, LanguageModelsService } from '../../common/languageModels.js';
+import { ChatMessageRole, languageModelChatProviderExtensionPoint, LanguageModelsService, IChatMessage, IChatResponsePart } from '../../common/languageModels.js';
 import { IExtensionService, nullExtensionDescription } from '../../../../services/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../../services/extensions/common/extensionsRegistry.js';
-import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../common/modelPicker/modelPickerWidget.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { TestChatEntitlementService, TestStorageService } from '../../../../test/common/workbenchTestServices.js';
+import { Event } from '../../../../../base/common/event.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+
 // --- Start Positron ---
-// The storage service is needed for Positron AI provider additions.
-import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 // --- End Positron ---
 
 suite('LanguageModels', function () {
@@ -30,6 +33,13 @@ suite('LanguageModels', function () {
 	setup(function () {
 
 		languageModels = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService({
+				'positron.assistant': {
+					filterModels: []
+				}
+			}),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					activationEvents.add(name);
@@ -37,53 +47,58 @@ suite('LanguageModels', function () {
 				}
 			},
 			new NullLogService(),
-			// --- Start Positron ---
-			// Add the storage service for Positron AI provider additions.
-			new MockContextKeyService(),
 			new TestStorageService(),
-			// --- End Positron ---
+			new MockContextKeyService(),
+			new TestChatEntitlementService()
 		);
 
-		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelExtensionPoint.name)!;
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
 
 		ext.acceptUsers([{
-			description: { ...nullExtensionDescription, enabledApiProposals: ['chatProvider'] },
+			description: { ...nullExtensionDescription },
 			value: { vendor: 'test-vendor' },
+			collector: null!
+		}, {
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'actual-vendor' },
 			collector: null!
 		}]);
 
-
-		store.add(languageModels.registerLanguageModelChat('1', {
-			metadata: {
-				extension: nullExtensionDescription.identifier,
-				name: 'Pretty Name',
-				vendor: 'test-vendor',
-				family: 'test-family',
-				version: 'test-version',
-				modelPickerCategory: undefined,
-				id: 'test-id',
-				maxInputTokens: 100,
-				maxOutputTokens: 100,
-			},
-			sendChatRequest: async () => {
-				throw new Error();
-			},
-			provideTokenCount: async () => {
-				throw new Error();
-			}
-		}));
-
-		store.add(languageModels.registerLanguageModelChat('12', {
-			metadata: {
-				extension: nullExtensionDescription.identifier,
-				name: 'Pretty Name',
-				vendor: 'test-vendor',
-				family: 'test2-family',
-				version: 'test2-version',
-				modelPickerCategory: undefined,
-				id: 'test-id',
-				maxInputTokens: 100,
-				maxOutputTokens: 100,
+		// --- Start Positron ---
+		// Add dummy extension id
+		// --- End Positron ---
+		store.add(languageModels.registerLanguageModelProvider('test-vendor', new ExtensionIdentifier('test-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Pretty Name',
+						vendor: 'test-vendor',
+						family: 'test-family',
+						version: 'test-version',
+						modelPickerCategory: undefined,
+						id: 'test-id-1',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Pretty Name',
+						vendor: 'test-vendor',
+						family: 'test2-family',
+						version: 'test2-version',
+						modelPickerCategory: undefined,
+						id: 'test-id-12',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				const modelMetadataAndIdentifier = modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+				return modelMetadataAndIdentifier;
 			},
 			sendChatRequest: async () => {
 				throw new Error();
@@ -106,8 +121,14 @@ suite('LanguageModels', function () {
 
 		const result1 = await languageModels.selectLanguageModels({});
 		assert.deepStrictEqual(result1.length, 2);
-		assert.deepStrictEqual(result1[0], '1');
-		assert.deepStrictEqual(result1[1], '12');
+		assert.deepStrictEqual(result1[0], 'test-id-1');
+		assert.deepStrictEqual(result1[1], 'test-id-12');
+	});
+
+	test('selector with id works properly', async function () {
+		const result1 = await languageModels.selectLanguageModels({ id: 'test-id-1' });
+		assert.deepStrictEqual(result1.length, 1);
+		assert.deepStrictEqual(result1[0], 'test-id-1');
 	});
 
 	test('no warning that a matching model was not found #213716', async function () {
@@ -118,29 +139,194 @@ suite('LanguageModels', function () {
 		assert.deepStrictEqual(result2.length, 0);
 	});
 
+	// --- Start Positron ---
+	test('model filtering is applied to copilot vendor', async function () {
+		// Register the extension point for copilot first
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'copilot' },
+			collector: null!
+		}]);
+
+		// Register copilot provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('copilot', new ExtensionIdentifier('copilot-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-4',
+						vendor: 'copilot',
+						family: 'gpt-4',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-3.5',
+						vendor: 'copilot',
+						family: 'gpt-3.5',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-3.5-turbo',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// First, verify without filtering - should return both models
+		const unfilteredResult = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+		assert.strictEqual(unfilteredResult.length, 2);
+
+		// Now, set up filtering config to only allow gpt-4
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // Only allow gpt-4 models
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all copilot models - should be filtered to only gpt-4
+			const result = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0], 'gpt-4');
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+
+	// This filtering is applied in the Positron Assistant extension for non-copilot providers
+	test('model filtering is NOT applied to non-copilot vendors', async function () {
+		// Register the extension point for a non-copilot vendor
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'other-vendor' },
+			collector: null!
+		}]);
+
+		// Register other-vendor provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('other-vendor', new ExtensionIdentifier('other-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 1',
+						vendor: 'other-vendor',
+						family: 'model-1',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 2',
+						vendor: 'other-vendor',
+						family: 'model-2',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-5',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// Mock the configuration to return filter settings that would filter out models
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // This should match, but since vendor is not copilot, filtering should not apply
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all other-vendor models - should NOT be filtered even with filter config present
+			const result = await languageModels.selectLanguageModels({ vendor: 'other-vendor' });
+
+			// Should return both models since filtering is only applied to copilot
+			assert.strictEqual(result.length, 2);
+			assert.deepStrictEqual(result.sort(), ['gpt-4', 'gpt-5']);
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+	// --- End Positron ---
+
 	test('sendChatRequest returns a response-stream', async function () {
 
-		store.add(languageModels.registerLanguageModelChat('actual', {
-			metadata: {
-				extension: nullExtensionDescription.identifier,
-				name: 'Pretty Name',
-				vendor: 'test-vendor',
-				family: 'actual-family',
-				version: 'actual-version',
-				id: 'actual-lm',
-				maxInputTokens: 100,
-				maxOutputTokens: 100,
-				modelPickerCategory: DEFAULT_MODEL_PICKER_CATEGORY,
+		// --- Start Positron ---
+		// Add extension identifier to parameters
+		// --- End Positron ---
+		store.add(languageModels.registerLanguageModelProvider('actual-vendor', new ExtensionIdentifier('actual-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Pretty Name',
+						vendor: 'actual-vendor',
+						family: 'actual-family',
+						version: 'actual-version',
+						id: 'actual-lm',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+						modelPickerCategory: DEFAULT_MODEL_PICKER_CATEGORY,
+					}
+				];
+				const modelMetadataAndIdentifier = modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+				return modelMetadataAndIdentifier;
 			},
-			sendChatRequest: async (messages, _from, _options, token) => {
+			sendChatRequest: async (modelId: string, messages: IChatMessage[], _from: ExtensionIdentifier, _options: { [name: string]: any }, token: CancellationToken) => {
 				// const message = messages.at(-1);
 
 				const defer = new DeferredPromise();
-				const stream = new AsyncIterableSource<IChatResponseFragment>();
+				const stream = new AsyncIterableSource<IChatResponsePart>();
 
 				(async () => {
 					while (!token.isCancellationRequested) {
-						stream.emitOne({ index: 0, part: { type: 'text', value: Date.now().toString() } });
+						stream.emitOne({ type: 'text', value: Date.now().toString() });
 						await timeout(10);
 					}
 					defer.complete(undefined);
@@ -155,6 +341,14 @@ suite('LanguageModels', function () {
 				throw new Error();
 			}
 		}));
+
+		// Register the extension point for the actual vendor
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'actual-vendor' },
+			collector: null!
+		}]);
 
 		const models = await languageModels.selectLanguageModels({ id: 'actual-lm' });
 		assert.ok(models.length === 1);

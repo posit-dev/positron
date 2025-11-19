@@ -25,6 +25,7 @@ import { IMonarchLanguage } from '../common/monarch/monarchTypes.js';
 import { IStandaloneThemeService } from '../common/standaloneTheme.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { IMarkerData, IMarkerService } from '../../../platform/markers/common/markers.js';
+import { EditDeltaInfo } from '../../common/textModelEditSource.js';
 
 /**
  * Register information about a new language.
@@ -806,9 +807,11 @@ export function createMonacoLanguagesAPI(): typeof monaco.languages {
 		PartialAcceptTriggerKind: standaloneEnums.PartialAcceptTriggerKind,
 		HoverVerbosityAction: standaloneEnums.HoverVerbosityAction,
 		InlineCompletionEndOfLifeReasonKind: standaloneEnums.InlineCompletionEndOfLifeReasonKind,
+		InlineCompletionDisplayLocationKind: standaloneEnums.InlineCompletionDisplayLocationKind,
 
 		// classes
 		FoldingRangeKind: languages.FoldingRangeKind,
 		SelectedSuggestionInfo: <any>languages.SelectedSuggestionInfo,
+		EditDeltaInfo: <any>EditDeltaInfo,
 	};
 }

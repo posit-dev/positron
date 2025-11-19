@@ -38,6 +38,11 @@ async function launchServer(options: LaunchOptions) {
 	const serverLogsPath = join(logsPath, 'server');
 	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
 	const agentFolder = userDataDir;
+
+	if (!agentFolder || !extensionsPath) {
+		throw new Error('Cannot launch server with undefined userDataDir');
+	}
+
 	await measureAndLog(() => fs.promises.mkdir(agentFolder, { recursive: true }), `mkdirp(${agentFolder})`, logger);
 
 	const env = {
@@ -93,6 +98,7 @@ function getServerArgs(
 ): string[] {
 	const args = [
 		'--disable-telemetry',
+		'--disable-experiments',
 		'--disable-workspace-trust',
 		`--port=${port}`,
 		'--enable-smoke-test-driver',
@@ -138,13 +144,12 @@ async function startServer(
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, snapshots, headless } = options;
-
 	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
-	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox'].launch({
+	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox' | 'edge'].launch({
 		headless: headless ?? false,
 		timeout: 0,
 		channel: browserChannel,
-	}), 'playwright#launch', logger);
+	}), 'playwright#launch', logger) as unknown as playwright.Browser;
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
 

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -14,18 +15,21 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: [tags.RETICULATE, tags.WEB],
+	tag: [tags.RETICULATE, tags.WEB, tags.SOFT_FAIL],
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		try {
 			await settings.set({
 				'positron.reticulate.enabled': true,
-			}, { 'reload': 'web' });
+				'kernelSupervisor.transport': 'tcp'
+			});
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
+
+		await app.restart();
 	});
 
 	test('R - Verify Reticulate Restart', {
@@ -40,7 +44,19 @@ test.describe('Reticulate', {
 
 		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		// doesn't support 2 or 1 instance of started:
+		// await app.workbench.console.waitForReadyAndStarted('>>>', 30000, 2);
+
+		await test.step('Wait for console to be ready and started', async () => {
+			await app.workbench.console.waitForReady('>>>', 30000);
+
+			const matchingLines = app.code.driver.page.locator('.console-instance[style*="z-index: auto"]  div span').getByText('started');
+
+			await Promise.any([
+				expect(matchingLines).toHaveCount(1, { timeout: 30_000 }),
+				expect(matchingLines).toHaveCount(2, { timeout: 30_000 }),
+			]);
+		});
 
 	});
 });

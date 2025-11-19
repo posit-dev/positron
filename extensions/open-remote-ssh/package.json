@@ -1,363 +1,373 @@
 {
-  "name": "open-remote-ssh",
-  "displayName": "Open Remote - SSH",
-  "description": "Use any remote machine with a SSH server as your development environment.",
-  "version": "0.0.46",
-  "publisher": "jeanp413",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jeanp413/open-remote-ssh.git"
-  },
-  "bugs": {
-    "url": "https://github.com/jeanp413/open-remote-ssh/issues"
-  },
-  "engines": {
-    "vscode": "^1.70.2"
-  },
-  "extensionKind": [
-    "ui"
-  ],
-  "enabledApiProposals": [
-    "resolvers",
-    "contribViewsRemote"
-  ],
-  "keywords": [
-    "remote development",
-    "remote",
-    "ssh"
-  ],
-  "api": "none",
-  "activationEvents": [
-    "onCommand:openremotessh.openEmptyWindow",
-    "onCommand:openremotessh.openEmptyWindowInCurrentWindow",
-    "onCommand:openremotessh.openConfigFile",
-    "onCommand:openremotessh.showLog",
-    "onResolveRemoteAuthority:ssh-remote",
-    "onView:sshHosts"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "configuration": {
-      "title": "Remote SSH",
-      "properties": {
-        "remoteSSH.configFile": {
-          "type": "string",
-          "description": "The absolute file path to a custom SSH config file.",
-          "default": "",
-          "scope": "application"
-        },
-        "remoteSSH.connectTimeout": {
-          "type": "number",
-          "description": "Specifies the timeout in seconds used for the SSH command that connects to the remote.",
-          "default": 60,
-          "scope": "application",
-          "minimum": 1
-        },
-        "remoteSSH.defaultExtensions": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of extensions that should be installed automatically on all SSH hosts.",
-          "scope": "application"
-        },
-        "remoteSSH.enableDynamicForwarding": {
-          "type": "boolean",
-          "description": "Whether to use SSH dynamic forwarding to allow setting up new port tunnels over an existing SSH connection.",
-          "scope": "application",
-          "default": true
-        },
-        "remoteSSH.enableAgentForwarding": {
-          "type": "boolean",
-          "markdownDescription": "Enable fixing the remote environment so that the SSH config option `ForwardAgent` will take effect as expected from VS Code's remote extension host.",
-          "scope": "application",
-          "default": true
-        },
-        "remoteSSH.serverDownloadUrlTemplate": {
-          "type": "string",
-          "description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64\n- ${arch-long}: Positron server arch in long format, e.g. x86_64, arm64",
-          "scope": "application",
-          "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
-        },
-        "remoteSSH.remotePlatform": {
-          "type": "object",
-          "description": "A map of the remote hostname to the platform for that remote. Valid values: linux, macos, windows.",
-          "scope": "application",
-          "default": {},
-          "additionalProperties": {
-            "type": "string",
-            "enum": [
-              "linux",
-              "macos",
-              "windows"
-            ]
-          }
-        },
-        "remoteSSH.remoteServerListenOnSocket": {
-          "type": "boolean",
-          "description": "When true, the remote vscode server will listen on a socket path instead of opening a port. Only valid for Linux and macOS remotes. Requires `AllowStreamLocalForwarding` to be enabled for the SSH server.",
-          "default": false
-        },
-        "remoteSSH.experimental.serverBinaryName": {
-          "type": "string",
-          "description": "**Experimental:** The name of the server binary, use this **only if** you are using a client without a corresponding server release",
-          "scope": "application",
-          "default": ""
-        }
-      }
-    },
-    "views": {
-      "remote": [
-        {
-          "id": "sshHosts",
-          "name": "SSH Targets",
-          "group": "targets@1",
-          "remoteName": "ssh-remote"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "openremotessh.openEmptyWindow",
-        "title": "Connect to Host...",
-        "category": "Remote-SSH"
-      },
-      {
-        "command": "openremotessh.openEmptyWindowInCurrentWindow",
-        "title": "Connect Current Window to Host...",
-        "category": "Remote-SSH"
-      },
-      {
-        "command": "openremotessh.openConfigFile",
-        "title": "Open SSH Configuration File...",
-        "category": "Remote-SSH"
-      },
-      {
-        "command": "openremotessh.showLog",
-        "title": "Show Log",
-        "category": "Remote-SSH"
-      },
-      {
-        "command": "openremotessh.explorer.emptyWindowInNewWindow",
-        "title": "Connect to Host in New Window",
-        "icon": "$(empty-window)"
-      },
-      {
-        "command": "openremotessh.explorer.emptyWindowInCurrentWindow",
-        "title": "Connect to Host in Current Window"
-      },
-      {
-        "command": "openremotessh.explorer.reopenFolderInCurrentWindow",
-        "title": "Open on SSH Host in Current Window"
-      },
-      {
-        "command": "openremotessh.explorer.reopenFolderInNewWindow",
-        "title": "Open on SSH Host in New Window",
-        "icon": "$(folder-opened)"
-      },
-      {
-        "command": "openremotessh.explorer.deleteFolderHistoryItem",
-        "title": "Remove From Recent List",
-        "icon": "$(x)"
-      },
-      {
-        "command": "openremotessh.explorer.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "openremotessh.explorer.configure",
-        "title": "Configure",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "openremotessh.explorer.add",
-        "title": "Add New",
-        "icon": "$(plus)"
-      }
-    ],
-    "resourceLabelFormatters": [
-      {
-        "scheme": "vscode-remote",
-        "authority": "ssh-remote+*",
-        "formatting": {
-          "label": "${path}",
-          "separator": "/",
-          "tildify": true,
-          "workspaceSuffix": "SSH"
-        }
-      }
-    ],
-    "menus": {
-      "statusBar/remoteIndicator": [
-        {
-          "command": "openremotessh.openEmptyWindow",
-          "when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
-          "group": "remote_20_ssh_1general@1"
-        },
-        {
-          "command": "openremotessh.openEmptyWindowInCurrentWindow",
-          "when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
-          "group": "remote_20_ssh_1general@2"
-        },
-        {
-          "command": "openremotessh.openConfigFile",
-          "when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
-          "group": "remote_20_ssh_1general@3"
-        },
-        {
-          "command": "openremotessh.showLog",
-          "when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
-          "group": "remote_20_ssh_1general@4"
-        },
-        {
-          "command": "openremotessh.openEmptyWindow",
-          "when": "remoteConnectionState == disconnected",
-          "group": "remote_20_ssh_3local@1"
-        },
-        {
-          "command": "openremotessh.openEmptyWindowInCurrentWindow",
-          "when": "remoteConnectionState == disconnected",
-          "group": "remote_20_ssh_3local@2"
-        },
-        {
-          "command": "openremotessh.openConfigFile",
-          "when": "remoteConnectionState == disconnected",
-          "group": "remote_20_ssh_3local@3"
-        },
-        {
-          "command": "openremotessh.openEmptyWindow",
-          "when": "!remoteName && !virtualWorkspace",
-          "group": "remote_20_ssh_3local@5"
-        },
-        {
-          "command": "openremotessh.openEmptyWindowInCurrentWindow",
-          "when": "!remoteName && !virtualWorkspace",
-          "group": "remote_20_ssh_3local@6"
-        },
-        {
-          "command": "openremotessh.openConfigFile",
-          "when": "!remoteName && !virtualWorkspace",
-          "group": "remote_20_ssh_3local@7"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "openremotessh.explorer.refresh",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.configure",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.add",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.emptyWindowInNewWindow",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.emptyWindowInCurrentWindow",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.reopenFolderInCurrentWindow",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.reopenFolderInNewWindow",
-          "when": "false"
-        },
-        {
-          "command": "openremotessh.explorer.deleteFolderHistoryItem",
-          "when": "false"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "openremotessh.explorer.add",
-          "when": "view == sshHosts",
-          "group": "navigation"
-        },
-        {
-          "command": "openremotessh.explorer.configure",
-          "when": "view == sshHosts",
-          "group": "navigation"
-        },
-        {
-          "command": "openremotessh.explorer.refresh",
-          "when": "view == sshHosts",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "openremotessh.explorer.emptyWindowInNewWindow",
-          "when": "viewItem =~ /^openremotessh.explorer.host$/",
-          "group": "inline@1"
-        },
-        {
-          "command": "openremotessh.explorer.emptyWindowInNewWindow",
-          "when": "viewItem =~ /^openremotessh.explorer.host$/",
-          "group": "navigation@2"
-        },
-        {
-          "command": "openremotessh.explorer.emptyWindowInCurrentWindow",
-          "when": "viewItem =~ /^openremotessh.explorer.host$/",
-          "group": "navigation@1"
-        },
-        {
-          "command": "openremotessh.explorer.reopenFolderInNewWindow",
-          "when": "viewItem == openremotessh.explorer.folder",
-          "group": "inline@1"
-        },
-        {
-          "command": "openremotessh.explorer.reopenFolderInNewWindow",
-          "when": "viewItem == openremotessh.explorer.folder",
-          "group": "navigation@2"
-        },
-        {
-          "command": "openremotessh.explorer.reopenFolderInCurrentWindow",
-          "when": "viewItem == openremotessh.explorer.folder",
-          "group": "navigation@1"
-        },
-        {
-          "command": "openremotessh.explorer.deleteFolderHistoryItem",
-          "when": "viewItem =~ /^openremotessh.explorer.folder/",
-          "group": "navigation@3"
-        },
-        {
-          "command": "openremotessh.explorer.deleteFolderHistoryItem",
-          "when": "viewItem =~ /^openremotessh.explorer.folder/",
-          "group": "inline@2"
-        }
-      ]
-    }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
-  },
-  "devDependencies": {
-    "@types/node": "^16.11.0",
-    "@types/ssh2": "^0.5.52",
-    "@typescript-eslint/eslint-plugin": "^5.19.0",
-    "@typescript-eslint/parser": "^5.19.0",
-    "node-loader": "^1.0.2",
-    "ts-loader": "^9.2.7",
-    "typescript": "^4.6.3"
-  },
-  "dependencies": {
-    "@jeanp413/ssh-config": "^4.3.1",
-    "glob": "^9.3.1",
-    "simple-socks": "git+https://github.com/jeanp413/simple-socks#main",
-    "socks": "^2.5.0",
-    "ssh2": "git+https://github.com/jmcphers/ssh2#master"
-  }
+	"name": "open-remote-ssh",
+	"displayName": "Open Remote - SSH",
+	"description": "Use any remote machine with a SSH server as your development environment.",
+	"version": "0.0.49",
+	"publisher": "jeanp413",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jeanp413/open-remote-ssh.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jeanp413/open-remote-ssh/issues"
+	},
+	"engines": {
+		"vscode": "^1.70.2"
+	},
+	"extensionKind": [
+		"ui"
+	],
+	"enabledApiProposals": [
+		"resolvers",
+		"contribViewsRemote"
+	],
+	"keywords": [
+		"remote development",
+		"remote",
+		"ssh"
+	],
+	"api": "none",
+	"activationEvents": [
+		"onCommand:openremotessh.openEmptyWindow",
+		"onCommand:openremotessh.openEmptyWindowInCurrentWindow",
+		"onCommand:openremotessh.openConfigFile",
+		"onCommand:openremotessh.showLog",
+		"onResolveRemoteAuthority:ssh-remote",
+		"onView:sshHosts"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"configuration": {
+			"title": "Remote SSH",
+			"properties": {
+				"remoteSSH.configFile": {
+					"type": "string",
+					"description": "The absolute file path to a custom SSH config file.",
+					"default": "",
+					"scope": "application"
+				},
+				"remoteSSH.connectTimeout": {
+					"type": "number",
+					"description": "Specifies the timeout in seconds used for the SSH command that connects to the remote.",
+					"default": 60,
+					"scope": "application",
+					"minimum": 1
+				},
+				"remoteSSH.defaultExtensions": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "List of extensions that should be installed automatically on all SSH hosts.",
+					"scope": "application"
+				},
+				"remoteSSH.enableDynamicForwarding": {
+					"type": "boolean",
+					"description": "Whether to use SSH dynamic forwarding to allow setting up new port tunnels over an existing SSH connection.",
+					"scope": "application",
+					"default": true
+				},
+				"remoteSSH.enableAgentForwarding": {
+					"type": "boolean",
+					"markdownDescription": "Enable fixing the remote environment so that the SSH config option `ForwardAgent` will take effect as expected from VS Code's remote extension host.",
+					"scope": "application",
+					"default": true
+				},
+				"remoteSSH.serverDownloadUrlTemplate": {
+					"type": "string",
+					"description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64\n- ${arch-long}: Positron server arch in long format, e.g. x86_64, arm64",
+					"scope": "application",
+					"default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
+				},
+				"remoteSSH.remotePlatform": {
+					"type": "object",
+					"description": "A map of the remote hostname to the platform for that remote. Valid values: linux, macos, windows.",
+					"scope": "application",
+					"default": {},
+					"additionalProperties": {
+						"type": "string",
+						"enum": [
+							"linux",
+							"macos",
+							"windows"
+						]
+					}
+				},
+				"remoteSSH.remoteServerListenOnSocket": {
+					"type": "boolean",
+					"description": "When true, the remote vscode server will listen on a socket path instead of opening a port. Only valid for Linux and macOS remotes. Requires `AllowStreamLocalForwarding` to be enabled for the SSH server.",
+					"default": false
+				},
+				"remoteSSH.experimental.serverBinaryName": {
+					"type": "string",
+					"description": "**Experimental:** The name of the server binary, use this **only if** you are using a client without a corresponding server release",
+					"scope": "application",
+					"default": ""
+				},
+				"remoteSSH.serverInstallPath": {
+					"type": "object",
+					"markdownDescription": "A map of remote hostname to the remote directory where the Positron server data will be installed.\n\nFor the keys, you may use the `*` character to match 0 or more characters in the hostname or host's alias. The first matching host will be used.\n\nFor the values, you may include environment variables of the form `$ENV_VAR`, which will be resolved on the remote host upon connecting. Relative paths will be parsed relative to `$HOME`.\n\nFor any host not matched here, the server is installed in `$HOME/.positron-server`.",
+					"scope": "application",
+					"additionalProperties": {
+						"type": "string"
+					},
+					"default": {}
+				}
+			}
+		},
+		"views": {
+			"remote": [
+				{
+					"id": "sshHosts",
+					"name": "SSH Targets",
+					"group": "targets@1",
+					"remoteName": "ssh-remote"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "openremotessh.openEmptyWindow",
+				"title": "Connect to Host...",
+				"category": "Remote-SSH"
+			},
+			{
+				"command": "openremotessh.openEmptyWindowInCurrentWindow",
+				"title": "Connect Current Window to Host...",
+				"category": "Remote-SSH"
+			},
+			{
+				"command": "openremotessh.openConfigFile",
+				"title": "Open SSH Configuration File...",
+				"category": "Remote-SSH"
+			},
+			{
+				"command": "openremotessh.showLog",
+				"title": "Show Log",
+				"category": "Remote-SSH"
+			},
+			{
+				"command": "openremotessh.explorer.emptyWindowInNewWindow",
+				"title": "Connect to Host in New Window",
+				"icon": "$(empty-window)"
+			},
+			{
+				"command": "openremotessh.explorer.emptyWindowInCurrentWindow",
+				"title": "Connect to Host in Current Window"
+			},
+			{
+				"command": "openremotessh.explorer.reopenFolderInCurrentWindow",
+				"title": "Open on SSH Host in Current Window"
+			},
+			{
+				"command": "openremotessh.explorer.reopenFolderInNewWindow",
+				"title": "Open on SSH Host in New Window",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "openremotessh.explorer.deleteFolderHistoryItem",
+				"title": "Remove From Recent List",
+				"icon": "$(x)"
+			},
+			{
+				"command": "openremotessh.explorer.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "openremotessh.explorer.configure",
+				"title": "Configure",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "openremotessh.explorer.add",
+				"title": "Add New",
+				"icon": "$(plus)"
+			}
+		],
+		"resourceLabelFormatters": [
+			{
+				"scheme": "vscode-remote",
+				"authority": "ssh-remote+*",
+				"formatting": {
+					"label": "${path}",
+					"separator": "/",
+					"tildify": true,
+					"workspaceSuffix": "SSH"
+				}
+			}
+		],
+		"menus": {
+			"statusBar/remoteIndicator": [
+				{
+					"command": "openremotessh.openEmptyWindow",
+					"when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
+					"group": "remote_20_ssh_1general@1"
+				},
+				{
+					"command": "openremotessh.openEmptyWindowInCurrentWindow",
+					"when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
+					"group": "remote_20_ssh_1general@2"
+				},
+				{
+					"command": "openremotessh.openConfigFile",
+					"when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
+					"group": "remote_20_ssh_1general@3"
+				},
+				{
+					"command": "openremotessh.showLog",
+					"when": "remoteName =~ /^ssh-remote$/ && remoteConnectionState == connected",
+					"group": "remote_20_ssh_1general@4"
+				},
+				{
+					"command": "openremotessh.openEmptyWindow",
+					"when": "remoteConnectionState == disconnected",
+					"group": "remote_20_ssh_3local@1"
+				},
+				{
+					"command": "openremotessh.openEmptyWindowInCurrentWindow",
+					"when": "remoteConnectionState == disconnected",
+					"group": "remote_20_ssh_3local@2"
+				},
+				{
+					"command": "openremotessh.openConfigFile",
+					"when": "remoteConnectionState == disconnected",
+					"group": "remote_20_ssh_3local@3"
+				},
+				{
+					"command": "openremotessh.openEmptyWindow",
+					"when": "!remoteName && !virtualWorkspace",
+					"group": "remote_20_ssh_3local@5"
+				},
+				{
+					"command": "openremotessh.openEmptyWindowInCurrentWindow",
+					"when": "!remoteName && !virtualWorkspace",
+					"group": "remote_20_ssh_3local@6"
+				},
+				{
+					"command": "openremotessh.openConfigFile",
+					"when": "!remoteName && !virtualWorkspace",
+					"group": "remote_20_ssh_3local@7"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "openremotessh.explorer.refresh",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.configure",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.add",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.emptyWindowInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.emptyWindowInCurrentWindow",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.reopenFolderInCurrentWindow",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.reopenFolderInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "openremotessh.explorer.deleteFolderHistoryItem",
+					"when": "false"
+				}
+			],
+			"view/title": [
+				{
+					"command": "openremotessh.explorer.add",
+					"when": "view == sshHosts",
+					"group": "navigation"
+				},
+				{
+					"command": "openremotessh.explorer.configure",
+					"when": "view == sshHosts",
+					"group": "navigation"
+				},
+				{
+					"command": "openremotessh.explorer.refresh",
+					"when": "view == sshHosts",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "openremotessh.explorer.emptyWindowInNewWindow",
+					"when": "viewItem =~ /^openremotessh.explorer.host$/",
+					"group": "inline@1"
+				},
+				{
+					"command": "openremotessh.explorer.emptyWindowInNewWindow",
+					"when": "viewItem =~ /^openremotessh.explorer.host$/",
+					"group": "navigation@2"
+				},
+				{
+					"command": "openremotessh.explorer.emptyWindowInCurrentWindow",
+					"when": "viewItem =~ /^openremotessh.explorer.host$/",
+					"group": "navigation@1"
+				},
+				{
+					"command": "openremotessh.explorer.reopenFolderInNewWindow",
+					"when": "viewItem == openremotessh.explorer.folder",
+					"group": "inline@1"
+				},
+				{
+					"command": "openremotessh.explorer.reopenFolderInNewWindow",
+					"when": "viewItem == openremotessh.explorer.folder",
+					"group": "navigation@2"
+				},
+				{
+					"command": "openremotessh.explorer.reopenFolderInCurrentWindow",
+					"when": "viewItem == openremotessh.explorer.folder",
+					"group": "navigation@1"
+				},
+				{
+					"command": "openremotessh.explorer.deleteFolderHistoryItem",
+					"when": "viewItem =~ /^openremotessh.explorer.folder/",
+					"group": "navigation@3"
+				},
+				{
+					"command": "openremotessh.explorer.deleteFolderHistoryItem",
+					"when": "viewItem =~ /^openremotessh.explorer.folder/",
+					"group": "inline@2"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/node": "^16.11.0",
+		"@types/ssh2": "^0.5.52",
+		"@types/ssh2-streams": "0.1.12",
+		"@typescript-eslint/eslint-plugin": "^5.19.0",
+		"@typescript-eslint/parser": "^5.19.0",
+		"node-loader": "^1.0.2",
+		"ts-loader": "^9.2.7",
+		"typescript": "^4.6.3"
+	},
+	"dependencies": {
+		"@jeanp413/ssh-config": "^4.3.1",
+		"glob": "^9.3.1",
+		"simple-socks": "git+https://github.com/jeanp413/simple-socks#main",
+		"socks": "^2.5.0",
+		"ssh2": "git+https://github.com/jmcphers/ssh2#master"
+	}
 }

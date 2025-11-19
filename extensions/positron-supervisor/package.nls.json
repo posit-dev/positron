@@ -18,6 +18,7 @@
 	"configuration.shutdownTimeout.indefinitely.description": "Leave kernels running indefinitely",
 	"configuration.showTerminal.description": "Show the host terminal for the Positron kernel supervisor",
 	"configuration.connectionTimeout.description": "Timeout in seconds for connecting to the kernel's sockets",
+	"configuration.startupTimeout.description": "Timeout in seconds for starting the kernel supervisor",
 	"configuration.attachOnStartup.description": "Run <f5> before starting up Jupyter kernel (when supported)",
 	"configuration.sleepOnStartup.description": "Sleep for n seconds before starting up Jupyter kernel (when supported)",
 	"configuration.runInShell.description": "Run kernels in a login shell (on Unix-like systems)",
@@ -29,6 +30,7 @@
 	"configuration.transport.tcp.label": "Local TCP",
 	"command.positron.supervisor.category": "Kernel Supervisor",
 	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
+	"command.showRunningSupervisors.title": "Show Running Kernel Supervisors",
 	"command.reconnectSession.title": "Reconnect the Current Session",
 	"command.restartSupervisor.title": "Restart the Kernel Supervisor"
 }

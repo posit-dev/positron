@@ -54,10 +54,31 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	max_value_length: 100
 };
 
+// Global callback registry for column profile events
+const columnProfileCallbacks = new Map<string, (value: any) => void>();
+let globalCommandRegistered = false;
+
 // Not sure why it is not possible to use Mocha's 'before' for this
 async function activateExtension() {
 	// Ensure the extension is activated
 	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+
+	// Register the global command handler once
+	if (!globalCommandRegistered) {
+		vscode.commands.registerCommand(
+			'positron-data-explorer.sendUiEvent',
+			(event: any) => {
+				if (event.method === 'return_column_profiles' && event.params.callback_id) {
+					const callback = columnProfileCallbacks.get(event.params.callback_id);
+					if (callback) {
+						callback(event.params);
+						columnProfileCallbacks.delete(event.params.callback_id);
+					}
+				}
+			}
+		);
+		globalCommandRegistered = true;
+	}
 }
 
 async function runQuery<Type>(query: string): Promise<Array<Type>> {
@@ -72,6 +93,9 @@ async function dxExec(rpc: DataExplorerRpc): Promise<any> {
 	const resp: DataExplorerResponse = await vscode.commands.executeCommand(
 		'positron-duckdb.dataExplorerRpc', rpc
 	);
+	if (!resp) {
+		return Promise.reject(new Error('dataExplorerRpc command returned undefined'));
+	}
 	if (resp.error_message) {
 		return Promise.reject(new Error(resp.error_message));
 	} else {
@@ -260,7 +284,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						ExportFormat.Html
 					]
 				},
-				convert_to_code: { support_status: SupportStatus.Unsupported }
+				convert_to_code: {
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{
+						code_syntax_name: "SQL"
+					}]
+				}
 			}
 		} satisfies BackendState);
 
@@ -274,24 +303,24 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		});
 
 		const schemaEntries: Array<[string, string, ColumnDisplayType]> = [
-			['year', 'SMALLINT', ColumnDisplayType.Number],
-			['month', 'TINYINT', ColumnDisplayType.Number],
-			['day', 'TINYINT', ColumnDisplayType.Number],
-			['dep_time', 'SMALLINT', ColumnDisplayType.Number],
-			['sched_dep_time', 'SMALLINT', ColumnDisplayType.Number],
-			['dep_delay', 'SMALLINT', ColumnDisplayType.Number],
-			['arr_time', 'SMALLINT', ColumnDisplayType.Number],
-			['sched_arr_time', 'SMALLINT', ColumnDisplayType.Number],
-			['arr_delay', 'SMALLINT', ColumnDisplayType.Number],
+			['year', 'SMALLINT', ColumnDisplayType.Integer],
+			['month', 'TINYINT', ColumnDisplayType.Integer],
+			['day', 'TINYINT', ColumnDisplayType.Integer],
+			['dep_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['sched_dep_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['dep_delay', 'SMALLINT', ColumnDisplayType.Integer],
+			['arr_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['sched_arr_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['arr_delay', 'SMALLINT', ColumnDisplayType.Integer],
 			['carrier', 'VARCHAR', ColumnDisplayType.String],
-			['flight', 'SMALLINT', ColumnDisplayType.Number],
+			['flight', 'SMALLINT', ColumnDisplayType.Integer],
 			['tailnum', 'VARCHAR', ColumnDisplayType.String],
 			['origin', 'VARCHAR', ColumnDisplayType.String],
 			['dest', 'VARCHAR', ColumnDisplayType.String],
-			['air_time', 'SMALLINT', ColumnDisplayType.Number],
-			['distance', 'SMALLINT', ColumnDisplayType.Number],
-			['hour', 'TINYINT', ColumnDisplayType.Number],
-			['minute', 'TINYINT', ColumnDisplayType.Number],
+			['air_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['distance', 'SMALLINT', ColumnDisplayType.Integer],
+			['hour', 'TINYINT', ColumnDisplayType.Integer],
+			['minute', 'TINYINT', ColumnDisplayType.Integer],
 			['time_hour', 'TIMESTAMP_NS', ColumnDisplayType.Datetime],
 		];
 
@@ -307,6 +336,76 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				}
 			)
 		} satisfies TableSchema);
+	});
+
+	test('CSV header inference - always treat first row as header', async () => {
+		// Create a temporary CSV file with the problematic format that was failing header inference
+		const csvContent = '"","f0","f1"\n"0","abc","def"\n"1","ghi","jkl"';
+		const tempPath = path.join(__dirname, 'temp_header_test.csv');
+
+		// Write the CSV file
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), Buffer.from(csvContent, 'utf8'));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+
+			// Open the dataset
+			await dxExec({
+				method: DataExplorerBackendRequest.OpenDataset,
+				params: { uri }
+			});
+
+			// Get the schema to verify column names are read from first row
+			const schemaResult = await dxExec({
+				method: DataExplorerBackendRequest.GetSchema,
+				uri: uri.toString(),
+				params: {
+					column_indices: [0, 1, 2]
+				} satisfies GetSchemaParams
+			});
+
+			// Verify that the column names are from the first row (headers), not auto-generated
+			// Note: DuckDB renames empty column names to "column0", "column1", etc.
+			assert.strictEqual(schemaResult.columns.length, 3, 'Should have 3 columns');
+			assert.strictEqual(schemaResult.columns[0].column_name, 'column0', 'First column should be renamed from empty header');
+			assert.strictEqual(schemaResult.columns[1].column_name, 'f0', 'Second column should be f0 from header');
+			assert.strictEqual(schemaResult.columns[2].column_name, 'f1', 'Third column should be f1 from header');
+
+			// Verify the data doesn't include the header row
+			const cell0Result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: {
+						kind: TableSelectionKind.SingleCell,
+						selection: { row_index: 0, column_index: 0 }
+					},
+					format: ExportFormat.Csv
+				}
+			});
+			assert.strictEqual(cell0Result.data, '0', 'First data row, first column should be "0"');
+
+			const cell1Result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: {
+						kind: TableSelectionKind.SingleCell,
+						selection: { row_index: 0, column_index: 1 }
+					},
+					format: ExportFormat.Csv
+				}
+			});
+			assert.strictEqual(cell1Result.data, 'abc', 'First data row, second column should be "abc"');
+
+		} finally {
+			// Clean up the temporary file
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
 	});
 
 	type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
@@ -338,25 +437,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'TINYINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['127', '-128', '0', 'NULL']
 					},
 					{
 						name: '"b"',
 						type: 'SMALLINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['32767', '-32768', '0', 'NULL']
 					},
 					{
 						name: '"c"',
 						type: 'INTEGER',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['2147483647', '-2147483648', '0', 'NULL']
 					},
 					{
 						name: '"d"',
 						type: 'BIGINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['9223372036854775807', '-9223372036854775808', '0', 'NULL']
 					},
 				],
@@ -384,7 +483,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'0', '1.125', '0.12345', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -393,7 +492,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"b"',
 						type: 'FLOAT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'0', '1.115', '0.12366', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -412,7 +511,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'123456789.78', '456789.78'
 						]
@@ -436,7 +535,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'155500', '150000', '15000'
 						]
@@ -509,19 +608,19 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"decimal_default"',
 						type: 'DECIMAL',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['1.23', '45.67', '89.01', 'NULL']
 					},
 					{
 						name: '"decimal_precision"',
 						type: 'DECIMAL(10)', // same as DECIMAL(10,0)
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['123456', '987654', '555555', 'NULL']
 					},
 					{
 						name: '"decimal_precision_scale"',
 						type: 'DECIMAL(10,2)',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['123.456', '789.012', '345.678', 'NULL']
 					}
 				],
@@ -563,12 +662,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		}
 	});
 
-	test('export_data_selection works correctly', async () => {
+	// Shared test utilities for export_data_selection tests
+	const createExportTestTable = async () => {
 		const tableName = makeTempTableName();
-
 		const longString = generateRandomString(1000);
 
-		// Create a test table with mixed data types for comprehensive testing
 		await createTempTable(tableName, [
 			{
 				name: 'int_col',
@@ -609,157 +707,444 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			}
 		]);
 
-		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		return { tableName, longString };
+	};
 
-		const testSelection = async (kind: TableSelectionKind, selection: Selection, expected: string,
+	const createExportHelper = (uri: vscode.Uri) => {
+		const testExport = async (kind: TableSelectionKind, selection: Selection, expected: string,
 			format: ExportFormat = ExportFormat.Csv
 		) => {
 			const result = await dxExec({
 				method: DataExplorerBackendRequest.ExportDataSelection,
 				uri: uri.toString(),
 				params: {
-					selection: {
-						kind,
-						selection
-					},
+					selection: { kind, selection },
 					format
 				}
 			});
 			assert.strictEqual(result.data, expected);
 		};
 
-		const testSingleCell = async (row: number, col: number, expected: string) => {
-			await testSelection(TableSelectionKind.SingleCell,
-				{
-					row_index: row,
-					column_index: col
-				}, expected
-			);
+		const exportRaw = async (kind: TableSelectionKind, selection: Selection, format: ExportFormat = ExportFormat.Csv) => {
+			return await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: { kind, selection },
+					format
+				}
+			});
 		};
 
+		return {
+			singleCell: (row: number, col: number, expected: string) =>
+				testExport(TableSelectionKind.SingleCell, { row_index: row, column_index: col }, expected),
 
-		const cellTestCases = [
-			// INTEGER
+			cellRange: (firstRow: number, lastRow: number, firstCol: number, lastCol: number, expected: string, format?: ExportFormat) =>
+				testExport(TableSelectionKind.CellRange, {
+					first_row_index: firstRow,
+					last_row_index: lastRow,
+					first_column_index: firstCol,
+					last_column_index: lastCol
+				}, expected, format),
+
+			rowRange: (firstRow: number, lastRow: number, expected: string) =>
+				testExport(TableSelectionKind.RowRange, { first_index: firstRow, last_index: lastRow }, expected),
+
+			columnRange: (firstCol: number, lastCol: number, expected: string) =>
+				testExport(TableSelectionKind.ColumnRange, { first_index: firstCol, last_index: lastCol }, expected),
+
+			rowIndices: (indices: number[], expected: string) =>
+				testExport(TableSelectionKind.RowIndices, { indices }, expected),
+
+			columnIndices: (indices: number[], expected: string) =>
+				testExport(TableSelectionKind.ColumnIndices, { indices }, expected),
+
+			cellIndices: (rowIndices: number[], columnIndices: number[], expected: string) =>
+				testExport(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected),
+
+			// Raw export methods that return results without assertions
+			singleCellRaw: (row: number, col: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.SingleCell, { row_index: row, column_index: col }, format),
+
+			cellRangeRaw: (firstRow: number, lastRow: number, firstCol: number, lastCol: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.CellRange, {
+					first_row_index: firstRow,
+					last_row_index: lastRow,
+					first_column_index: firstCol,
+					last_column_index: lastCol
+				}, format),
+
+			columnRangeRaw: (firstCol: number, lastCol: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.ColumnRange, { first_index: firstCol, last_index: lastCol }, format)
+		};
+	};
+
+	// Helper functions to reduce code duplication in tests
+	const openDataset = async (uri: vscode.Uri) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri }
+		});
+	};
+
+	const setSortColumns = async (uri: vscode.Uri, sortKeys: Array<{ column_index: number; ascending: boolean }>) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: { sort_keys: sortKeys }
+		});
+	};
+
+	const setRowFilters = async (uri: vscode.Uri, filters: any[]) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: { filters }
+		});
+	};
+
+	const convertToCode = async (uri: vscode.Uri, params: any = {}) => {
+		const defaultParams = {
+			column_filters: [],
+			row_filters: [],
+			sort_keys: [],
+			code_syntax_name: { code_syntax_name: 'SQL' }
+		};
+		return await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: { ...defaultParams, ...params }
+		});
+	};
+
+	// Helper to create a table and return configured test helpers
+	const createSortableTestTable = async (columns: Array<{ name: string; type: string; values: string[] }>) => {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, columns);
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const helpers = createSortTestHelper(uri);
+		return { tableName, uri, ...helpers };
+	};
+
+	test('export_data_selection - data types and single cells', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { singleCell } = createExportHelper(uri);
+
+		// Test single cell exports for different data types
+		const cellTests = [
+			// INTEGER column (col 0: int_col)
 			{ row: 0, col: 0, expected: '1' },
 			{ row: 1, col: 0, expected: '2' },
 			{ row: 4, col: 0, expected: 'NULL' },
 
-			// VARCHAR
+			// VARCHAR column (col 1: str_col)
 			{ row: 2, col: 1, expected: 'c' },
 			{ row: 3, col: 1, expected: 'NULL' },
 			{ row: 4, col: 1, expected: longString },
 
-			// DOUBLE
+			// DOUBLE column (col 2: float_col)
 			{ row: 3, col: 2, expected: 'NULL' },
 			{ row: 4, col: 2, expected: '5.5e+20' },
 
-			// Date type
+			// DATE column (col 3: date0)
 			{ row: 0, col: 3, expected: '2023-10-20' },
-			{ row: 1, col: 3, expected: '2024-01-01' },
 			{ row: 2, col: 3, expected: 'NULL' },
 
-			// Timestamp type
+			// TIMESTAMP column (col 4: timestamp0)
 			{ row: 0, col: 4, expected: '2023-10-20 15:30:00' },
-			{ row: 1, col: 4, expected: '2024-01-01 08:00:00' },
 			{ row: 2, col: 4, expected: 'NULL' },
 
-			// Timestamp with timezone type
+			// TIMESTAMP WITH TIME ZONE column (col 5: timestamptz0)
 			{ row: 0, col: 5, expected: '2023-10-20 15:30:00+00' },
-			{ row: 1, col: 5, expected: '2024-01-01 13:00:00+00' },
 			{ row: 2, col: 5, expected: 'NULL' },
 
-			// Time type
+			// TIME column (col 6: time0)
 			{ row: 0, col: 6, expected: '13:30:00' },
 			{ row: 1, col: 6, expected: '07:12:34.567' },
 			{ row: 2, col: 6, expected: 'NULL' }
 		];
 
-		// Run all test cases
-		for (const { row, col, expected } of cellTestCases) {
-			await testSingleCell(row, col, expected);
+		for (const { row, col, expected } of cellTests) {
+			await singleCell(row, col, expected);
 		}
+	});
 
-		const testCellRange = async (firstRow: number, lastRow: number, firstCol: number,
-			lastCol: number, expected: string) => {
-			await testSelection(TableSelectionKind.CellRange,
-				{
-					first_row_index: firstRow,
-					last_row_index: lastRow,
-					first_column_index: firstCol,
-					last_column_index: lastCol
-				},
-				expected
-			);
-		};
+	test('export_data_selection - ranges and selections', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellRange, rowRange, columnRange, rowIndices, columnIndices } = createExportHelper(uri);
 
-		await testCellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
-		await testCellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
+		// Cell range selections
+		await cellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
+		await cellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
 
-		// Test RowRange selection
-		const testRowRange = async (firstRow: number, lastRow: number, expected: string) => {
-			await testSelection(TableSelectionKind.RowRange,
-				{
-					first_index: firstRow,
-					last_index: lastRow
-				},
-				expected
-			);
-		};
-
-		await testRowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+		// Row range selection (rows 1-2, all columns)
+		await rowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
 2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
 3,c,3.3,NULL,NULL,NULL,NULL`);
 
-		// Test ColumnRange selection
-		const testColRange = async (firstCol: number, lastCol: number, expected: string) => {
-			await testSelection(TableSelectionKind.ColumnRange,
-				{
-					first_index: firstCol,
-					last_index: lastCol
-				},
-				expected
-			);
-		};
+		// Column range selection (columns 0-1, all rows)
+		await columnRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
 
-		await testColRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
-
-		// Test RowIndices selection
-		const testRowIndices = async (indices: number[], expected: string) => {
-			await testSelection(TableSelectionKind.RowIndices, { indices }, expected);
-		};
-		await testRowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+		// Specific row indices (rows 1 and 3)
+		await rowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
 2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
 4,NULL,NULL,2024-01-02,2024-01-02 12:00:00,2024-01-02 11:00:00+00,12:00:00`);
 
-		// Test ColumnIndices selection
-		const testColumnIndices = async (indices: number[], expected: string) => {
-			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
+		// Specific column indices (int_col and float_col)
+		await columnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
+	});
+
+	test('export_data_selection - cell indices and order preservation', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellIndices } = createExportHelper(uri);
+
+		// Basic cell indices selection
+		await cellIndices([0, 2], [0, 2], 'int_col,float_col\n1,1.1\n3,3.3');
+		await cellIndices([1, 3], [1, 2], 'str_col,float_col\nb,2.2\nNULL,NULL');
+		await cellIndices([0, 1, 4], [0], 'int_col\n1\n2\nNULL');
+
+		// Non-sequential row indices (order preservation is critical)
+		await cellIndices([4, 0, 2], [0], 'int_col\nNULL\n1\n3');
+		await cellIndices([3, 1, 0], [1, 2], 'str_col,float_col\nNULL,NULL\nb,2.2\na,1.1');
+		await cellIndices([2, 4, 1], [0, 1], `int_col,str_col\n3,c\nNULL,${longString}\n2,b`);
+
+		// Non-sequential column indices (order preservation is critical)
+		await cellIndices([0, 1], [2, 0, 1], 'float_col,int_col,str_col\n1.1,1,a\n2.2,2,b');
+		await cellIndices([1, 2], [1, 2, 0], 'str_col,float_col,int_col\nb,2.2,2\nc,3.3,3');
+
+		// Both rows and columns out of order
+		await cellIndices([2, 0], [2, 0], 'float_col,int_col\n3.3,3\n1.1,1');
+	});
+
+	test('export_data_selection - output formats', async () => {
+		const { tableName } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellRange } = createExportHelper(uri);
+
+		// Test different export formats on same data (first 2 rows, first 2 columns)
+		await cellRange(0, 1, 0, 1, 'int_col\tstr_col\n1\ta\n2\tb', ExportFormat.Tsv);
+		await cellRange(0, 1, 0, 1, '<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>', ExportFormat.Html);
+	});
+
+	// Shared utilities for sort order tests
+	const createSortTestHelper = (uri: vscode.Uri) => {
+		const exportHelper = createExportHelper(uri);
+
+		const setSortKeys = async (sortKeys: Array<{ column_index: number; ascending: boolean }>) => {
+			await setSortColumns(uri, sortKeys);
 		};
-		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
 
-		// Test TSV format
-		await testSelection(TableSelectionKind.CellRange,
-			{
-				first_row_index: 0,
-				last_row_index: 1,
-				first_column_index: 0,
-				last_column_index: 1
-			},
-			'int_col\tstr_col\n1\ta\n2\tb',
-			ExportFormat.Tsv
-		);
+		return { ...exportHelper, setSortKeys };
+	};
 
-		// Test HTML format
-		await testSelection(TableSelectionKind.CellRange,
+	test('export_data_selection respects sort order - basic sorting', async () => {
+		const { columnIndices, columnRange, setSortKeys } = await createSortableTestTable([
+			{ name: 'id', type: 'INTEGER', values: ['3', '1', '2', '5', '4'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'Charlie\'', '\'Alice\'', '\'Bob\'', '\'Eve\'', '\'David\''] },
+			{ name: 'value', type: 'INTEGER', values: ['30', '10', '20', '50', '40'] }
+		]);
+
+		// Test unsorted data
+		await columnIndices([1], 'name\nCharlie\nAlice\nBob\nEve\nDavid');
+
+		// Test single column sorts
+		const sortTests = [
 			{
-				first_row_index: 0,
-				last_row_index: 1,
-				first_column_index: 0,
-				last_column_index: 1
+				sortKeys: [{ column_index: 0, ascending: true }],
+				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
 			},
-			'<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>',
-			ExportFormat.Html
-		);
+			{
+				sortKeys: [{ column_index: 0, ascending: false }],
+				expected: 'name\nEve\nDavid\nCharlie\nBob\nAlice'
+			},
+			{
+				sortKeys: [{ column_index: 2, ascending: true }],
+				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
+			}
+		];
+
+		for (const { sortKeys, expected } of sortTests) {
+			await setSortKeys(sortKeys);
+			await columnIndices([1], expected);
+		}
+
+		// Test column range export with sort
+		await setSortKeys([{ column_index: 2, ascending: true }]);
+		await columnRange(0, 1, 'id,name\n1,Alice\n2,Bob\n3,Charlie\n4,David\n5,Eve');
+	});
+
+	test('export_data_selection respects sort order - multi-column and formats', async () => {
+		// Create table with duplicate values for multi-column sorting
+		const tableName2 = makeTempTableName();
+		await createTempTable(tableName2, [
+			{ name: 'category', type: 'VARCHAR', values: ['\'B\'', '\'A\'', '\'B\'', '\'A\'', '\'A\''] },
+			{ name: 'value', type: 'INTEGER', values: ['2', '3', '1', '1', '2'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'item2\'', '\'item3\'', '\'item1\'', '\'item4\'', '\'item5\''] }
+		]);
+
+		const uri2 = vscode.Uri.from({ scheme: 'duckdb', path: tableName2 });
+		const { columnIndices, columnRange, setSortKeys } = createSortTestHelper(uri2);
+
+		// Test multi-column sort (category ascending, then value ascending)
+		await setSortKeys([
+			{ column_index: 0, ascending: true },   // category
+			{ column_index: 1, ascending: true }    // value
+		]);
+		await columnIndices([2], 'name\nitem4\nitem5\nitem3\nitem1\nitem2');
+
+		// Test different export format with sort
+		const tableName1 = makeTempTableName();
+		await createTempTable(tableName1, [
+			{ name: 'id', type: 'INTEGER', values: ['3', '1', '2'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'Charlie\'', '\'Alice\'', '\'Bob\''] }
+		]);
+
+		const uri1 = vscode.Uri.from({ scheme: 'duckdb', path: tableName1 });
+		const helper1 = createSortTestHelper(uri1);
+
+		await helper1.setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// Test TSV format maintains sort order
+		const tsvResult = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri1.toString(),
+			params: {
+				selection: {
+					kind: TableSelectionKind.ColumnRange,
+					selection: { first_index: 0, last_index: 1 }
+				},
+				format: ExportFormat.Tsv
+			}
+		});
+
+		assert.strictEqual(tsvResult.data, 'id\tname\n1\tAlice\n2\tBob\n3\tCharlie');
+	});
+
+	test('export_data_selection single cell respects sort order', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { singleCell, setSortKeys, columnRange } = createSortTestHelper(uri);
+
+		// Original table:
+		// Row 0: int_col=1, str_col='a'
+		// Row 1: int_col=2, str_col='b'
+		// Row 2: int_col=3, str_col='c'
+		// Row 3: int_col=4, str_col=NULL
+		// Row 4: int_col=NULL, str_col=longString
+
+		// Test single cell export without sorting first
+		await singleCell(0, 0, '1');  // Row 0, Column 0 (int_col) = 1
+		await singleCell(1, 1, 'b');  // Row 1, Column 1 (str_col) = 'b'
+		await singleCell(2, 0, '3');  // Row 2, Column 0 (int_col) = 3
+
+		// Sort by int_col descending (NULL values last)
+		await setSortKeys([{ column_index: 0, ascending: false }]);
+
+		// First, let's verify the sort order with columnRange to see actual data
+		await columnRange(0, 1, `int_col,str_col\n4,NULL\n3,c\n2,b\n1,a\nNULL,${longString}`);
+
+		// Now test single cells - these should match the sorted order
+		// If these tests fail, it means single cell export is not respecting sort order
+		await singleCell(0, 0, '4');    // Visual Row 0, int_col should be 4
+		await singleCell(1, 0, '3');    // Visual Row 1, int_col should be 3
+		await singleCell(2, 0, '2');    // Visual Row 2, int_col should be 2
+		await singleCell(3, 0, '1');    // Visual Row 3, int_col should be 1
+		await singleCell(4, 0, 'NULL'); // Visual Row 4, int_col should be NULL
+	});
+
+	test('export_data_selection single cell with duplicate sort values (stable sort test)', async () => {
+		// Create a table with many duplicate values to test stable sorting
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'sort_col',
+				type: 'INTEGER',
+				// Many rows with value 1, then some with value 2
+				values: ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2']
+			},
+			{
+				name: 'id',
+				type: 'INTEGER',
+				// Unique identifier to track which original row we're getting
+				values: ['100', '101', '102', '103', '104', '105', '106', '107', '200', '201']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { setSortKeys, columnRange } = createSortTestHelper(uri);
+		const { singleCellRaw, cellRangeRaw } = createExportHelper(uri);
+
+		// Before sorting - verify original order
+		await columnRange(0, 1, 'sort_col,id\n1,100\n1,101\n1,102\n1,103\n1,104\n1,105\n1,106\n1,107\n2,200\n2,201');
+
+		// Sort by sort_col ascending - all the 1's should come first, then 2's
+		// But within the 1's, the order might be unstable
+		await setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// The issue: When we export single cells from the sorted view,
+		// the OFFSET might not correspond to the same row the UI is showing
+		// due to unstable sorting of duplicate values
+
+		// Test: Export the first few cells after sorting using helper functions
+		const cell0Result = await singleCellRaw(0, 1); // First row, id column
+		const cell1Result = await singleCellRaw(1, 1); // Second row, id column
+
+		// Let's also check what cellRange gives us for comparison
+		const rangeResult = await cellRangeRaw(0, 1, 1, 1);
+
+		// After the fix, single cell exports should be consistent with range exports
+		// Single cells should return different rows (100, 101) not the same row twice
+		assert.strictEqual(cell0Result.data, '100', 'First cell should be ID 100');
+		assert.strictEqual(cell1Result.data, '101', 'Second cell should be ID 101');
+		assert.strictEqual(rangeResult.data, 'id\n100\n101', 'Range should return IDs 100,101');
+	});
+
+	test('CellIndices respects table sort order - comprehensive test', async () => {
+		// Create a table with data that will expose sort order issues
+		const { cellIndices, columnRange, setSortKeys } = await createSortableTestTable([
+			{
+				name: 'sort_col',
+				type: 'INTEGER',
+				values: ['3', '1', '4', '2', '5'] // Will be sorted: 1,2,3,4,5
+			},
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['300', '100', '400', '200', '500'] // Track original rows
+			},
+			{
+				name: 'data',
+				type: 'VARCHAR',
+				values: ['\'row3\'', '\'row1\'', '\'row4\'', '\'row2\'', '\'row5\'']
+			}
+		]);
+
+		// Before sorting - verify original order
+		await columnRange(0, 2, 'sort_col,id,data\n3,300,row3\n1,100,row1\n4,400,row4\n2,200,row2\n5,500,row5');
+
+		// Sort by sort_col ascending
+		// Expected sorted order: 1,2,3,4,5 (rows: 1,3,0,2,4 in original indices)
+		await setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// Verify the sort with columnRange first
+		await columnRange(0, 2, 'sort_col,id,data\n1,100,row1\n2,200,row2\n3,300,row3\n4,400,row4\n5,500,row5');
+
+		// Now test CellIndices - select rows 0,1 from the SORTED view
+		// This should get the first two rows from the sorted table: (1,100,row1) and (2,200,row2)
+		// NOT the first two rows from the original table: (3,300,row3) and (1,100,row1)
+		await cellIndices([0, 1], [0, 1, 2], 'sort_col,id,data\n1,100,row1\n2,200,row2');
+
+		// Test with non-sequential selection from sorted view
+		// Rows 1,3 from sorted view should be: (2,200,row2) and (4,400,row4)
+		await cellIndices([1, 3], [1, 2], 'id,data\n200,row2\n400,row4');
+
+		// Test reverse order selection to ensure selection order is preserved
+		// Rows 2,0 from sorted view should be: (3,300,row3) then (1,100,row1)
+		await cellIndices([2, 0], [0, 1], 'sort_col,id\n3,300\n1,100');
 	});
 
 	test('set_row_filters works correctly', async () => {
@@ -977,7 +1362,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['1', '2', '3', '4', '5']
 			},
 			{
@@ -989,7 +1374,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'value',
 				type: 'DOUBLE',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Floating,
 				values: ['10.5', '20.75', '30.25', '40.5', '50.0']
 			}
 		]);
@@ -1243,27 +1628,21 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	): Promise<T> {
 		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
+		// Ensure the extension and global command handler are set up
+		await activateExtension();
+
 		// Create a promise that will resolve when we receive the column profile event
-		let resolveProfilePromise: (value: any) => void;
+		let resolveProfilePromise: (value: any) => void = () => { };
 		const profilePromise = new Promise<any>(resolve => {
 			resolveProfilePromise = resolve;
 		});
 
-		// Set up event listener for the column profile results
-		const disposable = vscode.commands.registerCommand(
-			'positron-data-explorer.sendUiEvent',
-			(event: any) => {
-				if (event.method === 'return_column_profiles' &&
-					event.params.callback_id === callbackId) {
-					resolveProfilePromise(event.params);
-					disposable.dispose();
-				}
-			}
-		);
+		// Register the callback with the global handler
+		columnProfileCallbacks.set(callbackId, resolveProfilePromise);
 
 		// Add a timeout to prevent tests from hanging indefinitely
 		const timeoutId = setTimeout(() => {
-			disposable.dispose();
+			columnProfileCallbacks.delete(callbackId);
 			resolveProfilePromise({
 				error: `${timeoutMessage} for callback_id: ${callbackId}`
 			});
@@ -1302,7 +1681,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			return resultExtractor(profile);
 		} catch (error) {
 			// Clean up in case of error
-			disposable.dispose();
+			columnProfileCallbacks.delete(callbackId);
 			clearTimeout(timeoutId);
 			throw error;
 		}
@@ -1545,6 +1924,37 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	}
 
 	/**
+	 * Helper function to request null count profile for a column
+	 * @param tableName The name of the table
+	 * @param columnIndex The index of the column
+	 * @param callbackId The callback ID for the request
+	 * @returns A promise that resolves to the null count
+	 */
+	async function requestNullCount(
+		tableName: string,
+		columnIndex: number,
+		callbackId: string
+	): Promise<number> {
+		return requestColumnProfile(
+			tableName,
+			columnIndex,
+			[
+				{
+					profile_type: ColumnProfileType.NullCount
+				}
+			],
+			callbackId,
+			(profile) => {
+				if (profile && profile.null_count !== undefined) {
+					return profile.null_count as number;
+				}
+				throw new Error(`No null count returned for column ${columnIndex}`);
+			},
+			'Timeout waiting for null count data'
+		);
+	}
+
+	/**
 	 * Creates a test table with data for summary stats testing, using quoted field names
 	 * @param columnName The name of the column (should be quoted for testing)
 	 * @param valueType The SQL type of the value column
@@ -1577,7 +1987,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"numeric_column"', // Quoted field name
 			'DOUBLE',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Floating,
 			(i) => `${i * 2.5}`, // Values 0, 2.5, 5.0, 7.5, ... 247.5
 			100
 		);
@@ -1591,7 +2001,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Floating, 'Type display should be Floating');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present');
 
 		const numberStats = summaryStats.number_stats!;
@@ -1737,7 +2147,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"null_column"', // Quoted field name
 			'INTEGER',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Integer,
 			() => 'NULL', // All NULL values
 			20
 		);
@@ -1751,7 +2161,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats for all null values
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Integer, 'Type display should be Integer');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present even for all null values');
 
 		const numberStats = summaryStats.number_stats!;
@@ -1770,13 +2180,13 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['1', '2', '3'],
 			},
 			{
 				name: 'user_id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['101', '102', '103'],
 			},
 			{
@@ -1800,7 +2210,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'age',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['25', '30', '35'],
 			},
 			{
@@ -1850,7 +2260,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'salary',
 				type: 'DOUBLE',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Floating,
 				values: ['50000.0', '60000.0', '70000.0'],
 			},
 		]);
@@ -1965,10 +2375,22 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 				// Type filter tests
 				{
-					filters: [typeFilter(ColumnDisplayType.Number)],
+					filters: [typeFilter(ColumnDisplayType.Integer)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1, 5],
+					description: 'Integer columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Floating)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [12],
+					description: 'Floating columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating)],
 					sortOrder: SearchSchemaSortOrder.Original,
 					expected: [0, 1, 5, 12],
-					description: 'Number columns',
+					description: 'Integer and Floating columns',
 				},
 				{
 					filters: [typeFilter(ColumnDisplayType.String)],
@@ -1998,11 +2420,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				{
 					filters: [
 						textFilter(TextSearchType.Contains, 'a'),
-						typeFilter(ColumnDisplayType.Number),
+						typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating),
 					],
 					sortOrder: SearchSchemaSortOrder.Original,
 					expected: [5, 12],
-					description: 'Contains "a" AND Number type',
+					description: 'Contains "a" AND Integer/Floating type',
 				},
 
 				// Sort order tests - by name
@@ -2039,10 +2461,10 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					description: 'Descending by type',
 				},
 				{
-					filters: [typeFilter(ColumnDisplayType.Number)],
+					filters: [typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating)],
 					sortOrder: SearchSchemaSortOrder.AscendingType,
 					expected: [12, 0, 1, 5],
-					description: 'Number columns by type',
+					description: 'Integer/Floating columns by type',
 				},
 
 				// Case sensitivity tests
@@ -2076,7 +2498,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"single_value_column"', // Quoted field name
 			'INTEGER',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Integer,
 			() => '42', // All values are 42
 			15
 		);
@@ -2090,7 +2512,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats for a single value
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Integer, 'Type display should be Integer');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present');
 
 		const numberStats = summaryStats.number_stats!;
@@ -2099,5 +2521,587 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(numberStats.mean, '42', 'Mean should be 42');
 		assert.strictEqual(numberStats.median, '42', 'Median should be 42');
 		assert.strictEqual(numberStats.stdev, '0', 'Standard deviation should be 0 for single value');
+	});
+
+	test('convertToCode - with row filters', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for filtering
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Apply the filter first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		// Test convert to code with row filter applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+	});
+
+	test('convertToCode - with sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Create sort key: sort by name descending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: false
+		};
+
+		// Apply the sort key first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'ORDER BY "name" DESC', 'Third line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with both row filters and sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with data for filtering and sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Create sort key: sort by name ascending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: true
+		};
+
+		// Apply the filter and sort key
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with both row filter and sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 4, 'Should have 4 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+		assert.strictEqual(result.converted_code[3], 'ORDER BY "name"', 'Fourth line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with long/complex filename/URI', async () => {
+		// Use a long filename that needs to be quoted in SQL
+		const specialTableName = makeTempTableName() + '_complex_tablename_with_underscores';
+
+		// Create a simple test table
+		await createTempTable(specialTableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3']
+			},
+			{
+				name: 'data',
+				type: 'VARCHAR',
+				values: ["'A'", "'B'", "'C'"]
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: specialTableName });
+
+		// Test convert to code with a complex filename
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 2, 'Should have 2 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+
+		// Verify that the table name is properly quoted in SQL
+		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
+	});
+
+	test('null count profiles with zero rows should return 0', async () => {
+		// Create an empty table using direct SQL since createTempTable doesn't handle empty arrays
+		const tableName = makeTempTableName();
+		await runQuery(`CREATE TABLE ${tableName} (str_col VARCHAR, num_col INTEGER);`);
+
+		// Open the dataset so it can respond to RPCs
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: vscode.Uri.from({ scheme: 'duckdb', path: tableName }) }
+		});
+
+		// Test string column null count
+		const stringColumnProfile = await requestNullCount(
+			tableName,
+			0, // str_col column index
+			randomUUID()
+		);
+
+		assert.strictEqual(stringColumnProfile, 0, 'String column null count should be 0 for zero-row table');
+
+		// Test number column null count
+		const numberColumnProfile = await requestNullCount(
+			tableName,
+			1, // num_col column index
+			randomUUID()
+		);
+
+		assert.strictEqual(numberColumnProfile, 0, 'Number column null count should be 0 for zero-row table');
+	});
+
+	/**
+	 * Helper function to request frequency table profiles
+	 */
+	async function requestFrequencyTable(
+		tableName: string,
+		columnIndex: number,
+		profileType: ColumnProfileType,
+		limit: number,
+		callbackId: string
+	): Promise<any> {
+		return requestColumnProfile(
+			tableName,
+			columnIndex,
+			[
+				{
+					profile_type: profileType,
+					params: { limit }
+				}
+			],
+			callbackId,
+			(profile) => {
+				const key = profileType === ColumnProfileType.SmallFrequencyTable ? 'small_frequency_table' : 'large_frequency_table';
+				if (profile && profile[key]) {
+					return profile[key];
+				}
+				throw new Error(`Expected ${key} to be present in profile results`);
+			},
+			`Timeout waiting for ${profileType} data`
+		);
+	}
+
+	/**
+	 * Creates a test table with frequency data that has ties to test the fix
+	 */
+	async function createFrequencyTestTable(): Promise<string> {
+		const tableName = makeTempTableName();
+
+		// Create data where some values have the same frequency (ties)
+		// This will test that the ordering is consistent between small and large frequency tables
+		const values = [
+			// Most frequent (5 times each)
+			'A', 'A', 'A', 'A', 'A',
+			'B', 'B', 'B', 'B', 'B',
+			// Second most frequent (4 times each)
+			'C', 'C', 'C', 'C',
+			'D', 'D', 'D', 'D',
+			// Third most frequent (3 times each) - this creates the tie scenario
+			'E', 'E', 'E',
+			'9E', '9E', '9E',  // This was the problematic value from the original bug report
+			'WN', 'WN', 'WN',  // This was the value that appeared instead of 9E
+			'F', 'F', 'F',
+			// Less frequent (2 times each)
+			'G', 'G',
+			'H', 'H',
+			'I', 'I',
+			'J', 'J',
+			// Single occurrences
+			'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'
+		];
+
+		await createTempTable(tableName, [
+			{
+				name: 'category',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: values.map(v => `'${v}'`)
+			}
+		]);
+
+		return tableName;
+	}
+
+	test('ColumnProfileEvaluator.computeFreqTable - Small and Large frequency tables are consistent', async () => {
+		const tableName = await createFrequencyTestTable();
+		const callbackId = randomUUID();
+
+		// Request both small and large frequency tables
+		const [smallFreqTable, largeFreqTable] = await Promise.all([
+			requestFrequencyTable(tableName, 0, ColumnProfileType.SmallFrequencyTable, 8, callbackId + '_small'),
+			requestFrequencyTable(tableName, 0, ColumnProfileType.LargeFrequencyTable, 16, callbackId + '_large')
+		]);
+
+		// Verify basic structure
+		assert.ok(smallFreqTable.values, 'Small frequency table should have values');
+		assert.ok(smallFreqTable.counts, 'Small frequency table should have counts');
+		assert.ok(largeFreqTable.values, 'Large frequency table should have values');
+		assert.ok(largeFreqTable.counts, 'Large frequency table should have counts');
+
+		// The small table should have at most 8 entries
+		assert.ok(smallFreqTable.values.length <= 8, `Small frequency table should have <= 8 entries, got ${smallFreqTable.values.length}`);
+		assert.ok(largeFreqTable.values.length <= 16, `Large frequency table should have <= 16 entries, got ${largeFreqTable.values.length}`);
+
+		// Verify that values are sorted by frequency (descending), then by value (ascending)
+		for (let i = 0; i < smallFreqTable.counts.length - 1; i++) {
+			const currentCount = smallFreqTable.counts[i];
+			const nextCount = smallFreqTable.counts[i + 1];
+			const currentValue = smallFreqTable.values[i];
+			const nextValue = smallFreqTable.values[i + 1];
+
+			assert.ok(
+				currentCount > nextCount || (currentCount === nextCount && currentValue <= nextValue),
+				`Small frequency table should be sorted by count DESC, value ASC. Position ${i}: (${currentValue}, ${currentCount}) vs (${nextValue}, ${nextCount})`
+			);
+		}
+
+		for (let i = 0; i < largeFreqTable.counts.length - 1; i++) {
+			const currentCount = largeFreqTable.counts[i];
+			const nextCount = largeFreqTable.counts[i + 1];
+			const currentValue = largeFreqTable.values[i];
+			const nextValue = largeFreqTable.values[i + 1];
+
+			assert.ok(
+				currentCount > nextCount || (currentCount === nextCount && currentValue <= nextValue),
+				`Large frequency table should be sorted by count DESC, value ASC. Position ${i}: (${currentValue}, ${currentCount}) vs (${nextValue}, ${nextCount})`
+			);
+		}
+
+		// CRITICAL TEST: The small frequency table should be a prefix of the large frequency table
+		// This is the main fix - ensuring consistent ordering between small and large tables
+		for (let i = 0; i < Math.min(smallFreqTable.values.length, largeFreqTable.values.length); i++) {
+			assert.strictEqual(
+				smallFreqTable.values[i],
+				largeFreqTable.values[i],
+				`Small and large frequency tables should have consistent ordering. Position ${i}: small="${smallFreqTable.values[i]}", large="${largeFreqTable.values[i]}"`
+			);
+			assert.strictEqual(
+				smallFreqTable.counts[i],
+				largeFreqTable.counts[i],
+				`Small and large frequency tables should have consistent counts. Position ${i}: small=${smallFreqTable.counts[i]}, large=${largeFreqTable.counts[i]}`
+			);
+		}
+
+		// Verify that "9E" appears in both tables (it should be in the top values due to frequency)
+		const smallHas9E = smallFreqTable.values.includes('9E');
+		const largeHas9E = largeFreqTable.values.includes('9E');
+
+		assert.ok(largeHas9E, 'Large frequency table should include "9E"');
+		if (smallFreqTable.values.length >= 8) {
+			// If small table has 8 or more entries, it should also include 9E since it has 3 occurrences
+			assert.ok(smallHas9E, 'Small frequency table should include "9E" when it has enough entries');
+		}
+	});
+
+	test('ColumnProfileEvaluator.computeFreqTable - Tie-breaking works correctly', async () => {
+		const tableName = await createFrequencyTestTable();
+		const callbackId = randomUUID();
+
+		// Request a large frequency table to see all the ties
+		const freqTable = await requestFrequencyTable(tableName, 0, ColumnProfileType.LargeFrequencyTable, 20, callbackId);
+
+		// Find values with the same frequency count (ties)
+		const frequencyGroups = new Map<number, string[]>();
+		for (let i = 0; i < freqTable.counts.length; i++) {
+			const count = freqTable.counts[i];
+			const value = freqTable.values[i];
+			if (!frequencyGroups.has(count)) {
+				frequencyGroups.set(count, []);
+			}
+			frequencyGroups.get(count)!.push(value);
+		}
+
+		// For each group of values with the same frequency, verify they are sorted alphabetically
+		for (const [count, values] of frequencyGroups) {
+			if (values.length > 1) {
+				for (let i = 0; i < values.length - 1; i++) {
+					assert.ok(
+						values[i] <= values[i + 1],
+						`Values with same frequency (${count}) should be sorted alphabetically: "${values[i]}" should come before or equal to "${values[i + 1]}"`
+					);
+				}
+			}
+		}
+
+		// Specifically verify that "9E", "WN", and other 3-count values are in alphabetical order
+		const threeCountValues = frequencyGroups.get(3) || [];
+		if (threeCountValues.includes('9E') && threeCountValues.includes('WN')) {
+			const nineEIndex = freqTable.values.indexOf('9E');
+			const wnIndex = freqTable.values.indexOf('WN');
+			assert.ok(nineEIndex < wnIndex, '"9E" should appear before "WN" in the frequency table due to alphabetical tie-breaking');
+		}
+	});
+
+	test('ColumnProfileEvaluator.computeFreqTable - Edge case: Empty table', async () => {
+		const tableName = makeTempTableName();
+
+		// Create an empty table using the createTempTable helper
+		await createTempTable(tableName, [
+			{
+				name: 'category',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ['\'test\''] // Add one value first
+			}
+		]);
+
+		// Then delete all rows to make it empty
+		await runQuery(`DELETE FROM ${tableName}`);
+
+		// Open the dataset with the data explorer
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: uri.toString() }
+		});
+
+		const callbackId = randomUUID();
+		const freqTable = await requestFrequencyTable(tableName, 0, ColumnProfileType.SmallFrequencyTable, 8, callbackId);
+
+		assert.strictEqual(freqTable.values.length, 0, 'Empty table should produce empty frequency table values');
+		assert.strictEqual(freqTable.counts.length, 0, 'Empty table should produce empty frequency table counts');
+		assert.strictEqual(freqTable.other_count, 0, 'Empty table should have 0 other_count');
+	});
+
+	test('Extension host restart recovery - should automatically recreate table view when missing', async () => {
+		// Create a test table
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'"]
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// First, open the dataset normally
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: uri.toString() }
+		});
+
+		// Verify it works initially
+		const initialResult = await dxExec({
+			method: DataExplorerBackendRequest.GetState,
+			uri: uri.toString(),
+			params: {}
+		});
+		assert.ok(initialResult, 'Initial state should be returned');
+		assert.strictEqual(initialResult.table_shape.num_rows, 3, 'Should have 3 rows initially');
+
+		// Now test that a direct RPC call works (simulating the scenario after extension host restart)
+		// when the table view might not exist in the handler's map
+		const directRpcCall = async () => {
+			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
+				'positron-duckdb.dataExplorerRpc',
+				{
+					method: DataExplorerBackendRequest.GetState,
+					uri: uri.toString(),
+					params: {}
+				}
+			);
+
+			if (resp.error_message) {
+				throw new Error(resp.error_message);
+			}
+			return resp.result;
+		};
+
+		// This should work due to our fix that recreates the table view if missing
+		const recoveredResult = await directRpcCall();
+
+		assert.ok(recoveredResult, 'Should recover from missing table view and return state');
+		assert.strictEqual(recoveredResult.table_shape.num_rows, 3, 'Should have correct number of rows after recovery');
+		assert.strictEqual(recoveredResult.table_shape.num_columns, 2, 'Should have correct number of columns after recovery');
+
+		// Test getColumnProfiles which was the original failing operation
+		const profileRpcCall = async () => {
+			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
+				'positron-duckdb.dataExplorerRpc',
+				{
+					method: DataExplorerBackendRequest.GetColumnProfiles,
+					uri: uri.toString(),
+					params: {
+						callback_id: randomUUID(),
+						profiles: [{
+							column_index: 0,
+							profiles: [{
+								profile_type: ColumnProfileType.NullCount
+							}]
+						}],
+						format_options: DEFAULT_FORMAT_OPTIONS
+					}
+				}
+			);
+
+			if (resp.error_message) {
+				throw new Error(resp.error_message);
+			}
+			return resp.result;
+		};
+
+		// This should work now that the table view has been restored
+		await profileRpcCall(); // Should not throw an error
 	});
 });

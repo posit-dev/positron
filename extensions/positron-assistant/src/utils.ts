@@ -5,9 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import * as positron from 'positron';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
-import { isLanguageModelImagePart } from './languageModelParts.js';
+import { JSONTree } from '@vscode/prompt-tsx';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
 import { log } from './extension.js';
 
 /**
@@ -34,6 +33,7 @@ export function toAIMessage(
 
 	// Convert messages from vscode to ai format
 	const aiMessages: ai.CoreMessage[] = [];
+	const systemContent: string[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
 			// VSCode expects tool results to be user messages but
@@ -136,6 +136,10 @@ export function toAIMessage(
 						toolName: part.name,
 						args: part.input,
 					});
+				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+					// Convert PromptTSX parts to text
+					const text = promptTsxPartToString(part);
+					content.push({ type: 'text', text });
 				} else {
 					// Skip unknown parts.
 					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
@@ -153,7 +157,36 @@ export function toAIMessage(
 				markBedrockCacheBreakpoint(aiMessage);
 			}
 			aiMessages.push(aiMessage);
+		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					systemContent.push(part.value);
+				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+					// Convert PromptTSX parts to text
+					const text = promptTsxPartToString(part);
+					systemContent.push(text);
+				} else {
+					// Skip unknown parts.
+					log.warn(`[vercel] Skipping unsupported part type in system message: ${part.constructor.name}`);
+				}
+			}
 		}
+	}
+
+	if (systemContent.length > 0) {
+		// Not all providers support multiple system messages, so we consolidate.
+		const systemMessage: ai.CoreSystemMessage = {
+			role: 'system',
+			content: systemContent.join('\n'),
+		};
+
+		// Add a cache breakpoint for our combined system prompt.
+		// This is only used by the Bedrock provider.
+		if (bedrockCacheBreakpoint) {
+			markBedrockCacheBreakpoint(systemMessage);
+		}
+
+		aiMessages.unshift(systemMessage);
 	}
 
 	// Remove empty messages to keep certain LLM providers happy
@@ -214,15 +247,20 @@ function convertToolResultToAiMessageExperimentalContent(
 						type: 'text',
 						text: content.value,
 					};
-				} else if (isLanguageModelImagePart(content)) {
+				} else if (content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)) {
 					return {
 						type: 'image',
-						data: content.value.base64,
-						mimeType: content.value.mimeType,
+						data: Buffer.from(content.data).toString('base64'),
+						mimeType: content.mimeType,
+					};
+				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
+					return {
+						type: 'text',
+						text: promptTsxPartToString(content),
 					};
 				} else {
 					throw new Error(
-						`Unsupported part type on tool result message`
+						`Unsupported part type on tool result message: ${(content as any).constructor?.name ?? typeof content}`
 					);
 				}
 			}
@@ -237,34 +275,42 @@ function convertToolResultToAiMessageExperimentalContent(
 /**
  * Convert a getPlot tool result into a Vercel AI message.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
-	// Vercel AI doesn't support image tool results. Convert
-	// an image result into a user message containing the image.
-	const imageParts = part.content.filter((content) => isLanguageModelImagePart(content));
-	if (imageParts.length > 0) {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
+	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
+		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
+	};
+	const imageParts = part.content.filter(isImageDataPart);
+
+	// If there was no image, forward the response as text.
+	if (imageParts.length === 0) {
 		return {
 			role: 'user',
-			content: imageParts.flatMap((content) => ([
+			content: [
 				{
 					type: 'text',
-					text: 'Here is the current active plot:',
+					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
 				},
-				{
-					type: 'image',
-					image: content.value.base64,
-					mimeType: content.value.mimeType,
-				}])),
+			],
 		};
 	}
-	// If there was no image, forward the response as text.
+
+	// Otherwise, convert to a user message containing the image,
+	// as Vercel AI doesn't support image tool results.
 	return {
 		role: 'user',
-		content: [
+		// We only expect one image part, but just in case,
+		// include all image parts in the message.
+		content: imageParts.flatMap((imgPart) => ([
 			{
 				type: 'text',
-				text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+				text: 'Here is the current active plot:',
 			},
-		],
+			{
+				type: 'image',
+				image: Buffer.from(imgPart.data).toString('base64'),
+				mimeType: imgPart.mimeType,
+			}
+		])),
 	};
 }
 
@@ -405,6 +451,88 @@ export function processMessages(messages: vscode.LanguageModelChatMessage2[]) {
 		.map(processEmptyToolResults);
 }
 
+/**
+ * Convert a LanguageModelPromptTsxPart to a string representation.
+ *
+ * This is used to render the result of some Copilot tools (which return Prompt
+ * TSX) parts into strings we can pass to other providers
+ *
+ * @param part The PromptTSX part to convert
+ * @returns A string representation of the PromptTSX part
+ */
+export function promptTsxPartToString(part: vscode.LanguageModelPromptTsxPart): string {
+	let text: string;
+	try {
+		// Try to convert the PromptElementJSON to a string
+		if (part.value && typeof part.value === 'object' && 'node' in part.value) {
+			// This is a PromptElementJSON structure
+			const element = part.value as JSONTree.PromptElementJSON;
+			text = stringifyPromptElementJSON(element);
+		} else {
+			// Fallback to JSON stringify for other structures
+			text = JSON.stringify(part.value, null, 2);
+		}
+	} catch (error) {
+		log.warn(`Failed to convert PromptTsxPart to string: ${error}`);
+		text = '[PromptTsxPart could not be rendered]';
+	}
+
+	log.trace(`Converted PromptTsxPart to string: ${text}`);
+	return text;
+}
+
+/**
+ * Simple implementation of stringifyPromptElementJSON for converting PromptTSX
+ * to text.
+ *
+ * @param element The PromptElementJSON to stringify
+ * @returns A string representation of the element
+ */
+function stringifyPromptElementJSON(element: JSONTree.PromptElementJSON): string {
+	const strs: string[] = [];
+	stringifyPromptNodeJSON(element.node, strs);
+	return strs.join('');
+}
+
+/**
+ * Recursively stringify a PromptNodeJSON into an array of strings.
+ *
+ * @param node The PromptNodeJSON to stringify
+ * @param strs The array to append strings to
+ */
+function stringifyPromptNodeJSON(node: JSONTree.PromptNodeJSON, strs: string[]): void {
+	if (node.type === JSONTree.PromptNodeType.Text) {
+		if (node.lineBreakBefore) {
+			strs.push('\n');
+		}
+		if (typeof node.text === 'string') {
+			strs.push(node.text);
+		}
+	} else if (node.type === JSONTree.PromptNodeType.Piece) {
+		if (node.ctor === JSONTree.PieceCtorKind.ImageChatMessage) {
+			strs.push('<image>');
+		} else if (node.ctor === JSONTree.PieceCtorKind.BaseChatMessage || node.ctor === JSONTree.PieceCtorKind.Other) {
+			for (const child of node.children) {
+				stringifyPromptNodeJSON(child, strs);
+			}
+		}
+	} else if (node.type === JSONTree.PromptNodeType.Opaque) {
+		// For opaque nodes, try to convert the value to string
+		const opaqueNode = node as JSONTree.OpaqueJSON;
+		if (typeof opaqueNode.value === 'string') {
+			strs.push(opaqueNode.value);
+		} else if (opaqueNode.value) {
+			strs.push(JSON.stringify(opaqueNode.value));
+		}
+	} else {
+		// Should not happen since all node types are handled, but as a fallback
+		// just stringify the whole node and shove it in the array
+		const content = JSON.stringify(node);
+		log.warn(`Unexpected node in Prompt TSX; using raw content: ${content}`);
+		strs.push(content);
+	}
+}
+
 // This type definition is from Vercel AI, but the type is not exported.
 type ToolResultContent = Array<
 	| {
@@ -488,4 +616,29 @@ export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart
 	// or Positron Assistant can set cache breakpoints with the same schema.
 	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
 	return vscode.LanguageModelDataPart.text(LanguageModelCacheBreakpointType.Ephemeral, LanguageModelDataPartMimeType.CacheControl);
+}
+
+/**
+ * Type guard to check if a reference is a RuntimeSessionReference.
+ *
+ * This function validates that the reference object has the expected structure
+ * of a RuntimeSessionReference.
+ */
+export function isRuntimeSessionReference(value: unknown): value is RuntimeSessionReference {
+	return typeof value === 'object' && value !== null &&
+		'activeSession' in value &&
+		'variables' in value &&
+		Array.isArray(value.variables);
+}
+
+/**
+ * Type guard to check if a reference is a prompt instructions file
+ */
+export function isPromptInstructionsReference(reference: unknown): reference is PromptInstructionsReference {
+	return typeof reference === 'object' && reference !== null &&
+		'modelDescription' in reference &&
+		'name' in reference &&
+		'id' in reference && typeof reference.id === 'string' &&
+		'value' in reference && reference.value instanceof vscode.Uri &&
+		reference.id.includes('vscode.prompt.instructions');
 }

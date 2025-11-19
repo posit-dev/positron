@@ -22,6 +22,8 @@ import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/t
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronConsoleService } from '../../../../services/positronConsole/browser/positronConsoleService.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -41,6 +43,7 @@ suite('PositronAssistantService', () => {
 		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
+		instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 
 		// Create test runtime sessions
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
@@ -88,7 +91,7 @@ suite('PositronAssistantService', () => {
 	test('getPositronChatContext returns the global context properties', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
-			location: ChatAgentLocation.Panel
+			location: ChatAgentLocation.Chat
 		};
 
 		// Get the chat context
@@ -103,7 +106,7 @@ suite('PositronAssistantService', () => {
 	test('getPositronChatContext handles plot information', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
-			location: ChatAgentLocation.Panel
+			location: ChatAgentLocation.Chat
 		};
 
 		// Get the chat context

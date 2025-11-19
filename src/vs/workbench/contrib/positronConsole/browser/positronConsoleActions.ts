@@ -4,12 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { isString } from '../../../../base/common/types.js';
+import { URI } from '../../../../base/common/uri.js';
+import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ITextModel } from '../../../../editor/common/model.js';
+import { IRange } from '../../../../editor/common/core/range.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { Position } from '../../../../editor/common/core/position.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { IPosition, Position } from '../../../../editor/common/core/position.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
@@ -17,7 +20,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -31,7 +34,9 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
+import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
 /**
  * Positron console command ID's.
@@ -41,10 +46,13 @@ const enum PositronConsoleCommandId {
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode',
 	ExecuteCodeWithoutAdvancing = 'workbench.action.positronConsole.executeCodeWithoutAdvancing',
+	ExecuteCodeBeforeCursor = 'workbench.action.positronConsole.executeCodeBeforeCursor',
+	ExecuteCodeAfterCursor = 'workbench.action.positronConsole.executeCodeAfterCursor',
 	FocusConsole = 'workbench.action.positronConsole.focusConsole',
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
 /**
@@ -58,6 +66,76 @@ const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Co
  * @returns The string with newlines trimmed.
  */
 const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
+
+/**
+ * Helper to execute code in the Positron console.
+ *
+ * @param accessor The services accessor
+ * @param code The code to execute
+ * @param position The position in the editor where the code originated
+ * @param model The text model containing the code
+ * @param opts Options for code execution
+ * @returns A promise that resolves to true if the execution was successful, false otherwise
+ */
+async function executeCodeInConsole(
+	code: string,
+	position: Position,
+	model: ITextModel,
+	services: {
+		editorService: IEditorService;
+		languageService: ILanguageService;
+		notificationService: INotificationService;
+		positronConsoleService: IPositronConsoleService;
+	},
+	opts: {
+		allowIncomplete?: boolean;
+		languageId?: string;
+		mode?: RuntimeCodeExecutionMode;
+		errorBehavior?: RuntimeErrorBehavior;
+	} = {}
+): Promise<boolean> {
+	const { editorService, languageService, notificationService, positronConsoleService } = services;
+
+	// Ensure we have a target language.
+	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
+	if (!languageId) {
+		notificationService.notify({
+			severity: Severity.Info,
+			message: localize('positron.executeCode.noLanguage', "Cannot execute code. Unable to detect input language."),
+			sticky: false
+		});
+		return false;
+	}
+
+	// Whether to allow incomplete code to be executed.
+	const allowIncomplete = opts.allowIncomplete;
+
+	// Create the attribution object. This is used to track the source of the code execution.
+	const attribution: IConsoleCodeAttribution = {
+		source: CodeAttributionSource.Script,
+		metadata: {
+			file: model.uri.path,
+			position: {
+				line: position.lineNumber,
+				column: position.column
+			},
+		}
+	};
+
+	// Ask the Positron console service to execute the code. Do not focus the console as
+	// this will rip focus away from the editor.
+	if (!await positronConsoleService.executeCode(
+		languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+		const languageName = languageService.getLanguageName(languageId);
+		notificationService.notify({
+			severity: Severity.Info,
+			message: localize('positron.executeCode.noRuntime', "Cannot execute code. Unable to start a runtime for the {0} language.", languageName),
+			sticky: false
+		});
+		return false;
+	}
+	return true;
+}
 
 /**
  * Registers Positron console actions.
@@ -89,7 +167,7 @@ export function registerPositronConsoleActions() {
 				f1: true,
 				category,
 				keybinding: {
-					when: PositronConsoleFocused,
+					when: ContextKeyExpr.or(EditorContextKeys.focus, PositronConsoleFocused),
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.KeyL,
 					mac: {
@@ -216,7 +294,8 @@ export function registerPositronConsoleActions() {
 				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -238,6 +317,8 @@ export function registerPositronConsoleActions() {
 		 *   - advance: Optionally, if the cursor should be advanced to the next statement. If `undefined`, fallbacks to `true`.
 		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
 		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
+		 *   - uri: The URI of the document to execute code from. Must be provided together with `position`.
+		 *   - position: The position in the document to execute code from. Must be provided together with `uri`.
 		 */
 		async run(
 			accessor: ServicesAccessor,
@@ -247,13 +328,17 @@ export function registerPositronConsoleActions() {
 				advance?: boolean;
 				mode?: RuntimeCodeExecutionMode;
 				errorBehavior?: RuntimeErrorBehavior;
-			} = {}
-		) {
+			} & (
+					| { uri: URI; position: Position }
+					| { uri?: never; position?: never }
+				) = {}
+		): Promise<Position | undefined> {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 			const languageService = accessor.get(ILanguageService);
 			const logService = accessor.get(ILogService);
+			const modelService = accessor.get(IModelService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 
@@ -263,15 +348,44 @@ export function registerPositronConsoleActions() {
 			// The code to execute.
 			let code: string | undefined = undefined;
 
-			// If there is no active editor, there is nothing to execute.
-			const editor = editorService.activeTextEditorControl as IEditor;
-			if (!editor) {
-				return;
+			// Determine if we're using a provided URI or the active editor
+			let editor: IEditor | undefined;
+			let model: ITextModel | undefined;
+			let position: Position;
+			let nextPosition: Position | undefined;
+
+			if (opts.uri) {
+				// Use the provided URI to get the model
+				const foundModel = modelService.getModel(opts.uri);
+				if (!foundModel) {
+					notificationService.notify({
+						severity: Severity.Info,
+						message: localize('positron.executeCode.noModel', "Cannot execute code. Unable to find document at {0}.", opts.uri.toString()),
+						sticky: false
+					});
+					return;
+				}
+				model = foundModel;
+				// Use the provided position (guaranteed to exist when uri is provided)
+				position = opts.position;
+				// No editor context when URI is provided
+				editor = undefined;
+			} else {
+				// Use the active editor
+				editor = editorService.activeTextEditorControl as IEditor;
+				if (!editor) {
+					return;
+				}
+				model = editor.getModel() as ITextModel;
+				const editorPosition = editor.getPosition();
+				if (!editorPosition) {
+					return;
+				}
+				position = editorPosition;
 			}
 
 			// Get the code to execute.
-			const selection = editor.getSelection();
-			const model = editor.getModel() as ITextModel;
+			const selection = editor?.getSelection();
 
 			// If we have a selection and it isn't empty, then we use its contents (even if it
 			// only contains whitespace or comments) and also retain the user's selection location.
@@ -288,13 +402,6 @@ export function registerPositronConsoleActions() {
 					}
 				}
 				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-			}
-
-			// Get the position of the cursor. If we don't have a selection, we'll use this to
-			// determine the code to execute.
-			const position = editor.getPosition();
-			if (!position) {
-				return;
 			}
 
 			// Get all the statement range providers for the active document.
@@ -324,7 +431,7 @@ export function registerPositronConsoleActions() {
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
 					if (advance) {
-						await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -335,8 +442,7 @@ export function registerPositronConsoleActions() {
 			// If no selection was found, use the contents of the line containing the cursor
 			// position.
 			if (!isString(code)) {
-				const position = editor.getPosition();
-				let lineNumber = position?.lineNumber ?? 0;
+				let lineNumber = position.lineNumber;
 
 				if (lineNumber > 0) {
 					// Find the first non-empty line after the cursor position and read the
@@ -354,11 +460,11 @@ export function registerPositronConsoleActions() {
 
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
-				if (advance && isString(code) && position) {
-					this.advanceLine(model, editor, position, lineNumber, code, editorService);
+				if (advance && isString(code)) {
+					nextPosition = this.advanceLine(model, editor, position, lineNumber, code, editorService);
 				}
 
-				if (!isString(code) && position && lineNumber === model.getLineCount()) {
+				if (!isString(code) && lineNumber === model.getLineCount()) {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
 					this.amendNewlineToEnd(model);
@@ -366,9 +472,11 @@ export function registerPositronConsoleActions() {
 					// We don't move to that new line to avoid adding a bunch of empty
 					// lines to the end. The edit operation typically moves us to the new line,
 					// so we have to undo that.
-					const newPosition = new Position(lineNumber, 1);
-					editor.setPosition(newPosition);
-					editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					if (editor) {
+						const newPosition = new Position(lineNumber, 1);
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					}
 				}
 
 				// If we still don't have code after looking at the cursor position,
@@ -378,59 +486,35 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
-			// Now that we've gotten this far, ensure we have a target language.
-			const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
-			if (!languageId) {
-				notificationService.notify({
-					severity: Severity.Info,
-					message: localize('positron.executeCode.noLanguage', "Cannot execute code. Unable to detect input language."),
-					sticky: false
+			// Use the helper function to execute the code
+			await executeCodeInConsole(
+				code,
+				position,
+				model,
+				{
+					editorService,
+					languageService,
+					notificationService,
+					positronConsoleService
+				},
+				{
+					allowIncomplete: opts.allowIncomplete,
+					languageId: opts.languageId,
+					mode: opts.mode,
+					errorBehavior: opts.errorBehavior
 				});
-				return;
-			}
-
-			// Whether to allow incomplete code to be executed.
-			// By default, we don't allow incomplete code to be executed, but the language runtime can override this.
-			// This means that if allowIncomplete is false or undefined, the incomplete code will not be sent to the backend for execution.
-			// The console will continue to wait for more input until the user completes the code, or cancels out of the operation.
-			const allowIncomplete = opts.allowIncomplete;
-
-
-			// Create the attribution object. This is used to track the source of the code execution.
-			const attribution: IConsoleCodeAttribution = {
-				source: CodeAttributionSource.Script,
-				metadata: {
-					file: model.uri.path,
-					position: {
-						line: position.lineNumber,
-						column: position.column
-					},
-				}
-			};
-
-			// Ask the Positron console service to execute the code. Do not focus the console as
-			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(
-				languageId, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
-				const languageName = languageService.getLanguageName(languageId);
-				notificationService.notify({
-					severity: Severity.Info,
-					message: localize('positron.executeCode.noRuntime', "Cannot execute code. Unable to start a runtime for the {0} language.", languageName),
-					sticky: false
-				});
-			}
+			return nextPosition;
 		}
 
 		async advanceStatement(
 			model: ITextModel,
-			editor: IEditor,
+			editor: IEditor | undefined,
 			statementRange: IStatementRange,
 			provider: StatementRangeProvider,
 			logService: ILogService,
-		) {
+		): Promise<Position> {
 
-			// Move the cursor to the next
-			// statement by creating a position on the line
+			// Calculate the next position by creating a position on the line
 			// following the statement and then invoking the
 			// statement range provider again to find the appropriate
 			// boundary of the next statement.
@@ -452,8 +536,6 @@ export function registerPositronConsoleActions() {
 					model.getLineCount(),
 					1
 				);
-				editor.setPosition(newPosition);
-				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			} else {
 				// Invoke the statement range provider again to
 				// find the appropriate boundary of the next statement.
@@ -495,20 +577,24 @@ export function registerPositronConsoleActions() {
 						);
 					}
 				}
+			}
 
+			// Only move the cursor if we have an editor
+			if (editor) {
 				editor.setPosition(newPosition);
 				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			}
+			return newPosition;
 		}
 
 		advanceLine(
 			model: ITextModel,
-			editor: IEditor,
+			editor: IEditor | undefined,
 			position: Position,
 			lineNumber: number,
 			code: string,
 			editorService: IEditorService,
-		) {
+		): Position {
 			// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 			// This attempts to address https://github.com/posit-dev/positron/issues/1177
 			// by tacking a newline onto indented Python code fragments that end at an empty
@@ -545,8 +631,12 @@ export function registerPositronConsoleActions() {
 			}
 
 			const newPosition = position.with(lineNumber, 0);
-			editor.setPosition(newPosition);
-			editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			// Only move the cursor if we have an editor
+			if (editor) {
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			}
+			return newPosition;
 		}
 
 		amendNewlineToEnd(model: ITextModel) {
@@ -580,11 +670,12 @@ export function registerPositronConsoleActions() {
 					value: localize('workbench.action.positronConsole.executeCodeWithoutAdvancing', 'Execute Code Without Advancing)'),
 					original: 'Execute Code Without Advancing'
 				},
-				f1: false,
+				f1: true,
 				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -601,6 +692,202 @@ export function registerPositronConsoleActions() {
 			};
 			const commandService = accessor.get(ICommandService);
 			return commandService.executeCommand('workbench.action.positronConsole.executeCode', opts);
+		}
+	});
+
+	/**
+	 * Helper function to execute code before or after cursor
+	 *
+	 * @param accessor The services accessor
+	 * @param selectionMode 'beforeCursor' to execute code from beginning to current line, 'afterCursor' to execute from current line to end
+	 * @param opts Options for code execution
+	 * @returns A promise that resolves when execution completes
+	 */
+	async function executeCodeRelativeToCursor(
+		accessor: ServicesAccessor,
+		selectionMode: 'beforeCursor' | 'afterCursor',
+		opts: {
+			allowIncomplete?: boolean;
+			languageId?: string;
+			mode?: RuntimeCodeExecutionMode;
+			errorBehavior?: RuntimeErrorBehavior;
+		} = {}
+	): Promise<void> {
+		// Access services.
+		const editorService = accessor.get(IEditorService);
+		const languageService = accessor.get(ILanguageService);
+		const notificationService = accessor.get(INotificationService);
+		const positronConsoleService = accessor.get(IPositronConsoleService);
+
+		// If there is no active editor, there is nothing to execute.
+		const editor = editorService.activeTextEditorControl as IEditor;
+		if (!editor) {
+			notificationService.notify({
+				severity: Severity.Info,
+				message: localize('positron.executeCodeAfterCursor.noEditor', "No editor found."),
+				sticky: false
+			});
+			return;
+		}
+
+		// Get the model and cursor position
+		const model = editor.getModel() as ITextModel;
+		const position = editor.getPosition();
+		if (!position) {
+			return;
+		}
+
+		// Get the code to execute based on selection mode
+		let range: IRange;
+		if (selectionMode === 'beforeCursor') {
+			// For 'beforeCursor', get all text from the beginning of the document to the end of the line that contains the cursor
+			range = {
+				startLineNumber: 1,
+				startColumn: 1,
+				endLineNumber: position.lineNumber,
+				endColumn: model.getLineMaxColumn(position.lineNumber) // End of the line containing the cursor
+			};
+		} else {
+			// For 'afterCursor', get all text from the beginning of the line that contains the cursor to the end of the document
+			range = {
+				startLineNumber: position.lineNumber,
+				startColumn: 1, // Start of the line containing the cursor
+				endLineNumber: model.getLineCount(),
+				endColumn: model.getLineMaxColumn(model.getLineCount())
+			};
+		}
+		const code = model.getValueInRange(range);
+
+		// Ensure we have a non-empty string to execute
+		if (code.trim().length === 0) {
+			notificationService.notify({
+				severity: Severity.Info,
+				message: selectionMode === 'beforeCursor'
+					? localize('positron.executeCodeBeforeCursor.noCode', "No code found before cursor position.")
+					: localize('positron.executeCodeAfterCursor.noCode', "No code found after cursor position."),
+				sticky: false
+			});
+			return;
+		}
+
+		// Use the helper function to execute the code
+		await executeCodeInConsole(
+			code,
+			position,
+			model,
+			{
+				editorService,
+				languageService,
+				notificationService,
+				positronConsoleService
+			},
+			{
+				allowIncomplete: opts.allowIncomplete,
+				languageId: opts.languageId,
+				mode: opts.mode,
+				errorBehavior: opts.errorBehavior
+			});
+	}
+
+	/**
+	 * Register the "Execute Code From Beginning To Current Line" action.
+	 * This action executes all the code in the editor to the current line without moving the cursor.
+	 */
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ExecuteCodeBeforeCursor,
+				title: {
+					value: localize('workbench.action.positronConsole.executeCodeBeforeCursor', 'Execute Code From Beginning To Current Line'),
+					original: 'Execute Code From Beginning To Current Line'
+				},
+				f1: true,
+				category,
+				precondition: ContextKeyExpr.or(
+					PositronConsoleFocused,
+					ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					)
+				),
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Home
+				}
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 * @param opts Options for code execution
+		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
+		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used.
+		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
+		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
+		 */
+		async run(
+			accessor: ServicesAccessor,
+			opts: {
+				allowIncomplete?: boolean;
+				languageId?: string;
+				mode?: RuntimeCodeExecutionMode;
+				errorBehavior?: RuntimeErrorBehavior;
+			} = {}
+		) {
+			return executeCodeRelativeToCursor(accessor, 'beforeCursor', opts);
+		}
+	});
+
+	/**
+	 * Register the "Execute Code From Current Line To End" action.
+	 * This action executes all the code in the editor after the current cursor position without moving the cursor.
+	 */
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ExecuteCodeAfterCursor,
+				title: {
+					value: localize('workbench.action.positronConsole.executeCodeAfterCursor', 'Execute Code From Current Line To End'),
+					original: 'Execute Code From Current Line To End'
+				},
+				f1: true,
+				category,
+				precondition: ContextKeyExpr.or(
+					PositronConsoleFocused,
+					ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					)
+				),
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.End
+				}
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 * @param opts Options for code execution
+		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
+		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used.
+		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
+		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
+		 */
+		async run(
+			accessor: ServicesAccessor,
+			opts: {
+				allowIncomplete?: boolean;
+				languageId?: string;
+				mode?: RuntimeCodeExecutionMode;
+				errorBehavior?: RuntimeErrorBehavior;
+			} = {}
+		) {
+			return executeCodeRelativeToCursor(accessor, 'afterCursor', opts);
 		}
 	});
 
@@ -757,4 +1044,77 @@ export function registerPositronConsoleActions() {
 			}
 		}
 	});
+
+	/**
+	 * Register the action to show the notebook console.
+	 *
+	 * This will create a new console for the notebook if it doesn't have one,
+	 * and will raise and focus the existing console if one exists
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ShowNotebookConsole,
+				title: {
+					value: localize('workbench.action.positronConsole.showNotebookConsole', "Show Notebook Console"),
+					original: 'Show Notebook Console'
+				},
+				f1: true,
+				category,
+				menu: [
+					{
+						// Add an entry to the notebook toolbar to show the
+						// notebook console
+						id: MenuId.NotebookToolbar,
+						group: 'notebookConsole',
+						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+						order: 1
+					}
+				]
+			});
+		}
+
+		/**
+		 * Runs action and creates the notebook console.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Get services
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+
+			// Figure out the URI of the active notebook and tell the console
+			// service to start a console attached to the appropriate session
+			const context = getContextFromActiveEditor(editorService);
+			if (context) {
+				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri, true);
+			} else {
+				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
+			}
+		}
+	});
 }
+
+
+/**
+ * Register the internal command for executing code in console from the extension API.
+ * This command is called by the positron.executeCodeInConsole API command.
+ */
+CommandsRegistry.registerCommand('_executeCodeInConsole', async (accessor, ...args: [string, URI, IPosition]) => {
+	const [languageId, uri, position] = args;
+	assertType(typeof languageId === 'string');
+	assertType(URI.isUri(uri));
+	assertType(Position.isIPosition(position));
+
+	const commandService = accessor.get(ICommandService);
+	return await commandService.executeCommand('workbench.action.positronConsole.executeCode', {
+		languageId,
+		uri,
+		position: Position.lift(position)
+	});
+});

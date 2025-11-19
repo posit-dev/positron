@@ -54,7 +54,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.95.0"
+        "vscode": "^1.104.0"
     },
     "enableTelemetry": false,
     "keywords": [
@@ -95,7 +95,8 @@
         "onLanguageModelTool:get_python_executable_details",
         "onLanguageModelTool:install_python_packages",
         "onLanguageModelTool:configure_python_environment",
-        "onLanguageModelTool:create_virtual_environment"
+        "onLanguageModelTool:create_virtual_environment",
+        "onTerminalShellIntegration:python"
     ],
     "main": "./out/client/extension",
     "browser": "./dist/extension.browser.js",
@@ -332,6 +333,11 @@
                 "command": "python.createNewFile"
             },
             {
+                "category": "Python",
+                "command": "python.copyTestId",
+                "title": "%python.command.python.testing.copyTestId.title%"
+            },
+            {
                 "title": "%python.command.python.createPyprojectToml.title%",
                 "category": "Python",
                 "command": "python.createPyprojectToml"
@@ -417,13 +423,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.execShinyInTerminal",
-                "icon": "$(play)",
-                "title": "%python.command.python.execShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny"
-            },
-            {
-                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -462,13 +461,6 @@
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugGradioInTerminal.title%",
                 "enablement": "pythonAppFramework == gradio"
-            },
-            {
-                "category": "Python",
-                "command": "python.debugShinyInTerminal",
-                "icon": "$(debug-alt)",
-                "title": "%python.command.python.debugShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny"
             },
             {
                 "category": "Python",
@@ -743,6 +735,20 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.languageServer": {
+                    "type": "string",
+                    "description": "%python.languageServer.description%",
+                    "scope": "window",
+                    "enum": [
+                        "None"
+                    ],
+                    "enumDescriptions": [
+                        "%python.languageServer.noneDescription%"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "python.languageServerDebug": {
                     "default": false,
                     "description": "%python.languageServerDebug.description%",
@@ -805,15 +811,11 @@
                     "type": "string"
                 },
                 "python.locator": {
-                    "default": "js",
-                    "description": "%python.locator.description%",
+                    "default": "native",
+                    "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
                         "native"
-                    ],
-                    "tags": [
-                        "onExP",
-                        "preview"
                     ],
                     "scope": "machine-overridable",
                     "type": "string"
@@ -873,7 +875,7 @@
                     "type": "array"
                 },
                 "python.terminal.shellIntegration.enabled": {
-                    "default": false,
+                    "default": true,
                     "markdownDescription": "%python.terminal.shellIntegration.enabled.description%",
                     "scope": "resource",
                     "type": "boolean",
@@ -986,6 +988,12 @@
                     "markdownDescription": "%python.enableAutoReload.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.autoConvertFilePaths": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "%python.autoConvertFilePaths.description%",
+                    "scope": "resource"
                 }
             },
             "title": "Python",
@@ -1420,13 +1428,13 @@
                 "command": "python.execInConsole",
                 "key": "ctrl+shift+enter",
                 "mac": "cmd+shift+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !pythonAppFramework"
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !pythonAppFramework && !positronNotebookCellEditorFocused"
             },
             {
                 "command": "python.execSelectionInConsole",
                 "key": "ctrl+enter",
                 "mac": "cmd+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !positronNotebookCellEditorFocused"
             }
         ],
         "languages": [
@@ -1493,6 +1501,20 @@
             "issue/reporter": [
                 {
                     "command": "python.reportIssue"
+                }
+            ],
+            "testing/item/context": [
+                {
+                    "command": "python.copyTestId",
+                    "group": "navigation",
+                    "when": "controllerId == 'python-tests'"
+                }
+            ],
+            "testing/item/gutter": [
+                {
+                    "command": "python.copyTestId",
+                    "group": "navigation",
+                    "when": "controllerId == 'python-tests'"
                 }
             ],
             "commandPalette": [
@@ -1580,6 +1602,18 @@
                     "category": "Python",
                     "command": "python.execSelectionInTerminal",
                     "title": "%python.command.python.execSelectionInTerminal.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
                     "when": "false"
                 },
                 {
@@ -1696,11 +1730,6 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
-                    "command": "python.execShinyInTerminal",
-                    "group": "Python",
-                    "when": "pythonAppFramework == shiny"
-                },
-                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "Python",
                     "when": "pythonAppFramework == streamlit"
@@ -1758,12 +1787,6 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
-                    "command": "python.execShinyInTerminal",
-                    "group": "navigation@0",
-                    "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny"
-                },
-                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1792,12 +1815,6 @@
                     "group": "navigation@3",
                     "title": "%python.command.python.debugGradioInTerminal.title%",
                     "when": "pythonAppFramework == gradio"
-                },
-                {
-                    "command": "python.debugShinyInTerminal",
-                    "group": "navigation@3",
-                    "title": "%python.command.python.debugShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny"
                 },
                 {
                     "command": "python.debugFastAPIInTerminal",
@@ -1896,48 +1913,11 @@
         ],
         "languageModelTools": [
             {
-                "name": "getAttachedPythonPackages",
-                "displayName": "Get attached Python packages",
-                "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "canBeReferencedInPrompt": false,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "sessionIdentifier": {
-                            "type": "string",
-                            "description": "The identifier of the session to get the attached Python packages from. If one is not provided, the foreground console session is used."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
-                "name": "getInstalledPythonPackageVersion",
-                "displayName": "Get installed Python package version",
-                "modelDescription": "Given the name of a Python package, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
-                "canBeReferencedInPrompt": false,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "paramName": {
-                            "type": "string",
-                            "description": "The name of the Python package to check the version of."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
                 "name": "get_python_environment_details",
                 "displayName": "Get Python Environment Info",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.get_python_environment_details.userDescription%",
-                "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. The details returned include the 1. Type of Environment (conda, venv, etec), 2. Version of Python, 3. List of all installed packages with their versions. ALWAYS call configure_python_environment before using this tool.",
+                "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. The details returned include the 1. Type of Python Environment (conda, venv, etec), 2. Version of Python, 3. List of all installed Python packages with their versions. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "getPythonEnvironmentInfo",
                 "tags": [
                     "python",
@@ -1961,6 +1941,7 @@
             {
                 "name": "get_python_executable_details",
                 "displayName": "Get Python Executable",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.get_python_executable_details.userDescription%",
                 "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. ALWAYS use this tool before executing any Python command in the terminal. This tool returns the details of how to construct the fully qualified path and or command including details such as arguments required to run Python in a terminal. Note: Instead of executing `python --version` or `python -c 'import sys; print(sys.executable)'`, use this tool to get the Python executable path to replace the `python` command. E.g. instead of using `python -c 'import sys; print(sys.executable)'`, use this tool to build the command `conda run -n <env_name> -c 'import sys; print(sys.executable)'`. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "getPythonExecutableCommand",
@@ -1986,8 +1967,9 @@
             {
                 "name": "install_python_packages",
                 "displayName": "Install Python Package",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.install_python_packages.userDescription%",
-                "modelDescription": "Installs Python packages in the given workspace. Use this tool to install packages in the user's chosen environment. ALWAYS call configure_python_environment before using this tool.",
+                "modelDescription": "Installs Python packages in the given workspace. Use this tool to install Python packages in the user's chosen Python environment. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "installPythonPackage",
                 "tags": [
                     "python",
@@ -2006,7 +1988,7 @@
                             "items": {
                                 "type": "string"
                             },
-                            "description": "The list of packages to install."
+                            "description": "The list of Python packages to install."
                         },
                         "resourcePath": {
                             "type": "string",
@@ -2021,7 +2003,8 @@
             {
                 "name": "configure_python_environment",
                 "displayName": "Configure Python Environment",
-                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools.",
+                "when": "false",
+                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools or running any Python command in the terminal.",
                 "userDescription": "%python.languageModelTools.configure_python_environment.userDescription%",
                 "toolReferenceName": "configurePythonEnvironment",
                 "tags": [
@@ -2153,7 +2136,7 @@
         "semver": "^7.5.2",
         "stack-trace": "0.0.10",
         "sudo-prompt": "^9.2.1",
-        "tmp": "^0.0.33",
+        "tmp": "^0.2.5",
         "uint64be": "^3.0.0",
         "unicode": "^14.0.0",
         "vscode-debugprotocol": "^1.28.0",
@@ -2182,7 +2165,8 @@
         "@types/sinon": "^17.0.3",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
-        "@types/vscode": "^1.95.0",
+        "@types/vscode": "^1.104.0",
+        "@types/webpack": "^5.28.5",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",
         "@types/xml2js": "0.4.9",
@@ -2245,7 +2229,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2025.12"
+            "pet": "2025.14"
         }
     }
 }

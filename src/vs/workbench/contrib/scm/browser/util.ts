@@ -146,18 +146,15 @@ export function getActionViewItemProvider(instaService: IInstantiationService): 
 }
 
 export function getProviderKey(provider: ISCMProvider): string {
-	return `${provider.contextValue}:${provider.label}${provider.rootUri ? `:${provider.rootUri.toString()}` : ''}`;
+	return `${provider.providerId}:${provider.label}${provider.rootUri ? `:${provider.rootUri.toString()}` : ''}`;
 }
 
 export function getRepositoryResourceCount(provider: ISCMProvider): number {
 	return provider.groups.reduce<number>((r, g) => r + g.resources.length, 0);
 }
 
-export function getHistoryItemEditorTitle(historyItem: ISCMHistoryItem, maxLength = 20): string {
-	const title = historyItem.subject.length <= maxLength ?
-		historyItem.subject : `${historyItem.subject.substring(0, maxLength)}\u2026`;
-
-	return `${historyItem.displayId ?? historyItem.id} - ${title}`;
+export function getHistoryItemEditorTitle(historyItem: ISCMHistoryItem): string {
+	return `${historyItem.displayId ?? historyItem.id} - ${historyItem.subject}`;
 }
 
 export function getHistoryItemHoverContent(themeService: IThemeService, historyItem: ISCMHistoryItem): IManagedHoverTooltipMarkdownString {

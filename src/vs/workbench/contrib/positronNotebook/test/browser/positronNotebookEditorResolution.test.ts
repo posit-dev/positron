@@ -40,7 +40,7 @@ import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/e
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 suite.skip('Positron Notebook Editor Resolution', () => {
@@ -67,7 +67,7 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 		const registration = editorResolverService.registerEditor(
 			'*.ipynb',
 			{
-				id: PositronNotebookEditorInput.EditorID,
+				id: POSITRON_NOTEBOOK_EDITOR_ID,
 				label: 'Positron Notebook',
 				priority: priority
 			},
@@ -83,7 +83,6 @@ suite.skip('Positron Notebook Editor Resolution', () => {
 						instantiationService,
 						resource,
 						undefined,
-						'jupyter-notebook',
 						{ startDirty: false }
 					);
 					return { editor: editorInput };

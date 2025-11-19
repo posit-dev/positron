@@ -29,6 +29,7 @@ const glob = require('glob');
 // --- Start Positron ---
 const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
+const { getQuartoBinaries } = require('./lib/quarto');
 // --- End Positron ---
 const { compileBuildWithManglingTask } = require('./gulpfile.compile');
 // --- Start PWB ---
@@ -381,7 +382,10 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 				this.emit('data', file);
 			}));
 
-		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
+		const license = es.merge(
+			gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true }),
+			gulp.src(['NOTICE'], { base: '.', allowEmpty: true })
+		);
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
@@ -415,6 +419,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		// --- Start Positron ---
 		let all = es.merge(
+			getQuartoBinaries(),
 			// --- End Positron ---
 			packageJsonStream,
 			productJsonStream,

@@ -21,14 +21,27 @@ vscode.db
 /cli/openssl
 product.overrides.json
 *.snap.actual
+*.tsbuildinfo
 .vscode-test
+vscode-telemetry-docs/
+pwb-version
 
 # --- Start Positron ---
-.claude
+# Ignore Claude local/personal files but keep commands
+.claude/*
+!.claude/commands/
+!.claude/skills/
+!.claude/hooks/
+!.claude/settings.json
+
 .Rproj.user
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /test-logs/
 .venv
+.env.e2e*
+!.env.e2e*.example
+vsix-cache/
+product.json.backup
 # --- End Positron ---

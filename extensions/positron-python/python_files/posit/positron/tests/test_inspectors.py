@@ -9,14 +9,11 @@ import sys
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
-import geopandas
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
-import torch
 from fastcore.foundation import L
-from shapely.geometry import Polygon
 
 from positron import inspectors
 from positron.inspectors import _get_simplified_qualname, get_inspector
@@ -36,6 +33,23 @@ from .data import (
     TIMESTAMP_CASES,
 )
 from .utils import get_type_as_str
+
+try:
+    import geopandas
+    from shapely.geometry import Polygon
+except ImportError:
+    geopandas = None
+    Polygon = None
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
+try:
+    import ibis
+except ImportError:
+    ibis = None
 
 
 def verify_inspector(
@@ -627,7 +641,10 @@ def test_inspect_pandas_dataframe() -> None:
     )
 
 
+@pytest.mark.skipif(geopandas is None, reason="geopandas is not available")
 def test_inspect_geopandas_dataframe() -> None:
+    assert Polygon
+    assert geopandas
     p1 = Polygon([(0, 0), (1, 0), (1, 1)])
     p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
@@ -708,19 +725,17 @@ def test_inspect_pandas_series(value: pd.Series) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "value",
-    [
-        geopandas.GeoSeries(
-            [
-                Polygon([(0, 0), (1, 0), (1, 1)]),
-                Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
-                Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
-            ]
-        ),
-    ],
-)
-def test_inspect_geopandas_series(value: geopandas.GeoSeries) -> None:
+@pytest.mark.skipif(geopandas is None, reason="geopandas is not available")
+def test_inspect_geopandas_series() -> None:
+    assert Polygon
+    assert geopandas
+    value = geopandas.GeoSeries(
+        [
+            Polygon([(0, 0), (1, 0), (1, 1)]),
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
+        ]
+    )
     (rows,) = value.shape
 
     def mutate(x):
@@ -875,27 +890,28 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
+@pytest.mark.skipif(ibis is None, reason="ibis not available")
 def test_inspect_ibis_exprs() -> None:
-    import ibis
-
+    assert ibis
     # Make sure we don't return an executed repr
     ibis.options.interactive = True
 
     test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
-
-    t = ibis.memtable(test_df, name="df")
-    table_type = "ibis.expr.types.relations.Table"
+    _, columns = test_df.shape
+    t = ibis.memtable(test_df)
+    table_type = "ibis.Table"
 
     verify_inspector(
         value=t,
-        display_value=table_type,
-        kind=VariableKind.Other,
-        display_type="ibis.Expr",
+        display_value=f"[{columns} columns] {table_type}",
+        kind=VariableKind.Table,
+        display_type=f"Table [{columns} columns]",
         type_info=get_type_as_str(t),
-        has_children=False,
+        has_children=True,
         is_truncated=True,
-        length=0,
+        length=2,
         mutable=False,
+        has_viewer=True,
     )
 
     a_sum = t["a"].sum()  # type: ignore
@@ -921,7 +937,7 @@ def test_inspect_ibis_exprs() -> None:
     ("value", "expected"),
     [
         (np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
-        (torch.Tensor([[1, 2, 3], [4, 5, 6]]), 24),
+        (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
         (pd.Series([1, 2, 3, 4]), 32),
         (pl.Series([1, 2, 3, 4]), 32),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 4),
@@ -948,7 +964,8 @@ class VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong:
         pytest.param(sys.float_info.max, id="float"),
         pytest.param(complex(sys.float_info.min, sys.float_info.max), id="complex"),
         pytest.param(
-            VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong, id="class"
+            VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong,
+            id="class",
         ),
         pytest.param(b"The quick brown fox jumps over the lazy dog", id="bytes"),
         pytest.param(bytearray(b"The quick brown fox jumps over the lazy dog"), id="bytearray"),
@@ -969,17 +986,25 @@ class VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong:
         pytest.param(pd.Index(list(range(20))), id="pandas_index"),
         pytest.param(pd.Series(list(range(20))), id="pandas_series"),
         pytest.param(
-            pd.DataFrame({"a": list(range(20)), "b": list(range(20))}), id="pandas_dataframe"
+            pd.DataFrame({"a": list(range(20)), "b": list(range(20))}),
+            id="pandas_dataframe",
         ),
         pytest.param(pl.Series(list(range(20))), id="polars_series"),
         pytest.param(
-            pl.DataFrame({"a": list(range(20)), "b": list(range(20))}), id="polars_dataframe"
+            pl.DataFrame({"a": list(range(20)), "b": list(range(20))}),
+            id="polars_dataframe",
         ),
         pytest.param(np.ones((20, 20)), id="numpy_array"),
-        pytest.param(torch.ones((20, 20)), id="torch_tensor"),
+        pytest.param(
+            torch.ones((20, 20)) if torch else None,
+            id="torch_tensor",
+            marks=pytest.mark.skipif(torch is None, reason="torch not available"),
+        ),
     ],
 )
 def test_truncated_display_value(value, snapshot, monkeypatch) -> None:
+    if value is None:
+        return
     # Patch the maximum string length for faster and more readable tests.
     monkeypatch.setattr(inspectors, "MAX_ITEMS_BY_LEVEL", (20, 10))
     monkeypatch.setattr(inspectors, "MAX_CHARACTERS", 20)

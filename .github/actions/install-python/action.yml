@@ -14,15 +14,12 @@ runs:
   using: "composite"
   steps:
     - name: Install Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12.6'
 
-    # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
     - name: Install uv
       uses: astral-sh/setup-uv@v5
-      with:
-        version: "0.7.22"
 
     - name: Install Python dependencies
       shell: bash

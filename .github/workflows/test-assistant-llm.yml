@@ -1,0 +1,131 @@
+name: "Test: Assistant LLM Testing"
+
+# Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
+on:
+  schedule:
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      notify_on:
+        description: "Slack notification on:"
+        required: false
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
+          - never
+
+jobs:  # to input into inspect-ai-test job below
+
+  e2e-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    with:
+      grep: ""
+      project: "inspect-ai"
+      display_name: "electron (ubuntu)"
+      currents_tags: "merge,electron/ubuntu"
+      install_undetectable_interpreters: false
+      install_license: false
+      upload_logs: false
+      report_currents: false
+      skip_extension_test: true
+      workers: 1
+    secrets: inherit
+
+  # Windows works, but takes a long time and need to add processing of multiple artifacts
+  # e2e-windows-electron:
+    # name: e2e
+    # uses: ./.github/workflows/test-e2e-windows.yml
+    # with:
+    #   grep: ""
+    #   project: "inpsect-ai"
+    #   display_name: "electron (windows)"
+    #   currents_tags: "merge,electron/windows"
+    #   upload_logs: false
+    #   report_currents: false
+    #   skip_extension_test: true
+    # secrets: inherit
+
+  inspect-ai-test:
+    needs: [e2e-electron]
+    name: inspect-ai-test
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: inspect-ai-responses
+          path: /home/runner/work/positron/positron/test/assistant-inspect-ai
+
+      - name: Setup Python environment
+        run: |
+          cd test/assistant-inspect-ai
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Run Inspect AI JSON Evaluation
+        run: |
+          cd test/assistant-inspect-ai
+          source venv/bin/activate
+          inspect eval json-response-eval.py  --log-format json --log-dir logs/
+
+      - name: Parse results and check threshold
+        run: |
+          # Find the most recent log file in the correct directory
+          LATEST_LOG=$(ls -t test/assistant-inspect-ai/logs/*.json | head -1)
+
+          # Parse results with 80% accuracy threshold
+          python test/assistant-inspect-ai/inspect_result_parser.py "$LATEST_LOG" --threshold 0.8
+
+      - name: Upload inspect-ai eval logs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-logs
+          path: test/assistant-inspect-ai/logs/*
+
+  slack-notify:
+    if: failure()
+    needs:
+      [
+        inspect-ai-test,
+        e2e-electron,
+      ]
+    runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.3
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: ${{ env.notify_on }}
+          include_commit_msg: false
+          include_job_statuses: "on-failure"
+          include_job_durations: false
+          custom_title: "Nightly Inspect AI LLM Evaluation"
+

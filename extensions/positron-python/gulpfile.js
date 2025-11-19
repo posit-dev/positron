@@ -110,11 +110,13 @@ async function addExtensionPackDependencies() {
     // extension dependencies need not be installed during development
     const packageJsonContents = await fsExtra.readFile('package.json', 'utf-8');
     const packageJson = JSON.parse(packageJsonContents);
-    // --- Start Positron ---
-    packageJson.extensionPack = ['ms-python.debugpy'].concat(
+    packageJson.extensionPack = [
+        // --- Start Positron ---
+        //'ms-python.vscode-pylance',
+        'ms-python.debugpy',
+        // 'ms-python.vscode-python-envs',
         // --- End Positron ---
-        packageJson.extensionPack ? packageJson.extensionPack : [],
-    );
+    ].concat(packageJson.extensionPack ? packageJson.extensionPack : []);
     // Remove potential duplicates.
     packageJson.extensionPack = packageJson.extensionPack.filter(
         (item, index) => packageJson.extensionPack.indexOf(item) === index,
@@ -284,7 +286,7 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13'];
+    const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14'];
     const minimumPythonVersion = '3.9';
 
     // Pure Python 3 requirements.
@@ -314,6 +316,9 @@ async function bundleIPykernel() {
         '-r',
         `./python_files/ipykernel_requirements/cp3-requirements.txt`,
     ]);
+
+    // Remove tornado test folder immediately after installing CPython 3 requirements
+    await removeTornadoTestFolder();
 
     // CPython 3.x requirements (specific to platform, architecture, and Python version).
     for (const pythonVersion of pythonVersions) {
@@ -395,6 +400,22 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         });
         proc.on('error', (error) => reject(error));
     });
+}
+
+/**
+ * Removes the tornado test directory for the current architecture
+ */
+async function removeTornadoTestFolder() {
+    const tornadoTestPath = path.join(__dirname, `python_files/lib/ipykernel/${arch}/cp3/tornado/test`);
+    try {
+        if (await fsExtra.pathExists(tornadoTestPath)) {
+            fancyLog('Removing tornado test folder from:', ansiColors.cyan(tornadoTestPath));
+            await del([tornadoTestPath]);
+        }
+    } catch (error) {
+        fancyLog.error('Error removing tornado test folder from', ansiColors.cyan(tornadoTestPath), ':', error);
+        // Don't fail the build if we can't remove the test folder
+    }
 }
 // --- End Positron ---
 

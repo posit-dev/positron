@@ -9,6 +9,8 @@ import * as es from 'event-stream';
 import { Stream } from 'stream';
 import gulp = require('gulp');
 import util = require('./util');
+import rename = require('gulp-rename');
+import path = require('path');
 
 /**
  * Get the base URL for the quarto download
@@ -34,7 +36,7 @@ function getQuartoWindows(version: string): Stream {
 		verbose: true,
 		timeoutSeconds: 90,
 	})
-		.pipe(unzip());
+		.pipe(unzip({ keepEmpty: true }));
 }
 
 /**
@@ -124,6 +126,38 @@ export function getQuarto(): Promise<void> {
 			.on('error', reject)
 			.on('end', resolve);
 	});
+}
+
+/**
+ * Helper to package the quarto binaries into a `quarto` subdirectory with
+ * the executable bit set.
+ *
+ * @returns A stream that provides the quarto binaries
+ */
+export function getQuartoBinaries(): Stream {
+	return getQuartoStream()
+		// Move the Quarto binaries into a `quarto` subdirectory
+		.pipe(rename(f => { f.dirname = path.join('quarto', f.dirname || ''); }))
+
+		// Skip generated files that start with '._'
+		.pipe(es.mapSync((f: any) => {
+			if (!f.basename.startsWith('._')) {
+				return f;
+			}
+		}))
+
+		// Restore the executable bit on the Quarto binaries. (It's very
+		// unfortunate that gulp doesn't preserve the executable bit when
+		// copying files.)
+		.pipe(util.setExecutableBit([
+			'**/dart',
+			'**/deno',
+			'**/esbuild',
+			'**/pandoc',
+			'**/quarto',
+			'**/sass',
+			'**/typst'
+		]));
 }
 
 if (require.main === module) {

@@ -26,6 +26,7 @@ import { ContiguousMultilineTokens } from './tokens/contiguousMultilineTokens.js
 import { localize } from '../../nls.js';
 import { ExtensionIdentifier } from '../../platform/extensions/common/extensions.js';
 import { IMarkerData } from '../../platform/markers/common/markers.js';
+import { EditDeltaInfo } from './textModelEditSource.js';
 
 /**
  * @internal
@@ -757,6 +758,8 @@ export interface InlineCompletionContext {
 
 	readonly includeInlineEdits: boolean;
 	readonly includeInlineCompletions: boolean;
+	readonly requestIssuedDateTime: number;
+	readonly earliestShownDateTime: number;
 }
 
 export class SelectedSuggestionInfo {
@@ -830,6 +833,11 @@ export interface InlineCompletion {
 	readonly warning?: InlineCompletionWarning;
 
 	readonly displayLocation?: InlineCompletionDisplayLocation;
+
+	/**
+	 * Used for telemetry.
+	 */
+	readonly correlationId?: string | undefined;
 }
 
 export interface InlineCompletionWarning {
@@ -837,8 +845,14 @@ export interface InlineCompletionWarning {
 	icon?: IconPath;
 }
 
+export enum InlineCompletionDisplayLocationKind {
+	Code = 1,
+	Label = 2
+}
+
 export interface InlineCompletionDisplayLocation {
 	range: IRange;
+	kind: InlineCompletionDisplayLocationKind;
 	label: string;
 }
 
@@ -873,7 +887,7 @@ export interface InlineCompletionsProvider<T extends InlineCompletions = InlineC
 	 * Will be called when an item is shown.
 	 * @param updatedInsertText Is useful to understand bracket completion.
 	*/
-	handleItemDidShow?(completions: T, item: T['items'][number], updatedInsertText: string): void;
+	handleItemDidShow?(completions: T, item: T['items'][number], updatedInsertText: string, editDeltaInfo: EditDeltaInfo): void;
 
 	/**
 	 * Will be called when an item is partially accepted. TODO: also handle full acceptance here!
@@ -905,17 +919,73 @@ export interface InlineCompletionsProvider<T extends InlineCompletions = InlineC
 	 */
 	groupId?: InlineCompletionProviderGroupId;
 
+	/** @internal */
+	providerId?: ProviderId;
+
 	/**
 	 * Returns a list of preferred provider {@link groupId}s.
 	 * The current provider is only requested for completions if no provider with a preferred group id returned a result.
 	 */
 	yieldsToGroupIds?: InlineCompletionProviderGroupId[];
 
+	excludesGroupIds?: InlineCompletionProviderGroupId[];
+
 	displayName?: string;
 
 	debounceDelayMs?: number;
 
 	toString?(): string;
+}
+
+
+/** @internal */
+export class ProviderId {
+	public static fromExtensionId(extensionId: string | undefined): ProviderId {
+		return new ProviderId(extensionId, undefined, undefined);
+	}
+
+	constructor(
+		public readonly extensionId: string | undefined,
+		public readonly extensionVersion: string | undefined,
+		public readonly providerId: string | undefined
+	) {
+	}
+
+	toString(): string {
+		let result = '';
+		if (this.extensionId) {
+			result += this.extensionId;
+		}
+		if (this.extensionVersion) {
+			result += `@${this.extensionVersion}`;
+		}
+		if (this.providerId) {
+			result += `:${this.providerId}`;
+		}
+		if (result.length === 0) {
+			result = 'unknown';
+		}
+		return result;
+	}
+}
+
+/** @internal */
+export class VersionedExtensionId {
+	public static tryCreate(extensionId: string | undefined, version: string | undefined): VersionedExtensionId | undefined {
+		if (!extensionId || !version) {
+			return undefined;
+		}
+		return new VersionedExtensionId(extensionId, version);
+	}
+
+	constructor(
+		public readonly extensionId: string,
+		public readonly version: string,
+	) { }
+
+	toString(): string {
+		return `${this.extensionId}@${this.version}`;
+	}
 }
 
 export type InlineCompletionsDisposeReason = { kind: 'lostRace' | 'tokenCancellation' | 'other' | 'empty' | 'notTaken' };
@@ -938,14 +1008,22 @@ export type InlineCompletionEndOfLifeReason<TInlineCompletion = InlineCompletion
 
 export type LifetimeSummary = {
 	requestUuid: string;
+	correlationId: string | undefined;
 	partiallyAccepted: number;
+	partiallyAcceptedCountSinceOriginal: number;
+	partiallyAcceptedRatioSinceOriginal: number;
+	partiallyAcceptedCharactersSinceOriginal: number;
 	shown: boolean;
 	shownDuration: number;
 	shownDurationUncollapsed: number;
 	timeUntilShown: number | undefined;
+	timeUntilProviderRequest: number;
+	timeUntilProviderResponse: number;
+	notShownReason: string | undefined;
 	editorType: string;
 	viewKind: string | undefined;
 	error: string | undefined;
+	preceeded: boolean;
 	languageId: string;
 	requestReason: string;
 	cursorColumnDistance?: number;
@@ -956,6 +1034,10 @@ export type LifetimeSummary = {
 	characterCountModified?: number;
 	disjointReplacements?: number;
 	sameShapeReplacements?: boolean;
+	typingInterval: number;
+	typingIntervalCharacterCount: number;
+	selectedSuggestionInfo: boolean;
+	availableProviders: string;
 };
 
 export interface CodeAction {
@@ -2267,7 +2349,7 @@ export interface CodeLens {
 }
 
 export interface CodeLensList {
-	lenses: CodeLens[];
+	readonly lenses: readonly CodeLens[];
 	dispose?(): void;
 }
 

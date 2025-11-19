@@ -7,6 +7,7 @@
 import { Code } from '../infra/code';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
+import { ContextMenu } from './dialog-contextMenu.js';
 
 interface FlatVariables {
 	value: string;
@@ -28,11 +29,11 @@ const VARIABLES_FILTER_SELECTOR = '.positron-variables-container .action-bar-fil
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class Variables {
-	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
+	get interpreterLocator(): Locator { return this.code.driver.page.locator(VARIABLES_INTERPRETER); }
 	variablesPane: Locator;
 	variablesRuntime: (name: string | RegExp) => Locator;
 
-	constructor(private code: Code, private hotKeys: HotKeys) {
+	constructor(private code: Code, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
 		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
 	}
@@ -156,6 +157,17 @@ export class Variables {
 		return group;
 	}
 
+	/**
+	 * Select a session in the variables pane.
+	 * @param name the name of the session to select
+	 */
+	async selectSession(name: string) {
+		await this.contextMenu.triggerAndClick({
+			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').nth(1).locator('button'),
+			menuItemLabel: name,
+		})
+	}
+
 	async selectVariablesGroup(name: string) {
 		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().isVisible();
@@ -220,4 +232,25 @@ export class Variables {
 		});
 	}
 
+	async expectVariableToNotExist(variableName: string) {
+		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
+			await this.focusVariablesView();
+			const row = this.code.driver.page
+				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
+				.filter({ hasText: variableName });
+
+			await expect(row).toHaveCount(0);
+		});
+	}
+
+	/**
+	 * Verify: Confirm the session is selected in the variables pane.
+	 * @param sessionName the name of the session to check is selected
+	 */
+	async expectSessionToBe(sessionName: string | RegExp) {
+		await test.step(`Verify session is selected in variables pane: ${sessionName}`, async () => {
+			await expect(this.interpreterLocator).toBeVisible();
+			await expect(this.interpreterLocator).toHaveText(sessionName);
+		});
+	}
 }

@@ -2,6 +2,11 @@ name: "Test: E2E (Windows)"
 on:
   workflow_call:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
@@ -22,30 +27,34 @@ on:
         description: "The tags to use for Currents recording."
         default: ""
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
         type: boolean
-        default: true
+        default: false
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: false
-
-      skip_tags:
+      skip_extension_test:
         required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
@@ -56,11 +65,11 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
-      skip_tags:
+      skip_extension_test:
         required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: "@:nightly-only"
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
 permissions:
   id-token: write
@@ -71,16 +80,20 @@ jobs:
     name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
-    timeout-minutes: 100
+    timeout-minutes: 120
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       AWS_S3_BUCKET: positron-test-reports
       E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
-
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       - name: Load secret
         uses: 1password/load-secrets-action@v3
@@ -89,7 +102,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
@@ -97,7 +110,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
@@ -106,9 +119,12 @@ jobs:
         shell: bash
 
       - name: Install System Level Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Install node dependencies
         env:
@@ -129,7 +145,7 @@ jobs:
           npm --prefix test/e2e ci
 
       - name: Compile and Download
-        run: npm exec -- npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64" playwright-install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
@@ -148,7 +164,7 @@ jobs:
 
       # Alternate python version
       - name: Install Python 3.13.0
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13.0"
 
@@ -194,7 +210,7 @@ jobs:
           tinytex: true
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -202,7 +218,17 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
+      - name: Run Extensions Test
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
       - name: Run Bootstrap Extensions Test
+        if: ${{ inputs.skip_extension_test != true }}
         id: bootstrap
         shell: bash
         env:
@@ -227,25 +253,11 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          PW_JSON_FILE: test-results/windows.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
         run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
-
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
-
-          # Build a single lookahead regex pattern
-          if [ -n "$SKIP_TAGS_PATTERN" ]; then
-            SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-          else
-            SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-          fi
-
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
-
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
             GREP_ARG=""
@@ -255,13 +267,23 @@ jobs:
 
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           export SKIP_BOOTSTRAP=true
-          export SKIP_CLONE=true
-          # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          # Skip close on qa-example-content if we already did the bootstrap test
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            export SKIP_CLONE=true
+          else
+            export SKIP_CLONE=false
+          fi
+
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -269,19 +291,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-
-      - name: Upload Test Results to TestRail
-        if: ${{ inputs.report_testrail }}
-        shell: bash
-        run: |
-          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
-          echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-        env:
-          TESTRAIL_TITLE: "e2e-windows"
-          TESTRAIL_PROJECT: "Positron"
-          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
-
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
@@ -290,3 +299,24 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-windows-json-results
+          path: test-results/windows.json
+          if-no-files-found: ignore
+
+      - name: Fail workflow if extension tests failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json

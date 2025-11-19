@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,7 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
 import { TableDataCell } from './components/tableDataCell.js';
@@ -18,13 +19,18 @@ import { CustomContextMenuItem } from '../../../browser/positronComponents/custo
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
-import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+
+/**
+ * Constants.
+ */
+const OVERSCAN_FACTOR = 3;
 
 /**
  * Localized strings.
@@ -48,9 +54,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
 
 	/**
-	 * The cell hover manager with longer delay for data cell tooltips.
+	 * The hover manager for data cell tooltips and corner reset button.
 	 */
-	private readonly _cellHoverManager: PositronActionBarHoverManager;
+	private readonly _hoverManager: PositronActionBarHoverManager;
+
+	/**
+	 * The onDidChangePinnedColumns event emitter.
+	 * This event is fired when the pinned columns change.
+	 * This event returns the array of pinned column indexes.
+	 */
+	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
 	//#endregion Private Properties
 
@@ -78,6 +91,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			minimumColumnWidth: 80,
 			maximumColumnWidth: 800,
 			rowResize: false,
+			columnPinning: true,
+			maximumPinnedColumns: 10,
+			rowPinning: true,
+			maximumPinnedRows: 10,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -90,8 +107,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
-		this._cellHoverManager.setCustomHoverDelay(500);
+		this._hoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
+		this._hoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
@@ -103,19 +120,37 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				state = await this._dataExplorerClientInstance.getBackendState();
 			}
 
-			// Calculate the layout entries.
-			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
+			// Notify the user if the dataset exceeds the advanced layout limits which will
+			// cause advanced features to be disabled to improve performance.
+			// See https://github.com/posit-dev/positron/issues/9265
+			const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
+			if (exceedsColumnLimit) {
+				const message = localize(
+					'positron.dataExplorer.largeDatasetNotificationColumns',
+					"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+					state.display_name,
+					state.table_shape.num_columns.toLocaleString()
+				);
+
+				// Show a sticky notification that persists until dismissed
+				this._services.notificationService.notify({
+					id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
+					severity: Severity.Warning,
+					message: message,
+					sticky: true,
+					source: localize('positron.dataExplorer.source', 'Data Explorer')
+				});
+			}
+
+			// Calculate column widths.
+			const columnWidths = await this._tableDataCache.calculateColumnWidths(
 				this.minimumColumnWidth,
 				this.maximumColumnWidth
 			);
 
 			// Set the layout entries.
-			this._columnLayoutManager.setLayoutEntries(
-				layoutEntries ?? state.table_shape.num_columns
-			);
-			this._rowLayoutManager.setLayoutEntries(
-				state.table_shape.num_rows
-			);
+			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+			this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
 			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
 			if (state.table_shape.num_rows === 0) {
@@ -123,7 +158,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._horizontalScrollOffset = 0;
 				// Force a layout recomputation and repaint
 				this.softReset();
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			} else {
 				// Adjust the vertical scroll offset, if needed.
 				if (!this.firstRow) {
@@ -185,7 +220,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Add the table data cache onDidUpdate event handler.
 		this._register(this._tableDataCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 	}
 
@@ -219,10 +254,47 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region DataGridInstance Methods
 
 	/**
+	 * Pins a column and fires the onDidPinnedColumnsChange event.
+	 *
+	 * This allows the summary panel to keep the pinned/unpinned
+	 * columns in sync with the data grid.
+	 *
+	 * @param columnIndex The index of the column to pin.
+	 */
+	override pinColumn(columnIndex: number) {
+		// Call the parent method
+		super.pinColumn(columnIndex);
+
+		// Fire the event with current pinned column indices
+		this._onDidChangePinnedColumns.fire(this._columnLayoutManager.pinnedIndexes);
+	}
+
+	/**
+	 * Unpins a column and fires the onDidPinnedColumnsChange event.
+	 *
+	 * This allows the summary panel to keep the pinned/unpinned
+	 * columns in sync with the data grid.
+	 *
+	 * @param columnIndex The index of the column to unpin.
+	 */
+	override unpinColumn(columnIndex: number) {
+		// Call the parent method
+		super.unpinColumn(columnIndex);
+
+		// Fire the event with current pinned column indices
+		this._onDidChangePinnedColumns.fire(this._columnLayoutManager.pinnedIndexes);
+	}
+
+	/**
 	 * Sorts the data.
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+		// Clear pinned rows whenever a sort is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the sort columns.
 		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
 			column_index: columnSort.columnIndex,
@@ -240,10 +312,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}
@@ -256,13 +326,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
+
+		// We update the cache as long as there is a column in the dataset.
+		// This allows datasets with column headers but zero rows to render
+		// the column headers in the data grid.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (columnDescriptor) {
+			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: rowDescriptor ? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR) : []
 			});
 		}
 	}
@@ -301,11 +375,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	/**
-	 * Gets the cell hover manager.
-	 * @returns The cell hover manager.
+	 * Override base class to provide hover manager.
 	 */
-	get cellHoverManager(): PositronActionBarHoverManager {
-		return this._cellHoverManager;
+	override get hoverManager(): PositronActionBarHoverManager {
+		return this._hoverManager;
+	}
+
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions() {
+		return this._dataExplorerClientInstance.profileFormatOptions;
 	}
 
 	/**
@@ -332,7 +412,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			<TableDataCell
 				column={column}
 				dataCell={dataCell}
-				hoverManager={this._cellHoverManager}
+				hoverManager={this._hoverManager}
 			/>
 		);
 	}
@@ -348,15 +428,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint?: AnchorPoint
 	): Promise<void> {
-		/**
-		 * Get the column sort key for the column.
-		 */
-		const columnSortKey = this.columnSortKey(columnIndex);
+		// Ensure the column is selected (handles both right-click and dropdown button cases)
+		await this.mouseSelectColumn(columnIndex, MouseSelectionType.Single);
 
+		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status) && !exceedsLimits;
+
+		// Get the column sort key for the column.
+		const columnSortKey = sortSupported ? this.columnSortKey(columnIndex) : undefined;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -365,8 +448,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyColumn', "Copy Column"),
+			onSelected: () => console.log('Copy Column')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
@@ -376,6 +459,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
@@ -443,6 +545,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
+		// Ensure the row is selected (handles both right-click and keyboard shortcut cases)
+		await this.mouseSelectRow(rowIndex, MouseSelectionType.Single);
+
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
 
@@ -453,8 +558,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyRow', "Copy Row"),
+			onSelected: () => console.log('Copy Row')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
@@ -464,6 +569,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.rowPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(rowIndex)
+				}));
+			}
+		}
 
 		// Show the context menu.
 		await showCustomContextMenu({
@@ -496,8 +620,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status) && !exceedsLimits;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -524,6 +649,45 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
+		if (this.rowPinning) {
+			if (!this.columnPinning) {
+				entries.push(new CustomContextMenuSeparator());
+			}
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(rowIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
@@ -588,6 +752,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	readonly onAddFilter = this._onAddFilterEmitter.event;
 
+	/**
+	 * The onDidChangePinnedColumns event.
+	 */
+	readonly onDidChangePinnedColumns = this._onDidChangePinnedColumns.event;
+
 	//#region Public Methods
 
 	/**
@@ -615,24 +784,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				kind: TableSelectionKind.SingleCell,
 				selection
 			};
-		} else if (clipboardData instanceof ClipboardCellRange) {
-			const selection: DataSelectionCellRange = {
-				first_column_index: clipboardData.firstColumnIndex,
-				first_row_index: clipboardData.firstRowIndex,
-				last_column_index: clipboardData.lastColumnIndex,
-				last_row_index: clipboardData.lastRowIndex,
+		} else if (clipboardData instanceof ClipboardCellIndexes) {
+			const selection: DataSelectionCellIndices = {
+				column_indices: clipboardData.columnIndexes,
+				row_indices: clipboardData.rowIndexes
 			};
 			dataSelection = {
-				kind: TableSelectionKind.CellRange,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardColumnRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstColumnIndex,
-				last_index: clipboardData.lastColumnIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.ColumnRange,
+				kind: TableSelectionKind.CellIndices,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
@@ -641,15 +799,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			};
 			dataSelection = {
 				kind: TableSelectionKind.ColumnIndices,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardRowRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstRowIndex,
-				last_index: clipboardData.lastRowIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.RowRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
@@ -681,6 +830,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		// Clear pinned rows whenever a filter is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
 
@@ -695,10 +849,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}
@@ -707,7 +859,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Given a status check if the feature is enabled.
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
-		return dataExplorerExperimentalFeatureEnabled(status, this._services.configurationService);
+		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Checks if the dataset exceeds the advanced layout limits.
+	 * @returns true if the dataset exceeds the limits, false otherwise.
+	 */
+	private async exceedsAdvancedLayoutLimits(state?: BackendState): Promise<boolean> {
+		// Get the backend state, if was not provided.
+		if (!state) {
+			state = await this._dataExplorerClientInstance.getBackendState();
+		}
+		return state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 	}
 
 	//#endregion Public Methods

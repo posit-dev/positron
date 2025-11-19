@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -119,12 +119,15 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * Claims the underlying webview.
 	 *
 	 * @param claimant The object taking ownership.
+	 * @param element Optional element to get the window context from. If not provided, uses the stored element.
 	 */
-	public claim(claimant: any) {
+	public claim(claimant: any, element?: HTMLElement) {
 		if (!this._webview.value) {
 			throw new Error('No webview to claim');
 		}
-		this._webview.value.claim(claimant, DOM.getWindow(this._element), undefined);
+		// Use the provided element to get the window context, or fall back to the stored element
+		const targetElement = element || this._element;
+		this._webview.value.claim(claimant, DOM.getWindow(targetElement), undefined);
 		this._claimed = true;
 	}
 

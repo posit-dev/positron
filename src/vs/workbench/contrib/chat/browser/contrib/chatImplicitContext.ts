@@ -19,8 +19,8 @@ import { EditorsOrder } from '../../../../common/editor.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { getNotebookEditorFromEditorPane, INotebookEditor } from '../../../notebook/browser/notebookBrowser.js';
 import { IChatEditingService } from '../../common/chatEditingService.js';
-import { IChatRequestImplicitVariableEntry, IChatRequestVariableEntry } from '../../common/chatVariableEntries.js';
 import { IChatService } from '../../common/chatService.js';
+import { IChatRequestImplicitVariableEntry, IChatRequestVariableEntry } from '../../common/chatVariableEntries.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { ILanguageModelIgnoredFilesService } from '../../common/ignoredFiles.js';
 import { getPromptsTypeForLanguageId } from '../../common/promptSyntax/promptTypes.js';
@@ -161,17 +161,21 @@ export class ChatImplicitContextContribution extends Disposable implements IWork
 				newValue = { uri: model.uri, range: selection } satisfies Location;
 				isSelection = true;
 			} else {
-				const visibleRanges = codeEditor?.getVisibleRanges();
-				if (visibleRanges && visibleRanges.length > 0) {
-					// Merge visible ranges. Maybe the reference value could actually be an array of Locations?
-					// Something like a Location with an array of Ranges?
-					let range = visibleRanges[0];
-					visibleRanges.slice(1).forEach(r => {
-						range = range.plusRange(r);
-					});
-					newValue = { uri: model.uri, range } satisfies Location;
-				} else {
+				if (this.configurationService.getValue('chat.implicitContext.suggestedContext')) {
 					newValue = model.uri;
+				} else {
+					const visibleRanges = codeEditor?.getVisibleRanges();
+					if (visibleRanges && visibleRanges.length > 0) {
+						// Merge visible ranges. Maybe the reference value could actually be an array of Locations?
+						// Something like a Location with an array of Ranges?
+						let range = visibleRanges[0];
+						visibleRanges.slice(1).forEach(r => {
+							range = range.plusRange(r);
+						});
+						newValue = { uri: model.uri, range } satisfies Location;
+					} else {
+						newValue = model.uri;
+					}
 				}
 			}
 		}
@@ -217,7 +221,7 @@ export class ChatImplicitContextContribution extends Disposable implements IWork
 
 		const isPromptFile = languageId && getPromptsTypeForLanguageId(languageId) !== undefined;
 
-		const widgets = updateWidget ? [updateWidget] : [...this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel), ...this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Editor)];
+		const widgets = updateWidget ? [updateWidget] : [...this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Chat), ...this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.EditorInline)];
 		for (const widget of widgets) {
 			if (!widget.input.implicitContext) {
 				continue;

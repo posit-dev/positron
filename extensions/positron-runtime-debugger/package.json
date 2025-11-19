@@ -1,0 +1,57 @@
+{
+  "name": "positron-runtime-debugger",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "private": true,
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "category": "%category.notebook%",
+        "command": "notebook.debugCell",
+        "icon": "$(debug-alt-small)",
+        "title": "%commands.notebook.debugCell.title%",
+        "enablement": "notebookInterpreterSupportsDebugging && resource not in debuggedNotebooks"
+      },
+      {
+        "command": "positron-runtime-debugger.showRuntimeError",
+        "title": "%commands.positron-runtime-debugger.showRuntimeError%",
+        "enablement": "false"
+      }
+    ],
+    "menus": {
+      "notebook/cell/execute": [
+        {
+          "command": "notebook.debugCell"
+        }
+      ]
+    },
+    "debuggers": [
+      {
+        "type": "notebook",
+        "label": "%debuggers.notebook.label%"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "@vscode/debugprotocol": "^1.68.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0"
+  },
+  "extensionDependencies": [
+    "ms-python.python",
+    "positron.positron-r"
+  ]
+}

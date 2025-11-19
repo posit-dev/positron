@@ -12,6 +12,7 @@ import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavio
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../common/positronConsoleCodeExecution.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 /**
  * Implementation of IPositronConsoleService for use in tests.
@@ -163,6 +164,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	 */
 	async executeCode(
 		languageId: string,
+		sessionId: string | undefined,
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		focus: boolean,
@@ -202,12 +204,21 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	}
 
 	/**
+	 * Shows a notebook console
+	 * @param notebookUri The URL to show
+	 */
+	showNotebookConsole(notebookUri: URI): void {
+		// Doesn't do anything
+	}
+
+	/**
 	 * Creates a test code execution event.
 	 */
 	createTestCodeExecutedEvent(
 		languageId: string,
 		code: string,
 		attribution: IConsoleCodeAttribution = { source: CodeAttributionSource.Interactive },
+		executionId = 'test-execution-id',
 		runtimeName: string = 'Test Runtime',
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue
@@ -215,6 +226,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		// Try to use the active console, or fall back to a dummy session ID
 		const sessionId = this._activePositronConsoleInstance?.sessionId || 'test-session-id';
 		return {
+			executionId,
 			sessionId,
 			languageId,
 			code,
@@ -474,9 +486,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		attribution: IConsoleCodeAttribution,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string
+		executionId = 'test-execution-id'
 	): void {
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId,
 			sessionId: this.sessionId,
 			languageId: this.runtimeMetadata.languageId,
 			code,

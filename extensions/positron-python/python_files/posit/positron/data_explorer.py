@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import math
 import operator
-import warnings
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
@@ -23,8 +22,13 @@ from typing import (
 
 import comm
 
+from ._data_explorer_internal import (
+    _get_histogram_method,
+    _get_histogram_numpy,
+    _get_histogram_polars,
+)
 from .access_keys import decode_access_key
-from .convert import PandasConverter
+from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -37,7 +41,6 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
-    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
@@ -52,6 +55,7 @@ from .data_explorer_comm import (
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelectionCellIndices,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionRange,
@@ -102,14 +106,14 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import is_pandas, is_polars
+from .third_party import is_ibis, is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-
+IBIS_LIMIT_ROWS = 1000
 logger = logging.getLogger(__name__)
 
 
@@ -185,12 +189,14 @@ class DataExplorerTableView:
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None,
     ):
         # Note: we must not ever modify the user's data
         self.table = table
         self.comm = comm
         self.state = state
         self.job_queue = job_queue
+        self.sql_string = sql_string
 
         self.schema_memo = {}
 
@@ -423,6 +429,9 @@ class DataExplorerTableView:
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
+        elif kind == TableSelectionKind.CellIndices:
+            assert isinstance(sel, DataSelectionCellIndices)
+            return self._export_tabular(sel.row_indices, sel.column_indices, fmt)
         elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
@@ -845,9 +854,11 @@ class DataExplorerTableView:
     )
 
 
-def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
+def _box_number_stats(
+    min_val, max_val, mean_val, median_val, std_val, display_type=ColumnDisplayType.Floating
+):
     return ColumnSummaryStats(
-        type_display=ColumnDisplayType.Number,
+        type_display=display_type,
         number_stats=SummaryStatsNumber(
             min_value=min_val,
             max_value=max_val,
@@ -956,8 +967,8 @@ def _box_datetime_stats(
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, table, comm, state, job_queue):
-        super().__init__(table, comm, state, job_queue)
+    def __init__(self, table, comm, state, job_queue, sql_string: str | None = None):
+        super().__init__(table, comm, state, job_queue, sql_string)
 
 
 # Special value codes for the protocol
@@ -1055,7 +1066,9 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
-    ColumnDisplayType.Number,
+    ColumnDisplayType.Floating,
+    ColumnDisplayType.Integer,
+    ColumnDisplayType.Decimal,
     ColumnDisplayType.Date,
     ColumnDisplayType.Datetime,
     ColumnDisplayType.Time,
@@ -1070,7 +1083,9 @@ def _pandas_temporal_mapper(type_name):
     return None
 
 
-def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
+def _pandas_summarize_number(
+    col: pd.Series, options: FormatOptions, display_type=ColumnDisplayType.Floating
+):
     import numpy as np
 
     math_helper = NumPyMathHelper()
@@ -1098,16 +1113,24 @@ def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
                 median_val = float_format(np.median(non_null_values))
                 std_val = float_format(non_null_values.std(ddof=1))
 
-            min_val = float_format(min_val)
-            max_val = float_format(max_val)
+            if display_type == ColumnDisplayType.Floating:
+                min_val = float_format(min_val)
+                max_val = float_format(max_val)
+            else:
+                min_val = str(min_val)
+                max_val = str(max_val)
 
     return _box_number_stats(
-        min_val,
-        max_val,
-        mean_val,
-        median_val,
-        std_val,
+        min_val, max_val, mean_val, median_val, std_val, display_type=display_type
     )
+
+
+def _pandas_summarize_floating(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Floating)
+
+
+def _pandas_summarize_integer(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Integer)
 
 
 def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
@@ -1215,14 +1238,14 @@ class PandasView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
         self.was_series = False
         table = self._maybe_wrap(table)
-
         # For lazy importing NumPy
         self.math_helper = NumPyMathHelper()
 
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @property
     def _has_row_labels(self):
@@ -1399,9 +1422,13 @@ class PandasView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         converter = PandasConverter(
-            self.table, self.state.name, request, was_series=self.was_series
+            self.table,
+            self.state.name,
+            request,
+            was_series=self.was_series,
+            sql_string=self.sql_string,
         )
-        converted_code = converter.convert()
+        converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
@@ -1472,27 +1499,27 @@ class PandasView(DataExplorerTableView):
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
-            "integer": "number",
-            "int8": "number",
-            "int16": "number",
-            "int32": "number",
-            "int64": "number",
-            "uint8": "number",
-            "uint16": "number",
-            "uint32": "number",
-            "uint64": "number",
-            "floating": "number",
-            "float16": "number",
-            "float32": "number",
-            "float64": "number",
-            "complex64": "number",
-            "complex128": "number",
-            "complex256": "number",
+            "integer": "integer",
+            "int8": "integer",
+            "int16": "integer",
+            "int32": "integer",
+            "int64": "integer",
+            "uint8": "integer",
+            "uint16": "integer",
+            "uint32": "integer",
+            "uint64": "integer",
+            "floating": "floating",
+            "float16": "floating",
+            "float32": "floating",
+            "float64": "floating",
+            "complex64": "floating",
+            "complex128": "floating",
+            "complex256": "floating",
             "mixed-integer": "object",
             "mixed-integer-float": "object",
             "mixed": "object",
-            "decimal": "number",
-            "complex": "number",
+            "decimal": "decimal",
+            "complex": "floating",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
@@ -1504,16 +1531,16 @@ class PandasView(DataExplorerTableView):
             "bytes": "string",
             "empty": "unknown",
             # NA-enabled numeric data types
-            "Int8": "number",
-            "Int16": "number",
-            "Int32": "number",
-            "Int64": "number",
-            "UInt8": "number",
-            "UInt16": "number",
-            "UInt32": "number",
-            "UInt64": "number",
-            "Float32": "number",
-            "Float64": "number",
+            "Int8": "integer",
+            "Int16": "integer",
+            "Int32": "integer",
+            "Int64": "integer",
+            "UInt8": "integer",
+            "UInt16": "integer",
+            "UInt32": "integer",
+            "UInt64": "integer",
+            "Float32": "floating",
+            "Float64": "floating",
             # NA-enabled bool
             "boolean": "boolean",
             # NA-enabled string
@@ -1648,7 +1675,7 @@ class PandasView(DataExplorerTableView):
         buf = StringIO()
 
         if fmt == ExportFormat.Csv:
-            to_export.to_csv(buf, index=False)
+            to_export.to_csv(buf, index=False, sep=",")
         elif fmt == ExportFormat.Tsv:
             to_export.to_csv(buf, sep="\t", index=False)
         elif fmt == ExportFormat.Html:
@@ -1848,7 +1875,9 @@ class PandasView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _pandas_summarize_boolean,
-            ColumnDisplayType.Number: _pandas_summarize_number,
+            ColumnDisplayType.Floating: _pandas_summarize_floating,
+            ColumnDisplayType.Integer: _pandas_summarize_integer,
+            ColumnDisplayType.Decimal: _pandas_summarize_number,
             ColumnDisplayType.String: _pandas_summarize_string,
             ColumnDisplayType.Date: _pandas_summarize_date,
             ColumnDisplayType.Datetime: _pandas_summarize_datetime,
@@ -1997,95 +2026,6 @@ COMPARE_OPS = {
     FilterComparisonOp.Eq: operator.eq,
     FilterComparisonOp.NotEq: operator.ne,
 }
-
-
-def _get_histogram_method(method: ColumnHistogramParamsMethod):
-    return {
-        ColumnHistogramParamsMethod.Fixed: "fixed",
-        ColumnHistogramParamsMethod.Sturges: "sturges",
-        ColumnHistogramParamsMethod.FreedmanDiaconis: "fd",
-        ColumnHistogramParamsMethod.Scott: "scott",
-    }[method]
-
-
-def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
-    try:
-        import numpy as np
-    except ModuleNotFoundError as e:
-        # If NumPy is not installed, we cannot compute histograms
-        # intentionally printing since errors will not show up in the console
-        warnings.warn(
-            "Numpy not installed, histogram computation will not work. "
-            "Please install NumPy to enable this feature.",
-            category=DataExplorerWarning,
-            stacklevel=1,
-        )
-        raise e
-
-    if to_numpy:
-        data = data.to_numpy()
-
-    assert num_bins is not None
-    hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
-
-    if data.dtype == object:
-        # For decimals, we convert to float which is lossy but works for now
-        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
-
-    # We optimistically compute the histogram once, and then do extra
-    # work in the special cases where the binning method produces a
-    # finer-grained histogram than the maximum number of bins that we
-    # want to render, as indicated by the num_bins argument
-    try:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-    except ValueError:
-        if issubclass(data.dtype.type, np.integer):
-            # Issue #5176. There is a class of error for integers where np.histogram
-            # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
-            # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
-            #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
-            #         dtype=int32)
-            # So we try again with the data converted to floating point as a fallback
-            return _get_histogram_numpy(data.astype(np.float64), num_bins, method=method)
-
-        # If there are inf/-inf values in the dataset, ValueError is
-        # raised. We catch it and try again to avoid paying the
-        # filtering cost every time
-        data = data[np.isfinite(data)]
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    need_recompute = False
-
-    # If the method returns more bins than what the front-end requested,
-    # we re-define the bin edges.
-    if len(bin_edges) > num_bins:
-        hist_params = {"bins": num_bins}
-        need_recompute = True
-
-    # For integers, we want to make sure the number of bins is smaller
-    # then than `data.max() - data.min()`, so we don't endup with more bins
-    # then there's data to display.
-    # hist_params = {"bins": bin_edges.tolist()}
-    if issubclass(data.dtype.type, np.integer):
-        # Avoid overflows with smaller integers
-        width = (data.max().astype(np.int64) - data.min().astype(np.int64)).item()
-        if len(bin_edges) > width and width > 0:
-            hist_params = {"bins": width + 1}
-            need_recompute = True
-
-    if need_recompute:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    # Special case: if we have a single bin, check if all values are the same
-    # If so, override the bin edges to be the same value instead of value +/- 0.5
-    if len(bin_counts) == 1 and len(data) > 0:
-        # Check if all non-null values are the same
-        unique_values = np.unique(data)
-        if len(unique_values) == 1:
-            # All values are the same, set bin edges to [value, value]
-            bin_edges = np.array([unique_values[0], unique_values[0]])
-
-    return bin_counts, bin_edges
 
 
 def _date_median(x):
@@ -2267,8 +2207,9 @@ class PolarsView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -2371,7 +2312,9 @@ class PolarsView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
+        converter = PolarsConverter(self.table, self.state.name, request)
+        converted_code = converter.build_code()
+        return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2415,28 +2358,29 @@ class PolarsView(DataExplorerTableView):
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=getattr(column.dtype, "time_zone", None),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
             "Boolean": "boolean",
-            "Int8": "number",
-            "Int16": "number",
-            "Int32": "number",
-            "Int64": "number",
-            "UInt8": "number",
-            "UInt16": "number",
-            "UInt32": "number",
-            "UInt64": "number",
-            "Float32": "number",
-            "Float64": "number",
+            "Int8": "integer",
+            "Int16": "integer",
+            "Int32": "integer",
+            "Int64": "integer",
+            "UInt8": "integer",
+            "UInt16": "integer",
+            "UInt32": "integer",
+            "UInt64": "integer",
+            "Float32": "floating",
+            "Float64": "floating",
             "Binary": "string",
             "String": "string",
             "Date": "date",
             "Datetime": "datetime",
             "Time": "time",
             "Duration": "interval",
-            "Decimal": "number",
+            "Decimal": "decimal",
             "Object": "object",
             "List": "array",
             "Struct": "struct",
@@ -2755,7 +2699,9 @@ class PolarsView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
-            ColumnDisplayType.Number: _polars_summarize_number,
+            ColumnDisplayType.Floating: _polars_summarize_number,
+            ColumnDisplayType.Integer: _polars_summarize_number,
+            ColumnDisplayType.Decimal: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
             ColumnDisplayType.Object: _polars_summarize_object,
             ColumnDisplayType.Date: _polars_summarize_date,
@@ -2810,9 +2756,8 @@ class PolarsView(DataExplorerTableView):
 
         method = _get_histogram_method(params.method)
 
-        bin_counts, bin_edges = _get_histogram_numpy(
-            data, params.num_bins, method=method, to_numpy=True
-        )
+        # Always use the Polars implementation for PolarsView
+        bin_counts, bin_edges = _get_histogram_polars(data, params.num_bins, method=method)
         bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:
@@ -2861,8 +2806,11 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Unsupported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="polars"),
+                CodeSyntaxName(code_syntax_name="pandas"),
+            ],
         ),
     )
 
@@ -2870,11 +2818,57 @@ class PolarsView(DataExplorerTableView):
 def _polars_dtype_from_display(display_type):
     import polars as pl
 
-    return {ColumnDisplayType.Number: pl.Float64}.get(display_type)
+    return {
+        ColumnDisplayType.Floating: pl.Float64,
+        ColumnDisplayType.Integer: pl.Int64,
+        ColumnDisplayType.Decimal: pl.Float64,  # Polars doesn't have a separate decimal type
+    }.get(display_type)
 
 
 class PyArrowView(DataExplorerTableView):
     pass
+
+
+# ----------------------------------------------------------------------
+# ibis Data Explorer RPC implementations
+
+
+class IbisView(PandasView):
+    """DataExplorer view implementation for Ibis tables."""
+
+    def __init__(
+        self,
+        table,
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
+    ):
+        self._ibis_table = table
+        # Convert to pandas dataframe (limit to 1000 rows for performance)
+        pandas_df = table.limit(IBIS_LIMIT_ROWS).execute()
+
+        super().__init__(pandas_df, comm, state, job_queue, sql_string)
+
+    def get_state(self, _unused):
+        state = super().get_state(_unused)
+        state.display_name = self.state.name + " (preview)"
+
+        return state
+
+    # Override convert_to_code to be unsupported for now, tracked in #9514
+    FEATURES = SupportedFeatures(
+        search_schema=PandasView.FEATURES.search_schema,
+        set_column_filters=PandasView.FEATURES.set_column_filters,
+        set_row_filters=PandasView.FEATURES.set_row_filters,
+        get_column_profiles=PandasView.FEATURES.get_column_profiles,
+        set_sort_columns=PandasView.FEATURES.set_sort_columns,
+        export_data_selection=PandasView.FEATURES.export_data_selection,
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Unsupported,
+            code_syntaxes=[],
+        ),
+    )
 
 
 def _get_table_view(
@@ -2882,13 +2876,17 @@ def _get_table_view(
     comm: PositronComm,
     state: DataExplorerState,
     job_queue: BackgroundJobQueue,
+    *,
+    sql_string: str | None = None,
 ):
     state.name = state.name or guid()
 
     if is_pandas(table):
-        return PandasView(table, comm, state, job_queue)
+        return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
+    elif is_ibis(table):
+        return IbisView(table, comm, state, job_queue, sql_string)
     else:
         return UnsupportedView(table, comm, state, job_queue)
 
@@ -2896,7 +2894,9 @@ def _get_table_view(
 def _value_type_is_supported(value):
     if is_pandas(value):
         return True
-    return bool(is_polars(value))
+    if is_polars(value):
+        return True
+    return bool(is_ibis(value))
 
 
 class DataExplorerService:
@@ -2934,6 +2934,8 @@ class DataExplorerService:
         title,
         variable_path: list[str] | None = None,
         comm_id=None,
+        *,
+        sql_string: str | None = None,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2952,6 +2954,10 @@ class DataExplorerService:
         comm_id : str, default None
             A specific comm identifier to use, otherwise generate a
             random uuid.
+        sql_string : str, default None
+            If the data explorer was opened from a SQL query result,
+            this is the SQL string that was executed to produce the
+            result. This is used for code generation.
 
         Returns
         -------
@@ -2982,7 +2988,7 @@ class DataExplorerService:
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
         self.table_views[comm_id] = _get_table_view(
-            table, wrapped_comm, DataExplorerState(title), self.job_queue
+            table, wrapped_comm, DataExplorerState(title), self.job_queue, sql_string=sql_string
         )
 
         if variable_path is not None:
@@ -3116,7 +3122,7 @@ class DataExplorerService:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
         self.table_views[comm_id] = _get_table_view(
-            new_table, table_view.comm, new_state, self.job_queue
+            new_table, table_view.comm, new_state, self.job_queue, sql_string=table_view.sql_string
         )
 
         if schema_updated:

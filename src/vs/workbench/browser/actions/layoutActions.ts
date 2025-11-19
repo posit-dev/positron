@@ -7,6 +7,7 @@ import { ILocalizedString, localize, localize2 } from '../../../nls.js';
 import { MenuId, MenuRegistry, registerAction2, Action2 } from '../../../platform/actions/common/actions.js';
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { alert } from '../../../base/browser/ui/aria/aria.js';
 // --- Start Positron ---
 // Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
 import { /*EditorActionsLocation,*/ EditorTabsMode, IWorkbenchLayoutService, LayoutSettings, Parts, Position, ZenModeSettings, positionToString } from '../../services/layout/browser/layoutService.js';
@@ -331,8 +332,15 @@ export class ToggleSidebarVisibilityAction extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const isCurrentlyVisible = layoutService.isVisible(Parts.SIDEBAR_PART);
 
-		layoutService.setPartHidden(layoutService.isVisible(Parts.SIDEBAR_PART), Parts.SIDEBAR_PART);
+		layoutService.setPartHidden(isCurrentlyVisible, Parts.SIDEBAR_PART);
+
+		// Announce visibility change to screen readers
+		const alertMessage = isCurrentlyVisible
+			? localize('sidebarHidden', "Primary Side Bar hidden")
+			: localize('sidebarVisible', "Primary Side Bar shown");
+		alert(alertMessage);
 	}
 }
 
@@ -1522,7 +1530,9 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				type: 'separator',
 				label: localize('positronLayouts', "Layout Presets"),
 			},
-			...positronCustomLayoutOptions,
+			...positronCustomLayoutOptions.filter(layout =>
+				layout.precondition.evaluate(contextKeyService.getContext(null))
+			),
 			// --- End Positron ---
 			{
 				type: 'separator',
@@ -1608,9 +1618,12 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				selectedItem = quickPick.selectedItems[0] as CustomizeLayoutItem;
 				commandService.executeCommand(selectedItem.id);
 				// --- Start Positron ---
-				// If the string workbench.action.positron starts the id then we want to
-				// close the quick pick
-				if (selectedItem.id.startsWith('workbench.action.positron')) {
+				// Close the quick pick when selecting a Positron layout preset.
+				// Layout presets follow the pattern 'workbench.action.positron<LayoutName>'
+				// (no dot after 'positron'), while other positron actions like toggles
+				// use 'workbench.action.positron.<actionName>' (with a dot after 'positron').
+				if (selectedItem.id.startsWith('workbench.action.positron') &&
+					!selectedItem.id.startsWith('workbench.action.positron.')) {
 					quickPick.hide();
 				}
 				// --- End Positron ---
@@ -1638,6 +1651,9 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				resetSetting('workbench.activityBar.location');
 				resetSetting('workbench.sideBar.location');
 				resetSetting('workbench.statusBar.visible');
+				// --- Start Positron ---
+				resetSetting(LayoutSettings.TOP_ACTION_BAR_VISIBLE);
+				// --- End Positron ---
 				resetSetting('workbench.panel.defaultLocation');
 
 				if (!isMacintosh || !isNative) {

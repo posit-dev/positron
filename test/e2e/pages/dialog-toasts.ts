@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code.js';
 
 export class Toasts {
 
-	public toastNotification = this.code.driver.page.locator('.notification-toast');
-	public closeButton = this.toastNotification.locator('.codicon-notifications-clear');
-	public optionButton = (button: string) => this.toastNotification.getByRole('button', { name: button });
+	public get toastNotification(): Locator { return this.code.driver.page.locator('.notification-toast'); }
+	public get closeButton(): Locator { return this.toastNotification.locator('.codicon-notifications-clear'); }
+	public getOptionButton(button: string): Locator { return this.toastNotification.getByRole('button', { name: button }); }
 
 	constructor(private readonly code: Code) { }
 
@@ -26,7 +26,7 @@ export class Toasts {
 
 	async clickButton(button: string) {
 		await test.step(`Click toast button: ${button}`, async () => {
-			await this.optionButton(button).click();
+			await this.getOptionButton(button).click();
 		});
 	}
 
@@ -87,4 +87,9 @@ export class Toasts {
 			await this.code.driver.page.waitForTimeout(1000);
 		}
 	}
+
+	async awaitToastDisappearance(timeoutMs = 3000) {
+		await expect(this.toastNotification).toHaveCount(0, { timeout: timeoutMs });
+	}
+
 }

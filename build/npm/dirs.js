@@ -13,7 +13,9 @@ const dirs = [
 	// --- Start Positron ---
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
+	'extensions/positron-catalog-explorer',
 	'extensions/positron-code-cells',
+	'extensions/positron-copilot-chat',
 	'extensions/positron-connections',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
@@ -23,6 +25,7 @@ const dirs = [
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
 	'extensions/positron-run-app',
+	'extensions/positron-runtime-debugger',
 	'extensions/positron-supervisor',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
@@ -52,6 +55,7 @@ const dirs = [
 	'extensions/markdown-math',
 	'extensions/media-preview',
 	'extensions/merge-conflict',
+	'extensions/mermaid-chat-features',
 	'extensions/microsoft-authentication',
 	'extensions/notebook-renderers',
 	'extensions/npm',
@@ -72,12 +76,24 @@ const dirs = [
 	'remote/reh-web',
 	'test/integration/browser',
 	'test/monaco',
+	'test/mcp', // TODO 1.104.0 do we remove this?
+	// We've removed these test folders
+	// 'test/automation',
+	// 'test/smoke',
+
 	// no need to compile e2e tests during release builds
 	// 'test/e2e',
 	// --- End Positron ---
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',
 ];
+
+// --- Start Positron ---
+// Add the open-remote-wsl extension on Windows
+if (process.platform === 'win32') {
+	dirs.push('extensions/open-remote-wsl');
+}
+// --- End Positron ---
 
 if (fs.existsSync(`${__dirname}/../../.build/distro/npm`)) {
 	dirs.push('.build/distro/npm');

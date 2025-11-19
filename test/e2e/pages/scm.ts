@@ -42,6 +42,7 @@ export class SCM {
 
 	async openChange(name: string): Promise<void> {
 		await this.layout.enterLayout('fullSizedSidebar');
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 
 		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
 
@@ -49,11 +50,13 @@ export class SCM {
 	}
 
 	async stage(name: string): Promise<void> {
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
 		await this.waitForChange(name, 'Staged');
 	}
 
 	async commit(message: string): Promise<void> {
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).click({ force: true });
 		await expect(this.code.driver.page.locator(SCM_INPUT_TEXTAREA)).toBeFocused();
 		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).fill(message);

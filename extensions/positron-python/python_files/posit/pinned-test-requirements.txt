@@ -7,44 +7,53 @@
 #     && source .venv/bin/activate \
 #     && uv pip install -r test-requirements.txt \
 #     && pip freeze -r test-requirements.txt | sed '/## The following requirements/,$ d'
-#
+
 # Then iterate through supported PYTHON_VERSIONS to make sure we covered the latest versions.
 
-fastcore==1.8.5
+databricks-sql-connector[pyarrow]==2.0.2
+duckdb==1.4.1
+fastcore==1.8.9; python_version == '3.9'
+fastcore==1.8.13; python_version >= '3.10'
 geopandas==1.0.1; python_version == '3.9'
-geopandas==1.1.1; python_version >= '3.10'
-haystack-ai==2.15.2
+geopandas==1.1.1; python_version >= '3.10' and python_version < '3.14'
+haystack-ai==2.19.0
 holoviews==1.20.2; python_version == '3.9'
 holoviews==1.21.0; python_version >= '3.10'
-hvplot==0.11.3
-ibis-framework[duckdb]==10.6.0; python_version >= '3.10'
-ipykernel==6.29.5
+hvplot==0.11.3; python_version == '3.9'
+hvplot==0.12.1; python_version >= '3.10'
+ibis-framework[duckdb]==11.0.0; python_version < '3.14'
+ipykernel==6.31.0; python_version == '3.9'
+ipykernel==7.0.1; python_version >= '3.10'
 ipython==8.18.1; python_version == '3.9'
 ipython==8.37.0; python_version == '3.10'
-ipython==9.4.0; python_version >= '3.11'
+ipython==9.6.0; python_version >= '3.11'
 ipywidgets==8.1.7
-lightning==2.5.2
+lightning==2.5.5
 matplotlib==3.9.4; python_version == '3.9'
-matplotlib==3.10.3; python_version >= '3.10'
+matplotlib==3.10.7; python_version >= '3.10'
 numpy==2.0.2; python_version == '3.9'
 numpy==2.2.6; python_version == '3.10'
-numpy==2.3.1; python_version >= '3.11'
-pandas==2.3.1
-plotly==6.2.0
+numpy==2.3.4; python_version >= '3.11'
+pandas==2.3.3
+plotly==6.3.1
 plotnine==0.13.6; python_version == '3.9'
-plotnine==0.14.6; python_version >= '3.10'
-polars==1.31.0
-polars[timezone]==1.31.0; sys_platform == 'win32'
-pyarrow==20.0.0
-pytest==8.4.1
-pytest-asyncio==1.0.0
-pytest-mock==3.14.1
-syrupy==4.9.1
-torch==2.7.1
+plotnine==0.15.0; python_version >= '3.10'
+polars==1.34.0
+polars[timezone]==1.34.0; sys_platform == 'win32'
+pyarrow==21.0.0; python_version < '3.14'
+pytest==8.4.2
+pytest-asyncio==1.2.0
+pytest-mock==3.15.1
+syrupy==4.9.1; python_version == '3.9'
+syrupy==5.0.0; python_version >= '3.10'
+torch==2.8.0; python_version == '3.9'
+torch==2.9.0; python_version >= '3.10'
 scipy==1.13.1; python_version == '3.9'
-scipy==1.15.3; python_version >= '3.10'
-SQLAlchemy==2.0.41
+scipy==1.15.3; python_version == '3.10'
+scipy==1.16.2; python_version >= '3.11'
+snowflake-connector-python==4.0.0; python_version < '3.14'
+SQLAlchemy==2.0.44
 
 # putting this last like test-requirements.txt
 bokeh==3.4.3; python_version == '3.9'
-bokeh==3.7.3; python_version >= '3.10'
+bokeh==3.8.0; python_version >= '3.10'
