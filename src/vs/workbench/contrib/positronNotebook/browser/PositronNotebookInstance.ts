@@ -639,6 +639,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	override dispose() {
 
 		this._logService.debug(this._id, 'dispose');
+
+		this.cells.get().forEach(cell => cell.dispose());
+
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
@@ -1212,10 +1215,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
-			// TODO: We should be disposing cells when we're done with them.
-			//       We're currently holding onto notebook and cell text model references
-			//       so text models are never disposed
-			//       See: https://github.com/posit-dev/positron/issues/10215
 			newlyAddedCells.push(newCell);
 
 			return newCell;
