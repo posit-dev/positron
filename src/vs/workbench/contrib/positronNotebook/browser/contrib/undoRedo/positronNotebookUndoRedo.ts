@@ -37,6 +37,11 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
+		// Determine if the notebook is empty. This is important because when there are no cells,
+		// neither the container or cell editor will have focus, but we still want undo/redo to work.
+		// This enables undoing cell operations (cut and delete) that result in an empty notebook.
+		const emptyNotebook = instance.cells.get().length === 0;
+
 		// Use the notebook-specific scoped context key service instead of the global one
 		const scopedContextKeyService = instance.contextManager.getScopedContextKeyService();
 		if (!scopedContextKeyService) {
@@ -44,22 +49,17 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			// This shouldn't happen in normal operation, but provides a safety net
 			const containerFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
 			const cellEditorFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
-			// Handle undo/redo if either the container is focused OR a cell editor is focused
-			// This matches VS Code's behavior where notebook undo works regardless of specific focus location
-			return containerFocused || cellEditorFocused;
+			// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty
+			return containerFocused || cellEditorFocused || emptyNotebook;
 		}
 
 		// Read context keys from the scoped context service that actually has these keys bound
 		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
 		const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
-		// If the notebook is empty, allow undo/redo since the container focus context key will be false.
-		// This enables undoing cell operations (cut and delete) that result in an empty notebook.
-		const emptyNotebook = instance.cells.get().length === 0;
 
-		const shouldHandle = containerFocused || cellEditorFocused || emptyNotebook;
-		// Handle undo/redo if either the container is focused OR a cell editor is focused OR the notebook is empty
+		// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty
 		// This allows undo to work even when typing in a cell (common after adding a new cell)
-		return shouldHandle;
+		return containerFocused || cellEditorFocused || emptyNotebook;
 	}
 
 	private handleUndo(): boolean | Promise<void> {
