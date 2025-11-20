@@ -1151,15 +1151,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
 				vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
 					if (selection?.id === action.id) {
-						// Grab the profile to refresh from the Bedrock client config
+						// Grab the profile & region to refresh from the Bedrock client config
 						const profile = this.bedrockClient.config.profile;
+						const region = this.bedrockClient.config.region;
 						// Execute the AWS SSO login command as a native task
 						const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
 							{ type: 'shell' },
 							vscode.TaskScope.Workspace,
 							'AWS SSO Login',
 							'AWS',
-							new vscode.ShellExecution(`aws sso login --profile ${profile}`)
+							new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
 						));
 
 						vscode.tasks.onDidEndTaskProcess(e => {
@@ -1187,7 +1188,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 					return undefined;
 				} else {
 					// We are in a chat response, so we should return an error to display in the chat pane
-					throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile}\` in the terminal to authenticate.`));
+					throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`));
 					// return vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile}\` in the terminal to authenticate.`);
 				}
 			} else {
