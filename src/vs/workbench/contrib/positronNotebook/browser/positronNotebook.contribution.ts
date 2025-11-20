@@ -1120,8 +1120,8 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-// Move cell up
-registerAction2(class extends CellAction2 {
+// Move selected cells up
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveUp',
@@ -1141,16 +1141,16 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
 			}
-		}, { multiSelect: true, editMode: true });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.moveCellUp(cell);
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellsUp();
 	}
 });
 
-// Move cell down
-registerAction2(class extends CellAction2 {
+// Move selected cells down
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveDown',
@@ -1170,11 +1170,11 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
 			}
-		}, { multiSelect: true, editMode: true });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.moveCellDown(cell);
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellsDown();
 	}
 });
 

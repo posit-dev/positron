@@ -906,18 +906,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Moves a cell up by one position.
+	 * Moves the selected cell(s) up by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 * @param cell The cell to move up
 	 */
-	moveCellUp(cell: IPositronNotebookCell): void {
+	moveCellsUp(): void {
 		this._assertTextModel();
 
-		if (cell.index <= 0) {
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (cellsToMove.length === 0) {
 			return;
 		}
 
-		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
@@ -957,19 +956,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Moves a cell down by one position.
+	 * Moves the selected cell(s) down by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 * @param cell The cell to move down
 	 */
-	moveCellDown(cell: IPositronNotebookCell): void {
+	moveCellsDown(): void {
 		this._assertTextModel();
 
-		const cells = this.cells.get();
-		if (cell.index >= cells.length - 1) {
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (cellsToMove.length === 0) {
 			return;
 		}
 
-		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		const cells = this.cells.get();
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
