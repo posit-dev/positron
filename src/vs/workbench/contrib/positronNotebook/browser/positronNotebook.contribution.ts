@@ -1080,7 +1080,10 @@ registerAction2(class extends NotebookAction2 {
 				order: 40
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyV
 			}
@@ -1108,7 +1111,10 @@ registerAction2(class extends NotebookAction2 {
 				order: 30
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.KeyV
 			}
