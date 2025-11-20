@@ -789,7 +789,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-// Run all code cells above the current cell
+// Run all code cells above the current cell (including the current cell)
 registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
@@ -818,7 +818,7 @@ registerAction2(class extends CellAction2 {
 	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
-		// Run all code cells above the current cell
+		// Run all code cells above the current cell (including the current cell)
 		const cellIndex = cell.index;
 		for (let i = 0; i < cellIndex; i++) {
 			const targetCell = cells[i];
@@ -829,7 +829,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-// Run all code cells below the current cell
+// Run all code cells below the current cell (including the current cell)
 registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
@@ -858,8 +858,8 @@ registerAction2(class extends CellAction2 {
 	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
-		// Run all code cells below the current cell
-		for (let i = cell.index + 1; i < cells.length; i++) {
+		// Run all code cells below the current cell (including the current cell)
+		for (let i = cell.index; i < cells.length; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
