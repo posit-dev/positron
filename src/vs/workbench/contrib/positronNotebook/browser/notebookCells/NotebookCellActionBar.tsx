@@ -19,6 +19,7 @@ import { useMenu } from '../useMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useMenuActions } from '../useMenuActions.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -26,6 +27,7 @@ interface NotebookCellActionBarProps {
 
 export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	// Context
+	const instance = useNotebookInstance();
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
@@ -53,12 +55,14 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 					key={action.id}
 					action={action}
 					cell={cell}
+					hoverManager={instance.hoverManager}
 				/>
 			))}
 
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
+				hoverManager={instance.hoverManager}
 				menuActions={submenuActions}
 			/>
 		) : null}
@@ -71,6 +75,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 					key={action.id}
 					action={action}
 					cell={cell}
+					hoverManager={instance.hoverManager}
 				/>
 			))}
 	</div>;
