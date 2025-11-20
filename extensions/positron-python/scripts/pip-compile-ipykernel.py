@@ -1,5 +1,5 @@
 # /// script
-# requires-python = "==3.9.*"
+# requires-python = "==3.10.*"
 # dependencies = [
 #     "pip<24", # NOTE: pip-tools is not compatible with pip >=24. https://github.com/jazzband/pip-tools/issues/2176
 #     "pip-tools",
@@ -14,9 +14,9 @@ takes up a lot of storage space (~458MB in a local test for CPython >=3.8,<=3.13
 
 Our solution is to split the requirements into three groups:
 
-1. `py3-requirements.txt` for pure Python >=3.9.
-2. `cp3-requirements.txt` for CPython >=3.9.
-3. `cpx-requirements.txt` for specific versions of CPython >=3.9,<=3.14.
+1. `py3-requirements.txt` for pure Python >=3.10.
+2. `cp3-requirements.txt` for CPython >=3.10.
+3. `cpx-requirements.txt` for specific versions of CPython >=3.10,<=3.14.
 
 Each of these requirements files are `pip install`ed into separate directories, which are
 selectively added to the user's Python search path based on the current interpreter.
@@ -317,7 +317,7 @@ def write_output(
 if __name__ == "__main__":
     main(
         requirement="ipykernel",
-        python_versions=["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"],
+        python_versions=["3.10", "3.11", "3.12", "3.13", "3.14"],
         output_dir=Path("./python_files/ipykernel_requirements/"),
         max_rounds=10,
         cache_dir=CACHE_DIR,

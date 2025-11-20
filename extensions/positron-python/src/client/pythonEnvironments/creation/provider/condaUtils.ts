@@ -23,7 +23,7 @@ const RECOMMENDED_CONDA_PYTHON = '3.11';
 // --- Start Positron ---
 // The first element is the recommended version. It is the first element so it gets displayed first in
 // UI that consumes this list.
-const SUPPORTED_CONDA_PYTHON_VERSIONS = [RECOMMENDED_CONDA_PYTHON, '3.12', '3.10', '3.9'];
+const SUPPORTED_CONDA_PYTHON_VERSIONS = [RECOMMENDED_CONDA_PYTHON, '3.10', '3.11', '3.12', '3.13', '3.14'];
 // --- End Positron ---
 
 export async function getCondaBaseEnv(): Promise<string | undefined> {

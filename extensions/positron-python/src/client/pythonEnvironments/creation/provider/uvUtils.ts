@@ -7,7 +7,7 @@ import { CancellationToken, QuickPickItem } from 'vscode';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
 import { CreateEnv } from '../../../common/utils/localize';
 
-const SUPPORTED_UV_PYTHON_VERSIONS = ['3.13', '3.12', '3.11', '3.10', '3.9', '3.14'];
+const SUPPORTED_UV_PYTHON_VERSIONS = ['3.13', '3.12', '3.11', '3.10', '3.14'];
 
 export function getUvPythonVersions(): { versions: string[] } {
     return {
