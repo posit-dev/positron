@@ -290,7 +290,7 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: false });
 
 		// From cell action menu insert cell below and verify new cell is at index 1
-		await notebooksPositron.triggerCellAction(0, 'Insert code cell below')
+		await notebooksPositron.triggerCellAction(0, 'Insert code cell below');
 		await notebooksPositron.expectCellCountToBe(6);
 		await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
 

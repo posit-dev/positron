@@ -42,7 +42,7 @@ export class PositronNotebooks extends Notebooks {
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
-	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true })
+	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
@@ -168,7 +168,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Create a new Positron notebook.
 	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
 	 */
-	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number, markdownCells?: number }): Promise<void> {
+	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number }): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
 
@@ -221,7 +221,7 @@ export class PositronNotebooks extends Notebooks {
 		const y = box.y + box.height + OFFSET;
 
 		await this.code.driver.page.mouse.click(x, y);
-	};
+	}
 
 	/**
 	 * Action: Add a new cell of the specified type.
@@ -352,7 +352,7 @@ export class PositronNotebooks extends Notebooks {
 		ariaLabel === 'Markdown cell'
 			? await this.cell.nth(cellIndex).dblclick()
 			: await this.cell.nth(cellIndex).click();
-	};
+	}
 
 	/**
 	 * Action: Add code to a cell at the specified index and run it.
