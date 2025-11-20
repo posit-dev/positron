@@ -95,7 +95,6 @@ async function getModelInfo(context: vscode.ExtensionContext, log: BufferedLogOu
 			`- **${model.name}**`,
 			`	- Provider: ${model.provider}`,
 			`	- Type: ${model.type}`,
-			`	- Model ID: ${model.model}`,
 		];
 
 		if (model.toolCalls !== undefined) {
