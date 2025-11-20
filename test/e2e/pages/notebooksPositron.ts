@@ -168,9 +168,13 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Create a new Positron notebook.
 	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
 	 */
-	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number }): Promise<void> {
+	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
+
+		if (codeCells === 0 && markdownCells === 0) {
+			return;
+		}
 
 		let totalCellsAdded = 0;
 		const keyboard = this.code.driver.page.keyboard;
@@ -220,6 +224,7 @@ export class PositronNotebooks extends Notebooks {
 		const x = box.x + box.width - OFFSET;
 		const y = box.y + box.height + OFFSET;
 
+		await this.code.driver.page.mouse.click(x, y);
 		await this.code.driver.page.mouse.click(x, y);
 	}
 

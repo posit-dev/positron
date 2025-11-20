@@ -64,6 +64,7 @@ test.describe('Notebook Focus and Selection', {
 		// Code cell: click away and back should restore edit mode
 		await notebooksPositron.selectCellAtIndex(0);
 		await notebooksPositron.clickAwayFromCell(0);
+		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
 		await notebooksPositron.selectCellAtIndex(0);
 
 		// verify backspace deletes cell content not cell (indicating edit mode is active)
@@ -72,10 +73,11 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellCountToBe(2);
 
 		// Markdown cell: click away and back should stay in command/view mode
-		await notebooksPositron.selectCellAtIndex(1);
+		await notebooksPositron.selectCellAtIndex(1, { editMode: true });
 		await notebooksPositron.clickAwayFromCell(1);
-		await notebooksPositron.selectCellAtIndex(1);
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+		await notebooksPositron.selectCellAtIndex(1);
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 	});
 
 
