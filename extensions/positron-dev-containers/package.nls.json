@@ -3,6 +3,7 @@
 	"description": "Open any folder or repository inside a Docker container and take advantage of Positron's full feature set.",
 	"capabilities.untrustedWorkspaces.description": "Opening a folder in a container requires workspace trust.",
 	"configuration.title": "Dev Containers",
+	"configuration.enable.markdownDescription": "**[Experimental]** Enable Dev Containers for Positron. Dev Containers allow you to define a project's dependencies declaratively, install them in a lightweight container, and run the project inside the container.",
 	"configuration.defaultExtensions.description": "Configures the list of extensions to always install while creating a container.",
 	"configuration.defaultExtensions.errorMessage": "Expected format '${publisher}.${name}'. Example: 'vscode.csharp'.",
 	"configuration.defaultFeatures": "Configures the list of features to always install while creating a container.",

@@ -20,6 +20,7 @@ export enum LogLevel {
  * Dev container configuration from settings
  */
 export interface DevContainerConfiguration {
+	enable: boolean;
 	defaultExtensions: string[];
 	defaultFeatures: Record<string, any>;
 	workspaceMountConsistency: 'consistent' | 'cached' | 'delegated';

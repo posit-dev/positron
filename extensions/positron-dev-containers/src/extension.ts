@@ -37,6 +37,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	logger.initialize(context, config.getLogLevel());
 	logger.info('Activating positron-dev-containers extension');
 
+	// Check if extension is enabled
+	if (!config.getEnable()) {
+		logger.info('Dev Containers extension is disabled via settings. Skipping activation.');
+		// Set context keys to hide all UI elements
+		vscode.commands.executeCommand('setContext', 'dev.containers.enabled', false);
+		vscode.commands.executeCommand('setContext', 'isInDevContainer', false);
+		return;
+	}
+
+	// Set context key to enable UI elements
+	vscode.commands.executeCommand('setContext', 'dev.containers.enabled', true);
+
 	// Log workspace information
 	const hasDevContainer = Workspace.hasDevContainer();
 	const isInDevContainer = Workspace.isInDevContainer();

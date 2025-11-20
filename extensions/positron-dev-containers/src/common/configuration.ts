@@ -42,6 +42,7 @@ export class Configuration {
 	 */
 	getConfiguration(): DevContainerConfiguration {
 		return {
+			enable: this.getEnable(),
 			defaultExtensions: this.getDefaultExtensions(),
 			defaultFeatures: this.getDefaultFeatures(),
 			workspaceMountConsistency: this.getWorkspaceMountConsistency(),
@@ -62,6 +63,13 @@ export class Configuration {
 			repositoryConfigurationPaths: this.getRepositoryConfigurationPaths(),
 			optimisticallyLaunchDocker: this.getOptimisticallyLaunchDocker()
 		};
+	}
+
+	/**
+	 * Get enable setting
+	 */
+	getEnable(): boolean {
+		return this.config.get<boolean>('enable', false);
 	}
 
 	/**
