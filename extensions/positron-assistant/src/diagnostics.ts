@@ -171,6 +171,7 @@ async function getAvailableModels(): Promise<string> {
 
 async function getChatExportInfo(): Promise<string> {
 	try {
+		// TODO: This returns the last focused chat, we may want to update to include all chats
 		const chatExport = await positron.ai.getChatExport();
 		if (!chatExport) {
 			return 'No active chat session';
