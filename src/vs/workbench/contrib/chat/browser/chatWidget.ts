@@ -98,6 +98,7 @@ import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.
 import { katexContainerClassName } from '../../markdown/common/markedKatexExtension.js';
 
 // --- Start Positron ---
+import './media/positronChat.css';
 import { ILanguageModelsService } from '../common/languageModels.js';
 // --- End Positron ---
 
