@@ -24,6 +24,9 @@ import { registerParticipantDetectionProvider } from './participantDetection.js'
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
+import { collectDiagnostics } from './diagnostics.js';
+import { BufferedLogOutputChannel } from './logBuffer.js';
+import { resetAssistantState } from './reset.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -67,7 +70,9 @@ export function disposeModels(id?: string) {
 	}
 }
 
-export const log = vscode.window.createOutputChannel('Assistant', { log: true });
+export const log = new BufferedLogOutputChannel(
+	vscode.window.createOutputChannel('Assistant', { log: true })
+);
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
@@ -276,6 +281,22 @@ function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext
 	);
 }
 
+function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
+			await collectDiagnostics(context, log);
+		})
+	);
+}
+
+function registerResetCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.resetState', async () => {
+			await resetAssistantState(context);
+		})
+	);
+}
+
 async function toggleInlineCompletions() {
 	// Get the current value of the setting
 	const config = vscode.workspace.getConfiguration('positron.assistant');
@@ -336,6 +357,8 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
+	registerCollectDiagnosticsCommand(context);
+	registerResetCommand(context);
 	registerPromptManagement(context);
 
 	// Register mapped edits provider
