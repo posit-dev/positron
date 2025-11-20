@@ -15,6 +15,7 @@ import { localize } from '../../../../nls.js';
 import { CellKind } from '../../notebook/common/notebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IconedButton } from './utilityComponents/IconedButton.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 
 export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
@@ -32,8 +33,9 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 	const fullLabel = localize('newCodeCellLong', 'New Code Cell');
 	return <IconedButton
 		bordered={bordered}
-		codicon='code'
 		fullLabel={fullLabel}
+		hoverManager={notebookInstance.hoverManager}
+		icon={Codicon.code}
 		label={label}
 		onClick={() => notebookInstance.addCell(CellKind.Code, index, true)}
 	/>;
@@ -47,8 +49,9 @@ export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { n
 	const fullLabel = localize('newMarkdownCellLong', 'New Markdown Cell');
 	return <IconedButton
 		bordered={bordered}
-		codicon='markdown'
 		fullLabel={fullLabel}
+		hoverManager={notebookInstance.hoverManager}
+		icon={Codicon.markdown}
 		label={label}
 		onClick={() => notebookInstance.addCell(CellKind.Markup, index, true)}
 	/>;
