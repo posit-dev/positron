@@ -5,7 +5,7 @@
 
 import assert from 'assert';
 import * as async from '../../common/async.js';
-import * as MicrotaskDelay from "../../common/symbols.js";
+import * as MicrotaskDelay from '../../common/symbols.js';
 import { CancellationToken, CancellationTokenSource } from '../../common/cancellation.js';
 import { isCancellationError } from '../../common/errors.js';
 import { Event } from '../../common/event.js';
@@ -2391,12 +2391,14 @@ suite('Async', () => {
 		});
 
 		test('peekTimeout - timeout occurs', async () => {
-			const reader = new async.AsyncReader(createDelayedAsyncIterator([1, 2, 3], 50));
+			return runWithFakedTimers({}, async () => {
+				const reader = new async.AsyncReader(createDelayedAsyncIterator([1, 2, 3], 50));
 
-			const result = await reader.peekTimeout(10);
-			assert.strictEqual(result, undefined);
+				const result = await reader.peekTimeout(10);
+				assert.strictEqual(result, undefined);
 
-			await reader.consumeToEnd();
+				await reader.consumeToEnd();
+			});
 		});
 
 		test('peekTimeout - empty iterator', async () => {

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
-/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
 declare module 'positron' {

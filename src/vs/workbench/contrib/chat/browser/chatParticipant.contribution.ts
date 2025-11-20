@@ -58,7 +58,7 @@ const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(Vi
 }, ViewContainerLocation.Sidebar, { isDefault: false, doNotRegisterOpenCommand: true });
 // --- End Positron ---
 
-const chatViewDescriptor: IViewDescriptor[] = [{
+const chatViewDescriptor: IViewDescriptor = {
 	id: ChatViewId,
 	containerIcon: chatViewContainer.icon,
 	containerTitle: chatViewContainer.title.value,
@@ -87,8 +87,8 @@ const chatViewDescriptor: IViewDescriptor[] = [{
 		ChatContextKeys.panelParticipantRegistered,
 		ChatContextKeys.extensionInvalid
 	)
-}];
-Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews(chatViewDescriptor, chatViewContainer);
+};
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([chatViewDescriptor], chatViewContainer);
 
 const chatParticipantExtensionPoint = extensionsRegistry.ExtensionsRegistry.registerExtensionPoint<IRawChatParticipantContribution[]>({
 	extensionPoint: 'chatParticipants',
@@ -343,7 +343,7 @@ export class ChatCompatibilityNotifier extends Disposable implements IWorkbenchC
 		super();
 
 		// It may be better to have some generic UI for this, for any extension that is incompatible,
-		// but this is only enabled for Copilot Chat now and it needs to be obvious.
+		// but this is only enabled for Chat now and it needs to be obvious.
 		const isInvalid = ChatContextKeys.extensionInvalid.bindTo(contextKeyService);
 		this._register(Event.runAndSubscribe(
 			extensionsWorkbenchService.onDidChangeExtensionsNotification,

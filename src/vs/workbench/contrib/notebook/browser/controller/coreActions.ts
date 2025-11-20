@@ -212,7 +212,7 @@ export abstract class NotebookMultiCellAction extends Action2 {
 		super(desc);
 	}
 
-	parseArgs(accessor: ServicesAccessor, ...args: any[]): INotebookCommandContext | undefined {
+	parseArgs(accessor: ServicesAccessor, ...args: unknown[]): INotebookCommandContext | undefined {
 		return undefined;
 	}
 
@@ -321,6 +321,7 @@ function sendEntryTelemetry(accessor: ServicesAccessor, id: string, context?: an
 }
 
 function isCellToolbarContext(context?: unknown): context is INotebookCellToolbarActionContext {
+	// eslint-disable-next-line local/code-no-any-casts
 	return !!context && !!(context as INotebookActionContext).notebookEditor && (context as any).$mid === MarshalledId.NotebookCellActionContext;
 }
 

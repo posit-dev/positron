@@ -24,7 +24,7 @@
 		"t": "source.cpp meta.preprocessor.include.cpp keyword.control.directive.include.cpp punctuation.definition.directive.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -34,7 +34,7 @@
 		"t": "source.cpp meta.preprocessor.include.cpp keyword.control.directive.include.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -84,7 +84,7 @@
 		"t": "source.cpp meta.using-namespace.cpp keyword.other.using.directive.cpp",
 		"r": {
 			"hc_black": "keyword.other.using: #C586C0",
-			"positron_dark": "keyword.other.using: #C586C0",
+			"positron_dark": "keyword.other.using: #CE92A4",
 			"positron_light": "keyword.other.using: #AF00DB",
 			"hc_light": "keyword.other.using: #B5200D"
 		}
@@ -144,7 +144,7 @@
 		"t": "source.cpp meta.preprocessor.macro.cpp keyword.control.directive.define.cpp punctuation.definition.directive.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -154,7 +154,7 @@
 		"t": "source.cpp meta.preprocessor.macro.cpp keyword.control.directive.define.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -574,7 +574,7 @@
 		"t": "source.cpp meta.block.class.cpp meta.body.class.cpp meta.function.definition.cpp meta.body.function.definition.cpp keyword.control.return.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -964,7 +964,7 @@
 		"t": "source.cpp meta.function.definition.special.operator-overload.cpp meta.head.function.definition.special.operator-overload.cpp keyword.other.operator.overload.cpp",
 		"r": {
 			"hc_black": "keyword.other.operator: #C586C0",
-			"positron_dark": "keyword.other.operator: #C586C0",
+			"positron_dark": "keyword.other.operator: #CE92A4",
 			"positron_light": "keyword.other.operator: #AF00DB",
 			"hc_light": "keyword.other.operator: #B5200D"
 		}
@@ -1074,7 +1074,7 @@
 		"t": "source.cpp meta.preprocessor.macro.cpp keyword.control.directive.define.cpp punctuation.definition.directive.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1084,7 +1084,7 @@
 		"t": "source.cpp meta.preprocessor.macro.cpp keyword.control.directive.define.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1984,7 +1984,7 @@
 		"t": "source.cpp meta.function.definition.cpp meta.body.function.definition.cpp keyword.control.if.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2164,7 +2164,7 @@
 		"t": "source.cpp meta.function.definition.cpp meta.body.function.definition.cpp keyword.control.return.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

@@ -133,13 +133,22 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 
 	// If the extension has npm dependencies, use the Npm package manager
 	// dependency strategy.
-	const packageManger = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
+	const packageManager = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
 		vsce.PackageManager.Npm :
 		vsce.PackageManager.None;
 
 	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
-	listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
+	listExtensionFiles({ cwd: extensionPath, packageManager: packageManager, packagedDependencies }).then(fileNames => {
+		const files = fileNames
+			.map(fileName => path.join(extensionPath, fileName))
+			.map(filePath => new File({
+				path: filePath,
+				stat: fs.statSync(filePath),
+				base: extensionPath,
+				contents: fs.createReadStream(filePath)
+			}));
+
 		// check for a webpack configuration files, then invoke webpack
 		// and merge its output with the files stream.
 		const webpackConfigLocations = (<string[]>glob.sync(
@@ -206,9 +215,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 			});
 		});
 
-		const localFilesStream = createSequentialFileStream(extensionPath, fileNames);
-
-		es.merge(...webpackStreams, localFilesStream)
+		es.merge(...webpackStreams, es.readArray(files))
 			// .pipe(es.through(function (data) {
 			// 	// debug
 			// 	console.log('out', data.path, data.contents.length);
@@ -221,6 +228,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		console.error(packagedDependencies);
 		result.emit('error', err);
 	});
+
 	// --- End PWB: from Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));

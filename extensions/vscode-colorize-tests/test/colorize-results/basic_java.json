@@ -1214,7 +1214,7 @@
 		"t": "source.java meta.class.java meta.class.body.java meta.method.java meta.method.body.java keyword.control.java",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1604,7 +1604,7 @@
 		"t": "source.java meta.class.java meta.class.body.java meta.method.java meta.method.body.java keyword.control.java",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2014,7 +2014,7 @@
 		"t": "source.java meta.class.java meta.class.body.java meta.method.java meta.method.body.java keyword.control.new.java",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

@@ -4,7 +4,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14,7 +14,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -64,7 +64,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -74,7 +74,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -124,7 +124,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -134,7 +134,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -184,7 +184,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -194,7 +194,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -244,7 +244,7 @@
 		"t": "source.cuda-cpp keyword.control.directive.conditional.if.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -254,7 +254,7 @@
 		"t": "source.cuda-cpp keyword.control.directive.conditional.if.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -274,7 +274,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.conditional.cuda-cpp keyword.control.directive.conditional.defined.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -314,7 +314,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.undef.cuda-cpp keyword.control.directive.undef.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -324,7 +324,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.undef.cuda-cpp keyword.control.directive.undef.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -354,7 +354,7 @@
 		"t": "source.cuda-cpp keyword.control.directive.endif.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -364,7 +364,7 @@
 		"t": "source.cuda-cpp keyword.control.directive.endif.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -374,7 +374,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -384,7 +384,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -474,7 +474,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.do.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -534,7 +534,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp meta.block.cpp keyword.control.if.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1124,7 +1124,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.while.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1164,7 +1164,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1174,7 +1174,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1264,7 +1264,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.do.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1404,7 +1404,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp meta.block.cpp keyword.control.if.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2054,7 +2054,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.while.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2094,7 +2094,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2104,7 +2104,7 @@
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4144,7 +4144,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4534,7 +4534,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5874,7 +5874,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6424,7 +6424,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6904,7 +6904,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9924,7 +9924,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10114,7 +10114,7 @@
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.if.cuda-cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
