@@ -323,6 +323,7 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 		const streamOptions = {
 			headers: {
 				'User-Agent': `Positron/${positron.version}+${positron.buildNumber} (${os.platform()}) ${options.requestInitiator}`,
+				'Session-Id': options.modelOptions?.sessionId,
 			}
 		};
 
