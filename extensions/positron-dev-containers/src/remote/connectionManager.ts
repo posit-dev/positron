@@ -165,14 +165,18 @@ export class ConnectionManager {
 
 			// 3. Install Positron server with environment variables
 			this.logger.info('Installing Positron server in container...');
-			const serverInfo = await installAndStartServer({
-				containerId,
-				port: 0,  // Use 0 to let the OS pick a random available port
-				extensionHostEnv
+			const serverInfo = await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Installing Positron server in container...'),
+				cancellable: false
+			}, async () => {
+				return await installAndStartServer({
+					containerId,
+					port: 0,  // Use 0 to let the OS pick a random available port
+					extensionHostEnv
+				});
 			});
-			this.logger.info(`Server installed. Listening on ${serverInfo.isPort ? 'port ' + serverInfo.port : 'socket ' + serverInfo.socketPath}`);
-
-			// 3. Forward the port (if using port instead of socket)
+			this.logger.info(`Server installed. Listening on ${serverInfo.isPort ? 'port ' + serverInfo.port : 'socket ' + serverInfo.socketPath}`);			// 3. Forward the port (if using port instead of socket)
 			let localPort: number;
 			if (serverInfo.isPort && serverInfo.port) {
 				this.logger.debug(`Forwarding port ${serverInfo.port} to localhost`);
