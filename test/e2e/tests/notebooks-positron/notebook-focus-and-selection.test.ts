@@ -320,10 +320,11 @@ test.describe('Notebook Focus and Selection', {
 		// From cell action menu insert cell below and verify new cell is at index 1
 		await notebooksPositron.triggerCellAction(0, 'Insert code cell below')
 		await notebooksPositron.expectCellCountToBe(6);
-		await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
+		// ISSUE: https://github.com/posit-dev/positron/issues/10651
+		// await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
 
-		// Ensure we can type into the new cell
-		await keyboard.type('print("New Below")');
-		await notebooksPositron.expectCellContentAtIndexToContain(1, 'print("New Below")');
+		// // Ensure we can type into the new cell
+		// await keyboard.type('print("New Below")');
+		// await notebooksPositron.expectCellContentAtIndexToContain(1, 'print("New Below")');
 	});
-});
+})

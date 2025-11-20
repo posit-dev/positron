@@ -807,7 +807,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), true);
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
 	}
 
 	/**
