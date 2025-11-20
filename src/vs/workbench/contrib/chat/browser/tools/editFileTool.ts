@@ -45,7 +45,6 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 // eslint-disable-next-line no-duplicate-imports
 import { ToolProgress } from '../../common/languageModelToolsService.js';
 import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
-// --- End Positron ---
 
 const codeInstructions = `
 The edits will be automatically merged into the document and presented as a diff to the user.
@@ -78,7 +77,6 @@ Comment syntax should match the file's language:
 Notably, there are no markdown code fences or backticks like \`\`\`typescript or \`\`\`python.
 `;
 
-// --- Start Positron ---
 // To avoid name collisions with the upstream editFileTool, we are using a different name for the extension tool ID.
 // export const ExtensionEditToolId = 'vscode_editFile';
 // export const InternalEditToolId = 'vscode_editFile_internal';
