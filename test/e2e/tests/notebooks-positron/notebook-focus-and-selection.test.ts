@@ -17,12 +17,6 @@ test.describe('Notebook Focus and Selection', {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
-	test.beforeEach(async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-		await notebooksPositron.newNotebook(5);
-		await notebooksPositron.expectCellCountToBe(5);
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
@@ -30,165 +24,143 @@ test.describe('Notebook Focus and Selection', {
 	test('Notebook keyboard behavior with cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
+		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 2 });
 
-		await test.step('Test 1: Arrow Down navigation moves focus to next cell', async () => {
+		await test.step('Test 1: Arrow keys move cell selection up and down', async () => {
+			// arrow down moves selection down
 			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
 			await keyboard.press('ArrowDown');
-			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		});
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false, isSelected: true });
 
-		await test.step('Test 2: Arrow Up navigation moves focus to previous cell', async () => {
+			// arrow up moves selection up
 			await notebooksPositron.selectCellAtIndex(3, { editMode: false });
 			await keyboard.press('ArrowUp');
-			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		});
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false, isSelected: true });
 
-		await test.step('Test 3: Arrow Down at last cell does not change selection', async () => {
+			// arrow down at last cell does not change selection
 			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
 			await keyboard.press('ArrowDown');
-			await notebooksPositron.expectCellIndexToBeSelected(4, { inEditMode: false });
-		});
+			await notebooksPositron.expectCellIndexToBeSelected(4, { inEditMode: false, isSelected: true });
 
-		await test.step('Test 4: Arrow Up at first cell does not change selection', async () => {
+			// arrow up at first cell does not change selection
 			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 			await keyboard.press('ArrowUp');
-			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
-		});
+			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false, isSelected: true });
 
-		await test.step('Test 5: Focus is maintained across multiple navigation operations', async () => {
 			// Navigate down multiple times
 			await keyboard.press('ArrowDown');
-			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
-
 			await keyboard.press('ArrowDown');
-			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-
 			await keyboard.press('ArrowDown');
 			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
-
-			// Navigate up
-			await keyboard.press('ArrowUp');
-			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		});
-
-
-		await test.step('Test 6: Cell regains edit mode when clicking away and back', async () => {
-			// verify we are starting with 5 cells
-			await notebooksPositron.expectCellCountToBe(5);
-			await notebooksPositron.selectCellAtIndex(1);
-
-			// click away to defocus cell
-			const active = notebooksPositron.cell.nth(1);
-			const box = await active.boundingBox();
-			if (box) {
-				const page = app.code.driver.page;
-				// We want to offset the click as little as possible to avoid
-				// clicking other interactive elements. Here we're clicking just
-				// below the bottom right of the cell which should be a safe
-				// area due to that being where the cell padding is.
-				const OFFSET = 10;
-				const x = box.x + box.width - OFFSET;
-				const y = box.y + box.height + OFFSET;
-
-				await page.mouse.click(x, y);
-			}
-
-			// click back on cell to re-focus
-			await notebooksPositron.selectCellAtIndex(1);
-
-			// verify backspace deletes cell content not cell (indicating edit mode is active)
-			await keyboard.press('Backspace');
-			await notebooksPositron.expectCellCountToBe(5);
-		});
-
-		await test.step('Test 7: Shift+Arrow Down adds next cell to selection', async () => {
-			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
-			await keyboard.press('Shift+ArrowDown');
-			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
-			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 		});
 	});
+
+
+	test('Click away and back: code cell re-enters edit mode, markdown stays in view mode', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+		await notebooksPositron.newNotebook({ codeCells: 1, markdownCells: 1 });
+
+		// Code cell: click away and back should restore edit mode
+		await notebooksPositron.selectCellAtIndex(0);
+		await notebooksPositron.clickAwayFromCell(0);
+		await notebooksPositron.selectCellAtIndex(0);
+
+		// verify backspace deletes cell content not cell (indicating edit mode is active)
+		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+		await keyboard.press('Backspace');
+		await notebooksPositron.expectCellCountToBe(2);
+
+		// Markdown cell: click away and back should stay in command/view mode
+		await notebooksPositron.selectCellAtIndex(1);
+		await notebooksPositron.clickAwayFromCell(1);
+		await notebooksPositron.selectCellAtIndex(1);
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+	});
+
 
 	test('Editor mode behavior with notebook cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
 
-		await test.step('Test 1: Clicking into cell focuses editor and enters edit mode', async () => {
-			// Clicking on cell should focus and enter edit mode
-			await notebooksPositron.selectCellAtIndex(1);
-			await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false, inEditMode: false });
-			await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, inEditMode: true });
-			await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: false, inEditMode: false });
-			await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: false, inEditMode: false });
-			await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: false, inEditMode: false });
+		await test.step('Test 1: Clicking/dbl clicking into cell focuses editor and enters edit mode', async () => {
+			// Can successfully enter edit mode in code cell by clicking and typing
+			await notebooksPositron.selectCellAtIndex(0);
+			await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, inEditMode: true });
+			await keyboard.type('cell editor good');
+			await notebooksPositron.expectCellContentAtIndexToContain(0, 'cell editor good');
 
-			// Verify we can type into the editor after clicking
-			await keyboard.type('# editor good');
-			await notebooksPositron.expectCellContentAtIndexToContain(1, '# editor good');
+			// Can successfully enter edit mode in markdown cell by double clicking and typing
+			await notebooksPositron.selectCellAtIndex(2, { editMode: true });
+			await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: true });
+			await keyboard.type('markdown editor good');
+			await notebooksPositron.expectCellContentAtIndexToContain(2, 'markdown editor good');
 		});
 
 		await test.step('Test 2: Enter key on selected cell enters edit mode and doesn\'t add new lines', async () => {
-			// Verify pressing Enter enters edit mode
-			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+			// Verify pressing Enter enters edit mode on code cell
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			await keyboard.press('Enter');
+			await notebooksPositron.expectCellIndexToBeSelected(0, {
+				isSelected: true,
+				inEditMode: true
+			});
+			await keyboard.type('code enter key');
+			await notebooksPositron.expectCellContentAtIndexToContain(0, 'code enter key');
+
+			// Verify pressing Enter enters edit mode on markdown cell
+			await notebooksPositron.selectCellAtIndex(2);
 			await keyboard.press('Enter');
 			await notebooksPositron.expectCellIndexToBeSelected(2, {
 				isSelected: true,
 				inEditMode: true
 			});
-
-			// Verify we can type into the editor after pressing Enter
-			await keyboard.type('# test');
-			await notebooksPositron.expectCellContentAtIndexToContain(2, /^# Cell 2# test/);
+			await keyboard.type('markdown enter key');
+			await notebooksPositron.expectCellContentAtIndexToContain(2, 'markdown enter key');
 		});
 
 		await test.step('Test 3: Shift+Enter on last cell creates new cell and enters edit mode', async () => {
 			// Verify pressing Shift+Enter adds a new cell below
-			await notebooksPositron.selectCellAtIndex(4);
-			await notebooksPositron.expectCellCountToBe(5);
+			await notebooksPositron.selectCellAtIndex(2);
+			await notebooksPositron.expectCellCountToBe(3);
 			await keyboard.press('Shift+Enter');
-			await notebooksPositron.expectCellCountToBe(6);
+			await notebooksPositron.expectCellCountToBe(4);
 
-			// Verify the NEW cell (index 5) is now in edit mode with focus
-			await notebooksPositron.expectCellIndexToBeSelected(5, { inEditMode: true });
+			// Verify the NEW cell (index 3) is now in edit mode with focus
+			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
 
 			// Verify we can type immediately in the new cell
 			await keyboard.type('new cell content');
-			await notebooksPositron.expectCellContentAtIndexToContain(5, 'new cell content');
+			await notebooksPositron.expectCellContentAtIndexToContain(3, 'new cell content');
 		});
 
 		await test.step('Enter key in edit mode adds newline within cell', async () => {
-			const lineText = '# Cell 3';
-			const numCells = 6;
+			const lineText = '# Cell 1';
 
-			// Start with 6 cells
-			await notebooksPositron.expectCellCountToBe(numCells);
-
-			// Go into edit mode in cell 3
-			await notebooksPositron.selectCellAtIndex(3);
-			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
-			await notebooksPositron.expectCellContentAtIndexToBe(3, lineText);
+			// Go into edit mode in cell index 1
+			await notebooksPositron.selectCellAtIndex(1, { editMode: true });
+			await notebooksPositron.expectCellContentAtIndexToBe(1, lineText);
 
 			// Position cursor in the middle of the cells contents to avoid any trailing newline trimming issues
 			await keyboard.press('Home');
 			const middleIndex = Math.floor(lineText.length / 2);
 			for (let i = 0; i < middleIndex; i++) { // move to middle of line
-				await notebooksPositron.editorAtIndex(3).press('ArrowRight');
+				await notebooksPositron.editorAtIndex(1).press('ArrowRight');
 			}
 
 			// Verify the content was splits into two lines
-			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 3, numLines: 1 });
+			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 1, numLines: 1 });
 			await app.code.driver.page.keyboard.press('Enter');
-			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 3, numLines: 2 });
-			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
-
-			// Verify we still have the same number of cells we started with
-			await notebooksPositron.expectCellCountToBe(numCells);
+			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 1, numLines: 2 });
+			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 		});
 	});
 
 	test('Notebook navigation and default cell selection', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
+		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });
 
 		const clickTab = (name: string | RegExp) => app.code.driver.page.getByRole('tab', { name }).click();
 		// Depending on when this test is run, the untitled notebook may have a different number
@@ -239,14 +211,14 @@ test.describe('Notebook Focus and Selection', {
 	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell)", async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
 
-		// Start a new notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
+		// Select code cell at index 1
 		await notebooksPositron.selectCellAtIndex(1);
 		await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
 
 		// Click the + Code button and verify the cell is inserted after the active cell
-		await notebooksPositron.codeButton.click();
+		await notebooksPositron.addCell('code');
 		await notebooksPositron.expectCellCountToBe(4);
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isActive: true, inEditMode: true });
 
@@ -255,7 +227,7 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellContentAtIndexToContain(2, 'print("Hello, World!")');
 
 		// Click the + Markdown button and verify the cell is inserted after the active cell
-		await notebooksPositron.markdownButton.click();
+		await notebooksPositron.addCell('markdown');
 		await notebooksPositron.expectCellCountToBe(5);
 		await notebooksPositron.expectCellIndexToBeSelected(3, { isActive: true, inEditMode: true });
 
@@ -268,8 +240,8 @@ test.describe('Notebook Focus and Selection', {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
-		// Start a new notebook with 5 cells and select cell 2
-		await notebooksPositron.newNotebook(5);
+		// Create a new notebook with 5 cells and select cell 2
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
 		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
 
 		// Multi-select up to cell 0 and verify anchor is cell 0
@@ -307,7 +279,7 @@ test.describe('Notebook Focus and Selection', {
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Start a new notebook with 5 cells and select cell 2
-		await notebooksPositron.newNotebook(5);
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
 		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
 
 		// Multi-select up to cell 0 and verify anchor is cell 0

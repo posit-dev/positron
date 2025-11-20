@@ -36,8 +36,8 @@ export class PositronNotebooks extends Notebooks {
 	// Editor action bar
 	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
 	kernel: Kernel;
-	markdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
-	codeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
+	private addMarkdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
+	private addCodeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
@@ -103,6 +103,16 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Get the type of cell at the specified index.
+	 * @param cellIndex - The index of the cell.
+	 * @returns - 'code' or 'markdown' depending on the cell type.
+	 */
+	async getCellType(cellIndex: number): Promise<'code' | 'markdown'> {
+		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
+		return ariaLabel === 'Markdown cell' ? 'markdown' : 'code';
+	}
+
 	// #endregion
 
 	// #region ACTIONS
@@ -158,15 +168,28 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Create a new Positron notebook.
 	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
 	 */
-	async newNotebook(numCellsToAdd = 0): Promise<void> {
+	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number, markdownCells?: number }): Promise<void> {
 		await this.createNewNotebook();
 		await this.expectToBeVisible();
-		if (numCellsToAdd > 0) {
-			for (let i = 0; i < numCellsToAdd; i++) {
+
+		let totalCellsAdded = 0;
+		const keyboard = this.code.driver.page.keyboard;
+
+		if (codeCells > 0) {
+			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
+				totalCellsAdded++;
 			}
-			await this.expectCellCountToBe(numCellsToAdd);
 		}
+
+		if (markdownCells > 0) {
+			for (let i = 0; i < markdownCells; i++) {
+				await this.addCell('markdown');
+				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				totalCellsAdded++;
+			}
+		}
+		await this.expectCellCountToBe(codeCells + markdownCells);
 	}
 
 	/**
@@ -179,27 +202,89 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Click away from a cell to defocus it.
+	 * @param cellIndex - The index of the cell to click away from.
+	 */
+	async clickAwayFromCell(cellIndex: number) {
+		const cell = this.cell.nth(cellIndex);
+		const box = await cell.boundingBox();
+		if (!box) {
+			return;
+		}
+
+		// We want to offset the click as little as possible to avoid
+		// clicking other interactive elements. Here we're clicking just
+		// below the bottom right of the cell which should be a safe
+		// area due to that being where the cell padding is.
+		const OFFSET = 10;
+		const x = box.x + box.width - OFFSET;
+		const y = box.y + box.height + OFFSET;
+
+		await this.code.driver.page.mouse.click(x, y);
+	};
+
+	/**
+	 * Action: Add a new cell of the specified type.
+	 * @param type - The type of cell to add ('code' or 'markdown').
+	 */
+	async addCell(type: 'code' | 'markdown'): Promise<void> {
+		const beforeCount = await this.getCellCount();
+
+		type === 'code'
+			? await this.addCodeButton.click()
+			: await this.addMarkdownButton.click();
+
+		await expect(this.cell).toHaveCount(beforeCount + 1, { timeout: DEFAULT_TIMEOUT });
+	}
+
+	/**
 	 * Action: Select a cell at the specified index.
 	 * @param cellIndex - The index of the cell to select.
 	 */
-	async selectCellAtIndex(cellIndex: number, { editMode = true }: { editMode?: boolean } = {}): Promise<void> {
+	async selectCellAtIndex(
+		cellIndex: number,
+		{ editMode = undefined }: { editMode?: boolean } = {}
+	): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}, edit mode: ${editMode}`, async () => {
-			// click cell and verify selected & edit mode
-			await this.cell.nth(cellIndex).click();
-			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
+			const cell = this.cell.nth(cellIndex);
+			const cellType = await this.getCellType(cellIndex);
+			const isMarkdown = cellType === 'markdown';
 
+			await cell.click();
 
-			if (!editMode) {
-				await test.step('Exit edit mode', async () => {
-					// press escape to exit edit mode
-					await this.code.driver.page.waitForTimeout(500);
-					await expect(async () => {
-						await this.code.driver.page.keyboard.press('Escape');
-						await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false, timeout: 2000 });
-					}, 'should NOT be in edit mode').toPass({ timeout: 15000 });
+			if (editMode === undefined) {
+				await this.expectCellIndexToBeSelected(cellIndex, {
+					isSelected: true,
+				});
+			} else {
+				if (editMode && isMarkdown) { await cell.dblclick(); }
+
+				if (!editMode) {
+					await test.step('Exit edit mode', async () => {
+						// give the editor a moment to settle before toggling mode
+						await this.code.driver.page.waitForTimeout(500);
+
+						await expect(
+							async () => {
+								await this.code.driver.page.keyboard.press('Escape');
+								await this.expectCellIndexToBeSelected(cellIndex, {
+									isSelected: true,
+									inEditMode: false,
+									timeout: 2000
+								});
+							},
+							'should NOT be in edit mode'
+						).toPass({ timeout: 15000 });
+					});
+				}
+				await this.expectCellIndexToBeSelected(cellIndex, {
+					isSelected: true,
+					inEditMode: editMode
 				});
 			}
 		});
+
+
 	}
 
 	/**
@@ -258,6 +343,18 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Enter edit mode for the cell at the specified index.
+	 * @param cellIndex - The index of the cell to enter edit mode for.
+	 */
+	async editModeAtIndex(cellIndex: number): Promise<void> {
+		// Determine if cell is markdown or code and enter edit mode accordingly
+		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
+		ariaLabel === 'Markdown cell'
+			? await this.cell.nth(cellIndex).dblclick()
+			: await this.cell.nth(cellIndex).click();
+	};
+
+	/**
 	 * Action: Add code to a cell at the specified index and run it.
 	 *
 	 * @param code - The code to add to the cell.
@@ -284,11 +381,7 @@ export class PositronNotebooks extends Notebooks {
 				await this.addCodeCellToEnd();
 			}
 
-			// Determine if cell is markdown or code and enter edit mode accordingly
-			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-			ariaLabel === 'Markdown cell'
-				? await this.cell.nth(cellIndex).dblclick()
-				: await this.cell.nth(cellIndex).click();
+			await this.editModeAtIndex(cellIndex);
 
 			// Focus the editor for the cell
 			const editor = this.editorAtIndex(cellIndex);
@@ -624,13 +717,16 @@ export class PositronNotebooks extends Notebooks {
 				}
 			});
 
-			await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
-				const editorFocused = this.cell.nth(expectedIndex).locator('.monaco-editor-background').locator('.focused');
-				inEditMode
-					? await expect(editorFocused).toHaveCount(1)
-					: await expect(editorFocused).toHaveCount(0);
+			if (inEditMode !== undefined) {
+				await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
+					const editorFocused = this.cell.nth(expectedIndex).locator('.monaco-editor-background').locator('.focused');
+					inEditMode
+						? await expect(editorFocused).toHaveCount(1)
+						: await expect(editorFocused).toHaveCount(0);
 
-			});
+				});
+			}
+
 		}, `Cell selection and edit mode`).toPass({ timeout: options?.timeout ?? DEFAULT_TIMEOUT });
 	}
 
