@@ -40,16 +40,16 @@ export class PositronNotebooks extends Notebooks {
 	codeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
 	// Cell action buttons, menus, tooltips, output, etc
-	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
+	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /More Cell Actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
-	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/run cell/i);
+	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true })
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
-	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
+	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	collapseMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Collapse markdown editor' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
@@ -531,7 +531,7 @@ export class PositronNotebooks extends Notebooks {
 
 				// hover over the run button to show the tooltip
 				await this.cell.nth(index).click();
-				await this.code.driver.page.getByRole('button', { name: 'Run cell' }).hover();
+				await this.runCellButtonAtIndex(index).hover();
 
 				// make sure only the right tooltip is visible (i've been seeing multiple tooltips sometimes)
 				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible();
