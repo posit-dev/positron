@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
+import { getLanguageModels } from './models.js';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -83,51 +84,60 @@ function getRelatedSettings(): string {
 		.join(',\n');
 }
 
-async function getModelInfo(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
+async function getConfiguredProviders(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
 	const storedModels = getStoredModels(context);
+	const envModels = getEnvironmentConfiguredModels();
 
-	if (storedModels.length === 0) {
+	const modelsByProvider = new Map<string, typeof storedModels>();
+	for (const model of storedModels) {
+		const existing = modelsByProvider.get(model.provider);
+		if (existing) {
+			existing.push(model);
+		} else {
+			modelsByProvider.set(model.provider, [model]);
+		}
+	}
+
+	const modelInfos = await Promise.all(
+		Array.from(modelsByProvider.entries()).map(async ([provider, models]) => {
+			// Use the first model for shared properties
+			const firstModel = models[0];
+			const types = [...new Set(models.map(m => m.type))];
+
+			const fields = [
+				`- **${firstModel.name}**`,
+				`	- Provider: ${provider}`,
+				`	- Types: ${types.join(', ')}`,
+			];
+
+			if (firstModel.baseUrl) {
+				fields.push(`	- Base URL: ${firstModel.baseUrl}`);
+			}
+
+			// Report if an API key is configured (check first model's ID)
+			try {
+				const apiKey = await context.secrets.get(`apiKey-${firstModel.id}`);
+				if (apiKey) {
+					fields.push(`	- API Key: Yes`);
+				}
+			} catch (error) {
+				log.trace(`Failed to check API key for model ${firstModel.id}: ${formatError(error)}`);
+			}
+
+			return fields.join('\n');
+		})
+	);
+
+	const allModels = [...modelInfos];
+	if (envModels) {
+		allModels.push(envModels);
+	}
+
+	if (allModels.length === 0) {
 		return 'No models configured';
 	}
 
-	const modelInfos = await Promise.all(storedModels.map(async model => {
-		const fields = [
-			`- **${model.name}**`,
-			`	- Provider: ${model.provider}`,
-			`	- Type: ${model.type}`,
-		];
-
-		if (model.toolCalls !== undefined) {
-			fields.push(`	- Tool Calls: ${model.toolCalls}`);
-		}
-
-		if (model.completions !== undefined) {
-			fields.push(`	- Completions: ${model.completions}`);
-		}
-
-		if (model.baseUrl) {
-			fields.push(`	- Base URL: ${model.baseUrl}`);
-		}
-
-		// Report if an API key is configured
-		try {
-			const apiKey = await context.secrets.get(`apiKey-${model.id}`);
-			if (apiKey) {
-				fields.push(`	- API Key: Yes`);
-			}
-		} catch (error) {
-			log.trace(`Failed to check API key for model ${model.id}: ${formatError(error)}`);
-		}
-
-		fields.push(
-			`	- Max Input Tokens: ${model.maxInputTokens ?? `default (${DEFAULT_MAX_TOKEN_INPUT})`}`,
-			`	- Max Output Tokens: ${model.maxOutputTokens ?? `default (${DEFAULT_MAX_TOKEN_OUTPUT})`}`
-		);
-
-		return fields.join('\n');
-	}));
-
-	return modelInfos.join('\n\n');
+	return allModels.join('\n\n');
 }
 
 async function getAvailableModels(): Promise<string> {
@@ -193,6 +203,37 @@ async function getChatExportInfo(): Promise<string> {
 	}
 }
 
+function getEnvironmentConfiguredModels(): string {
+	const models = getLanguageModels();
+	const envModels = models
+		.filter(model => {
+			const defaults = model.source.defaults as any;
+			if (!('apiKeyEnvVar' in defaults && defaults.apiKeyEnvVar)) {
+				return false;
+			}
+			const envVarConfig = defaults.apiKeyEnvVar as { key: string; signedIn: boolean };
+			const key = envVarConfig.key;
+			// Only include if the environment variable is actually set
+			return !!process.env[key];
+		})
+		.map(model => {
+			const defaults = model.source.defaults as any;
+			const envVarConfig = defaults.apiKeyEnvVar as { key: string; signedIn: boolean };
+			const key = envVarConfig.key;
+
+			const fields = [
+				`- **${model.source.provider.displayName}**`,
+				`\t- Provider: ${model.source.provider.id}`,
+				`\t- Type: ${model.source.type}`,
+				`\t- API Key: Yes (\`${key}\`)`,
+			];
+
+			return fields.join('\n');
+		});
+
+	return envModels.length > 0 ? envModels.join('\n\n') : '';
+}
+
 function getVersionInfo(): string {
 	const assistantExt = vscode.extensions.getExtension('positron.positron-assistant');
 	const copilotExt = vscode.extensions.getExtension('github.copilot-chat');
@@ -244,7 +285,7 @@ Positron Assistant and GitHub Copilot settings:
 
 ## Configured Providers
 
-${await getModelInfo(context, log)}
+${await getConfiguredProviders(context, log)}
 
 ### Available Models
 
