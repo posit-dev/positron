@@ -629,6 +629,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				toolInvocationToken: request.toolInvocationToken,
 				// Pass the request ID through modelOptions for token usage tracking
 				requestId: request.id,
+				// Pass the session ID through modelOptions for chat session tracking
+				sessionId: request.sessionId,
 			},
 		}, token);
 

@@ -123,6 +123,13 @@ export function TracingFixture() {
 			const isCI = process.env.CI === 'true';
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {
 				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+			} else if (isCI) {
+				// In CI, delete trace files for passing tests to save disk space in blob reports
+				try {
+					await fs.promises.unlink(tracePath);
+				} catch (error) {
+					// Ignore - trace file may not exist or may already be deleted
+				}
 			}
 		}
 	};

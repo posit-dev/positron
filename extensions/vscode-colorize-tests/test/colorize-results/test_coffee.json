@@ -364,7 +364,7 @@
 		"t": "source.coffee meta.class.coffee keyword.control.inheritance.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -674,7 +674,7 @@
 		"t": "source.coffee keyword.control.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -874,7 +874,7 @@
 		"t": "source.coffee keyword.control.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -894,7 +894,7 @@
 		"t": "source.coffee keyword.control.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1144,7 +1144,7 @@
 		"t": "source.coffee keyword.control.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1164,7 +1164,7 @@
 		"t": "source.coffee keyword.control.coffee",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

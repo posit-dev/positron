@@ -12,6 +12,7 @@ type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorker
 
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
+const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -23,8 +24,8 @@ export default defineConfig<ExtendedTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
 	shardingMode: 'duration-round-robin',
+	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: [
 		'example.test.ts',
@@ -46,7 +47,7 @@ export default defineConfig<ExtendedTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			['@midleman/github-actions-reporter'],
+			...githubSummaryReport,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'

@@ -224,7 +224,7 @@
 		"t": "source.js.jsx meta.var.expr.js.jsx meta.objectliteral.js.jsx meta.object.member.js.jsx meta.function.expression.js.jsx meta.block.js.jsx keyword.control.flow.js.jsx",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1134,7 +1134,7 @@
 		"t": "source.js.jsx meta.var.expr.js.jsx meta.objectliteral.js.jsx meta.object.member.js.jsx meta.function.expression.js.jsx meta.block.js.jsx keyword.control.conditional.js.jsx",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1394,7 +1394,7 @@
 		"t": "source.js.jsx meta.var.expr.js.jsx meta.objectliteral.js.jsx meta.object.member.js.jsx meta.function.expression.js.jsx meta.block.js.jsx keyword.control.flow.js.jsx",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

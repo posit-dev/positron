@@ -394,6 +394,13 @@ export enum PositronLanguageModelType {
 	Completion = 'completion',
 }
 
+// Equivalent in positron.d.ts API: LanguageModelAutoconfigureType
+export enum LanguageModelAutoconfigureType {
+	EnvVariable = 0,
+	Custom = 1
+}
+
+
 /**
  * The possible locations a Positron Assistant chat request can be invoked from.
  */

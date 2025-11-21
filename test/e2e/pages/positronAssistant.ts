@@ -11,7 +11,7 @@ import { Toasts } from './dialog-toasts';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Configure Model Providers..."]';
+const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -31,14 +31,14 @@ const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="bu
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
-const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label^="Send"]';
+const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage language models"]';
+const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -71,7 +71,11 @@ export class Assistant {
 	}
 
 	async clickAddModelButton() {
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click();
+		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
+		if (!addModelLinkIsVisible) {
+			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		}
+		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
 	}
 
 	async verifyAddModelLinkVisible() {
@@ -80,6 +84,7 @@ export class Assistant {
 	}
 
 	async verifyAddModelButtonVisible() {
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
 	}

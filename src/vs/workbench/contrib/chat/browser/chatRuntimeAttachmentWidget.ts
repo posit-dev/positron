@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
-import { IHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegate.js';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
@@ -50,12 +49,11 @@ export class RuntimeSessionAttachmentWidget extends AbstractChatAttachmentWidget
 		options: { shouldFocusClearButton: boolean; supportsDeletion: boolean },
 		container: HTMLElement,
 		contextResourceLabels: ResourceLabels,
-		hoverDelegate: IHoverDelegate,
 		@ICommandService commandService: ICommandService,
 		@IOpenerService openerService: IOpenerService,
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 	) {
-		super(attachment, options, container, contextResourceLabels, hoverDelegate, currentLanguageModel, commandService, openerService);
+		super(attachment, options, container, contextResourceLabels, currentLanguageModel, commandService, openerService);
 
 		// Build the label text with runtime icon if available
 		const attachmentLabel = attachment.fullName ?? attachment.name;

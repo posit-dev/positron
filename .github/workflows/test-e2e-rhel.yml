@@ -209,6 +209,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 

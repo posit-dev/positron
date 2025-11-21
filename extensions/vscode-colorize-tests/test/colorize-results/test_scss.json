@@ -84,7 +84,7 @@
 		"t": "source.css.scss meta.at-rule.charset.scss keyword.control.at-rule.charset.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -94,7 +94,7 @@
 		"t": "source.css.scss meta.at-rule.charset.scss keyword.control.at-rule.charset.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5044,7 +5044,7 @@
 		"t": "source.css.scss meta.at-rule.function.scss keyword.control.at-rule.function.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5054,7 +5054,7 @@
 		"t": "source.css.scss meta.at-rule.function.scss keyword.control.at-rule.function.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5144,7 +5144,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5154,7 +5154,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5564,7 +5564,7 @@
 		"t": "source.css.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5574,7 +5574,7 @@
 		"t": "source.css.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5734,7 +5734,7 @@
 		"t": "source.css.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5744,7 +5744,7 @@
 		"t": "source.css.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5954,7 +5954,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5964,7 +5964,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.import.scss keyword.control.at-rule.import.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6184,7 +6184,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.media.scss keyword.control.at-rule.media.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6194,7 +6194,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.media.scss keyword.control.at-rule.media.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6734,7 +6734,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6744,7 +6744,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7194,7 +7194,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7204,7 +7204,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7314,7 +7314,7 @@
 		"t": "source.css.scss meta.at-rule.warn.scss keyword.control.warn.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7324,7 +7324,7 @@
 		"t": "source.css.scss meta.at-rule.warn.scss keyword.control.warn.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7354,7 +7354,7 @@
 		"t": "source.css.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7364,7 +7364,7 @@
 		"t": "source.css.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7474,7 +7474,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7484,7 +7484,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7574,7 +7574,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.at-rule.warn.scss keyword.control.warn.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7584,7 +7584,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.at-rule.warn.scss keyword.control.warn.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7824,7 +7824,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7834,7 +7834,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7924,7 +7924,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.at-rule.warn.scss keyword.control.warn.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7934,7 +7934,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.property-list.scss meta.at-rule.warn.scss keyword.control.warn.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8454,7 +8454,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8464,7 +8464,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8714,7 +8714,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8724,7 +8724,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8934,7 +8934,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8944,7 +8944,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9204,7 +9204,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9214,7 +9214,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9374,7 +9374,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.else.scss keyword.control.else.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9384,7 +9384,7 @@
 		"t": "source.css.scss meta.property-list.scss meta.at-rule.else.scss keyword.control.else.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9524,7 +9524,7 @@
 		"t": "source.css.scss meta.at-rule.for.scss keyword.control.for.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9534,7 +9534,7 @@
 		"t": "source.css.scss meta.at-rule.for.scss keyword.control.for.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9574,7 +9574,7 @@
 		"t": "source.css.scss meta.at-rule.for.scss keyword.control.operator",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9614,7 +9614,7 @@
 		"t": "source.css.scss meta.at-rule.for.scss keyword.control.operator",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9914,7 +9914,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss keyword.control.each.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9924,7 +9924,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss keyword.control.each.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9964,7 +9964,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss keyword.control.operator",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10344,7 +10344,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss keyword.control.while.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10354,7 +10354,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss keyword.control.while.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10794,7 +10794,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.function.scss keyword.control.at-rule.function.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10804,7 +10804,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.function.scss keyword.control.at-rule.function.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10924,7 +10924,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.for.scss keyword.control.for.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10934,7 +10934,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.for.scss keyword.control.for.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -10974,7 +10974,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.for.scss keyword.control.operator",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11014,7 +11014,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.for.scss keyword.control.operator",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11074,7 +11074,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11084,7 +11084,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11434,7 +11434,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11444,7 +11444,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11554,7 +11554,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11564,7 +11564,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.return.scss keyword.control.return.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11644,7 +11644,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -11654,7 +11654,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12084,7 +12084,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12094,7 +12094,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12244,7 +12244,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12254,7 +12254,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12684,7 +12684,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12694,7 +12694,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12814,7 +12814,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -12824,7 +12824,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13154,7 +13154,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13164,7 +13164,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13494,7 +13494,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13504,7 +13504,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13974,7 +13974,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -13984,7 +13984,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14104,7 +14104,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14114,7 +14114,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14234,7 +14234,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.content.scss keyword.control.content.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14284,7 +14284,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14294,7 +14294,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14524,7 +14524,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.if.scss keyword.control.if.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14534,7 +14534,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.if.scss keyword.control.if.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14594,7 +14594,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14604,7 +14604,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14944,7 +14944,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.page.scss keyword.control.at-rule.page.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14954,7 +14954,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.at-rule.page.scss keyword.control.at-rule.page.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -15564,7 +15564,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -15574,7 +15574,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16054,7 +16054,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16064,7 +16064,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.mixin.scss keyword.control.at-rule.mixin.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16174,7 +16174,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16184,7 +16184,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16264,7 +16264,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16274,7 +16274,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.extend.scss keyword.control.at-rule.extend.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16604,7 +16604,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16614,7 +16614,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.property-list.scss meta.at-rule.include.scss keyword.control.at-rule.include.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16744,7 +16744,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.fontface.scss keyword.control.at-rule.fontface.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -16754,7 +16754,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.fontface.scss keyword.control.at-rule.fontface.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -17524,7 +17524,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -17534,7 +17534,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -17814,7 +17814,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -17824,7 +17824,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -18374,7 +18374,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss punctuation.definition.keyword.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -18384,7 +18384,7 @@
 		"t": "source.css.scss meta.at-rule.each.scss meta.at-rule.while.scss meta.property-list.scss meta.at-rule.keyframes.scss keyword.control.at-rule.keyframes.scss",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

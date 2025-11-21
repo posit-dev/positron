@@ -60,12 +60,12 @@ export class PanelPart extends AbstractPaneCompositePart {
 		const activeComposite = this.getActivePaneComposite();
 
 		if (!activeComposite) {
-			return;
+			return undefined;
 		}
 
 		const width = activeComposite.getOptimalWidth();
 		if (typeof width !== 'number') {
-			return;
+			return undefined;
 		}
 
 		return Math.max(width, 300);
@@ -101,7 +101,7 @@ export class PanelPart extends AbstractPaneCompositePart {
 	) {
 		super(
 			Parts.PANEL_PART,
-			{ hasTitle: true },
+			{ hasTitle: true, trailingSeparator: true },
 			PanelPart.activePanelSettingsKey,
 			ActivePanelContext.bindTo(contextKeyService),
 			PanelFocusContext.bindTo(contextKeyService),

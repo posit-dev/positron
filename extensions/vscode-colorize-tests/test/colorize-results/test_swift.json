@@ -464,7 +464,7 @@
 		"t": "source.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.loop.swift",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -484,7 +484,7 @@
 		"t": "source.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.loop.swift",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -524,7 +524,7 @@
 		"t": "source.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.branch.swift",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -614,7 +614,7 @@
 		"t": "source.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.transfer.swift",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -694,7 +694,7 @@
 		"t": "source.swift meta.definition.function.swift meta.definition.function.body.swift keyword.control.transfer.swift",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

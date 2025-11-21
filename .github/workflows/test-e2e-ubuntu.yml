@@ -238,6 +238,8 @@ jobs:
           USE_KEY: true
           PW_JSON_FILE: test-results/ubuntu.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
+          HOME: /root # adding to ensure HOME is consistent across all workflows and Playwright will find its cached browsers
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then

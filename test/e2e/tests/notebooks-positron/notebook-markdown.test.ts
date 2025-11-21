@@ -55,8 +55,7 @@ test.describe('Positron Notebooks: Markdown Cells', {
 
 		// verify markdown cell created and in edit mode
 		await notebooksPositron.expectCellCountToBe(2);
-		// ISSUE # 10255 - markdown cell is not in edit mode by default after creation
-		// await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 
 		// add markdown content to cell
 		await notebooksPositron.addCodeToCell(1, 'This is **bold** and this is *italic*');

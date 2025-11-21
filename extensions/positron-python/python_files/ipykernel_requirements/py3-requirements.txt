@@ -9,8 +9,8 @@
 appnope==0.1.4 \
     --hash=sha256:502575ee11cd7a28c0205f379b525beefebab9d161b7c964670864014ed7213c
     # via ipykernel
-asttokens==3.0.0 \
-    --hash=sha256:e3078351a059199dd5138cb1c706e6430c05eff2ff136af5eb4790f9d28932e2
+asttokens==3.0.1 \
+    --hash=sha256:15a3ebc0f43c2d0a50eeafea25e19046c68398e487b9f1f5b517f7c0f40f976a
     # via stack-data
 comm==0.2.3 \
     --hash=sha256:c615d91d75f7f04f095b30d1c1711babd43bdc6419c1be9886a85f2f4e489417
@@ -75,8 +75,8 @@ jupyter-core==5.8.1 \
     # via
     #   ipykernel
     #   jupyter-client
-matplotlib-inline==0.1.7 \
-    --hash=sha256:df192d39a4ff8f21b1895d72e6a13f5fcc5099f00fa84384e0ea28c2cc0653ca
+matplotlib-inline==0.2.1 \
+    --hash=sha256:d56ce5156ba6085e00a9d54fead6ed29a9c47e215cd1bba2e976ef39f5710a76
     # via
     #   ipykernel
     #   ipython
