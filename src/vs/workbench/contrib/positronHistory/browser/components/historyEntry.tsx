@@ -125,7 +125,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			const height = entryRef.current.offsetHeight;
 			onHeightChange(height);
 		}
-	});
+	}, [isExpanded, colorizedHtml, onHeightChange]);
 
 	/**
 	 * Apply font info after render
@@ -202,7 +202,13 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			ref={entryRef}
 			style={styleWithoutHeight}
 			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
-			onClick={onSelect}
+			onMouseDown={(e) => {
+				// Use onMouseDown instead of onClick to ensure selection happens before focus events
+				// This prevents the two-click issue when the panel is unfocused
+				if (e.button === 0) { // Only handle left clicks
+					onSelect();
+				}
+			}}
 			onContextMenu={handleContextMenu}
 		>
 			<div className="history-entry-content">

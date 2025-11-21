@@ -66,6 +66,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	// Refs
 	const listRef = useRef<List>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 
@@ -128,12 +129,21 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const loadHistory = () => {
 		if (currentLanguage) {
 			const historyEntries = executionHistoryService.getInputEntries(currentLanguage);
-			setEntries(historyEntries);
+
+			// Filter out consecutive duplicates
+			const filteredEntries = historyEntries.filter((entry, index) => {
+				if (index === 0) {
+					return true;
+				}
+				return entry.input !== historyEntries[index - 1].input;
+			});
+
+			setEntries(filteredEntries);
 
 			// Auto-scroll to bottom if enabled
-			if (autoScrollEnabled && historyEntries.length > 0 && listRef.current) {
+			if (autoScrollEnabled && filteredEntries.length > 0 && listRef.current) {
 				setTimeout(() => {
-					listRef.current?.scrollToItem(historyEntries.length - 1, 'end');
+					listRef.current?.scrollToItem(filteredEntries.length - 1, 'end');
 				}, 0);
 			}
 		}
@@ -171,6 +181,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleSelect = (index: number) => {
 		setSelectedIndex(index);
+		// Focus the container to ensure active selection styling
+		if (containerRef.current) {
+			containerRef.current.focus();
+		}
 		// Scroll to make the selected item visible
 		if (listRef.current) {
 			listRef.current.scrollToItem(index, 'smart');
@@ -408,6 +422,30 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 	}, [entries.length, autoScrollEnabled]);
 
+	/**
+	 * Track focus state by monitoring focus/blur events on the document
+	 */
+	useEffect(() => {
+		const updateFocusState = () => {
+			if (containerRef.current) {
+				const isFocused = containerRef.current.contains(document.activeElement);
+				setHasFocus(isFocused);
+			}
+		};
+
+		// Check immediately
+		updateFocusState();
+
+		// Listen to focus and blur events on the document
+		document.addEventListener('focusin', updateFocusState);
+		document.addEventListener('focusout', updateFocusState);
+
+		return () => {
+			document.removeEventListener('focusin', updateFocusState);
+			document.removeEventListener('focusout', updateFocusState);
+		};
+	}, []);
+
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className="positron-history-panel">
@@ -443,10 +481,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				</PositronActionBar>
 
 				<div
+					ref={containerRef}
 					className="history-list-container"
 					onKeyDown={handleKeyDown}
-					onFocus={() => setHasFocus(true)}
-					onBlur={() => setHasFocus(false)}
 					tabIndex={0}
 				>
 					{entries.length === 0 ? (

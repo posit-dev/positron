@@ -39,15 +39,6 @@
 	background-color: var(--vscode-list-hoverBackground);
 }
 
-.history-entry.selected {
-	background-color: var(--vscode-list-activeSelectionBackground);
-	color: var(--vscode-list-activeSelectionForeground);
-}
-
-.history-entry.selected:hover {
-	background-color: var(--vscode-list-activeSelectionBackground);
-}
-
 .history-entry.selected-unfocused {
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 	color: var(--vscode-list-inactiveSelectionForeground);
@@ -55,6 +46,15 @@
 
 .history-entry.selected-unfocused:hover {
 	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.history-entry.selected {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.history-entry.selected:hover {
+	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
 .history-entry-content {
