@@ -1209,6 +1209,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._assertTextModel();
 		const modelCells = this.textModel.cells;
 
+		// Track if we're transitioning from empty to non-empty or vice versa
+		const wasEmpty = this.cells.get().length === 0;
+		const willBeEmpty = modelCells.length === 0;
+
 		const cellModelToCellMap = new Map(
 			this.cells.get().map(cell => [cell.model, cell])
 		);
@@ -1250,6 +1254,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
 		this.cells.set(cells, undefined);
+
+		// Handle focus management for empty/non-empty transitions
+		if (!wasEmpty && willBeEmpty && this._container) {
+			// Transitioned to empty: focus the container
+			this._container.focus();
+		}
 	}
 
 	/**

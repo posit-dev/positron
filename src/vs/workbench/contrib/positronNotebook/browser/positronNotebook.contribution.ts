@@ -1081,9 +1081,7 @@ registerAction2(class extends NotebookAction2 {
 			}],
 			keybinding: {
 				when: ContextKeyExpr.and(
-					// this check allows pasting into empty notebooks
-					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					// do not trigger this action when pressing "V" in a cell editor
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				weight: KeybindingWeight.EditorContrib,
@@ -1114,9 +1112,7 @@ registerAction2(class extends NotebookAction2 {
 			}],
 			keybinding: {
 				when: ContextKeyExpr.and(
-					// this check allows pasting into empty notebooks
-					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					// do not trigger this action when pressing "Shift+V" in a cell editor
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				weight: KeybindingWeight.EditorContrib,
