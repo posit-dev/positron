@@ -27,7 +27,17 @@ import { DevContainersTreeProvider, DevContainerTreeItem } from './views/devCont
 import { checkAndShowDevContainerNotification } from './notifications/devContainerDetection';
 
 /**
- * Extension activation
+ * Tracks whether the core extension functionality is currently activated
+ */
+let isActivated = false;
+
+/**
+ * Stores disposables for dynamic deactivation
+ */
+let activationDisposables: vscode.Disposable[] = [];
+
+/**
+ * Extension activation entry point
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const logger = getLogger();
@@ -39,10 +49,71 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Check if extension is enabled
 	if (!config.getEnable()) {
-		logger.info('Dev Containers extension is disabled via settings. Skipping activation.');
+		logger.info('Dev Containers extension is disabled via settings. Skipping core activation.');
 		// Set context keys to hide all UI elements
 		vscode.commands.executeCommand('setContext', 'dev.containers.enabled', false);
 		vscode.commands.executeCommand('setContext', 'isInDevContainer', false);
+
+		// Set up listener to activate when setting is enabled
+		setupConfigurationListener(context);
+		return;
+	}
+
+	// Activate the extension core functionality
+	await activateCore(context);
+
+	// Set up listener for configuration changes (including disabling)
+	setupConfigurationListener(context);
+}
+
+/**
+ * Set up configuration listener for dynamic enable/disable
+ */
+function setupConfigurationListener(context: vscode.ExtensionContext): void {
+	const logger = getLogger();
+	const config = getConfiguration();
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(async e => {
+			if (e.affectsConfiguration('dev.containers.enable')) {
+				// Reload configuration to get the new value
+				config.reload();
+				const isEnabled = config.getEnable();
+				logger.info(`Dev Containers enable setting changed to: ${isEnabled}`);
+
+				if (isEnabled && !isActivated) {
+					// Activate the extension
+					logger.info('Activating Dev Containers extension...');
+					await activateCore(context);
+				} else if (!isEnabled && isActivated) {
+					// Deactivate the extension
+					logger.info('Deactivating Dev Containers extension...');
+					deactivateCore();
+				}
+			}
+
+			// Handle other configuration changes when activated
+			if (isActivated && e.affectsConfiguration('dev.containers')) {
+				config.reload();
+
+				// Update log level if it changed
+				if (e.affectsConfiguration('dev.containers.logLevel')) {
+					logger.setLogLevel(config.getLogLevel());
+				}
+			}
+		})
+	);
+}
+
+/**
+ * Activate the core extension functionality
+ */
+async function activateCore(context: vscode.ExtensionContext): Promise<void> {
+	const logger = getLogger();
+
+	// Prevent double activation
+	if (isActivated) {
+		logger.warn('Extension core already activated, skipping...');
 		return;
 	}
 
@@ -86,10 +157,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const authorityResolver = new DevContainerAuthorityResolver(logger, connectionManager);
 
 	// Register resolver for dev-container and attached-container authorities
-	context.subscriptions.push(
+	activationDisposables.push(
 		vscode.workspace.registerRemoteAuthorityResolver('dev-container', authorityResolver)
 	);
-	context.subscriptions.push(
+	activationDisposables.push(
 		vscode.workspace.registerRemoteAuthorityResolver('attached-container', authorityResolver)
 	);
 
@@ -100,7 +171,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	let devContainersTreeProvider: DevContainersTreeProvider | undefined;
 	if (!isInDevContainer) {
 		devContainersTreeProvider = new DevContainersTreeProvider();
-		context.subscriptions.push(
+		activationDisposables.push(
 			vscode.window.registerTreeDataProvider('targetsContainers', devContainersTreeProvider)
 		);
 		logger.info('Dev containers tree view registered');
@@ -111,8 +182,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Set context key for UI visibility
 	vscode.commands.executeCommand('setContext', 'isInDevContainer', isInDevContainer);
 
-	// Cleanup on extension deactivation
-	context.subscriptions.push({
+	// Store cleanup disposable for managers
+	activationDisposables.push({
 		dispose: () => {
 			connectionManager.dispose();
 			portForwardingManager.dispose();
@@ -122,20 +193,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Register commands
 	registerCommands(context, devContainersTreeProvider, connectionManager);
-
-	// Listen for configuration changes
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('dev.containers')) {
-				config.reload();
-
-				// Update log level if it changed
-				if (e.affectsConfiguration('dev.containers.logLevel')) {
-					logger.setLogLevel(config.getLogLevel());
-				}
-			}
-		})
-	);
 
 	// Check for pending rebuilds (only on host, not in container)
 	// This must be done before showing the notification to avoid interrupting the rebuild
@@ -150,7 +207,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	}
 
-	logger.info('positron-dev-containers extension activated successfully');
+	// Mark as activated
+	isActivated = true;
+	logger.info('Dev Containers extension core activated successfully');
 
 	// Show dev container detection notification after a delay (only if not rebuilding)
 	// This gives the UI time to fully activate and avoids interrupting the rebuild flow
@@ -164,7 +223,38 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 /**
- * Extension deactivation
+ * Deactivate the core extension functionality
+ */
+function deactivateCore(): void {
+	const logger = getLogger();
+
+	if (!isActivated) {
+		logger.warn('Extension core not activated, nothing to deactivate');
+		return;
+	}
+
+	logger.info('Deactivating Dev Containers extension core...');
+
+	// Dispose all activation-specific resources
+	activationDisposables.forEach(d => {
+		try {
+			d.dispose();
+		} catch (error) {
+			logger.error('Error disposing resource during deactivation', error);
+		}
+	});
+	activationDisposables = [];
+
+	// Update context keys to hide UI elements
+	vscode.commands.executeCommand('setContext', 'dev.containers.enabled', false);
+	vscode.commands.executeCommand('setContext', 'isInDevContainer', false);
+
+	isActivated = false;
+	logger.info('Dev Containers extension core deactivated');
+}
+
+/**
+ * Extension deactivation entry point
  */
 export function deactivate(): void {
 	const logger = getLogger();
