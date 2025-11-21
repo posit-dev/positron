@@ -80,8 +80,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				if (!session) {
 					// This should never happen since we just received an event from
 					// this session.
+					const eventData = e.event.data as ShowUrlEvent;
 					this._logService.error(`No session ${e.session_id} found for ShowUrl event; ` +
-						`ignoring URL ${e.event.data.url}`);
+						`ignoring URL ${eventData?.url ?? 'unknown'}`);
 					return;
 				}
 
@@ -497,7 +498,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
 
 		// Open the requested URI.
-		this.openUri(previewId, webviewExtension, uri);
+		this.openUri(previewId, webviewExtension, uri, event.source);
 	}
 
 	/**
