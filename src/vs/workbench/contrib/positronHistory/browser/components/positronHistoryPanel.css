@@ -28,8 +28,7 @@
 }
 
 .history-entry {
-	padding: 2px 8px;
-	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	padding: 4px 8px;
 	cursor: pointer;
 	transition: background-color 0.1s ease;
 	background-color: var(--vscode-editor-background);
@@ -47,6 +46,15 @@
 
 .history-entry.selected:hover {
 	background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.history-entry.selected-unfocused {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+}
+
+.history-entry.selected-unfocused:hover {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
 .history-entry-content {

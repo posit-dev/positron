@@ -60,6 +60,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [width, setWidth] = useState(0);
 	const [height, setHeight] = useState(0);
 	const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+	const [hasFocus, setHasFocus] = useState(false);
 
 	// Refs
 	const listRef = useRef<List>(null);
@@ -412,7 +413,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				</ActionBarRegion>
 			</PositronActionBar>
 
-			<div className="history-list-container" onKeyDown={handleKeyDown} tabIndex={0}>
+			<div
+				className="history-list-container"
+				onKeyDown={handleKeyDown}
+				onFocus={() => setHasFocus(true)}
+				onBlur={() => setHasFocus(false)}
+				tabIndex={0}
+			>
 				{entries.length === 0 ? (
 					<div className="history-empty-message">
 						No history available
@@ -433,6 +440,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							style={style}
 							isSelected={index === selectedIndex}
 							isExpanded={expandedIndices.has(index)}
+							hasFocus={hasFocus}
 							languageId={currentLanguage || ''}
 							onSelect={() => handleSelect(index)}
 							onToggleExpand={() => toggleExpanded(index)}

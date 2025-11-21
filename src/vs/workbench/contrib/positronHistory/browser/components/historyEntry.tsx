@@ -23,6 +23,7 @@ interface HistoryEntryProps {
 	style: CSSProperties;
 	isSelected: boolean;
 	isExpanded: boolean;
+	hasFocus: boolean;
 	languageId: string;
 	onSelect: () => void;
 	onToggleExpand: () => void;
@@ -45,6 +46,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		style,
 		isSelected,
 		isExpanded,
+		hasFocus,
 		languageId,
 		onSelect,
 		onToggleExpand,
@@ -128,11 +130,14 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const needsTruncation = showExpandButton && !isExpanded;
 	const codeToDisplay = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
+	// Override the height from react-window's style to allow natural content sizing
+	const styleWithoutHeight = { ...style, height: 'auto' };
+
 	return (
 		<div
 			ref={entryRef}
-			style={style}
-			className={`history-entry ${isSelected ? 'selected' : ''}`}
+			style={styleWithoutHeight}
+			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
 			onClick={onSelect}
 		>
 			<div className="history-entry-content">
