@@ -89,35 +89,35 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 	]],
 	['snowflake-cortex', [
 		{
-			name: 'Claude 3.7 Sonnet',
-			identifier: 'claude-3-7-sonnet',
-			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
-			maxOutputTokens: 4_096,
-		},
-		{
-			name: 'Claude 4 Sonnet',
+			name: 'Claude Sonnet 4',
 			identifier: 'claude-4-sonnet',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 			maxOutputTokens: 4_096,
 		},
-		// {
-		// 	name: 'Claude 4 Opus',
-		// 	identifier: 'claude-4-opus',
-		// 	maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
-		// 	maxOutputTokens: 4_096,
-		// },
-		// {
-		// 	name: 'GPT-5',
-		// 	identifier: 'openai-gpt-5',
-		// 	maxInputTokens: 128_000, // Typical GPT-5 context window
-		// 	maxOutputTokens: 4_096,
-		// },
-		// {
-		// 	name: 'GPT-4.1',
-		// 	identifier: 'openai-gpt-4.1',
-		// 	maxInputTokens: 128_000, // GPT-4.1 context window
-		// 	maxOutputTokens: 4_096,
-		// },
+		{
+			name: 'Claude Sonnet 4.5',
+			identifier: 'claude-sonnet-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			maxOutputTokens: 4_096,
+		},
+		{
+			name: 'Claude Opus 4',
+			identifier: 'claude-4-opus',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			maxOutputTokens: 4_096,
+		},
+		{
+			name: 'Claude Haiku 4.5',
+			identifier: 'claude-haiku-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			maxOutputTokens: 4_096,
+		},
+		{
+			name: 'GPT-5',
+			identifier: 'openai-gpt-5',
+			maxInputTokens: 128_000, // Typical GPT-5 context window
+			maxOutputTokens: 4_096,
+		}
 	]]
 ]);
 
