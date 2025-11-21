@@ -12,6 +12,7 @@ import { getLogger } from '../common/logger';
 import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
 import { formatCommandWithEcho, escapeShellArg } from '../spec/spec-node/commandGeneration';
+import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
 
 /**
  * Result from terminal build
@@ -270,6 +271,36 @@ export class TerminalBuilder {
 			scriptContent += `${dockerPath} start $CONTAINER_ID\n\n`;
 		}
 
+		// Prepare features installation (must happen before generating the script)
+		logger.info('==> Preparing features installation...');
+		logger.debug(`DevContainer config keys: ${Object.keys(devContainerConfig).join(', ')}`);
+		logger.debug(`Features in config: ${JSON.stringify(devContainerConfig.features)}`);
+		const featuresInfo = await prepareFeaturesInstallation(workspaceFolder, devContainerConfig);
+
+		logger.info(`Features info result: hasFeatures=${featuresInfo.hasFeatures}`);
+		if (featuresInfo.featuresConfig) {
+			logger.info(`Features config: ${featuresInfo.featuresConfig.featureSets.length} feature sets`);
+		}
+		if (featuresInfo.featuresDir) {
+			logger.info(`Features dir: ${featuresInfo.featuresDir}`);
+		}
+
+		// Install features if any are configured
+		if (featuresInfo.hasFeatures && featuresInfo.featuresConfig && featuresInfo.featuresDir) {
+			logger.info('==> Adding features installation to build script');
+			const featureScript = generateFeatureInstallScript(
+				featuresInfo.featuresConfig,
+				featuresInfo.featuresDir,
+				dockerPath,
+				isWindows
+			);
+			logger.info(`Generated feature script length: ${featureScript.length} characters`);
+			logger.debug(`Feature script preview:\n${featureScript.substring(0, 500)}`);
+			scriptContent += featureScript;
+		} else {
+			logger.warn(`Skipping features installation: hasFeatures=${featuresInfo.hasFeatures}, hasConfig=${!!featuresInfo.featuresConfig}, hasDir=${!!featuresInfo.featuresDir}`);
+		}
+
 		// Run post-create command if specified
 		if (devContainerConfig.postCreateCommand) {
 			let postCreateCmd: string;
@@ -327,7 +358,17 @@ export class TerminalBuilder {
 		// Write the script file
 		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
-		logger.debug(`Created build script: ${scriptPath}`);
+		// Also save to a debug location for inspection
+		const debugScriptPath = path.join(os.tmpdir(), `devcontainer-last-build${scriptExt}`);
+		try {
+			fs.writeFileSync(debugScriptPath, scriptContent, { mode: 0o755 });
+			logger.info(`Debug copy saved to: ${debugScriptPath}`);
+		} catch (error) {
+			logger.debug(`Could not save debug copy: ${error}`);
+		}
+
+		logger.info(`Created build script: ${scriptPath}`);
+		logger.debug(`Script content (first 1000 chars):\n${scriptContent.substring(0, 1000)}`);
 
 		// Create terminal and run the script
 		const terminalOptions: vscode.TerminalOptions = {
@@ -386,6 +427,12 @@ export class TerminalBuilder {
 				fs.unlinkSync(containerIdPath);
 				fs.unlinkSync(containerNamePath);
 			} catch { }
+
+			// Clean up features directory if it was created
+			if (featuresInfo.hasFeatures && featuresInfo.featuresDir) {
+				logger.debug('Cleaning up features directory');
+				await cleanupFeaturesDir(featuresInfo.featuresDir);
+			}
 		}
 
 		return {
