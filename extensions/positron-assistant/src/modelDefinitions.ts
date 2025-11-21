@@ -101,6 +101,8 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 4_096,
 		},
 		{
+			// 500 error
+			// [Snowflake Cortex] [Claude Opus 4]' Error in chat response: { "name": "AI_RetryError", "reason": "maxRetriesExceeded", "errors": [ { "name": "AI_APICallError", "url": "https://<ACCOUNT_ID>.snowflakecomputing.com/api/v2/cortex/v1/chat/completions", "requestBodyValues": { "model": "claude-4-opus", "max_tokens": 4096, "temperature": 0,
 			name: 'Claude Opus 4',
 			identifier: 'claude-4-opus',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
@@ -113,8 +115,18 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 4_096,
 		},
 		{
+			// 500 error
+			// [Snowflake Cortex] [GPT-5]' Error in chat response: { "name": "AI_RetryError", "reason": "maxRetriesExceeded", "errors": [ { "name": "AI_APICallError", "url": "https://<ACCOUNT_ID>.snowflakecomputing.com/api/v2/cortex/v1/chat/completions", "requestBodyValues": { "model": "openai-gpt-5", "max_tokens": 4096, "temperature": 0, ... REST OF SYSTEM PROMPT
 			name: 'GPT-5',
 			identifier: 'openai-gpt-5',
+			maxInputTokens: 128_000, // Typical GPT-5 context window
+			maxOutputTokens: 4_096,
+		},
+		{
+			// error
+			// [Snowflake Cortex] [GPT-4.1]' Error in chat response: { "name": "AI_TypeValidationError", "cause": { "issues": [ { "code": "invalid_union", "unionErrors": [ { "issues": [ { "received": "", "code": "invalid_enum_value", "options": [ "assistant" ], "path": [ "choices", 0, "delta", "role" ], "message": "Invalid enum value. Expected 'assistant', received ''" } ], "name": "ZodError" }, { "issues": [ { "code": "invalid_type", "expected": "object", "received": "undefined", "path": [ "error" ], "message": "Required" } ], "name": "ZodError" } ], "path": [], "message": "Invalid input" } ], "name": "ZodError" }, "value": { "choices": [ { "delta": { "content": "I", "refusal": "", "role": "", "tool_calls": null }, "index": 0, "logprobs": { "content": null, "refusal": null } } ], "created": 1763755203, "id": "chatcmpl-CeRaV1Vi1ZimwqoaNcN0iVWb14Nas", "model": "openai-gpt-4.1", "object": "chat.completion.chunk", "service_tier": "", "system_fingerprint": "fp_f99638a8d7" } }
+			name: 'GPT-4.1',
+			identifier: 'openai-gpt-4.1',
 			maxInputTokens: 128_000, // Typical GPT-5 context window
 			maxOutputTokens: 4_096,
 		}
