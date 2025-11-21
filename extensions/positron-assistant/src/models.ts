@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getEnabledProviders, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, getEnabledProviders, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -362,7 +362,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-				const errorMsg = this.parseProviderError(error) ||
+				const errorMsg = await this.parseProviderError(error) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
 			}
@@ -509,7 +509,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				flushAccumulatedTextDeltas();
 				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
 				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
-				const errorMsg = this.parseProviderError(part.error) ||
+				const errorMsg = await this.parseProviderError(part.error) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
 				throw new Error(`${messagePrefix} Error in chat response: ${errorMsg}`);
 			}
@@ -577,7 +577,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 * @param error The error object returned by the provider.
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	parseProviderError(error: any): string | undefined {
+	async parseProviderError(error: any): Promise<string | undefined> {
 		// Try to extract an API error message with ai-sdk
 		if (ai.APICallError.isInstance(error)) {
 			const responseBody = error.responseBody;
@@ -1088,6 +1088,10 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	bedrockClient: BedrockClient;
 	inferenceProfiles: InferenceProfileSummary[] = [];
 
+	// Keep state while we're resolving the connection
+	// Used to adjust error handling for SSO login prompts
+	private _resolvingConnection: boolean = false;
+
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		super(_config, _context, _storage);
 
@@ -1126,8 +1130,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	 * @param error The error object
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	override parseProviderError(error: any): string | undefined {
-		const aiSdkError = super.parseProviderError(error);
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		const aiSdkError = await super.parseProviderError(error);
 		if (aiSdkError) {
 			return aiSdkError;
 		}
@@ -1140,7 +1144,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		const message = error.message;
 
 		if (!message) {
-			return super.parseProviderError(error);
+			return await super.parseProviderError(error);
 		}
 
 		if (name === 'CredentialsProviderError') {
@@ -1148,67 +1152,36 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			// we need to re-authenticate with AWS SSO
 			if (message.includes('aws sso login')) {
 				// Give the user the option to login automatically
-				// Display an error message with an action the user can take
-				const isConnectionTest = error.stack?.includes('resolveConnection');
-				const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
-				vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
-					if (selection?.id === action.id) {
-						// User chose to login, so we need to refresh the credentials
+				const existingModels = getStoredModels(this._context);
 
-						// Grab the profile & region to refresh from the Bedrock client config
-						const profile = this.bedrockClient.config.profile;
-						// Region may be an async function or a string, so handle both cases
-						const region = typeof this.bedrockClient.config.region === 'function' ? await this.bedrockClient.config.region() : this.bedrockClient.config.region;
-						// Execute the AWS SSO login command as a native task
-						const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
-							{ type: 'shell' },
-							vscode.TaskScope.Workspace,
-							'AWS SSO Login',
-							'AWS',
-							new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
-						));
-
-						vscode.tasks.onDidEndTaskProcess(e => {
-							if (e.execution === taskExecution) {
-								// Notify the user of the result
-								const success = e.exitCode === 0 || e.exitCode === undefined;
-								if (success) {
-									// Success
-									vscode.window.showInformationMessage(vscode.l10n.t('AWS login completed successfully'));
-								} else {
-									// Failure
-									vscode.window.showErrorMessage(vscode.l10n.t('AWS login failed with exit code {0}', e.exitCode));
-								}
-
-								// Open a URI to bring Positron to the foreground
-								// This is a little sneaky, but works + no other native method
-								const redirectUri = vscode.Uri.from({ scheme: vscode.env.uriScheme });
-								vscode.env.openExternal(redirectUri);
-
-								if (success && isConnectionTest) {
-									// If we were in a connection test, re-run it now that we've logged in
-									registerModelWithAPI(
-										this._config,
-										this._context,
-										this._storage,
-										this
-									).then(() => {
-										positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
-										PositronAssistantApi.get().notifySignIn(this._config.name);
-									});
-								}
-							}
-						});
+				// Check if our model is already registered
+				if (!existingModels.some(m => m.provider === this._config.provider)) {
+					// The model is not yet registered, so just refresh without prompting
+					if (await this.refreshCredentials(true)) {
+						// If we're successful, return undefined to indicate no error
+						return undefined;
 					}
-				});
 
-				if (isConnectionTest) {
-					// We're in a connection test, so throw an AssistantError to avoid showing a message box
-					// but that stops the model provider from being registered in core
-					throw new AssistantError(message, false);
 				} else {
-					// We are in a chat response, so we should return an error to display in the chat pane
-					throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`));
+					// The model has already been registered, so we can prompt the user to login
+					// Display an error message with an action the user can take
+					const isConnectionTest = this._resolvingConnection;
+					const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
+					vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
+						if (selection?.id === action.id) {
+							// User chose to login, so we need to refresh the credentials
+							await this.refreshCredentials(isConnectionTest);
+						}
+					});
+
+					if (isConnectionTest) {
+						// We're in a connection test, so throw an AssistantError to avoid showing a message box
+						// but that stops the model provider from being registered in core
+						throw new AssistantError(message, false);
+					} else {
+						// We are in a chat response, so we should return an error to display in the chat pane
+						throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`));
+					}
 				}
 			} else {
 				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
@@ -1218,19 +1191,73 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
 	}
 
+	private async refreshCredentials(reregister: boolean = false): Promise<boolean> {
+		// Grab the profile & region to refresh from the Bedrock client config
+		const profile = this.bedrockClient.config.profile;
+		// Region may be an async function or a string, so handle both cases
+		const region = typeof this.bedrockClient.config.region === 'function' ? await this.bedrockClient.config.region() : this.bedrockClient.config.region;
+		// Execute the AWS SSO login command as a native task
+		const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
+			{ type: 'shell' },
+			vscode.TaskScope.Workspace,
+			'AWS SSO Login',
+			'AWS',
+			new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
+		));
+
+		const result = new Promise<boolean>((resolve) => {
+			vscode.tasks.onDidEndTaskProcess(e => {
+				if (e.execution === taskExecution) {
+					// Notify the user of the result
+					const success = e.exitCode === 0 || e.exitCode === undefined;
+					if (success) {
+						// Success
+						vscode.window.showInformationMessage(vscode.l10n.t('AWS login completed successfully'));
+					} else {
+						// Failure
+						vscode.window.showErrorMessage(vscode.l10n.t('AWS login failed with exit code {0}', e.exitCode));
+					}
+
+					// Open a URI to bring Positron to the foreground
+					// This is a little sneaky, but works + no other native method
+					const redirectUri = vscode.Uri.from({ scheme: vscode.env.uriScheme });
+					vscode.env.openExternal(redirectUri);
+
+					if (success && reregister) {
+						// If we were in a connection test, re-run it now that we've logged in
+						registerModelWithAPI(
+							this._config,
+							this._context,
+							this._storage,
+							this
+						).then(() => {
+							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
+							PositronAssistantApi.get().notifySignIn(this._config.name);
+						});
+					}
+					resolve(success);
+				}
+			});
+		});
+		return result;
+	}
+
 	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
 		// means the credentials are valid.
 		log.debug(`[${this.providerName}] Resolving connection by fetching available models...`);
+		this._resolvingConnection = true;
 		try {
 			await this.resolveModels(token);
 		} catch (error) {
 			// Try to parse specific Bedrock errors
 			// This way, we can handle SSO login errors specifically
-			const parsedError = this.parseProviderError(error);
+			const parsedError = await this.parseProviderError(error);
 			if (parsedError) {
 				return new Error(parsedError);
 			}
+		} finally {
+			this._resolvingConnection = false;
 		}
 
 		return undefined;
