@@ -80,12 +80,15 @@ export const log = vscode.window.createOutputChannel('Assistant', { log: true })
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
-		const modelConfig = await getModelConfiguration(config.id, context, storage);
+		const modelConfig: ModelConfig = {
+			...config,
+			apiKey: undefined // will be filled in below if needed
+		};
 
 		if (modelConfig?.baseUrl) {
 			const apiKey = await storage.get(`apiKey-${modelConfig.id}`);
 			if (apiKey) {
-				(modelConfig as any).apiKey = apiKey;
+				modelConfig.apiKey = apiKey;
 			}
 		}
 
