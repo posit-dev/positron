@@ -21,13 +21,10 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
-
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
 const openInBrowser = localize('positron.preview.html.openInBrowser', "Open the content in the default browser");
 const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab");
-const interruptExecution = localize('positron.preview.html.interruptExecution', "Interrupt execution");
 
 /**
  * HtmlActionBarsProps interface.
@@ -42,24 +39,6 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	const services = usePositronReactServicesContext();
 	const [title, setTitle] = useState(props.preview.html?.title);
-
-	// State hooks for interrupt button
-	const [interruptible, setInterruptible] = useState(false);
-	const [interrupting, setInterrupting] = useState(false);
-	// Track which terminal is running the app displayed in the viewer
-	const [sourceTerminal, setSourceTerminal] = useState<ITerminalInstance | undefined>(undefined);
-
-	// Handler for the interrupt button.
-	const interruptHandler = async () => {
-		// Set the interrupting flag to debounce the button.
-		setInterrupting(true);
-
-		// Send Ctrl+C to the source terminal
-		if (sourceTerminal && sourceTerminal.hasChildProcesses) {
-			// Send Ctrl+C (SIGINT) to the terminal
-			sourceTerminal.sendText('\x03', false);
-		}
-	};
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
@@ -97,55 +76,6 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 		return () => disposableStore.dispose();
 	}, [props.preview.webview]);
 
-	// useEffect hook to capture the source terminal when preview content changes.
-	useEffect(() => {
-		// When new preview content appears, assume the active terminal launched it
-		const activeTerminal = services.terminalService.activeInstance;
-		if (activeTerminal && activeTerminal.hasChildProcesses) {
-			setSourceTerminal(activeTerminal);
-			setInterruptible(true);
-			setInterrupting(false);
-		}
-	}, [props.preview, services.terminalService]);
-
-	// useEffect hook to track the source terminal's child process state.
-	useEffect(() => {
-		if (!sourceTerminal) {
-			setInterruptible(false);
-			return;
-		}
-
-		const disposables = new DisposableStore();
-
-		// Set initial state based on source terminal
-		setInterruptible(sourceTerminal.hasChildProcesses);
-		setInterrupting(false);
-
-		// Listen to child process changes on the source terminal
-		disposables.add(
-			sourceTerminal.onDidChangeHasChildProcesses((hasChildProcesses: boolean) => {
-				setInterruptible(hasChildProcesses);
-				// Reset interrupting state when child processes stop
-				if (!hasChildProcesses) {
-					setInterrupting(false);
-					// Clear the source terminal when processes stop
-					setSourceTerminal(undefined);
-				}
-			})
-		);
-
-		// Listen for terminal disposal
-		disposables.add(
-			sourceTerminal.onDisposed(() => {
-				setInterruptible(false);
-				setInterrupting(false);
-				setSourceTerminal(undefined);
-			})
-		);
-
-		return () => disposables.dispose();
-	}, [sourceTerminal]);
-
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -158,19 +88,6 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 						<span className='preview-title'>{title}</span>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						{interruptible && (
-							<>
-								<ActionBarButton
-									align='right'
-									ariaLabel={interruptExecution}
-									disabled={interrupting}
-									tooltip={interruptExecution}
-									onPressed={interruptHandler}>
-									<div className='action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime' />
-								</ActionBarButton>
-								<ActionBarSeparator />
-							</>
-						)}
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
