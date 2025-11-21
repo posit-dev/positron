@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useRef, useState } from 'react';
 import { VariableSizeList as List } from 'react-window';
+import { localize } from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IExecutionHistoryService, IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
@@ -312,40 +313,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			})
 		);
 
-		// Listen for new input events from all active sessions
-		const setupInputListeners = () => {
-			const sessions = runtimeSessionService.activeSessions;
-			sessions.forEach(session => {
-				disposables.add(
-					session.onDidReceiveRuntimeMessageInput(() => {
-						// Reload history if this is the current language
-						if (session.runtimeMetadata.languageId === currentLanguage) {
-							loadHistory();
-						}
-						// Also update available languages
-						discoverLanguages();
-					})
-				);
-			});
-		};
-
-		// Set up listeners for existing sessions
-		setupInputListeners();
-
-		// Listen for new sessions starting
-		disposables.add(
-			runtimeSessionService.onWillStartSession(event => {
-				disposables.add(
-					event.session.onDidReceiveRuntimeMessageInput(() => {
-						if (event.session.runtimeMetadata.languageId === currentLanguage) {
-							loadHistory();
-						}
-						discoverLanguages();
-					})
-				);
-			})
-		);
-
 		// Initialize with foreground session language if available
 		const foregroundSession = runtimeSessionService.foregroundSession;
 		if (foregroundSession) {
@@ -363,6 +330,46 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			disposables.dispose();
 		};
 	}, []);
+
+	/**
+	 * Set up listeners for input events on active sessions
+	 */
+	useEffect(() => {
+		const disposables = new DisposableStore();
+
+		// Listen for new input events from all active sessions
+		const sessions = runtimeSessionService.activeSessions;
+		sessions.forEach(session => {
+			disposables.add(
+				session.onDidReceiveRuntimeMessageInput(() => {
+					// Reload history if this is the current language
+					if (session.runtimeMetadata.languageId === currentLanguage) {
+						loadHistory();
+					}
+					// Also update available languages
+					discoverLanguages();
+				})
+			);
+		});
+
+		// Listen for new sessions starting
+		disposables.add(
+			runtimeSessionService.onWillStartSession(event => {
+				disposables.add(
+					event.session.onDidReceiveRuntimeMessageInput(() => {
+						if (event.session.runtimeMetadata.languageId === currentLanguage) {
+							loadHistory();
+						}
+						discoverLanguages();
+					})
+				);
+			})
+		);
+
+		return () => {
+			disposables.dispose();
+		};
+	}, [currentLanguage]);
 
 	/**
 	 * Load history when language changes
@@ -384,75 +391,77 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className="positron-history-panel">
-			<PositronActionBar
-				borderTop={false}
-				borderBottom={true}
-			>
-				<ActionBarRegion location='left'>
-					<LanguageFilterMenuButton
-						currentLanguage={currentLanguage}
-						availableLanguages={availableLanguages}
-						onSelectLanguage={handleSelectLanguage}
-					/>
-				</ActionBarRegion>
-				<ActionBarRegion location='right'>
-					<ActionBarButton
-						icon={Codicon.play}
-						tooltip='To Console'
-						ariaLabel='To Console'
-						disabled={selectedIndex < 0}
-						onPressed={handleToConsole}
-					/>
-					<ActionBarButton
-						icon={Codicon.insert}
-						tooltip='To Source'
-						ariaLabel='To Source'
-						disabled={selectedIndex < 0}
-						onPressed={handleToSource}
-					/>
-				</ActionBarRegion>
-			</PositronActionBar>
-
-			<div
-				className="history-list-container"
-				onKeyDown={handleKeyDown}
-				onFocus={() => setHasFocus(true)}
-				onBlur={() => setHasFocus(false)}
-				tabIndex={0}
-			>
-				{entries.length === 0 ? (
-					<div className="history-empty-message">
-						No history available
-					</div>
-				) : (
-					<List
-						ref={listRef}
-						height={height - 40} // Subtract toolbar height
-						width={width}
-						itemCount={entries.length}
-						itemSize={getRowHeight}
-						onScroll={handleScroll}
-					>
-					{({ index, style }) => (
-						<HistoryEntry
-							entry={entries[index]}
-							index={index}
-							style={style}
-							isSelected={index === selectedIndex}
-							isExpanded={expandedIndices.has(index)}
-							hasFocus={hasFocus}
-							languageId={currentLanguage || ''}
-							onSelect={() => handleSelect(index)}
-							onToggleExpand={() => toggleExpanded(index)}
-							onHeightChange={(height: number) => updateRowHeight(index, height)}
-							instantiationService={instantiationService}
-							fontInfo={props.fontInfo}
+				<PositronActionBar
+					borderTop={false}
+					borderBottom={true}
+				>
+					<ActionBarRegion location='left'>
+						<ActionBarButton
+							icon={Codicon.play}
+							label={(() => localize('positronHistoryToConsole', "To Console"))()}
+							tooltip={(() => localize('positronHistoryToConsole', "To Console"))()}
+							ariaLabel={(() => localize('positronHistoryToConsole', "To Console"))()}
+							disabled={selectedIndex < 0}
+							onPressed={handleToConsole}
 						/>
+						<ActionBarButton
+							icon={Codicon.insert}
+							label={(() => localize('positronHistoryToSource', "To Source"))()}
+							tooltip={(() => localize('positronHistoryToSource', "To Source"))()}
+							ariaLabel={(() => localize('positronHistoryToSource', "To Source"))()}
+							disabled={selectedIndex < 0}
+							onPressed={handleToSource}
+						/>
+					</ActionBarRegion>
+					<ActionBarRegion location='right'>
+						<LanguageFilterMenuButton
+							currentLanguage={currentLanguage}
+							availableLanguages={availableLanguages}
+							onSelectLanguage={handleSelectLanguage}
+						/>
+					</ActionBarRegion>
+				</PositronActionBar>
+
+				<div
+					className="history-list-container"
+					onKeyDown={handleKeyDown}
+					onFocus={() => setHasFocus(true)}
+					onBlur={() => setHasFocus(false)}
+					tabIndex={0}
+				>
+					{entries.length === 0 ? (
+						<div className="history-empty-message">
+							No history available
+						</div>
+					) : (
+						<List
+							ref={listRef}
+							height={height - 40} // Subtract toolbar height
+							width={width}
+							itemCount={entries.length}
+							itemSize={getRowHeight}
+							onScroll={handleScroll}
+						>
+							{({ index, style }) => (
+								<HistoryEntry
+									entry={entries[index]}
+									index={index}
+									style={style}
+									isSelected={index === selectedIndex}
+									isExpanded={expandedIndices.has(index)}
+									hasFocus={hasFocus}
+									languageId={currentLanguage || ''}
+									onSelect={() => handleSelect(index)}
+									onToggleExpand={() => toggleExpanded(index)}
+									onHeightChange={(height: number) => updateRowHeight(index, height)}
+									instantiationService={instantiationService}
+									fontInfo={props.fontInfo}
+								/>
+							)}
+						</List>
 					)}
-				</List>
-			)}
-		</div>
-		</div>
-	</PositronActionBarContextProvider>
+				</div>
+			</div>
+		</PositronActionBarContextProvider>
 	);
 };
