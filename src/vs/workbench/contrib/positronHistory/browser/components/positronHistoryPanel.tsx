@@ -20,6 +20,7 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { LanguageFilterMenuButton } from './languageFilterMenuButton.js';
 import { HistoryEntry } from './historyEntry.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import './positronHistoryPanel.css';
 
 /**
@@ -30,12 +31,14 @@ interface PositronHistoryPanelProps {
 	executionHistoryService: IExecutionHistoryService;
 	runtimeSessionService: IRuntimeSessionService;
 	instantiationService: IInstantiationService;
+	fontInfo: FontInfo;
 }
 
 /**
  * The default height for a history entry row (3 lines of code)
+ * With minimal padding and tight line height, ~40px should be enough for 3 lines
  */
-const DEFAULT_ROW_HEIGHT = 70;
+const DEFAULT_ROW_HEIGHT = 40;
 
 /**
  * PositronHistoryPanel component - displays execution history with virtualization
@@ -423,11 +426,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						itemSize={getRowHeight}
 						onScroll={handleScroll}
 					>
-						{({ index, style }) => (
-							<HistoryEntry
-								entry={entries[index]}
-								index={index}
-								style={style}
+					{({ index, style }) => (
+						<HistoryEntry
+							entry={entries[index]}
+							index={index}
+							style={style}
 							isSelected={index === selectedIndex}
 							isExpanded={expandedIndices.has(index)}
 							languageId={currentLanguage || ''}
@@ -435,8 +438,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							onToggleExpand={() => toggleExpanded(index)}
 							onHeightChange={(height: number) => updateRowHeight(index, height)}
 							instantiationService={instantiationService}
-							/>
-						)}
+							fontInfo={props.fontInfo}
+						/>
+					)}
 				</List>
 			)}
 		</div>

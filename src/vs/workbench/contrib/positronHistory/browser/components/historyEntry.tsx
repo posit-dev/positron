@@ -9,6 +9,8 @@ import { IInputHistoryEntry } from '../../../../services/positronHistory/common/
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { tokenizeToString } from '../../../../../editor/common/languages/textToHtmlTokenizer.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
 
 const ttPolicy = createTrustedTypesPolicy('historyEntry', { createHTML: value => value });
 
@@ -26,6 +28,7 @@ interface HistoryEntryProps {
 	onToggleExpand: () => void;
 	onHeightChange: (height: number) => void;
 	instantiationService: IInstantiationService;
+	fontInfo: FontInfo;
 }
 
 /**
@@ -81,6 +84,9 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 		const codeToHighlight = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
+		// Apply font info to the code element
+		applyFontInfo(codeRef.current, props.fontInfo);
+
 		// If no languageId, just show plain text
 		if (!languageId) {
 			codeRef.current.textContent = codeToHighlight;
@@ -100,6 +106,8 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			if (codeRef.current) {
 				const trustedHtml = ttPolicy?.createHTML(html) ?? html;
 				codeRef.current.innerHTML = trustedHtml as string;
+				// Re-apply font info after setting innerHTML
+				applyFontInfo(codeRef.current, props.fontInfo);
 				// Trigger height measurement
 				if (entryRef.current) {
 					const height = entryRef.current.offsetHeight;

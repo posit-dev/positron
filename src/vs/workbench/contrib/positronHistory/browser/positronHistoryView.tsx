@@ -24,6 +24,8 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronHistoryPanel } from './components/positronHistoryPanel.js';
+import { FontConfigurationManager } from '../../../browser/fontConfigurationManager.js';
+import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 
 /**
  * PositronHistoryViewPane class.
@@ -47,6 +49,9 @@ export class PositronHistoryViewPane extends PositronViewPane implements IReactC
 	// Container and renderer
 	private _positronHistoryContainer!: HTMLElement;
 	private _positronReactRenderer?: PositronReactRenderer;
+
+	// Font info
+	private _fontInfo!: FontInfo;
 
 	// Dimensions
 	private _width = 0;
@@ -126,6 +131,13 @@ export class PositronHistoryViewPane extends PositronViewPane implements IReactC
 		this._positronHistoryContainer = DOM.$('.positron-history-container');
 		container.appendChild(this._positronHistoryContainer);
 
+		// Get the font info for the editor.
+		this._fontInfo = FontConfigurationManager.getFontInfo(
+			this.configurationService,
+			'editor',
+			this._positronHistoryContainer
+		);
+
 		// Create the PositronReactRenderer for the PositronHistoryPanel component
 		this._positronReactRenderer = this._register(
 			new PositronReactRenderer(this._positronHistoryContainer)
@@ -136,6 +148,7 @@ export class PositronHistoryViewPane extends PositronViewPane implements IReactC
 				executionHistoryService={this.executionHistoryService}
 				runtimeSessionService={this.runtimeSessionService}
 				instantiationService={this.instantiationService}
+				fontInfo={this._fontInfo}
 			/>
 		);
 	}

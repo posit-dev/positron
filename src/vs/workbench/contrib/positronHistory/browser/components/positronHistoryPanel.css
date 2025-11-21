@@ -8,12 +8,14 @@
 	flex-direction: column;
 	height: 100%;
 	width: 100%;
+	background-color: var(--vscode-editor-background);
 }
 
 .history-list-container {
 	flex: 1;
 	overflow: hidden;
 	position: relative;
+	background-color: var(--vscode-editor-background);
 }
 
 .history-empty-message {
@@ -26,10 +28,12 @@
 }
 
 .history-entry {
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--vscode-panel-border);
+	padding: 2px 8px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
 	cursor: pointer;
 	transition: background-color 0.1s ease;
+	background-color: var(--vscode-editor-background);
+	box-sizing: border-box;
 }
 
 .history-entry:hover {
@@ -47,30 +51,34 @@
 
 .history-entry-content {
 	position: relative;
+	line-height: var(--vscode-editor-line-height, 1.4);
 }
 
 .history-entry-code {
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
-	line-height: 1.5;
 	white-space: pre;
 	overflow: hidden;
+	margin: 0;
+	padding: 0;
+	/* Font styling is applied via applyFontInfo() in historyEntry.tsx */
 }
 
 .history-entry-truncated-indicator {
 	color: var(--vscode-descriptionForeground);
-	margin-top: 2px;
+	margin-top: 0;
+	line-height: var(--vscode-editor-line-height, 1.4);
 }
 
 .history-entry-expand-button {
-	margin-top: 4px;
-	padding: 2px 8px;
+	margin-top: 0;
+	margin-bottom: 0;
+	padding: 1px 4px;
 	font-size: 11px;
 	color: var(--vscode-textLink-foreground);
 	background: none;
 	border: none;
 	cursor: pointer;
 	text-decoration: underline;
+	line-height: 1.2;
 }
 
 .history-entry-expand-button:hover {
