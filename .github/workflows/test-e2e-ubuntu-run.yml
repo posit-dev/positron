@@ -298,6 +298,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           PW_PROJECT_NAME: ${{ inputs.project }}
+          GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""

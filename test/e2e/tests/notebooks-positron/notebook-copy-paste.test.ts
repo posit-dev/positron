@@ -29,7 +29,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// Setup: Create 5 cells with distinct content
 		// ========================================
 		await test.step('Test Setup: Create notebook and add cells', async () => {
-			await notebooksPositron.newNotebook(5);
+			await notebooksPositron.newNotebook({ codeCells: 5 });
 			await notebooksPositron.expectCellCountToBe(5);
 		});
 
