@@ -275,42 +275,31 @@ function convertToolResultToAiMessageExperimentalContent(
 /**
  * Convert a getPlot tool result into a Vercel AI message.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreToolMessage {
 	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
 		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
 	};
 	const imageParts = part.content.filter(isImageDataPart);
-
-	// If there was no image, forward the response as text.
-	if (imageParts.length === 0) {
-		return {
-			role: 'user',
-			content: [
-				{
-					type: 'text',
-					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
-				},
-			],
-		};
+	if (imageParts.length > 1) {
+		log.warn('More than one plot image was provided. Only the first image will be provided as a result.');
 	}
 
-	// Otherwise, convert to a user message containing the image,
-	// as Vercel AI doesn't support image tool results.
+	const imagePart = imageParts[0];
+	const imageContent = {
+		type: 'image',
+		data: Buffer.from(imagePart.data).toString('base64'),
+		mimeType: imagePart.mimeType
+	}
 	return {
-		role: 'user',
-		// We only expect one image part, but just in case,
-		// include all image parts in the message.
-		content: imageParts.flatMap((imgPart) => ([
+		role: 'tool',
+		content: [
 			{
-				type: 'text',
-				text: 'Here is the current active plot:',
+				type: 'tool-result',
+				toolCallId: part.callId,
+				toolName: PositronAssistantToolName.GetPlot,
+				result: imageContent,
 			},
-			{
-				type: 'image',
-				image: Buffer.from(imgPart.data).toString('base64'),
-				mimeType: imgPart.mimeType,
-			}
-		])),
+		],
 	};
 }
 
