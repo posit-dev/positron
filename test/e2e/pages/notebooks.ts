@@ -106,16 +106,12 @@ export class Notebooks {
 	}
 
 	// Opens a Notebook that lives in the current workspace
-	// checkForActiveCell is set to false for Positron notebooks which don't have the same cell structure as VS Code notebooks.
-	async openNotebook(path: string, checkForActiveCell = true) {
+	async openNotebook(path: string) {
 		await test.step(`Open notebook: ${path}`, async () => {
 			await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 			await this.quickinput.selectQuickInputElement(0);
-
-			if (checkForActiveCell) {
-				await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
-				await this.focusFirstCell();
-			}
+			await expect(this.code.driver.page.getByRole('progressbar')).not.toBeVisible({ timeout: 60000 });
+			await this.focusFirstCell();
 		});
 	}
 

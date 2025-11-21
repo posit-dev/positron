@@ -182,7 +182,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param path - The path to the notebook to open.
 	 */
 	async openNotebook(path: string): Promise<void> {
-		await super.openNotebook(path, false);
+		await super.openNotebook(path);
 		await this.expectToBeVisible();
 	}
 
