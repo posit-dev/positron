@@ -29,6 +29,7 @@ import { PositronAssistantApi } from './api.js';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
+import { autoconfigureSnowflakeCredentials, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -912,13 +913,14 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 			id: 'snowflake-cortex',
 			displayName: 'Snowflake Cortex'
 		},
-		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Snowflake Cortex',
 			model: 'claude-4-sonnet',
-			baseUrl: 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1',
+			baseUrl: getSnowflakeDefaultBaseUrl(),
 			toolCalls: true,
 			completions: false,
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
 		}
 	};
 
@@ -951,9 +953,13 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 					const bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
 					const requestBody = JSON.parse(bodyStr);
 
+					log.debug(`[${this.providerName}] [DEBUG] Original request body:`, JSON.stringify(requestBody, null, 2));
+
 					// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
-					// is deprecated for models hosted by Snowflake Cortex
+					// is deprecated for models hosted by Snowflake Cortex. If we upgrade to AI SDK v5+,
+					// we won't hit this issue anymore.
 					if (requestBody.max_tokens !== undefined) {
+						log.debug(`[${this.providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
 						requestBody.max_completion_tokens = requestBody.max_tokens;
 						delete requestBody.max_tokens;
 
@@ -963,14 +969,29 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 							body: JSON.stringify(requestBody)
 						};
 					}
+
+					// DEBUG: Log the final request body after modification
+					log.debug(`[${this.providerName}] [DEBUG] Final request body:`, JSON.stringify(requestBody, null, 2));
+
 				} catch (error) {
 					// If we can't parse the body, just proceed with the original request
 					log.warn(`[${this.providerName}] Failed to parse request body for max_tokens handling: ${error}`);
 				}
 			}
 
-			return fetch(input, init);
+			log.debug(`[${this.providerName}] [DEBUG] Making request to: ${input}`);
+			const response = await fetch(input, init);
+			log.debug(`[${this.providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
+
+			return response;
 		};
+	}
+
+	static override async autoconfigure(): Promise<AutoconfigureResult> {
+		return autoconfigureSnowflakeCredentials(
+			SnowflakeLanguageModel.source.provider.id,
+			SnowflakeLanguageModel.source.provider.displayName
+		);
 	}
 }
 
