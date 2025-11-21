@@ -62,6 +62,10 @@
 	/* Font styling is applied via applyFontInfo() in historyEntry.tsx */
 }
 
+.history-entry-code .monaco-tokenized-source {
+	white-space: pre;
+}
+
 .history-entry-truncated-indicator {
 	color: var(--vscode-descriptionForeground);
 	margin-top: 0;

@@ -12,7 +12,7 @@ import { tokenizeToString } from '../../../../../editor/common/languages/textToH
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
 
-const ttPolicy = createTrustedTypesPolicy('historyEntry', { createHTML: value => value });
+const ttPolicy = createTrustedTypesPolicy('tokenizeToString', { createHTML: value => value });
 
 /**
  * Props for the HistoryEntry component
@@ -53,6 +53,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	} = props;
 
 	const [lineCount, setLineCount] = useState<number>(0);
+	const [colorizedHtml, setColorizedHtml] = useState<TrustedHTML | null>(null);
 	const entryRef = useRef<HTMLDivElement>(null);
 	const codeRef = useRef<HTMLDivElement>(null);
 
@@ -78,23 +79,14 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	 * Tokenize and highlight the code
 	 */
 	useEffect(() => {
-		if (!codeRef.current) {
-			return;
-		}
-
 		const codeToHighlight = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
-		// Apply font info to the code element
-		applyFontInfo(codeRef.current, props.fontInfo);
+		// Count total lines
+		setLineCount(countLines(entry.input));
 
-		// If no languageId, just show plain text
+		// If no languageId, show plain text
 		if (!languageId) {
-			codeRef.current.textContent = codeToHighlight;
-			if (entryRef.current) {
-				const height = entryRef.current.offsetHeight;
-				onHeightChange(height);
-			}
-			setLineCount(countLines(entry.input));
+			setColorizedHtml(null);
 			return;
 		}
 
@@ -103,36 +95,38 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		);
 
 		tokenizeToString(languageService, codeToHighlight, languageId).then(html => {
-			if (codeRef.current) {
-				const trustedHtml = ttPolicy?.createHTML(html) ?? html;
-				codeRef.current.innerHTML = trustedHtml as string;
-				// Re-apply font info after setting innerHTML
-				applyFontInfo(codeRef.current, props.fontInfo);
-				// Trigger height measurement
-				if (entryRef.current) {
-					const height = entryRef.current.offsetHeight;
-					onHeightChange(height);
-				}
+			if (ttPolicy) {
+				setColorizedHtml(ttPolicy.createHTML(html));
 			}
 		}).catch(err => {
 			// Fallback to plain text on error
-			console.error('Failed to tokenize code:', err);
-			if (codeRef.current) {
-				codeRef.current.textContent = codeToHighlight;
-				if (entryRef.current) {
-					const height = entryRef.current.offsetHeight;
-					onHeightChange(height);
-				}
-			}
+			setColorizedHtml(null);
 		});
-
-		// Count total lines
-		setLineCount(countLines(entry.input));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry.input, languageId, isExpanded, instantiationService]);
 
+	/**
+	 * Measure height after render
+	 */
+	useEffect(() => {
+		if (entryRef.current) {
+			const height = entryRef.current.offsetHeight;
+			onHeightChange(height);
+		}
+	});
+
+	/**
+	 * Apply font info after render
+	 */
+	useEffect(() => {
+		if (codeRef.current) {
+			applyFontInfo(codeRef.current, props.fontInfo);
+		}
+	});
+
 	const showExpandButton = lineCount > MAX_COLLAPSED_LINES;
 	const needsTruncation = showExpandButton && !isExpanded;
+	const codeToDisplay = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
 	return (
 		<div
@@ -142,10 +136,20 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			onClick={onSelect}
 		>
 			<div className="history-entry-content">
-				<div
-					ref={codeRef}
-					className="history-entry-code monaco-tokenized-source"
-				/>
+				{colorizedHtml ? (
+					<div
+						ref={codeRef}
+						className="history-entry-code"
+						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
+					/>
+				) : (
+					<div
+						ref={codeRef}
+						className="history-entry-code"
+					>
+						{codeToDisplay}
+					</div>
+				)}
 				{needsTruncation && (
 					<div className="history-entry-truncated-indicator">...</div>
 				)}
