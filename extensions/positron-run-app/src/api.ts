@@ -503,7 +503,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			previewUri,
 		);
 		// Preview the app in the Viewer.
-		positron.window.previewUrl(previewUri);
+		if (options.terminalPid !== undefined) {
+			positron.window.previewUrl(previewUri, {
+				type: positron.PreviewSourceType.Terminal,
+				id: String(options.terminalPid)
+			});
+		} else {
+			positron.window.previewUrl(previewUri);
+		}
 
 		return true;
 	}
