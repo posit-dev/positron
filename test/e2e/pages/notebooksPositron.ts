@@ -456,7 +456,6 @@ export class PositronNotebooks extends Notebooks {
 					await this.code.driver.page.keyboard.press('KeyV');
 					break;
 				case 'undo':
-					// await this.hotKeys.undo();
 					await this.code.driver.page.keyboard.press('KeyZ');
 					break;
 				case 'redo':
