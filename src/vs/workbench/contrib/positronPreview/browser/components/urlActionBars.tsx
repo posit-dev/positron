@@ -68,13 +68,24 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 	// Handler for the interrupt button.
 	const interruptHandler = async () => {
-		// Set the interrupting flag to debounce the button.
-		setInterrupting(true);
+		// Immediately hide the button to provide instant feedback
+		setInterruptible(false);
 
 		// Send Ctrl+C to the source terminal
 		if (sourceTerminal && sourceTerminal.hasChildProcesses) {
 			// Send Ctrl+C (SIGINT) to the terminal
 			sourceTerminal.sendText('\x03', false);
+
+			// Poll after 3 seconds to check if the process actually stopped
+			const terminalToCheck = sourceTerminal;
+			setTimeout(() => {
+				// Check if the process is still running
+				if (terminalToCheck && !terminalToCheck.isDisposed && terminalToCheck.hasChildProcesses) {
+					services.notificationService.error(
+						localize('positron.preview.interruptFailed', "Failed to interrupt the running process. The process may need to be terminated manually from the terminal.")
+					);
+				}
+			}, 3000);
 		}
 	};
 
