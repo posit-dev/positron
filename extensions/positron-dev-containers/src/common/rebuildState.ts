@@ -54,14 +54,14 @@ export class RebuildStateManager {
 	async setPendingRebuild(rebuild: PendingRebuild): Promise<void> {
 		const logger = getLogger();
 		logger.debug(`Storing pending rebuild for: ${rebuild.workspaceFolder}`);
-		await this.context.globalState.update(PENDING_REBUILD_KEY, rebuild);
+		await this.context.workspaceState.update(PENDING_REBUILD_KEY, rebuild);
 	}
 
 	/**
 	 * Get pending rebuild request
 	 */
 	getPendingRebuild(): PendingRebuild | undefined {
-		return this.context.globalState.get<PendingRebuild>(PENDING_REBUILD_KEY);
+		return this.context.workspaceState.get<PendingRebuild>(PENDING_REBUILD_KEY);
 	}
 
 	/**
@@ -70,7 +70,7 @@ export class RebuildStateManager {
 	async clearPendingRebuild(): Promise<void> {
 		const logger = getLogger();
 		logger.debug('Clearing pending rebuild state');
-		await this.context.globalState.update(PENDING_REBUILD_KEY, undefined);
+		await this.context.workspaceState.update(PENDING_REBUILD_KEY, undefined);
 	}
 
 	/**
