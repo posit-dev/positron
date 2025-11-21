@@ -1,0 +1,91 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-history-panel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+
+.history-list-container {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+}
+
+.history-empty-message {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.history-entry {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+}
+
+.history-entry:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.history-entry.selected {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.history-entry.selected:hover {
+	background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.history-entry-content {
+	position: relative;
+}
+
+.history-entry-code {
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	line-height: 1.5;
+	white-space: pre;
+	overflow: hidden;
+}
+
+.history-entry-truncated-indicator {
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+.history-entry-expand-button {
+	margin-top: 4px;
+	padding: 2px 8px;
+	font-size: 11px;
+	color: var(--vscode-textLink-foreground);
+	background: none;
+	border: none;
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+.history-entry-expand-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.history-entry-expand-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.action-bar-text {
+	padding: 0 8px;
+	display: flex;
+	align-items: center;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+}
