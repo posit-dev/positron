@@ -34,9 +34,9 @@ test.describe('Notebook Cell Reordering', {
 		expect(initialCount).toBeGreaterThan(2); // Need at least 3 cells to test moving
 
 		// Get the content of the first three cells to verify order
-		const cell0Content = await notebooksPositron.getCellContent(0);
-		const cell1Content = await notebooksPositron.getCellContent(1);
-		const cell2Content = await notebooksPositron.getCellContent(2);
+		const cell0Content = await notebooksPositron.getCodeCellContent(0);
+		const cell1Content = await notebooksPositron.getCodeCellContent(1);
+		const cell2Content = await notebooksPositron.getCodeCellContent(2);
 
 		// Select "Move cell down"
 		await notebooksPositron.triggerCellAction(0, 'Move cell down');
@@ -134,5 +134,25 @@ test.describe('Notebook Cell Reordering', {
 		// Redo the move
 		await notebooksPositron.performCellAction('redo');
 		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
+	});
+
+	// @dhruvisompura unskip me
+	test.skip('Multiselect: move multiple cells', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 5 cells
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
+
+		// Select cells 1, 2, and 3
+		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([1, 2, 3]);
+
+		// Move selected cells down
+		await keyboard.press('Alt+ArrowDown');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', 'Cell 4', '# Cell 1', 'Cell 2', 'Cell 3']);
 	});
 });
