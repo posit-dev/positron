@@ -11,7 +11,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
-import path from 'path';
+import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -182,7 +182,8 @@ export class PositronNotebooks extends Notebooks {
 	 * @param path - The path to the notebook to open.
 	 */
 	async openNotebook(path: string): Promise<void> {
-		await super.openNotebook(path);
+		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+		await this.quickinput.selectQuickInputElement(0);
 		await this.expectToBeVisible();
 	}
 
@@ -796,8 +797,8 @@ export class PositronNotebooks extends Notebooks {
 			// Logging the screenshot path for easier debugging
 			const info = test.info();
 			const resolvedPath = info.snapshotPath(screenshotName);
-			const resolvedFile = path.basename(resolvedPath);
-			const repoRelativePath = path.relative(process.cwd(), resolvedPath).replace(/\\/g, '/');
+			const resolvedFile = basename(resolvedPath);
+			const repoRelativePath = relative(process.cwd(), resolvedPath).replace(/\\/g, '/');
 			await info.attach(`${resolvedFile}.path.txt`, {
 				body: Buffer.from(repoRelativePath, 'utf8'),
 				contentType: 'text/plain',

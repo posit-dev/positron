@@ -110,7 +110,8 @@ export class Notebooks {
 		await test.step(`Open notebook: ${path}`, async () => {
 			await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 			await this.quickinput.selectQuickInputElement(0);
-			await expect(this.code.driver.page.getByRole('progressbar')).not.toBeVisible({ timeout: 60000 });
+			await expect(this.code.driver.page.locator('.cell').first()).toBeVisible({ timeout: 60000 });
+			await expect(this.code.driver.page.getByText('Detecting Kernels')).not.toBeVisible({ timeout: 30000 });
 			await this.focusFirstCell();
 		});
 	}
