@@ -34,9 +34,9 @@ test.describe('Notebook Cell Reordering', {
 		expect(initialCount).toBeGreaterThan(2); // Need at least 3 cells to test moving
 
 		// Get the content of the first three cells to verify order
-		const cell0Content = await notebooksPositron.getCodeCellContent(0);
-		const cell1Content = await notebooksPositron.getCodeCellContent(1);
-		const cell2Content = await notebooksPositron.getCodeCellContent(2);
+		const cell0Content = await notebooksPositron.getCellContent(0);
+		const cell1Content = await notebooksPositron.getCellContent(1);
+		const cell2Content = await notebooksPositron.getCellContent(2);
 
 		// Select "Move cell down"
 		await notebooksPositron.triggerCellAction(0, 'Move cell down');

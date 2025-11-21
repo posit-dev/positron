@@ -68,9 +68,31 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Get cell content at specified index.
+	 * @param cellIndex - The index of the cell.
+	 * @returns - The content of the cell.
+	 */
+	async getCellContent(cellIndex: number): Promise<string> {
+		const cellType = await this.getCellType(cellIndex);
+		return cellType === 'code'
+			? await this.getCodeCellContent(cellIndex)
+			: await this.getMarkdownCellContent(cellIndex);
+	}
+
+
+	/**
+	 * Get markdown cell content at specified index.
+	 */
+	private async getMarkdownCellContent(cellIndex: number): Promise<string> {
+		return await test.step(`Get markdown content of cell at index: ${cellIndex}`, async () => {
+			return await this.cellMarkdown(cellIndex).textContent() ?? '';
+		});
+	}
+
+	/**
 	 * Get code cell content at specified index.
 	 */
-	async getCodeCellContent(cellIndex: number): Promise<string> {
+	private async getCodeCellContent(cellIndex: number): Promise<string> {
 		return await test.step(`Get content of cell at index: ${cellIndex}`, async () => {
 			const editor = this.cell.nth(cellIndex).locator('.positron-cell-editor-monaco-widget .view-lines');
 			const content = await editor.textContent() ?? '';
@@ -531,7 +553,7 @@ export class PositronNotebooks extends Notebooks {
 			const cellType = await this.getCellType(cellIndex);
 			const actualContent = cellType === 'code'
 				? await this.getCodeCellContent(cellIndex)
-				: await this.cellMarkdown(cellIndex).textContent() ?? '';
+				: await this.getMarkdownCellContent(cellIndex);
 			await expect(async () => {
 				expect(actualContent).toBe(expectedContent);
 			}).toPass({ timeout: DEFAULT_TIMEOUT });

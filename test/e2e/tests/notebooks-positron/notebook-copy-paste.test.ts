@@ -99,7 +99,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		await test.step('Test 4: Cut and paste at beginning of notebook', async () => {
 			// Cut cell 4 (from the middle of the notebook)
 			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
-			const cellToMoveContent = await notebooksPositron.getCodeCellContent(4);
+			const cellToMoveContent = await notebooksPositron.getCellContent(4);
 			await notebooksPositron.performCellAction('cut');
 			await notebooksPositron.expectCellCountToBe(7);
 
