@@ -21,6 +21,7 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
 const openInBrowser = localize('positron.preview.html.openInBrowser', "Open the content in the default browser");
