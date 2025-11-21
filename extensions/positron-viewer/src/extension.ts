@@ -50,25 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
 			return vscode.ExternalUriOpenerPriority.None;
 		},
 		openExternalUri(resolvedUri: vscode.Uri) {
-			// Try to capture the active terminal as the source
-			const activeTerminal = vscode.window.activeTerminal;
-			if (activeTerminal && activeTerminal.processId) {
-				// Wait for the process ID to resolve, then open with source
-				activeTerminal.processId.then(processId => {
-					if (processId !== undefined) {
-						positron.window.previewUrl(resolvedUri, {
-							type: positron.PreviewSourceType.Terminal,
-							id: String(processId)
-						});
-					} else {
-						// No process ID available, open without source
-						positron.window.previewUrl(resolvedUri);
-					}
-				});
-			} else {
-				// No active terminal, open without source
-				positron.window.previewUrl(resolvedUri);
-			}
+			positron.window.previewUrl(resolvedUri);
 		}
 	}, {
 		schemes: ['http', 'https'],
