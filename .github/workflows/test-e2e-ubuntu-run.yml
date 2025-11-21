@@ -87,7 +87,7 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
@@ -140,7 +140,7 @@ jobs:
           submodules: recursive
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -228,7 +228,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json download
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -241,7 +241,7 @@ jobs:
           aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
 
       - name: Restore AWS S3 Access to read-only role
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -324,11 +324,11 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} --reporter=blob"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
 
           # Don't fail the shard on test failures - let all shards complete and upload results
           # The merge-reports job will determine pass/fail based on the complete test results
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} --reporter=blob || true
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} || true
 
       - name: Upload Blob Report
         if: ${{ always() }}
@@ -363,12 +363,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -452,7 +452,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json upload
         if: always()
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -503,3 +503,4 @@ jobs:
         uses: geekyeggo/delete-artifact@v5
         with:
           name: blob-report-${{ inputs.project }}-*
+          failOnError: false

@@ -94,4 +94,5 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          include_job_durations: false
           notify_on: "failure"

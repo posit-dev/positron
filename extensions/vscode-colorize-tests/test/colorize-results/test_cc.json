@@ -4,7 +4,7 @@
 		"t": "source.cpp keyword.control.directive.conditional.if.cpp punctuation.definition.directive.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -14,7 +14,7 @@
 		"t": "source.cpp keyword.control.directive.conditional.if.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -194,7 +194,7 @@
 		"t": "source.cpp keyword.control.for.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -594,7 +594,7 @@
 		"t": "source.cpp keyword.control.directive.endif.cpp punctuation.definition.directive.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -604,7 +604,7 @@
 		"t": "source.cpp keyword.control.directive.endif.cpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1184,7 +1184,7 @@
 		"t": "source.cpp meta.function.definition.cpp meta.body.function.definition.cpp keyword.operator.wordlike.cpp keyword.operator.new.cpp",
 		"r": {
 			"hc_black": "source.cpp keyword.operator.new: #C586C0",
-			"positron_dark": "source.cpp keyword.operator.new: #C586C0",
+			"positron_dark": "source.cpp keyword.operator.new: #CE92A4",
 			"positron_light": "source.cpp keyword.operator.new: #AF00DB",
 			"hc_light": "source.cpp keyword.operator.new: #B5200D"
 		}

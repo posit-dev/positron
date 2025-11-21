@@ -23,8 +23,8 @@ export default defineConfig<ExtendedTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
 	shardingMode: 'duration-round-robin',
+	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: [
 		'example.test.ts',

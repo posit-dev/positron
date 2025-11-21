@@ -101,6 +101,12 @@ echo
 kill_app
 
 echo
+echo "### Git Base tests"
+echo
+npm run test-extension -- -l git-base
+kill_app
+
+echo
 echo "### Ipynb tests"
 echo
 npm run test-extension -- -l ipynb

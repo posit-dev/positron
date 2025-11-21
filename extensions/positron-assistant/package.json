@@ -198,6 +198,18 @@
         "title": "%commands.managePromptFiles.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && isDevelopment"
+      },
+      {
+        "command": "positron-assistant.collectDiagnostics",
+        "title": "%commands.collectDiagnostics.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.resetState",
+        "title": "%commands.resetState.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [

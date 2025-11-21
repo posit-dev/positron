@@ -33,7 +33,7 @@ export interface IActionListDelegate<T> {
 export interface IActionListItem<T> {
 	readonly item?: T;
 	readonly kind: ActionListItemKind;
-	readonly group?: { kind?: any; icon?: ThemeIcon; title: string };
+	readonly group?: { kind?: unknown; icon?: ThemeIcon; title: string };
 	readonly disabled?: boolean;
 	readonly label?: string;
 	readonly description?: string;
@@ -87,6 +87,11 @@ class HeaderRenderer<T> implements IListRenderer<IActionListItem<T>, IHeaderTemp
 interface ISeparatorTemplateData {
 	readonly container: HTMLElement;
 	readonly text: HTMLElement;
+
+	// --- Start Positron ---
+	// Add icon for provider logos
+	readonly icon: HTMLElement;
+	// --- End Positron ---
 }
 
 class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparatorTemplateData> {
@@ -96,14 +101,46 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 	renderTemplate(container: HTMLElement): ISeparatorTemplateData {
 		container.classList.add('separator');
 
+		// --- Start Positron ---
+		// The upstream separator does not have an icon
+		const icon = document.createElement('div');
+		icon.className = 'icon';
+		container.append(icon);
+
 		const text = document.createElement('span');
+		text.className = 'separator-label';
 		container.append(text);
 
-		return { container, text };
+		return { container, icon, text };
+		// --- End Positron ---
 	}
 
 	renderElement(element: IActionListItem<T>, _index: number, templateData: ISeparatorTemplateData): void {
 		templateData.text.textContent = element.label ?? '';
+
+		// --- Start Positron ---
+		// Render icon if present in the group
+		if (element.group?.icon) {
+			// Check if this is a data URI icon (SVG)
+			const iconId = ThemeIcon.isThemeIcon(element.group.icon) ? element.group.icon.id : '';
+			if (iconId.startsWith('data:image/svg+xml')) {
+				// Render SVG as background image
+				templateData.icon.className = 'icon provider-icon';
+				templateData.icon.style.backgroundImage = `url('${iconId}')`;
+			} else {
+				// Regular codicon
+				templateData.icon.className = 'icon ' + ThemeIcon.asClassName(element.group.icon);
+				if (element.group.icon.color) {
+					templateData.icon.style.color = asCssVariable(element.group.icon.color.id);
+				} else {
+					templateData.icon.style.color = '';
+				}
+				templateData.icon.style.display = 'flex';
+			}
+		} else {
+			templateData.icon.style.display = 'none';
+		}
+		// --- End Positron ---
 	}
 
 	disposeTemplate(_templateData: ISeparatorTemplateData): void {
@@ -219,7 +256,11 @@ export class ActionList<T> extends Disposable {
 
 	private readonly _actionLineHeight = 28;
 	private readonly _headerLineHeight = 28;
-	private readonly _separatorLineHeight = 8;
+	// --- Start Positron ---
+	// Use a taller separator to accommodate provider logos
+	// private readonly _separatorLineHeight = 8;
+	private readonly _separatorLineHeight = 32;
+	// --- End Positron ---
 
 	private readonly _allMenuItems: readonly IActionListItem<T>[];
 
@@ -331,6 +372,7 @@ export class ActionList<T> extends Disposable {
 		} else {
 			// For finding width dynamically (not using resize observer)
 			const itemWidths: number[] = this._allMenuItems.map((_, index): number => {
+				// eslint-disable-next-line no-restricted-syntax
 				const element = this.domNode.ownerDocument.getElementById(this._list.getElementID(index));
 				if (element) {
 					element.style.width = 'auto';

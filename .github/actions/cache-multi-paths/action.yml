@@ -60,6 +60,7 @@ runs:
         path: |
           ~/.cache/ms-playwright
           /root/.cache/ms-playwright
+          /github/home/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
         restore-keys: |
@@ -73,6 +74,10 @@ runs:
         path: |
           ~/.cache/electron
           ~/.cache/electron-builder
+          /root/.cache/electron
+          /root/.cache/electron-builder
+          /github/home/.cache/electron
+          /github/home/.cache/electron-builder
         # electron binaries are tied to package-lock and the electron version in package.json
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
         restore-keys: |
