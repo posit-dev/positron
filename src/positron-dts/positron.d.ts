@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
-/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
 declare module 'positron' {
@@ -2222,8 +2221,36 @@ declare module 'positron' {
 			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
-			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
+			autoconfigure?: LanguageModelAutoconfigure;
 		}
+
+		/**
+		 * Types of autoconfiguration support for language models.
+		 */
+		export enum LanguageModelAutoconfigureType {
+			// Autoconfigured using environment variables
+			EnvVariable = 0,
+			// Autoconfigured using a custom function on the language model provider
+			// E.g., for Workbench managed credentials
+			Custom = 1
+		}
+		/**
+		 * Language model autoconfiguration options.
+		 */
+		export type LanguageModelAutoconfigure = (
+			{
+				type: LanguageModelAutoconfigureType.EnvVariable;
+				// Environment variable key used to retrieve API key, if set
+				key: string;
+				signedIn: boolean;
+			} |
+			{
+				type: LanguageModelAutoconfigureType.Custom;
+				// Message to show in the UI if autoconfiguration was successful
+				message: string;
+				signedIn: boolean;
+			}
+		);
 
 		/**
 		 * Request the current plot data.

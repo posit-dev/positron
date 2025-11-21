@@ -11,6 +11,7 @@ import { localize2 } from '../../../../../nls.js';
 import { Action2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ProductQualityContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
@@ -40,7 +41,7 @@ export class ManageModelsAction extends Action2 {
 			id: ManageModelsAction.ID,
 			title: localize2('manageLanguageModels', 'Manage Language Models...'),
 			category: CHAT_CATEGORY,
-			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(
+			precondition: ContextKeyExpr.and(ProductQualityContext.isEqualTo('stable'), ChatContextKeys.enabled, ContextKeyExpr.or(
 				// --- Start Positron ---
 				ContextKeyTrueExpr.INSTANCE,
 				// --- End Positron ---
@@ -52,7 +53,7 @@ export class ManageModelsAction extends Action2 {
 			f1: true
 		});
 	}
-	override async run(accessor: ServicesAccessor, ...args: any[]): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const languageModelsService = accessor.get(ILanguageModelsService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const commandService = accessor.get(ICommandService);
@@ -69,7 +70,7 @@ export class ManageModelsAction extends Action2 {
 		// --- End Positron ---
 		const store = new DisposableStore();
 
-		const quickPickItems: IVendorQuickPickItem[] = vendors.map(vendor => ({
+		const quickPickItems: IVendorQuickPickItem[] = vendors.sort((v1, v2) => v1.displayName.localeCompare(v2.displayName)).map(vendor => ({
 			label: vendor.displayName,
 			vendor: vendor.vendor,
 			managementCommand: vendor.managementCommand,
@@ -98,7 +99,7 @@ export class ManageModelsAction extends Action2 {
 						metadata: modelMetadata,
 						identifier: modelIdentifier,
 					};
-				}));
+				})).sort((m1, m2) => m1.metadata.name.localeCompare(m2.metadata.name));
 				await this.showModelSelectorQuickpick(models, quickInputService, languageModelsService);
 			}
 		}));

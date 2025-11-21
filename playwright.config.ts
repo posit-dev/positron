@@ -12,6 +12,7 @@ type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorker
 
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
+const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -46,7 +47,7 @@ export default defineConfig<ExtendedTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			['@midleman/github-actions-reporter'],
+			...githubSummaryReport,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
