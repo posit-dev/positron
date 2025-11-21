@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { getMaxConnectionAttempts, getProviderTimeoutMs, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -20,11 +20,12 @@ import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedro
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
 import { PositLanguageModel } from './posit.js';
 import { applyModelFilters } from './modelFilters';
+import { PositronAssistantApi } from './api.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -281,7 +282,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	constructor(
 		protected readonly _config: ModelConfig,
 		protected readonly _context?: vscode.ExtensionContext,
-		private readonly _storage?: SecretStorage,
+		protected readonly _storage?: SecretStorage,
 	) {
 		this.id = _config.id;
 		this.name = _config.name;
@@ -1045,14 +1046,14 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	bedrockClient: BedrockClient;
 	inferenceProfiles: InferenceProfileSummary[] = [];
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		// Update a stale model configuration to the latest defaults
 		const models = availableModels.get('amazon-bedrock')?.map(m => m.identifier) || [];
 		if (!(_config.model in models)) {
 			_config.name = AWSLanguageModel.source.defaults.name;
 			_config.model = AWSLanguageModel.source.defaults.model;
 		}
-		super(_config, _context);
+		super(_config, _context, _storage);
 
 		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<BedrockProviderVariables>('bedrock', {});
 		log.debug(`[BedrockLanguageModel] positron.assistant.providerVariables.bedrock settings: ${JSON.stringify(environmentSettings)}`);
@@ -1112,12 +1113,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			if (message.includes('aws sso login')) {
 				// Give the user the option to login automatically
 				// Display an error message with an action the user can take
+				const isConnectionTest = error.stack?.includes('resolveConnection');
 				const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
 				vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
 					if (selection?.id === action.id) {
+						// User chose to login, so we need to refresh the credentials
+
 						// Grab the profile & region to refresh from the Bedrock client config
 						const profile = this.bedrockClient.config.profile;
-						const region = this.bedrockClient.config.region;
+						// Region may be an async function or a string, so handle both cases
+						const region = typeof this.bedrockClient.config.region === 'function' ? await this.bedrockClient.config.region() : this.bedrockClient.config.region;
 						// Execute the AWS SSO login command as a native task
 						const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
 							{ type: 'shell' },
@@ -1130,7 +1135,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 						vscode.tasks.onDidEndTaskProcess(e => {
 							if (e.execution === taskExecution) {
 								// Notify the user of the result
-								if (e.exitCode === 0 || e.exitCode === undefined) {
+								const success = e.exitCode === 0 || e.exitCode === undefined;
+								if (success) {
 									// Success
 									vscode.window.showInformationMessage(vscode.l10n.t('AWS login completed successfully'));
 								} else {
@@ -1142,18 +1148,31 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 								// This is a little sneaky, but works + no other native method
 								const redirectUri = vscode.Uri.from({ scheme: vscode.env.uriScheme });
 								vscode.env.openExternal(redirectUri);
+
+								if (success && isConnectionTest) {
+									// If we were in a connection test, re-run it now that we've logged in
+									registerModelWithAPI(
+										this._config,
+										this._context,
+										this._storage,
+										this
+									).then(() => {
+										positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
+										PositronAssistantApi.get().notifySignIn(this._config.name);
+									});
+								}
 							}
 						});
 					}
 				});
 
-				if (error.stack?.includes('resolveConnection')) {
-					// We're in a connection test, so just return undefined and use this own method's error display
-					return undefined;
+				if (isConnectionTest) {
+					// We're in a connection test, so throw an AssistantError to avoid showing a message box
+					// but that stops the model provider from being registered in core
+					throw new AssistantError(message, false);
 				} else {
 					// We are in a chat response, so we should return an error to display in the chat pane
 					throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`));
-					// return vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile}\` in the terminal to authenticate.`);
 				}
 			} else {
 				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
