@@ -192,8 +192,7 @@ export interface PreviewSource {
 	type: PreviewSourceType;
 
 	/**
-	 * The ID of the source (session_id, terminal process ID, or extension
-	 * ID)
+	 * The ID of the source (session_id or terminal process ID)
 	 */
 	id: string;
 
@@ -212,8 +211,7 @@ export enum OpenEditorKind {
  */
 export enum PreviewSourceType {
 	Runtime = 'runtime',
-	Terminal = 'terminal',
-	Extension = 'extension'
+	Terminal = 'terminal'
 }
 
 /**

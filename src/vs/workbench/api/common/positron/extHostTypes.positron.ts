@@ -442,8 +442,6 @@ export enum PreviewSourceType {
 	Runtime = 'runtime',
 	/** The preview was opened by a terminal. */
 	Terminal = 'terminal',
-	/** The preview was opened by an extension. */
-	Extension = 'extension',
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';

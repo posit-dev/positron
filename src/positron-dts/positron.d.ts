@@ -559,7 +559,7 @@ declare module 'positron' {
 		 * Extra data supplied by the runtime provider; not read by Positron but supplied
 		 * when creating a new session from the metadata.
 		 */
-		extraRuntimeData: any;
+		extraRuntimeData: unknown;
 
 		/**
 		 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
@@ -873,7 +873,7 @@ declare module 'positron' {
 		 * extension, and when code is executed from a script, it names the
 		 * script.
 		 */
-		metadata?: Record<string, any>;
+		metadata?: Record<string, unknown>;
 	}
 
 	/**
@@ -1021,7 +1021,7 @@ declare module 'positron' {
 		name: string;
 
 		/** Additional error information (optional) */
-		data: any | undefined;
+		data: unknown | undefined;
 	}
 
 	/**
@@ -1070,7 +1070,7 @@ declare module 'positron' {
 		 * @param method The name of the method to call
 		 * @param args Arguments to pass to the method
 		 */
-		callMethod?(method: string, ...args: any[]): Thenable<any>;
+		callMethod?(method: string, ...args: unknown[]): Thenable<unknown>;
 
 		/**
 		 * Execute code in the runtime
@@ -1375,7 +1375,7 @@ declare module 'positron' {
 		 * when the user closes the preview panel. Both cases fire the
 		 * `onDispose` event.
 		 */
-		dispose(): any;
+		dispose(): unknown;
 	}
 
 	/**
@@ -1396,8 +1396,6 @@ declare module 'positron' {
 		Runtime = 'runtime',
 		/** The preview was opened by a terminal. */
 		Terminal = 'terminal',
-		/** The preview was opened by an extension. */
-		Extension = 'extension',
 	}
 
 	/**
@@ -1411,8 +1409,7 @@ declare module 'positron' {
 
 		/**
 		 * The ID of the source. For 'runtime', this is the session ID;
-		 * for 'terminal', this is the terminal process ID;
-		 * for 'extension', this is the extension ID.
+		 * for 'terminal', this is the terminal process ID.
 		 */
 		readonly id: string;
 	}
@@ -1789,7 +1786,7 @@ declare module 'positron' {
 			 *
 			 * @param data The data returned.
 			 */
-			onData?: (data: any) => void;
+			onData?: (data: unknown) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has completed
@@ -1799,7 +1796,7 @@ declare module 'positron' {
 			 *
 			 * @param result The result of the successful execution, as a map of MIME types to values.
 			 */
-			onCompleted?: (result: Record<string, any>) => void;
+			onCompleted?: (result: Record<string, unknown>) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has failed.
@@ -1847,7 +1844,7 @@ declare module 'positron' {
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
-			sessionId?: string): Thenable<Record<string, any>>;
+			sessionId?: string): Thenable<Record<string, unknown>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -2025,7 +2022,7 @@ declare module 'positron' {
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.
 		 */
-		export function call(method: string, params: Record<string, any>): Thenable<any>;
+		export function call(method: string, params: Record<string, unknown>): Thenable<unknown>;
 
 		/**
 		 * Retrieve last active editor context.
@@ -2156,7 +2153,7 @@ declare module 'positron' {
 
 			providerName: string;
 
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<unknown>;
 
 			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
@@ -2299,7 +2296,7 @@ declare module 'positron' {
 			// vscode.ChatResponseConfirmationPart
 			title: string;
 			message: string;
-			data: any;
+			data: unknown;
 			buttons?: string[];
 		} | {
 			// vscode.ChatResponseTextEditPart

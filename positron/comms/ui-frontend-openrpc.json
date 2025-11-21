@@ -672,14 +672,13 @@
 						"type": "string",
 						"enum": [
 							"runtime",
-							"terminal",
-							"extension"
+							"terminal"
 						],
 						"description": "The type of source that opened the preview"
 					},
 					"id": {
 						"type": "string",
-						"description": "The ID of the source (session_id, terminal process ID, or extension ID)"
+						"description": "The ID of the source (session_id or terminal process ID)"
 					}
 				},
 				"required": [

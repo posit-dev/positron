@@ -44,8 +44,6 @@ class PreviewSourceType(str, enum.Enum):
 
     Terminal = "terminal"
 
-    Extension = "extension"
-
 
 class EditorContext(BaseModel):
     """
@@ -167,7 +165,7 @@ class PreviewSource(BaseModel):
     )
 
     id: StrictStr = Field(
-        description="The ID of the source (session_id, terminal process ID, or extension ID)",
+        description="The ID of the source (session_id or terminal process ID)",
     )
 
 
