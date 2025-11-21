@@ -84,7 +84,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			try {
 				// Execute the command to get the code string based on the selected syntax.
 				const result = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, selectedSyntax);
-				setCodeString(result);
+				setCodeString(typeof result === 'string' ? result : undefined);
 			} catch (error) {
 				if (selectedSyntax) {
 					setCodeString(localize(
@@ -169,7 +169,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		// Execute the command to get the code string based on the selected syntax.
 		try {
 			const exc = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
-			setCodeString(exc);
+			setCodeString(typeof exc === 'string' ? exc : undefined);
 		} catch (error) {
 			setCodeString(localize(
 				'positron.dataExplorer.cannotGenerateCodeForType',

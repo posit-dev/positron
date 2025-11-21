@@ -26,6 +26,9 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+
 // --- Start Positron ---
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -61,9 +64,12 @@ export class ReplEditorInput extends NotebookEditorInput implements ICompositeNo
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 		@ILogService logService: ILogService,
 		// --- End Positron ---
+		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
+		@IPathService pathService: IPathService
 	) {
 		// --- Start Positron ---
-		super(resource, undefined, 'jupyter-notebook', {}, _notebookService, _notebookModelResolverService, _fileDialogService, labelService, fileService, filesConfigurationService, extensionService, editorService, textResourceConfigurationService, customEditorLabelService, runtimeSessionService, logService);
+		// Add runtime session service & log service
+		super(resource, undefined, 'jupyter-notebook', {}, _notebookService, _notebookModelResolverService, _fileDialogService, labelService, fileService, filesConfigurationService, extensionService, editorService, textResourceConfigurationService, customEditorLabelService, runtimeSessionService, logService, environmentService, pathService);
 		// --- End Positron ---
 		this.isScratchpad = resource.scheme === 'untitled' && configurationService.getValue<boolean>(NotebookSetting.InteractiveWindowPromptToSave) !== true;
 		this.label = label ?? this.createEditorLabel(resource);

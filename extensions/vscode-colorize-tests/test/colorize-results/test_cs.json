@@ -4,7 +4,7 @@
 		"t": "source.cs keyword.other.directive.using.cs",
 		"r": {
 			"hc_black": "keyword.other.directive.using: #C586C0",
-			"positron_dark": "keyword.other.directive.using: #C586C0",
+			"positron_dark": "keyword.other.directive.using: #CE92A4",
 			"positron_light": "keyword.other.directive.using: #AF00DB",
 			"hc_light": "keyword.other.directive.using: #B5200D"
 		}
@@ -304,7 +304,7 @@
 		"t": "source.cs keyword.control.conditional.if.cs",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1064,7 +1064,7 @@
 		"t": "source.cs keyword.control.loop.foreach.cs",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1134,7 +1134,7 @@
 		"t": "source.cs keyword.control.loop.in.cs",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

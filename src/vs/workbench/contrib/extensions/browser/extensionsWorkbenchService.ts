@@ -1186,6 +1186,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
 	getAutoUpdateValue(): AutoUpdateConfigurationValue {
 		const autoUpdate = this.configurationService.getValue<AutoUpdateConfigurationValue>(AutoUpdateConfigurationKey);
+		// eslint-disable-next-line local/code-no-any-casts
 		if (<any>autoUpdate === 'onlySelectedExtensions') {
 			return false;
 		}

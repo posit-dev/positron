@@ -180,7 +180,7 @@ export class EditTool implements IToolImpl {
 			throw new Error(`File ${uri.fsPath} can't be edited because it is configured to be ignored by Copilot`);
 		}
 
-		const model = this.chatService.getSession(invocation.context?.sessionId) as ChatModel;
+		const model = this.chatService.getSessionByLegacyId(invocation.context?.sessionId) as ChatModel;
 		const request = model.getRequests().at(-1)!;
 
 		// Undo stops mark groups of response data in the output. Operations, such

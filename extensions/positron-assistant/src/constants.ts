@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import { DocumentSelector } from 'vscode-languageclient';
+import * as vscode from 'vscode';
 
 /** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
@@ -49,3 +50,8 @@ export const MAX_CONTEXT_VARIABLES = 400;
 
 /** Max number of models to attempt connecting to when checking auth for a provider */
 export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
+
+/**
+ * Determines if the Posit Web environment is detected.
+ */
+export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
