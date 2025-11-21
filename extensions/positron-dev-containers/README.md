@@ -4,7 +4,7 @@
 
 The Dev Containers extension enables you to open any folder or repository inside a Docker container and take advantage of Positron's full feature set within that containerized environment. This allows you to define your project's dependencies declaratively, install them in a lightweight container, and run the entire project inside the container with a consistent, reproducible development environment.
 
-For compatibility with VS Code, this extension uses most of the same command IDs and setting names from VS Code's version of the extension. The extension itself is novel code, with the exception of the contents of the `spec` folder, which is adapted from the MIT-licensed [dev container reference implementation](https://github.com/devcontainers/spec).
+For compatibility with VS Code, this extension uses most of the same command IDs and setting names from VS Code's version of the extension. The extension itself is novel code, with the exception of the contents of the `spec` folder, which is adapted from the MIT-licensed [dev container reference implementation](https://github.com/devcontainers/cli).
 
 ## Requirements
 
