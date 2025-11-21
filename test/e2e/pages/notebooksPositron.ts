@@ -680,6 +680,11 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Verify: multiple cells are selected.
+	 * @param expectedIndices - The indices of the cells expected to be selected.
+	 * @param timeout - Timeout for the expectation.
+	 */
 	async expectCellsToBeSelected(expectedIndices: number[], timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Verify cells at indices [${expectedIndices.join(', ')}] are selected`, async () => {
 			for (const index of expectedIndices) {
