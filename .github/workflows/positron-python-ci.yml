@@ -133,7 +133,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.13', '3.14']
+        python: ['3.10', '3.13', '3.14']
 
     steps:
       - name: Checkout
@@ -171,10 +171,8 @@ jobs:
       matrix:
         include:
           - os: 'macos-latest'
-            python: '3.9'
-          - os: 'windows-latest'
             python: '3.10'
-          - os: 'ubuntu-latest'
+          - os: 'windows-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
@@ -218,7 +216,7 @@ jobs:
         include:
           # currently only running on oldest supported Python version
           - os: 'ubuntu-latest'
-            python: '3.9'
+            python: '3.10'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
