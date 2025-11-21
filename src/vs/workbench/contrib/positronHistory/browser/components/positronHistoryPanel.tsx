@@ -12,6 +12,7 @@ import { IExecutionHistoryService, IInputHistoryEntry } from '../../../../servic
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -102,6 +103,23 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			}
 			return newSet;
 		});
+	};
+
+	/**
+	 * Handle "Copy" - copies selected code to clipboard
+	 */
+	const handleCopy = (index?: number) => {
+		const idx = index !== undefined ? index : selectedIndex;
+		if (idx < 0 || idx >= entries.length) {
+			return;
+		}
+
+		const entry = entries[idx];
+		const clipboardService = instantiationService.invokeFunction(accessor =>
+			accessor.get(IClipboardService)
+		);
+
+		clipboardService.writeText(entry.input);
 	};
 
 	/**
@@ -230,12 +248,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};	/**
 	 * Handle "To Console" button - sends selected code to console
 	 */
-	const handleToConsole = () => {
-		if (selectedIndex < 0 || selectedIndex >= entries.length || !currentLanguage) {
+	const handleToConsole = (index?: number) => {
+		const idx = index !== undefined ? index : selectedIndex;
+		if (idx < 0 || idx >= entries.length || !currentLanguage) {
 			return;
 		}
 
-		const entry = entries[selectedIndex];
+		const entry = entries[idx];
 		const consoleService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IPositronConsoleService)
 		);
@@ -257,12 +276,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	/**
 	 * Handle "To Source" button - inserts selected code at cursor position
 	 */
-	const handleToSource = () => {
-		if (selectedIndex < 0 || selectedIndex >= entries.length) {
+	const handleToSource = (index?: number) => {
+		const idx = index !== undefined ? index : selectedIndex;
+		if (idx < 0 || idx >= entries.length) {
 			return;
 		}
 
-		const entry = entries[selectedIndex];
+		const entry = entries[idx];
 		const editorService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IEditorService)
 		);
@@ -454,6 +474,18 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 									onSelect={() => handleSelect(index)}
 									onToggleExpand={() => toggleExpanded(index)}
 									onHeightChange={(height: number) => updateRowHeight(index, height)}
+									onToConsole={() => {
+										setSelectedIndex(index);
+										handleToConsole(index);
+									}}
+									onToSource={() => {
+										setSelectedIndex(index);
+										handleToSource(index);
+									}}
+									onCopy={() => {
+										setSelectedIndex(index);
+										handleCopy(index);
+									}}
 									instantiationService={instantiationService}
 									fontInfo={props.fontInfo}
 								/>

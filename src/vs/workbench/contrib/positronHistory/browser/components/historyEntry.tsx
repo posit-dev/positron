@@ -11,6 +11,9 @@ import { ILanguageService } from '../../../../../editor/common/languages/languag
 import { tokenizeToString } from '../../../../../editor/common/languages/textToHtmlTokenizer.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 
 const ttPolicy = createTrustedTypesPolicy('tokenizeToString', { createHTML: value => value });
 
@@ -28,6 +31,9 @@ interface HistoryEntryProps {
 	onSelect: () => void;
 	onToggleExpand: () => void;
 	onHeightChange: (height: number) => void;
+	onToConsole: () => void;
+	onToSource: () => void;
+	onCopy: () => void;
 	instantiationService: IInstantiationService;
 	fontInfo: FontInfo;
 }
@@ -51,9 +57,13 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		onSelect,
 		onToggleExpand,
 		onHeightChange,
+		onToConsole,
+		onToSource,
+		onCopy,
 		instantiationService
 	} = props;
 
+	const services = usePositronReactServicesContext();
 	const [lineCount, setLineCount] = useState<number>(0);
 	const [colorizedHtml, setColorizedHtml] = useState<TrustedHTML | null>(null);
 	const entryRef = useRef<HTMLDivElement>(null);
@@ -126,6 +136,60 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		}
 	});
 
+	/**
+	 * Handle context menu
+	 */
+	const handleContextMenu = (event: React.MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const x = event.clientX;
+		const y = event.clientY;
+
+		const actions: IAction[] = [];
+
+		// Add "Send to Console" action
+		actions.push({
+			id: 'positronHistory.sendToConsole',
+			label: 'Send to Console',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onToConsole()
+		});
+
+		// Add "Send to Editor" action
+		actions.push({
+			id: 'positronHistory.sendToEditor',
+			label: 'Send to Editor',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onToSource()
+		});
+
+		// Add separator
+		actions.push(new Separator());
+
+		// Add "Copy" action
+		actions.push({
+			id: 'positronHistory.copy',
+			label: 'Copy',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onCopy()
+		});
+
+		// Show the context menu
+		services.contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({ x, y }),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+		});
+	};
+
 	const showExpandButton = lineCount > MAX_COLLAPSED_LINES;
 	const needsTruncation = showExpandButton && !isExpanded;
 	const codeToDisplay = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
@@ -139,6 +203,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			style={styleWithoutHeight}
 			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
 			onClick={onSelect}
+			onContextMenu={handleContextMenu}
 		>
 			<div className="history-entry-content">
 				{colorizedHtml ? (
