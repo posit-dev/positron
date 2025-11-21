@@ -559,7 +559,7 @@ declare module 'positron' {
 		 * Extra data supplied by the runtime provider; not read by Positron but supplied
 		 * when creating a new session from the metadata.
 		 */
-		extraRuntimeData: unknown;
+		extraRuntimeData: any;
 
 		/**
 		 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
@@ -873,7 +873,7 @@ declare module 'positron' {
 		 * extension, and when code is executed from a script, it names the
 		 * script.
 		 */
-		metadata?: Record<string, unknown>;
+		metadata?: Record<string, any>;
 	}
 
 	/**
@@ -1021,7 +1021,7 @@ declare module 'positron' {
 		name: string;
 
 		/** Additional error information (optional) */
-		data: unknown | undefined;
+		data: any | undefined;
 	}
 
 	/**
@@ -1070,7 +1070,7 @@ declare module 'positron' {
 		 * @param method The name of the method to call
 		 * @param args Arguments to pass to the method
 		 */
-		callMethod?(method: string, ...args: unknown[]): Thenable<unknown>;
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/**
 		 * Execute code in the runtime
@@ -1375,7 +1375,7 @@ declare module 'positron' {
 		 * when the user closes the preview panel. Both cases fire the
 		 * `onDispose` event.
 		 */
-		dispose(): unknown;
+		dispose(): any;
 	}
 
 	/**
@@ -1786,7 +1786,7 @@ declare module 'positron' {
 			 *
 			 * @param data The data returned.
 			 */
-			onData?: (data: unknown) => void;
+			onData?: (data: any) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has completed
@@ -1796,7 +1796,7 @@ declare module 'positron' {
 			 *
 			 * @param result The result of the successful execution, as a map of MIME types to values.
 			 */
-			onCompleted?: (result: Record<string, unknown>) => void;
+			onCompleted?: (result: Record<string, any>) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has failed.
@@ -1844,7 +1844,7 @@ declare module 'positron' {
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
-			sessionId?: string): Thenable<Record<string, unknown>>;
+			sessionId?: string): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -2022,7 +2022,7 @@ declare module 'positron' {
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.
 		 */
-		export function call(method: string, params: Record<string, unknown>): Thenable<unknown>;
+		export function call(method: string, params: Record<string, any>): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.
@@ -2153,7 +2153,7 @@ declare module 'positron' {
 
 			providerName: string;
 
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<unknown>;
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
 
 			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
@@ -2296,7 +2296,7 @@ declare module 'positron' {
 			// vscode.ChatResponseConfirmationPart
 			title: string;
 			message: string;
-			data: unknown;
+			data: any;
 			buttons?: string[];
 		} | {
 			// vscode.ChatResponseTextEditPart
