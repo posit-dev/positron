@@ -433,10 +433,30 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
 				// Some providers like AWS Bedrock require a type for all tool input schemas; default to 'object' if not provided.
 				// See similar handling for Anthropic in toAnthropicTool in extensions/positron-assistant/src/anthropic.ts
-				const input_schema = tool.inputSchema as Record<string, any> ?? {
-					type: 'object',
-					properties: {},
-				};
+				let input_schema = tool.inputSchema as Record<string, any>;
+
+				// Default schema for providers without input schema
+				if (!input_schema) {
+					const defaultSchema = {
+						type: 'object',
+						properties: {},
+						required: []
+					};
+
+					// Snowflake requires at least one property to be specified
+					if (this.provider === 'snowflake-cortex') {
+						defaultSchema.properties = {
+							placeholder: {
+								type: 'string',
+								description: 'placeholder'
+							}
+						};
+					}
+
+					input_schema = defaultSchema;
+				}
+
+				// Ensure schema has a type field
 				if (!input_schema.type) {
 					log.warn(`[${this.providerName}] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 					input_schema.type = 'object';
@@ -520,13 +540,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		flushAccumulatedTextDeltas();
 
 		// Log all the warnings from the response
-		result.warnings.then((warnings) => {
-			if (warnings) {
-				for (const warning of warnings) {
-					log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
-				}
+		const warnings = await result.warnings;
+		if (warnings) {
+			for (const warning of warnings) {
+				log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
 			}
-		});
+		}
 
 		// ai-sdk provides token usage in the result but it's not clear how it is calculated
 		const usage = await result.usage;
