@@ -225,7 +225,6 @@ export class PositronNotebooks extends Notebooks {
 		const y = box.y + box.height + OFFSET;
 
 		await this.code.driver.page.mouse.click(x, y);
-		await this.code.driver.page.mouse.click(x, y);
 	}
 
 	/**
