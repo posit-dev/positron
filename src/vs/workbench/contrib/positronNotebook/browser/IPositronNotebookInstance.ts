@@ -219,25 +219,28 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	/**
 	 * Removes a cell from the notebook.
 	 *
-	 * @param cell Optional cell to delete. If not provided, deletes the currently selected cell
+	 * @param cell Optional cell to delete. If not provided, deletes the currently active cell
 	 */
 	deleteCell(cell?: IPositronNotebookCell): void;
 
 	/**
-	 * Moves a cell up by one position.
-	 * Supports multi-cell selection - moves all selected cells as a group.
+	 * Removes multiple cells from the notebook.
 	 *
-	 * @param cell The cell to move up
+	 * @param cells Optional array of cells to delete. If not provided, uses current selection.
 	 */
-	moveCellUp(cell: IPositronNotebookCell): void;
+	deleteCells(cells?: IPositronNotebookCell[]): void;
 
 	/**
-	 * Moves a cell down by one position.
+	 * Moves the selected cell(s) up by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 *
-	 * @param cell The cell to move down
 	 */
-	moveCellDown(cell: IPositronNotebookCell): void;
+	moveCellsUp(): void;
+
+	/**
+	 * Moves the selected cell(s) down by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 */
+	moveCellsDown(): void;
 
 	/**
 	 * Moves cells to a specific index.

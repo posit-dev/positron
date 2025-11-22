@@ -37,7 +37,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { getActiveCell, getEditingCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -546,18 +546,6 @@ interface ICellActionOptions {
 	readonly editMode?: boolean;
 }
 
-function isCellActionBarAction(action: Action2) {
-	const menu = action.desc.menu;
-	if (!menu) {
-		return false;
-	}
-	const menus = Array.isArray(menu) ? menu : [menu];
-	return menus.some(({ id }) =>
-		id === MenuId.PositronNotebookCellActionBarLeft ||
-		id === MenuId.PositronNotebookCellActionBarRight ||
-		id === MenuId.PositronNotebookCellActionBarSubmenu);
-}
-
 abstract class CellAction2 extends Action2 {
 	constructor(
 		desc: Readonly<IAction2Options>,
@@ -573,6 +561,12 @@ abstract class CellAction2 extends Action2 {
 			return;
 		}
 
+		/**
+		 * Runs the cell action for each selected cell as an operation per cell
+		 * and not as a single operation on all selected cells. This means that
+		 * each cell action will be undoable/redoable individually and not as a
+		 * single transaction for all cells.
+		 */
 		if (this.options?.multiSelect) {
 			// Handle multiple selected cells
 			const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
@@ -581,11 +575,9 @@ abstract class CellAction2 extends Action2 {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
 		} else {
-			// Handle single cell
+			// Handle single cell (the active cell which will also be the editing cell if in edit mode)
 			const state = activeNotebook.selectionStateMachine.state.get();
-			// Always check editing cell if actionBar is present (action bar items should work in edit mode).
-			// Otherwise, only check editing cell if editMode option is enabled.
-			const cell = getActiveCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
+			const cell = getActiveCell(state);
 			if (cell) {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
@@ -689,7 +681,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
@@ -706,11 +698,11 @@ registerAction2(class extends CellAction2 {
 				primary: KeyCode.Backspace,
 				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
 			}
-		}, { multiSelect: true, editMode: false });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		cell.delete();
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.deleteCells();
 	}
 });
 
@@ -797,7 +789,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-// Run all code cells above the current cell
+// Run all code cells above the current cell (including the current cell)
 registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
@@ -826,7 +818,7 @@ registerAction2(class extends CellAction2 {
 	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
-		// Run all code cells above the current cell
+		// Run all code cells above the current cell (including the current cell)
 		const cellIndex = cell.index;
 		for (let i = 0; i < cellIndex; i++) {
 			const targetCell = cells[i];
@@ -837,7 +829,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-// Run all code cells below the current cell
+// Run all code cells below the current cell (including the current cell)
 registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
@@ -866,8 +858,8 @@ registerAction2(class extends CellAction2 {
 	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
-		// Run all code cells below the current cell
-		for (let i = cell.index + 1; i < cells.length; i++) {
+		// Run all code cells below the current cell (including the current cell)
+		for (let i = cell.index; i < cells.length; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
@@ -1016,7 +1008,7 @@ registerAction2(class extends CellAction2 {
 });
 
 // Copy cells command - C (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.copyCells',
@@ -1036,16 +1028,16 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyC
 			}
-		}, { multiSelect: true });
+		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.copyCells();
 	}
 });
 
 // Cut cells command - X (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cutCells',
@@ -1064,16 +1056,16 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyX
 			}
-		}, { multiSelect: true });
+		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.cutCells();
 	}
 });
 
 // Paste cells command - V (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCells',
@@ -1088,20 +1080,23 @@ registerAction2(class extends CellAction2 {
 				order: 40
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyV
 			}
 		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCells();
 	}
 });
 
 // Paste cells above command - Shift+V (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCellsAbove',
@@ -1116,20 +1111,23 @@ registerAction2(class extends CellAction2 {
 				order: 30
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.KeyV
 			}
 		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCellsAbove();
 	}
 });
 
-// Move cell up
-registerAction2(class extends CellAction2 {
+// Move selected cells up
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveUp',
@@ -1149,16 +1147,16 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
 			}
-		}, { multiSelect: true, editMode: true });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.moveCellUp(cell);
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellsUp();
 	}
 });
 
-// Move cell down
-registerAction2(class extends CellAction2 {
+// Move selected cells down
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.moveDown',
@@ -1178,11 +1176,11 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
 			}
-		}, { multiSelect: true, editMode: true });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.moveCellDown(cell);
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellsDown();
 	}
 });
 

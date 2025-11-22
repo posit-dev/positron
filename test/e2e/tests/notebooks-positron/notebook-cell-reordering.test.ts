@@ -136,8 +136,7 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
 	});
 
-	// @dhruvisompura unskip me
-	test.skip('Multiselect: move multiple cells', async function ({ app }) {
+	test('Multiselect: move multiple cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
