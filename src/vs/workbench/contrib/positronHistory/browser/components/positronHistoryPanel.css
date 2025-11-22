@@ -126,6 +126,18 @@
 	white-space: pre;
 }
 
+/* Search highlighting */
+.history-search-highlight {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+	border-radius: 2px;
+	padding: 0;
+	margin: 0;
+}
+
+.history-entry.selected .history-search-highlight {
+	background-color: var(--vscode-editor-findMatchBackground);
+}
+
 /* Remove unused styles for truncated indicator and expand button */
 
 .action-bar-text {

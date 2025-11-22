@@ -63,6 +63,15 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	};
 
+	// Input key down handler.
+	const inputKeyDownHandler = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === 'Escape' && filterText !== '') {
+			e.preventDefault();
+			e.stopPropagation();
+			buttonClearClickHandler();
+		}
+	};
+
 	useImperativeHandle(ref, () => ({
 		setFilterText: (text: string) => {
 			setFilterText(text);
@@ -85,6 +94,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					onBlur={() => setFocused(false)}
 					onChange={changeHandler}
 					onFocus={() => setFocused(true)}
+					onKeyDown={inputKeyDownHandler}
 				/>
 				{filterText !== '' && (
 					<button

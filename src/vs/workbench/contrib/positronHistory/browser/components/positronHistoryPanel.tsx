@@ -8,6 +8,7 @@ import { VariableSizeList as List } from 'react-window';
 import { localize } from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { Delayer } from '../../../../../base/common/async.js';
 import { IExecutionHistoryService, IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -20,6 +21,7 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { LanguageFilterMenuButton } from './languageFilterMenuButton.js';
 import { HistoryEntry } from './historyEntry.js';
 import { HistorySeparator } from './historySeparator.js';
@@ -82,12 +84,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 	const [hasFocus, setHasFocus] = useState(false);
 	const [stickyHeaderLabel, setStickyHeaderLabel] = useState<string | null>(null);
+	const [searchText, setSearchText] = useState<string>('');
+	const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
 
 	// Refs
 	const listRef = useRef<List>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
+	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
+	const filterRef = useRef<any>(null);
 
 	/**
 	 * Custom inner element for the List that enables sticky positioning
@@ -149,6 +155,18 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
+	 * Filter entries based on search text
+	 */
+	const filterEntries = (entries: IInputHistoryEntry[], search: string): IInputHistoryEntry[] => {
+		if (!search) {
+			return entries;
+		}
+
+		const searchLower = search.toLowerCase();
+		return entries.filter(entry => entry.input.toLowerCase().includes(searchLower));
+	};
+
+	/**
 	 * Handle "Copy" - copies selected code to clipboard
 	 */
 	const handleCopy = (index?: number) => {
@@ -186,8 +204,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				return entry.input !== historyEntries[index - 1].input;
 			});
 
+			// Apply search filter
+			const searchFilteredEntries = filterEntries(filteredEntries, debouncedSearchText);
+
 			// Create list items with separators
-			const items = createListItems(filteredEntries);
+			const items = createListItems(searchFilteredEntries);
 			setListItems(items);
 
 			// Auto-scroll to bottom if enabled
@@ -221,6 +242,28 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleSelectLanguage = (languageId: string) => {
 		setCurrentLanguage(languageId);
+	};
+
+	/**
+	 * Handle search text change with debouncing
+	 */
+	const handleSearchTextChange = (text: string) => {
+		setSearchText(text);
+		searchDelayerRef.current.trigger(() => {
+			setDebouncedSearchText(text);
+			return Promise.resolve();
+		});
+	};
+
+	/**
+	 * Clear search
+	 */
+	const handleClearSearch = () => {
+		setSearchText('');
+		setDebouncedSearchText('');
+		if (filterRef.current) {
+			filterRef.current.setFilterText('');
+		}
 	};
 
 	/**
@@ -554,12 +597,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	}, [currentLanguage]);
 
 	/**
-	 * Load history when language changes
+	 * Load history when language or search changes
 	 */
 	useEffect(() => {
 		loadHistory();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentLanguage, executionHistoryService]);
+	}, [currentLanguage, debouncedSearchText, executionHistoryService]);
 
 	/**
 	 * Scroll to bottom when entries change (new entries added)
@@ -596,6 +639,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<ActionBarFilter
+							ref={filterRef}
+							width={200}
+							initialFilterText={searchText}
+							onFilterTextChanged={handleSearchTextChange}
+						/>
 						<LanguageFilterMenuButton
 							currentLanguage={currentLanguage}
 							availableLanguages={availableLanguages}
@@ -607,7 +656,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				<div
 					ref={containerRef}
 					className="history-list-container"
-					onKeyDown={handleKeyDown}
+					onKeyDown={(e) => {
+						if (e.key === 'Escape' && debouncedSearchText) {
+							e.preventDefault();
+							e.stopPropagation();
+							handleClearSearch();
+						} else {
+							handleKeyDown(e);
+						}
+					}}
 					tabIndex={selectedIndex >= 0 ? 0 : -1}
 				>
 					{/* Floating sticky header */}
@@ -652,6 +709,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 											isSelected={index === selectedIndex}
 											hasFocus={hasFocus}
 											languageId={currentLanguage || ''}
+											searchText={debouncedSearchText}
 											onSelect={() => handleSelect(index)}
 											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
 											onToConsole={() => {
