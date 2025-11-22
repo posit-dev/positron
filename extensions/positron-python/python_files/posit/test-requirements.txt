@@ -5,8 +5,7 @@ geopandas; python_version < '3.14'
 haystack-ai
 holoviews
 hvplot
-ibis-framework[polars]; python_version == '3.9'
-ibis-framework[duckdb]; python_version >= '3.10' and python_version < '3.14'
+ibis-framework[duckdb]
 ipykernel
 ipython
 ipywidgets

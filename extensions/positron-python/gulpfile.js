@@ -286,8 +286,8 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14'];
-    const minimumPythonVersion = '3.9';
+    const pythonVersions = ['3.10', '3.11', '3.12', '3.13', '3.14'];
+    const minimumPythonVersion = '3.10';
 
     // Pure Python 3 requirements.
     await pipInstall([

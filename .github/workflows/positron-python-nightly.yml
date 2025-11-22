@@ -33,8 +33,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: 'ubuntu-latest'
-            python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
           - os: 'ubuntu-latest'
@@ -89,11 +87,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: 'macos-13'
-            python: '3.9'
-          - os: 'windows-latest'
+          - os: 'macos-latest'
             python: '3.10'
-          - os: 'ubuntu-latest'
+          - os: 'windows-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
