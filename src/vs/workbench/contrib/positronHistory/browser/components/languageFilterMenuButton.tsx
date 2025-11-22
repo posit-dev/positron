@@ -23,8 +23,8 @@ const filterTooltip = nls.localize('positron.historyLanguageFilter', "Filter his
 export const LanguageFilterMenuButton = (props: LanguageFilterMenuButtonProps) => {
 	const { currentLanguage, availableLanguages, onSelectLanguage } = props;
 
-	// Build the actions for the dropdown
-	const actions = (): IAction[] => {
+	// Build the actions for the dropdown - memoized to avoid recreating on every render
+	const actions = React.useCallback((): IAction[] => {
 		const actionList: IAction[] = [];
 
 		// Add an option for each available language
@@ -43,7 +43,7 @@ export const LanguageFilterMenuButton = (props: LanguageFilterMenuButtonProps) =
 		});
 
 		return actionList;
-	};
+	}, [availableLanguages, currentLanguage, onSelectLanguage]);
 
 	// Display current language or "No Runtime" if none selected
 	const displayText = currentLanguage

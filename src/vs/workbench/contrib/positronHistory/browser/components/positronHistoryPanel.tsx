@@ -137,17 +137,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Discover all available languages from history
 	 */
 	const discoverLanguages = () => {
-		// Get all active sessions to determine which languages have history
+		// Get all active sessions to determine which languages are available
 		const sessions = runtimeSessionService.activeSessions;
 		const languageSet = new Set<string>();
 
 		sessions.forEach(session => {
 			const languageId = session.runtimeMetadata.languageId;
-			// Check if this language has any history
-			const langHistory = executionHistoryService.getInputEntries(languageId);
-			if (langHistory.length > 0) {
-				languageSet.add(languageId);
-			}
+			// Add all session languages, not just those with history
+			languageSet.add(languageId);
 		});
 
 		setAvailableLanguages(Array.from(languageSet));
@@ -165,9 +162,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleSelect = (index: number) => {
 		setSelectedIndex(index);
-		// Focus the container to ensure active selection styling
-		if (containerRef.current) {
+		// Focus the container to ensure active selection styling and keyboard navigation
+		if (containerRef.current && document.activeElement !== containerRef.current) {
 			containerRef.current.focus();
+			setHasFocus(true);
 		}
 		// Scroll to make the selected item visible
 		if (listRef.current) {
@@ -328,6 +326,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					const languageId = session.runtimeMetadata.languageId;
 					setCurrentLanguage(languageId);
 				}
+				// Rediscover languages when foreground session changes
+				discoverLanguages();
 			})
 		);
 
@@ -344,8 +344,22 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		setWidth(reactComponentContainer.width);
 		setHeight(reactComponentContainer.height);
 
+		// Add focus/blur listeners to the container to track focus state
+		const container = containerRef.current;
+		const handleFocus = () => setHasFocus(true);
+		const handleBlur = () => setHasFocus(false);
+
+		if (container) {
+			container.addEventListener('focus', handleFocus);
+			container.addEventListener('blur', handleBlur);
+		}
+
 		return () => {
 			disposables.dispose();
+			if (container) {
+				container.removeEventListener('focus', handleFocus);
+				container.removeEventListener('blur', handleBlur);
+			}
 		};
 	}, []);
 
@@ -354,6 +368,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	useEffect(() => {
 		const disposables = new DisposableStore();
+
+		// Rediscover languages whenever active sessions change
+		discoverLanguages();
 
 		// Listen for new input events from all active sessions
 		const sessions = runtimeSessionService.activeSessions;
@@ -373,6 +390,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Listen for new sessions starting
 		disposables.add(
 			runtimeSessionService.onWillStartSession(event => {
+				// Rediscover languages when a new session starts
+				discoverLanguages();
+				
 				disposables.add(
 					event.session.onDidReceiveRuntimeMessageInput(() => {
 						if (event.session.runtimeMetadata.languageId === currentLanguage) {
@@ -405,30 +425,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			listRef.current.scrollToItem(entries.length - 1, 'end');
 		}
 	}, [entries.length, autoScrollEnabled]);
-
-	/**
-	 * Track focus state by monitoring focus/blur events on the document
-	 */
-	useEffect(() => {
-		const updateFocusState = () => {
-			if (containerRef.current) {
-				const isFocused = containerRef.current.contains(document.activeElement);
-				setHasFocus(isFocused);
-			}
-		};
-
-		// Check immediately
-		updateFocusState();
-
-		// Listen to focus and blur events on the document
-		document.addEventListener('focusin', updateFocusState);
-		document.addEventListener('focusout', updateFocusState);
-
-		return () => {
-			document.removeEventListener('focusin', updateFocusState);
-			document.removeEventListener('focusout', updateFocusState);
-		};
-	}, []);
 
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -468,7 +464,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					ref={containerRef}
 					className="history-list-container"
 					onKeyDown={handleKeyDown}
-					tabIndex={0}
+					tabIndex={selectedIndex >= 0 ? 0 : -1}
 				>
 					{entries.length === 0 ? (
 						<div className="history-empty-message">

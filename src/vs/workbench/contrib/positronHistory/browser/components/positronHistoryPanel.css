@@ -16,6 +16,7 @@
 	overflow: hidden;
 	position: relative;
 	background-color: var(--vscode-editor-background);
+	outline: none; /* Remove default focus outline, selection styling handles focus indication */
 }
 
 .history-empty-message {
