@@ -56,7 +56,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	// State
 	const [entries, setEntries] = useState<IInputHistoryEntry[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-	const [expandedIndices, setExpandedIndices] = useState<Set<number>>(new Set());
 	const [currentLanguage, setCurrentLanguage] = useState<string | undefined>(undefined);
 	const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
 	const [width, setWidth] = useState(0);
@@ -89,21 +88,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				listRef.current.resetAfterIndex(index);
 			}
 		}
-	};
-
-	/**
-	 * Toggle expansion of an entry
-	 */
-	const toggleExpanded = (index: number) => {
-		setExpandedIndices(prev => {
-			const newSet = new Set(prev);
-			if (newSet.has(index)) {
-				newSet.delete(index);
-			} else {
-				newSet.add(index);
-			}
-			return newSet;
-		});
 	};
 
 	/**
@@ -505,11 +489,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 									index={index}
 									style={style}
 									isSelected={index === selectedIndex}
-									isExpanded={expandedIndices.has(index)}
 									hasFocus={hasFocus}
 									languageId={currentLanguage || ''}
 									onSelect={() => handleSelect(index)}
-									onToggleExpand={() => toggleExpanded(index)}
 									onHeightChange={(height: number) => updateRowHeight(index, height)}
 									onToConsole={() => {
 										setSelectedIndex(index);

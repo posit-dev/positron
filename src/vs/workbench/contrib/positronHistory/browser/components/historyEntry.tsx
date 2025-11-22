@@ -25,11 +25,9 @@ interface HistoryEntryProps {
 	index: number;
 	style: CSSProperties;
 	isSelected: boolean;
-	isExpanded: boolean;
 	hasFocus: boolean;
 	languageId: string;
 	onSelect: () => void;
-	onToggleExpand: () => void;
 	onHeightChange: (height: number) => void;
 	onToConsole: () => void;
 	onToSource: () => void;
@@ -41,7 +39,7 @@ interface HistoryEntryProps {
 /**
  * Maximum number of lines to show when collapsed
  */
-const MAX_COLLAPSED_LINES = 3;
+const MAX_COLLAPSED_LINES = 4;
 
 /**
  * HistoryEntry component - renders a single history entry with syntax highlighting
@@ -51,11 +49,9 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		entry,
 		style,
 		isSelected,
-		isExpanded,
 		hasFocus,
 		languageId,
 		onSelect,
-		onToggleExpand,
 		onHeightChange,
 		onToConsole,
 		onToSource,
@@ -91,7 +87,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	 * Tokenize and highlight the code
 	 */
 	useEffect(() => {
-		const codeToHighlight = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
+		const codeToHighlight = isSelected ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
 		// Count total lines
 		setLineCount(countLines(entry.input));
@@ -115,7 +111,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			setColorizedHtml(null);
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry.input, languageId, isExpanded, instantiationService]);
+	}, [entry.input, languageId, isSelected, instantiationService]);
 
 	/**
 	 * Measure height after render
@@ -125,7 +121,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			const height = entryRef.current.offsetHeight;
 			onHeightChange(height);
 		}
-	}, [isExpanded, colorizedHtml, onHeightChange]);
+	}, [isSelected, colorizedHtml, onHeightChange]);
 
 	/**
 	 * Apply font info after render
@@ -191,8 +187,8 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	};
 
 	const showExpandButton = lineCount > MAX_COLLAPSED_LINES;
-	const needsTruncation = showExpandButton && !isExpanded;
-	const codeToDisplay = isExpanded ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
+	const needsTruncation = showExpandButton && !isSelected;
+	const codeToDisplay = isSelected ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
 	// Override the height from react-window's style to allow natural content sizing
 	const styleWithoutHeight = { ...style, height: 'auto' };
@@ -215,32 +211,23 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 				{colorizedHtml ? (
 					<div
 						ref={codeRef}
-						className="history-entry-code"
+						className={`history-entry-code ${needsTruncation ? 'truncated' : ''}`}
 						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
 					/>
 				) : (
 					<div
 						ref={codeRef}
-						className="history-entry-code"
+						className={`history-entry-code ${needsTruncation ? 'truncated' : ''}`}
 					>
 						{codeToDisplay}
 					</div>
 				)}
 				{needsTruncation && (
-					<div className="history-entry-truncated-indicator">...</div>
+					<div className="history-entry-line-indicator">
+						... {lineCount - MAX_COLLAPSED_LINES} more lines
+					</div>
 				)}
 			</div>
-			{showExpandButton && (
-				<button
-					className="history-entry-expand-button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onToggleExpand();
-					}}
-				>
-					{isExpanded ? 'Show less' : `Show ${lineCount - MAX_COLLAPSED_LINES} more lines`}
-				</button>
-			)}
 		</div>
 	);
 };
