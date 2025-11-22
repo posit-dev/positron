@@ -94,7 +94,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle "Copy" - copies selected code to clipboard
 	 */
 	const handleCopy = (index?: number) => {
-		const idx = index !== undefined ? index : selectedIndex;
+		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
+		const idx = (typeof index === 'number') ? index : selectedIndex;
 		if (idx < 0 || idx >= entries.length) {
 			return;
 		}
@@ -245,7 +246,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle "To Console" button - sends selected code to console
 	 */
 	const handleToConsole = (index?: number) => {
-		const idx = index !== undefined ? index : selectedIndex;
+		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
+		const idx = (typeof index === 'number') ? index : selectedIndex;
 		if (idx < 0 || idx >= entries.length || !currentLanguage) {
 			return;
 		}
@@ -273,7 +275,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle "To Source" button - inserts selected code at cursor position
 	 */
 	const handleToSource = (index?: number) => {
-		const idx = index !== undefined ? index : selectedIndex;
+		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
+		const idx = (typeof index === 'number') ? index : selectedIndex;
 		if (idx < 0 || idx >= entries.length) {
 			return;
 		}
@@ -392,7 +395,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			runtimeSessionService.onWillStartSession(event => {
 				// Rediscover languages when a new session starts
 				discoverLanguages();
-				
+
 				disposables.add(
 					event.session.onDidReceiveRuntimeMessageInput(() => {
 						if (event.session.runtimeMetadata.languageId === currentLanguage) {
