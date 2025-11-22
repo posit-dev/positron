@@ -106,7 +106,7 @@ test.describe('Notebook Focus and Selection', {
 
 
 	test('Notebook navigation and default cell selection between tabs', async function ({ app }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });
 
@@ -128,7 +128,7 @@ test.describe('Notebook Focus and Selection', {
 		// Open an existing notebook (tab 2) which will steal focus away from the first notebook
 		await test.step('Open existing notebook: Ensure 1st cell is selected', async () => {
 			const notebookPath = path.join('workspaces', 'bitmap-notebook', TAB_2);
-			await notebooks.openNotebook(notebookPath, false);
+			await notebooksPositron.openNotebook(notebookPath);
 			await notebooksPositron.expectToBeVisible();
 			await notebooksPositron.expectCellCountToBe(20);
 
