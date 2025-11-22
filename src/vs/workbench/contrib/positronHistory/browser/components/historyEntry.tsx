@@ -15,7 +15,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 
-const ttPolicy = createTrustedTypesPolicy('tokenizeToString', { createHTML: value => value });
+const ttPolicy = createTrustedTypesPolicy('positronHistoryEntry', { createHTML: value => value });
 
 /**
  * Props for the HistoryEntry component
@@ -61,7 +61,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 	const services = usePositronReactServicesContext();
 	const [lineCount, setLineCount] = useState<number>(0);
-	const [colorizedHtml, setColorizedHtml] = useState<TrustedHTML | null>(null);
+	const [colorizedHtml, setColorizedHtml] = useState<string | null>(null);
 	const entryRef = useRef<HTMLDivElement>(null);
 	const codeRef = useRef<HTMLDivElement>(null);
 
@@ -103,9 +103,9 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		);
 
 		tokenizeToString(languageService, codeToHighlight, languageId).then(html => {
-			if (ttPolicy) {
-				setColorizedHtml(ttPolicy.createHTML(html));
-			}
+			// Use TrustedTypes policy if available, otherwise use the html string directly
+			const trustedHtml = (ttPolicy?.createHTML(html) ?? html) as string;
+			setColorizedHtml(trustedHtml);
 		}).catch(err => {
 			// Fallback to plain text on error
 			setColorizedHtml(null);
