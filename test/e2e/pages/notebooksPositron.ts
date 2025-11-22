@@ -204,6 +204,7 @@ export class PositronNotebooks extends Notebooks {
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
+				await this.expectCellCountToBe(totalCellsAdded + 1);
 				totalCellsAdded++;
 			}
 		}
@@ -212,10 +213,10 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < markdownCells; i++) {
 				await this.addCell('markdown');
 				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				await this.expectCellCountToBe(totalCellsAdded + 1);
 				totalCellsAdded++;
 			}
 		}
-		await this.expectCellCountToBe(codeCells + markdownCells);
 	}
 
 	/**
