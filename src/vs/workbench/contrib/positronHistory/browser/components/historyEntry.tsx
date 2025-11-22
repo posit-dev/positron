@@ -527,6 +527,10 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const needsTruncation = showExpandButton && !isSelected && !smartExcerpt;
 	const codeToDisplay = isSelected ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
 
+	// Determine truncation state for CSS classes
+	const hasTruncatedTop = smartExcerpt && smartExcerpt.hiddenAbove > 0;
+	const hasTruncatedBottom = needsTruncation || (smartExcerpt && smartExcerpt.hiddenBelow > 0);
+
 	// Override the height from react-window's style to allow natural content sizing
 	const styleWithoutHeight = { ...style, height: 'auto' };
 
@@ -555,13 +559,13 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 				{colorizedHtml ? (
 					<div
 						ref={codeRef}
-						className={`history-entry-code ${needsTruncation ? 'truncated' : ''}`}
+						className={`history-entry-code ${hasTruncatedTop ? 'truncated-top' : ''} ${hasTruncatedBottom ? 'truncated-bottom' : ''}`}
 						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
 					/>
 				) : (
 					<div
 						ref={codeRef}
-						className={`history-entry-code ${needsTruncation ? 'truncated' : ''}`}
+						className={`history-entry-code ${hasTruncatedTop ? 'truncated-top' : ''} ${hasTruncatedBottom ? 'truncated-bottom' : ''}`}
 					>
 						{codeToDisplay}
 					</div>

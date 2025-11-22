@@ -91,11 +91,35 @@
 	/* Font styling is applied via applyFontInfo() in historyEntry.tsx */
 }
 
-.history-entry-code.truncated {
+.history-entry-code.truncated-top,
+.history-entry-code.truncated-bottom {
 	position: relative;
 }
 
-.history-entry-code.truncated::after {
+/* Top gradient for when lines are hidden above */
+.history-entry-code.truncated-top::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 1.4em; /* Approximately one line height */
+	background: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, var(--vscode-editor-background) 100%);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.history-entry:hover .history-entry-code.truncated-top::before {
+	background: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, var(--vscode-list-hoverBackground) 100%);
+}
+
+.history-entry.selected .history-entry-code.truncated-top::before,
+.history-entry.selected-unfocused .history-entry-code.truncated-top::before {
+	background: none;
+}
+
+/* Bottom gradient for when lines are hidden below */
+.history-entry-code.truncated-bottom::after {
 	content: '';
 	position: absolute;
 	bottom: 0;
@@ -104,14 +128,15 @@
 	height: 1.4em; /* Approximately one line height */
 	background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--vscode-editor-background) 100%);
 	pointer-events: none;
+	z-index: 1;
 }
 
-.history-entry:hover .history-entry-code.truncated::after {
+.history-entry:hover .history-entry-code.truncated-bottom::after {
 	background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--vscode-list-hoverBackground) 100%);
 }
 
-.history-entry.selected .history-entry-code.truncated::after,
-.history-entry.selected-unfocused .history-entry-code.truncated::after {
+.history-entry.selected .history-entry-code.truncated-bottom::after,
+.history-entry.selected-unfocused .history-entry-code.truncated-bottom::after {
 	background: none;
 }
 
