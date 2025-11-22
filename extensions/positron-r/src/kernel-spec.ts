@@ -11,6 +11,8 @@ import * as fs from 'fs';
 import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
+import { getCondaActivationEnvironment } from './conda-activation';
+import { LOGGER } from './extension';
 
 /**
  * Create a new Jupyter kernel spec.
@@ -18,16 +20,16 @@ import { EXTENSION_ROOT_DIR } from './constants';
  * @param rHomePath The R_HOME path for the R version
  * @param runtimeName The (display) name of the runtime
  * @param sessionMode The mode in which to create the session
- * @param options Additional options: specifically, the R binary path and architecture
+ * @param options Additional options: specifically, the R binary path, architecture, and conda environment path
  *
  * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
  *  metadata.
  */
-export function createJupyterKernelSpec(
+export async function createJupyterKernelSpec(
 	rHomePath: string,
 	runtimeName: string,
 	sessionMode: positron.LanguageRuntimeSessionMode,
-	options?: { rBinaryPath?: string; rArchitecture?: string }): JupyterKernelSpec {
+	options?: { rBinaryPath?: string; rArchitecture?: string; condaEnvironmentPath?: string }): Promise<JupyterKernelSpec> {
 
 	// Path to the kernel executable
 	const kernelPath = getArkKernelPath({
@@ -68,6 +70,34 @@ export function createJupyterKernelSpec(
 		// Workaround for
 		// https://github.com/posit-dev/positron/issues/3732
 		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
+	}
+
+	// If this R is from a conda environment, activate the conda environment
+	// to ensure that compilation tools and other dependencies are available
+	if (options?.condaEnvironmentPath) {
+		LOGGER.info(`Activating conda environment for R: ${options.condaEnvironmentPath}`);
+		const condaEnv = await getCondaActivationEnvironment(options.condaEnvironmentPath);
+
+		if (condaEnv) {
+			// Merge conda environment variables with existing env
+			// Conda env vars take precedence over defaults, but user-defined env vars (from userEnv) take precedence over conda
+			// So the order is: defaults < conda < userEnv
+			// We need to re-apply userEnv after merging conda env
+			const userEnvCopy = { ...userEnv };
+
+			// Merge conda environment (this may overwrite some defaults like PATH)
+			Object.assign(env, condaEnv);
+
+			// Re-apply user env vars to ensure they take final precedence
+			Object.assign(env, userEnvCopy);
+
+			// Ensure R_HOME is still set correctly (conda shouldn't override this)
+			env['R_HOME'] = rHomePath;
+
+			LOGGER.info('Successfully merged conda environment variables');
+		} else {
+			LOGGER.warn(`Failed to activate conda environment at ${options.condaEnvironmentPath}, proceeding without conda activation`);
+		}
 	}
 
 	// R script to run on session startup
@@ -142,11 +172,11 @@ export function createJupyterKernelSpec(
 	// Create a kernel spec for this R installation
 	const kernelSpec: JupyterKernelSpec = {
 		'argv': argv,
-		'display_name': runtimeName, // eslint-disable-line
+		'display_name': runtimeName,
 		'language': 'R',
 		'env': env,
 		// Protocol version 5.5 signals support for JEP 66
-		'kernel_protocol_version': '5.5' // eslint-disable-line
+		'kernel_protocol_version': '5.5'
 	};
 
 	// For temporary, approximate backward compatibility, check both

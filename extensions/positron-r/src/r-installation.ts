@@ -44,6 +44,11 @@ export interface RMetadataExtra {
 	 * How did we discover this R binary?
 	 */
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
+
+	/**
+	 * If this R installation is from a conda environment, the path to that environment.
+	 */
+	readonly condaEnvironmentPath?: string;
 }
 
 /**
@@ -52,11 +57,11 @@ export interface RMetadataExtra {
 export enum ReasonDiscovered {
 	affiliated = "affiliated",
 	registry = "registry",
-	/* eslint-disable @typescript-eslint/naming-convention */
+
 	PATH = "PATH",
 	HQ = "HQ",
 	CONDA = "CONDA",
-	/* eslint-enable @typescript-eslint/naming-convention */
+
 	adHoc = "adHoc",
 	userSetting = "userSetting",
 	server = "server"
@@ -136,6 +141,7 @@ export class RInstallation {
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
 	public readonly default: boolean = false;
+	public readonly condaEnvironmentPath: string | undefined = undefined;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -144,11 +150,13 @@ export class RInstallation {
 	 * @param current Whether this installation is known to be the current version of R
 	 * @param reasonDiscovered How we discovered this R binary (and there could be more than one
 	 *   reason)
+	 * @param condaEnvironmentPath If this R is from a conda environment, the path to that environment
 	 */
 	constructor(
 		pth: string,
 		current: boolean = false,
-		reasonDiscovered: ReasonDiscovered[] | null = null
+		reasonDiscovered: ReasonDiscovered[] | null = null,
+		condaEnvironmentPath?: string
 	) {
 		pth = path.normalize(pth);
 
@@ -157,6 +165,7 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
+		this.condaEnvironmentPath = condaEnvironmentPath;
 
 		// Check if the installation is the default R interpreter for Positron
 		const defaultInterpreterPath = getDefaultInterpreterPath();
