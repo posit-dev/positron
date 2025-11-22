@@ -48,7 +48,7 @@ import { createCommandUri, IMarkdownString, MarkdownString } from '../../../../b
 import { verifiedPublisherIcon } from './extensionsIcons.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IStringDictionary } from '../../../../base/common/collections.js';
-import { CommontExtensionManagementService } from '../../../../platform/extensionManagement/common/abstractExtensionManagementService.js';
+import { CommontExtensionManagementService, positronExtensionCompatibility, positronExtensionCompatibilityError } from '../../../../platform/extensionManagement/common/abstractExtensionManagementService.js';
 
 const TrustedPublishersStorageKey = 'extensions.trustedPublishers';
 
@@ -461,11 +461,35 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 			return manifest;
 		}));
 
+		// --- Start Positron ---
+		// Check Positron compatibility for all extensions
+		for (let i = 0; i < extensions.length; i++) {
+			const { extension, options } = extensions[i];
+			const compat = positronExtensionCompatibility(extension);
+			if (!compat.compatible) {
+				results.set(extension.identifier.id.toLowerCase(), {
+					identifier: extension.identifier,
+					source: extension,
+					error: positronExtensionCompatibilityError(compat.reason),
+					operation: InstallOperation.Install,
+					profileLocation: options.profileLocation ?? this.userDataProfileService.currentProfile.extensionsResource
+				});
+			}
+		}
+		// --- End Positron ---
+
 		if (extensions.some(e => e.options?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true)) {
 			await this.checkForTrustedPublishers(extensions.map((e, index) => ({ extension: e.extension, manifest: manifests[index], checkForPackAndDependencies: !e.options?.donotIncludePackAndDependencies })));
 		}
 
 		await Promise.all(extensions.map(async ({ extension, options }) => {
+			// --- Start Positron ---
+			// Skip extensions that already failed Positron compatibility check
+			if (results.has(extension.identifier.id.toLowerCase())) {
+				return;
+			}
+			// --- End Positron ---
+
 			try {
 				const manifest = await this.extensionGalleryService.getManifest(extension, CancellationToken.None);
 				if (!manifest) {
@@ -523,22 +547,22 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		}
 		// --- End Positron ---
 		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
-				if (!manifest) {
-					throw new Error(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
-				}
+		if (!manifest) {
+			throw new Error(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
+		}
 
-				if (installOptions?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true) {
-					await this.checkForTrustedPublishers([{ extension: gallery, manifest, checkForPackAndDependencies: !installOptions?.donotIncludePackAndDependencies }],);
-				}
+		if (installOptions?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true) {
+			await this.checkForTrustedPublishers([{ extension: gallery, manifest, checkForPackAndDependencies: !installOptions?.donotIncludePackAndDependencies }],);
+		}
 
-				if (installOptions?.context?.[EXTENSION_INSTALL_SOURCE_CONTEXT] !== ExtensionInstallSource.SETTINGS_SYNC) {
+		if (installOptions?.context?.[EXTENSION_INSTALL_SOURCE_CONTEXT] !== ExtensionInstallSource.SETTINGS_SYNC) {
 
-					await this.checkForWorkspaceTrust(manifest, false);
+			await this.checkForWorkspaceTrust(manifest, false);
 
-					if (!installOptions?.donotIncludePackAndDependencies) {
-						await this.checkInstallingExtensionOnWeb(gallery, manifest);
-					}
-				}
+			if (!installOptions?.donotIncludePackAndDependencies) {
+				await this.checkInstallingExtensionOnWeb(gallery, manifest);
+			}
+		}
 
 		servers = servers?.length ? this.validServers(gallery, manifest, servers) : await this.getExtensionManagementServersToInstall(gallery, manifest);
 		if (!installOptions || isUndefined(installOptions.isMachineScoped)) {
@@ -1201,46 +1225,6 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 	}
 }
 
-// --- Start Positron ---
-const kPositronDuplicativeExtensions = [
-	'ikuyadeu.r',
-	'reditorsupport.r-lsp',
-	'reditorsupport.r',
-	'rdebugger.r-debugger',
-	'mikhail-arkhipov.r',
-	'vscode.r',
-	'jeanp413.open-remote-ssh',
-	'ms-python.python',
-	'GitHub.copilot-chat'
-];
-
-interface PositronExtensionCompatibilty {
-	compatible: boolean;
-	reason?: string;
-}
-
-function positronExtensionCompatibility(extension: { name: string; publisher: string; displayName?: string }): PositronExtensionCompatibilty {
-	const id = `${extension.publisher}.${extension.name}`.toLowerCase();
-	if (kPositronDuplicativeExtensions.includes(id)) {
-		return {
-			compatible: false,
-			reason: localize(
-				'positronExtensionConflicts',
-				"Cannot install the '{0}' extension because it conflicts with Positron built-in features.", extension.displayName || extension.name
-			)
-		};
-	} else {
-		return {
-			compatible: true
-		};
-	}
-}
-function positronExtensionCompatibilityError(reason?: string) {
-	const error = new Error(reason || localize('positronExtensionIncompatible', "Cannot install the extension because it is incompatible with Positron"));
-	error.name = ExtensionManagementErrorCode.Incompatible;
-	return error;
-}
-// --- End Positron ---
 
 class WorkspaceExtensionsManagementService extends Disposable {
 

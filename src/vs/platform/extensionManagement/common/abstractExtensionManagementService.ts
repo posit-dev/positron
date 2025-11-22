@@ -34,6 +34,68 @@ import { IUriIdentityService } from '../../uriIdentity/common/uriIdentity.js';
 import { IUserDataProfilesService } from '../../userDataProfile/common/userDataProfile.js';
 import { IMarkdownString, MarkdownString } from '../../../base/common/htmlContent.js';
 
+// --- Start Positron ---
+/**
+ * List of extension IDs that conflict with Positron built-in features
+ */
+const kPositronDuplicativeExtensions = [
+	'ikuyadeu.r',
+	'reditorsupport.r-lsp',
+	'reditorsupport.r',
+	'rdebugger.r-debugger',
+	'mikhail-arkhipov.r',
+	'vscode.r',
+	'jeanp413.open-remote-ssh',
+	'ms-python.python',
+	'ms-python.vscode-python-envs',
+	'GitHub.copilot-chat'
+];
+
+export interface PositronExtensionCompatibility {
+	compatible: boolean;
+	reason?: string;
+}
+
+/**
+ * Check if an extension is compatible with Positron (simple boolean check)
+ * @param extension Extension to check
+ * @returns true if compatible, false if it conflicts with Positron features
+ */
+function isPositronExtensionCompatible(extension: { name: string; publisher: string }): boolean {
+	const id = `${extension.publisher}.${extension.name}`.toLowerCase();
+	return !kPositronDuplicativeExtensions.includes(id);
+}
+
+/**
+ * Check if an extension is compatible with Positron
+ * @param extension Extension to check
+ * @returns Compatibility result with optional reason if incompatible
+ */
+export function positronExtensionCompatibility(extension: { name: string; publisher: string; displayName?: string }): PositronExtensionCompatibility {
+	if (!isPositronExtensionCompatible(extension)) {
+		return {
+			compatible: false,
+			reason: nls.localize(
+				'positronExtensionConflicts',
+				"Cannot install the '{0}' extension because it conflicts with Positron built-in features.", extension.displayName || extension.name
+			)
+		};
+	}
+	return { compatible: true };
+}
+
+/**
+ * Create an error for Positron extension incompatibility
+ * @param reason Optional reason for incompatibility
+ * @returns Error with ExtensionManagementErrorCode.Incompatible
+ */
+export function positronExtensionCompatibilityError(reason?: string): Error {
+	const error = new Error(reason || nls.localize('positronExtensionIncompatible', "Cannot install the extension because it is incompatible with Positron"));
+	error.name = ExtensionManagementErrorCode.Incompatible;
+	return error;
+}
+// --- End Positron ---
+
 export type InstallableExtension = { readonly manifest: IExtensionManifest; extension: IGalleryExtension | URI; options: InstallOptions };
 
 export type InstallExtensionTaskOptions = InstallOptions & { readonly profileLocation: URI; readonly productVersion: IProductVersion };
@@ -362,6 +424,13 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 							if (existing && existing.isApplicationScoped === !!options.isApplicationScoped) {
 								continue;
 							}
+							// --- Start Positron ---
+							// Skip Positron-incompatible dependencies and pack extensions
+							if (!isPositronExtensionCompatible(gallery)) {
+								this.logService.info(`Skipping dependency/packed extension '${gallery.identifier.id}' because it conflicts with Positron built-in features`);
+								continue;
+							}
+							// --- End Positron ---
 							createInstallExtensionTask(manifest, gallery, options, task);
 						}
 					} catch (error) {
