@@ -69,8 +69,12 @@ export class LanguageInputHistory extends Disposable {
 		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
+				// Parse the timestamp, falling back to current time if invalid
+				const parsedTime = Date.parse(languageRuntimeMessageInput.when);
+				const timestamp = isNaN(parsedTime) ? Date.now() : parsedTime;
+
 				const entry: IInputHistoryEntry = {
-					when: Date.parse(languageRuntimeMessageInput.when),
+					when: timestamp,
 					input: languageRuntimeMessageInput.code
 				};
 				this._pendingEntries.push(entry);
@@ -95,8 +99,8 @@ export class LanguageInputHistory extends Disposable {
 
 	/**
 	 * Gets the input history entries for this language.
-	 *
-	 * @returns The input history entries for this language.
+	/**
+	 * Gets the input history for this language.
 	 */
 	public getInputHistory(): IInputHistoryEntry[] {
 		// Read the existing entries from storage.
@@ -104,6 +108,14 @@ export class LanguageInputHistory extends Disposable {
 		let parsedEntries: IInputHistoryEntry[] = [];
 		try {
 			parsedEntries = JSON.parse(entries);
+			// Fix any entries with invalid timestamps (null or NaN from old storage)
+			parsedEntries = parsedEntries.map(entry => {
+				if (entry.when === null || entry.when === undefined || isNaN(entry.when)) {
+					// Use a timestamp of 0 for entries with unknown dates
+					return { ...entry, when: 0 };
+				}
+				return entry;
+			});
 		} catch (err) {
 			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
 		}

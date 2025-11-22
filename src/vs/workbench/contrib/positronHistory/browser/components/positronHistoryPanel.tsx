@@ -22,6 +22,8 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { LanguageFilterMenuButton } from './languageFilterMenuButton.js';
 import { HistoryEntry } from './historyEntry.js';
+import { HistorySeparator } from './historySeparator.js';
+import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import './positronHistoryPanel.css';
 
@@ -37,10 +39,27 @@ interface PositronHistoryPanelProps {
 }
 
 /**
+ * Type for list items - can be either a history entry or a separator
+ */
+type ListItem = {
+	type: 'entry';
+	entry: IInputHistoryEntry;
+	originalIndex: number; // Index in the original entries array
+} | {
+	type: 'separator';
+	label: string;
+};
+
+/**
  * The default height for a history entry row (3 lines of code)
  * With minimal padding and tight line height, ~40px should be enough for 3 lines
  */
 const DEFAULT_ROW_HEIGHT = 40;
+
+/**
+ * The height of a separator row
+ */
+const SEPARATOR_HEIGHT = 26;
 
 /**
  * PositronHistoryPanel component - displays execution history with virtualization
@@ -54,7 +73,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	} = props;
 
 	// State
-	const [entries, setEntries] = useState<IInputHistoryEntry[]>([]);
+	const [listItems, setListItems] = useState<ListItem[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 	const [currentLanguage, setCurrentLanguage] = useState<string | undefined>(undefined);
 	const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
@@ -62,6 +81,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [height, setHeight] = useState(0);
 	const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 	const [hasFocus, setHasFocus] = useState(false);
+	const [stickyHeaderLabel, setStickyHeaderLabel] = useState<string | null>(null);
 
 	// Refs
 	const listRef = useRef<List>(null);
@@ -70,10 +90,24 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 
 	/**
+	 * Custom inner element for the List that enables sticky positioning
+	 */
+	const StickyInnerElement = React.forwardRef<HTMLDivElement, React.HTMLProps<HTMLDivElement>>((props, ref) => (
+		<div ref={ref} {...props} style={{ ...props.style, position: 'relative' }} />
+	));
+
+	/**
 	 * Get the height of a row
 	 */
 	const getRowHeight = (index: number): number => {
-		return rowHeightsRef.current.get(index) || DEFAULT_ROW_HEIGHT;
+		const item = listItems[index];
+		if (!item) {
+			return DEFAULT_ROW_HEIGHT;
+		}
+		if (item.type === 'separator') {
+			return SEPARATOR_HEIGHT;
+		}
+		return rowHeightsRef.current.get(item.originalIndex) || DEFAULT_ROW_HEIGHT;
 	};
 
 	/**
@@ -91,16 +125,45 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
+	 * Create list items with separators from entries
+	 */
+	const createListItems = (entries: IInputHistoryEntry[]): ListItem[] => {
+		const items: ListItem[] = [];
+		const currentDate = new Date();
+
+		for (let i = 0; i < entries.length; i++) {
+			const entry = entries[i];
+			const prevEntry = i > 0 ? entries[i - 1] : null;
+
+			// Add separator if this is the first entry or if section changes
+			if (!prevEntry || !isSameSection(entry.when, prevEntry.when, currentDate)) {
+				const label = getSectionLabel(entry.when, currentDate);
+				items.push({ type: 'separator', label });
+			}
+
+			// Add the entry
+			items.push({ type: 'entry', entry, originalIndex: i });
+		}
+
+		return items;
+	};
+
+	/**
 	 * Handle "Copy" - copies selected code to clipboard
 	 */
 	const handleCopy = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
 		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= entries.length) {
+		if (idx < 0 || idx >= listItems.length) {
 			return;
 		}
 
-		const entry = entries[idx];
+		const item = listItems[idx];
+		if (item.type === 'separator') {
+			return;
+		}
+
+		const entry = item.entry;
 		const clipboardService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IClipboardService)
 		);
@@ -123,12 +186,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				return entry.input !== historyEntries[index - 1].input;
 			});
 
-			setEntries(filteredEntries);
+			// Create list items with separators
+			const items = createListItems(filteredEntries);
+			setListItems(items);
 
 			// Auto-scroll to bottom if enabled
-			if (autoScrollEnabled && filteredEntries.length > 0 && listRef.current) {
+			if (autoScrollEnabled && items.length > 0 && listRef.current) {
 				setTimeout(() => {
-					listRef.current?.scrollToItem(filteredEntries.length - 1, 'end');
+					listRef.current?.scrollToItem(items.length - 1, 'end');
 				}, 0);
 			}
 		}
@@ -162,6 +227,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle selection change
 	 */
 	const handleSelect = (index: number) => {
+		// Skip separators
+		const item = listItems[index];
+		if (!item || item.type === 'separator') {
+			return;
+		}
+
 		setSelectedIndex(index);
 		// Focus the container to ensure active selection styling and keyboard navigation
 		if (containerRef.current && document.activeElement !== containerRef.current) {
@@ -175,22 +246,82 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
-	 * Handle scroll event to update auto-scroll state
+	 * Handle scroll event to update auto-scroll state and sticky header
 	 */
 	const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
 		if (!scrollUpdateWasRequested && listRef.current) {
 			// User scrolled manually - check if they scrolled away from bottom
-			const totalHeight = entries.reduce((sum, _, i) => sum + getRowHeight(i), 0);
+			const totalHeight = listItems.reduce((sum, _, i) => sum + getRowHeight(i), 0);
 			const isAtBottom = scrollOffset + height >= totalHeight - 10;
 			setAutoScrollEnabled(isAtBottom);
 		}
+
+		// Find which section is currently at the top of the viewport
+		let currentOffset = 0;
+		let currentSectionLabel: string | null = null;
+
+		for (let i = 0; i < listItems.length; i++) {
+			const item = listItems[i];
+			const itemHeight = getRowHeight(i);
+
+			if (item.type === 'separator') {
+				// If we haven't scrolled past this separator yet, it's the current section
+				if (currentOffset + itemHeight > scrollOffset) {
+					currentSectionLabel = item.label;
+					break;
+				}
+				// Update the current section label as we pass each separator
+				currentSectionLabel = item.label;
+			}
+
+			currentOffset += itemHeight;
+
+			// If we've gone past the scroll position, use the last separator we saw
+			if (currentOffset > scrollOffset) {
+				break;
+			}
+		}
+
+		setStickyHeaderLabel(currentSectionLabel);
+	};
+
+	/**
+	 * Find the next selectable index (skipping separators) in the given direction
+	 */
+	const findNextSelectableIndex = (startIndex: number, direction: 1 | -1): number => {
+		let index = startIndex;
+		while (index >= 0 && index < listItems.length) {
+			const item = listItems[index];
+			if (item && item.type === 'entry') {
+				return index;
+			}
+			index += direction;
+		}
+		// If we didn't find anything, stay at current position or find first/last valid item
+		if (direction > 0) {
+			// Search from beginning
+			for (let i = 0; i < listItems.length; i++) {
+				if (listItems[i].type === 'entry') {
+					return i;
+				}
+			}
+		} else {
+			// Search from end
+			for (let i = listItems.length - 1; i >= 0; i--) {
+				if (listItems[i].type === 'entry') {
+					return i;
+				}
+			}
+		}
+		// No selectable items found
+		return -1;
 	};
 
 	/**
 	 * Handle keyboard navigation in the history list
 	 */
 	const handleKeyDown = (event: React.KeyboardEvent) => {
-		if (entries.length === 0) {
+		if (listItems.length === 0) {
 			return;
 		}
 
@@ -199,27 +330,27 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		switch (event.key) {
 			case 'ArrowDown':
-				newIndex = Math.min(selectedIndex + 1, entries.length - 1);
+				newIndex = findNextSelectableIndex(selectedIndex + 1, 1);
 				handled = true;
 				break;
 			case 'ArrowUp':
-				newIndex = Math.max(selectedIndex - 1, 0);
+				newIndex = findNextSelectableIndex(selectedIndex - 1, -1);
 				handled = true;
 				break;
 			case 'PageDown':
-				newIndex = Math.min(selectedIndex + 10, entries.length - 1);
+				newIndex = findNextSelectableIndex(Math.min(selectedIndex + 10, listItems.length - 1), 1);
 				handled = true;
 				break;
 			case 'PageUp':
-				newIndex = Math.max(selectedIndex - 10, 0);
+				newIndex = findNextSelectableIndex(Math.max(selectedIndex - 10, 0), -1);
 				handled = true;
 				break;
 			case 'Home':
-				newIndex = 0;
+				newIndex = findNextSelectableIndex(0, 1);
 				handled = true;
 				break;
 			case 'End':
-				newIndex = entries.length - 1;
+				newIndex = findNextSelectableIndex(listItems.length - 1, -1);
 				handled = true;
 				break;
 			case 'Enter':
@@ -234,7 +365,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			event.preventDefault();
 			event.stopPropagation();
 
-			if (newIndex !== selectedIndex) {
+			if (newIndex !== selectedIndex && newIndex >= 0) {
 				setSelectedIndex(newIndex);
 				// Scroll to the newly selected item
 				if (listRef.current) {
@@ -248,11 +379,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const handleToConsole = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
 		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= entries.length || !currentLanguage) {
+		if (idx < 0 || idx >= listItems.length || !currentLanguage) {
 			return;
 		}
 
-		const entry = entries[idx];
+		const item = listItems[idx];
+		if (item.type === 'separator') {
+			return;
+		}
+
+		const entry = item.entry;
 		const consoleService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IPositronConsoleService)
 		);
@@ -277,11 +413,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const handleToSource = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
 		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= entries.length) {
+		if (idx < 0 || idx >= listItems.length) {
 			return;
 		}
 
-		const entry = entries[idx];
+		const item = listItems[idx];
+		if (item.type === 'separator') {
+			return;
+		}
+
+		const entry = item.entry;
 		const editorService = instantiationService.invokeFunction(accessor =>
 			accessor.get(IEditorService)
 		);
@@ -424,10 +565,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Scroll to bottom when entries change (new entries added)
 	 */
 	useEffect(() => {
-		if (autoScrollEnabled && entries.length > 0 && listRef.current) {
-			listRef.current.scrollToItem(entries.length - 1, 'end');
+		if (autoScrollEnabled && listItems.length > 0 && listRef.current) {
+			listRef.current.scrollToItem(listItems.length - 1, 'end');
 		}
-	}, [entries.length, autoScrollEnabled]);
+	}, [listItems.length, autoScrollEnabled]);
 
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -469,7 +610,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					onKeyDown={handleKeyDown}
 					tabIndex={selectedIndex >= 0 ? 0 : -1}
 				>
-					{entries.length === 0 ? (
+					{/* Floating sticky header */}
+					{stickyHeaderLabel && (
+						<div className="history-sticky-header">
+							<div className="history-separator-content">
+								<span className="history-separator-label">{stickyHeaderLabel}</span>
+							</div>
+						</div>
+					)}
+
+					{listItems.length === 0 ? (
 						<div className="history-empty-message">
 							No history available
 						</div>
@@ -478,36 +628,50 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							ref={listRef}
 							height={height - 40} // Subtract toolbar height
 							width={width}
-							itemCount={entries.length}
+							itemCount={listItems.length}
 							itemSize={getRowHeight}
 							onScroll={handleScroll}
+							innerElementType={StickyInnerElement}
+							overscanCount={5}
 						>
-							{({ index, style }) => (
-								<HistoryEntry
-									entry={entries[index]}
-									index={index}
-									style={style}
-									isSelected={index === selectedIndex}
-									hasFocus={hasFocus}
-									languageId={currentLanguage || ''}
-									onSelect={() => handleSelect(index)}
-									onHeightChange={(height: number) => updateRowHeight(index, height)}
-									onToConsole={() => {
-										setSelectedIndex(index);
-										handleToConsole(index);
-									}}
-									onToSource={() => {
-										setSelectedIndex(index);
-										handleToSource(index);
-									}}
-									onCopy={() => {
-										setSelectedIndex(index);
-										handleCopy(index);
-									}}
-									instantiationService={instantiationService}
-									fontInfo={props.fontInfo}
-								/>
-							)}
+							{({ index, style }) => {
+								const item = listItems[index];
+								if (item.type === 'separator') {
+									return (
+										<HistorySeparator
+											label={item.label}
+											style={style}
+										/>
+									);
+								} else {
+									return (
+										<HistoryEntry
+											entry={item.entry}
+											index={item.originalIndex}
+											style={style}
+											isSelected={index === selectedIndex}
+											hasFocus={hasFocus}
+											languageId={currentLanguage || ''}
+											onSelect={() => handleSelect(index)}
+											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
+											onToConsole={() => {
+												setSelectedIndex(index);
+												handleToConsole(index);
+											}}
+											onToSource={() => {
+												setSelectedIndex(index);
+												handleToSource(index);
+											}}
+											onCopy={() => {
+												setSelectedIndex(index);
+												handleCopy(index);
+											}}
+											instantiationService={instantiationService}
+											fontInfo={props.fontInfo}
+										/>
+									);
+								}
+							}}
 						</List>
 					)}
 				</div>

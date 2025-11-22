@@ -1,0 +1,34 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.history-separator {
+	/* Sticky positioning is applied via inline styles in the component */
+	z-index: 100;
+	display: flex;
+	border: none;
+	font-size: 11px;
+	padding-right: 8px;
+	align-items: center;
+	box-sizing: border-box;
+	text-transform: uppercase;
+	background: var(--vscode-positronVariables-headerBackground);
+	border-top: 0.5px solid var(--vscode-positronVariables-border);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-border);
+	pointer-events: none; /* Prevent any interaction */
+	user-select: none; /* Prevent text selection */
+}
+
+.history-separator-content {
+	width: 100%;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	padding-left: 8px;
+}
+
+.history-separator-label {
+	font-weight: 700;
+	color: var(--vscode-foreground);
+}

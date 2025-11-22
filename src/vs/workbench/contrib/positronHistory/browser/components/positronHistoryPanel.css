@@ -19,6 +19,26 @@
 	outline: none; /* Remove default focus outline, selection styling handles focus indication */
 }
 
+.history-sticky-header {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 100;
+	display: flex;
+	border: none;
+	font-size: 11px;
+	padding-right: 8px;
+	align-items: center;
+	box-sizing: border-box;
+	text-transform: uppercase;
+	background: var(--vscode-positronVariables-headerBackground);
+	border-top: 0.5px solid var(--vscode-positronVariables-border);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-border);
+	pointer-events: none;
+	user-select: none;
+}
+
 .history-empty-message {
 	display: flex;
 	align-items: center;
