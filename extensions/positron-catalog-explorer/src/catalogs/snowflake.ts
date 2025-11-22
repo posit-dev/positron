@@ -309,14 +309,31 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			vscode.TreeItemCollapsibleState.Expanded,
 		);
 		item.iconPath = registration.iconPath;
-		item.tooltip = getTooltipInfo(this.connName, this.connOptions);
 		item.description = this.connName;
 		item.contextValue = 'provider';
 		return item;
 	}
 
-	getDetails(_node: CatalogNode): Promise<string | undefined> {
-		return Promise.resolve(undefined);
+	async getDetails(_node: CatalogNode): Promise<string | vscode.MarkdownString | undefined> {
+		// Flesh out the tooltip with information from the connection itself,
+		// if possible.
+		try {
+			const result = await this.executeQuery<{ ACCOUNT_IDENTIFIER: string; USER: string; ROLE: string }>(
+				`SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS ACCOUNT_IDENTIFIER, CURRENT_USER() as USER, CURRENT_ROLE() AS ROLE`
+			);
+			if (result[0]) {
+				return new vscode.MarkdownString(l10n.t(
+					'Connected to https://{0}.snowflakecomputing.com as `{1}` with role `{2}`.',
+					result[0].ACCOUNT_IDENTIFIER.toLowerCase(),
+					result[0].USER.toLowerCase(),
+					result[0].ROLE
+				));
+			}
+		} catch (error) {
+			traceError('Error getting current Snowflake user and role:', error);
+		}
+		// Fall back to information from the connections.toml file.
+		return getTooltipInfo(this.connName, this.connOptions);
 	}
 
 	/**
