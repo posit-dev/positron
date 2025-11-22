@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { AutoconfigureResult } from './models.js';
+import { IS_RUNNING_ON_PWB } from './constants.js';
 
 export interface SnowflakeProviderVariables {
 	SNOWFLAKE_ACCOUNT?: string;
@@ -17,10 +18,9 @@ export interface SnowflakeProviderVariables {
  * Configuration for detected Snowflake credentials
  */
 export interface SnowflakeCredentialConfig {
-	apiKey: string;
+	token: string;
 	baseUrl: string;
 	account: string;
-	source: 'environment' | 'connections.toml';
 }
 
 /**
@@ -66,9 +66,12 @@ function readWorkbenchSnowflakeToken(account: string, snowflakeHome: string): st
 
 		const cfg = fs.readFileSync(configPath, 'utf8').split('\n');
 
+		// Normalize underscores to hyphens before checking
+		const normalizedAccount = account.replace(/_/g, '-');
+
 		// Simple parsing - check if account matches and extract token
 		// We don't attempt full TOML parsing, following ellmer's approach
-		if (!cfg.some(line => line.includes(account))) {
+		if (!cfg.some(line => line.includes(normalizedAccount))) {
 			// The configuration doesn't actually apply to this account
 			return null;
 		}
@@ -93,8 +96,7 @@ function readWorkbenchSnowflakeToken(account: string, snowflakeHome: string): st
 }
 
 /**
- * Detects Snowflake credentials from environment variables and connections.toml
- * Following ellmer's credential detection priority
+ * Detects Snowflake credentials from Posit Workbench managed connections.toml
  * @returns Configuration object with detected credentials or undefined if none found
  */
 export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialConfig | undefined> {
@@ -102,41 +104,23 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 	const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<SnowflakeProviderVariables>('snowflake', {});
 	log.debug(`[Snowflake Auth] positron.assistant.providerVariables.snowflake settings: ${JSON.stringify(configSettings)}`);
 
-	// Merge environment variables with settings (env vars take precedence)
-	// Note: SNOWFLAKE_TOKEN only comes from environment for security
-	const { SNOWFLAKE_ACCOUNT, SNOWFLAKE_HOME } = { ...configSettings, ...process.env as SnowflakeProviderVariables };
-	const SNOWFLAKE_TOKEN = process.env.SNOWFLAKE_TOKEN; // Token only from env vars
+	// Merge environment variables with settings
+	const { SNOWFLAKE_ACCOUNT, SNOWFLAKE_HOME } = { ...process.env as SnowflakeProviderVariables, ...configSettings };
 
-	// Priority 1: Static OAuth token via SNOWFLAKE_TOKEN + SNOWFLAKE_ACCOUNT
-	const envToken = SNOWFLAKE_TOKEN;
-	const envAccount = SNOWFLAKE_ACCOUNT;
-
-	if (envToken && envAccount && isValidSnowflakeAccount(envAccount)) {
-		log.info('[Snowflake Auth] Using SNOWFLAKE_TOKEN environment variable');
-		return {
-			apiKey: envToken,
-			account: envAccount,
-			baseUrl: constructSnowflakeBaseUrl(envAccount),
-			source: 'environment'
-		};
-	}
-
-	// Priority 2: connections.toml file (Posit Workbench or local testing)
-	if (SNOWFLAKE_HOME && envAccount) {
-		const token = readWorkbenchSnowflakeToken(envAccount, SNOWFLAKE_HOME);
+	// Only look for Posit Workbench managed connections.toml
+	if (SNOWFLAKE_HOME && SNOWFLAKE_ACCOUNT && SNOWFLAKE_HOME.includes('posit-workbench')) {
+		const token = readWorkbenchSnowflakeToken(SNOWFLAKE_ACCOUNT, SNOWFLAKE_HOME);
 		if (token) {
-			const source = SNOWFLAKE_HOME.includes('posit-workbench') ? 'Posit Workbench managed credentials' : 'local connections.toml';
-			log.info(`[Snowflake Auth] Using ${source} for account: ${envAccount}`);
+			log.info(`[Snowflake Auth] Using Posit Workbench managed credentials for account: ${SNOWFLAKE_ACCOUNT}`);
 			return {
-				apiKey: token,
-				account: envAccount,
-				baseUrl: constructSnowflakeBaseUrl(envAccount),
-				source: 'connections.toml'
+				token: token,
+				account: SNOWFLAKE_ACCOUNT,
+				baseUrl: constructSnowflakeBaseUrl(SNOWFLAKE_ACCOUNT)
 			};
 		}
 	}
 
-	log.debug('[Snowflake Auth] No credentials detected from environment or connections.toml');
+	log.debug('[Snowflake Auth] No Posit Workbench managed credentials detected');
 	return undefined;
 }
 
@@ -164,24 +148,26 @@ export function getSnowflakeDefaultBaseUrl(): string {
 
 /**
  * Autoconfigure function for Snowflake Cortex following the managed credentials pattern
- * @param providerId - The provider ID to check if enabled
  * @param displayName - The provider display name for logging
  * @returns A promise that resolves to the autoconfigure result
  */
 export async function autoconfigureSnowflakeCredentials(
-	providerId: string,
 	displayName: string
 ): Promise<AutoconfigureResult> {
 	try {
+		// Only autoconfigure on Posit Workbench
+		if (!IS_RUNNING_ON_PWB) {
+			return { signedIn: false };
+		}
+
 		const detected = await detectSnowflakeCredentials();
 
 		if (detected) {
-			log.info(`[${displayName}] Auto-configuring with ${detected.source} credentials`);
+			log.info(`[${displayName}] Auto-configuring with Posit Workbench managed credentials`);
 			return {
 				signedIn: true,
-				message: detected.source === 'connections.toml'
-					? 'Posit Workbench managed credentials'
-					: 'Environment variables (SNOWFLAKE_TOKEN)'
+				message: 'Posit Workbench managed credentials',
+				token: detected.token
 			};
 		}
 

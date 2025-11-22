@@ -274,12 +274,14 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
  * Result of an autoconfiguration attempt.
  * - Signed in indicates whether the model is configured and ready to use.
  * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
+ * - Token provides the authentication token when available.
  */
 export type AutoconfigureResult = {
 	signedIn: false;
 } | {
 	signedIn: true;
 	message: string;
+	token?: string;
 };
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -1008,7 +1010,6 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
 		return autoconfigureSnowflakeCredentials(
-			SnowflakeLanguageModel.source.provider.id,
 			SnowflakeLanguageModel.source.provider.displayName
 		);
 	}
@@ -1649,7 +1650,7 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						type: positron.PositronLanguageModelType.Chat,
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
-						apiKey: undefined,
+						apiKey: result.token,
 						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
