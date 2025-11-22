@@ -20,6 +20,7 @@ interface ActionBarFilterProps {
 	width: number;
 	disabled?: boolean;
 	initialFilterText?: string;
+	placeholder?: string;
 	onFilterTextChanged: (filterText: string) => void;
 }
 
@@ -88,7 +89,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					ref={inputRef}
 					className='text-input'
 					disabled={props.disabled}
-					placeholder={(() => localize('positronFilterPlaceholder', "Filter"))()}
+					placeholder={props.placeholder ?? (() => localize('positronFilterPlaceholder', "Filter"))()}
 					type='text'
 					value={filterText}
 					onBlur={() => setFocused(false)}

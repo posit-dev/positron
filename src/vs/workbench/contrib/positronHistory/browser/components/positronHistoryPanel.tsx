@@ -637,18 +637,27 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							disabled={selectedIndex < 0}
 							onPressed={handleToSource}
 						/>
+						<ActionBarButton
+							icon={Codicon.copy}
+							label={(() => localize('positronHistoryCopy', "Copy"))()}
+							tooltip={(() => localize('positronHistoryCopy', "Copy"))()}
+							ariaLabel={(() => localize('positronHistoryCopy', "Copy"))()}
+							disabled={selectedIndex < 0}
+							onPressed={handleCopy}
+						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<ActionBarFilter
-							ref={filterRef}
-							width={200}
-							initialFilterText={searchText}
-							onFilterTextChanged={handleSearchTextChange}
-						/>
 						<LanguageFilterMenuButton
 							currentLanguage={currentLanguage}
 							availableLanguages={availableLanguages}
 							onSelectLanguage={handleSelectLanguage}
+						/>
+						<ActionBarFilter
+							ref={filterRef}
+							width={100}
+							placeholder={(() => localize('positronHistorySearch', "Search"))()}
+							initialFilterText={searchText}
+							onFilterTextChanged={handleSearchTextChange}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>
