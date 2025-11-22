@@ -543,6 +543,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 				// Use onMouseDown instead of onClick to ensure selection happens before focus events
 				// This prevents the two-click issue when the panel is unfocused
 				if (e.button === 0) { // Only handle left clicks
+					e.preventDefault(); // Prevent default focus behavior that steals focus
 					onSelect();
 				}
 			}}

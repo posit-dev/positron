@@ -94,6 +94,22 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
 	const filterRef = useRef<any>(null);
+	const selectedIndexRef = useRef<number>(selectedIndex);
+	const listItemsRef = useRef<ListItem[]>(listItems);
+	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
+
+	// Keep refs in sync with state
+	useEffect(() => {
+		selectedIndexRef.current = selectedIndex;
+	}, [selectedIndex]);
+
+	useEffect(() => {
+		listItemsRef.current = listItems;
+	}, [listItems]);
+
+	useEffect(() => {
+		debouncedSearchTextRef.current = debouncedSearchText;
+	}, [debouncedSearchText]);
 
 	/**
 	 * Custom inner element for the List that enables sticky positioning
@@ -331,10 +347,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	/**
 	 * Find the next selectable index (skipping separators) in the given direction
 	 */
-	const findNextSelectableIndex = (startIndex: number, direction: 1 | -1): number => {
+	const findNextSelectableIndex = (startIndex: number, direction: 1 | -1, items: ListItem[]): number => {
 		let index = startIndex;
-		while (index >= 0 && index < listItems.length) {
-			const item = listItems[index];
+		while (index >= 0 && index < items.length) {
+			const item = items[index];
 			if (item && item.type === 'entry') {
 				return index;
 			}
@@ -343,15 +359,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// If we didn't find anything, stay at current position or find first/last valid item
 		if (direction > 0) {
 			// Search from beginning
-			for (let i = 0; i < listItems.length; i++) {
-				if (listItems[i].type === 'entry') {
+			for (let i = 0; i < items.length; i++) {
+				if (items[i].type === 'entry') {
 					return i;
 				}
 			}
 		} else {
 			// Search from end
-			for (let i = listItems.length - 1; i >= 0; i--) {
-				if (listItems[i].type === 'entry') {
+			for (let i = items.length - 1; i >= 0; i--) {
+				if (items[i].type === 'entry') {
 					return i;
 				}
 			}
@@ -363,60 +379,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	/**
 	 * Handle keyboard navigation in the history list
 	 */
-	const handleKeyDown = (event: React.KeyboardEvent) => {
-		if (listItems.length === 0) {
-			return;
-		}
-
-		let newIndex = selectedIndex;
-		let handled = false;
-
-		switch (event.key) {
-			case 'ArrowDown':
-				newIndex = findNextSelectableIndex(selectedIndex + 1, 1);
-				handled = true;
-				break;
-			case 'ArrowUp':
-				newIndex = findNextSelectableIndex(selectedIndex - 1, -1);
-				handled = true;
-				break;
-			case 'PageDown':
-				newIndex = findNextSelectableIndex(Math.min(selectedIndex + 10, listItems.length - 1), 1);
-				handled = true;
-				break;
-			case 'PageUp':
-				newIndex = findNextSelectableIndex(Math.max(selectedIndex - 10, 0), -1);
-				handled = true;
-				break;
-			case 'Home':
-				newIndex = findNextSelectableIndex(0, 1);
-				handled = true;
-				break;
-			case 'End':
-				newIndex = findNextSelectableIndex(listItems.length - 1, -1);
-				handled = true;
-				break;
-			case 'Enter':
-				if (selectedIndex >= 0) {
-					handleToConsole();
-					handled = true;
-				}
-				break;
-		}
-
-		if (handled) {
-			event.preventDefault();
-			event.stopPropagation();
-
-			if (newIndex !== selectedIndex && newIndex >= 0) {
-				setSelectedIndex(newIndex);
-				// Scroll to the newly selected item
-				if (listRef.current) {
-					listRef.current.scrollToItem(newIndex, 'smart');
-				}
-			}
-		}
-	};	/**
+	/**
 	 * Handle "To Console" button - sends selected code to console
 	 */
 	const handleToConsole = (index?: number) => {
@@ -534,9 +497,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Add focus/blur listeners to the container to track focus state
 		const container = containerRef.current;
 		const handleFocus = () => setHasFocus(true);
-		const handleBlur = () => setHasFocus(false);
-
-		if (container) {
+		const handleBlur = () => setHasFocus(false); if (container) {
 			container.addEventListener('focus', handleFocus);
 			container.addEventListener('blur', handleBlur);
 		}
@@ -547,6 +508,86 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				container.removeEventListener('focus', handleFocus);
 				container.removeEventListener('blur', handleBlur);
 			}
+		};
+	}, []);
+
+	/**
+	 * Set up keyboard event listener
+	 */
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) {
+			return;
+		}
+
+		// Add keyboard event listener to the container
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const currentListItems = listItemsRef.current;
+			const currentSelectedIndex = selectedIndexRef.current;
+			const currentSearchText = debouncedSearchTextRef.current;
+
+			if (currentListItems.length === 0) {
+				return;
+			} let newIndex = currentSelectedIndex;
+			let handled = false;
+
+			switch (e.key) {
+				case 'ArrowDown':
+					newIndex = findNextSelectableIndex(currentSelectedIndex + 1, 1, currentListItems);
+					handled = true;
+					break;
+				case 'ArrowUp':
+					newIndex = findNextSelectableIndex(currentSelectedIndex - 1, -1, currentListItems);
+					handled = true;
+					break;
+				case 'PageDown':
+					newIndex = findNextSelectableIndex(Math.min(currentSelectedIndex + 10, currentListItems.length - 1), 1, currentListItems);
+					handled = true;
+					break;
+				case 'PageUp':
+					newIndex = findNextSelectableIndex(Math.max(currentSelectedIndex - 10, 0), -1, currentListItems);
+					handled = true;
+					break;
+				case 'Home':
+					newIndex = findNextSelectableIndex(0, 1, currentListItems);
+					handled = true;
+					break;
+				case 'End':
+					newIndex = findNextSelectableIndex(currentListItems.length - 1, -1, currentListItems);
+					handled = true;
+					break;
+				case 'Enter':
+					if (currentSelectedIndex >= 0) {
+						handleToConsole();
+						handled = true;
+					}
+					break;
+				case 'Escape':
+					if (currentSearchText) {
+						handleClearSearch();
+						handled = true;
+					}
+					break;
+			}
+
+			if (handled) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				if (newIndex !== currentSelectedIndex && newIndex >= 0) {
+					setSelectedIndex(newIndex);
+					// Scroll to the newly selected item
+					if (listRef.current) {
+						listRef.current.scrollToItem(newIndex, 'smart');
+					}
+				}
+			}
+		};
+
+		container.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			container.removeEventListener('keydown', handleKeyDown);
 		};
 	}, []);
 
@@ -603,6 +644,23 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		loadHistory();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentLanguage, debouncedSearchText, executionHistoryService]);
+
+	/**
+	 * Auto-select first entry when list items change (for keyboard navigation)
+	 */
+	useEffect(() => {
+		if (listItems.length > 0 && selectedIndex === -1) {
+			// Find first entry (skip separators)
+			const firstEntryIndex = listItems.findIndex(item => item.type === 'entry');
+			if (firstEntryIndex >= 0) {
+				setSelectedIndex(firstEntryIndex);
+			}
+		}
+		// Reset selection if list becomes empty or current selection is out of bounds
+		if (listItems.length === 0 || selectedIndex >= listItems.length) {
+			setSelectedIndex(-1);
+		}
+	}, [listItems, selectedIndex]);
 
 	/**
 	 * Scroll to bottom when entries change (new entries added)
@@ -665,16 +723,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				<div
 					ref={containerRef}
 					className="history-list-container"
-					onKeyDown={(e) => {
-						if (e.key === 'Escape' && debouncedSearchText) {
-							e.preventDefault();
-							e.stopPropagation();
-							handleClearSearch();
-						} else {
-							handleKeyDown(e);
-						}
-					}}
-					tabIndex={selectedIndex >= 0 ? 0 : -1}
+					tabIndex={0}
 				>
 					{/* Floating sticky header */}
 					{stickyHeaderLabel && (
