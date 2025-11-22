@@ -68,6 +68,15 @@ const findMatches = (text: string, search: string): Array<{ start: number; end: 
 };
 
 /**
+ * Decode HTML entities to get the actual text character
+ */
+const decodeEntity = (entity: string): string => {
+	const textarea = document.createElement('textarea');
+	textarea.innerHTML = entity;
+	return textarea.value;
+};
+
+/**
  * Highlight matches in HTML string by wrapping them with <mark> tags
  * This function carefully preserves the HTML structure and only highlights text content
  */
@@ -81,57 +90,135 @@ const highlightMatchesInHtml = (html: string, text: string, search: string): str
 		return html;
 	}
 
-	// Parse HTML and walk through text nodes to add highlights
-	// We need to be careful with innerHTML and use string manipulation instead
-
-	// Build a map of text positions to whether they should be highlighted
-	const highlightMap = new Array(text.length).fill(false);
+	// Build a set of text positions that should be highlighted for O(1) lookup
+	const highlightSet = new Set<number>();
 	for (const match of matches) {
 		for (let i = match.start; i < match.end; i++) {
-			highlightMap[i] = true;
+			highlightSet.add(i);
 		}
 	}
 
-	// Walk through the original text and HTML simultaneously
-	// This is a simplified approach that works for Monaco's tokenized output
+	// Walk through the HTML and track text position
+	// Key: Monaco uses <br/> for newlines, which we need to count as \n characters
 	let result = '';
 	let textPos = 0;
-	let htmlPos = 0;
+	let i = 0;
 	let inTag = false;
 	let inHighlight = false;
 
-	while (htmlPos < html.length) {
-		const char = html[htmlPos];
+	while (i < html.length) {
+		const char = html[i];
 
 		if (char === '<') {
-			// Close highlight if we're entering a tag
+			// Check if this is a <br/> or <br> tag
+			const isBr = html.substring(i, i + 4) === '<br>' || html.substring(i, i + 5) === '<br/>';
+
+			if (isBr) {
+				// <br> represents a newline character in the original text
+				const shouldHighlight = highlightSet.has(textPos);
+
+				// Close highlight if needed before the br tag
+				if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				// Add the br tag
+				if (html.substring(i, i + 5) === '<br/>') {
+					result += '<br/>';
+					i += 5;
+				} else {
+					result += '<br>';
+					i += 4;
+				}
+
+				// Count this as a newline character
+				textPos++;
+
+				// Reopen highlight if needed after the br tag
+				if (textPos < text.length && highlightSet.has(textPos) && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				}
+
+				continue;
+			}
+
+			// Regular tag - close any open highlight
 			if (inHighlight) {
 				result += '</mark>';
 				inHighlight = false;
 			}
 			inTag = true;
 			result += char;
+			i++;
 		} else if (char === '>') {
+			// Exiting a tag
 			inTag = false;
 			result += char;
+			i++;
 		} else if (inTag) {
 			// Inside a tag, just copy
 			result += char;
+			i++;
+		} else if (char === '&') {
+			// Possible HTML entity
+			let entityEnd = i + 1;
+			while (entityEnd < html.length && html[entityEnd] !== ';' && (entityEnd - i) < 10) {
+				entityEnd++;
+			}
+
+			if (entityEnd < html.length && html[entityEnd] === ';') {
+				// Valid entity
+				const entity = html.substring(i, entityEnd + 1);
+				const decoded = decodeEntity(entity);
+
+				// Check if this position should be highlighted
+				const shouldHighlight = highlightSet.has(textPos);
+
+				if (shouldHighlight && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				} else if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				result += entity;
+				textPos += decoded.length;
+				i = entityEnd + 1;
+			} else {
+				// Not a valid entity, treat as regular character
+				const shouldHighlight = highlightSet.has(textPos);
+
+				if (shouldHighlight && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				} else if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				result += char;
+				textPos++;
+				i++;
+			}
 		} else {
-			// We're in text content
-			if (textPos < text.length && highlightMap[textPos] && !inHighlight) {
+			// Regular text character
+			const shouldHighlight = highlightSet.has(textPos);
+
+			if (shouldHighlight && !inHighlight) {
 				result += '<mark class="history-search-highlight">';
 				inHighlight = true;
-			} else if (textPos < text.length && !highlightMap[textPos] && inHighlight) {
+			} else if (!shouldHighlight && inHighlight) {
 				result += '</mark>';
 				inHighlight = false;
 			}
 
 			result += char;
 			textPos++;
+			i++;
 		}
-
-		htmlPos++;
 	}
 
 	// Close any open highlight
