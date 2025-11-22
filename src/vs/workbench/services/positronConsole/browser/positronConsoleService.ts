@@ -970,6 +970,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _externalExecutionIds: Set<string> = new Set<string>();
 
 	/**
+	 * Set of execution IDs that are silent executions.
+	 * Silent executions should not be displayed in the console UI.
+	 */
+	private _silentExecutionIds: Set<string> = new Set<string>();
+
+	/**
 	 * Queue of pending code fragments waiting to be executed.
 	 */
 	private _pendingCodeQueue: IPendingCodeFragment[] = [];
@@ -2397,6 +2403,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 						// This external execution ID has completed, so we can remove it.
 						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
+						// This silent execution ID has completed, so we can remove it.
+						this._silentExecutionIds.delete(languageRuntimeMessageState.parent_id);
 						break;
 					}
 				}
@@ -2984,6 +2992,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		/**
+		 * If the code execution mode is silent, track the execution ID
+		 * so we can filter its output from the console UI.
+		 */
+		if (mode === RuntimeCodeExecutionMode.Silent) {
+			this._silentExecutionIds.add(id);
+		}
+
+		/**
 		 * If the code execution mode is silent, an ActivityItem for the code fragment
 		 * should not be added to avoid UI side effects from the code execution.
 		 */
@@ -3060,6 +3076,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param activityItem The activity item.
 	 */
 	private addOrUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
+		// Skip adding runtime items for silent executions to prevent console UI display
+		if (this._silentExecutionIds.has(parentId)) {
+			return;
+		}
+
 		// Find the activity runtime item. If it was found, add the activity item to it. If not, add
 		// a new activity runtime item.
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
