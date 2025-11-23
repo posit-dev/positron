@@ -238,6 +238,8 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				// Reset interrupting state when child processes stop
 				if (!hasChildProcesses) {
 					setInterrupting(false);
+					// Clear the viewer when the process stops
+					services.positronPreviewService.clearAllPreviews();
 					// Clear the source terminal when processes stop
 					setSourceTerminal(undefined);
 				}
@@ -254,7 +256,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		);
 
 		return () => disposables.dispose();
-	}, [sourceTerminal]);
+	}, [sourceTerminal, services.positronPreviewService]);
 
 	// Render.
 	return (
@@ -295,7 +297,6 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 									onPressed={interruptHandler}>
 									<div className='action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime' />
 								</ActionBarButton>
-								<ActionBarSeparator />
 							</>
 						)}
 						<ActionBarButton
