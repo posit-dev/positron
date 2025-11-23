@@ -34,6 +34,17 @@ class OpenEditorKind(str, enum.Enum):
     Uri = "uri"
 
 
+@enum.unique
+class PreviewSourceType(str, enum.Enum):
+    """
+    Possible values for Type in PreviewSource
+    """
+
+    Runtime = "runtime"
+
+    Terminal = "terminal"
+
+
 class EditorContext(BaseModel):
     """
     Editor metadata
@@ -141,6 +152,20 @@ class Range(BaseModel):
 
     end: Position = Field(
         description="End position of the selection",
+    )
+
+
+class PreviewSource(BaseModel):
+    """
+    Source information for preview content
+    """
+
+    type: PreviewSourceType = Field(
+        description="The type of source that opened the preview",
+    )
+
+    id: StrictStr = Field(
+        description="The ID of the source (session_id or terminal process ID)",
     )
 
 
@@ -526,6 +551,10 @@ class ShowUrlParams(BaseModel):
         description="The URL to display",
     )
 
+    source: Optional[PreviewSource] = Field(
+        description="Optional source information for the URL",
+    )
+
 
 class ShowHtmlFileParams(BaseModel):
     """
@@ -568,6 +597,8 @@ Position.update_forward_refs()
 Selection.update_forward_refs()
 
 Range.update_forward_refs()
+
+PreviewSource.update_forward_refs()
 
 DidChangePlotsRenderSettingsParams.update_forward_refs()
 

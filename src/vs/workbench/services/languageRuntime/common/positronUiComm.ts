@@ -183,11 +183,35 @@ export interface Range {
 }
 
 /**
+ * Source information for preview content
+ */
+export interface PreviewSource {
+	/**
+	 * The type of source that opened the preview
+	 */
+	type: PreviewSourceType;
+
+	/**
+	 * The ID of the source (session_id or terminal process ID)
+	 */
+	id: string;
+
+}
+
+/**
  * Possible values for Kind in OpenEditor
  */
 export enum OpenEditorKind {
 	Path = 'path',
 	Uri = 'uri'
+}
+
+/**
+ * Possible values for Type in PreviewSource
+ */
+export enum PreviewSourceType {
+	Runtime = 'runtime',
+	Terminal = 'terminal'
 }
 
 /**
@@ -456,6 +480,11 @@ export interface ShowUrlParams {
 	 * The URL to display
 	 */
 	url: string;
+
+	/**
+	 * Optional source information for the URL
+	 */
+	source?: PreviewSource;
 }
 
 /**
@@ -613,6 +642,11 @@ export interface ShowUrlEvent {
 	 * The URL to display
 	 */
 	url: string;
+
+	/**
+	 * Optional source information for the URL
+	 */
+	source?: PreviewSource;
 
 }
 
@@ -923,7 +957,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
-		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
+		this.onDidShowUrl = super.createEventEmitter('show_url', ['url', 'source']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
 		this.onDidOpenWithSystem = super.createEventEmitter('open_with_system', ['path']);
 		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);

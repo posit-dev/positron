@@ -473,6 +473,9 @@ export default tseslint.config(
 			'src/vs/amdX.ts',
 			'src/vs/monaco.d.ts',
 			'src/vscode-dts/**',
+			// --- Start Positron ---
+			'src/positron-dts/**',
+			// --- End Positron ---
 			// Base
 			'src/vs/base/browser/dom.ts',
 			'src/vs/base/browser/mouseEvent.ts',

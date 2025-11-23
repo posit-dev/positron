@@ -17,6 +17,7 @@ import pytest
 
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
+from positron.ui_comm import UiFrontendEvent
 from positron.utils import alias_home
 
 from .conftest import DummyComm
@@ -62,7 +63,7 @@ def working_directory_event() -> Dict[str, Any]:
 
 
 def show_url_event(url: str) -> Dict[str, Any]:
-    return json_rpc_notification("show_url", {"url": url})
+    return json_rpc_notification(UiFrontendEvent.ShowUrl, {"url": url, "source": None})
 
 
 def show_html_file_event(path: str, *, is_plot: bool) -> Dict[str, Any]:

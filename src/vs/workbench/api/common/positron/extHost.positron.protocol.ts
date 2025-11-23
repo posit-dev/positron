@@ -299,7 +299,8 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$previewUrl(
 		extension: WebviewExtensionDescription,
 		handle: PreviewHandle,
-		uri: URI
+		uri: URI,
+		source?: { type: string; id: string }
 	): void;
 	$previewHtml(
 		extension: WebviewExtensionDescription,

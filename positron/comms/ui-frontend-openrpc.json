@@ -483,6 +483,14 @@
 					"schema": {
 						"type": "string"
 					}
+				},
+				{
+					"name": "source",
+					"description": "Optional source information for the URL",
+					"required": false,
+					"schema": {
+						"$ref": "#/components/schemas/preview_source"
+					}
 				}
 			]
 		},
@@ -654,6 +662,28 @@
 				"required": [
 					"start",
 					"end"
+				]
+			},
+			"preview_source": {
+				"type": "object",
+				"description": "Source information for preview content",
+				"properties": {
+					"type": {
+						"type": "string",
+						"enum": [
+							"runtime",
+							"terminal"
+						],
+						"description": "The type of source that opened the preview"
+					},
+					"id": {
+						"type": "string",
+						"description": "The ID of the source (session_id or terminal process ID)"
+					}
+				},
+				"required": [
+					"type",
+					"id"
 				]
 			}
 		}

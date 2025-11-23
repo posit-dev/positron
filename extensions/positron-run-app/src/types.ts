@@ -28,4 +28,5 @@ export type AppPreviewOptions = {
 export type AppLauncherTerminalLink = vscode.TerminalLink & {
 	url: string;
 	proxyUri: vscode.Uri;
+	terminal: vscode.Terminal;
 };

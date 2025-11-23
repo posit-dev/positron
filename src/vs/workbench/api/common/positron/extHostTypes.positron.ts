@@ -434,5 +434,15 @@ export enum NotebookCellType {
 	Markdown = 'markdown',
 }
 
+/**
+ * The type of source that opened a preview.
+ */
+export enum PreviewSourceType {
+	/** The preview was opened by a language runtime. */
+	Runtime = 'runtime',
+	/** The preview was opened by a terminal. */
+	Terminal = 'terminal',
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
