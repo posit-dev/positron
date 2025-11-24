@@ -362,9 +362,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	} = props;
 
 	const services = usePositronReactServicesContext();
-	const [lineCount, setLineCount] = useState<number>(0);
 	const [colorizedHtml, setColorizedHtml] = useState<string | null>(null);
-	const [smartExcerpt, setSmartExcerpt] = useState<{ excerpt: string; hiddenAbove: number; hiddenBelow: number } | null>(null);
 	const entryRef = useRef<HTMLDivElement>(null);
 	const codeRef = useRef<HTMLDivElement>(null);
 
@@ -386,31 +384,21 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		return lines.slice(0, maxLines).join('\n');
 	};
 
+	// Calculate line count synchronously during render to avoid layout shifts
+	const lineCount = countLines(entry.input);
+
+	// Calculate smart excerpt synchronously to determine if we'll show indicators
+	const smartExcerpt = (!isSelected && searchText) ? getSmartExcerpt(entry.input, searchText) : null;
+
+	// Determine what code to show - calculated synchronously to avoid layout shifts
+	const codeToHighlight = isSelected
+		? entry.input
+		: (smartExcerpt ? smartExcerpt.excerpt : truncateCode(entry.input, MAX_COLLAPSED_LINES));
+
 	/**
 	 * Tokenize and highlight the code
 	 */
 	useEffect(() => {
-		// Determine what code to show
-		let codeToHighlight: string;
-		let excerpt: { excerpt: string; hiddenAbove: number; hiddenBelow: number } | null = null;
-
-		// Count total lines
-		setLineCount(countLines(entry.input));
-
-		if (isSelected) {
-			// Show full code when selected
-			codeToHighlight = entry.input;
-		} else if (searchText) {
-			// When searching and collapsed, show smart excerpt if needed
-			excerpt = getSmartExcerpt(entry.input, searchText);
-			codeToHighlight = excerpt ? excerpt.excerpt : truncateCode(entry.input, MAX_COLLAPSED_LINES);
-		} else {
-			// Normal truncation when collapsed
-			codeToHighlight = truncateCode(entry.input, MAX_COLLAPSED_LINES);
-		}
-
-		setSmartExcerpt(excerpt);
-
 		// If no languageId, show plain text with highlighting
 		if (!languageId) {
 			if (searchText) {
@@ -448,7 +436,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			}
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry.input, languageId, isSelected, searchText, instantiationService]);
+	}, [codeToHighlight, languageId, searchText, instantiationService]);
 
 	/**
 	 * Measure height after render
@@ -458,7 +446,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			const height = entryRef.current.offsetHeight;
 			onHeightChange(height);
 		}
-	}, [isSelected, colorizedHtml, onHeightChange]);
+	}, [isSelected, colorizedHtml, smartExcerpt, onHeightChange]);
 
 	/**
 	 * Apply font info after render
