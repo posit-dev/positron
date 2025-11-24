@@ -23,6 +23,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { PositronHistoryPanel } from './components/positronHistoryPanel.js';
 import { FontConfigurationManager } from '../../../browser/fontConfigurationManager.js';
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
@@ -94,6 +95,7 @@ export class PositronHistoryViewPane extends PositronViewPane implements IReactC
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
 	) {
 		super(
 			options,
@@ -144,11 +146,12 @@ export class PositronHistoryViewPane extends PositronViewPane implements IReactC
 		);
 		this._positronReactRenderer.render(
 			<PositronHistoryPanel
-				reactComponentContainer={this}
 				executionHistoryService={this.executionHistoryService}
-				runtimeSessionService={this.runtimeSessionService}
-				instantiationService={this.instantiationService}
 				fontInfo={this._fontInfo}
+				instantiationService={this.instantiationService}
+				reactComponentContainer={this}
+				runtimeSessionService={this.runtimeSessionService}
+				runtimeStartupService={this.runtimeStartupService}
 			/>
 		);
 	}

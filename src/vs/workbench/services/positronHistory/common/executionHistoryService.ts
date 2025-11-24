@@ -119,7 +119,7 @@ export interface IExecutionHistoryService extends IDisposable {
 	 * @param sessionId The ID of the language runtime for which to retrieve
 	 *   execution history
 	 */
-	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[];
+	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<unknown>[];
 
 	/**
 	 * Removes (clears) all the the history entries for a given
@@ -129,6 +129,13 @@ export interface IExecutionHistoryService extends IDisposable {
 	 *   history.
 	 */
 	clearExecutionEntries(sessionId: string): void;
+
+	/**
+	 * Gets the list of language IDs that have input history available.
+	 *
+	 * @returns An array of language IDs that have at least one input history entry.
+	 */
+	getAvailableLanguages(): string[];
 }
 
 export const replConfigurationBaseNode = Object.freeze<IConfigurationNode>({

@@ -11,6 +11,7 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { Delayer } from '../../../../../base/common/async.js';
 import { IExecutionHistoryService, IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
@@ -36,6 +37,7 @@ interface PositronHistoryPanelProps {
 	reactComponentContainer: IReactComponentContainer;
 	executionHistoryService: IExecutionHistoryService;
 	runtimeSessionService: IRuntimeSessionService;
+	runtimeStartupService: IRuntimeStartupService;
 	instantiationService: IInstantiationService;
 	fontInfo: FontInfo;
 }
@@ -71,6 +73,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		reactComponentContainer,
 		executionHistoryService,
 		runtimeSessionService,
+		runtimeStartupService,
 		instantiationService
 	} = props;
 
@@ -249,13 +252,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Discover all available languages from history
 	 */
 	const discoverLanguages = () => {
-		// Get all active sessions to determine which languages are available
+		// Get all languages that have input history
+		const languages = executionHistoryService.getAvailableLanguages();
+
+		// Also add languages from active sessions (even if they don't have history yet)
 		const sessions = runtimeSessionService.activeSessions;
-		const languageSet = new Set<string>();
+		const languageSet = new Set<string>(languages);
 
 		sessions.forEach(session => {
 			const languageId = session.runtimeMetadata.languageId;
-			// Add all session languages, not just those with history
 			languageSet.add(languageId);
 		});
 
@@ -512,11 +517,26 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			})
 		);
 
-		// Initialize with foreground session language if available
-		const foregroundSession = runtimeSessionService.foregroundSession;
-		if (foregroundSession) {
-			setCurrentLanguage(foregroundSession.runtimeMetadata.languageId);
-		}
+		// Initialize with the language that will be restored as the foreground session
+		runtimeStartupService.getRestoredSessions().then(restoredSessions => {
+			if (restoredSessions.length > 0) {
+				// The first restored session will become the foreground session
+				const foregroundSession = restoredSessions[0];
+				setCurrentLanguage(foregroundSession.runtimeMetadata.languageId);
+			} else {
+				// No sessions are being restored, check for an existing foreground session
+				const foregroundSession = runtimeSessionService.foregroundSession;
+				if (foregroundSession) {
+					setCurrentLanguage(foregroundSession.runtimeMetadata.languageId);
+				} else {
+					// No foreground session, but we may have history. Set to the first available language.
+					const languages = executionHistoryService.getAvailableLanguages();
+					if (languages.length > 0) {
+						setCurrentLanguage(languages[0]);
+					}
+				}
+			}
+		});
 
 		// Initial discovery of languages
 		discoverLanguages();
@@ -761,53 +781,58 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 	}, [listItems.length, autoScrollEnabled]);
 
+	// Check if there is any history at all (for any language)
+	const hasAnyHistory = availableLanguages.length > 0;
+
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className="positron-history-panel">
 				<PositronActionBar
-					borderTop={false}
 					borderBottom={true}
+					borderTop={false}
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
+							ariaLabel={(() => localize('positronHistoryToConsole', "To Console"))()}
+							disabled={selectedIndex < 0}
 							icon={Codicon.play}
 							label={(() => localize('positronHistoryToConsole', "To Console"))()}
 							tooltip={(() => localize('positronHistoryToConsole', "To Console"))()}
-							ariaLabel={(() => localize('positronHistoryToConsole', "To Console"))()}
-							disabled={selectedIndex < 0}
 							onPressed={handleToConsole}
 						/>
 						<ActionBarButton
+							ariaLabel={(() => localize('positronHistoryToSource', "To Source"))()}
+							disabled={selectedIndex < 0}
 							icon={Codicon.insert}
 							label={(() => localize('positronHistoryToSource', "To Source"))()}
 							tooltip={(() => localize('positronHistoryToSource', "To Source"))()}
-							ariaLabel={(() => localize('positronHistoryToSource', "To Source"))()}
-							disabled={selectedIndex < 0}
 							onPressed={handleToSource}
 						/>
 						<ActionBarButton
+							ariaLabel={(() => localize('positronHistoryCopy', "Copy"))()}
+							disabled={selectedIndex < 0}
 							icon={Codicon.copy}
 							label={(() => localize('positronHistoryCopy', "Copy"))()}
 							tooltip={(() => localize('positronHistoryCopy', "Copy"))()}
-							ariaLabel={(() => localize('positronHistoryCopy', "Copy"))()}
-							disabled={selectedIndex < 0}
 							onPressed={handleCopy}
 						/>
 					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<LanguageFilterMenuButton
-							currentLanguage={currentLanguage}
-							availableLanguages={availableLanguages}
-							onSelectLanguage={handleSelectLanguage}
-						/>
-						<ActionBarFilter
-							ref={filterRef}
-							width={100}
-							placeholder={(() => localize('positronHistorySearch', "Search"))()}
-							initialFilterText={searchText}
-							onFilterTextChanged={handleSearchTextChange}
-						/>
-					</ActionBarRegion>
+					{hasAnyHistory && (
+						<ActionBarRegion location='right'>
+							<LanguageFilterMenuButton
+								availableLanguages={availableLanguages}
+								currentLanguage={currentLanguage}
+								onSelectLanguage={handleSelectLanguage}
+							/>
+							<ActionBarFilter
+								ref={filterRef}
+								initialFilterText={searchText}
+								placeholder={(() => localize('positronHistorySearch', "Search"))()}
+								width={100}
+								onFilterTextChanged={handleSearchTextChange}
+							/>
+						</ActionBarRegion>
+					)}
 				</PositronActionBar>
 
 				<div
@@ -837,19 +862,17 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							</button>
 						</div>
 					) : listItems.length === 0 ? (
-						<div className="history-empty-message">
-							No history available
-						</div>
+						null
 					) : (lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40) ? (
 						<List
 							ref={listRef}
 							height={Math.max(lastValidHeightRef.current, height) - 40} // Subtract toolbar height
-							width={Math.max(lastValidWidthRef.current, width)}
+							innerElementType={StickyInnerElement}
 							itemCount={listItems.length}
 							itemSize={getRowHeight}
-							onScroll={handleScroll}
-							innerElementType={StickyInnerElement}
 							overscanCount={5}
+							width={Math.max(lastValidWidthRef.current, width)}
+							onScroll={handleScroll}
 						>
 							{({ index, style }) => {
 								const item = listItems[index];
@@ -864,14 +887,20 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 									return (
 										<HistoryEntry
 											entry={item.entry}
-											index={item.originalIndex}
-											style={style}
-											isSelected={index === selectedIndex}
+											fontInfo={props.fontInfo}
 											hasFocus={hasFocus}
+											index={item.originalIndex}
+											instantiationService={instantiationService}
+											isSelected={index === selectedIndex}
 											languageId={currentLanguage || ''}
 											searchText={debouncedSearchText}
-											onSelect={() => handleSelect(index)}
+											style={style}
+											onCopy={() => {
+												setSelectedIndex(index);
+												handleCopy(index);
+											}}
 											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
+											onSelect={() => handleSelect(index)}
 											onToConsole={() => {
 												setSelectedIndex(index);
 												handleToConsole(index);
@@ -880,12 +909,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 												setSelectedIndex(index);
 												handleToSource(index);
 											}}
-											onCopy={() => {
-												setSelectedIndex(index);
-												handleCopy(index);
-											}}
-											instantiationService={instantiationService}
-											fontInfo={props.fontInfo}
 										/>
 									);
 								}

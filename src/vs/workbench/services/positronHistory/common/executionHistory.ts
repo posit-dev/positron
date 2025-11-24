@@ -278,7 +278,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @param sessionId The ID of the session to get execution history for.
 	 * @returns An array of history entries.
 	 */
-	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[] {
+	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<unknown>[] {
 		// Return the history entries for the given runtime, if known.
 		if (this._executionHistories.has(sessionId)) {
 			return this._executionHistories.get(sessionId)?.entries!;
@@ -303,6 +303,38 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		} else {
 			throw new Error(`Can't get entries; unknown session ID: ${sessionId}`);
 		}
+	}
+
+	/**
+	 * Gets the list of language IDs that have input history available.
+	 *
+	 * @returns An array of language IDs that have at least one input history entry.
+	 */
+	getAvailableLanguages(): string[] {
+		const languages: string[] = [];
+		const prefix = 'positron.languageInputHistory.';
+
+		// Get all language input history keys from storage
+		const keys = this._storageService
+			.keys(this.getStorageScope(), StorageTarget.USER)
+			.filter(key => key.startsWith(prefix));
+
+		// Extract language IDs and check if they have any history
+		for (const key of keys) {
+			const languageId = key.substring(prefix.length);
+			const entries = this._storageService.get(key, this.getStorageScope(), '[]');
+			try {
+				const parsedEntries = JSON.parse(entries);
+				if (Array.isArray(parsedEntries) && parsedEntries.length > 0) {
+					languages.push(languageId);
+				}
+			} catch (err) {
+				// Skip keys with invalid JSON
+				this._logService.error(`Error parsing language history for ${languageId}: ${err}`);
+			}
+		}
+
+		return languages;
 	}
 
 	/**
