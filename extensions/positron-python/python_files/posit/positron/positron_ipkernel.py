@@ -519,7 +519,6 @@ class PositronIPyKernel(IPythonKernel):
             "ignore",
             category=SyntaxWarning,
             message=r"'return' in a 'finally' block",
-            module="ipykernel",
         )
 
         # Patch holoviews to use our custom notebook extension.
