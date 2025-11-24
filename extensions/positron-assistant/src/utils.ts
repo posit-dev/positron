@@ -289,7 +289,7 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2)
 		type: 'image',
 		data: Buffer.from(imagePart.data).toString('base64'),
 		mimeType: imagePart.mimeType
-	}
+	};
 	return {
 		role: 'tool',
 		content: [
@@ -638,4 +638,38 @@ export function isPromptInstructionsReference(reference: unknown): reference is 
 		'id' in reference && typeof reference.id === 'string' &&
 		'value' in reference && reference.value instanceof vscode.Uri &&
 		reference.id.includes('vscode.prompt.instructions');
+}
+
+/**
+ * Checks if an error is an authorization error (401/403).
+ * @param error The error object to check.
+ * @returns True if the error is an authorization error.
+ */
+export function isAuthorizationError(error: any): boolean {
+	// Check for AI SDK APICallError with 401/403 status codes
+	if (ai.APICallError.isInstance(error)) {
+		const statusCode = error.statusCode;
+		return statusCode === 401 || statusCode === 403;
+	}
+
+	// Check for fetch/network errors with status codes
+	if (error?.status === 401 || error?.status === 403) {
+		return true;
+	}
+
+	// Check error message for common authorization patterns
+	const message = error?.message || '';
+	const authPatterns = [
+		'unauthorized',
+		'authentication failed',
+		'invalid token',
+		'access denied',
+		'forbidden',
+		'401',
+		'403'
+	];
+
+	return authPatterns.some(pattern =>
+		message.toLowerCase().includes(pattern.toLowerCase())
+	);
 }

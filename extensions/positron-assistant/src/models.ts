@@ -15,7 +15,7 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createMistral, MistralProvider } from '@ai-sdk/mistral';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
 import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
-import { processMessages, toAIMessage } from './utils';
+import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
@@ -366,6 +366,27 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
+
+				// Check for authorization errors (401/403) and bail immediately with helpful message
+				if (isAuthorizationError(error)) {
+					// Try to extract specific error message from response body
+					let specificMessage = '';
+					if (ai.APICallError.isInstance(error) && error.responseBody) {
+						try {
+							const parsed = JSON.parse(error.responseBody);
+							if (parsed.message) {
+								specificMessage = ` (${parsed.message})`;
+							}
+						} catch {
+							// Ignore JSON parsing errors, fall back to generic message
+						}
+					}
+
+					const authError = `Authentication failed${specificMessage}. Please check your credentials and try signing in again.`;
+					log.error(`${messagePrefix} ${authError}`);
+					return new Error(`[${this.providerName}] ${authError}`);
+				}
+
 				const errorMsg = await this.parseProviderError(error) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
