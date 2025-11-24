@@ -87,6 +87,7 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
 		},
 	]],
+	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql#regional-availability
 	['snowflake-cortex', [
 		{
 			name: 'Claude Sonnet 4',
@@ -96,13 +97,6 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 		{
 			name: 'Claude Sonnet 4.5',
 			identifier: 'claude-sonnet-4-5',
-			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
-		},
-		{
-			// 500 error
-			// [Snowflake Cortex] [Claude Opus 4]' Error in chat response: { "name": "AI_RetryError", "reason": "maxRetriesExceeded", "errors": [ { "name": "AI_APICallError", "url": "https://<ACCOUNT_ID>.snowflakecomputing.com/api/v2/cortex/v1/chat/completions", "requestBodyValues": { "model": "claude-4-opus", "max_tokens": 4096, "temperature": 0,
-			name: 'Claude Opus 4',
-			identifier: 'claude-4-opus',
 			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
 		},
 		{
@@ -119,7 +113,7 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			name: 'GPT-4.1',
 			identifier: 'openai-gpt-4.1',
 			maxInputTokens: 128_000, // Typical GPT-5 context window
-		}
+		},
 	]]
 ]);
 
