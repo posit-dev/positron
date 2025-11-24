@@ -1388,6 +1388,32 @@ declare module 'positron' {
 		readonly previewPanel: PreviewPanel;
 	}
 
+	/**
+	 * The type of source that opened a preview.
+	 */
+	export enum PreviewSourceType {
+		/** The preview was opened by a language runtime. */
+		Runtime = 'runtime',
+		/** The preview was opened by a terminal. */
+		Terminal = 'terminal',
+	}
+
+	/**
+	 * Source information for preview content, indicating what opened the preview.
+	 */
+	export interface PreviewSource {
+		/**
+		 * The type of source that opened the preview.
+		 */
+		readonly type: PreviewSourceType;
+
+		/**
+		 * The ID of the source. For 'runtime', this is the session ID;
+		 * for 'terminal', this is the terminal process ID.
+		 */
+		readonly id: string;
+	}
+
 	export interface StatementRangeProvider {
 		/**
 		 * Given a cursor position, return the range of the statement that the
@@ -1596,10 +1622,11 @@ declare module 'positron' {
 		 * given URL.
 		 *
 		 * @param url The URL to preview
+		 * @param source Optional source information indicating what opened the preview
 		 *
 		 * @return New preview panel.
 		 */
-		export function previewUrl(url: vscode.Uri): PreviewPanel;
+		export function previewUrl(url: vscode.Uri, source?: PreviewSource): PreviewPanel;
 
 		/**
 		 * Create and show a new preview panel for an HTML file. This is a

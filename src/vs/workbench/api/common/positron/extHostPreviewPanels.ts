@@ -212,6 +212,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 	public previewUrl(
 		extension: IExtensionDescription,
 		uri: vscode.Uri,
+		source?: positron.PreviewSource,
 	): positron.PreviewPanel {
 
 		const handle = ExtHostPreviewPanels.newHandle();
@@ -222,7 +223,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 			localResourceRoots: [],
 		};
 		const title = uri.toString(true);
-		this._proxy.$previewUrl(toExtensionData(extension), handle, uri);
+		this._proxy.$previewUrl(toExtensionData(extension), handle, uri, source);
 		const webview = this.webviews.$createNewWebview(handle, options, extension);
 		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
 
