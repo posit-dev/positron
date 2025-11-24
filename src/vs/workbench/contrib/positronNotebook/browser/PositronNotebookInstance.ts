@@ -1255,9 +1255,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.cells.set(cells, undefined);
 
-		// Handle focus management for empty/non-empty transitions
+		// Check if we need to focus the notebook parent container.
+		// This happens when there are no cells left in the notebook
+		// after an operation.
 		if (!wasEmpty && willBeEmpty && this._container) {
-			// Transitioned to empty: focus the container
 			this._container.focus();
 		}
 	}
