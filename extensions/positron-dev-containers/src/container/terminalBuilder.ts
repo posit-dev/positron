@@ -38,6 +38,75 @@ function escapePowerShellArg(arg: string): string {
 }
 
 /**
+ * Generates lifecycle hooks script to be included in the build script
+ */
+function generateLifecycleHooksScript(
+	devContainerConfig: any,
+	dockerPath: string,
+	remoteCwd: string,
+	isWindows: boolean
+): string {
+	let script = '';
+
+	// Build map of hooks to run
+	const hooksToRun: Record<string, any> = {};
+	const hooks = [
+		'onCreateCommand',
+		'updateContentCommand',
+		'postCreateCommand',
+		'postStartCommand',
+		'postAttachCommand',
+	];
+
+	for (const hook of hooks) {
+		if (devContainerConfig[hook]) {
+			hooksToRun[hook] = devContainerConfig[hook];
+		}
+	}
+
+	// Generate commands for each hook
+	for (const [hookName, command] of Object.entries(hooksToRun)) {
+		// Convert command to shell script
+		let shellCommand: string;
+
+		if (typeof command === 'string') {
+			shellCommand = command;
+		} else if (Array.isArray(command)) {
+			// Array of commands - run them sequentially
+			shellCommand = command.join(' && ');
+		} else if (typeof command === 'object') {
+			// Object with named commands - run them sequentially
+			const commands = Object.entries(command).map(([name, cmd]) => {
+				const cmdStr = Array.isArray(cmd) ? (cmd as string[]).join(' ') : cmd;
+				return `echo "Running ${name}..." && ${cmdStr}`;
+			});
+			shellCommand = commands.join(' && ');
+		} else {
+			continue;
+		}
+
+		// Escape the command for the shell
+		const escapedCommand = isWindows
+			? shellCommand.replace(/"/g, '`"')
+			: shellCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
+
+		// Add to script
+		if (isWindows) {
+			script += `Write-Host "==> Running ${hookName}..."\n`;
+			script += `& ${escapePowerShellArg(dockerPath)} exec -w "${remoteCwd}" $CONTAINER_ID sh -c "${escapedCommand}"\n`;
+			script += 'if ($LASTEXITCODE -ne 0) {\n';
+			script += `    Write-Host "WARNING: ${hookName} failed with exit code $LASTEXITCODE" -ForegroundColor Yellow\n`;
+			script += '}\n\n';
+		} else {
+			script += `echo "==> Running ${hookName}..."\n`;
+			script += `${dockerPath} exec -w "${remoteCwd}" $CONTAINER_ID sh -c "${escapedCommand}"\n\n`;
+		}
+	}
+
+	return script;
+}
+
+/**
  * Builds and runs dev containers using actual docker commands in a terminal
  */
 export class TerminalBuilder {
@@ -301,32 +370,15 @@ export class TerminalBuilder {
 			logger.warn(`Skipping features installation: hasFeatures=${featuresInfo.hasFeatures}, hasConfig=${!!featuresInfo.featuresConfig}, hasDir=${!!featuresInfo.featuresDir}`);
 		}
 
-		// Run post-create command if specified
-		if (devContainerConfig.postCreateCommand) {
-			let postCreateCmd: string;
-			if (typeof devContainerConfig.postCreateCommand === 'string') {
-				postCreateCmd = devContainerConfig.postCreateCommand;
-			} else if (Array.isArray(devContainerConfig.postCreateCommand)) {
-				postCreateCmd = devContainerConfig.postCreateCommand.join(' ');
-			} else {
-				postCreateCmd = '';
-			}
-			if (postCreateCmd) {
-				if (isWindows) {
-					scriptContent += 'Write-Host "==> Running post-create command..."\n';
-					const escapedCmd = postCreateCmd.replace(/"/g, '`"');
-					const execCmdLine = `"${dockerPath}" exec $CONTAINER_ID sh -c "${escapedCmd}"`;
-					scriptContent += `cmd /c "${execCmdLine.replace(/"/g, '""')}"\n`;
-					scriptContent += 'if ($LASTEXITCODE -ne 0) {\n';
-					scriptContent += '    Write-Host "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n';
-					scriptContent += '}\n\n';
-				} else {
-					scriptContent += 'echo "==> Running post-create command..."\n';
-					const escapedCmd = postCreateCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
-					scriptContent += `${dockerPath} exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
-				}
-			}
-		}
+		// Add lifecycle hooks to the build script
+		// This runs them as part of the script so there's no separate terminal output
+		const lifecycleScript = generateLifecycleHooksScript(
+			devContainerConfig,
+			dockerPath,
+			remoteWorkspaceFolder,
+			isWindows
+		);
+		scriptContent += lifecycleScript;
 
 		// Save container ID and name
 		if (isWindows) {
@@ -370,22 +422,16 @@ export class TerminalBuilder {
 		logger.info(`Created build script: ${scriptPath}`);
 		logger.debug(`Script content (first 1000 chars):\n${scriptContent.substring(0, 1000)}`);
 
-		// Create terminal and run the script
+		// Create terminal that executes the script directly without showing the command
 		const terminalOptions: vscode.TerminalOptions = {
 			name: 'Dev Container Build',
 			iconPath: new vscode.ThemeIcon('debug-console'),
+			shellPath: isWindows ? 'powershell.exe' : '/bin/sh',
+			shellArgs: isWindows ? ['-NoProfile', '-File', scriptPath] : [scriptPath],
 		};
 
 		const terminal = vscode.window.createTerminal(terminalOptions);
 		terminal.show();
-
-		// Send command to execute the script in the terminal
-		if (isWindows) {
-			// Use & to execute the script file in the current terminal session
-			terminal.sendText(`& '${scriptPath}'`);
-		} else {
-			terminal.sendText(`sh '${scriptPath}'`);
-		}
 
 		// Wait for the marker file to appear
 		logger.debug('Waiting for container build to complete...');
