@@ -221,7 +221,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
-		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
+
+		const descriptor = metadata.sessionName ? ` '${metadata.sessionName}'` : '';
+		this._kernelChannel.appendLine(`** Begin kernel log for session${descriptor} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 
 		// Open the established barrier immediately if we're restoring an
 		// existing session
@@ -339,7 +341,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param kernelSpec The Jupyter kernel spec to use for the session
 	 */
-	public async create(kernelSpec: JupyterKernelSpec) {
+	public async create(
+		kernelSpec: JupyterKernelSpec,
+		sessionMetadata: positron.RuntimeSessionMetadata,
+	) {
 		if (!this._new) {
 			throw new Error(`Session ${this.metadata.sessionId} already exists`);
 		}
@@ -435,8 +440,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			protocol_version: kernelSpec.kernel_protocol_version
 		};
 		await this._api.newSession(session);
-		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
+
+		const descriptor = sessionMetadata.sessionName ? ` '${sessionMetadata.sessionName}'` : '';
+		this.log(`${kernelSpec.display_name} session${descriptor} (${this.metadata.sessionId})' created in ${workingDir} with command:`, vscode.LogLevel.Info);
 		this.log(args.join(' '), vscode.LogLevel.Info);
+
 		this._established.open();
 	}
 

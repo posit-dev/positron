@@ -580,6 +580,9 @@ declare module 'positron' {
 		/** The ID of this session */
 		readonly sessionId: string;
 
+		/** An optional descriptor for the session */
+		readonly sessionName?: string;
+
 		/** The session's mode */
 		readonly sessionMode: LanguageRuntimeSessionMode;
 

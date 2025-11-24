@@ -1608,6 +1608,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
+			sessionName,
 			sessionMode,
 			notebookUri,
 			workingDirectory,
