@@ -755,6 +755,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
+			fetch: this.customFetch()
 		});
 	}
 
@@ -896,6 +897,64 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 		return data;
 	}
+
+	/**
+	 * Custom fetch to rewrite the request body to avoid various deprecations. This is a stop-gap
+	 * measure before we upgrade to AI SDK v5+.
+	 * @returns
+	 */
+	customFetch(): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
+		return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+			// Intercept and modify request body to handle deprecated max_tokens parameter
+			if (init?.method === 'POST' && init?.body) {
+				try {
+					const bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
+					const requestBody = JSON.parse(bodyStr);
+
+					log.debug(`[${this.providerName}] [DEBUG] Original request body:`, JSON.stringify(requestBody, null, 2));
+
+					// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
+					// is deprecated for models such as GPT-5.
+					if (requestBody.max_tokens !== undefined) {
+						log.debug(`[${this.providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
+						requestBody.max_completion_tokens = requestBody.max_tokens;
+						delete requestBody.max_tokens;
+
+						// Update the request body with the modified content
+						init = {
+							...init,
+							body: JSON.stringify(requestBody)
+						};
+					}
+
+					// Remove temperature parameter to avoid this error:
+					// {"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}
+					// `temperature` is no longer set to 0 by default in AI SDK v5
+					if (requestBody.temperature !== undefined) {
+						log.debug(`[${this.providerName}] [DEBUG] Removing temperature parameter to avoid unsupported value error`);
+						delete requestBody.temperature;
+
+						// Update the request body with the modified content
+						init = {
+							...init,
+							body: JSON.stringify(requestBody)
+						};
+					}
+
+					log.debug(`[${this.providerName}] [DEBUG] Final request body:`, JSON.stringify(requestBody, null, 2));
+				} catch (error) {
+					// If we can't parse the body, just proceed with the original request
+					log.warn(`[${this.providerName}] Failed to parse request body for parameter handling: ${error}`);
+				}
+			}
+
+			log.debug(`[${this.providerName}] [DEBUG] Making request to: ${input}`);
+			const response = await fetch(input, init);
+			log.debug(`[${this.providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
+
+			return response;
+		};
+	}
 }
 
 class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -945,18 +1004,6 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 		}
 	};
 
-	constructor(
-		config: ModelConfig,
-		context?: vscode.ExtensionContext,
-	) {
-		super(config, context);
-		this.aiProvider = createOpenAI({
-			apiKey: this._config.apiKey,
-			baseURL: this.baseUrl,
-			fetch: this.customFetch()
-		});
-	}
-
 	get providerName(): string {
 		return SnowflakeLanguageModel.source.provider.displayName;
 	}
@@ -964,48 +1011,6 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 	get baseUrl(): string {
 		// Use the baseUrl from config or fallback to default
 		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
-	}
-
-	customFetch(): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
-		return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
-			// Intercept and modify request body to handle deprecated max_tokens parameter
-			if (init?.method === 'POST' && init?.body) {
-				try {
-					const bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
-					const requestBody = JSON.parse(bodyStr);
-
-					log.debug(`[${this.providerName}] [DEBUG] Original request body:`, JSON.stringify(requestBody, null, 2));
-
-					// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
-					// is deprecated for models hosted by Snowflake Cortex. If we upgrade to AI SDK v5+,
-					// we won't hit this issue anymore.
-					if (requestBody.max_tokens !== undefined) {
-						log.debug(`[${this.providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
-						requestBody.max_completion_tokens = requestBody.max_tokens;
-						delete requestBody.max_tokens;
-
-						// Update the request body with the modified content
-						init = {
-							...init,
-							body: JSON.stringify(requestBody)
-						};
-					}
-
-					// DEBUG: Log the final request body after modification
-					log.debug(`[${this.providerName}] [DEBUG] Final request body:`, JSON.stringify(requestBody, null, 2));
-
-				} catch (error) {
-					// If we can't parse the body, just proceed with the original request
-					log.warn(`[${this.providerName}] Failed to parse request body for max_tokens handling: ${error}`);
-				}
-			}
-
-			log.debug(`[${this.providerName}] [DEBUG] Making request to: ${input}`);
-			const response = await fetch(input, init);
-			log.debug(`[${this.providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
-
-			return response;
-		};
 	}
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
