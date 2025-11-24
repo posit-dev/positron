@@ -27,6 +27,7 @@ import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
+import { verifyProvidersInConfiguredModels } from './modelDefinitions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -437,7 +438,7 @@ export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; p
 	return requestTokenUsage.get(requestId);
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
@@ -458,6 +459,7 @@ export function activate(context: vscode.ExtensionContext) {
 					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
 				});
 			}
+			await verifyProvidersInConfiguredModels();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
