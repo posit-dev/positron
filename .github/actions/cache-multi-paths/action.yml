@@ -26,19 +26,19 @@ runs:
         restore-keys: |
           npm-cache-${{ runner.os }}-
 
-    - name: Cache ark binary
-      id: cache-binaries-ark
-      continue-on-error: true
-      uses: actions/cache@v4
-      with:
-        # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
-        path: |
-          extensions/positron-r/resources/ark
-          ./ark
-        # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
-        key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
-        restore-keys: |
-          ark-bin-${{ runner.os }}-
+    # - name: Cache ark binary
+    #   id: cache-binaries-ark
+    #   continue-on-error: true
+    #   uses: actions/cache@v4
+    #   with:
+    #     # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
+    #     path: |
+    #       extensions/positron-r/resources/ark
+    #       ./ark
+    #     # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
+    #     key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
+    #     restore-keys: |
+    #       ark-bin-${{ runner.os }}-
 
     - name: Cache kallichore binary
       id: cache-binaries-kallichore
@@ -101,8 +101,6 @@ runs:
       run: |
         echo "Cache results:"
         echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }}"
-        echo "  ark:         hit=${{ steps['cache-binaries-ark'].outputs['cache-hit'] || 'false' }}"
         echo "  kallichore:  hit=${{ steps['cache-binaries-kallichore'].outputs['cache-hit'] || 'false' }}"
         echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
         echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
-        echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
