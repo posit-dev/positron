@@ -116,11 +116,8 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 					role='status'
 				/>
 				<ExecutionStatusBadge
-					cellSelected={isSelected}
 					executionOrder={executionOrder}
-					executionStatus={dataExecutionStatus}
 					hasError={hasError}
-					isHovered={isHovered}
 					showPending={showPending}
 				/>
 				{actionMenu}
