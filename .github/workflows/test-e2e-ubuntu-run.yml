@@ -482,22 +482,15 @@ jobs:
             exit 1
           fi
 
-          if [[ "${{ inputs.allow_soft_fail }}" == "true" ]]; then
-            # When soft-fail is enabled, only fail if non-soft-fail tests failed
-            echo "Checking for non-soft-fail failures in $JSON_REPORT"
-            node scripts/check-soft-fail-failures.js "$JSON_REPORT"
+          EXTRA_ARGS=""
+          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
+            echo "SOFT-FAIL DISABLED: standard test failure behavior"
+            EXTRA_ARGS="--no-soft-fail"
           else
-            # When soft-fail is disabled, fail if ANY tests failed
-            echo "Checking for any test failures in $JSON_REPORT"
-            FAILED_COUNT=$(jq '[.suites[].specs[] | select(.ok == false)] | length' "$JSON_REPORT")
-            echo "Found $FAILED_COUNT failed test(s)"
-            if [ "$FAILED_COUNT" -gt 0 ]; then
-              echo "Tests failed - exiting with error"
-              exit 1
-            else
-              echo "All tests passed"
-            fi
+            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
           fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
 
       - name: Clean up blob report artifacts
         if: success()
