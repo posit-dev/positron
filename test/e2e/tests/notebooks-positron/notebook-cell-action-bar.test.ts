@@ -25,7 +25,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 	test('Cell deletion using action bar', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook(6);
+		await notebooksPositron.newNotebook({ codeCells: 6 });
 
 		// ========================================
 		// Test 1: Delete a selected cell (cell 2)
@@ -130,7 +130,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		const { notebooksPositron } = app.workbench;
 
 		// create notebook with 2 cells
-		await notebooksPositron.newNotebook(2);
+		await notebooksPositron.newNotebook({ codeCells: 2 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1']);
 
 		// Copy cell with action bar and paste below using action bar
@@ -157,7 +157,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Select multiple cells (cell 0 and cell 1)

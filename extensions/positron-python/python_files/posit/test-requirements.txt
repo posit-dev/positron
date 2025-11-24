@@ -18,7 +18,7 @@ plotly
 plotnine
 polars
 polars[timezone]; sys_platform == 'win32'
-pyarrow; python_version < '3.14'
+pyarrow
 pytest
 pytest-asyncio
 pytest-mock
