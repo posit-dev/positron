@@ -164,9 +164,9 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - name: Restore caches
-        id: restore-caches
-        uses: ./.github/actions/cache-multi-paths
+      # - name: Restore caches
+      #   id: restore-caches
+      #   uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
