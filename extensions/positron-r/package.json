@@ -678,7 +678,8 @@
     "debuggers": [
       {
         "type": "ark",
-        "label": "R Debugger"
+        "label": "R Debugger",
+        "languages": ["r"]
       }
     ],
     "notebookRenderer": [
