@@ -38,7 +38,7 @@ export enum LogLevel {
 	Error
 }
 
-export const DEFAULT_LOG_LEVEL: LogLevel = LogLevel.Info;
+export const DEFAULT_LOG_LEVEL: LogLevel = LogLevel.Debug;
 
 export interface ILogger extends IDisposable {
 	readonly onDidChangeLogLevel: Event<LogLevel>;
