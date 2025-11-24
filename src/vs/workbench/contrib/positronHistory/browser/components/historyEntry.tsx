@@ -554,6 +554,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 					onSelect();
 				}
 			}}
+			onDoubleClick={() => onToConsole()}
 			onContextMenu={handleContextMenu}
 		>
 			<div className="history-entry-content">
