@@ -257,7 +257,7 @@ export class ArkLsp implements vscode.Disposable {
 			case ArkLspState.Uninitialized: {
 				const handles = new PromiseHandles<boolean>();
 
-				const cleanup = this.onDidChangeState(state => {
+				const cleanup = this.onDidChangeState(_state => {
 					let out: boolean;
 					switch (this.state) {
 						case ArkLspState.Running: out = true; break;

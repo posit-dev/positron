@@ -13,7 +13,7 @@ import { ArkLsp } from '../lsp';
 export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {
 	// There doesn't seem to be a method that resolves when a language is
 	// both discovered and ready to be started
-	let info;
+	let info: positron.LanguageRuntimeMetadata;
 
 	const startTime = Date.now();
 	const timeout = 30000;
