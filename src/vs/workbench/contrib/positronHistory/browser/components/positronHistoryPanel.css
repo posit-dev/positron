@@ -154,6 +154,8 @@
 /* Search highlighting */
 .history-search-highlight {
 	background-color: var(--vscode-editor-findMatchHighlightBackground);
+	color: var(--vscode-editor-findMatchHighlightForeground);
+	border: 1px solid var(--vscode-editor-findMatchHighlightBorder, transparent);
 	border-radius: 2px;
 	padding: 0;
 	margin: 0;
@@ -161,6 +163,8 @@
 
 .history-entry.selected .history-search-highlight {
 	background-color: var(--vscode-editor-findMatchBackground);
+	color: var(--vscode-editor-findMatchForeground);
+	border: 1px solid var(--vscode-editor-findMatchBorder, transparent);
 }
 
 /* Remove unused styles for truncated indicator and expand button */
