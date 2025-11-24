@@ -277,7 +277,9 @@ export class ChatStatus extends Disposable {
 			) {
 				const finishSetup = localize('finishSetup', "Finish Setup");
 
-				text = `$(copilot) ${finishSetup}`;
+				// --- Start Positron ---
+				// text = `$(copilot) ${finishSetup}`;
+				// --- End Positron ---
 				ariaLabel = finishSetup;
 				kind = 'prominent';
 			}
@@ -288,13 +290,17 @@ export class ChatStatus extends Disposable {
 
 			// Disabled
 			if (this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
-				text = '$(copilot-unavailable)';
+				// --- Start Positron ---
+				// text = '$(copilot-unavailable)';
+				// --- End Positron ---
 				ariaLabel = localize('copilotDisabledStatus', "Copilot disabled");
 			}
 
 			// Sessions in progress
 			else if (chatSessionsInProgressCount > 0) {
-				text = '$(copilot-in-progress)';
+				// --- Start Positron ---
+				// text = '$(copilot-in-progress)';
+				// --- End Positron ---
 				if (chatSessionsInProgressCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", chatSessionsInProgressCount);
 				} else {
@@ -311,7 +317,9 @@ export class ChatStatus extends Disposable {
 				const signedOutWarning = localize('notSignedIn', "Signed out");
 
 				// text = `${this.chatEntitlementService.anonymous ? '$(copilot)' : '$(copilot-not-connected)'} ${signedOutWarning}`;
-				text = `$(copilot-not-connected)`;
+				// --- Start Positron ---
+				// text = `$(copilot-not-connected)`;
+				// --- End Positron ---
 				ariaLabel = signedOutWarning;
 				// kind = 'prominent';
 			}
@@ -328,30 +336,36 @@ export class ChatStatus extends Disposable {
 					quotaWarning = localize('chatAndCompletionsQuotaExceededStatus', "Quota reached");
 				}
 
-				text = `$(copilot-warning) ${quotaWarning}`;
+				// --- Start Positron ---
+				// text = `$(copilot-warning) ${quotaWarning}`;
+				// --- End Positron ---
 				ariaLabel = quotaWarning;
 				kind = 'prominent';
 			}
 
 			// Completions Disabled
 			else if (this.editorService.activeTextEditorLanguageId && !isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId)) {
-				text = '$(copilot-unavailable)';
+				// --- Start Positron ---
+				// text = '$(copilot-unavailable)';
+				// --- End Positron ---
 				ariaLabel = localize('completionsDisabledStatus', "Inline suggestions disabled");
 			}
 
 			// Completions Snoozed
 			else if (this.completionsService.isSnoozing()) {
-				text = '$(copilot-snooze)';
+				// --- Start Positron ---
+				// text = '$(copilot-snooze)';
+				// --- End Positron ---
 				ariaLabel = localize('completionsSnoozedStatus', "Inline suggestions snoozed");
 			}
 		}
 
 		const baseResult = {
-			name: localize('chatStatus', "Copilot Status"),
+			// --- Start Positron ---
+			name: localize('positronChatStatus', "Assistant Status"),
 			text,
 			ariaLabel,
 			command: ShowTooltipCommand,
-			// --- Start Positron ---
 			// Do not show status in all windows; allows us to create a new status item
 			// for each window manually
 			// showInAllWindows: true,
