@@ -40,17 +40,17 @@ runs:
     #     restore-keys: |
     #       ark-bin-${{ runner.os }}-
 
-    - name: Cache kallichore binary
-      id: cache-binaries-kallichore
-      continue-on-error: true
-      uses: actions/cache@v4
-      with:
-        path: |
-          extensions/positron-supervisor/resources/kallichore
-          ./kallichore
-        key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
-        restore-keys: |
-          kallichore-bin-${{ runner.os }}-
+    # - name: Cache kallichore binary
+    #   id: cache-binaries-kallichore
+    #   continue-on-error: true
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       extensions/positron-supervisor/resources/kallichore
+    #       ./kallichore
+    #     key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+    #     restore-keys: |
+    #       kallichore-bin-${{ runner.os }}-
 
     - name: Cache Playwright browsers
       id: cache-playwright
@@ -101,6 +101,5 @@ runs:
       run: |
         echo "Cache results:"
         echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }}"
-        echo "  kallichore:  hit=${{ steps['cache-binaries-kallichore'].outputs['cache-hit'] || 'false' }}"
         echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
         echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
