@@ -5,12 +5,15 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration, ModelConfig, SecretStorage } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from './anthropic.js';
-import { availableModels } from './models.js';
+import { getAllModelDefinitions } from './modelDefinitions.js';
+import { createModelInfo, markDefaultModel } from './modelResolutionHelpers.js';
+import { applyModelFilters } from './modelFilters.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
@@ -318,7 +321,15 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 			messages: anthropicMessages,
 		};
 
-		const stream = this._anthropicClient.messages.stream(body);
+		// Set user agent in stream options
+		const streamOptions = {
+			headers: {
+				'User-Agent': `Positron/${positron.version}+${positron.buildNumber} (${os.platform()}) ${options.requestInitiator}`,
+				'Session-Id': options.modelOptions?.sessionId,
+			}
+		};
+
+		const stream = this._anthropicClient.messages.stream(body, streamOptions);
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
@@ -416,25 +427,11 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 	}
 
 	async provideLanguageModelChatInformation(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		log.trace('[Posit AI] Preparing language models');
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
+		const models = await this.resolveModels(token) ?? [];
 
-		await this.resolveModels(token);
-
-		if (this.modelListing.length > 0) {
-			return this.modelListing;
-		} else {
-			return [{
-				id: PositLanguageModel.source.defaults.model,
-				name: PositLanguageModel.source.defaults.name,
-				family: this.provider,
-				version: this._context?.extension.packageJSON.version ?? '',
-				maxInputTokens: this.maxInputTokens,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
-				isDefault: true,
-				isUserSelectable: true,
-			}];
-		}
+		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
+		return this.filterModels(models);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
@@ -448,6 +445,10 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 			throw new Error('No access token available for Posit AI.');
 		}
 		return;
+	}
+
+	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
@@ -465,38 +466,53 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 		progress.report(new vscode.LanguageModelTextPart(textDelta));
 	}
 
-	private isDefaultUserModel(id: string, name?: string): boolean {
-		const config = vscode.workspace.getConfiguration('positron.assistant');
-		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
-		if ('posit-ai' in defaultModels) {
-			if (id.includes(defaultModels['posit-ai']) || name?.includes(defaultModels['posit-ai'])) {
-				return true;
-			}
+	private retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+		// Check for configured models (user or built-in)
+		const configuredModels = getAllModelDefinitions(this.provider);
+		if (configuredModels.length === 0) {
+			return undefined;
 		}
-		return id.includes(DEFAULT_POSITAI_MODEL_MATCH);
+
+		log.info(`[${this.provider}] Using ${configuredModels.length} configured models.`);
+
+		const modelListing = configuredModels.map((modelDef) =>
+			createModelInfo({
+				id: modelDef.identifier,
+				name: modelDef.name,
+				family: this.provider,
+				version: '',
+				provider: this.provider,
+				providerName: this.providerName,
+				capabilities: this.capabilities,
+				defaultMaxInput: modelDef.maxInputTokens,
+				defaultMaxOutput: modelDef.maxOutputTokens
+			})
+		);
+
+		return markDefaultModel(modelListing, this.provider, DEFAULT_POSITAI_MODEL_MATCH);
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		log.trace(`Resolving models for provider ${this._config.provider}`);
-		return new Promise((resolve) => {
-			// Use Anthropic model spec for Posit AI provider
-			const models = availableModels.get('anthropic-api');
-			if (models) {
-				this.modelListing = models.map(model => ({
-					id: model.identifier,
-					name: model.name,
-					family: this.provider,
-					version: this._context?.extension.packageJSON.version ?? '',
-					maxInputTokens: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
-					maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-					capabilities: this.capabilities,
-					isDefault: this.isDefaultUserModel(model.identifier, model.name),
-					isUserSelectable: true,
-				} satisfies vscode.LanguageModelChatInformation));
-				resolve(this.modelListing);
-			} else {
-				resolve(undefined);
-			}
+		log.debug(`[${this.provider}] Resolving models...`);
+
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			this.modelListing = configuredModels;
+			return configuredModels;
+		}
+
+		log.warn(`[${this.provider}] No models available. Using fallback model.`);
+		const fallbackModel = createModelInfo({
+			id: PositLanguageModel.source.defaults.model,
+			name: PositLanguageModel.source.defaults.name,
+			family: this.provider,
+			version: this._context?.extension.packageJSON.version ?? '',
+			provider: this.provider,
+			providerName: this.providerName,
+			capabilities: this.capabilities,
+			defaultMaxInput: this.maxInputTokens,
+			defaultMaxOutput: this.maxOutputTokens
 		});
+		return [{ ...fallbackModel, isDefault: true }];
 	}
 }

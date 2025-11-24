@@ -14,6 +14,7 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
+import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -159,6 +160,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Provides configuration for layout, styling, and display behavior.
 	 */
 	readonly notebookOptions: NotebookOptions;
+
+	/**
+	 * Hover manager for displaying tooltips throughout the notebook.
+	 * Used by action buttons and other interactive elements.
+	 */
+	readonly hoverManager: IHoverManager;
 
 	// ===== Methods =====
 	/**

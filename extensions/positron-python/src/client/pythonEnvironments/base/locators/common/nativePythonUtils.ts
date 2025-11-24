@@ -27,6 +27,12 @@ export enum NativePythonEnvironmentKind {
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     WindowsStore = 'WindowsStore',
     WindowsRegistry = 'WindowsRegistry',
+    // --- Start Positron ---
+    // Disabling UvVenv since PET does not have a release that uses it yet.
+    // We currently have our own implementation of `Uv`, that we may want to
+    // swap out once PET can handle this.
+    // VenvUv = 'Uv',
+    // --- End Positron ---
 }
 
 const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
@@ -37,10 +43,18 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.PyenvVirtualEnv, PythonEnvKind.Pyenv],
     [NativePythonEnvironmentKind.Pipenv, PythonEnvKind.Pipenv],
     [NativePythonEnvironmentKind.Poetry, PythonEnvKind.Poetry],
+    // --- Start Positron ---
     [NativePythonEnvironmentKind.Uv, PythonEnvKind.Uv],
+    // --- End Positron ---
     [NativePythonEnvironmentKind.VirtualEnv, PythonEnvKind.VirtualEnv],
     [NativePythonEnvironmentKind.VirtualEnvWrapper, PythonEnvKind.VirtualEnvWrapper],
     [NativePythonEnvironmentKind.Venv, PythonEnvKind.Venv],
+    // --- Start Positron ---
+    // Disabling UvVenv since PET does not have a release that uses it yet.
+    // We currently have our own implementation of `Uv`, that we may want to
+    // swap out once PET can handle this.
+    // [NativePythonEnvironmentKind.VenvUv, PythonEnvKind.Venv],
+    // --- End Positron ---
     [NativePythonEnvironmentKind.WindowsRegistry, PythonEnvKind.System],
     [NativePythonEnvironmentKind.WindowsStore, PythonEnvKind.MicrosoftStore],
     [NativePythonEnvironmentKind.Homebrew, PythonEnvKind.System],

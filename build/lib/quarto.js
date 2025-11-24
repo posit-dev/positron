@@ -1,4 +1,8 @@
 "use strict";
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -39,10 +43,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getQuartoStream = getQuartoStream;
 exports.getQuarto = getQuarto;
 exports.getQuartoBinaries = getQuartoBinaries;
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
- *--------------------------------------------------------------------------------------------*/
 const fancy_log_1 = __importDefault(require("fancy-log"));
 const fetch_1 = require("./fetch");
 const es = __importStar(require("event-stream"));

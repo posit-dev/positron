@@ -204,7 +204,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			return undefined;
 		}
 
-		const model = this._chatService.getSession(chatWidget.viewModel.sessionId);
+		const model = this._chatService.getSession(chatWidget.viewModel.sessionResource);
 		if (!model) {
 			return undefined;
 		}

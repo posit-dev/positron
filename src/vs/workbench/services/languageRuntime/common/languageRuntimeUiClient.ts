@@ -51,7 +51,7 @@ export interface IUiClientMessageOutput {
  */
 export interface IRuntimeClientEvent {
 	name: UiFrontendEvent;
-	data: any;
+	data: unknown;
 }
 
 /**
@@ -104,7 +104,7 @@ export class UiClientInstance extends Disposable {
 	 *   instance and will dispose it when it is disposed.
 	 */
 	constructor(
-		private readonly _client: IRuntimeClientInstance<any, any>,
+		private readonly _client: IRuntimeClientInstance<unknown, unknown>,
 		private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
@@ -161,6 +161,7 @@ export class UiClientInstance extends Disposable {
 				}
 				const resolvedEvent: ShowUrlEvent = {
 					url: uri.toString(),
+					source: e.source,
 				};
 				this._onDidShowUrlEmitter.fire(resolvedEvent);
 			} catch {

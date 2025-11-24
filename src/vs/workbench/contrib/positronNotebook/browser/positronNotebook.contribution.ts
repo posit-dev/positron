@@ -37,7 +37,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { getEditingCell, getSelectedCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getEditingCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -467,8 +467,8 @@ registerAction2(class extends NotebookAction2 {
 		const state = notebook.selectionStateMachine.state.get();
 		// check if we are in editing mode
 		if (state.type === SelectionState.EditingSelection) {
-			// get the selected cell that is being edited
-			const cell = state.selected;
+			// get the active cell that is being edited
+			const cell = state.active;
 			// handle markdown cells differently
 			if (cell.isMarkdownCell() && cell.editorShown.get()) {
 				// This handles updating selection state and closing the editor
@@ -476,6 +476,36 @@ registerAction2(class extends NotebookAction2 {
 			} else {
 				notebook.selectionStateMachine.exitEditor();
 			}
+		}
+	}
+});
+
+/**
+ * Escape key: Reduce multi-selection to just the active cell when in command mode.
+ * This allows users to quickly collapse a multi-selection back to a single cell.
+ */
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.reduceSelectionToActiveCell',
+			title: localize2('positronNotebook.reduceSelectionToActiveCell', "Reduce Selection to Active Cell"),
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Escape
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		// Only reduce multi-selection; single selection and no cells state remain unchanged
+		if (state.type === SelectionState.MultiSelection) {
+			// Reduce to a single selection with just the active cell
+			notebook.selectionStateMachine.selectCell(state.active);
 		}
 	}
 });
@@ -555,7 +585,7 @@ abstract class CellAction2 extends Action2 {
 			const state = activeNotebook.selectionStateMachine.state.get();
 			// Always check editing cell if actionBar is present (action bar items should work in edit mode).
 			// Otherwise, only check editing cell if editMode option is enabled.
-			const cell = getSelectedCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
+			const cell = getActiveCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
 			if (cell) {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
@@ -663,7 +693,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
-			title: localize2('positronNotebook.cell.delete.description', "Delete the Selected Cell(s)"),
+			title: localize2('positronNotebook.cell.delete.description', "Delete Cell"),
 			icon: ThemeIcon.fromId('trash'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarRight,
@@ -772,7 +802,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllAbove',
-			title: localize2('positronNotebook.cell.runAllAbove', "Run Above Cells"),
+			title: localize2('positronNotebook.cell.runAllAbove', "Run Cells Above"),
 			icon: ThemeIcon.fromId('run-above'),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
@@ -812,7 +842,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllBelow',
-			title: localize2('positronNotebook.cell.runAllBelow', "Run Below Cells"),
+			title: localize2('positronNotebook.cell.runAllBelow', "Run Cells Below"),
 			icon: ThemeIcon.fromId('run-below'),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
@@ -1200,7 +1230,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
 			title: localize2('clearAllOutputs', 'Clear Outputs'),
-			icon: ThemeIcon.fromId('positron-clean'),
+			icon: ThemeIcon.fromId('clear-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			positronActionBarOptions: {
@@ -1252,12 +1282,13 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-// Add Code Cell at End - Inserts a new code cell at the end of the notebook
+// Add Code Cell - Inserts a new code cell after the active cell
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.addCodeCellAtEnd',
+			id: 'positronNotebook.addCodeCell',
 			title: localize2('addCodeCell', 'Code'),
+			tooltip: localize2('addCodeCell.tooltip', 'New Code Cell'),
 			icon: ThemeIcon.fromId('add'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -1275,17 +1306,26 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Code, cellCount, true);
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.NoCells) {
+			// get the active cell
+			const cell = state.active;
+			// insert a code cell after the active cell
+			notebook.addCell(CellKind.Code, cell.index + 1, true);
+		} else {
+			// If there are no cells, just add a code cell at index 0
+			notebook.addCell(CellKind.Code, 0, true);
+		}
 	}
 });
 
-// Add Markdown Cell at End - Inserts a new markdown cell at the end of the notebook
+// Add Markdown Cell - Inserts a new markdown cell after the active cell
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.addMarkdownCellAtEnd',
+			id: 'positronNotebook.addMarkdownCell',
 			title: localize2('addMarkdownCell', 'Markdown'),
+			tooltip: localize2('addMarkdownCell.tooltip', 'New Markdown Cell'),
 			icon: ThemeIcon.fromId('add'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -1303,8 +1343,16 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Markup, cellCount, true);
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.NoCells) {
+			// get the active cell
+			const cell = state.active;
+			// insert a code cell after the active cell
+			notebook.addCell(CellKind.Markup, cell.index + 1, true);
+		} else {
+			// If there are no cells, just add a code cell at index 0
+			notebook.addCell(CellKind.Markup, 0, true);
+		}
 	}
 });
 

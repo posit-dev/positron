@@ -232,8 +232,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			}
 		}));
 
-		this._register(this.chatService.onDidSubmitRequest(({ chatSessionId }) => {
-			const widget = this.chatWidgetService.getWidgetBySessionId(chatSessionId);
+		this._register(this.chatService.onDidSubmitRequest(({ chatSessionResource }) => {
+			const widget = this.chatWidgetService.getWidgetBySessionResource(chatSessionResource);
 			if (!widget?.input.runtimeContext) {
 				return;
 			}

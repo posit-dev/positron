@@ -629,6 +629,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				toolInvocationToken: request.toolInvocationToken,
 				// Pass the request ID through modelOptions for token usage tracking
 				requestId: request.id,
+				// Pass the session ID through modelOptions for chat session tracking
+				sessionId: request.sessionId,
 			},
 		}, token);
 
@@ -760,13 +762,8 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available, with error handling
-		let notebookContext: SerializedNotebookContext | undefined;
-		try {
-			notebookContext = await getAttachedNotebookContext(request);
-		} catch (err) {
-			log.error('[PositronAssistantChatParticipant] Error checking notebook context:', err);
-		}
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
 
 		// Render prompt with notebook context
 		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, {

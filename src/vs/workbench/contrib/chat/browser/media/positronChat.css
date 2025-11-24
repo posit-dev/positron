@@ -6,6 +6,8 @@
 .runtime-session-context-attachment .monaco-icon-label-iconpath {
 	width: 14px;
 	height: 14px;
+	padding-left: 2px;
+	margin-top: 2px;
 }
 
 .chat-token-usage-status {

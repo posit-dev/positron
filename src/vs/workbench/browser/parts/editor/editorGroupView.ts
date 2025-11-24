@@ -350,6 +350,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 				case GroupModelChangeKind.EDITOR_CLOSE:
 					groupActiveEditorPinnedContext.set(this.model.activeEditor ? this.model.isPinned(this.model.activeEditor) : false);
 					groupActiveEditorStickyContext.set(this.model.activeEditor ? this.model.isSticky(this.model.activeEditor) : false);
+					break;
 				case GroupModelChangeKind.EDITOR_OPEN:
 				case GroupModelChangeKind.EDITOR_MOVE:
 					groupActiveEditorFirstContext.set(this.model.isFirst(this.model.activeEditor));
@@ -1249,7 +1250,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 			sticky: options?.sticky || (typeof options?.index === 'number' && this.model.isSticky(options.index)),
 			transient: !!options?.transient,
 			inactiveSelection: internalOptions?.inactiveSelection,
-			active: this.count === 0 || !options || !options.inactive,
+			active: this.count === 0 || !options?.inactive,
 			supportSideBySide: internalOptions?.supportSideBySide
 		};
 
@@ -1278,7 +1279,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 			// opening as active editor.
 			// If preserveFocus is enabled, we only restore but never
 			// activate the group.
-			activateGroup = !options || !options.preserveFocus;
+			activateGroup = !options?.preserveFocus;
 			restoreGroup = !activateGroup;
 		}
 
@@ -1835,7 +1836,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		if (!autoSave) {
 
 			// Switch to editor that we want to handle for confirmation unless showing already
-			if (!this.activeEditor || !this.activeEditor.matches(editor)) {
+			if (!this.activeEditor?.matches(editor)) {
 				await this.doOpenEditor(editor);
 			}
 
@@ -1874,7 +1875,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		// However, we only do this unless a custom confirm handler is installed
 		// that may not be fit to be asked a second time right after.
 		if (!editor.closeHandler && !this.shouldConfirmClose(editor)) {
-			return confirmation === ConfirmResult.CANCEL ? true : false;
+			return confirmation === ConfirmResult.CANCEL;
 		}
 
 		// Otherwise, handle accordingly

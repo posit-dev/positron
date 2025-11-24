@@ -80,7 +80,7 @@ jobs:
     name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -257,6 +257,7 @@ jobs:
           USE_KEY: true
           PW_JSON_FILE: test-results/windows.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then

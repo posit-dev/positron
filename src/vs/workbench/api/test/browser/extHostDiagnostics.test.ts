@@ -19,6 +19,7 @@ import { IExtHostFileSystemInfo } from '../../common/extHostFileSystemInfo.js';
 import { runWithFakedTimers } from '../../../../base/test/common/timeTravelScheduler.js';
 import { IExtHostDocumentsAndEditors } from '../../common/extHostDocumentsAndEditors.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ProxyIdentifier } from '../../../services/extensions/common/proxyIdentifier.js';
 
 suite('ExtHostDiagnostics', () => {
 
@@ -476,6 +477,42 @@ suite('ExtHostDiagnostics', () => {
 		array.push(diag2);
 		collection.set(URI.parse('test:me'), array);
 		assert.strictEqual(callCount, 3); // same but un-equal array
+	});
+
+	test('getDiagnostics does not tolerate sparse diagnostic arrays', function () {
+		const diags = new ExtHostDiagnostics(new class implements IMainContext {
+			getProxy(): any {
+				return new DiagnosticsShape();
+			}
+			set(): any {
+				return null;
+			}
+			dispose(): void { }
+			assertRegistered(): void { }
+			drain() {
+				return undefined!;
+			}
+			getRaw<T, R extends T>(identifier: ProxyIdentifier<T>): R {
+				return null as any;
+			}
+		}, new NullLogService(), fileSystemInfoService, new class extends mock<IExtHostDocumentsAndEditors>() {
+			override getDocument() {
+				return undefined;
+			}
+		});
+
+		const collection = diags.createDiagnosticCollection(nullExtensionDescription.identifier, 'sparse');
+		const uri = URI.parse('sparse:uri');
+		const diag = new Diagnostic(new Range(0, 0, 0, 0), 'holey');
+		const sparseDiagnostics: Diagnostic[] = new Array(3);
+		sparseDiagnostics[1] = diag;
+
+		collection.set(uri, sparseDiagnostics);
+
+		const result = diags.getDiagnostics(uri);
+		assert.strictEqual(result.length, 1);
+		const resultWithPossibleHoles = [...result] as (vscode.Diagnostic | undefined)[];
+		assert.strictEqual(resultWithPossibleHoles.some(item => item === undefined), false);
 	});
 
 	test('Version id is set whenever possible', function () {

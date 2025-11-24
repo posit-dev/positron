@@ -9,29 +9,27 @@
 	--_positron-notebook-selection-bar-width: 7px;
 	--_positron-notebook-selection-bar-top-offset: 5px;
 	--_positron-notebook-selection-bar-inset: 0;
-	--_positron-notebook-selection-bar-gap: 2px;
 }
 
 /* Base styles for selected and editing states */
 .positron-notebook-cell.selected,
 .positron-notebook-cell.editing {
 	position: relative;
-	/* Otherwise the outline is forced by monaco styles */
-	outline: none !important;
 }
 
 /* Position containers relative for selection bar placement */
 .positron-notebook-cell.selected .positron-notebook-editor-container,
 .positron-notebook-cell.selected .positron-notebook-cell-outputs,
 .positron-notebook-cell.editing .positron-notebook-editor-container,
-.positron-notebook-cell.editing .positron-notebook-cell-outputs {
+.positron-notebook-cell.editing .positron-notebook-cell-outputs,
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
 	position: relative;
 }
 
 /* Add permanent left padding to editor container to make room for selection bar */
 .positron-notebook-editor-container {
 	position: relative;
-	padding-left: calc(var(--_positron-notebook-selection-bar-width) + var(--_positron-notebook-selection-bar-gap));
+	padding-left: var(--_positron-notebook-selection-bar-width);
 }
 
 /* Permanent spacer/selection bar for editor - always visible, changes color when selected */
@@ -40,7 +38,7 @@
 	position: absolute;
 	width: var(--_positron-notebook-selection-bar-width);
 	background-color: var(--vscode-editor-background);
-	left: var(--_positron-notebook-selection-bar-gap);
+	left: 0; /* Align with focus ring by removing gap */
 	top: var(--_positron-notebook-selection-bar-inset);
 	bottom: var(--_positron-notebook-selection-bar-inset);
 	border: var(--vscode-positronNotebook-border);
@@ -50,16 +48,29 @@
 	transition: border-bottom-left-radius 0.15s ease;
 }
 
-/* When selected/editing: change to focus color and remove bottom rounding by default */
+/* When selected/editing or on hover when NOT selected/editing: remove bottom rounding by default */
 .positron-notebook-cell.selected .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing .positron-notebook-editor-container::after {
-	background-color: var(--vscode-focusBorder);
+.positron-notebook-cell.editing .positron-notebook-editor-container::after,
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container::after {
 	border-bottom-left-radius: 0;
 }
 
-/* Selection bar for outputs - conditional (only when selected/editing) */
+/* When selected/editing: change to focus color */
+.positron-notebook-cell.selected .positron-notebook-editor-container::after,
+.positron-notebook-cell.editing .positron-notebook-editor-container::after {
+	background-color: var(--vscode-focusBorder);
+}
+
+/* On hover, when NOT selected/editing: change to hover color and remove borders */
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container::after {
+	background-color: var(--vscode-editorWidget-border);
+	border: none;
+}
+
+/* Selection bar for outputs - conditional (only when selected/editing OR on hover when not selected/editing) */
 .positron-notebook-cell.selected .positron-notebook-cell-outputs::after,
-.positron-notebook-cell.editing .positron-notebook-cell-outputs::after {
+.positron-notebook-cell.editing .positron-notebook-cell-outputs::after,
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs::after {
 	content: "";
 	position: absolute;
 	width: var(--_positron-notebook-selection-bar-width);
@@ -67,7 +78,7 @@
 	/* Push bar down slightly so there's a gap between the editor and outputs */
 	top: var(--_positron-notebook-selection-bar-top-offset);
 	bottom: var(--_positron-notebook-selection-bar-inset);
-	left: var(--_positron-notebook-selection-bar-gap);
+	left: 0; /* Align with focus ring by removing gap */
 	border: var(--vscode-positronNotebook-border);
 	border-right: none;
 	/* Don't round top corner for outputs bar to make it look like a continuous bar*/
@@ -75,15 +86,30 @@
 	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
 
+/* When selected/editing: use focus color */
+.positron-notebook-cell.selected .positron-notebook-cell-outputs::after,
+.positron-notebook-cell.editing .positron-notebook-cell-outputs::after {
+	background-color: var(--vscode-focusBorder);
+}
+
+/* When hovering and not selected/editing: use hover color and remove borders */
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs::after {
+	background-color: var(--vscode-editorWidget-border);
+	border: none;
+}
+
 /* When selected/editing AND no outputs: restore bottom rounding */
 .positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after {
+.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after {
 	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
 
 /* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
-.positron-notebook-cell.selected:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::after {
+.positron-notebook-cell.selected:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::after,
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::after  {
 	top: var(--_positron-notebook-selection-bar-inset);
+	left: 0; /* Align with focus ring by removing gap */
 	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
 
@@ -96,6 +122,18 @@
 .positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-editor-container::after,
 .positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-cell-outputs::after {
 	background-color: var(--vscode-errorForeground);
+}
+
+/* When hovering, for empty markdown cells: change border to solid line with hover color */
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-markdown-rendered:has(.empty-output-msg) {
+	border-style: solid;
+	border-color: var(--vscode-editorWidget-border);
+}
+
+/* When hovering, for non-empty markdown cells with hidden editor: add outline (to prevent layout shift) with hover color */
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-markdown-rendered:not(:has(.empty-output-msg)) {
+	outline: 1px solid var(--vscode-editorWidget-border);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 }
 
 /* Respect user's motion preferences */

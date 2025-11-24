@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.34",
+			"version": "1.6.42",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "4d95688030d3921528ddacf7a0cf74a2cd9b9ed8e497546645df16eabcc8c2f2",
+			"sha256": "79a1d30b1034c871b34504970cde530c488b79971bdfbba439d5e38144b9b4e9",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2025.28.0",
+			"version": "2025.30.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -197,19 +197,18 @@
 			}
 		},
 		{
-			"name": "ms-pyright.pyright",
-			"version": "1.1.402",
-			"sha256sum": "7ffa5a8649fa800b282c25ad70ce290367e036238d52727da7cdcac3d57439e9",
-			"repo": "https://github.com/Microsoft/pyright",
+			"name": "meta.pyrefly",
+			"version": "0.42.3",
+			"sha256sum": "e99d4f22adb1c23f041d2d847753ebdde954c0f52501bcafdcffbe7a9d757935",
+			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
-				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
 				"publisherId": {
-					"publisherId": "26b7f243-cfb3-448b-8209-25b30d7e81c0",
-					"publisherName": "ms-pyright",
-					"displayName": "Pyright",
+					"publisherName": "meta",
+					"displayName": "Pyrefly",
 					"flags": "verified"
 				},
-				"publisherDisplayName": "ms-pyright"
+				"publisherDisplayName": "meta",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			}
 		},
 		{
@@ -230,7 +229,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.24.0",
+			"version": "1.27.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",

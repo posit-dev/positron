@@ -37,7 +37,7 @@ export interface IWorkbench {
 		 * @param rest Parameters passed to the command function.
 		 * @return A promise that resolves to the returned value of the given command.
 		 */
-		executeCommand(command: string, ...args: any[]): Promise<unknown>;
+		executeCommand(command: string, ...args: unknown[]): Promise<unknown>;
 	};
 
 	logger: {
@@ -303,7 +303,7 @@ export interface IWorkbenchConstructionOptions {
 	/**
 	 * Optional configuration default overrides contributed to the workbench.
 	 */
-	readonly configurationDefaults?: Record<string, any>;
+	readonly configurationDefaults?: Record<string, unknown>;
 
 	// --- Start PWB: Local storage ---
 	/**
@@ -470,7 +470,7 @@ export type ExtensionId = string;
 export type MarketplaceExtension = ExtensionId | { readonly id: ExtensionId; preRelease?: boolean; migrateStorageFrom?: ExtensionId };
 
 export interface ICommonTelemetryPropertiesResolver {
-	(): { [key: string]: any };
+	(): { [key: string]: unknown };
 }
 
 export interface IExternalUriResolver {
@@ -554,7 +554,7 @@ export interface ITunnel {
 	/**
 	 * Implementers of Tunnel should fire onDidDispose when dispose is called.
 	 */
-	onDidDispose: Event<void>;
+	readonly onDidDispose: Event<void>;
 
 	dispose(): Promise<void> | void;
 }
@@ -596,7 +596,7 @@ export interface ICommand {
 	 * Note: arguments and return type should be serializable so that they can
 	 * be exchanged across processes boundaries.
 	 */
-	handler: (...args: any[]) => unknown;
+	handler: (...args: unknown[]) => unknown;
 }
 
 export interface IWelcomeBanner {

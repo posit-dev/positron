@@ -61,7 +61,7 @@ import { BrowserStorageService } from '../../../services/storage/browser/storage
 // --- End PWB: Clear browser history
 
 interface IViewModel {
-	onDidChangeHelpInformation: Event<void>;
+	readonly onDidChangeHelpInformation: Event<void>;
 	helpInformation: HelpInformation[];
 }
 
@@ -252,7 +252,7 @@ class HelpItemValue {
 				if (url.authority) {
 					this._url = this.urlOrCommandOrId;
 				} else {
-					const urlCommand: Promise<string | undefined> = this.commandService.executeCommand(this.urlOrCommandOrId).then((result) => {
+					const urlCommand = this.commandService.executeCommand<string>(this.urlOrCommandOrId).then((result) => {
 						// if executing this command times out, cache its value whenever it eventually resolves
 						this._url = result;
 						return this._url;

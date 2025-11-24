@@ -25,7 +25,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 	test('Cell deletion using action bar', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
-		await notebooksPositron.newNotebook(6);
+		await notebooksPositron.newNotebook({ codeCells: 6 });
 
 		// ========================================
 		// Test 1: Delete a selected cell (cell 2)
@@ -130,14 +130,14 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		const { notebooksPositron } = app.workbench;
 
 		// create notebook with 2 cells
-		await notebooksPositron.newNotebook(2);
+		await notebooksPositron.newNotebook({ codeCells: 2 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1']);
 
 		// Copy cell with action bar and paste below using action bar
 		await notebooksPositron.selectCellAtIndex(0);
 		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
-		await notebooksPositron.selectFromMoreActionsMenu(0, 'Copy cell');
-		await notebooksPositron.selectFromMoreActionsMenu(0, 'Paste cell below');
+		await notebooksPositron.triggerCellAction(0, 'Copy cell');
+		await notebooksPositron.triggerCellAction(0, 'Paste cell below');
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 1']);
 
 		// ISSUE #10240: Pasting inside of cell includes metadata
@@ -152,13 +152,12 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		// await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 0']);
 	});
 
-	// ISSUE #10280: Action bar insert actions don't work with multiple selected cells
-	test.skip('Cell actions with multiple cells selected', async function ({ app }) {
+	test('Cell actions with multiple cells selected', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Select multiple cells (cell 0 and cell 1)
@@ -166,10 +165,10 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		await keyboard.press('Shift+ArrowDown');
 		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
-		await notebooksPositron.selectFromMoreActionsMenu(1, 'Insert code cell above');
+		await notebooksPositron.triggerCellAction(1, 'Insert code cell above');
 
 		// Verify new cell added in correct position
 		await notebooksPositron.expectCellCountToBe(4);
-		await notebooksPositron.expectCellContentsToBe(['#Cell 0', '', '# Cell 1', '# Cell 2']);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '', '# Cell 1', '# Cell 2']);
 	});
 });
