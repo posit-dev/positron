@@ -820,7 +820,7 @@ registerAction2(class extends CellAction2 {
 
 		// Run all code cells above the current cell (including the current cell)
 		const cellIndex = cell.index;
-		for (let i = 0; i < cellIndex; i++) {
+		for (let i = 0; i <= cellIndex; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
