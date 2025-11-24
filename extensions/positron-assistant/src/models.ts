@@ -283,6 +283,7 @@ export type AutoconfigureResult = {
 	signedIn: true;
 	message: string;
 	token?: string;
+	baseUrl?: string;
 };
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -994,12 +995,29 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 			return credentials?.token && credentials.token.trim().length > 0 ? credentials.token : undefined;
 		};
 
-		return autoconfigureWithManagedCredentials(
+		const autoconfigureResult = await autoconfigureWithManagedCredentials(
 			SNOWFLAKE_MANAGED_CREDENTIALS,
 			SnowflakeLanguageModel.source.provider.id,
 			SnowflakeLanguageModel.source.provider.displayName,
 			snowflakeTokenExtractor
 		);
+
+		// If we successfully got credentials, also include the baseUrl
+		if (autoconfigureResult.signedIn) {
+			try {
+				const credentials = await detectSnowflakeCredentials();
+				if (credentials?.baseUrl) {
+					return {
+						...autoconfigureResult,
+						baseUrl: credentials.baseUrl
+					};
+				}
+			} catch (error) {
+				log.debug(`[Snowflake] Failed to get baseUrl during autoconfigure: ${error}`);
+			}
+		}
+
+		return autoconfigureResult;
 	}
 }
 
@@ -1639,6 +1657,8 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
 						apiKey: result.token,
+						// Use baseUrl from autoconfigure result if available, otherwise fall back to defaults
+						...(result.baseUrl && { baseUrl: result.baseUrl }),
 						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
