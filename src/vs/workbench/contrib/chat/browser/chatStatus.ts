@@ -300,6 +300,7 @@ export class ChatStatus extends Disposable {
 			else if (chatSessionsInProgressCount > 0) {
 				// --- Start Positron ---
 				// text = '$(copilot-in-progress)';
+				text = '$(positron-assistant-in-progress)';
 				// --- End Positron ---
 				if (chatSessionsInProgressCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", chatSessionsInProgressCount);
@@ -317,9 +318,7 @@ export class ChatStatus extends Disposable {
 				const signedOutWarning = localize('notSignedIn', "Signed out");
 
 				// text = `${this.chatEntitlementService.anonymous ? '$(copilot)' : '$(copilot-not-connected)'} ${signedOutWarning}`;
-				// --- Start Positron ---
 				// text = `$(copilot-not-connected)`;
-				// --- End Positron ---
 				ariaLabel = signedOutWarning;
 				// kind = 'prominent';
 			}
@@ -355,6 +354,7 @@ export class ChatStatus extends Disposable {
 			else if (this.completionsService.isSnoozing()) {
 				// --- Start Positron ---
 				// text = '$(copilot-snooze)';
+				text = '$(positron-assistant-paused)';
 				// --- End Positron ---
 				ariaLabel = localize('completionsSnoozedStatus', "Inline suggestions snoozed");
 			}
