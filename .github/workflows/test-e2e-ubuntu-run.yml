@@ -87,7 +87,7 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
