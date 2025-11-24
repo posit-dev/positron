@@ -105,7 +105,7 @@ test.describe('Python Applications', {
 
 	test('Python - Verify Basic Streamlit App', {
 		tag: [tags.WEB, tags.WIN]
-	}, async function ({ app, openFile, page, python }) {
+	}, async function ({ app, openFile, python }) {
 		const viewer = app.workbench.viewer;
 
 		await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
@@ -120,19 +120,6 @@ test.describe('Python Applications', {
 
 			await expect(headerLocator).toBeVisible({ timeout: 30000 });
 		}).toPass({ timeout: 60000 });
-
-		await test.step('Verify interrupt button is visible', async () => {
-			const interruptButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Interrupt execution' });
-			await expect(interruptButton).toBeVisible({ timeout: 10000 });
-		});
-
-		await test.step('Click interrupt button and verify it disappears', async () => {
-			const interruptButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Interrupt execution' });
-			await interruptButton.click();
-
-			// Button should disappear immediately after clicking
-			await expect(interruptButton).not.toBeVisible({ timeout: 5000 });
-		});
 
 		await test.step('Verify app can be opened in editor', async () => {
 			await app.workbench.viewer.openViewerToEditor();
@@ -176,6 +163,39 @@ test.describe('Python Applications', {
 				: editorFrame.getByText('Log In');
 
 			await expect(loginLocator).toBeVisible({ timeout: 30000 });
+		});
+	});
+
+	test('Python - Verify Viewer interrupt button for Streamlit app', {
+		tag: [tags.WEB, tags.WIN]
+	}, async function ({ app, openFile, page, python }) {
+		const viewer = app.workbench.viewer;
+		const interruptButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Interrupt execution' });
+
+		await test.step('Launch Streamlit app', async () => {
+			await openFile(join('workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
+			await app.workbench.editor.pressPlay();
+
+			const viewerFrame = viewer.getViewerFrame();
+
+			await expect(async () => {
+				const headerLocator = app.web
+					? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
+					: viewerFrame.getByRole('button', { name: 'Deploy' });
+
+				await expect(headerLocator).toBeVisible({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
+		});
+
+		await test.step('Verify interrupt button is visible', async () => {
+			await expect(interruptButton).toBeVisible({ timeout: 10000 });
+		});
+
+		await test.step('Click interrupt button and verify it disappears', async () => {
+			await interruptButton.click();
+
+			// Button should disappear immediately after clicking
+			await expect(interruptButton).not.toBeVisible({ timeout: 5000 });
 		});
 	});
 });
