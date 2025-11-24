@@ -83,17 +83,17 @@ runs:
         restore-keys: |
           electron-${{ runner.os }}-
 
-    - name: Cache built-in extensions
-      id: cache-builtins
-      continue-on-error: true
-      uses: actions/cache@v4
-      with:
-        path: |
-          .build/builtInExtensions
-        # product.json contains the list and versions of built-in extensions
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
+    # - name: Cache built-in extensions
+    #   id: cache-builtins
+    #   continue-on-error: true
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       .build/builtInExtensions
+    #     # product.json contains the list and versions of built-in extensions
+    #     key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+    #     restore-keys: |
+    #       builtins-${{ runner.os }}-
 
     - name: Log cache results
       if: always()
