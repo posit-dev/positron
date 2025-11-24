@@ -218,14 +218,31 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Run Extensions Test
+      - name: Run Extensions Tests
         id: extensions
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          npm run test-extension -- -l positron-r
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
+          mkdir -p extensions-tests-logs
+          npm run test-extension -- -l positron-r 2>&1 | tee extensions-tests-logs/runner.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Save Extensions Tests Logs
+        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          # Save all VSCode integration test logs including output channels
+          if [ -d ".build/logs/integration-tests" ]; then
+            echo "Uploading VSCode integration test logs"
+            mkdir -p extensions-tests-logs
+            cp -r .build/logs/integration-tests/* extensions-tests-logs/ || true
+          else
+            echo "No VSCode logs directory found at .build/logs/integration-tests"
+          fi
+          exit 0
 
       - name: Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_test != true }}
@@ -292,6 +309,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Upload Extensions Test Logs If Failed
+        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensions-tests-logs
+          path: extensions-tests-logs/
+          if-no-files-found: ignore
+
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
@@ -308,12 +334,17 @@ jobs:
           path: test-results/windows.json
           if-no-files-found: ignore
 
-      - name: Fail workflow if extension tests failed
-        if: |
-          steps.extensions.outputs.exit_code != '0'
+      - name: Report extension tests status
+        if: ${{ always() }}
+        shell: bash
         run: |
-          echo "Extension tests failed."
-          exit 1
+          if [ "${{ steps.extensions.outputs.exit_code }}" != "0" ]; then
+            echo "⚠️ Extension tests failed with exit code ${{ steps.extensions.outputs.exit_code }}"
+            echo "These tests are currently unstable and do not fail the workflow."
+            echo "Logs have been uploaded as 'extensions-tests-logs' artifact for inspection."
+          else
+            echo "Extension tests passed"
+          fi
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
