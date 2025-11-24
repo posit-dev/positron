@@ -48,6 +48,43 @@
 	font-style: italic;
 }
 
+.history-no-match-message {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px 20px;
+	gap: 20px;
+}
+
+.history-no-match-text {
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	text-align: center;
+	max-width: 400px;
+	line-height: 1.5;
+}
+
+.history-clear-search-button {
+	padding: 6px 14px;
+	margin-top: 8px;
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border: 1px solid var(--vscode-button-border, transparent);
+	cursor: pointer;
+	display: inline-block;
+	width: auto;
+}
+
+.history-clear-search-button:hover {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.history-clear-search-button:active {
+	background-color: var(--vscode-button-background);
+}
+
 .history-entry {
 	padding: 4px 8px;
 	cursor: pointer;
@@ -80,7 +117,6 @@
 
 .history-entry-content {
 	position: relative;
-	line-height: var(--vscode-editor-line-height, 1.4);
 }
 
 .history-entry-code {

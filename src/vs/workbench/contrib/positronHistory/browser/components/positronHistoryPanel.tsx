@@ -737,7 +737,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					tabIndex={0}
 				>
 					{/* Floating sticky header */}
-					{stickyHeaderLabel && (
+					{stickyHeaderLabel && listItems.length > 0 && (
 						<div className="history-sticky-header">
 							<div className="history-separator-content">
 								<span className="history-separator-label">{stickyHeaderLabel}</span>
@@ -745,7 +745,19 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						</div>
 					)}
 
-					{listItems.length === 0 ? (
+					{listItems.length === 0 && debouncedSearchText ? (
+						<div className="history-no-match-message">
+							<div className="history-no-match-text">
+								{localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", debouncedSearchText)}
+							</div>
+							<button
+								className="history-clear-search-button monaco-button monaco-text-button"
+								onClick={handleClearSearch}
+							>
+								{localize('positronHistoryClearSearch', "Clear Search")}
+							</button>
+						</div>
+					) : listItems.length === 0 ? (
 						<div className="history-empty-message">
 							No history available
 						</div>
