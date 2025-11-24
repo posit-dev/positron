@@ -6,8 +6,7 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
-import { AutoconfigureResult } from './models.js';
-import { IS_RUNNING_ON_PWB } from './constants.js';
+import { SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb.js';
 
 export interface SnowflakeProviderVariables {
 	SNOWFLAKE_ACCOUNT?: string;
@@ -51,13 +50,11 @@ export function constructSnowflakeBaseUrl(account: string): string {
 }
 
 /**
- * Reads Posit Workbench-managed Snowflake credentials from connections.toml
- * Similar to ellmer's workbench_snowflake_token function
- * @param account Snowflake account identifier
+ * Extracts account and token from Posit Workbench-managed connections.toml
  * @param snowflakeHome Path to SNOWFLAKE_HOME directory
- * @returns OAuth token or null if not found
+ * @returns Object with account and token, or null if not found
  */
-function readWorkbenchSnowflakeToken(account: string, snowflakeHome: string): string | null {
+function extractAccountAndTokenFromToml(snowflakeHome: string): { account: string; token: string } | null {
 	try {
 		const configPath = `${snowflakeHome}/connections.toml`;
 		if (!fs.existsSync(configPath)) {
@@ -66,16 +63,7 @@ function readWorkbenchSnowflakeToken(account: string, snowflakeHome: string): st
 
 		const cfg = fs.readFileSync(configPath, 'utf8').split('\n');
 
-		// Normalize underscores to hyphens before checking
-		const normalizedAccount = account.replace(/_/g, '-');
-
-		// Simple parsing - check if account matches and extract token
-		// We don't attempt full TOML parsing, following ellmer's approach
-		if (!cfg.some(line => line.includes(normalizedAccount))) {
-			// The configuration doesn't actually apply to this account
-			return null;
-		}
-
+		// Find the token line first
 		const tokenLine = cfg.find(line => line.includes('token = '));
 		if (!tokenLine) {
 			return null;
@@ -88,9 +76,24 @@ function readWorkbenchSnowflakeToken(account: string, snowflakeHome: string): st
 
 		// Drop enclosing quotes
 		token = token.replace(/"/g, '');
-		return token;
+
+		// Find account identifier in the file - look for patterns that look like account identifiers
+		// This could be in various formats like account = "..." or in URLs
+		let account: string | null = null;
+
+		// Look for explicit account setting
+		const accountLine = cfg.find(line => line.includes('account = '));
+		if (accountLine) {
+			account = accountLine.replace('account = ', '').trim().replace(/"/g, '');
+		}
+
+		if (account && token) {
+			return { account, token };
+		}
+
+		return null;
 	} catch (error) {
-		log.debug(`[Snowflake Auth] Error reading workbench token: ${error}`);
+		log.debug(`[Snowflake Auth] Error extracting account and token from TOML: ${error}`);
 		return null;
 	}
 }
@@ -105,19 +108,22 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 	log.debug(`[Snowflake Auth] positron.assistant.providerVariables.snowflake settings: ${JSON.stringify(configSettings)}`);
 
 	// Merge environment variables with settings
-	const { SNOWFLAKE_ACCOUNT, SNOWFLAKE_HOME } = { ...process.env as SnowflakeProviderVariables, ...configSettings };
+	const { SNOWFLAKE_HOME } = { ...process.env as SnowflakeProviderVariables, ...configSettings };
 
-	// Only look for Posit Workbench managed connections.toml
-	if (SNOWFLAKE_HOME && SNOWFLAKE_ACCOUNT && SNOWFLAKE_HOME.includes('posit-workbench')) {
-		const token = readWorkbenchSnowflakeToken(SNOWFLAKE_ACCOUNT, SNOWFLAKE_HOME);
-		if (token) {
-			log.info(`[Snowflake Auth] Using Posit Workbench managed credentials for account: ${SNOWFLAKE_ACCOUNT}`);
-			return {
-				token: token,
-				account: SNOWFLAKE_ACCOUNT,
-				baseUrl: constructSnowflakeBaseUrl(SNOWFLAKE_ACCOUNT)
-			};
-		}
+	if (!SNOWFLAKE_HOME) {
+		log.debug('[Snowflake Auth] No Posit Workbench managed credentials detected');
+		return undefined;
+	}
+
+	// For credential detection, we parse the connections.toml file to extract both account and token
+	const result = extractAccountAndTokenFromToml(SNOWFLAKE_HOME);
+	if (result && result.token) {
+		log.info(`[Snowflake Auth] Using Posit Workbench managed credentials for account: ${result.account}`);
+		return {
+			token: result.token,
+			account: result.account,
+			baseUrl: constructSnowflakeBaseUrl(result.account)
+		};
 	}
 
 	log.debug('[Snowflake Auth] No Posit Workbench managed credentials detected');
@@ -144,36 +150,4 @@ export function getSnowflakeDefaultBaseUrl(): string {
 
 	// Fallback to placeholder if no account is available
 	return 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1';
-}
-
-/**
- * Autoconfigure function for Snowflake Cortex following the managed credentials pattern
- * @param displayName - The provider display name for logging
- * @returns A promise that resolves to the autoconfigure result
- */
-export async function autoconfigureSnowflakeCredentials(
-	displayName: string
-): Promise<AutoconfigureResult> {
-	try {
-		// Only autoconfigure on Posit Workbench
-		if (!IS_RUNNING_ON_PWB) {
-			return { signedIn: false };
-		}
-
-		const detected = await detectSnowflakeCredentials();
-
-		if (detected) {
-			log.info(`[${displayName}] Auto-configuring with Posit Workbench managed credentials`);
-			return {
-				signedIn: true,
-				message: 'Posit Workbench managed credentials',
-				token: detected.token
-			};
-		}
-
-		return { signedIn: false };
-	} catch (error) {
-		log.error(`[${displayName}] Error during autoconfiguration: ${error}`);
-		return { signedIn: false };
-	}
 }

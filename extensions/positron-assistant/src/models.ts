@@ -26,10 +26,10 @@ import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFou
 import { PositLanguageModel } from './posit.js';
 import { applyModelFilters } from './modelFilters';
 import { PositronAssistantApi } from './api.js';
-import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from './pwb';
+import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
-import { autoconfigureSnowflakeCredentials, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
+import { detectSnowflakeCredentials, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
@@ -958,8 +958,18 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 	}
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
-		return autoconfigureSnowflakeCredentials(
-			SnowflakeLanguageModel.source.provider.displayName
+		// Token extractor function for Snowflake
+		const snowflakeTokenExtractor = async (): Promise<string | undefined> => {
+			const credentials = await detectSnowflakeCredentials();
+			// Return token only if credentials exist and token is non-empty
+			return credentials?.token && credentials.token.trim().length > 0 ? credentials.token : undefined;
+		};
+
+		return autoconfigureWithManagedCredentials(
+			SNOWFLAKE_MANAGED_CREDENTIALS,
+			SnowflakeLanguageModel.source.provider.id,
+			SnowflakeLanguageModel.source.provider.displayName,
+			snowflakeTokenExtractor
 		);
 	}
 }
