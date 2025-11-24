@@ -161,10 +161,12 @@
 	margin: 0;
 }
 
-.history-entry.selected .history-search-highlight {
-	background-color: var(--vscode-editor-findMatchBackground);
-	color: var(--vscode-editor-findMatchForeground);
-	border: 1px solid var(--vscode-editor-findMatchBorder, transparent);
+.history-entry.selected .history-search-highlight,
+.history-entry.selected-unfocused .history-search-highlight {
+	/* Use a brighter, more visible highlight for selected items */
+	background-color: var(--vscode-list-filterMatchBackground);
+	color: var(--vscode-list-focusHighlightForeground);
+	border: 1px solid var(--vscode-list-filterMatchBorder, transparent);
 }
 
 /* Remove unused styles for truncated indicator and expand button */
