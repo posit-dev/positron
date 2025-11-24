@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { localize } from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -93,10 +93,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
+	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(100));
 	const filterRef = useRef<any>(null);
 	const selectedIndexRef = useRef<number>(selectedIndex);
 	const listItemsRef = useRef<ListItem[]>(listItems);
 	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
+	const lastValidWidthRef = useRef<number>(0);
+	const lastValidHeightRef = useRef<number>(0);
 
 	// Keep refs in sync with state
 	useEffect(() => {
@@ -158,8 +161,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	/**
 	 * Create list items with separators from entries
+	 * Memoized to prevent unnecessary re-creation during renders
 	 */
-	const createListItems = (entries: IInputHistoryEntry[]): ListItem[] => {
+	const createListItems = useMemo(() => (entries: IInputHistoryEntry[]): ListItem[] => {
 		const items: ListItem[] = [];
 		const currentDate = new Date();
 
@@ -178,7 +182,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		return items;
-	};
+	}, []);
 
 	/**
 	 * Filter entries based on search text
@@ -467,11 +471,26 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	useEffect(() => {
 		const disposables = disposablesRef.current;
 
-		// Listen for size changes
+		// Listen for size changes with debouncing to prevent flickering during resize
 		disposables.add(
 			reactComponentContainer.onSizeChanged(size => {
-				setWidth(size.width);
-				setHeight(size.height);
+				// Debounce size updates to avoid constant re-renders during resize operations
+				sizeDelayerRef.current.trigger(() => {
+					// Only update if dimensions are valid (non-zero) and changed significantly
+					const widthDiff = Math.abs(size.width - lastValidWidthRef.current);
+					const heightDiff = Math.abs(size.height - lastValidHeightRef.current);
+
+					// Update only if dimensions are valid and changed by more than 5px
+					if (size.width > 0 && size.height > 0) {
+						if (widthDiff > 5 || heightDiff > 5 || lastValidWidthRef.current === 0) {
+							lastValidWidthRef.current = size.width;
+							lastValidHeightRef.current = size.height;
+							setWidth(size.width);
+							setHeight(size.height);
+						}
+					}
+					return Promise.resolve();
+				});
 			})
 		);
 
@@ -496,9 +515,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Initial discovery of languages
 		discoverLanguages();
 
-		// Initial size
-		setWidth(reactComponentContainer.width);
-		setHeight(reactComponentContainer.height);
+		// Initial size - set immediately if valid to avoid empty render
+		const initialWidth = reactComponentContainer.width;
+		const initialHeight = reactComponentContainer.height;
+		if (initialWidth > 0 && initialHeight > 0) {
+			lastValidWidthRef.current = initialWidth;
+			lastValidHeightRef.current = initialHeight;
+			setWidth(initialWidth);
+			setHeight(initialHeight);
+		}
 
 		// Add focus/blur listeners to the container to track focus state
 		const container = containerRef.current;
@@ -761,7 +786,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<div className="history-empty-message">
 							No history available
 						</div>
-					) : (
+					) : width > 0 && height > 40 ? (
 						<List
 							ref={listRef}
 							height={height - 40} // Subtract toolbar height
@@ -812,7 +837,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								}
 							}}
 						</List>
-					)}
+						) : (
+							<div className="history-empty-message">
+								Loading...
+							</div>
+						)}
 				</div>
 			</div>
 		</PositronActionBarContextProvider>

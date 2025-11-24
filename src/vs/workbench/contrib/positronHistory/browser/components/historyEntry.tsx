@@ -365,6 +365,8 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const [colorizedHtml, setColorizedHtml] = useState<string | null>(null);
 	const entryRef = useRef<HTMLDivElement>(null);
 	const codeRef = useRef<HTMLDivElement>(null);
+	const previousCodeRef = useRef<string>('');
+	const colorizedCacheRef = useRef<string | null>(null);
 
 	/**
 	 * Count lines in the code
@@ -399,13 +401,27 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	 * Tokenize and highlight the code
 	 */
 	useEffect(() => {
+		// If the code hasn't changed and we have a cached result, keep using it
+		// This prevents flickering during re-renders (e.g., during panel resize)
+		if (codeToHighlight === previousCodeRef.current && colorizedCacheRef.current !== null) {
+			if (colorizedHtml !== colorizedCacheRef.current) {
+				setColorizedHtml(colorizedCacheRef.current);
+			}
+			return;
+		}
+
+		// Store the current code for comparison
+		previousCodeRef.current = codeToHighlight;
+
 		// If no languageId, show plain text with highlighting
 		if (!languageId) {
 			if (searchText) {
 				const highlighted = highlightMatchesInText(codeToHighlight, searchText);
 				const trustedHtml = (ttPolicy?.createHTML(highlighted) ?? highlighted) as string;
+				colorizedCacheRef.current = trustedHtml;
 				setColorizedHtml(trustedHtml);
 			} else {
+				colorizedCacheRef.current = null;
 				setColorizedHtml(null);
 			}
 			return;
@@ -424,14 +440,17 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 			// Use TrustedTypes policy if available, otherwise use the html string directly
 			const trustedHtml = (ttPolicy?.createHTML(finalHtml) ?? finalHtml) as string;
+			colorizedCacheRef.current = trustedHtml;
 			setColorizedHtml(trustedHtml);
 		}).catch(err => {
 			// Fallback to plain text on error
 			if (searchText) {
 				const highlighted = highlightMatchesInText(codeToHighlight, searchText);
 				const trustedHtml = (ttPolicy?.createHTML(highlighted) ?? highlighted) as string;
+				colorizedCacheRef.current = trustedHtml;
 				setColorizedHtml(trustedHtml);
 			} else {
+				colorizedCacheRef.current = null;
 				setColorizedHtml(null);
 			}
 		});
