@@ -93,13 +93,15 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
-	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(100));
+	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(50));
 	const filterRef = useRef<any>(null);
+	const hasInitializedSizeRef = useRef<boolean>(false);
 	const selectedIndexRef = useRef<number>(selectedIndex);
 	const listItemsRef = useRef<ListItem[]>(listItems);
 	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
 	const lastValidWidthRef = useRef<number>(0);
 	const lastValidHeightRef = useRef<number>(0);
+	const wasVisibleRef = useRef<boolean>(true);
 
 	// Keep refs in sync with state
 	useEffect(() => {
@@ -474,27 +476,31 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Listen for size changes with debouncing to prevent flickering during resize
 		disposables.add(
 			reactComponentContainer.onSizeChanged(size => {
-				// Debounce size updates to avoid constant re-renders during resize operations
-				sizeDelayerRef.current.trigger(() => {
-					// Only update if dimensions are valid (non-zero) and changed significantly
+				// Store valid dimensions immediately for use as fallback
+				if (size.width > 0 && size.height > 0) {
 					const widthDiff = Math.abs(size.width - lastValidWidthRef.current);
 					const heightDiff = Math.abs(size.height - lastValidHeightRef.current);
 
-					// Update only if dimensions are valid and changed by more than 5px
-					if (size.width > 0 && size.height > 0) {
-						if (widthDiff > 5 || heightDiff > 5 || lastValidWidthRef.current === 0) {
+					// For initial size or significant changes, update immediately without debounce
+					if (!hasInitializedSizeRef.current || widthDiff > 50 || heightDiff > 50) {
+						lastValidWidthRef.current = size.width;
+						lastValidHeightRef.current = size.height;
+						setWidth(size.width);
+						setHeight(size.height);
+						hasInitializedSizeRef.current = true;
+					} else if (widthDiff > 5 || heightDiff > 5) {
+						// For smaller changes, debounce to prevent flickering during resize
+						sizeDelayerRef.current.trigger(() => {
 							lastValidWidthRef.current = size.width;
 							lastValidHeightRef.current = size.height;
 							setWidth(size.width);
 							setHeight(size.height);
-						}
+							return Promise.resolve();
+						});
 					}
-					return Promise.resolve();
-				});
+				}
 			})
-		);
-
-		// Listen for foreground session changes
+		);		// Listen for foreground session changes
 		disposables.add(
 			runtimeSessionService.onDidChangeForegroundSession(session => {
 				if (session) {
@@ -523,6 +529,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			lastValidHeightRef.current = initialHeight;
 			setWidth(initialWidth);
 			setHeight(initialHeight);
+			hasInitializedSizeRef.current = true;
 		}
 
 		// Add focus/blur listeners to the container to track focus state
@@ -531,6 +538,35 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		const handleBlur = () => setHasFocus(false); if (container) {
 			container.addEventListener('focus', handleFocus);
 			container.addEventListener('blur', handleBlur);
+		}
+
+		// Set up IntersectionObserver to detect when the panel becomes visible
+		// This fixes the issue where the list is empty until scrolled when switching tabs
+		if (container) {
+			const observer = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (entry.isIntersecting && !wasVisibleRef.current) {
+							// Panel just became visible - force List to recalculate and re-render
+							// Use requestAnimationFrame to ensure the panel is fully laid out
+							requestAnimationFrame(() => {
+								if (listRef.current) {
+									// Reset from index 0 to force complete re-render
+									listRef.current.resetAfterIndex(0);
+								}
+							});
+							wasVisibleRef.current = true;
+						} else if (!entry.isIntersecting) {
+							wasVisibleRef.current = false;
+						}
+					}
+				},
+				{ threshold: 0.01 } // Trigger when even 1% is visible
+			);
+			observer.observe(container);
+			disposables.add({
+				dispose: () => observer.disconnect()
+			});
 		}
 
 		return () => {
@@ -694,6 +730,24 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	}, [listItems, selectedIndex]);
 
 	/**
+	 * Force re-render when dimensions change to ensure list is rendered properly
+	 */
+	useEffect(() => {
+		// Only force reset when transitioning from invalid to valid dimensions
+		const hadValidDimensions = lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40;
+		const hasValidDimensions = width > 0 && height > 40;
+
+		if (!hadValidDimensions && hasValidDimensions && listRef.current && listItems.length > 0) {
+			// Dimensions just became valid - force re-render once
+			requestAnimationFrame(() => {
+				if (listRef.current) {
+					listRef.current.resetAfterIndex(0);
+				}
+			});
+		}
+	}, [width, height, listItems.length]);
+
+	/**
 	 * Scroll to bottom when entries change (new entries added)
 	 */
 	useEffect(() => {
@@ -786,11 +840,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<div className="history-empty-message">
 							No history available
 						</div>
-					) : width > 0 && height > 40 ? (
+					) : (lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40) ? (
 						<List
 							ref={listRef}
-							height={height - 40} // Subtract toolbar height
-							width={width}
+							height={Math.max(lastValidHeightRef.current, height) - 40} // Subtract toolbar height
+							width={Math.max(lastValidWidthRef.current, width)}
 							itemCount={listItems.length}
 							itemSize={getRowHeight}
 							onScroll={handleScroll}
@@ -837,11 +891,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								}
 							}}
 						</List>
-						) : (
-							<div className="history-empty-message">
-								Loading...
-							</div>
-						)}
+					) : (
+						<div className="history-empty-message">
+							Loading...
+						</div>
+					)}
 				</div>
 			</div>
 		</PositronActionBarContextProvider>
