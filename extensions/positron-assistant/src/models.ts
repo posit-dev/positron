@@ -29,7 +29,7 @@ import { PositronAssistantApi } from './api.js';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
-import { detectSnowflakeCredentials, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
@@ -366,6 +366,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
+
+				// Check for Snowflake-specific errors before generic authorization errors
+				if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
+					const snowflakeError = extractSnowflakeError(error);
+					if (snowflakeError) {
+						throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);
+					}
+				}
 
 				// Check for authorization errors (401/403) and bail immediately with helpful message
 				if (isAuthorizationError(error)) {
