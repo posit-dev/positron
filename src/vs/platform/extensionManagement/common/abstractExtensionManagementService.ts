@@ -36,7 +36,8 @@ import { IMarkdownString, MarkdownString } from '../../../base/common/htmlConten
 
 // --- Start Positron ---
 /**
- * List of extension IDs that conflict with Positron built-in features
+ * List of extension IDs that conflict with Positron built-in features.
+ * Please use lower case for everything in here.
  */
 const kPositronDuplicativeExtensions = [
 	'ikuyadeu.r',
@@ -48,7 +49,7 @@ const kPositronDuplicativeExtensions = [
 	'jeanp413.open-remote-ssh',
 	'ms-python.python',
 	'ms-python.vscode-python-envs',
-	'GitHub.copilot-chat'
+	'github.copilot-chat'
 ];
 
 export interface PositronExtensionCompatibility {
