@@ -137,12 +137,22 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const updateRowHeight = (index: number, height: number) => {
 		const currentHeight = rowHeightsRef.current.get(index);
-		if (currentHeight !== height) {
+		// Only update if height changed by more than 1px to avoid scroll jumps from minor rendering differences
+		const heightDiff = currentHeight !== undefined ? Math.abs(currentHeight - height) : Infinity;
+		if (heightDiff > 1) {
 			rowHeightsRef.current.set(index, height);
 			// Reset the list after this index to recalculate positions
+			// Use requestAnimationFrame to avoid interrupting user scrolling
 			if (listRef.current) {
-				listRef.current.resetAfterIndex(index);
+				requestAnimationFrame(() => {
+					if (listRef.current) {
+						listRef.current.resetAfterIndex(index);
+					}
+				});
 			}
+		} else if (currentHeight === undefined) {
+			// First time measuring, just store it without resetting
+			rowHeightsRef.current.set(index, height);
 		}
 	};
 
@@ -226,13 +236,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			// Create list items with separators
 			const items = createListItems(searchFilteredEntries);
 			setListItems(items);
-
-			// Auto-scroll to bottom if enabled
-			if (autoScrollEnabled && items.length > 0 && listRef.current) {
-				setTimeout(() => {
-					listRef.current?.scrollToItem(items.length - 1, 'end');
-				}, 0);
-			}
 		}
 	};
 
@@ -311,7 +314,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (!scrollUpdateWasRequested && listRef.current) {
 			// User scrolled manually - check if they scrolled away from bottom
 			const totalHeight = listItems.reduce((sum, _, i) => sum + getRowHeight(i), 0);
-			const isAtBottom = scrollOffset + height >= totalHeight - 10;
+			const viewportHeight = height - 40; // Subtract toolbar height
+			// Use a larger threshold (1.5x default row height) to account for dynamic height changes
+			const threshold = DEFAULT_ROW_HEIGHT * 1.5;
+			const isAtBottom = scrollOffset + viewportHeight >= totalHeight - threshold;
 			setAutoScrollEnabled(isAtBottom);
 		}
 
@@ -667,7 +673,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	useEffect(() => {
 		if (autoScrollEnabled && listItems.length > 0 && listRef.current) {
-			listRef.current.scrollToItem(listItems.length - 1, 'end');
+			// Use requestAnimationFrame to ensure DOM is fully updated before scrolling
+			requestAnimationFrame(() => {
+				if (listRef.current && autoScrollEnabled) {
+					listRef.current.scrollToItem(listItems.length - 1, 'end');
+				}
+			});
 		}
 	}, [listItems.length, autoScrollEnabled]);
 
