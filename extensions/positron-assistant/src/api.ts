@@ -329,7 +329,7 @@ export function getEnabledTools(
 		// Check if the user has opted-in to always include Copilot tools.
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.
-		const copilotTool = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+		const copilotTool = tool.name.startsWith('copilot_');
 		// Check if the user is signed into Copilot.
 		let copilotEnabled;
 		try {

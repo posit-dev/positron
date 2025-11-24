@@ -12,6 +12,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -23,6 +24,7 @@ import { IMcpRegistry } from '../../../mcp/common/mcpRegistryTypes.js';
 import { IMcpServer, IMcpService, IMcpWorkbenchService, McpConnectionState, McpServerCacheState, McpServerEditorTab } from '../../../mcp/common/mcpTypes.js';
 import { startServerAndWaitForLiveTools } from '../../../mcp/common/mcpTypesUtils.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
 import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
 import { ConfigureToolSets } from '../tools/toolSetsContribution.js';
 
@@ -183,6 +185,7 @@ function createToolSetTreeItem(toolset: ToolSet, checked: boolean, editorService
  * @param placeHolder - Placeholder text shown in the picker
  * @param description - Optional description text shown in the picker
  * @param toolsEntries - Optional initial selection state for tools and toolsets
+ * @param selectedLanguageModel - Optional selected language model to filter tools for
  * @param onUpdate - Optional callback fired when the selection changes
  * @returns Promise resolving to the final selection map, or undefined if cancelled
  */
@@ -190,7 +193,8 @@ export async function showToolsPicker(
 	accessor: ServicesAccessor,
 	placeHolder: string,
 	description?: string,
-	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>
+	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>,
+	selectedLanguageModel?: ILanguageModelChatMetadataAndIdentifier
 ): Promise<ReadonlyMap<ToolSet | IToolData, boolean> | undefined> {
 
 	const quickPickService = accessor.get(IQuickInputService);
@@ -209,6 +213,35 @@ export async function showToolsPicker(
 			mcpServerByTool.set(tool.id, server);
 		}
 	}
+
+	/**
+	 * Determines if a tool should be enabled for the currently selected language model.
+	 * Based on the logic from extensions/positron-assistant/src/api.ts
+	 */
+	const isToolEnabledForModel = (tool: IToolData): boolean => {
+		// If no model is selected, enable all tools
+		if (!selectedLanguageModel) {
+			return true;
+		}
+
+		// use accessor to get the configuration
+		const configurationService = accessor.get(IConfigurationService);
+		// Check if the user is using a Copilot model
+		const usingCopilotModel = selectedLanguageModel.metadata.vendor === 'copilot';
+		// Check if the user has opted-in to always include Copilot tools.
+		const alwaysIncludeCopilotTools = configurationService.getValue('positron.assistant.alwaysIncludeCopilotTools') as boolean;
+		// Check if the tool is provided by Copilot
+		const copilotTool = tool.id.startsWith('copilot_');
+
+		// Enable Copilot tools only if using a Copilot model;
+		// otherwise, enable all non-Copilot tools
+		if (copilotTool) {
+			return usingCopilotModel || alwaysIncludeCopilotTools;
+		}
+
+		// All non-Copilot tools are enabled for all models
+		return true;
+	};
 
 	function computeItems(previousToolsEntries?: ReadonlyMap<ToolSet | IToolData, boolean>) {
 		// Create default entries if none provided
@@ -399,6 +432,10 @@ export async function showToolsPicker(
 				bucket.children.push(treeItem);
 				const children = [];
 				for (const tool of toolSet.getTools()) {
+					// Filter out tools not enabled for the selected model
+					if (!isToolEnabledForModel(tool)) {
+						continue;
+					}
 					const toolChecked = toolSetChecked || toolsEntries.get(tool) === true;
 					const toolTreeItem = createToolTreeItemFromData(tool, toolChecked);
 					children.push(toolTreeItem);
@@ -410,6 +447,10 @@ export async function showToolsPicker(
 		}
 		for (const tool of toolsService.getTools()) {
 			if (!tool.canBeReferencedInPrompt || !toolsEntries.has(tool)) {
+				continue;
+			}
+			// Filter out tools not enabled for the selected model
+			if (!isToolEnabledForModel(tool)) {
 				continue;
 			}
 			const bucket = getBucket(tool.source);

@@ -176,7 +176,7 @@ class ConfigureToolsAction extends Action2 {
 
 		}
 
-		const result = await instaService.invokeFunction(showToolsPicker, placeholder, description, () => entriesMap.get());
+		const result = await instaService.invokeFunction(showToolsPicker, placeholder, description, () => entriesMap.get(), widget.input.selectedLanguageModel);
 		if (result) {
 			widget.input.selectedToolsModel.set(result, false);
 		}
