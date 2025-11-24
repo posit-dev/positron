@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as xml from '../xml.js';
 import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
 import { isRuntimeSessionReference } from '../utils.js';
+import { log } from '../extension.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)
@@ -537,16 +538,29 @@ export function hasAttachedNotebookContext(
  * 2. That notebook's URI is attached as context
  *
  * Applies filtering to limit context size for large notebooks.
+ *
+ * This function handles errors internally and will return `undefined` if any error
+ * occurs during context retrieval, filtering, or serialization. Errors are logged
+ * automatically. Callers do not need to wrap this function in try-catch blocks.
+ *
+ * @param request The chat request to check for attached notebook context
+ * @returns The serialized notebook context if available, or `undefined` if no context
+ *   is available or if an error occurs
  */
 export async function getAttachedNotebookContext(
 	request: vscode.ChatRequest
 ): Promise<SerializedNotebookContext | undefined> {
-	const activeContext = await getRawAttachedNotebookContext(request);
-	if (!activeContext) {
+	try {
+		const activeContext = await getRawAttachedNotebookContext(request);
+		if (!activeContext) {
+			return undefined;
+		}
+
+		// Apply filtering before returning context
+		const filteredContext = filterNotebookContext(activeContext);
+		return serializeNotebookContext(filteredContext);
+	} catch (err) {
+		log.error('[getAttachedNotebookContext] Error getting notebook context:', err);
 		return undefined;
 	}
-
-	// Apply filtering before returning context
-	const filteredContext = filterNotebookContext(activeContext);
-	return serializeNotebookContext(filteredContext);
 }

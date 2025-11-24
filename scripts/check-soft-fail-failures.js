@@ -7,11 +7,12 @@ const fs = require('fs');
 const path = require('path');
 
 if (process.argv.length < 3) {
-	console.error('Usage: node check-soft-fail-failures.js <path-to-playwright-json>');
+	console.error('Usage: node check-soft-fail-failures.js <path-to-playwright-json> [--no-soft-fail]');
 	process.exit(2);
 }
 
 const filePath = path.resolve(process.argv[2]);
+const ignoreSoftFail = process.argv.includes('--no-soft-fail');
 
 /**
  * A spec "fails" if it truly ended up failing after retries.
@@ -122,17 +123,19 @@ if (failedSpecs.length === 0) {
 	process.exit(0);
 }
 
-// For failures, check :soft-fail tag
-const nonSoftFailFailures = failedSpecs.filter(spec => {
-	const tags = getSpecTags(spec);
-	return !tags.includes(':soft-fail');
-});
+// Determine which failures to report based on --no-soft-fail flag
+const failuresToReport = ignoreSoftFail
+	? failedSpecs  // When --no-soft-fail is set, fail on ANY failure
+	: failedSpecs.filter(spec => {  // Otherwise, only fail on non-soft-fail failures
+		const tags = getSpecTags(spec);
+		return !tags.includes(':soft-fail');
+	});
 
-// If there are any failures that are NOT soft fail → failed
-if (nonSoftFailFailures.length > 0) {
+// If there are any failures to report → failed
+if (failuresToReport.length > 0) {
 	console.log('failed');
 	// Helpful summary for triage
-	for (const spec of nonSoftFailFailures) {
+	for (const spec of failuresToReport) {
 		const file = spec.__file || spec.file || '<unknown file>';
 		const title = spec.title || '<untitled spec>';
 		const tags = getSpecTags(spec);
@@ -143,6 +146,6 @@ if (nonSoftFailFailures.length > 0) {
 	process.exit(1);
 }
 
-// Otherwise, all failures are soft fail → passed
+// Otherwise, all failures are soft fail (and soft-fail is enabled) → passed
 console.log('passed');
 process.exit(0);
