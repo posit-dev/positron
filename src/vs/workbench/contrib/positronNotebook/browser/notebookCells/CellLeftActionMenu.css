@@ -12,7 +12,7 @@
 	--_circle-border-width: 1px;
 	--_icon-size: 11px;  /* Slightly larger for better visibility */
 	--_container-offset-left: -24px;  /* Fine-tune position */
-	--_container-offset-top: 12px;  /* Aligns with first line of code. May need to be made dynamic. */
+	--_container-offset-top: 4px;
 	--_badge-font-size: 10px;
 
 	/* Container positioning - easily adjustable via variables */
