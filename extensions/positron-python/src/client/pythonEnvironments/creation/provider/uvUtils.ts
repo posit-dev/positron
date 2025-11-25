@@ -18,7 +18,7 @@ export function getUvPythonVersions(): { versions: string[] } {
 export async function pickPythonVersion(token?: CancellationToken): Promise<string | undefined> {
     const items: QuickPickItem[] = SUPPORTED_UV_PYTHON_VERSIONS.map((v) => ({
         label: 'Python',
-        description: v === '3.14' ? `${v} (preview)` : v,
+        description: v,
     }));
     const selection = await showQuickPickWithBack(
         items,
