@@ -276,7 +276,13 @@ export function registerChatCodeBlockActions() {
 			super({
 				id: APPLY_IN_EDITOR_ID,
 				title: localize2('interactive.applyInEditor.label', "Apply in Editor"),
-				precondition: ChatContextKeys.enabled,
+				// --- Start Positron ---
+				// precondition: ChatContextKeys.enabled,
+				precondition: ContextKeyExpr.and(
+					ChatContextKeys.enabled,
+					ChatContextKeys.chatCurrentProvider.isEqualTo('copilot')
+				),
+				// --- End Positron ---
 				f1: true,
 				category: CHAT_CATEGORY,
 				icon: Codicon.gitPullRequestGoToChanges,

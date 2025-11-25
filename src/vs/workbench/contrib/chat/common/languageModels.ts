@@ -368,6 +368,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
 
+	// Track current provider in a context key
+	private readonly _currentProviderContextKey: IContextKey<string>;
+
 	// Track if we're in the initial setup phase to avoid changing provider during chat requests
 	private _isInitialSetup = true;
 
@@ -534,6 +537,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 				this._logService.trace('[LM] Configured models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
 			}
+		}));
+
+		// Track current provider in a context key
+		this._currentProviderContextKey = ChatContextKeys.chatCurrentProvider.bindTo(this._contextKeyService);
+		this._store.add(this.onDidChangeCurrentProvider(e => {
+			this._currentProviderContextKey.set(e || '');
 		}));
 		// --- End Positron ---
 	}
