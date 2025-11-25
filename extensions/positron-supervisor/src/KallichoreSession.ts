@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as typesConverters from './jupyter/TypesConverters';
 import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, Comm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, StartupEnvironment, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
@@ -706,10 +707,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param mode The execution mode
 	 * @param errorBehavior What to do if an error occurs
 	 */
-	execute(code: string,
+	execute(
+		code: string,
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
-		errorBehavior: positron.RuntimeErrorBehavior): void {
+		errorBehavior: positron.RuntimeErrorBehavior,
+		codeLocation?: vscode.Location,
+	): void {
 
 		// Translate the parameters into a Jupyter execute request
 		const request: JupyterExecuteRequest = {
@@ -720,6 +724,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			allow_stdin: true,
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
+
+		if (codeLocation) {
+			request.positron = { code_location: typesConverters.JupyterPositronLocation.from(codeLocation, code) };
+		}
 
 		// Create and send the execute request
 		const execute = new ExecuteRequest(id, request);

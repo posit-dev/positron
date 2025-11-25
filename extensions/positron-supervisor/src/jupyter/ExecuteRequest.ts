@@ -6,6 +6,7 @@
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterMessageType } from './JupyterMessageType.js';
+import { JupyterPositronLocation, JupyterPositronRange } from './JupyterPositronTypes';
 import { JupyterRequest } from './JupyterRequest';
 
 
@@ -41,6 +42,14 @@ export interface JupyterExecuteRequest {
 
 	/** Whether the kernel should stop the execution queue when an error occurs */
 	stop_on_error: boolean;
+
+	/** Positron extension */
+	positron?: JupyterPositronExecuteRequest;
+}
+
+export interface JupyterPositronExecuteRequest {
+	/** Location of `code`. Encoded in UTF-16 offsets. */
+	code_location?: JupyterPositronLocation;
 }
 
 /**
