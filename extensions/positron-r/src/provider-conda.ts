@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
 import * as vscode from 'vscode';
@@ -27,16 +28,46 @@ export async function isCondaAvailable(): Promise<boolean> {
 }
 
 /**
+ * Retrieve Conda environment paths from ~/.conda/environments.txt
+ */
+function getCondaEnvironmentsFromFile(): string[] {
+	try {
+		const environmentsFile = path.join(os.homedir(), '.conda', 'environments.txt');
+		if (!fs.existsSync(environmentsFile)) {
+			LOGGER.debug('Conda environments.txt file not found at:', environmentsFile);
+			return [];
+		}
+
+		const content = fs.readFileSync(environmentsFile, 'utf-8');
+		const envs = content
+			.split('\n')
+			.map(line => line.trim())
+			.filter(line => line.length > 0 && fs.existsSync(line));
+
+		LOGGER.info(`Found ${envs.length} Conda environment(s) from environments.txt`);
+		return envs;
+	} catch (error) {
+		LOGGER.error('Failed to read Conda environments.txt:', error);
+		return [];
+	}
+}
+
+/**
  * Retrieve Conda environment paths using `conda env list --json`
+ * Falls back to reading ~/.conda/environments.txt if conda is not on PATH
  */
 export async function getCondaEnvironments(): Promise<string[]> {
+	// Try using conda command first (preferred method)
 	try {
 		const { stdout } = await execPromise('conda env list --json');
 		const envs = JSON.parse(stdout).envs as string[];
+		LOGGER.info(`Found ${envs.length} Conda environment(s) using conda command`);
 		return envs;
 	} catch (error) {
-		LOGGER.error('Failed to retrieve Conda environments:', error);
-		return [];
+		LOGGER.debug('conda command not available, falling back to environments.txt');
+
+		// Fall back to reading environments.txt file
+		return getCondaEnvironmentsFromFile();
 	}
 }
 
@@ -68,12 +99,13 @@ export async function discoverCondaBinaries(): Promise<RBinary[]> {
 
 	const enabled = vscode.workspace.getConfiguration('positron.r').get<boolean>('interpreters.condaDiscovery');
 	if (enabled) {
-		if (!(await isCondaAvailable())) {
-			LOGGER.info('Conda is not installed or not in PATH.');
+		// getCondaEnvironments() will try conda command first, then fall back to environments.txt
+		const condaEnvs = await getCondaEnvironments();
+
+		if (condaEnvs.length === 0) {
+			LOGGER.info('No Conda environments found.');
 			return [];
 		}
-
-		const condaEnvs = await getCondaEnvironments();
 
 		for (const envPath of condaEnvs) {
 			const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
