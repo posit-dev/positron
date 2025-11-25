@@ -49,10 +49,10 @@ export async function renderNotebookMarkdown(
 					let slug = slugify(headingText);
 
 					// Handle duplicate headings by appending numbers
-					if (slugCounter.has(slug)) {
-						const count = slugCounter.get(slug)!;
-						slugCounter.set(slug, count + 1);
-						slug = slugify(slug + '-' + (count + 1));
+					const existingCount = slugCounter.get(slug);
+					if (existingCount !== undefined) {
+						slugCounter.set(slug, existingCount + 1);
+						slug = slugify(slug + '-' + (existingCount + 1));
 					} else {
 						slugCounter.set(slug, 0);
 					}
@@ -64,8 +64,6 @@ export async function renderNotebookMarkdown(
 			}
 		});
 
-	// Reset slug counter before parsing
-	slugCounter.clear();
 	return await m.parse(content, { async: true });
 }
 
@@ -91,23 +89,19 @@ function markedHighlight(options: marked.MarkedOptions & {
 	return {
 		async: !!options.async,
 		walkTokens(token: marked.Token): Promise<void> | void {
-			if (token.type !== 'code') {
+			if (!isCodeToken(token)) {
 				return;
 			}
 
-			// TypeScript doesn't narrow the type across function calls, so we assert here
-			// after verifying token.type === 'code'
-			const codeToken = assertCodeToken(token);
-
 			if (options.async) {
-				return Promise.resolve(options.highlight(codeToken.text, codeToken.lang || '')).then(updateToken(codeToken));
+				return Promise.resolve(options.highlight(token.text, token.lang || '')).then(updateToken(token));
 			}
 
-			const code = options.highlight(codeToken.text, codeToken.lang || '');
+			const code = options.highlight(token.text, token.lang || '');
 			if (code instanceof Promise) {
 				throw new Error('markedHighlight is not set to async but the highlight function is async.');
 			}
-			updateToken(codeToken)(code);
+			updateToken(token)(code);
 		},
 		renderer: {
 			code({ text, lang, escaped }: marked.Tokens.Code) {
@@ -119,19 +113,6 @@ function markedHighlight(options: marked.MarkedOptions & {
 	};
 }
 
-/**
- * Type assertion function to assert that a token is a Code token.
- * Validates at runtime that the token is actually a Code token.
- * @param token The token to assert as Code
- * @returns The token typed as marked.Tokens.Code
- * @throws Error if the token is not a Code token
- */
-function assertCodeToken(token: marked.Token): marked.Tokens.Code {
-	if (token.type !== 'code') {
-		throw new Error(`Expected Code token, but got token type: ${token.type}`);
-	}
-	return token as marked.Tokens.Code;
-}
 
 function updateToken(token: marked.Tokens.Code) {
 	return (code: string) => {
@@ -143,19 +124,67 @@ function updateToken(token: marked.Tokens.Code) {
 }
 
 /**
+ * Type guard to check if a token is a Text token.
+ * @param token The token to check
+ * @returns True if the token is a Text token
+ */
+function isTextToken(token: marked.Token): token is Extract<marked.Token, { type: 'text' }> {
+	return token.type === 'text';
+}
+
+/**
+ * Type guard to check if a token is a Code token.
+ * @param token The token to check
+ * @returns True if the token is a Code token
+ */
+function isCodeToken(token: marked.Token): token is Extract<marked.Token, { type: 'code' }> {
+	return token.type === 'code';
+}
+
+/**
+ * Token types with a required nested tokens array.
+ * Extracted from marked.Token for type safety.
+ */
+type TokenWithRequiredNestedTokens = Extract<marked.Token, { tokens: marked.Token[] }>;
+
+/**
+ * String literal union of token types with required nested tokens.
+ */
+type RequiredNestedTokenType = TokenWithRequiredNestedTokens['type'];
+
+/**
+ * Set of token types that have nested tokens.
+ * The `satisfies` ensures compile-time validation - if marked adds/removes
+ * token types, the compiler will catch mismatches.
+ */
+const NESTED_TOKEN_TYPES = new Set([
+	'heading',
+	'blockquote',
+	'paragraph',
+	'list_item',
+	'link',
+	'strong',
+	'em',
+	'del'
+] as const satisfies readonly RequiredNestedTokenType[]);
+
+/**
  * Type guard to check if a token has nested tokens by checking token type.
  * Uses type discriminator properties instead of the 'in' operator.
  * @param token The token to check
  * @returns True if the token is a type that has nested tokens
  */
-function hasNestedTokens(token: marked.Token): token is marked.Tokens.Heading | marked.Tokens.Blockquote | marked.Tokens.Paragraph | marked.Tokens.ListItem | marked.Tokens.Link | marked.Tokens.Strong | marked.Tokens.Em | marked.Tokens.Del | marked.Tokens.Generic {
-	const tokenTypesWithNestedTokens = ['heading', 'blockquote', 'paragraph', 'list_item', 'link', 'strong', 'em', 'del'];
-	if (tokenTypesWithNestedTokens.includes(token.type)) {
+function hasNestedTokens(token: marked.Token): token is Extract<marked.Token, { tokens?: marked.Token[] }> {
+	if (NESTED_TOKEN_TYPES.has(token.type as RequiredNestedTokenType)) {
 		return true;
 	}
 	// For Generic tokens or other tokens, check if tokens property exists using hasOwnProperty
 	// This avoids using the 'in' operator while still checking for the property
-	return Object.prototype.hasOwnProperty.call(token, 'tokens') && Array.isArray((token as marked.Tokens.Generic).tokens);
+	if (Object.prototype.hasOwnProperty.call(token, 'tokens')) {
+		const genericToken = token as marked.Tokens.Generic;
+		return Array.isArray(genericToken.tokens);
+	}
+	return false;
 }
 
 /**
@@ -165,36 +194,37 @@ function hasNestedTokens(token: marked.Token): token is marked.Tokens.Heading | 
  * @returns Plain text string extracted from tokens
  */
 function extractTextFromTokens(tokens: marked.Token[]): string {
-	return tokens.reduce<string>((acc, token) => {
-		if (token.type === 'text') {
-			return acc + (token as marked.Tokens.Text).text;
-		} else if (token.type === 'code') {
-			return acc + (token as marked.Tokens.Code).text;
+	const parts: string[] = [];
+	for (const token of tokens) {
+		if (isTextToken(token)) {
+			parts.push(token.text);
+		} else if (isCodeToken(token)) {
+			parts.push(token.text);
 		} else if (hasNestedTokens(token) && token.tokens !== undefined) {
 			// Recursively process nested tokens
-			return acc + extractTextFromTokens(token.tokens);
+			parts.push(extractTextFromTokens(token.tokens));
 		}
-		return acc;
-	}, '');
+	}
+	return parts.join('');
 }
 
 /**
  * Slugifies text to create URL-safe IDs for headings.
  * Converts text to lowercase, replaces spaces with hyphens, and removes
- * punctuation characters. Based on the same logic used in VS Code's
- * markdown notebook extension.
+ * punctuation characters. Uses Unicode-aware normalization and property escapes
+ * for better international character support.
  * @param text Text to slugify
  * @returns URL-safe slug string
  */
 function slugify(text: string): string {
-	const slugifiedHeading = encodeURI(
-		text.trim()
+	return encodeURI(
+		text
+			.trim()
 			.toLowerCase()
-			.replace(/\s+/g, '-') // Replace whitespace with -
-			// allow-any-unicode-next-line
-			.replace(/[\]\[\!\/\'\"\#\$\%\&\(\)\*\+\,\.\/\:\;\<\=\>\?\@\\\^\{\|\}\~\`。，、；：？！…—·ˉ¨''""々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, '') // Remove known punctuators
-			.replace(/^\-+/, '') // Remove leading -
-			.replace(/\-+$/, '') // Remove trailing -
+			.normalize('NFD')
+			.replace(/[\u0300-\u036f]/g, '')      // Remove diacritics
+			.replace(/[^\p{L}\p{N}\s-]/gu, '')    // Keep only letters, numbers, spaces, hyphens
+			.replace(/\s+/g, '-')
+			.replace(/^-+|-+$/g, '')              // Remove leading/trailing hyphens
 	);
-	return slugifiedHeading;
 }
