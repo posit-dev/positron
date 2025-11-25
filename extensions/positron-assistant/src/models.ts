@@ -1091,6 +1091,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	// Keep state while we're resolving the connection
 	// Used to adjust error handling for SSO login prompts
 	private _resolvingConnection: boolean = false;
+	// Keep track of the last error to manage re-authentication prompts
+	private _lastError?: Error;
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		super(_config, _context, _storage);
@@ -1249,6 +1251,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		this._resolvingConnection = true;
 		try {
 			await this.resolveModels(token);
+			this.checkError();
 		} catch (error) {
 			// Try to parse specific Bedrock errors
 			// This way, we can handle SSO login errors specifically
@@ -1363,6 +1366,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			return models;
 		} catch (error) {
 			log.warn(`[${this.providerName}] Failed to fetch models from Bedrock API: ${error}`);
+			this._lastError = error instanceof Error ? error : new Error(String(error));
 			return undefined;
 		}
 	}
@@ -1432,6 +1436,17 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * Helper method to throw a stored error
+	 */
+	private checkError(): void {
+		if (this._lastError) {
+			const error = this._lastError;
+			this._lastError = undefined;
+			throw error;
+		}
 	}
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
