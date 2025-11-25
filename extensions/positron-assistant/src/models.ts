@@ -367,35 +367,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-
-				// Check for Snowflake-specific errors before generic authorization errors
-				if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
-					const snowflakeError = extractSnowflakeError(error);
-					if (snowflakeError) {
-						throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);
-					}
-				}
-
-				// Check for authorization errors (401/403) and bail immediately with helpful message
-				if (isAuthorizationError(error)) {
-					// Try to extract specific error message from response body
-					let specificMessage = '';
-					if (ai.APICallError.isInstance(error) && error.responseBody) {
-						try {
-							const parsed = JSON.parse(error.responseBody);
-							if (parsed.message) {
-								specificMessage = ` (${parsed.message})`;
-							}
-						} catch {
-							// Ignore JSON parsing errors, fall back to generic message
-						}
-					}
-
-					const authError = `Authentication failed${specificMessage}. Please check your credentials and try signing in again.`;
-					log.error(`${messagePrefix} ${authError}`);
-					return new Error(`[${this.providerName}] ${authError}`);
-				}
-
 				const errorMsg = await this.parseProviderError(error) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
@@ -631,6 +602,26 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
 	async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for authorization errors (401/403) and bail immediately with helpful message
+		if (isAuthorizationError(error)) {
+			// Try to extract specific error message from response body
+			let specificMessage = '';
+			if (ai.APICallError.isInstance(error) && error.responseBody) {
+				try {
+					const parsed = JSON.parse(error.responseBody);
+					if (parsed.message) {
+						specificMessage = ` (${parsed.message})`;
+					}
+				} catch {
+					// Ignore JSON parsing errors, fall back to generic message
+				}
+			}
+
+			const authError = `Authentication failed${specificMessage}. Please check your credentials and try signing in again.`;
+			log.error(`[${this.providerName}] ${authError}`);
+			throw new Error(`[${this.providerName}] ${authError}`);
+		}
+
 		// Try to extract an API error message with ai-sdk
 		if (ai.APICallError.isInstance(error)) {
 			const responseBody = error.responseBody;
@@ -1018,6 +1009,18 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 		}
 
 		return autoconfigureResult;
+	}
+
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for Snowflake-specific errors before generic authorization errors
+		if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
+			const snowflakeError = extractSnowflakeError(error);
+			if (snowflakeError) {
+				throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);
+			}
+		}
+
+		return super.parseProviderError(error);
 	}
 }
 
