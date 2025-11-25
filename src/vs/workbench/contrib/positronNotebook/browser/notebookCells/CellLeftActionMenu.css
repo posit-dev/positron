@@ -12,21 +12,44 @@
 	--_circle-border-width: 1px;
 	--_icon-size: 11px;  /* Slightly larger for better visibility */
 	--_container-offset-left: -24px;  /* Fine-tune position */
-	--_container-offset-top: 4px;
+	--_container-offset-top: 4px; /* Position container slightly down from top */
 	--_badge-font-size: 10px;
 
 	/* Container positioning - easily adjustable via variables */
 	position: absolute;
 	top: var(--_container-offset-top);
+	bottom: 0; /* Stretch to bottom to allow flex alignment */
 	left: var(--_container-offset-left);
 	width: var(--_container-size);
-	height: var(--_container-size);
 
-	/* Center children */
+	/* Vertical layout with items at top and bottom */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	z-index: 10;
+}
+
+/* Position element to the top of the cell */
+.left-hand-action-container-top {
+	position: relative;
+	width: var(--_container-size);
+	height: var(--_container-size);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 10;
+	flex-shrink: 0;
+}
+
+/* Positions element to the bottom of the cell */
+.left-hand-action-container-bottom {
+	position: relative;
+	width: var(--_container-size);
+	height: var(--_container-size);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-top: auto; /* Push element to bottom */
 }
 
 /* Hide the circle outline when the cell isn't running */
@@ -184,9 +207,4 @@
 	justify-content: center;
 	/* Adjust for play icon which tends to be off-center */
 	padding-left: 1px;
-}
-
-.left-hand-action-container-bottom {
-	top: auto;
-	bottom: 0;
 }
