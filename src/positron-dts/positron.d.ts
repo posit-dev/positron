@@ -1109,12 +1109,16 @@ declare module 'positron' {
 		 * @param id The ID of the code
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
+		 * @param location Optionally, the location of `code` in the source editor.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
-		execute(code: string,
+		execute(
+			code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
+			errorBehavior: RuntimeErrorBehavior,
+			codeLocation?: vscode.Location,
+		): void;
 
 		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
