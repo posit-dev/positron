@@ -24,7 +24,7 @@ import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInpu
 import { IChatContextPickService, IChatContextValueItem, IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPicker } from '../chatContextPickService.js';
 import { IChatEditingService } from '../../common/chatEditingService.js';
 import { IChatRequestToolEntry, IChatRequestToolSetEntry, IChatRequestVariableEntry, IImageVariableEntry, OmittedState, toToolSetVariableEntry, toToolVariableEntry } from '../../common/chatVariableEntries.js';
-import { ILanguageModelToolsService, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
+import { ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
 import { IChatWidget } from '../chat.js';
 import { imageToHash, isImage } from '../chatPasteProviders.js';
 import { convertBufferToScreenshotVariable } from '../contrib/screenshot.js';
@@ -33,6 +33,9 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITerminalCommand, TerminalCapability } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
 
+// --- Start Positron ---
+import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
+// --- End Positron ---
 
 export class ChatContextContributions extends Disposable implements IWorkbenchContribution {
 

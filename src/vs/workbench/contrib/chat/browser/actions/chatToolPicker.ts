@@ -23,9 +23,12 @@ import { IMcpRegistry } from '../../../mcp/common/mcpRegistryTypes.js';
 import { IMcpServer, IMcpService, IMcpWorkbenchService, McpConnectionState, McpServerCacheState, McpServerEditorTab } from '../../../mcp/common/mcpTypes.js';
 import { startServerAndWaitForLiveTools } from '../../../mcp/common/mcpTypesUtils.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
-import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
 import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
 import { ConfigureToolSets } from '../tools/toolSetsContribution.js';
+
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+// --- End Positron ---
 
 const enum BucketOrdinal { User, BuiltIn, Mcp, Extension }
 
@@ -192,8 +195,10 @@ export async function showToolsPicker(
 	accessor: ServicesAccessor,
 	placeHolder: string,
 	description?: string,
+	// --- Start Positron ---
 	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>,
 	selectedLanguageModel?: ILanguageModelChatMetadataAndIdentifier
+	// --- End Positron ---
 ): Promise<ReadonlyMap<ToolSet | IToolData, boolean> | undefined> {
 
 	const quickPickService = accessor.get(IQuickInputService);
@@ -424,7 +429,7 @@ export async function showToolsPicker(
 				const treeItem = createToolSetTreeItem(toolSet, toolSetChecked, editorService);
 				bucket.children.push(treeItem);
 				const children = [];
-				for (const tool of enabledTools) {
+				for (const tool of toolSet.getTools()) {
 					const toolChecked = toolSetChecked || toolsEntries.get(tool) === true;
 					const toolTreeItem = createToolTreeItemFromData(tool, toolChecked);
 					children.push(toolTreeItem);
