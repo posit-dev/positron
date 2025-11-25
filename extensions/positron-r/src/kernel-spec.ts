@@ -11,8 +11,6 @@ import * as fs from 'fs';
 import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
-import { getCondaActivationEnvironment } from './conda-activation';
-import { LOGGER } from './extension';
 
 /**
  * Create a new Jupyter kernel spec.

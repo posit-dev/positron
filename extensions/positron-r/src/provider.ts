@@ -249,7 +249,9 @@ export async function makeMetadata(
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
-	const runtimeName = `R ${runtimeShortName}`;
+	const condaAmendment = rInst.condaEnvironmentPath ?
+		` (Conda: ${path.basename(rInst.condaEnvironmentPath)})` : '';
+	const runtimeName = `R ${runtimeShortName}${condaAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.
