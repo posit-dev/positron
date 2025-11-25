@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import json
 import logging
 import re
 import uuid
+import warnings
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
 import comm
@@ -40,6 +42,14 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionWarning(UserWarning):
+    """
+    Warning raised when there are issues in the Connections Pane relevant to the user.
+
+    This type of warning is shown once in the Console per session.
+    """
 
 
 class ConnectionObjectInfo(TypedDict):
@@ -925,17 +935,23 @@ class GoogleBigQueryConnection(Connection):
 
     def __init__(self, conn: Any):
         self.conn = conn
-        self.project = conn.project
 
-        if self.project is None:
+        if importlib.util.find_spec("db_dtypes") is None:
+            warnings.warn(
+                "db_dtypes is not installed and it's required for previewing tables from Google BigQuery connections. ",
+                category=ConnectionWarning,
+                stacklevel=1,
+            )
+
+        if conn.project is None:
             raise UnsupportedConnectionError("BigQuery client must have a project set.")
 
-        self.host = self.project
-        self.display_name = f"Google BigQuery ({self.project})"
+        self.host = conn.project
+        self.display_name = f"Google BigQuery ({conn.project})"
         self.type = "GoogleBigQuery"
         self.code = (
             "from google.cloud import bigquery\n"
-            f"client = bigquery.Client(project={self.project!r})\n"
+            f"client = bigquery.Client(project={conn.project!r})\n"
             "%connection_show client\n"
         )
 
@@ -943,7 +959,7 @@ class GoogleBigQueryConnection(Connection):
 
     def list_objects(self, path: list[ObjectSchema]):
         if len(path) == 0:
-            datasets = self.conn.list_datasets(project=self.project)
+            datasets = self.conn.list_datasets(project=self.conn.project)
             return [
                 ConnectionObject({"name": dataset.dataset_id, "kind": "dataset"})
                 for dataset in datasets
@@ -1014,7 +1030,7 @@ class GoogleBigQueryConnection(Connection):
     def _dataset_identifier(self, dataset_name: str) -> str:
         if "." in dataset_name or ":" in dataset_name:
             return dataset_name
-        return f"{self.project}.{dataset_name}"
+        return f"{self.conn.project}.{dataset_name}"
 
     def _table_identifier(self, dataset_name: str, table_name: str) -> str:
         dataset_identifier = self._dataset_identifier(dataset_name)
