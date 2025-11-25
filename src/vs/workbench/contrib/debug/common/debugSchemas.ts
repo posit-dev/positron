@@ -64,6 +64,13 @@ export const debuggersExtPoint = extensionsRegistry.ExtensionsRegistry.registerE
 					description: nls.localize('vscode.extension.contributes.debuggers.languages', "List of languages for which the debug extension could be considered the \"default debugger\"."),
 					type: 'array'
 				},
+				// --- Start Positron ---
+				supportsUILaunch: {
+					description: nls.localize('positron.extension.contributes.debuggers.supportsUILaunch', "Whether this debugger supports launching from the Run and Debug UI. Set to false for debuggers that use alternative debugging approaches (e.g., R's browser(), debug(), etc.). Defaults to true."),
+					type: 'boolean',
+					default: true
+				},
+				// --- End Positron ---
 				configurationSnippets: {
 					description: nls.localize('vscode.extension.contributes.debuggers.configurationSnippets', "Snippets for adding new configurations in \'launch.json\'."),
 					type: 'array'

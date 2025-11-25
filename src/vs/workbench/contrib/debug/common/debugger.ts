@@ -145,6 +145,12 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
 		return this.debuggerContribution.languages;
 	}
 
+	// --- Start Positron ---
+	get supportsUILaunch(): boolean {
+		return this.debuggerContribution.supportsUILaunch !== false; // Defaults to true
+	}
+	// --- End Positron ---
+
 	get when(): ContextKeyExpression | undefined {
 		return this.debuggerWhen;
 	}
