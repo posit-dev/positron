@@ -519,7 +519,11 @@ class ConnectionsService:
                 var_name = decode_access_key(path_key[0])
 
         res, sql_string = conn.preview_object(request.params.path, var_name)
-        title = request.params.path[-1].name
+        try:
+            preview = "" if len(res) < 1000 else " (preview)"
+        except TypeError:  # res does not have len
+            preview = ""
+        title = request.params.path[-1].name + preview
 
         self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 
