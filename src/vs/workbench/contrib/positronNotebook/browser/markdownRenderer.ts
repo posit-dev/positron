@@ -52,7 +52,7 @@ export async function renderNotebookMarkdown(
 					const existingCount = slugCounter.get(slug);
 					if (existingCount !== undefined) {
 						slugCounter.set(slug, existingCount + 1);
-						slug = slugify(slug + '-' + (existingCount + 1));
+						slug = slug + '-' + (existingCount + 1);
 					} else {
 						slugCounter.set(slug, 0);
 					}
