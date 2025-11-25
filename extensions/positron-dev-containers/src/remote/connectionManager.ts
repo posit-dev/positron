@@ -165,18 +165,45 @@ export class ConnectionManager {
 
 			// 3. Install Positron server with environment variables
 			this.logger.info('Installing Positron server in container...');
-			const serverInfo = await vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t('Installing Positron server in container...'),
-				cancellable: false
-			}, async () => {
-				return await installAndStartServer({
-					containerId,
-					port: 0,  // Use 0 to let the OS pick a random available port
-					extensionHostEnv
-				});
+
+			// Delay showing the notification to avoid flashing it when server is already installed
+			let notificationTimeout: NodeJS.Timeout | undefined;
+
+			const serverInfoPromise = installAndStartServer({
+				containerId,
+				port: 0,  // Use 0 to let the OS pick a random available port
+				extensionHostEnv
 			});
-			this.logger.info(`Server installed. Listening on ${serverInfo.isPort ? 'port ' + serverInfo.port : 'socket ' + serverInfo.socketPath}`);			// 3. Forward the port (if using port instead of socket)
+
+			// Set timeout to show notification after 5 seconds
+			const notificationPromise = new Promise<void>((resolve) => {
+				notificationTimeout = setTimeout(() => {
+					resolve();
+				}, 5000);
+			});
+
+			// Wait for either the server to be ready or the timeout
+			const serverInfo = await Promise.race([
+				serverInfoPromise.then(result => {
+					// Installation completed - cancel notification if it hasn't shown yet
+					if (notificationTimeout) {
+						clearTimeout(notificationTimeout);
+					}
+					return result;
+				}),
+				notificationPromise.then(async () => {
+					// Timeout elapsed - show notification and wait for installation to complete
+					return await vscode.window.withProgress({
+						location: vscode.ProgressLocation.Notification,
+						title: vscode.l10n.t('Installing Positron server in container...'),
+						cancellable: false
+					}, async () => {
+						return await serverInfoPromise;
+					});
+				})
+			]);
+			this.logger.info(`Server installed. Listening on ${serverInfo.isPort ? 'port ' + serverInfo.port : 'socket ' + serverInfo.socketPath}`);
+			// 3. Forward the port (if using port instead of socket)
 			let localPort: number;
 			if (serverInfo.isPort && serverInfo.port) {
 				this.logger.debug(`Forwarding port ${serverInfo.port} to localhost`);
