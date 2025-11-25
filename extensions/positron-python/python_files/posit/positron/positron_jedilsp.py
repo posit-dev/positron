@@ -578,6 +578,61 @@ POSITRON = create_server()
 _MAGIC_COMPLETIONS: Dict[str, Any] = {}
 
 
+def _is_from_user_namespace(
+    completion: "Completion", user_ns_keys: set, document: TextDocument, position: Position
+) -> bool:
+    """
+    Check if a completion is from the user's namespace.
+
+    This filters out stdlib and third-party completions to avoid overlap with
+    other completion providers (e.g., Pyrefly) that handle those more efficiently.
+
+    Args:
+        completion: Jedi completion object
+        user_ns_keys: Set of keys from the user's namespace
+        document: The text document being completed
+        position: The cursor position
+
+    Returns:
+        True if the completion should be included, False otherwise
+    """
+    if not user_ns_keys:
+        # If there's no user namespace, don't filter anything
+        return True
+
+    # Get the base name (first part before any dots)
+    base_name = completion.name.split(".")[0]
+
+    # Include if the base name is in the user's namespace
+    if base_name in user_ns_keys:
+        return True
+
+    # For attribute completions (e.g., "my_df.column"), check if we're completing
+    # on an object from the user namespace by examining the text before the cursor
+    line = document.lines[position.line] if document.lines else ""
+    text_before_cursor = line[: position.character]
+
+    # Look for the pattern "identifier." before the cursor
+    # Match word characters (including underscores) followed by a dot
+    import re
+
+    match = re.search(r"([\w]+)\.$", text_before_cursor)
+    if match:
+        object_name = match.group(1)
+        if object_name in user_ns_keys:
+            # We're completing attributes of a user namespace object
+            return True
+
+    # Check full_name as a fallback
+    full_name = completion.full_name or ""
+    if "." in full_name:
+        root = full_name.split(".")[0]
+        if root in user_ns_keys:
+            return True
+
+    return False
+
+
 # Server Features
 # Unfortunately we need to re-register these as Pygls Feature Management does
 # not support subclassing of the LSP, and Jedi did not use the expected "ls"
@@ -616,20 +671,27 @@ def positron_completion(
 
     try:
         jedi_lines = jedi_utils.line_column(params.position)
-        # --- Start Positron ---
-        # Disable all raw completions in favor of Pyrefly completions
-        completions_jedi_raw = []
-        # completions_jedi_raw = jedi_script.complete(*jedi_lines)
-        # --- End Positron ---
+        completions_jedi_raw = jedi_script.complete(*jedi_lines)
+
+        # Filter completions to only include items from the user's namespace.
+        # This prevents overlap with other completion providers (e.g., Pyrefly) that handle
+        # stdlib and general Python completions more efficiently.
+        user_ns_keys = set(server.shell.user_ns.keys()) if server.shell else set()
+
         if not ignore_patterns:
             # A performance optimization. ignore_patterns should usually be empty;
             # this special case avoid repeated filter checks for the usual case.
-            completions_jedi = (comp for comp in completions_jedi_raw)
+            completions_jedi = (
+                comp
+                for comp in completions_jedi_raw
+                if _is_from_user_namespace(comp, user_ns_keys, document, params.position)
+            )
         else:
             completions_jedi = (
                 comp
                 for comp in completions_jedi_raw
                 if not any(i.match(comp.name) for i in ignore_patterns)
+                and _is_from_user_namespace(comp, user_ns_keys, document, params.position)
             )
         snippet_support = get_capability(
             server.client_capabilities,
