@@ -667,6 +667,11 @@
         "view": "testing",
         "contents": "No testthat tests found.\n[Add a test](command:r.useTest)",
         "when": "isRPackage && config.positron.r.testing && testthatIsConfigured && !testthatHasTests"
+      },
+      {
+        "view": "debug",
+        "contents": "Positron currently provides initial debugging support for R code.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)",
+        "when": "debugStartLanguage == 'r'"
       }
     ],
     "taskDefinitions": [
@@ -679,7 +684,8 @@
       {
         "type": "ark",
         "label": "R Debugger",
-        "languages": ["r"]
+        "languages": ["r"],
+        "supportsUILaunch": false
       }
     ],
     "notebookRenderer": [
