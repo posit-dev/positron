@@ -8,6 +8,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { tokenizeToString } from '../../../../editor/common/languages/textToHtmlTokenizer.js';
 import * as marked from '../../../../base/common/marked/marked.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { slugify } from '../../markdown/browser/markedGfmHeadingIdPlugin.js';
 
 /**
  * Renders markdown with theme-aware syntax highlighting for Positron notebooks.
@@ -208,23 +209,3 @@ function extractTextFromTokens(tokens: marked.Token[]): string {
 	return parts.join('');
 }
 
-/**
- * Slugifies text to create URL-safe IDs for headings.
- * Converts text to lowercase, replaces spaces with hyphens, and removes
- * punctuation characters. Uses Unicode-aware normalization and property escapes
- * for better international character support.
- * @param text Text to slugify
- * @returns URL-safe slug string
- */
-function slugify(text: string): string {
-	return encodeURI(
-		text
-			.trim()
-			.toLowerCase()
-			.normalize('NFD')
-			.replace(/[\u0300-\u036f]/g, '')      // Remove diacritics
-			.replace(/[^\p{L}\p{N}\s-]/gu, '')    // Keep only letters, numbers, spaces, hyphens
-			.replace(/\s+/g, '-')
-			.replace(/^-+|-+$/g, '')              // Remove leading/trailing hyphens
-	);
-}
