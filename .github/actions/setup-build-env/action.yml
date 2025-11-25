@@ -60,7 +60,7 @@ runs:
       run: |
         echo "Cache miss - Installing all Playwright browsers"
         # Installs chromium, firefox, webkit with system dependencies
-        npx playwright install
+        npx playwright install --with-deps
 
     - name: Set permissions on SUID sandbox helper
       shell: bash
