@@ -301,11 +301,9 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
             else None
         )
 
-        # DON'T MERGE: Unregister language features. This allows testing other LSPs without interference from the Jedi LSP.
+        # Remove LSP features that are redundant with Pyrefly.
         features_to_remove = [
             "textDocument/hover",
-            "textDocument/completion",
-            "completionItem/resolve",
             "textDocument/signatureHelp",
             "textDocument/declaration",
             "textDocument/definition",
@@ -618,7 +616,11 @@ def positron_completion(
 
     try:
         jedi_lines = jedi_utils.line_column(params.position)
-        completions_jedi_raw = jedi_script.complete(*jedi_lines)
+        # --- Start Positron ---
+        # Disable all raw completions in favor of Pyrefly completions
+        completions_jedi_raw = []
+        # completions_jedi_raw = jedi_script.complete(*jedi_lines)
+        # --- End Positron ---
         if not ignore_patterns:
             # A performance optimization. ignore_patterns should usually be empty;
             # this special case avoid repeated filter checks for the usual case.
