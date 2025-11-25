@@ -98,9 +98,9 @@
 	transition: border-color 0.15s ease;
 }
 
-.left-hand-action-container .codicon-play {
-	/* Move around play button a bit to make things line up properly. */
-	transform: translate(0.7px, 0) scaleY(0.8);
+.left-hand-action-container .codicon-notebook-execute {
+	/* Move button a smidge to the left to center it in circle */
+	transform: translate(0.7px, 0);
 }
 
 .execution-order-badge-container span.execution-order-badge {

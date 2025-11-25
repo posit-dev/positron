@@ -720,7 +720,7 @@ registerAction2(class extends CellAction2 {
 		super({
 			id: POSITRON_EXECUTE_CELL_COMMAND_ID,
 			title: localize2('positronNotebook.cell.execute', "Run Cell"),
-			icon: ThemeIcon.fromId('play'),
+			icon: ThemeIcon.fromId('notebook-execute'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionLeft,
 				when: ContextKeyExpr.and(
