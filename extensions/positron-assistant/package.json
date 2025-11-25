@@ -389,6 +389,62 @@
               "experimental"
             ]
           },
+          "positron.assistant.configuredModels": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.configuredModels.description%",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Display name for the model"
+                  },
+                  "identifier": {
+                    "type": "string",
+                    "description": "Model identifier for API calls"
+                  },
+                  "maxInputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum input tokens for this model"
+                  },
+                  "maxOutputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum output tokens for this model"
+                  }
+                },
+                "required": [
+                  "name",
+                  "identifier"
+                ]
+              }
+            },
+            "examples": [
+              {
+                "openai-compatible": [
+                  {
+                    "name": "Claude Sonnet 4.5",
+                    "identifier": "claude-sonnet-4-5",
+                    "maxInputTokens": 200000,
+                    "maxOutputTokens": 64000
+                  },
+                  {
+                    "name": "GPT-4 Turbo",
+                    "identifier": "gpt-4-turbo",
+                    "maxInputTokens": 8192,
+                    "maxOutputTokens": 2048
+                  }
+                ]
+              }
+            ],
+            "tags": [
+              "experimental"
+            ]
+          },
           "positron.assistant.notebookSuggestions.model": {
             "type": "array",
             "default": [

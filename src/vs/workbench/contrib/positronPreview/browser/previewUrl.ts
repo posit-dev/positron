@@ -28,11 +28,13 @@ export class PreviewUrl extends PreviewWebview {
 	 * @param previewId A unique ID for the preview
 	 * @param webview The underlying webview instance that hosts the preview's content
 	 * @param _uri The URI to open in the preview
+	 * @param _source Optional source information indicating what opened the preview
 	 */
 	constructor(
 		previewId: string,
 		webview: PreviewOverlayWebview,
-		private _uri: URI
+		private _uri: URI,
+		private _source?: { type: string; id: string }
 	) {
 		super(POSITRON_PREVIEW_URL_VIEW_TYPE, previewId,
 			POSITRON_PREVIEW_URL_VIEW_TYPE,
@@ -71,5 +73,9 @@ export class PreviewUrl extends PreviewWebview {
 
 	get currentUri(): URI {
 		return this._uri;
+	}
+
+	get source(): { type: string; id: string } | undefined {
+		return this._source;
 	}
 }
