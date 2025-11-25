@@ -351,12 +351,12 @@
       "editor/actions/left": [
         {
           "command": "remote-containers.reopenInContainer",
-          "when": "dev.containers.enabled && !hideConnectCommands && !remoteName && (resourceFilename == 'devcontainer.json' || resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "when": "dev.containers.enabled && !hideConnectCommands && !remoteName && (resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\]devcontainer\\.json$/ || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
           "group": "devcontainer@1"
         },
         {
           "command": "remote-containers.rebuildContainer",
-          "when": "dev.containers.enabled && !hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == 'devcontainer.json' || resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "when": "dev.containers.enabled && !hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\]devcontainer\\.json$/ || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
           "group": "devcontainer@1"
         }
       ],
