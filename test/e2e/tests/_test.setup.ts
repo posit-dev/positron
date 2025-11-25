@@ -259,8 +259,9 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		await use();
 
-		await app.workbench.console.logConsoleContents();
-		await app.workbench.terminal.logTerminalContents();
+		// Disabling for now to see if it improves teardown stability
+		// await app.workbench.console.logConsoleContents();
+		// await app.workbench.terminal.logTerminalContents();
 
 		const failed = testInfo.status !== testInfo.expectedStatus;
 		const testTitle = testInfo.title;

@@ -528,34 +528,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._isInitialSetup = false;
 		}
 
-		// Listen for changes to the filterModels configuration. The initial filtering
+		// Listen for changes to model configuration. The initial filtering and configuration
 		// is done in the Positron Assistant extension when models are resolved.
 		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('positron.assistant.filterModels')) {
 				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
-				// Re-resolve all registered providers to apply new filters
-				const allVendors = Array.from(this._vendors.keys());
-				if (allVendors.length === 0) {
-					return;
-				}
-				// Re-resolve all vendors
-				const vendorPromises = allVendors.map(
-					vendor => this._resolveLanguageModels(vendor, true));
-
-				// After all are resolved, check if the current provider is still valid
-				Promise.all(vendorPromises).then(() => {
-					// if the current provider is now filtered out, switch to another available provider
-					const currentProvider = this._currentProvider;
-					const availableProviders = this.getLanguageModelProviders();
-					if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
-						this._logService.trace('[LM] Current provider was filtered out, switching to next available', currentProvider.id);
-						if (availableProviders.length > 0) {
-							this.currentProvider = availableProviders[0];
-						} else {
-							this.currentProvider = undefined;
-						}
-					}
-				});
+				this._reResolveLanguageModels();
+			} else if (e.affectsConfiguration('positron.assistant.configuredModels')) {
+				this._logService.trace('[LM] Configured models configuration changed, re-resolving language models');
+				this._reResolveLanguageModels();
 			}
 		}));
 		// --- End Positron ---
@@ -604,6 +585,31 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return Array.from(this._modelCache.keys());
 	}
 	// --- Start Positron ---
+	private _reResolveLanguageModels(): void {
+		// Re-resolve all registered providers to apply new configuration
+		const allVendors = Array.from(this._vendors.keys());
+		if (allVendors.length === 0) {
+			return;
+		}
+		const vendorPromises = allVendors.map(
+			vendor => this._resolveLanguageModels(vendor, true));
+
+		// After all are resolved, check if the current provider is still valid
+		Promise.all(vendorPromises).then(() => {
+			// if the current provider is no longer available, switch to another available provider
+			const currentProvider = this._currentProvider;
+			const availableProviders = this.getLanguageModelProviders();
+			if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
+				this._logService.trace('[LM] Current provider is no longer available, switching to next available', currentProvider.id);
+				if (availableProviders.length > 0) {
+					this.currentProvider = availableProviders[0];
+				} else {
+					this.currentProvider = undefined;
+				}
+			}
+		});
+	}
+
 	private getSelectedProviderStorageKey(): string {
 		return `chat.currentLanguageProvider`;
 	}
@@ -771,16 +777,16 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._providerExtensions.set(vendor, extensionId);
 		// --- End Positron ---
 
-		if (this._hasStoredModelForVendor(vendor)) {
-			// --- Start Positron ---
-			// Fire the provider change event after models are resolved so UI knows usable providers are available
-			this._resolveLanguageModels(vendor, true).then(() => {
-				this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
-				this._onDidChangeProviders.fire({ added: [vendor] });
-				this._onLanguageModelChange.fire(vendor);
-			});
-			// --- End Positron ---
-		}
+		// --- Start Positron ---
+		// Fire the provider change event after models are resolved so UI knows usable providers are available
+		//if (this._hasStoredModelForVendor(vendor)) {
+		this._resolveLanguageModels(vendor, true).then(() => {
+			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
+			this._onDidChangeProviders.fire({ added: [vendor] });
+			this._onLanguageModelChange.fire(vendor);
+		});
+		//}
+		// --- End Positron ---
 
 		const modelChangeListener = provider.onDidChange(async () => {
 			await this._resolveLanguageModels(vendor, true);

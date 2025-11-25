@@ -69,8 +69,30 @@ export class PositronNotebooks extends Notebooks {
 
 	/**
 	 * Get cell content at specified index.
+	 * @param cellIndex - The index of the cell.
+	 * @returns - The content of the cell.
 	 */
 	async getCellContent(cellIndex: number): Promise<string> {
+		const cellType = await this.getCellType(cellIndex);
+		return cellType === 'code'
+			? await this.getCodeCellContent(cellIndex)
+			: await this.getMarkdownCellContent(cellIndex);
+	}
+
+
+	/**
+	 * Get markdown cell content at specified index.
+	 */
+	private async getMarkdownCellContent(cellIndex: number): Promise<string> {
+		return await test.step(`Get markdown content of cell at index: ${cellIndex}`, async () => {
+			return await this.cellMarkdown(cellIndex).textContent() ?? '';
+		});
+	}
+
+	/**
+	 * Get code cell content at specified index.
+	 */
+	private async getCodeCellContent(cellIndex: number): Promise<string> {
 		return await test.step(`Get content of cell at index: ${cellIndex}`, async () => {
 			const editor = this.cell.nth(cellIndex).locator('.positron-cell-editor-monaco-widget .view-lines');
 			const content = await editor.textContent() ?? '';
@@ -182,6 +204,7 @@ export class PositronNotebooks extends Notebooks {
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
+				await this.expectCellCountToBe(totalCellsAdded + 1);
 				totalCellsAdded++;
 			}
 		}
@@ -190,10 +213,10 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < markdownCells; i++) {
 				await this.addCell('markdown');
 				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				await this.expectCellCountToBe(totalCellsAdded + 1);
 				totalCellsAdded++;
 			}
 		}
-		await this.expectCellCountToBe(codeCells + markdownCells);
 	}
 
 	/**
@@ -419,9 +442,6 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow'): Promise<void> {
 		await test.step(`Perform cell action: ${action}`, async () => {
-			// Press escape to ensure focus is out of the cell editor
-			await this.code.driver.page.keyboard.press('Escape');
-
 			// Note: We use direct keyboard shortcuts instead of hotKeys/clipboard helpers
 			// because Positron Notebooks uses Jupyter-style single-key shortcuts (C/X/V/Z)
 			// in command mode, not the standard Cmd+C/X/V/Z shortcuts
@@ -531,7 +551,10 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
-			const actualContent = await this.getCellContent(cellIndex);
+			const cellType = await this.getCellType(cellIndex);
+			const actualContent = cellType === 'code'
+				? await this.getCodeCellContent(cellIndex)
+				: await this.getMarkdownCellContent(cellIndex);
 			await expect(async () => {
 				expect(actualContent).toBe(expectedContent);
 			}).toPass({ timeout: DEFAULT_TIMEOUT });
@@ -548,7 +571,7 @@ export class PositronNotebooks extends Notebooks {
 			`Expect cell ${cellIndex} content to contain: ${expected instanceof RegExp ? expected.toString() : expected}`,
 			async () => {
 				await expect(async () => {
-					const actualContent = await this.getCellContent(cellIndex);
+					const actualContent = await this.getCodeCellContent(cellIndex);
 
 					if (expected instanceof RegExp) {
 						expect(actualContent).toMatch(expected);
@@ -676,6 +699,19 @@ export class PositronNotebooks extends Notebooks {
 				await assertion.toBeVisible({ timeout });
 			} else {
 				await assertion.not.toBeVisible({ timeout });
+			}
+		});
+	}
+
+	/**
+	 * Verify: multiple cells are selected.
+	 * @param expectedIndices - The indices of the cells expected to be selected.
+	 * @param timeout - Timeout for the expectation.
+	 */
+	async expectCellsToBeSelected(expectedIndices: number[], timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Verify cells at indices [${expectedIndices.join(', ')}] are selected`, async () => {
+			for (const index of expectedIndices) {
+				await this.expectCellIndexToBeSelected(index, { isSelected: true, timeout });
 			}
 		});
 	}
@@ -869,6 +905,18 @@ export class Kernel {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.statusBadge,
 				menuItemLabel: /Open Notebook Console/
+			});
+		});
+	}
+
+	/**
+	 * Action: Insert code cell above/below
+	 */
+	async insertCodeCell(position: 'above' | 'below'): Promise<void> {
+		await test.step(`Insert code cell ${position} via kernel menu`, async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: new RegExp(`Insert Code Cell ${position === 'above' ? 'Above' : 'Below'}`)
 			});
 		});
 	}

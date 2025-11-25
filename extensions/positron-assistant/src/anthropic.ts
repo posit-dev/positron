@@ -11,9 +11,10 @@ import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMe
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
-import { availableModels } from './models.js';
+import { getAllModelDefinitions } from './modelDefinitions.js';
 import { LanguageModelDataPartMimeType } from './types.js';
 import { applyModelFilters } from './modelFilters.js';
+import { createModelInfo, markDefaultModel } from './modelResolutionHelpers.js';
 
 export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
 export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
@@ -90,10 +91,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async provideLanguageModelChatInformation(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		log.trace(`[${this.providerName}] Preparing language model chat information...`);
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
 		const models = await this.resolveModels(token) ?? [];
 
-		log.trace(`[${this.providerName}] Resolved ${models.length} models.`);
+		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
 	}
 
@@ -234,15 +235,74 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
-	private isDefaultUserModel(id: string, name?: string): boolean {
-		const config = vscode.workspace.getConfiguration('positron.assistant');
-		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
-		if ('anthropic-api' in defaultModels) {
-			if (id.includes(defaultModels['anthropic-api']) || name?.includes(defaultModels['anthropic-api'])) {
-				return true;
-			}
+	private retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+		const configuredModels = getAllModelDefinitions(this.provider);
+		if (configuredModels.length === 0) {
+			return undefined;
 		}
-		return id.includes(DEFAULT_ANTHROPIC_MODEL_MATCH);
+
+		log.info(`[${this.providerName}] Using ${configuredModels.length} configured models.`);
+
+		const modelListing = configuredModels.map((modelDef) =>
+			createModelInfo({
+				id: modelDef.identifier,
+				name: modelDef.name,
+				family: this.provider,
+				version: '',
+				provider: this.provider,
+				providerName: this.providerName,
+				capabilities: this.capabilities,
+				defaultMaxInput: modelDef.maxInputTokens,
+				defaultMaxOutput: modelDef.maxOutputTokens
+			})
+		);
+
+		return markDefaultModel(modelListing, this.provider, DEFAULT_ANTHROPIC_MODEL_MATCH);
+	}
+
+	private async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		try {
+			const modelListing: vscode.LanguageModelChatInformation[] = [];
+			const knownAnthropicModels = getAllModelDefinitions(this.provider);
+			let hasMore = true;
+			let nextPageToken: string | undefined;
+
+			log.trace(`[${this.providerName}] Fetching models from Anthropic API...`);
+
+			while (hasMore) {
+				const modelsPage = nextPageToken
+					? await this._client.models.list({ after_id: nextPageToken })
+					: await this._client.models.list();
+
+				modelsPage.data.forEach(model => {
+					const knownModel = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier));
+
+					modelListing.push(
+						createModelInfo({
+							id: model.id,
+							name: model.display_name,
+							family: this.provider,
+							version: model.created_at,
+							provider: this.provider,
+							providerName: this.providerName,
+							capabilities: this.capabilities,
+							defaultMaxInput: knownModel?.maxInputTokens,
+							defaultMaxOutput: knownModel?.maxOutputTokens
+						})
+					);
+				});
+
+				hasMore = modelsPage.has_more;
+				if (hasMore && modelsPage.data.length > 0) {
+					nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
+				}
+			}
+
+			return markDefaultModel(modelListing, this.provider, DEFAULT_ANTHROPIC_MODEL_MATCH);
+		} catch (error) {
+			log.warn(`[${this.providerName}] Failed to fetch models from Anthropic API: ${error}`);
+			return undefined;
+		}
 	}
 
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
@@ -301,85 +361,21 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		const modelListing: vscode.LanguageModelChatInformation[] = [];
-		const knownAnthropicModels = availableModels.get(this.provider);
-		const userSetMaxInputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxInputTokens', {});
-		const userSetMaxOutputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
-		let hasMore = true;
-		let nextPageToken: string | undefined;
+		log.debug(`[${this.providerName}] Resolving models...`);
 
-		log.trace(`[${this.providerName}] Fetching models from Anthropic API...`);
-
-		while (hasMore) {
-			const modelsPage = nextPageToken
-				? await this._client.models.list({ after_id: nextPageToken })
-				: await this._client.models.list();
-
-			modelsPage.data.forEach(model => {
-				const knownModel = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier));
-
-				const knownModelMaxInputTokens = knownModel?.maxInputTokens;
-				const maxInputTokens = userSetMaxInputTokens[model.id] ?? knownModelMaxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
-
-				const knownModelMaxOutputTokens = knownModel?.maxOutputTokens;
-				const maxOutputTokens = userSetMaxOutputTokens[model.id] ?? knownModelMaxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
-
-				modelListing.push({
-					id: model.id,
-					name: model.display_name,
-					family: this.provider,
-					version: model.created_at,
-					maxInputTokens: maxInputTokens,
-					maxOutputTokens: maxOutputTokens,
-					capabilities: this.capabilities,
-					isDefault: this.isDefaultUserModel(model.id, model.display_name),
-					isUserSelectable: true,
-				});
-			});
-
-			hasMore = modelsPage.has_more;
-			if (hasMore && modelsPage.data.length > 0) {
-				nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
-			}
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			this.modelListing = configuredModels;
+			return configuredModels;
 		}
 
-		if (modelListing.length === 0) {
-			modelListing.push({
-				id: this.id,
-				name: this.name,
-				family: this.provider,
-				version: this._context?.extension.packageJSON.version ?? '',
-				maxInputTokens: this.maxInputTokens,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
-				isDefault: true,
-				isUserSelectable: true,
-			});
+		const apiModels = await this.retrieveModelsFromApi();
+		if (apiModels) {
+			this.modelListing = apiModels;
+			return apiModels;
 		}
 
-		// Mark models as default, ensuring only one default per provider
-		let hasDefault = false;
-		for (let i = 0; i < modelListing.length; i++) {
-			const model = modelListing[i];
-			if (!hasDefault && this.isDefaultUserModel(model.id, model.name)) {
-				modelListing[i] = { ...model, isDefault: true };
-				hasDefault = true;
-			} else {
-				modelListing[i] = { ...model, isDefault: false };
-			}
-		}
-
-		// If no models match the default ID, make the first model the default.
-		if (modelListing.length > 0 && !hasDefault) {
-			modelListing[0] = {
-				...modelListing[0],
-				isDefault: true,
-			};
-		}
-
-		this.modelListing = modelListing;
-
-		return modelListing;
+		return undefined;
 	}
 }
 
@@ -597,6 +593,7 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 	const input_schema = tool.inputSchema as Anthropic.Tool.InputSchema ?? {
 		type: 'object',
 		properties: {},
+		required: []
 	};
 	if (!input_schema.type) {
 		log.warn(`[Anthropic] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);

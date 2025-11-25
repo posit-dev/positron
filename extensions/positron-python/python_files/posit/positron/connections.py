@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import json
 import logging
 import re
 import uuid
+import warnings
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
 import comm
@@ -40,6 +42,14 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionWarning(UserWarning):
+    """
+    Warning raised when there are issues in the Connections Pane relevant to the user.
+
+    This type of warning is shown once in the Console per session.
+    """
 
 
 class ConnectionObjectInfo(TypedDict):
@@ -308,6 +318,8 @@ class ConnectionsService:
             return SQLAlchemyConnection(obj)
         elif safe_isinstance(obj, "duckdb", "DuckDBPyConnection"):
             return DuckDBConnection(obj)
+        elif safe_isinstance(obj, "google.cloud.bigquery.client", "Client"):
+            return GoogleBigQueryConnection(obj)
         elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
             return SnowflakeConnection(obj)
         elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
@@ -325,6 +337,10 @@ class ConnectionsService:
                 safe_isinstance(obj, "sqlite3", "Connection")
                 or safe_isinstance(obj, "sqlalchemy", "Engine")
                 or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
+                or (
+                    safe_isinstance(obj, "google.cloud.bigquery.client", "Client")
+                    and getattr(obj, "project", None) is not None
+                )
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
                 or safe_isinstance(obj, "databricks.sql.client", "Connection")
             )
@@ -519,7 +535,11 @@ class ConnectionsService:
                 var_name = decode_access_key(path_key[0])
 
         res, sql_string = conn.preview_object(request.params.path, var_name)
-        title = request.params.path[-1].name
+        try:
+            preview = "" if len(res) < 1000 else " (preview)"
+        except TypeError:  # res does not have len
+            preview = ""
+        title = request.params.path[-1].name + preview
 
         self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 
@@ -571,8 +591,7 @@ class SQLite3Connection(Connection):
             schema = path[0]
             if schema.kind != "schema":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'. Path: {path}"
                 )
 
             # https://www.sqlite.org/schematab.html
@@ -604,7 +623,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                f"Path must include a schema and a table/view in this order. Path: {path}"
             )
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
@@ -630,7 +649,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                f"Path must include a schema and a table/view in this order. Path: {path}"
             )
 
         sql_string = f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;"
@@ -685,8 +704,7 @@ class SQLAlchemyConnection(Connection):
             schema = path[0]
             if schema.kind != "schema":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'. Path: {path}"
                 )
 
             tables = sqlalchemy.inspect(self.conn).get_table_names(schema.name)
@@ -760,14 +778,13 @@ class SQLAlchemyConnection(Connection):
     def _check_table_path(self, path: list[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"
+                f"Invalid path. Length path ({len(path)}) expected to be 2. Path: {path}"
             )
 
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Invalid path. Expected path to contain a schema and a table/view.",
-                f"But got schema.kind={schema.kind} and table.kind={table.kind}",
+                f"Invalid path. Expected path to contain a schema and a table/view. But got schema.kind={schema.kind} and table.kind={table.kind}",
             )
 
 
@@ -811,8 +828,7 @@ class DuckDBConnection(Connection):
             catalog = path[0]
             if catalog.kind != "catalog":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'. Path: {path}"
                 )
 
             res = self.conn.execute(
@@ -832,7 +848,7 @@ class DuckDBConnection(Connection):
             catalog, schema = path
             if catalog.kind != "catalog" or schema.kind != "schema":
                 raise ValueError(
-                    "Path must include a catalog and a schema in this order.", f"Path: {path}"
+                    f"Path must include a catalog and a schema in this order. Path: {path}"
                 )
 
             res = self.conn.execute(
@@ -867,8 +883,7 @@ class DuckDBConnection(Connection):
             or catalog.kind != "catalog"
         ):
             raise ValueError(
-                "Path must include a catalog, a schema and a table/view in this order.",
-                f"Path: {path}",
+                f"Path must include a catalog, a schema and a table/view in this order. Path: {path}"
             )
 
         # Query for column information
@@ -897,8 +912,7 @@ class DuckDBConnection(Connection):
             or catalog.kind != "catalog"
         ):
             raise ValueError(
-                "Path must include a catalog, a schema and a table/view in this order.",
-                f"Path: {path}",
+                f"Path must include a catalog, a schema and a table/view in this order. Path: {path}"
             )
 
         # Use DuckDB's native pandas integration via .df() method
@@ -918,6 +932,136 @@ class DuckDBConnection(Connection):
 
     def disconnect(self):
         self.conn.close()  # type: ignore
+
+
+class GoogleBigQueryConnection(Connection):
+    """Support for Google BigQuery client connections."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+
+        if importlib.util.find_spec("db_dtypes") is None:
+            warnings.warn(
+                "db_dtypes is not installed and it's required for previewing tables from Google BigQuery connections. ",
+                category=ConnectionWarning,
+                stacklevel=1,
+            )
+
+        if conn.project is None:
+            raise UnsupportedConnectionError("BigQuery client must have a project set.")
+
+        self.host = conn.project
+        self.display_name = f"Google BigQuery ({conn.project})"
+        self.type = "GoogleBigQuery"
+        self.code = (
+            "from google.cloud import bigquery\n"
+            f"client = bigquery.Client(project={conn.project!r})\n"
+            "%connection_show client\n"
+        )
+
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNHB4IiBoZWlnaHQ9IjI0cHgiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiNhZWNiZmE7fS5jbHMtMSwuY2xzLTIsLmNscy0ze2ZpbGwtcnVsZTpldmVub2RkO30uY2xzLTJ7ZmlsbDojNjY5ZGY2O30uY2xzLTN7ZmlsbDojNDI4NWY0O308L3N0eWxlPjwvZGVmcz48dGl0bGU+SWNvbl8yNHB4X0JpZ1F1ZXJ5X0NvbG9yPC90aXRsZT48ZyBkYXRhLW5hbWU9IlByb2R1Y3QgSWNvbnMiPjxnID48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik02LjczLDEwLjgzdjIuNjNBNC45MSw0LjkxLDAsMCwwLDguNDQsMTUuMlYxMC44M1oiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik05Ljg5LDguNDF2Ny41M0E3LjYyLDcuNjIsMCwwLDAsMTEsMTYsOCw4LDAsMCwwLDEyLDE2VjguNDFaIi8+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNMTMuNjQsMTEuODZ2My4yOWE1LDUsMCwwLDAsMS43LTEuODJWMTEuODZaIi8+PHBhdGggY2xhc3M9ImNscy0zIiBkPSJNMTcuNzQsMTYuMzJsLTEuNDIsMS40MmEuNDIuNDIsMCwwLDAsMCwuNmwzLjU0LDMuNTRhLjQyLjQyLDAsMCwwLC41OSwwbDEuNDMtMS40M2EuNDIuNDIsMCwwLDAsMC0uNTlsLTMuNTQtMy41NGEuNDIuNDIsMCwwLDAtLjYsMCIvPjxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTExLDJhOSw5LDAsMSwwLDksOSw5LDksMCwwLDAtOS05bTAsMTUuNjlBNi42OCw2LjY4LDAsMSwxLDE3LjY5LDExLDYuNjgsNi42OCwwLDAsMSwxMSwxNy42OSIvPjwvZz48L2c+PC9zdmc+"
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            datasets = self.conn.list_datasets(project=self.conn.project)
+            return [
+                ConnectionObject({"name": dataset.dataset_id, "kind": "dataset"})
+                for dataset in datasets
+            ]
+
+        if len(path) == 1:
+            dataset = path[0]
+            if dataset.kind != "dataset":
+                raise ValueError(
+                    f"Invalid path. Expected it to include a dataset, but got '{dataset.kind}'. Path: {path}",
+                )
+
+            dataset_identifier = self._dataset_identifier(dataset.name)
+            tables = self.conn.list_tables(dataset_identifier)
+
+            objects: list[ConnectionObject] = []
+            for table in tables:
+                table_kind = (
+                    "view" if table.table_type in {"VIEW", "MATERIALIZED_VIEW"} else "table"
+                )
+                objects.append(ConnectionObject({"name": table.table_id, "kind": table_kind}))
+
+            return objects
+
+        raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        dataset, table = self._validate_table_path(path)
+        table_obj = self._get_table(dataset.name, table.name)
+        return [
+            ConnectionObjectFields({"name": field.name, "dtype": field.field_type})
+            for field in table_obj.schema
+        ]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        dataset, table = self._validate_table_path(path)
+        table_ref = self._table_identifier(dataset.name, table.name)
+        var_name = var_name or "conn"
+        table_obj = self._get_table(dataset.name, table.name)
+
+        if self._is_view(table, table_obj):
+            query = f"SELECT * FROM `{table_ref}` LIMIT 1000"
+            result = self.conn.query(query).to_dataframe()
+            sql_string = (
+                f"# {table.name} = {var_name}.query({query!r}).to_dataframe()"
+                f" # where {var_name} is your connection variable"
+            )
+        else:
+            rows = self.conn.list_rows(table_ref, max_results=1000)
+            result = rows.to_dataframe()
+            sql_string = (
+                f"# {table.name} = {var_name}.list_rows({table_ref!r}, max_results=1000).to_dataframe()"
+                f" # where {var_name} is your connection variable"
+            )
+
+        return result, sql_string
+
+    def list_object_types(self):
+        return {
+            "dataset": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+        }
+
+    def disconnect(self):
+        self.conn.close()
+
+    def _dataset_identifier(self, dataset_name: str) -> str:
+        if "." in dataset_name or ":" in dataset_name:
+            return dataset_name
+        return f"{self.conn.project}.{dataset_name}"
+
+    def _table_identifier(self, dataset_name: str, table_name: str) -> str:
+        dataset_identifier = self._dataset_identifier(dataset_name)
+        return f"{dataset_identifier}.{table_name}"
+
+    def _get_table(self, dataset_name: str, table_name: str):
+        table_ref = self._table_identifier(dataset_name, table_name)
+        return self.conn.get_table(table_ref)
+
+    def _validate_table_path(self, path: list[ObjectSchema]) -> tuple[ObjectSchema, ObjectSchema]:
+        if len(path) != 2:
+            raise ValueError(
+                f"Invalid path. Expected length 2 for dataset/table, but got {len(path)}. Path: {path}"
+            )
+
+        dataset, table = path
+        if dataset.kind != "dataset" or table.kind not in ["table", "view"]:
+            raise ValueError(
+                f"Path must include a dataset and a table/view in this order. Path: {path}"
+            )
+        return dataset, table
+
+    def _is_view(self, table: ObjectSchema, table_obj: Any) -> bool:
+        if table.kind == "view":
+            return True
+        table_type = getattr(table_obj, "table_type", "")
+        return table_type.upper() in {"VIEW", "MATERIALIZED_VIEW"}
 
 
 class SnowflakeConnection(Connection):
@@ -1059,7 +1203,7 @@ class DatabricksConnection(Connection):
         if len(path) == 1:
             catalog = path[0]
             if catalog.kind != "catalog":
-                raise ValueError("Expected catalog on path position 0.", f"Path: {path}")
+                raise ValueError(f"Expected catalog on path position 0.  Path: {path}")
             catalog_ident = self._qualify(catalog.name)
             rows = self._query(f"SHOW SCHEMAS IN {catalog_ident};")
             return [
@@ -1076,7 +1220,7 @@ class DatabricksConnection(Connection):
             catalog, schema = path
             if catalog.kind != "catalog" or schema.kind != "schema":
                 raise ValueError(
-                    "Expected catalog and schema objects at positions 0 and 1.", f"Path: {path}"
+                    f"Expected catalog and schema objects at positions 0 and 1. Path: {path}"
                 )
             location = f"{self._qualify(catalog.name)}.{self._qualify(schema.name)}"
 
@@ -1121,8 +1265,7 @@ class DatabricksConnection(Connection):
             or table.kind not in ("table", "view")
         ):
             raise ValueError(
-                "Expected catalog, schema, and table/view kinds in the path.",
-                f"Path: {path}",
+                f"Expected catalog, schema, and table/view kinds in the path. Path: {path}",
             )
 
         identifier = ".".join(
@@ -1150,8 +1293,7 @@ class DatabricksConnection(Connection):
             or table.kind not in ("table", "view")
         ):
             raise ValueError(
-                "Expected catalog, schema, and table/view kinds in the path.",
-                f"Path: {path}",
+                f"Expected catalog, schema, and table/view kinds in the path. Path: {path}",
             )
 
         identifier = ".".join(

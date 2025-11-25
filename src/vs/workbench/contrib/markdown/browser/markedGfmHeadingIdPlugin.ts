@@ -16,6 +16,10 @@ function slugify(heading: string): string {
 
 	return slugifiedHeading;
 }
+// --- Start Positron ---
+// Export so we can use in positron code
+export { slugify };
+// --- End Positron ---
 
 // Copied from https://github.com/markedjs/marked-gfm-heading-id/blob/main/src/index.js
 // Removed logic for handling duplicate header ids for now
