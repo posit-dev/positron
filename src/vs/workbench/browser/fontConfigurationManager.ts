@@ -7,9 +7,10 @@ import * as DOM from '../../base/browser/dom.js';
 import { IDisposable } from '../../base/common/lifecycle.js';
 import { PixelRatio } from '../../base/browser/pixelRatio.js';
 import { applyFontInfo } from '../../editor/browser/config/domFontInfo.js';
-import { BareFontInfo, FontInfo } from '../../editor/common/config/fontInfo.js';
+import { FontInfo } from '../../editor/common/config/fontInfo.js';
 import { FontMeasurements } from '../../editor/browser/config/fontMeasurements.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { createBareFontInfoFromRawSettings } from '../../editor/common/config/fontInfoFromSettings.js';
 
 /**
  * Font options interface. Any component that needs to provide font options can define configuration settings
@@ -81,7 +82,7 @@ export class FontConfigurationManager {
 		// Return the font info for the window.
 		return FontMeasurements.readFontInfo(
 			window,
-			BareFontInfo.createFromRawSettings(fontOptions, PixelRatio.getInstance(window).value)
+			createBareFontInfoFromRawSettings(fontOptions, PixelRatio.getInstance(window).value)
 		);
 	}
 

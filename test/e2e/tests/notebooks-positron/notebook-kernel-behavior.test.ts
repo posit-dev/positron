@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path from 'path/win32';
+import path from 'path';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Kernel Behavior', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SOFT_FAIL] // soft fail due to https://github.com/posit-dev/positron/issues/10546
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
@@ -173,7 +173,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'R',
 			status: 'idle'
 		});
-	})
+	});
 
 	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
@@ -195,7 +195,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// terminate notebook session
 		await sessions.select('Untitled-1.ipynb');
-		await console.executeCode('R', 'q()', { waitForReady: false, maximizeConsole: false });
+		await console.pasteCodeToConsole('q()', true);
 
 		// verify session is terminated in both kernel and sessions list
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'disconnected');
@@ -203,7 +203,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'R',
 			status: 'disconnected'
 		});
-	})
+	});
 });
 
 const rDataFrame = `data.frame(

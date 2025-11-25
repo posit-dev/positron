@@ -54,7 +54,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.104.0"
+        "vscode": "^1.106.0"
     },
     "enableTelemetry": false,
     "keywords": [
@@ -735,6 +735,20 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.languageServer": {
+                    "type": "string",
+                    "description": "%python.languageServer.description%",
+                    "scope": "window",
+                    "enum": [
+                        "None"
+                    ],
+                    "enumDescriptions": [
+                        "%python.languageServer.noneDescription%"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "python.languageServerDebug": {
                     "default": false,
                     "description": "%python.languageServerDebug.description%",
@@ -986,12 +1000,10 @@
             "type": "object"
         },
         "configurationDefaults": {
-            "pyright.disableLanguageServices": true,
-            "pyright.disableOrganizeImports": true,
-            "pyright.disablePullDiagnostics": true,
-            "python.analysis.autoImportCompletions": false,
-            "python.analysis.typeCheckingMode": "off",
-            "ruff.importStrategy": "useBundled"
+            "ruff.importStrategy": "useBundled",
+            "[python]": {
+                "editor.inlayHints.enabled": "offUnlessPressed"
+            }
         },
         "debuggers": [
             {
@@ -1899,50 +1911,6 @@
         ],
         "languageModelTools": [
             {
-                "name": "getAttachedPythonPackages",
-                "displayName": "Get attached Python packages",
-                "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "toolReferenceName": "getAttachedPythonPackages",
-                "icon": "$(package)",
-                "userDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "canBeReferencedInPrompt": true,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "sessionIdentifier": {
-                            "type": "string",
-                            "description": "The identifier of the session to get the attached Python packages from. If one is not provided, the foreground console session is used."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
-                "name": "getInstalledPythonPackageVersion",
-                "displayName": "Get installed Python package version",
-                "modelDescription": "Given the name of a Python package, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
-                "toolReferenceName": "getInstalledPythonPackageVersion",
-                "icon": "$(package)",
-                "userDescription": "Gets the version of an installed Python package in the current session.",
-                "canBeReferencedInPrompt": true,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "paramName": {
-                            "type": "string",
-                            "description": "The name of the Python package to check the version of."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
                 "name": "get_python_environment_details",
                 "displayName": "Get Python Environment Info",
                 "when": "false",
@@ -2195,7 +2163,7 @@
         "@types/sinon": "^17.0.3",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
-        "@types/vscode": "^1.104.0",
+        "@types/vscode": "^1.106.0",
         "@types/webpack": "^5.28.5",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",

@@ -5,7 +5,7 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings } from '../../common/positronPlots.js';
+import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings, PlotsDisplayLocation } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 
@@ -54,6 +54,11 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	private _selectedDarkFilterMode: DarkFilter = DarkFilter.Auto;
 
 	/**
+	 * Gets or sets the current display location.
+	 */
+	private _displayLocation: PlotsDisplayLocation = PlotsDisplayLocation.MainWindow;
+
+	/**
 	 * The onDidEmitPlot event emitter.
 	 */
 	private readonly _onDidEmitPlotEmitter =
@@ -98,6 +103,12 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter =
 		this._register(new Emitter<IPositronPlotSizingPolicy>());
+
+	/**
+	 * The onDidChangeDisplayLocation event emitter.
+	 */
+	private readonly _onDidChangeDisplayLocationEmitter =
+		this._register(new Emitter<PlotsDisplayLocation>());
 
 	//#endregion Private Properties
 
@@ -169,6 +180,13 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	}
 
 	/**
+	 * Gets the current display location.
+	 */
+	get displayLocation(): PlotsDisplayLocation {
+		return this._displayLocation;
+	}
+
+	/**
 	 * The onDidEmitPlot event.
 	 */
 	readonly onDidEmitPlot = this._onDidEmitPlotEmitter.event;
@@ -207,6 +225,11 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * The onDidChangeSizingPolicy event.
 	 */
 	readonly onDidChangeSizingPolicy = this._onDidChangeSizingPolicyEmitter.event;
+
+	/**
+	 * The onDidChangeDisplayLocation event.
+	 */
+	readonly onDidChangeDisplayLocation = this._onDidChangeDisplayLocationEmitter.event;
 
 	/**
 	 * Gets the cached plot thumbnail URI for a given plot ID.
@@ -366,6 +389,16 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	setDarkFilterMode(mode: DarkFilter): void {
 		this._selectedDarkFilterMode = mode;
 		this._onDidChangeDarkFilterModeEmitter.fire(mode);
+	}
+
+	/**
+	 * Sets the display location.
+	 */
+	setDisplayLocation(location: PlotsDisplayLocation): void {
+		if (this._displayLocation !== location) {
+			this._displayLocation = location;
+			this._onDidChangeDisplayLocationEmitter.fire(location);
+		}
 	}
 
 	/**

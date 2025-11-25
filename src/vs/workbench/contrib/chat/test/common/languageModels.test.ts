@@ -18,10 +18,8 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { TestChatEntitlementService, TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { Event } from '../../../../../base/common/event.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-
-// --- Start Positron ---
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-// --- End Positron ---
+import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 
 suite('LanguageModels', function () {
 
@@ -139,6 +137,158 @@ suite('LanguageModels', function () {
 		assert.deepStrictEqual(result2.length, 0);
 	});
 
+	// --- Start Positron ---
+	test('model filtering is applied to copilot vendor', async function () {
+		// Register the extension point for copilot first
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'copilot' },
+			collector: null!
+		}]);
+
+		// Register copilot provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('copilot', new ExtensionIdentifier('copilot-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-4',
+						vendor: 'copilot',
+						family: 'gpt-4',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-3.5',
+						vendor: 'copilot',
+						family: 'gpt-3.5',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-3.5-turbo',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// First, verify without filtering - should return both models
+		const unfilteredResult = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+		assert.strictEqual(unfilteredResult.length, 2);
+
+		// Now, set up filtering config to only allow gpt-4
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // Only allow gpt-4 models
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all copilot models - should be filtered to only gpt-4
+			const result = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0], 'gpt-4');
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+
+	// This filtering is applied in the Positron Assistant extension for non-copilot providers
+	test('model filtering is NOT applied to non-copilot vendors', async function () {
+		// Register the extension point for a non-copilot vendor
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'other-vendor' },
+			collector: null!
+		}]);
+
+		// Register other-vendor provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('other-vendor', new ExtensionIdentifier('other-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 1',
+						vendor: 'other-vendor',
+						family: 'model-1',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 2',
+						vendor: 'other-vendor',
+						family: 'model-2',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-5',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// Mock the configuration to return filter settings that would filter out models
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // This should match, but since vendor is not copilot, filtering should not apply
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all other-vendor models - should NOT be filtered even with filter config present
+			const result = await languageModels.selectLanguageModels({ vendor: 'other-vendor' });
+
+			// Should return both models since filtering is only applied to copilot
+			assert.strictEqual(result.length, 2);
+			assert.deepStrictEqual(result.sort(), ['gpt-4', 'gpt-5']);
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+	// --- End Positron ---
+
 	test('sendChatRequest returns a response-stream', async function () {
 
 		// --- Start Positron ---
@@ -212,5 +362,95 @@ suite('LanguageModels', function () {
 		cts.dispose(true);
 
 		await request.result;
+	});
+
+	test('when clause defaults to true when omitted', async function () {
+		const vendors = languageModels.getVendors();
+		// Both test-vendor and actual-vendor have no when clause, so they should be visible
+		assert.ok(vendors.length >= 2);
+		assert.ok(vendors.some(v => v.vendor === 'test-vendor'));
+		assert.ok(vendors.some(v => v.vendor === 'actual-vendor'));
+	});
+});
+
+suite('LanguageModels - When Clause', function () {
+
+	class TestContextKeyService extends MockContextKeyService {
+		override contextMatchesRules(rules: ContextKeyExpression): boolean {
+			if (!rules) {
+				return true;
+			}
+			// Simple evaluation based on stored keys
+			const keys = rules.keys();
+			for (const key of keys) {
+				const contextKey = this.getContextKeyValue(key);
+				// If the key exists and is truthy, the rule matches
+				if (contextKey) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	let languageModelsWithWhen: LanguageModelsService;
+	let contextKeyService: TestContextKeyService;
+
+	setup(function () {
+		contextKeyService = new TestContextKeyService();
+		contextKeyService.createKey('testKey', true);
+
+		languageModelsWithWhen = new LanguageModelsService(
+			new TestConfigurationService(),
+			new class extends mock<IExtensionService>() {
+				override activateByEvent(name: string) {
+					return Promise.resolve();
+				}
+			},
+			new NullLogService(),
+			new TestStorageService(),
+			contextKeyService,
+			new TestChatEntitlementService()
+		);
+
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'visible-vendor', displayName: 'Visible Vendor' },
+			collector: null!
+		}, {
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'conditional-vendor', displayName: 'Conditional Vendor', when: 'testKey' },
+			collector: null!
+		}, {
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'hidden-vendor', displayName: 'Hidden Vendor', when: 'falseKey' },
+			collector: null!
+		}]);
+	});
+
+	teardown(function () {
+		languageModelsWithWhen.dispose();
+	});
+
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	test('when clause filters vendors correctly', async function () {
+		const vendors = languageModelsWithWhen.getVendors();
+		assert.strictEqual(vendors.length, 2);
+		assert.ok(vendors.some(v => v.vendor === 'visible-vendor'));
+		assert.ok(vendors.some(v => v.vendor === 'conditional-vendor'));
+		assert.ok(!vendors.some(v => v.vendor === 'hidden-vendor'));
+	});
+
+	test('when clause evaluates to true when context key is true', async function () {
+		const vendors = languageModelsWithWhen.getVendors();
+		assert.ok(vendors.some(v => v.vendor === 'conditional-vendor'), 'conditional-vendor should be visible when testKey is true');
+	});
+
+	test('when clause evaluates to false when context key is false', async function () {
+		const vendors = languageModelsWithWhen.getVendors();
+		assert.ok(!vendors.some(v => v.vendor === 'hidden-vendor'), 'hidden-vendor should be hidden when falseKey is false');
 	});
 });

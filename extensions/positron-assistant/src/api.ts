@@ -7,7 +7,8 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
+import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext } from './tools/notebookUtils.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
@@ -57,7 +58,11 @@ export class PositronAssistantApi {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 		const streamingEdits = isStreamingEditsEnabled();
-		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits }).content;
+
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
+
+		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits, notebookContext }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -133,6 +138,18 @@ export class PositronAssistantApi {
 }
 
 /**
+ * Copilot notebook tool names that should be disabled when Positron notebook mode is active.
+ * These tools conflict with Positron's specialized notebook tools.
+ */
+const COPILOT_NOTEBOOK_TOOLS = new Set([
+	'copilot_editNotebook',
+	'copilot_getNotebookSummary',
+	'copilot_runNotebookCell',
+	'copilot_readNotebookCellOutput',
+	'copilot_createNewJupyterNotebook',
+]);
+
+/**
  * Gets the set of enabled tools for a chat request.
  *
  * @param request The chat request to get enabled tools for.
@@ -172,6 +189,9 @@ export function getEnabledTools(
 			hasVariables = true;
 		}
 	}
+
+	// Check if a notebook is attached as context and has an active editor
+	const hasActiveNotebook = hasAttachedNotebookContext(request);
 
 	// Define more readable variables for filtering.
 	const inChatPane = request.location2 === undefined;
@@ -216,6 +236,12 @@ export function getEnabledTools(
 			}
 		}
 
+		// If the tool requires a notebook, but no notebook is attached with active editor,
+		// skip it early. Specific notebook tools have additional mode-based checks below.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
+			continue;
+		}
+
 		// If the tool is designed for Positron Assistant but we don't have a
 		// Positron assistant ID, skip it.
 		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
@@ -234,6 +260,29 @@ export function getEnabledTools(
 				// when in agent mode; it does not currently support
 				// notebook mode.
 				if (!(inChatPane && hasConsoleSessions && isAgentMode)) {
+					continue;
+				}
+				break;
+			// Notebook tools require both a notebook attached as context AND an active notebook editor.
+			// Tool availability varies by mode:
+			// - Execution tools (RunNotebookCells): Agent mode only
+			// - Modification tools (EditNotebookCells): Edit and Agent modes
+			// - Read-only tools (GetNotebookCells): All modes (Ask, Edit, Agent)
+			case PositronAssistantToolName.RunNotebookCells:
+				// Execution requires Agent mode
+				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.EditNotebookCells:
+				// Modification requires Edit or Agent mode
+				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.GetNotebookCells:
+				// Read-only tools available in all modes
+				if (!(inChatPane && hasActiveNotebook)) {
 					continue;
 				}
 				break;
@@ -297,6 +346,13 @@ export function getEnabledTools(
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.
 		const copilotTool = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+
+		// Disable Copilot notebook tools when Positron notebook mode is active
+		// to avoid conflicts with Positron's specialized notebook tools.
+		if (copilotTool && hasActiveNotebook && COPILOT_NOTEBOOK_TOOLS.has(tool.name)) {
+			continue;
+		}
+
 		// Check if the user is signed into Copilot.
 		let copilotEnabled;
 		try {

@@ -22,7 +22,7 @@ import { ServerParsedArgs } from './serverEnvironmentService.js';
 // --- End PWB ---
 
 perf.mark('code/server/codeLoaded');
-(<any>global).vscodeServerCodeLoadedTime = performance.now();
+(global as unknown as { vscodeServerCodeLoadedTime?: number }).vscodeServerCodeLoadedTime = performance.now();
 
 const errorReporter: ErrorReporter = {
 	onMultipleValues: (id: string, usedValue: string) => {

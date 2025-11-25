@@ -158,6 +158,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
 	keys(): {
 		default: string[];
+		policy: string[];
 		user: string[];
 		workspace: string[];
 		workspaceFolder: string[];

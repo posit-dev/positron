@@ -34,10 +34,10 @@ export const FileContentsToolData: IToolData = {
 		type: 'object',
 		properties: {
 			filePath: {
+				// --- Start Positron ---
 				type: 'string',
-				description: 'The absolute file path to get the contents of. The file path must be a path to a file in the workspace or a file that is currently open in the editor.',
+				description: 'The file path to get the contents of. Only use absolute paths if you are sure the file you are retrieving is outside of the current workspace, otherwise use relative paths.',
 			},
-			// --- Start Positron ---
 			lines: {
 				type: 'array',
 				items: { type: 'number' },
@@ -121,7 +121,7 @@ export class FileContentsTool implements IToolImpl {
 
 		// If we have a chat context, create a clickable file reference
 		if (invocation.context) {
-			const model = this._chatService.getSession(invocation.context?.sessionId) as ChatModel;
+			const model = this._chatService.getSessionByLegacyId(invocation.context?.sessionId) as ChatModel;
 			const request = model.getRequests().at(-1)!;
 			model.acceptResponseProgress(request, {
 				kind: 'inlineReference',

@@ -40,7 +40,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (ubuntu)"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
@@ -58,7 +57,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (windows)"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       upload_logs: false
       allow_soft_fail: false
@@ -74,7 +72,6 @@ jobs:
       display_name: "chromium (ubuntu)"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
@@ -91,7 +88,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (RHEL)"
       currents_tags: "pull-request,electron/rhel,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
@@ -110,7 +106,6 @@ jobs:
       display_name: "chromium (RHEL)"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/rhel,${{ needs.pr-tags.outputs.tags }}"
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true

@@ -92,6 +92,46 @@
 	border-radius: 0;
 }
 
+/* --- Start Positron --- */
+/* Styles to support provider icons in action widget separators */
+body .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator {
+	border-top: none;
+	font-size: 10px;
+	text-transform: uppercase;
+	opacity: 0.7;
+	padding: 4px 8px 2px 8px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: auto;
+	min-height: 20px;
+}
+
+.action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator:not(:first-of-type) {
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
+}
+
+.action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator .separator-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator .provider-icon {
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
+	width: 16px;
+	height: 16px;
+	display: block;
+	margin-right: 6px;
+}
+
+.action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator .separator-text {
+	flex: 1;
+}
+/* --- End Positron --- */
+
 .action-widget .monaco-scrollable-element .monaco-list-rows .monaco-list-row.separator.focused {
 	outline: 0 solid;
 	background-color: transparent;

@@ -198,6 +198,18 @@
         "title": "%commands.managePromptFiles.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && isDevelopment"
+      },
+      {
+        "command": "positron-assistant.collectDiagnostics",
+        "title": "%commands.collectDiagnostics.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.resetState",
+        "title": "%commands.resetState.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [
@@ -278,7 +290,10 @@
           },
           "positron.assistant.followups.enable": {
             "type": "boolean",
-            "default": true,
+            "default": false,
+            "tags": [
+              "experimental"
+            ],
             "description": "%configuration.followups.enable.description%"
           },
           "positron.assistant.consoleActions.enable": {
@@ -287,6 +302,14 @@
             "description": "%configuration.consoleActions.enable.description%",
             "tags": [
               "preview"
+            ]
+          },
+          "positron.assistant.notebookMode.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.notebookMode.enable.description%",
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.toolErrors.propagate": {
@@ -302,22 +325,30 @@
           "positron.assistant.providerTimeout": {
             "type": "number",
             "default": 60,
-            "description": "%configuration.providerTimeout.description%",
+            "markdownDescription": "%configuration.providerTimeout.description%",
             "minimum": 1
+          },
+          "positron.assistant.maxConnectionAttempts": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 10,
+            "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "*Claude*",
-              "*GPT*",
-              "*claude*",
-              "*gpt*"
+              "claude",
+              "gpt"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
               "type": "string"
             },
             "examples": [
+              [
+                "sonnet"
+              ],
               [
                 "Claude*",
                 "GPT-5"
@@ -353,6 +384,86 @@
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
+            ],
+            "tags": [
+              "experimental"
+            ]
+          },
+          "positron.assistant.configuredModels": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.configuredModels.description%",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Display name for the model"
+                  },
+                  "identifier": {
+                    "type": "string",
+                    "description": "Model identifier for API calls"
+                  },
+                  "maxInputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum input tokens for this model"
+                  },
+                  "maxOutputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum output tokens for this model"
+                  }
+                },
+                "required": [
+                  "name",
+                  "identifier"
+                ]
+              }
+            },
+            "examples": [
+              {
+                "openai-compatible": [
+                  {
+                    "name": "Claude Sonnet 4.5",
+                    "identifier": "claude-sonnet-4-5",
+                    "maxInputTokens": 200000,
+                    "maxOutputTokens": 64000
+                  },
+                  {
+                    "name": "GPT-4 Turbo",
+                    "identifier": "gpt-4-turbo",
+                    "maxInputTokens": 8192,
+                    "maxOutputTokens": 2048
+                  }
+                ]
+              }
+            ],
+            "tags": [
+              "experimental"
+            ]
+          },
+          "positron.assistant.notebookSuggestions.model": {
+            "type": "array",
+            "default": [
+              "haiku",
+              "mini"
+            ],
+            "markdownDescription": "%configuration.notebookSuggestions.model.description%",
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              [
+                "haiku",
+                "mini"
+              ],
+              [
+                "Claude Sonnet 4.5",
+                "GPT-5"
+              ]
             ],
             "tags": [
               "experimental"
@@ -401,6 +512,11 @@
       {
         "vendor": "openai-compatible",
         "displayName": "Custom Provider",
+        "managementCommand": "positron-assistant.configureModels"
+      },
+      {
+        "vendor": "posit-ai",
+        "displayName": "Posit AI",
         "managementCommand": "positron-assistant.configureModels"
       }
     ],
@@ -638,27 +754,12 @@
                 "type": "string",
                 "description": "A Glob pattern to exclude from the project tree. Files and folders matching these patterns will be filtered out, even if they match an included Glob."
               },
-              "description": "Glob patterns to exclude from the project tree. These patterns will be applied in addition to the default excludes. By default, directories for dependencies, build artifacts, and other commonly ignored files are excluded, such as `.venv`, `venv`, `renv`, `node_modules`."
+              "description": "Glob patterns to exclude from the project tree. These patterns will be applied _in addition to_ the default excludes unless `skipDefaultExcludes` is true."
             },
-            "replaceDefaultExcludes": {
+            "skipDefaultExcludes": {
               "type": "boolean",
-              "description": "Whether to replace the default excludes with the provided `exclude` patterns. If false, the provided `exclude` patterns will be added to the default excludes.",
+              "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored files/directories). When true, only the explicit `exclude` patterns will be applied.",
               "default": false
-            },
-            "excludeSettings": {
-              "type": "string",
-              "description": "Which exclude settings to consult when filtering the project tree. Options are: filesExclude or searchAndFilesExclude, or an empty string for no exclude settings.",
-              "default": "searchAndFilesExclude"
-            },
-            "ignoreFiles": {
-              "type": "boolean",
-              "description": "Whether to ignore files that are listed in the `.gitignore` file or other ignore files.",
-              "default": true
-            },
-            "filterResults": {
-              "type": "boolean",
-              "description": "Whether to filter results using excludes and ignore files. If false, none of the excludes or ignores will be applied, and only the `include` patterns will be considered. Use this setting when providing specific includes to locate particular files and folders.",
-              "default": true
             },
             "maxFiles": {
               "type": "number",
@@ -669,6 +770,62 @@
           "required": [
             "include"
           ]
+        }
+      },
+      {
+        "name": "getDirectoryStructure",
+        "displayName": "Get Directory Structure",
+        "modelDescription": "Returns a list of directories without listing files within them. Empty directories are included. Unlike getProjectTree, this tool focuses on directories only and is more efficient for directory queries. Prefer this tool over running code in the terminal for finding directories.",
+        "icon": "$(folder)",
+        "toolReferenceName": "directoryStructure",
+        "userDescription": "Get the directory structure of the workspace.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-workspace"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Starting path to explore (relative to workspace root). Defaults to workspace root if not specified."
+            },
+            "maxDepth": {
+              "type": "number",
+              "description": "Maximum recursion depth. 1 shows only immediate subdirectories. Must be between 1 and 3.",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 3
+            },
+            "maxDirectories": {
+              "type": "number",
+              "description": "Maximum number of directories to return.",
+              "default": 50,
+              "maximum": 100
+            },
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A glob pattern to include directories."
+              },
+              "description": "Glob patterns to include directories. Only directories matching these patterns will be returned."
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A glob pattern to exclude directories."
+              },
+              "description": "Glob patterns to exclude directories. These patterns will be applied in addition to the default excludes unless `skipDefaultExcludes` is true."
+            },
+            "skipDefaultExcludes": {
+              "type": "boolean",
+              "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored directories). When true, only the explicit `exclude` patterns will be applied.",
+              "default": false
+            }
+          }
         }
       },
       {
@@ -707,6 +864,116 @@
               }
             }
           }
+        }
+      },
+      {
+        "name": "runNotebookCells",
+        "displayName": "Run Notebook Cells",
+        "modelDescription": "Execute one or more cells in the active notebook and return their outputs. Use this when the user wants to run code cells or see the results of cell execution.",
+        "toolReferenceName": "runNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cellIndices": {
+              "type": "array",
+              "description": "Array of cell indices to execute. Each index is a 0-based position of the cell in the notebook.",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "cellIndices"
+          ]
+        }
+      },
+      {
+        "name": "editNotebookCells",
+        "displayName": "Edit Notebook Cells",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "toolReferenceName": "editNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "add",
+                "update",
+                "delete"
+              ],
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell."
+            },
+            "cellType": {
+              "type": "string",
+              "enum": [
+                "code",
+                "markdown"
+              ],
+              "description": "Type of cell to create. Required when operation is 'add'. Use 'code' for executable cells, 'markdown' for documentation."
+            },
+            "index": {
+              "type": "number",
+              "description": "Position to insert the cell (0-based). Required when operation is 'add'. Use -1 to append at the end."
+            },
+            "content": {
+              "type": "string",
+              "description": "Cell content. Required when operation is 'add' or 'update'."
+            },
+            "cellIndex": {
+              "type": "number",
+              "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        }
+      },
+      {
+        "name": "getNotebookCells",
+        "displayName": "Get Notebook Cells",
+        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), or operation='getMetadata' to get only cell status information without content.",
+        "toolReferenceName": "getNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "get",
+                "getSelected",
+                "getOutputs",
+                "getMetadata"
+              ],
+              "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content."
+            },
+            "cellIndices": {
+              "type": "array",
+              "description": "Optional array of cell indices to retrieve (0-based). Required for 'getOutputs'. For 'get', returns all cells if omitted. Ignored for 'getSelected' and 'getMetadata'.",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "operation"
+          ]
         }
       }
     ]

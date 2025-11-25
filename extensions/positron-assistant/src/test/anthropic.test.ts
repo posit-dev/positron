@@ -13,6 +13,8 @@ import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from 
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 import { mock } from './utils.js';
+import * as modelDefinitionsModule from '../modelDefinitions.js';
+import * as helpersModule from '../modelResolutionHelpers.js';
 
 class MockAnthropicClient {
 	messages = {
@@ -98,7 +100,7 @@ suite('AnthropicLanguageModel', () => {
 		};
 
 		// Create an instance of the AnthropicLanguageModel
-		model = new AnthropicLanguageModel(config, undefined, mockClient as unknown as Anthropic);
+		model = new AnthropicLanguageModel(config, undefined, undefined, mockClient as unknown as Anthropic);
 
 		// Create mock progress
 		progress = {
@@ -584,6 +586,234 @@ suite('AnthropicLanguageModel', () => {
 					]
 				}
 			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
+		});
+	});
+
+	suite('Model Resolution', () => {
+		let mockWorkspaceConfig: sinon.SinonStub;
+		let mockModelDefinitions: sinon.SinonStub;
+		let mockHelpers: { createModelInfo: sinon.SinonStub; isDefaultUserModel: sinon.SinonStub; markDefaultModel: sinon.SinonStub };
+		let getConfigurationStub: sinon.SinonStub;
+
+		setup(() => {
+			// Mock vscode.workspace.getConfiguration for model resolution tests
+			mockWorkspaceConfig = sinon.stub();
+			getConfigurationStub = sinon.stub(vscode.workspace, 'getConfiguration').returns({
+				get: mockWorkspaceConfig
+			} as any);
+
+			// Mock getAllModelDefinitions
+			mockModelDefinitions = sinon.stub(modelDefinitionsModule, 'getAllModelDefinitions');
+
+			// Mock helper functions
+			mockHelpers = {
+				createModelInfo: sinon.stub(helpersModule, 'createModelInfo'),
+				isDefaultUserModel: sinon.stub(helpersModule, 'isDefaultUserModel'),
+				markDefaultModel: sinon.stub(helpersModule, 'markDefaultModel')
+			};
+		});
+
+		teardown(() => {
+			// Restore specific stubs for this suite
+			getConfigurationStub.restore();
+			mockModelDefinitions.restore();
+			mockHelpers.createModelInfo.restore();
+			mockHelpers.isDefaultUserModel.restore();
+			mockHelpers.markDefaultModel.restore();
+		});
+
+		suite('retrieveModelsFromConfig', () => {
+			test('returns undefined when no configured models', () => {
+				mockModelDefinitions.returns([]);
+				const result = (model as any).retrieveModelsFromConfig();
+				assert.strictEqual(result, undefined);
+			});
+
+			test('returns configured models when built-in models exist', () => {
+				const builtInModels = [
+					{
+						name: 'Claude Sonnet 4.5',
+						identifier: 'claude-sonnet-4-5',
+						maxInputTokens: 200_000,
+						maxOutputTokens: 64_000
+					}
+				];
+				mockModelDefinitions.returns(builtInModels);
+
+				const mockModelInfo = {
+					id: 'claude-sonnet-4-5',
+					name: 'Claude Sonnet 4.5',
+					family: 'anthropic-api',
+					version: '',
+					maxInputTokens: 200_000,
+					maxOutputTokens: 64_000,
+					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					isDefault: true,
+					isUserSelectable: true
+				};
+				mockHelpers.createModelInfo.returns(mockModelInfo);
+				mockHelpers.markDefaultModel.returns([mockModelInfo]);
+
+				const result = (model as any).retrieveModelsFromConfig();
+
+				assert.ok(result, 'Should return built-in models');
+				assert.strictEqual(result.length, 1);
+				assert.strictEqual(result[0].id, 'claude-sonnet-4-5');
+			});
+
+			test('marks one model as default', () => {
+				const configuredModels = [
+					{ name: 'Claude A', identifier: 'claude-a' },
+					{ name: 'Claude B', identifier: 'claude-b' }
+				];
+				mockModelDefinitions.returns(configuredModels);
+
+				const mockModelInfoA = { id: 'claude-a', name: 'Claude A', isDefault: false, isUserSelectable: true };
+				const mockModelInfoB = { id: 'claude-b', name: 'Claude B', isDefault: false, isUserSelectable: true };
+				mockHelpers.createModelInfo.onFirstCall().returns(mockModelInfoA);
+				mockHelpers.createModelInfo.onSecondCall().returns(mockModelInfoB);
+
+				// Mock markDefaultModel to return the expected result with claude-b as default
+				const expectedResult = [
+					{ id: 'claude-a', name: 'Claude A', isDefault: false, isUserSelectable: true },
+					{ id: 'claude-b', name: 'Claude B', isDefault: true, isUserSelectable: true }
+				];
+				mockHelpers.markDefaultModel.returns(expectedResult);
+
+				const result = (model as any).retrieveModelsFromConfig();
+
+				assert.ok(result, 'Should return models');
+				assert.strictEqual(result.length, 2);
+				// Only one should be marked as default
+				const defaultModels = result.filter((m: any) => m.isDefault);
+				assert.strictEqual(defaultModels.length, 1);
+				assert.strictEqual(defaultModels[0].id, 'claude-b');
+			});
+
+			test('falls back to DEFAULT_ANTHROPIC_MODEL_MATCH for default', () => {
+				const configuredModels = [
+					{ name: 'Claude Sonnet 4.5', identifier: 'claude-sonnet-4-5' }
+				];
+				mockModelDefinitions.returns(configuredModels);
+
+				const mockModelInfo = { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', isDefault: false, isUserSelectable: true };
+				mockHelpers.createModelInfo.returns(mockModelInfo);
+
+				// Mock markDefaultModel to return the expected result with the model as default
+				const expectedResult = [
+					{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', isDefault: true, isUserSelectable: true }
+				];
+				mockHelpers.markDefaultModel.returns(expectedResult);
+
+				const result = (model as any).retrieveModelsFromConfig();
+
+				const defaultModel = result.find((m: any) => m.isDefault);
+				assert.ok(defaultModel, 'Should have a default model');
+				assert.strictEqual(defaultModel.id, 'claude-sonnet-4-5');
+
+				// Verify markDefaultModel was called with the correct parameters
+				sinon.assert.calledWith(mockHelpers.markDefaultModel, [mockModelInfo], 'anthropic-api', 'claude-sonnet-4');
+			});
+		});
+
+		suite('resolveModels integration', () => {
+			let cancellationToken: vscode.CancellationToken;
+
+			setup(() => {
+				const cancellationTokenSource = new vscode.CancellationTokenSource();
+				cancellationToken = cancellationTokenSource.token;
+			});
+
+			test('prioritizes configured models over API', async () => {
+				const configuredModels = [
+					{ name: 'User Claude', identifier: 'user-claude' }
+				];
+				mockModelDefinitions.returns(configuredModels);
+
+				const mockModelInfo = {
+					id: 'user-claude',
+					name: 'User Claude',
+					isDefault: true,
+					isUserSelectable: true
+				};
+				mockHelpers.createModelInfo.returns(mockModelInfo);
+				mockHelpers.markDefaultModel.returns([mockModelInfo]);
+
+				const result = await model.resolveModels(cancellationToken);
+
+				assert.ok(result, 'Should return configured models');
+				assert.strictEqual(result.length, 1);
+				assert.strictEqual(result[0].id, 'user-claude');
+				assert.strictEqual(model.modelListing, result);
+			});
+
+			test('falls back to API when no configured models', async () => {
+				mockModelDefinitions.returns([]); // No configured models
+
+				const mockAnthropicClient = {
+					models: {
+						list: sinon.stub().resolves({
+							data: [
+								{ id: 'claude-api-model', display_name: 'Claude API Model', created_at: '2025-01-01T00:00:00Z' }
+							],
+							has_more: false
+						})
+					}
+				};
+				(model as any)._client = mockAnthropicClient;
+
+				const mockModelInfo = {
+					id: 'claude-api-model',
+					name: 'Claude API Model',
+					isDefault: true,
+					isUserSelectable: true
+				};
+				mockHelpers.createModelInfo.returns(mockModelInfo);
+				mockHelpers.markDefaultModel.returns([mockModelInfo]);
+
+				const result = await model.resolveModels(cancellationToken);
+
+				assert.ok(result, 'Should return API models');
+				assert.strictEqual(result.length, 1);
+				assert.strictEqual(result[0].id, 'claude-api-model');
+				assert.strictEqual(model.modelListing, result);
+			});
+
+			test('returns undefined when both configured and API fail', async () => {
+				mockModelDefinitions.returns([]); // No configured models
+
+				const mockAnthropicClient = {
+					models: {
+						list: sinon.stub().rejects(new Error('API Error'))
+					}
+				};
+				(model as any)._client = mockAnthropicClient;
+
+				const result = await model.resolveModels(cancellationToken);
+
+				assert.strictEqual(result, undefined);
+			});
+
+			test('caches resolved models in modelListing', async () => {
+				const configuredModels = [
+					{ name: 'Cached Claude', identifier: 'cached-claude' }
+				];
+				mockModelDefinitions.returns(configuredModels);
+
+				const mockModelInfo = {
+					id: 'cached-claude',
+					name: 'Cached Claude',
+					isDefault: true,
+					isUserSelectable: true
+				};
+				mockHelpers.createModelInfo.returns(mockModelInfo);
+				mockHelpers.markDefaultModel.returns([mockModelInfo]);
+
+				await model.resolveModels(cancellationToken);
+
+				assert.strictEqual(model.modelListing.length, 1);
+				assert.strictEqual(model.modelListing[0].id, 'cached-claude');
+			});
 		});
 	});
 });

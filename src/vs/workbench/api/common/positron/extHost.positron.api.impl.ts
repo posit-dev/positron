@@ -38,6 +38,7 @@ import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
+import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -85,6 +86,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
+	const extHostNotebookFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostNotebookFeatures, new ExtHostNotebookFeatures(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -179,8 +181,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			},
-			previewUrl(url: vscode.Uri) {
-				return extHostPreviewPanels.previewUrl(extension, url);
+			previewUrl(url: vscode.Uri, source?: positron.PreviewSource) {
+				return extHostPreviewPanels.previewUrl(extension, url, source);
 			},
 			previewHtml(path: string) {
 				return extHostPreviewPanels.previewHtml(extension, path);
@@ -356,6 +358,105 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.setCurrentProvider(id);
 			},
+			LanguageModelAutoconfigureType: extHostTypes.LanguageModelAutoconfigureType
+		};
+
+		const notebooks: typeof positron.notebooks = {
+			NotebookCellType: extHostTypes.NotebookCellType,
+			async getContext(): Promise<positron.notebooks.NotebookContext | undefined> {
+				const context = await extHostNotebookFeatures.getActiveNotebookContext();
+				if (!context) {
+					return undefined;
+				}
+
+				// Helper function to map DTO cell to public API cell
+				const mapCell = (cell: positron.notebooks.NotebookCell): positron.notebooks.NotebookCell => ({
+					id: cell.id,
+					index: cell.index,
+					type: cell.type,
+					content: cell.content,
+					hasOutput: cell.hasOutput,
+					selectionStatus: cell.selectionStatus,
+					executionStatus: cell.executionStatus,
+					executionOrder: cell.executionOrder,
+					lastRunSuccess: cell.lastRunSuccess,
+					lastExecutionDuration: cell.lastExecutionDuration,
+					lastRunEndTime: cell.lastRunEndTime
+				});
+
+				// Convert DTO to public API types
+				return {
+					uri: context.uri,
+					kernelId: context.kernelId,
+					kernelLanguage: context.kernelLanguage,
+					cellCount: context.cellCount,
+					selectedCells: context.selectedCells.map(mapCell),
+					allCells: context.allCells?.map(mapCell)
+				};
+			},
+
+			async getCells(notebookUri: string): Promise<positron.notebooks.NotebookCell[]> {
+				const cells = await extHostNotebookFeatures.getCells(notebookUri);
+				return cells.map(cell => ({
+					id: cell.id,
+					index: cell.index,
+					type: cell.type,
+					content: cell.content,
+					hasOutput: cell.hasOutput,
+					selectionStatus: cell.selectionStatus,
+					executionStatus: cell.executionStatus,
+					executionOrder: cell.executionOrder,
+					lastRunSuccess: cell.lastRunSuccess,
+					lastExecutionDuration: cell.lastExecutionDuration,
+					lastRunEndTime: cell.lastRunEndTime
+				}));
+			},
+
+			async getCell(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCell | undefined> {
+				const cell = await extHostNotebookFeatures.getCell(notebookUri, cellIndex);
+				if (!cell) {
+					return undefined;
+				}
+				return {
+					id: cell.id,
+					index: cell.index,
+					type: cell.type,
+					content: cell.content,
+					hasOutput: cell.hasOutput,
+					selectionStatus: cell.selectionStatus,
+					executionStatus: cell.executionStatus,
+					executionOrder: cell.executionOrder,
+					lastRunSuccess: cell.lastRunSuccess,
+					lastExecutionDuration: cell.lastExecutionDuration,
+					lastRunEndTime: cell.lastRunEndTime
+				};
+			},
+
+			async runCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+				return extHostNotebookFeatures.runCells(notebookUri, cellIndices);
+			},
+
+			async addCell(notebookUri: string, type: positron.notebooks.NotebookCellType, index: number, content: string): Promise<string> {
+				const cellIndex = await extHostNotebookFeatures.addCell(notebookUri, type, index, content);
+				// Get the cell to retrieve its ID
+				const cell = await extHostNotebookFeatures.getCell(notebookUri, cellIndex);
+				if (!cell) {
+					throw new Error(`Failed to retrieve newly added cell at index ${cellIndex}`);
+				}
+				return cell.id;
+			},
+
+			async deleteCell(notebookUri: string, cellIndex: number): Promise<void> {
+				return extHostNotebookFeatures.deleteCell(notebookUri, cellIndex);
+			},
+
+			async updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
+				return extHostNotebookFeatures.updateCellContent(notebookUri, cellIndex, content);
+			},
+
+			async getCellOutputs(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCellOutput[]> {
+				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellIndex);
+			}
 		};
 
 		// --- End Positron ---
@@ -371,6 +472,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			paths,
 			connections,
 			ai,
+			notebooks,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
@@ -392,6 +494,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,
 			PlotRenderFormat: extHostTypes.PlotRenderFormat,
+			PreviewSourceType: extHostTypes.PreviewSourceType,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
 		};
 	};

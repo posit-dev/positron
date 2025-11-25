@@ -80,8 +80,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				if (!session) {
 					// This should never happen since we just received an event from
 					// this session.
+					const eventData = e.event.data as ShowUrlEvent;
 					this._logService.error(`No session ${e.session_id} found for ShowUrl event; ` +
-						`ignoring URL ${e.event.data.url}`);
+						`ignoring URL ${eventData?.url ?? 'unknown'}`);
 					return;
 				}
 
@@ -228,9 +229,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 */
 	private createPreviewUrl(
 		previewId: string,
-		extension: WebviewExtensionDescription | undefined, uri: URI): PreviewUrl {
+		extension: WebviewExtensionDescription | undefined,
+		uri: URI,
+		source?: { type: string; id: string }): PreviewUrl {
 		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
-		return new PreviewUrl(previewId, overlay, uri);
+		return new PreviewUrl(previewId, overlay, uri, source);
 	}
 
 	/**
@@ -259,8 +262,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	public openUri(
 		previewId: string,
 		extension: WebviewExtensionDescription,
-		uri: URI): PreviewWebview {
-		const preview = this.createPreviewUrl(previewId, extension, uri);
+		uri: URI,
+		source?: { type: string; id: string }): PreviewWebview {
+		const preview = this.createPreviewUrl(previewId, extension, uri, source);
 		this.makeActivePreview(preview);
 		return preview;
 	}
@@ -494,7 +498,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const previewId = `previewUrl.${PositronPreviewService._previewIdCounter++}`;
 
 		// Open the requested URI.
-		this.openUri(previewId, webviewExtension, uri);
+		this.openUri(previewId, webviewExtension, uri, event.source);
 	}
 
 	/**

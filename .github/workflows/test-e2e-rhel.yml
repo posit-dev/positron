@@ -28,11 +28,6 @@ on:
         description: "The tags to use for Currents recording."
         default: "@rhel"
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
@@ -96,7 +91,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-rocky8-amd64:57
+      image: ghcr.io/posit-dev/positron-rocky8-amd64:65
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -104,7 +99,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:57
+        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:65
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -133,6 +128,8 @@ jobs:
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       RETICULATE_PYTHON: /root/.venv/bin/python
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -212,6 +209,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 

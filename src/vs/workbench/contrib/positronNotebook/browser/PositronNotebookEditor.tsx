@@ -328,10 +328,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		return this._control.value;
 	}
 
-	override get scopedContextKeyService(): IContextKeyService | undefined {
-		return this.notebookInstance?.scopedContextKeyService ?? this._containerScopedContextKeyService;
-	}
-
 	/**
 	 * Gets or sets the PositronReactRenderer for the PositronNotebook component.
 	 */

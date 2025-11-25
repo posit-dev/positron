@@ -77,7 +77,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	$responseProgress(sessionId: string, content: IChatProgressDto): void {
 		const progress = revive(content) as IChatProgress;
-		const model = this._chatService.getSession(sessionId) as ChatModel;
+		const model = this._chatService.getSessionByLegacyId(sessionId) as ChatModel;
 		if (!model) {
 			throw new Error('Chat session not found.');
 		}

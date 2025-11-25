@@ -124,7 +124,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts keyword.control.export.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -964,7 +964,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts keyword.control.export.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2874,7 +2874,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -3244,7 +3244,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.arrow.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -3954,7 +3954,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.arrow.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4864,7 +4864,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5124,7 +5124,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5144,7 +5144,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5324,7 +5324,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5614,7 +5614,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.loop.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5854,7 +5854,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.block.ts keyword.control.loop.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6104,7 +6104,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.block.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6274,7 +6274,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.block.ts meta.block.ts keyword.control.loop.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6304,7 +6304,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.block.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6664,7 +6664,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6934,7 +6934,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7304,7 +7304,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7354,7 +7354,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -7694,7 +7694,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.loop.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8044,7 +8044,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts meta.block.ts keyword.control.loop.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8634,7 +8634,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.flow.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -8834,7 +8834,7 @@
 		"t": "source.ts meta.namespace.declaration.ts meta.block.ts meta.class.ts meta.method.declaration.ts meta.block.ts keyword.control.conditional.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

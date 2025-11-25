@@ -104,7 +104,7 @@
 		"t": "source.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -384,7 +384,7 @@
 		"t": "source.powershell meta.scriptblock.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -534,7 +534,7 @@
 		"t": "source.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -574,7 +574,7 @@
 		"t": "source.powershell meta.scriptblock.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -774,7 +774,7 @@
 		"t": "source.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -974,7 +974,7 @@
 		"t": "source.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1024,7 +1024,7 @@
 		"t": "source.powershell meta.scriptblock.powershell meta.group.simple.subexpression.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1154,7 +1154,7 @@
 		"t": "source.powershell meta.scriptblock.powershell meta.scriptblock.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1634,7 +1634,7 @@
 		"t": "source.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2014,7 +2014,7 @@
 		"t": "source.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2264,7 +2264,7 @@
 		"t": "source.powershell keyword.control.powershell",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

@@ -8,19 +8,28 @@ on:
       - "release/**"
 
 jobs:
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
   e2e-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: "merge,electron/ubuntu"
-      report_testrail: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
+      shards: 2
+      matrix: '{"shard":[1,2]}'
+      workers: 2
       allow_soft_fail: true
+      max_failures: 5  # 10 max failures / 2 shards = 5
     secrets: inherit
 
   e2e-windows-electron:
@@ -30,24 +39,27 @@ jobs:
       grep: ""
       display_name: "electron (windows)"
       currents_tags: "merge,electron/windows"
-      report_testrail: false
       upload_logs: false
       allow_soft_fail: true
     secrets: inherit
 
   e2e-linux-chromium:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       project: "e2e-chromium"
       currents_tags: "merge,chromium/ubuntu"
-      report_testrail: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
+      shards: 2
+      matrix: '{"shard":[1,2]}'
+      workers: 2
       allow_soft_fail: true
+      max_failures: 5  # 10 max failures / 2 shards = 5
     secrets: inherit
 
   unit-tests:
@@ -63,9 +75,10 @@ jobs:
       pull_request: false
 
   slack-notify:
-    if: failure()
+    if: always()
     needs:
       [
+        setup,
         unit-tests,
         integration-tests,
         e2e-electron,
@@ -75,9 +88,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          include_job_durations: false
           notify_on: "failure"

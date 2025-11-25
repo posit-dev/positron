@@ -760,64 +760,6 @@
     ],
     "languageModelTools": [
       {
-        "name": "getAttachedRPackages",
-        "displayName": "Get Attached R Packages",
-        "userDescription": "Get a list of the R packages being used in the current R session.",
-        "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
-        "toolReferenceName": "getAttachedRPackages",
-        "canBeReferencedInPrompt": true,
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionIdentifier": {
-              "type": "string",
-              "description": "The identifier of the R session to query for installed packages."
-            }
-          },
-          "required": [
-            "sessionIdentifier"
-          ]
-        },
-        "tags": [
-          "positron-assistant",
-          "requires-session:r"
-        ]
-      },
-      {
-        "name": "getInstalledRPackageVersions",
-        "displayName": "Get Installed R Package Versions",
-        "userDescription": "Get the version of one or more installed R packages.",
-        "modelDescription": "Given an array of R package names, returns, for each package, the version of the package that's installed in the given R session, or NULL if the package is not installed.",
-        "canBeReferencedInPrompt": true,
-        "toolReferenceName": "getInstalledRPackageVersion",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionIdentifier": {
-              "type": "string",
-              "description": "The identifier of the R session to query for installed packages."
-            },
-            "packageNames": {
-              "type": "array",
-              "description": "An array of R package names to get the version of.",
-              "items": {
-                "type": "string",
-                "description": "The name of an R package to get the version of."
-              },
-              "minItems": 1
-            }
-          },
-          "required": [
-            "sessionIdentifier",
-            "packageNames"
-          ]
-        },
-        "tags": [
-          "positron-assistant",
-          "requires-session:r"
-        ]
-      },
-      {
         "name": "listPackageHelpTopics",
         "displayName": "List R Package Help Topics",
         "toolReferenceName": "listPackageHelpTopics",
@@ -995,7 +937,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.216"
+      "ark": "0.1.217"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

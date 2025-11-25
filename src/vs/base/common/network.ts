@@ -87,8 +87,8 @@ export namespace Schemas {
 	/** Scheme used for the chat input part */
 	export const vscodeChatInput = 'chatSessionInput';
 
-	/** Scheme for chat session content */
-	export const vscodeChatSession = 'vscode-chat-session';
+	/** Scheme used for local chat session content */
+	export const vscodeLocalChatSession = 'vscode-chat-session';
 
 	/**
 	 * Scheme used internally for webviews that aren't linked to a resource (i.e. not custom editors)
@@ -134,7 +134,8 @@ export namespace Schemas {
 	export const positronDataExplorer = 'positron-data-explorer';
 	export const positronNotebook = 'positron-notebook';
 	export const positronPlotsEditor = 'positron-plots-editor';
-	export const positronPreviewEditor = 'positron-preview-editor'
+	export const positronPlotsGallery = 'positron-plots-gallery';
+	export const positronPreviewEditor = 'positron-preview-editor';
 
 	// --- End Positron ---
 
@@ -163,6 +164,11 @@ export namespace Schemas {
 	 */
 	export const chatEditingSnapshotScheme = 'chat-editing-snapshot-text-model';
 	export const chatEditingModel = 'chat-editing-text-model';
+
+	/**
+	 * Used for rendering multidiffs in copilot agent sessions
+	 */
+	export const copilotPr = 'copilot-pr';
 }
 
 export function matchesScheme(target: URI | string, scheme: string): boolean {
@@ -429,6 +435,7 @@ export namespace COI {
 	 * isn't enabled the current context
 	 */
 	export function addSearchParam(urlOrSearch: URLSearchParams | Record<string, string>, coop: boolean, coep: boolean): void {
+		// eslint-disable-next-line local/code-no-any-casts
 		if (!(<any>globalThis).crossOriginIsolated) {
 			// depends on the current context being COI
 			return;
@@ -437,7 +444,7 @@ export namespace COI {
 		if (urlOrSearch instanceof URLSearchParams) {
 			urlOrSearch.set(coiSearchParamName, value);
 		} else {
-			(<Record<string, string>>urlOrSearch)[coiSearchParamName] = value;
+			urlOrSearch[coiSearchParamName] = value;
 		}
 	}
 }

@@ -15,8 +15,10 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { PositronPlotsGalleryEditorInput } from '../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotsDisplayLocation, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { EditorsOrder } from '../../../common/editor.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -434,6 +436,61 @@ export class PlotsEditorAction extends Action2 {
 		} else {
 			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 		}
+	}
+}
+
+/**
+ * Action to open the plots gallery in a new window.
+ */
+export class PlotsGalleryInNewWindowAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.openGalleryInNewWindow';
+
+	constructor() {
+		super({
+			id: PlotsGalleryInNewWindowAction.ID,
+			title: localize2('positronPlots.openGalleryInNewWindow', 'Open Plots Gallery in New Window'),
+			category,
+			f1: true,
+		});
+	}
+
+	/**
+	 * Runs the action and opens the plots gallery in a new auxiliary window.
+	 * If the gallery is already open, focuses the existing window instead of creating a new one.
+	 * The context key automatically hides the plots view in the main window.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const editorService = accessor.get(IEditorService);
+		const plotsService = accessor.get(IPositronPlotsService);
+
+		// Check if there's already a plots gallery editor open
+		const editors = editorService.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE);
+		const existingGalleryEditor = editors.find(editor =>
+			editor.editor instanceof PositronPlotsGalleryEditorInput
+		);
+
+		if (existingGalleryEditor) {
+			// Focus the existing gallery editor
+			await editorService.openEditor(existingGalleryEditor.editor, existingGalleryEditor.groupId);
+			return;
+		}
+
+		// Update the display location (context key will automatically hide the main window view)
+		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
+
+		// Open the plots gallery in the auxiliary window
+		await editorService.openEditor({
+			resource: PositronPlotsGalleryEditorInput.getNewEditorUri(),
+			options: {
+				pinned: true,
+				auxiliary: {
+					compact: true,
+					bounds: { width: 900, height: 700 }
+				}
+			}
+		}, AUX_WINDOW_GROUP);
 	}
 }
 

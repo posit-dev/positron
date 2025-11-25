@@ -84,7 +84,7 @@
 		"t": "source.ruby meta.module.ruby keyword.control.module.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -214,7 +214,7 @@
 		"t": "source.ruby meta.class.ruby keyword.control.class.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -984,7 +984,7 @@
 		"t": "source.ruby meta.function.method.with-arguments.ruby keyword.control.def.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1194,7 +1194,7 @@
 		"t": "source.ruby keyword.control.pseudo-method.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1464,7 +1464,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1604,7 +1604,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2234,7 +2234,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2454,7 +2454,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2554,7 +2554,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2924,7 +2924,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2944,7 +2944,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2954,7 +2954,7 @@
 		"t": "source.ruby keyword.control.ruby",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

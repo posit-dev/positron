@@ -33,11 +33,6 @@ on:
         description: "The tags to use for Currents recording."
         default: "@ubuntu"
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
@@ -111,7 +106,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -119,7 +114,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:56
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:64
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -148,6 +143,8 @@ jobs:
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       RETICULATE_PYTHON: /root/.venv/bin/python
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -167,21 +164,31 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-build-env
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
@@ -231,6 +238,8 @@ jobs:
           USE_KEY: true
           PW_JSON_FILE: test-results/ubuntu.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
+          HOME: /root # adding to ensure HOME is consistent across all workflows and Playwright will find its cached browsers
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then

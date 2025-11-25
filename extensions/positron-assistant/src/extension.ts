@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
+import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -16,6 +16,7 @@ import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
+import { generateNotebookSuggestions } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
@@ -23,6 +24,10 @@ import { registerParticipantDetectionProvider } from './participantDetection.js'
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
+import { collectDiagnostics } from './diagnostics.js';
+import { BufferedLogOutputChannel } from './logBuffer.js';
+import { resetAssistantState } from './reset.js';
+import { verifyProvidersInConfiguredModels } from './modelDefinitions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -31,6 +36,16 @@ const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
 let tokenTracker: TokenTracker;
+
+const autoconfiguredModels: ModelConfig[] = [];
+
+/**
+ * Get all models which were automatically configured (e.g., via environment variables or managed credentials).
+ * @returns A list of models that were automatically configured
+ */
+export function getAutoconfiguredModels(): ModelConfig[] {
+	return [...autoconfiguredModels];
+}
 
 /** A chat or completion model provider disposable with associated configuration. */
 class ModelDisposable implements vscode.Disposable {
@@ -66,7 +81,9 @@ export function disposeModels(id?: string) {
 	}
 }
 
-export const log = vscode.window.createOutputChannel('Assistant', { log: true });
+export const log = new BufferedLogOutputChannel(
+	vscode.window.createOutputChannel('Assistant', { log: true })
+);
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
@@ -95,7 +112,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context);
+		await registerModelWithAPI(modelConfig, context, storage);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -108,6 +125,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	// Dispose of existing models
 	disposeModels();
 
+	let autoModelConfigs: ModelConfig[];
 	let modelConfigs: ModelConfig[] = [];
 	try {
 		// Refresh the set of enabled providers
@@ -123,10 +141,10 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			return enabled;
 		});
 
-		// Add any configs that should automatically work when the right environment variables are set
-		const modelConfigsFromEnv = createModelConfigsFromEnv();
+		// Add any configs that should automatically work when the right conditions are met
+		autoModelConfigs = await createAutomaticModelConfigs();
 		// we add in the config if we don't already have it configured
-		for (const config of modelConfigsFromEnv) {
+		for (const config of autoModelConfigs) {
 			if (!modelConfigs.find(c => c.provider === config.provider)) {
 				modelConfigs.push(config);
 			}
@@ -141,15 +159,36 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	const registeredModels: ModelConfig[] = [];
 	for (const config of modelConfigs) {
 		try {
-			await registerModelWithAPI(config, context);
+			await registerModelWithAPI(config, context, storage);
 			registeredModels.push(config);
+			if (autoModelConfigs.includes(config)) {
+				// In addition, track auto-configured models separately
+				// at a module level so that we can expose them via
+				// getAutoconfiguredModels()
+				// This is needed since auto-configured models are not
+				// stored in persistent storage like manually configured models
+				// are, and configuration data needs to be retrieved from memory.
+				autoconfiguredModels.push(config);
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`${e}`);
 		}
 	}
 
 	// Set context for if we have chat models available for use
-	const hasChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	// Check both Positron-registered models and other language models (e.g., Copilot)
+	const hasPositronChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	let hasOtherChatModels = false;
+
+	try {
+		// Check if there are any other models available (e.g., Copilot)
+		const availableModels = await vscode.lm.selectChatModels();
+		hasOtherChatModels = availableModels.length > 0;
+	} catch (error) {
+		log.warn('Failed to check for available language models', error);
+	}
+
+	const hasChatModels = hasPositronChatModels || hasOtherChatModels;
 	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
@@ -159,13 +198,13 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext) {
+async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		// const models = availableModels.get(modelConfig.provider);
 		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = newLanguageModelChatProvider(modelConfig, context);
+		const languageModel = newLanguageModelChatProvider(modelConfig, context, storage);
 
 		try {
 			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
@@ -217,6 +256,31 @@ function registerGenerateCommitMessageCommand(
 	);
 }
 
+function registerGenerateNotebookSuggestionsCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.generateNotebookSuggestions',
+			async (notebookUri: string, token?: vscode.CancellationToken) => {
+				// Create a token source only if no token is provided
+				let tokenSource: vscode.CancellationTokenSource | undefined;
+				// If there is no provided token, create a new one and also
+				// assign it to the tokenSource so we know to dispose it later.
+				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
+				try {
+					return await generateNotebookSuggestions(notebookUri, participantService, log, cancellationToken);
+				} finally {
+					// We only want to dispose the token if we created it
+					tokenSource?.dispose();
+				}
+			}
+		)
+	);
+}
+
 function registerExportChatCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
@@ -234,6 +298,22 @@ function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.toggleInlineCompletions', async () => {
 			await toggleInlineCompletions();
+		})
+	);
+}
+
+function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
+			await collectDiagnostics(context, log);
+		})
+	);
+}
+
+function registerResetCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.resetState', async () => {
+			await resetAssistantState(context);
 		})
 	);
 }
@@ -295,8 +375,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerConfigureModelsCommand(context, storage);
 	registerGenerateCommitMessageCommand(context, participantService, log);
+	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
+	registerCollectDiagnosticsCommand(context);
+	registerResetCommand(context);
 	registerPromptManagement(context);
 
 	// Register mapped edits provider
@@ -355,7 +438,7 @@ export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; p
 	return requestTokenUsage.get(requestId);
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
@@ -376,6 +459,7 @@ export function activate(context: vscode.ExtensionContext) {
 					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
 				});
 			}
+			await verifyProvidersInConfiguredModels();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(

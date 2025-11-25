@@ -50,6 +50,26 @@ export interface IPositronLanguageModelSource {
 	authMethods?: string[];
 }
 
+// Equivalent in positron.d.ts API: LanguageModelAutoconfigureType
+export enum LanguageModelAutoconfigureType {
+	EnvVariable = 0,
+	Custom = 1
+}
+
+// Equivalent in positron.d.ts API: LanguageModelAutoconfigure
+export type IPositronLanguageModelAutoconfigure = (
+	{
+		type: LanguageModelAutoconfigureType.EnvVariable;
+		key: string;
+		signedIn: boolean;
+	} |
+	{
+		type: LanguageModelAutoconfigureType.Custom;
+		message: string;
+		signedIn: boolean;
+	}
+);
+
 // Equivalent in positron.d.ts API: LanguageModelConfig
 export interface IPositronLanguageModelConfig {
 	type: PositronLanguageModelType;
@@ -67,7 +87,7 @@ export interface IPositronLanguageModelConfig {
 	maxInputTokens?: number;
 	maxOutputTokens?: number;
 	completions?: boolean;
-	apiKeyEnvVar?: { key: string; signedIn: boolean };
+	autoconfigure?: IPositronLanguageModelAutoconfigure;
 }
 
 //#endregion

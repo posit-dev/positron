@@ -74,6 +74,11 @@ export interface IReactComponentContainer {
 	readonly onSizeChanged: Event<ISize>;
 
 	/**
+	 * onPositionChanged event (optional).
+	 */
+	readonly onPositionChanged?: Event<IElementPosition>;
+
+	/**
 	 * onVisibilityChanged event.
 	 */
 	readonly onVisibilityChanged: Event<boolean>;

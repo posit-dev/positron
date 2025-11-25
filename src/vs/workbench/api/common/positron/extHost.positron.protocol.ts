@@ -9,7 +9,7 @@ import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } fr
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
-import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
+import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
@@ -189,6 +189,67 @@ export interface ExtHostPlotsServiceShape {
 }
 
 /**
+ * Data transfer object for notebook cell information.
+ */
+export interface INotebookCellDTO {
+	id: string;
+	index: number;
+	type: NotebookCellType;
+	content: string;
+	hasOutput: boolean;
+	selectionStatus: string;
+	executionStatus?: string;
+	executionOrder?: number;
+	lastRunSuccess?: boolean;
+	lastExecutionDuration?: number;
+	lastRunEndTime?: number;
+}
+
+/**
+ * Data transfer object for notebook context information.
+ */
+export interface INotebookContextDTO {
+	uri: string;
+	kernelId?: string;
+	kernelLanguage?: string;
+	cellCount: number;
+	selectedCells: INotebookCellDTO[];
+	allCells?: INotebookCellDTO[];
+}
+
+/**
+ * Data transfer object for notebook cell output information.
+ * Supports both text and binary (image) outputs.
+ */
+export interface INotebookCellOutputDTO {
+	/** MIME type of the output (e.g., 'text/plain', 'image/png') */
+	mimeType: string;
+	/** Output data - plain text for text outputs, base64 encoded for images */
+	data: string;
+}
+
+/**
+ * Interface that the main process exposes to the extension host for notebook features.
+ */
+export interface MainThreadNotebookFeaturesShape extends IDisposable {
+	$getActiveNotebookContext(): Promise<INotebookContextDTO | undefined>;
+	$getCells(notebookUri: string): Promise<INotebookCellDTO[]>;
+	$getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined>;
+	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
+	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
+	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
+	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
+	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
+}
+
+/**
+ * Interface to the main thread exposed by the extension host for notebook features.
+ */
+export interface ExtHostNotebookFeaturesShape {
+	// Future: could add events like $onDidExecuteCell
+}
+
+/**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
  * preview also has a visibility state (visible or hidden) that tracks the
@@ -238,7 +299,8 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$previewUrl(
 		extension: WebviewExtensionDescription,
 		handle: PreviewHandle,
-		uri: URI
+		uri: URI,
+		source?: { type: string; id: string }
 	): void;
 	$previewHtml(
 		extension: WebviewExtensionDescription,
@@ -265,6 +327,7 @@ export const ExtHostPositronContext = {
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
 	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
+	ExtHostNotebookFeatures: createProxyIdentifier<ExtHostNotebookFeaturesShape>('ExtHostNotebookFeatures'),
 };
 
 export const MainPositronContext = {
@@ -278,4 +341,5 @@ export const MainPositronContext = {
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
 	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
+	MainThreadNotebookFeatures: createProxyIdentifier<MainThreadNotebookFeaturesShape>('MainThreadNotebookFeatures'),
 };
