@@ -7,18 +7,17 @@
 .left-hand-action-container {
 	/* Private CSS variables for all dimensions */
 	--_container-size: 20px;  /* Match circle size exactly */
-	--_button-size: 14px;  /* Slightly smaller for padding inside circle */
 	--_circle-size: 20px;
 	--_circle-border-width: 1px;
 	--_icon-size: 11px;  /* Slightly larger for better visibility */
 	--_container-offset-left: -24px;  /* Fine-tune position */
-	--_container-offset-top: 4px; /* Position container slightly down from top */
+	--_container-element-margin: 2px;
 	--_badge-font-size: 10px;
 
 	/* Container positioning - easily adjustable via variables */
 	position: absolute;
-	top: var(--_container-offset-top);
-	bottom: 0; /* Stretch to bottom to allow flex alignment */
+	top: 0;
+	bottom: 0;
 	left: var(--_container-offset-left);
 	width: var(--_container-size);
 
@@ -34,6 +33,7 @@
 	position: relative;
 	width: var(--_container-size);
 	height: var(--_container-size);
+	margin-top: var(--_container-element-margin);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -45,6 +45,7 @@
 	position: relative;
 	width: var(--_container-size);
 	height: var(--_container-size);
+	margin-bottom: var(--_container-element-margin);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -109,8 +110,8 @@
 
 .execution-order-badge-container {
 	pointer-events: none;
-	width: var(--_circle-size);
-	height: var(--_circle-size);
+	width: var(--_container-size);
+	height: var(--_container-size);
 	font-size: 7px;
 	display: flex;
 	align-items: center;
