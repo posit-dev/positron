@@ -59,7 +59,7 @@ export async function renderNotebookMarkdown(
 					}
 
 					// Render heading with ID attribute
-					const idAttr = slug ? ` id="${escape(slug)}"` : '';
+					const idAttr = slug.length > 0 ? ` id="${escape(slug)}"` : '';
 					return `<h${depth}${idAttr}>${this.parser.parseInline(tokens)}</h${depth}>\n`;
 				}
 			}
