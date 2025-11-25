@@ -15,7 +15,7 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createMistral, MistralProvider } from '@ai-sdk/mistral';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
 import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
-import { processMessages, toAIMessage } from './utils';
+import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
@@ -26,9 +26,11 @@ import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFou
 import { PositLanguageModel } from './posit.js';
 import { applyModelFilters } from './modelFilters';
 import { PositronAssistantApi } from './api.js';
-import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from './pwb';
+import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
+import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -273,12 +275,15 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
  * Result of an autoconfiguration attempt.
  * - Signed in indicates whether the model is configured and ready to use.
  * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
+ * - Token provides the authentication token when available.
  */
 export type AutoconfigureResult = {
 	signedIn: false;
 } | {
 	signedIn: true;
 	message: string;
+	token?: string;
+	baseUrl?: string;
 };
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -435,7 +440,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				const input_schema = tool.inputSchema as Record<string, any> ?? {
 					type: 'object',
 					properties: {},
+					required: [],
 				};
+
+				// Ensure schema has a type field
 				if (!input_schema.type) {
 					log.warn(`[${this.providerName}] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 					input_schema.type = 'object';
@@ -519,13 +527,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		flushAccumulatedTextDeltas();
 
 		// Log all the warnings from the response
-		result.warnings.then((warnings) => {
-			if (warnings) {
-				for (const warning of warnings) {
-					log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
-				}
+		const warnings = await result.warnings;
+		if (warnings) {
+			for (const warning of warnings) {
+				log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
 			}
-		});
+		}
 
 		// ai-sdk provides token usage in the result but it's not clear how it is calculated
 		const usage = await result.usage;
@@ -578,6 +585,26 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
 	async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for authorization errors (401/403) and bail immediately with helpful message
+		if (isAuthorizationError(error)) {
+			// Try to extract specific error message from response body
+			let specificMessage = '';
+			if (ai.APICallError.isInstance(error) && error.responseBody) {
+				try {
+					const parsed = JSON.parse(error.responseBody);
+					if (parsed.message) {
+						specificMessage = ` (${parsed.message})`;
+					}
+				} catch {
+					// Ignore JSON parsing errors, fall back to generic message
+				}
+			}
+
+			const authError = `Authentication failed${specificMessage}. Please check your credentials and try signing in again.`;
+			log.error(`[${this.providerName}] ${authError}`);
+			throw new Error(`[${this.providerName}] ${authError}`);
+		}
+
 		// Try to extract an API error message with ai-sdk
 		if (ai.APICallError.isInstance(error)) {
 			const responseBody = error.responseBody;
@@ -733,6 +760,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
 		});
 	}
 
@@ -874,6 +902,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 		return data;
 	}
+
 }
 
 class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -900,6 +929,81 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 
 	override get baseUrl(): string | undefined {
 		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+}
+
+class SnowflakeLanguageModel extends OpenAILanguageModel {
+	protected aiProvider: OpenAIProvider;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'snowflake-cortex',
+			displayName: 'Snowflake Cortex'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
+		defaults: {
+			name: 'Snowflake Cortex',
+			model: 'claude-4-sonnet',
+			baseUrl: getSnowflakeDefaultBaseUrl(),
+			toolCalls: true,
+			completions: false,
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
+		}
+	};
+
+	get providerName(): string {
+		return SnowflakeLanguageModel.source.provider.displayName;
+	}
+
+	get baseUrl(): string {
+		// Use the baseUrl from config or fallback to default
+		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
+	}
+
+	static override async autoconfigure(): Promise<AutoconfigureResult> {
+		// Token extractor function for Snowflake
+		const snowflakeTokenExtractor = async (): Promise<string | undefined> => {
+			const credentials = await detectSnowflakeCredentials();
+			// Return token only if credentials exist and token is non-empty
+			return credentials?.token && credentials.token.trim().length > 0 ? credentials.token : undefined;
+		};
+
+		const autoconfigureResult = await autoconfigureWithManagedCredentials(
+			SNOWFLAKE_MANAGED_CREDENTIALS,
+			SnowflakeLanguageModel.source.provider.id,
+			SnowflakeLanguageModel.source.provider.displayName,
+			snowflakeTokenExtractor
+		);
+
+		// If we successfully got credentials, also include the baseUrl
+		if (autoconfigureResult.signedIn) {
+			try {
+				const credentials = await detectSnowflakeCredentials();
+				if (credentials?.baseUrl) {
+					return {
+						...autoconfigureResult,
+						baseUrl: credentials.baseUrl
+					};
+				}
+			} catch (error) {
+				log.debug(`[Snowflake] Failed to get baseUrl during autoconfigure: ${error}`);
+			}
+		}
+
+		return autoconfigureResult;
+	}
+
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for Snowflake-specific errors before generic authorization errors
+		if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
+			const snowflakeError = extractSnowflakeError(error);
+			if (snowflakeError) {
+				throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);
+			}
+		}
+
+		return super.parseProviderError(error);
 	}
 }
 
@@ -1483,6 +1587,7 @@ export function getLanguageModels() {
 		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
 		PositLanguageModel,
+		SnowflakeLanguageModel,
 		VertexLanguageModel,
 	];
 	return languageModels;
@@ -1537,7 +1642,9 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						type: positron.PositronLanguageModelType.Chat,
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
-						apiKey: undefined,
+						apiKey: result.token,
+						// Use baseUrl from autoconfigure result if available, otherwise fall back to defaults
+						...(result.baseUrl && { baseUrl: result.baseUrl }),
 						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
