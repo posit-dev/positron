@@ -47,7 +47,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 			hasError={hasError}
 		>
 			<div className='positron-notebook-code-cell-contents'>
-				<div>
+				<div className='positron-notebook-editor-section'>
 					<CellLeftActionMenu cell={cell} hasError={hasError} />
 					<div className='positron-notebook-editor-container'>
 						<CellEditorMonacoWidget cell={cell} />

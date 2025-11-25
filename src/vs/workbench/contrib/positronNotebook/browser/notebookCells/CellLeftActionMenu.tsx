@@ -101,26 +101,32 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 
 	return (
 		<>
-			{/* Main container for left-hand action menu */}
+			{actionMenu && (
+				<div
+					className='left-hand-action-container left-hand-action-container-top'
+					data-execution-status={dataExecutionStatus}
+				>
+					<div
+						aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
+						aria-live={isRunning ? 'polite' : 'off'}
+						className='cell-execution-status-animation'
+						role='status'
+					/>
+					{actionMenu}
+				</div>
+			)}
 			<div
 				ref={containerRef}
-				className='left-hand-action-container'
+				className='left-hand-action-container left-hand-action-container-bottom'
 				data-execution-status={dataExecutionStatus}
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				<div
-					aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
-					aria-live={isRunning ? 'polite' : 'off'}
-					className='cell-execution-status-animation'
-					role='status'
-				/>
 				<ExecutionStatusBadge
 					executionOrder={executionOrder}
 					hasError={hasError}
 					showPending={showPending}
 				/>
-				{actionMenu}
 			</div>
 			{showPopup && containerRef.current && (
 				<Popover

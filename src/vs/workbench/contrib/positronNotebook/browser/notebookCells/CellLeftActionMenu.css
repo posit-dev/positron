@@ -185,3 +185,8 @@
 	/* Adjust for play icon which tends to be off-center */
 	padding-left: 1px;
 }
+
+.left-hand-action-container-bottom {
+	top: auto;
+	bottom: 0;
+}
