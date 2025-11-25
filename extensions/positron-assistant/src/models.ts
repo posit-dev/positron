@@ -437,28 +437,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
 				// Some providers like AWS Bedrock require a type for all tool input schemas; default to 'object' if not provided.
 				// See similar handling for Anthropic in toAnthropicTool in extensions/positron-assistant/src/anthropic.ts
-				let input_schema = tool.inputSchema as Record<string, any>;
-
-				// Default schema for providers without input schema
-				if (!input_schema) {
-					const defaultSchema = {
-						type: 'object',
-						properties: {},
-						required: []
-					};
-
-					// Snowflake requires at least one property to be specified
-					if (this.provider === 'snowflake-cortex') {
-						defaultSchema.properties = {
-							placeholder: {
-								type: 'string',
-								description: 'placeholder'
-							}
-						};
-					}
-
-					input_schema = defaultSchema;
-				}
+				const input_schema = tool.inputSchema as Record<string, any> ?? {
+					type: 'object',
+					properties: {},
+					required: [],
+				};
 
 				// Ensure schema has a type field
 				if (!input_schema.type) {
