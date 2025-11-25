@@ -74,31 +74,8 @@ export async function createJupyterKernelSpec(
 
 	// If this R is from a conda environment, activate the conda environment
 	// to ensure that compilation tools and other dependencies are available
-	if (options?.condaEnvironmentPath) {
-		LOGGER.info(`Activating conda environment for R: ${options.condaEnvironmentPath}`);
-		const condaEnv = await getCondaActivationEnvironment(options.condaEnvironmentPath);
-
-		if (condaEnv) {
-			// Merge conda environment variables with existing env
-			// Conda env vars take precedence over defaults, but user-defined env vars (from userEnv) take precedence over conda
-			// So the order is: defaults < conda < userEnv
-			// We need to re-apply userEnv after merging conda env
-			const userEnvCopy = { ...userEnv };
-
-			// Merge conda environment (this may overwrite some defaults like PATH)
-			Object.assign(env, condaEnv);
-
-			// Re-apply user env vars to ensure they take final precedence
-			Object.assign(env, userEnvCopy);
-
-			// Ensure R_HOME is still set correctly (conda shouldn't override this)
-			env['R_HOME'] = rHomePath;
-
-			LOGGER.info('Successfully merged conda environment variables');
-		} else {
-			LOGGER.warn(`Failed to activate conda environment at ${options.condaEnvironmentPath}, proceeding without conda activation`);
-		}
-	}
+	const startup_command = options?.condaEnvironmentPath ?
+		'conda activate ' + options.condaEnvironmentPath : undefined;
 
 	// R script to run on session startup
 	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
@@ -175,6 +152,7 @@ export async function createJupyterKernelSpec(
 		'display_name': runtimeName,
 		'language': 'R',
 		'env': env,
+		'startup_command': startup_command,
 		// Protocol version 5.5 signals support for JEP 66
 		'kernel_protocol_version': '5.5'
 	};
