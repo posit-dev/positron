@@ -8,7 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ITextModel } from '../../../../editor/common/model.js';
-import { IRange } from '../../../../editor/common/core/range.js';
+import { IRange, Range } from '../../../../editor/common/core/range.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -24,7 +24,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, StatementRangeProvider } from '../../../../editor/common/languages.js';
+import { IStatementRange, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -79,8 +79,8 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
  */
 async function executeCodeInConsole(
 	code: string,
-	position: Position,
-	model: ITextModel,
+	cursorLocation: Location,
+	codeLocation: Location | undefined,
 	services: {
 		editorService: IEditorService;
 		languageService: ILanguageService;
@@ -114,11 +114,8 @@ async function executeCodeInConsole(
 	const attribution: IConsoleCodeAttribution = {
 		source: CodeAttributionSource.Script,
 		metadata: {
-			file: model.uri.path,
-			position: {
-				line: position.lineNumber,
-				column: position.column
-			},
+			cursorLocation,
+			codeLocation,
 		}
 	};
 
@@ -387,10 +384,14 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute.
 			const selection = editor?.getSelection();
 
+			// Track the source and range of the executed code
+			let codeLocation: Location | undefined = undefined;
+
 			// If we have a selection and it isn't empty, then we use its contents (even if it
 			// only contains whitespace or comments) and also retain the user's selection location.
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
+				codeLocation = { uri: model.uri, range: selection };
 				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 				// This attempts to address https://github.com/posit-dev/positron/issues/1177
 				// by tacking a newline onto multiline, indented Python code fragments. This allows
@@ -429,6 +430,7 @@ export function registerPositronConsoleActions() {
 					// range provider returns, even if it is an empty string, as it should have
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
+					codeLocation = { uri: model.uri, range: statementRange.range };
 
 					if (advance) {
 						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
@@ -486,11 +488,16 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
+			const cursorLocation: Location = {
+				uri: model.uri,
+				range: Range.fromPositions(position, position),
+			};
+
 			// Use the helper function to execute the code
 			await executeCodeInConsole(
 				code,
-				position,
-				model,
+				cursorLocation,
+				codeLocation,
 				{
 					editorService,
 					languageService,
@@ -770,11 +777,16 @@ export function registerPositronConsoleActions() {
 			return;
 		}
 
+		const cursorLocation: Location = {
+			uri: model.uri,
+			range: Range.fromPositions(position, position),
+		};
+
 		// Use the helper function to execute the code
 		await executeCodeInConsole(
 			code,
-			position,
-			model,
+			cursorLocation,
+			undefined,
 			{
 				editorService,
 				languageService,
