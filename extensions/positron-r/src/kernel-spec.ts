@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
+import { findCondaActivateScript } from './provider-conda';
 
 /**
  * Create a new Jupyter kernel spec.
@@ -72,8 +73,23 @@ export async function createJupyterKernelSpec(
 
 	// If this R is from a conda environment, activate the conda environment
 	// to ensure that compilation tools and other dependencies are available
-	const startup_command = options?.condaEnvironmentPath ?
-		'conda activate ' + options.condaEnvironmentPath : undefined;
+	let startup_command: string | undefined = undefined;
+	if (options?.condaEnvironmentPath) {
+		if (process.platform === 'win32') {
+			// On Windows, use the full path to activate.bat since conda may not be on PATH
+			const activateScript = findCondaActivateScript(options.condaEnvironmentPath);
+			if (activateScript) {
+				// Use call to execute the batch file and quote the paths to handle spaces
+				startup_command = `call "${activateScript}" "${options.condaEnvironmentPath}"`;
+			} else {
+				// Fall back to conda activate if we can't find the script
+				startup_command = 'conda activate ' + options.condaEnvironmentPath;
+			}
+		} else {
+			// On Unix-like systems, conda activate is a shell function
+			startup_command = 'conda activate ' + options.condaEnvironmentPath;
+		}
+	}
 
 	// R script to run on session startup
 	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
