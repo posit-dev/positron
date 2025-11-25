@@ -197,18 +197,19 @@
 			}
 		},
 		{
-			"name": "meta.pyrefly",
-			"version": "0.43.1",
-			"sha256sum": "4ec7c80a766fb54e6aa0c034127d4a6cdd2404048ae2e19b5f6f789db9dbb1f0",
-			"repo": "https://github.com/facebook/pyrefly",
+			"name": "ms-pyright.pyright",
+			"version": "1.1.402",
+			"sha256sum": "7ffa5a8649fa800b282c25ad70ce290367e036238d52727da7cdcac3d57439e9",
+			"repo": "https://github.com/Microsoft/pyright",
 			"metadata": {
+				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
 				"publisherId": {
-					"publisherName": "meta",
-					"displayName": "Pyrefly",
+					"publisherId": "26b7f243-cfb3-448b-8209-25b30d7e81c0",
+					"publisherName": "ms-pyright",
+					"displayName": "Pyright",
 					"flags": "verified"
 				},
-				"publisherDisplayName": "meta",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+				"publisherDisplayName": "ms-pyright"
 			}
 		},
 		{

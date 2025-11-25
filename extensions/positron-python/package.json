@@ -1000,10 +1000,12 @@
             "type": "object"
         },
         "configurationDefaults": {
-            "ruff.importStrategy": "useBundled",
-            "[python]": {
-                "editor.inlayHints.enabled": "offUnlessPressed"
-            }
+            "pyright.disableLanguageServices": true,
+            "pyright.disableOrganizeImports": true,
+            "pyright.disablePullDiagnostics": true,
+            "python.analysis.autoImportCompletions": false,
+            "python.analysis.typeCheckingMode": "off",
+            "ruff.importStrategy": "useBundled"
         },
         "debuggers": [
             {
