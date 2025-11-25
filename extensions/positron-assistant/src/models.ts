@@ -1363,7 +1363,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 			log.debug(`[${this.providerName}] Available models after processing: ${models.map(m => m.name).join(', ')}`);
 
-			return models;
+			return markDefaultModel(models, this.provider, this._config.model);
 		} catch (error) {
 			log.warn(`[${this.providerName}] Failed to fetch models from Bedrock API: ${error}`);
 			this._lastError = error instanceof Error ? error : new Error(String(error));
