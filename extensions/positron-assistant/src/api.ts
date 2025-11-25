@@ -46,13 +46,9 @@ export class PositronAssistantApi {
 	 * @returns A string containing the assistant prompt content.
 	 */
 	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Determine the chat mode based on the participant ID
-		let mode = positron.PositronChatMode.Ask;
-		if (request.id === ParticipantID.Edit) {
-			mode = positron.PositronChatMode.Edit;
-		} else if (request.id === ParticipantID.Agent) {
-			mode = positron.PositronChatMode.Agent;
-		}
+		// Use the currently selected mode in the chat UI
+		const chatMode = await positron.ai.getCurrentChatMode();
+		const mode = validateChatMode(chatMode);
 
 		// Start with the system prompt
 		const activeSessions = await positron.runtime.getActiveSessions();
@@ -62,7 +58,7 @@ export class PositronAssistantApi {
 		// Get notebook context if available
 		const notebookContext = await getAttachedNotebookContext(request);
 
-		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits, notebookContext }).content;
+		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits, notebookContext }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -417,4 +413,20 @@ export function getPositronContextPrompts(positronContext: positron.ai.ChatConte
 		log.debug(`[context] adding date context: ${dateNode.length} characters`);
 	}
 	return result;
+}
+
+function validateChatMode(mode: string | undefined): positron.PositronChatMode | positron.PositronChatAgentLocation {
+	switch (mode) {
+		case 'ask':
+		case 'edit':
+		case 'agent':
+			return mode as positron.PositronChatMode;
+		case 'editor':
+		case 'notebook':
+		case 'terminal':
+			return mode as positron.PositronChatAgentLocation;
+		// Default to 'agent' mode for e.g. custom modes
+		default:
+			return positron.PositronChatMode.Agent;
+	}
 }

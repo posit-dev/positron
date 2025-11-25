@@ -168,6 +168,7 @@ export interface MainThreadAiFeaturesShape {
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	$getCurrentChatMode(): Thenable<string | undefined>;
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
@@ -176,6 +177,7 @@ export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;
 	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
