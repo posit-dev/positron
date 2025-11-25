@@ -29,8 +29,8 @@
 	z-index: 10;
 }
 
-/* Hide the circle outline when the cell isn't running and not selected/hovered */
-.left-hand-action-container:not([data-execution-status='running']):not(:has(.action-button-wrapper)) {
+/* Hide the circle outline when the cell isn't running */
+.left-hand-action-container:not([data-execution-status='running']) {
 	--_circle-border-width: 0;
 }
 
