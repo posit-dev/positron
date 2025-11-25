@@ -281,7 +281,8 @@
             "type": "boolean",
             "default": false,
             "tags": [
-              "interpreterSettings"
+              "interpreterSettings",
+              "experimental"
             ],
             "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
           },
