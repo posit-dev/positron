@@ -12,7 +12,6 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -214,35 +213,6 @@ export async function showToolsPicker(
 		}
 	}
 
-	/**
-	 * Determines if a tool should be enabled for the currently selected language model.
-	 * Based on the logic from extensions/positron-assistant/src/api.ts
-	 */
-	const isToolEnabledForModel = (tool: IToolData): boolean => {
-		// If no model is selected, enable all tools
-		if (!selectedLanguageModel) {
-			return true;
-		}
-
-		// use accessor to get the configuration
-		const configurationService = accessor.get(IConfigurationService);
-		// Check if the user is using a Copilot model
-		const usingCopilotModel = selectedLanguageModel.metadata.vendor === 'copilot';
-		// Check if the user has opted-in to always include Copilot tools.
-		const alwaysIncludeCopilotTools = configurationService.getValue('positron.assistant.alwaysIncludeCopilotTools') as boolean;
-		// Check if the tool is provided by Copilot
-		const copilotTool = tool.id.startsWith('copilot_');
-
-		// Enable Copilot tools only if using a Copilot model;
-		// otherwise, enable all non-Copilot tools
-		if (copilotTool) {
-			return usingCopilotModel || alwaysIncludeCopilotTools;
-		}
-
-		// All non-Copilot tools are enabled for all models
-		return true;
-	};
-
 	function computeItems(previousToolsEntries?: ReadonlyMap<ToolSet | IToolData, boolean>) {
 		// Create default entries if none provided
 		let toolsEntries = getToolsEntries ? new Map(getToolsEntries()) : undefined;
@@ -411,6 +381,10 @@ export async function showToolsPicker(
 			return bucket;
 		};
 
+		// --- Start Positron ---
+		const languageModelToolsService = accessor.get(ILanguageModelToolsService);
+		// --- End Positron ---
+
 		for (const toolSet of toolsService.toolSets.get()) {
 			if (!toolsEntries.has(toolSet)) {
 				continue;
@@ -421,6 +395,15 @@ export async function showToolsPicker(
 			}
 			const toolSetChecked = toolsEntries.get(toolSet) === true;
 			if (toolSet.source.type === 'mcp') {
+				// --- Start Positron ---
+				// Check if any tools in this MCP toolset are enabled for the selected model
+				const hasEnabledTools = [...toolSet.getTools()].some(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				if (!hasEnabledTools) {
+					continue;
+				}
+				// --- End Positron ---
 				// bucket represents the toolset
 				bucket.toolset = toolSet;
 				if (toolSetChecked) {
@@ -428,14 +411,20 @@ export async function showToolsPicker(
 				}
 				// all mcp tools are part of toolsService.getTools()
 			} else {
+				// --- Start Positron ---
+				// Filter tools first to check if any are enabled for the selected model
+				const enabledTools = [...toolSet.getTools()].filter(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				// Skip toolset entirely if no tools are enabled for the selected model
+				if (enabledTools.length === 0) {
+					continue;
+				}
+				// --- End Positron ---
 				const treeItem = createToolSetTreeItem(toolSet, toolSetChecked, editorService);
 				bucket.children.push(treeItem);
 				const children = [];
-				for (const tool of toolSet.getTools()) {
-					// Filter out tools not enabled for the selected model
-					if (!isToolEnabledForModel(tool)) {
-						continue;
-					}
+				for (const tool of enabledTools) {
 					const toolChecked = toolSetChecked || toolsEntries.get(tool) === true;
 					const toolTreeItem = createToolTreeItemFromData(tool, toolChecked);
 					children.push(toolTreeItem);
@@ -449,10 +438,12 @@ export async function showToolsPicker(
 			if (!tool.canBeReferencedInPrompt || !toolsEntries.has(tool)) {
 				continue;
 			}
+			// --- Start Positron ---
 			// Filter out tools not enabled for the selected model
-			if (!isToolEnabledForModel(tool)) {
+			if (!languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)) {
 				continue;
 			}
+			// --- End Positron ---
 			const bucket = getBucket(tool.source);
 			if (!bucket) {
 				continue;

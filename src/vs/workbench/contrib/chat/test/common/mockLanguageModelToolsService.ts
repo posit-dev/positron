@@ -12,6 +12,10 @@ import { IVariableReference } from '../../common/chatModes.js';
 import { ChatRequestToolReferenceEntry } from '../../common/chatVariableEntries.js';
 import { CountTokensCallback, ILanguageModelToolsService, IToolAndToolSetEnablementMap, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolSet } from '../../common/languageModelToolsService.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+// --- End Positron ---
+
 export class MockLanguageModelToolsService implements ILanguageModelToolsService {
 	_serviceBrand: undefined;
 
@@ -99,6 +103,12 @@ export class MockLanguageModelToolsService implements ILanguageModelToolsService
 	toToolAndToolSetEnablementMap(toolOrToolSetNames: readonly string[]): IToolAndToolSetEnablementMap {
 		throw new Error('Method not implemented.');
 	}
+
+	// --- Start Positron ---
+	isToolEnabledForModel(toolId: string, languageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
+		throw new Error('Method not implemented.');
+	}
+	// --- End Positron ---
 
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[] {
 		throw new Error('Method not implemented.');
