@@ -23,6 +23,8 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { LanguageFilterMenuButton } from './languageFilterMenuButton.js';
 import { HistoryEntry } from './historyEntry.js';
 import { HistorySeparator } from './historySeparator.js';
@@ -32,11 +34,17 @@ import './positronHistoryPanel.css';
 
 // Localized strings
 const positronHistoryToConsole = localize('positronHistoryToConsole', "To Console");
+const positronHistoryToConsoleTooltip = localize('positronHistoryToConsoleTooltip', "Send the selected code to the console for execution");
 const positronHistoryToSource = localize('positronHistoryToSource', "To Source");
+const positronHistoryToSourceTooltip = localize('positronHistoryToSourceTooltip', "Insert the selected code at the cursor position in the source editor");
 const positronHistoryCopy = localize('positronHistoryCopy', "Copy");
 const positronHistorySearch = localize('positronHistorySearch', "Search");
 const positronHistoryClearSearch = localize('positronHistoryClearSearch', "Clear Search");
 const positronHistoryNoMatches = (searchText: string) => localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", searchText);
+const positronHistoryClearAll = localize('positronHistoryClearAll', "Clear All");
+const positronHistoryClearAllTooltip = localize('positronHistoryClearAllTooltip', "Clear all input history for the selected language");
+const positronHistoryClearAllConfirmTitle = localize('positronHistoryClearAllConfirmTitle', "Clear All History");
+const positronHistoryClearAllConfirmMessage = (language: string) => localize('positronHistoryClearAllConfirmMessage', "Are you sure you want to clear all input history for {0}? This action cannot be undone.", language);
 
 /**
  * Props for the PositronHistoryPanel component
@@ -47,6 +55,7 @@ interface PositronHistoryPanelProps {
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 	instantiationService: IInstantiationService;
+	positronModalDialogsService: IPositronModalDialogsService;
 	fontInfo: FontInfo;
 }
 
@@ -82,7 +91,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		executionHistoryService,
 		runtimeSessionService,
 		runtimeStartupService,
-		instantiationService
+		instantiationService,
+		positronModalDialogsService
 	} = props;
 
 	// State
@@ -210,6 +220,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
+	 * Get the display name for a language ID (e.g., "python" -> "Python")
+	 */
+	const getLanguageDisplayName = (languageId: string): string => {
+		return languageId.charAt(0).toUpperCase() + languageId.slice(1);
+	};
+
+	/**
 	 * Handle "Copy" - copies selected code to clipboard
 	 */
 	const handleCopy = (index?: number) => {
@@ -301,6 +318,39 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		setDebouncedSearchText('');
 		if (filterRef.current) {
 			filterRef.current.setFilterText('');
+		}
+	};
+
+	/**
+	 * Handle clear all - clears search if active, otherwise clears all history for current language
+	 */
+	const handleClearAll = async () => {
+		// If there's an active search, just clear the search
+		if (searchText) {
+			handleClearSearch();
+			return;
+		}
+
+		// Otherwise, clear all history for the current language
+		if (!currentLanguage) {
+			return;
+		}
+
+		// Show confirmation dialog with the display name (e.g., "Python" instead of "python")
+		const languageDisplayName = getLanguageDisplayName(currentLanguage);
+		const confirmed = await positronModalDialogsService.showSimpleModalDialogPrompt(
+			positronHistoryClearAllConfirmTitle,
+			positronHistoryClearAllConfirmMessage(languageDisplayName),
+			positronHistoryClearAll,
+			localize('cancel', "Cancel")
+		);
+
+		if (confirmed) {
+			executionHistoryService.clearInputEntries(currentLanguage);
+			// Reset selection since all entries will be gone
+			setSelectedIndex(-1);
+			// Reload the history to update the UI
+			loadHistory();
 		}
 	};
 
@@ -801,19 +851,19 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
-							ariaLabel={positronHistoryToConsole}
+							ariaLabel={positronHistoryToConsoleTooltip}
 							disabled={selectedIndex < 0}
 							icon={Codicon.play}
 							label={positronHistoryToConsole}
-							tooltip={positronHistoryToConsole}
+							tooltip={positronHistoryToConsoleTooltip}
 							onPressed={handleToConsole}
 						/>
 						<ActionBarButton
-							ariaLabel={positronHistoryToSource}
+							ariaLabel={positronHistoryToSourceTooltip}
 							disabled={selectedIndex < 0}
 							icon={Codicon.insert}
 							label={positronHistoryToSource}
-							tooltip={positronHistoryToSource}
+							tooltip={positronHistoryToSourceTooltip}
 							onPressed={handleToSource}
 						/>
 						<ActionBarButton
@@ -838,6 +888,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								placeholder={positronHistorySearch}
 								width={100}
 								onFilterTextChanged={handleSearchTextChange}
+							/>
+							<ActionBarSeparator />
+							<ActionBarButton
+								ariaLabel={positronHistoryClearAllTooltip}
+								icon={Codicon.clearAll}
+								tooltip={positronHistoryClearAllTooltip}
+								onPressed={handleClearAll}
 							/>
 						</ActionBarRegion>
 					)}
