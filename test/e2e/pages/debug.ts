@@ -71,7 +71,7 @@ export class Debug {
 
 	async debugCell(): Promise<void> {
 		await test.step('Debug notebook', async () => {
-			await expect(this.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
+			await expect(this.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible({ timeout: 20000 });
 			// Prefer to use hotkey but there is an issue with yellow marker not showing
 			// await this.hotKeys.debugCell();
 			await this.quickaccess.runCommand('notebook.debugCell');

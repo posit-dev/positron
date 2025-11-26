@@ -177,6 +177,9 @@ async function getChatExportInfo(): Promise<string> {
 			return 'No active chat session';
 		}
 
+		// Currently selected mode in the Chat panel
+		const chatMode = await positron.ai.getCurrentChatMode();
+
 		// Cast to access internal structure (API returns object type for stability)
 		const chatData = chatExport as any;
 
@@ -198,6 +201,7 @@ async function getChatExportInfo(): Promise<string> {
 		return `Active chat session found:
 - Total requests: ${requestCount}
 - Current agent/model: ${currentModel}
+- Currently selected mode: ${chatMode}
 - Location: ${chatData.initialLocation || 'N/A'}`;
 	} catch (error) {
 		return `Error retrieving chat export: ${formatError(error)}`;
