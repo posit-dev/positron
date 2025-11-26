@@ -139,6 +139,48 @@ export class LanguageInputHistory extends Disposable {
 		this._storageService.remove(this._storageKey, this._storageScope);
 	}
 
+	/**
+	 * Deletes a single input history entry for this language.
+	 * @param when The timestamp of the entry to delete
+	 * @param input The input text of the entry to delete
+	 */
+	public deleteEntry(when: number, input: string): void {
+		// Clear any running save timer
+		this.clearSaveTimer();
+
+		// Remove from pending entries if present
+		const pendingIndex = this._pendingEntries.findIndex(entry =>
+			entry.when === when && entry.input === input
+		);
+		if (pendingIndex >= 0) {
+			this._pendingEntries.splice(pendingIndex, 1);
+		}
+
+		// Read existing entries from storage
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
+		let parsedEntries: IInputHistoryEntry[] = [];
+		try {
+			parsedEntries = JSON.parse(entries);
+		} catch (err) {
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
+			return;
+		}
+
+		// Remove the matching entry
+		const filteredEntries = parsedEntries.filter(entry =>
+			!(entry.when === when && entry.input === input)
+		);
+
+		// Save the filtered entries back to storage
+		const storageState = JSON.stringify(filteredEntries);
+		this._storageService.store(this._storageKey,
+			storageState,
+			this._storageScope,
+			StorageTarget.USER);
+
+		this._logService.trace(`Deleted entry from input history in key ${this._storageKey}`);
+	}
+
 	private save(forShutdown: boolean): void {
 		// Clear any running save timer
 		this.clearSaveTimer();

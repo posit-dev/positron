@@ -37,7 +37,8 @@ const positronHistoryToConsole = localize('positronHistoryToConsole', "To Consol
 const positronHistoryToConsoleTooltip = localize('positronHistoryToConsoleTooltip', "Send the selected code to the console for execution");
 const positronHistoryToSource = localize('positronHistoryToSource', "To Source");
 const positronHistoryToSourceTooltip = localize('positronHistoryToSourceTooltip', "Insert the selected code at the cursor position in the source editor");
-const positronHistoryCopy = localize('positronHistoryCopy', "Copy");
+const positronHistoryCopyTooltip = localize('positronHistoryCopyTooltip', "Copy the selected code to the clipboard");
+const positronHistoryDeleteTooltip = localize('positronHistoryDeleteTooltip', "Delete the selected history entry");
 const positronHistorySearch = localize('positronHistorySearch', "Search");
 const positronHistoryClearSearch = localize('positronHistoryClearSearch', "Clear Search");
 const positronHistoryNoMatches = (searchText: string) => localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", searchText);
@@ -247,6 +248,51 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		);
 
 		clipboardService.writeText(entry.input);
+	};
+
+	/**
+	 * Handle "Delete" - deletes the selected history entry
+	 */
+	const handleDelete = (index?: number) => {
+		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
+		const idx = (typeof index === 'number') ? index : selectedIndex;
+		if (idx < 0 || idx >= listItems.length || !currentLanguage) {
+			return;
+		}
+
+		const item = listItems[idx];
+		if (item.type === 'separator') {
+			return;
+		}
+
+		const entry = item.entry;
+
+		// Delete the entry from the service
+		executionHistoryService.deleteInputEntry(currentLanguage, entry.when, entry.input);
+
+		// Reload the history to refresh the view
+		loadHistory();
+
+		// Update selection after deletion
+		// If there are remaining items, select the next item, or the previous if at end
+		const newListItems = listItemsRef.current;
+		if (newListItems.length === 0) {
+			setSelectedIndex(-1);
+		} else if (idx >= newListItems.length) {
+			// Deleted last item, select the new last item
+			const newLastIndex = findNextSelectableIndex(newListItems.length - 1, -1, newListItems);
+			setSelectedIndex(newLastIndex);
+		} else {
+			// Select the item at the same position (which is now the next item)
+			const newSelectedIndex = findNextSelectableIndex(idx, 1, newListItems);
+			if (newSelectedIndex === -1) {
+				// No items after, try finding one before
+				const beforeIndex = findNextSelectableIndex(idx - 1, -1, newListItems);
+				setSelectedIndex(beforeIndex);
+			} else {
+				setSelectedIndex(newSelectedIndex);
+			}
+		}
 	};
 
 	/**
@@ -866,13 +912,20 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							tooltip={positronHistoryToSourceTooltip}
 							onPressed={handleToSource}
 						/>
+						<ActionBarSeparator />
 						<ActionBarButton
-							ariaLabel={positronHistoryCopy}
+							ariaLabel={positronHistoryCopyTooltip}
 							disabled={selectedIndex < 0}
 							icon={Codicon.copy}
-							label={positronHistoryCopy}
-							tooltip={positronHistoryCopy}
+							tooltip={positronHistoryCopyTooltip}
 							onPressed={handleCopy}
+						/>
+						<ActionBarButton
+							ariaLabel={positronHistoryDeleteTooltip}
+							disabled={selectedIndex < 0}
+							icon={Codicon.trash}
+							tooltip={positronHistoryDeleteTooltip}
+							onPressed={handleDelete}
 						/>
 					</ActionBarRegion>
 					{hasAnyHistory && (
@@ -963,6 +1016,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 											onCopy={() => {
 												setSelectedIndex(index);
 												handleCopy(index);
+											}}
+											onDelete={() => {
+												setSelectedIndex(index);
+												handleDelete(index);
 											}}
 											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
 											onSelect={() => handleSelect(index)}

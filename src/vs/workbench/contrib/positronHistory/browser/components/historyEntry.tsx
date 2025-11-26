@@ -22,6 +22,7 @@ const ttPolicy = createTrustedTypesPolicy('positronHistoryEntry', { createHTML: 
 const positronHistorySendToConsole = localize('positron.history.sendToConsole', 'Send to Console');
 const positronHistorySendToEditor = localize('positron.history.sendToEditor', 'Send to Editor');
 const positronHistoryCopy = localize('positron.history.copy', 'Copy');
+const positronHistoryDeleteEntry = localize('positron.history.delete', 'Delete');
 
 /**
  * Props for the HistoryEntry component
@@ -39,6 +40,7 @@ interface HistoryEntryProps {
 	onToConsole: () => void;
 	onToSource: () => void;
 	onCopy: () => void;
+	onDelete: () => void;
 	instantiationService: IInstantiationService;
 	fontInfo: FontInfo;
 }
@@ -334,7 +336,7 @@ const getSmartExcerpt = (code: string, search: string): { excerpt: string; hidde
 
 	// Try to center the match, but prioritize showing context after
 	let startLine = Math.max(0, matchLineIndex - 1);
-	let endLine = Math.min(totalLines, startLine + linesToShow);
+	const endLine = Math.min(totalLines, startLine + linesToShow);
 
 	// Adjust if we're at the end
 	if (endLine - startLine < linesToShow) {
@@ -364,6 +366,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		onToConsole,
 		onToSource,
 		onCopy,
+		onDelete,
 		instantiationService
 	} = props;
 
@@ -527,6 +530,19 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			run: () => onCopy()
 		});
 
+		// Add separator
+		actions.push(new Separator());
+
+		// Add "Delete" action
+		actions.push({
+			id: 'positronHistory.delete',
+			label: positronHistoryDeleteEntry,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onDelete()
+		});
+
 		// Show the context menu
 		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
@@ -550,8 +566,10 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	return (
 		<div
 			ref={entryRef}
-			style={styleWithoutHeight}
 			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
+			style={styleWithoutHeight}
+			onContextMenu={handleContextMenu}
+			onDoubleClick={() => onToConsole()}
 			onMouseDown={(e) => {
 				// Use onMouseDown instead of onClick to ensure selection happens before focus events
 				// This prevents the two-click issue when the panel is unfocused
@@ -560,8 +578,6 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 					onSelect();
 				}
 			}}
-			onDoubleClick={() => onToConsole()}
-			onContextMenu={handleContextMenu}
 		>
 			<div className="history-entry-content">
 				{/* Show "... N more lines" above if smart excerpt hides lines above */}
@@ -573,9 +589,9 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 				{colorizedHtml ? (
 					<div
+						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
 						ref={codeRef}
 						className={`history-entry-code ${hasTruncatedTop ? 'truncated-top' : ''} ${hasTruncatedBottom ? 'truncated-bottom' : ''}`}
-						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
 					/>
 				) : (
 					<div

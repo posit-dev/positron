@@ -88,6 +88,20 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	}
 
 	/**
+	 * Delete a single input history entry for the given language
+	 *
+	 * @param languageId Language ID to delete the input history entry from
+	 * @param when The timestamp of the entry to delete
+	 * @param input The input text of the entry to delete
+	 */
+	deleteInputEntry(languageId: string, when: number, input: string): void {
+		const history = this.getLanguageHistory(languageId);
+		if (history) {
+			history.deleteEntry(when, input);
+		}
+	}
+
+	/**
 	 * Prunes the storage of any history entries that don't have a corresponding session.
 	 *
 	 * @param sessions The set of sessions that have been or will be restored

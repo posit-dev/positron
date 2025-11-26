@@ -112,6 +112,15 @@ export interface IExecutionHistoryService extends IDisposable {
 	clearInputEntries(languageId: string): void;
 
 	/**
+	 * Removes a single input history entry for a given language.
+	 *
+	 * @param languageId The ID of the language to delete the input history entry from
+	 * @param when The timestamp of the entry to delete
+	 * @param input The input text of the entry to delete (used to uniquely identify the entry)
+	 */
+	deleteInputEntry(languageId: string, when: number, input: string): void;
+
+	/**
 	 * Gets the execution history for a given language runtime session. This is
 	 * effectively the execution history for a specific console tab, so it is
 	 * both workspace and machine scoped.
