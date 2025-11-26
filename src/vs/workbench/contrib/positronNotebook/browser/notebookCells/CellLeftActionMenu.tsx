@@ -93,21 +93,20 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
-	const actionMenu = (isSelected || isHovered) && primaryLeftAction ? (
-		<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
-			<CellActionButton action={primaryLeftAction} cell={cell} />
-		</div>
-	) : null;
+	// Determine if we should show the cell execution button
+	const showActionMenu = (isSelected || isHovered) && primaryLeftAction;
+	// Determine if we should show the execution status indicator (spinner)
+	const showExecutionStatus = showActionMenu || isRunning;
 
 	return (
 		<>
 			<div
-				className='left-hand-action-container'
 				ref={containerRef}
+				className='left-hand-action-container'
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				{actionMenu && (
+				{showExecutionStatus && (
 					<div
 						className='left-hand-action-container-top'
 						data-execution-status={dataExecutionStatus}
@@ -118,7 +117,11 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 							className='cell-execution-status-animation'
 							role='status'
 						/>
-						{actionMenu}
+						{showActionMenu && (
+							<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
+								<CellActionButton action={primaryLeftAction} cell={cell} />
+							</div>
+						)}
 					</div>
 				)}
 				<div
