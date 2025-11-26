@@ -16,7 +16,7 @@ import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
-import { generateNotebookSuggestions } from './notebookSuggestions.js';
+import { generateNotebookSuggestions, type NotebookActionSuggestion } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
@@ -279,16 +279,20 @@ function registerGenerateNotebookSuggestionsCommand(
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positron-assistant.generateNotebookSuggestions',
-			async (notebookUri: string, token?: vscode.CancellationToken) => {
+			async (notebookUri: string, progressCallbackCommand?: string, token?: vscode.CancellationToken) => {
 				// Create a token source only if no token is provided
 				let tokenSource: vscode.CancellationTokenSource | undefined;
-				// If there is no provided token, create a new one and also
-				// assign it to the tokenSource so we know to dispose it later.
 				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
 				try {
-					return await generateNotebookSuggestions(notebookUri, participantService, log, cancellationToken);
+					return await generateNotebookSuggestions(
+						notebookUri,
+						participantService,
+						log,
+						cancellationToken,
+						progressCallbackCommand
+					);
 				} finally {
-					// We only want to dispose the token if we created it
+					// Only dispose if we created the token
 					tokenSource?.dispose();
 				}
 			}

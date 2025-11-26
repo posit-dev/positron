@@ -7,7 +7,7 @@ import { localize, localize2 } from '../../../../nls.js';
 import { MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ICommandService, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService, IQuickPick, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -15,6 +15,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
@@ -64,13 +65,6 @@ const ASSISTANT_PREDEFINED_ACTIONS: PromptQuickPickItem[] = [
 		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
 		mode: ChatModeKind.Edit,
 		iconClass: ThemeIcon.asClassName(Codicon.edit)
-	},
-	{
-		label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
-		detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get AI recommendations for what to do next'),
-		query: 'Analyze this notebook and suggest next steps: 1) Assess what\'s been accomplished so far, 2) Identify what\'s incomplete or missing (analysis, validation, documentation, error handling), 3) Recommend 3-4 specific next actions with reasoning, 4) Flag any potential issues or improvements',
-		mode: ChatModeKind.Agent,
-		iconClass: ThemeIcon.asClassName(Codicon.lightbulbAutofix)
 	},
 	{
 		label: localize('positronNotebook.assistant.prompt.generateSuggestions', 'Generate AI suggestions...'),
@@ -291,42 +285,70 @@ export class AskAssistantAction extends NotebookAction2 {
 		];
 
 		try {
-			// Call extension command to generate suggestions
-			const suggestions = await commandService.executeCommand<PromptQuickPickItem[]>(
-				'positron-assistant.generateNotebookSuggestions',
-				notebook.uri.toString(),
-				token
-			);
+			// Generate a unique callback command ID for this request
+			const callbackCommandId = `positron-notebook-suggestions-callback-${generateUuid()}`;
 
-			// Check if cancellation was requested during the call
-			// The extension may return an empty array instead of throwing on cancellation
-			if (token.isCancellationRequested) {
-				// Remove loading item and separator, restore original items
-				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
-				return;
-			}
+			// Track suggestions as they arrive for progressive display
+			const progressiveSuggestions: PromptQuickPickItem[] = [];
 
-			if (!suggestions || suggestions.length === 0) {
-				notificationService.info(
-					localize(
-						'positronNotebook.assistant.noSuggestions',
-						'No suggestions generated. Try selecting cells or executing code first.'
-					)
+			// Register temporary command for progress callbacks
+			const callbackDisposable = CommandsRegistry.registerCommand(callbackCommandId, (_accessor, suggestion: PromptQuickPickItem) => {
+				progressiveSuggestions.push(suggestion);
+
+				// Update quick pick to show new suggestion immediately
+				quickPick.items = [
+					...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
+					separator,
+					...progressiveSuggestions,
+					loadingItem // Keep loading item at the end while more suggestions may arrive
+				];
+			});
+
+			try {
+				// Call extension command to generate suggestions with callback command ID
+				const suggestions = await commandService.executeCommand<PromptQuickPickItem[]>(
+					'positron-assistant.generateNotebookSuggestions',
+					notebook.uri.toString(),
+					callbackCommandId,
+					token
 				);
-				// Remove loading item and separator, restore original items
-				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
-				return;
+
+				// Dispose callback immediately to prevent race conditions with late-arriving callbacks
+				// This ensures no callbacks can fire while we're updating the UI with final results
+				callbackDisposable.dispose();
+
+				// Check if cancellation was requested during the call
+				// The extension may return an empty array instead of throwing on cancellation
+				if (token.isCancellationRequested) {
+					// Remove loading item and separator, restore original items
+					quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+					return;
+				}
+
+				if (!suggestions || suggestions.length === 0) {
+					notificationService.info(
+						localize(
+							'positronNotebook.assistant.noSuggestions',
+							'No suggestions generated. Try selecting cells or executing code first.'
+						)
+					);
+					// Remove loading item and separator, restore original items
+					quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+					return;
+				}
+
+				// Final update: remove loading item now that all suggestions are complete
+				quickPick.items = [
+					...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
+					separator,
+					...suggestions
+				];
+
+				quickPick.placeholder = localize('positronNotebook.assistant.selectAction', 'Select an action');
+			} finally {
+				// Clean up the callback command registration
+				callbackDisposable.dispose();
 			}
-
-			// Update quick pick items to show predefined actions first, then AI suggestions below
-			// Replace the loading item with actual suggestions
-			quickPick.items = [
-				...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
-				separator,
-				...suggestions
-			];
-
-			quickPick.placeholder = localize('positronNotebook.assistant.selectAction', 'Select an action');
 
 		} catch (error) {
 			// Don't show error notification for cancellation errors (user closed the pick)

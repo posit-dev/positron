@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ParticipantService } from './participants.js';
 import { MARKDOWN_DIR } from './constants';
 import { serializeNotebookContext } from './tools/notebookUtils.js';
+import { StreamingTagLexer } from './streamingTagLexer.js';
 
 /**
  * Interface for notebook action suggestions returned to the workbench
@@ -24,23 +25,10 @@ export interface NotebookActionSuggestion {
 }
 
 /**
- * Raw suggestion object structure as parsed from JSON
- * Used for type-safe validation of LLM responses
+ * Valid XML tag names for parsing suggestions
  */
-interface RawSuggestion {
-	label?: unknown;
-	detail?: unknown;
-	query?: unknown;
-	mode?: unknown;
-	iconClass?: unknown;
-}
+type SuggestionTag = 'suggestions' | 'suggestion' | 'label' | 'detail' | 'query' | 'mode' | 'iconClass';
 
-/**
- * Type guard to check if a value is a record-like object
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 /**
  * Generate AI-powered action suggestions based on notebook context
@@ -48,13 +36,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @param participantService Service for accessing the current chat model
  * @param log Log output channel for debugging
  * @param token Cancellation token
+ * @param progressCallbackCommand Optional command ID to call for progress updates (enables progressive display)
  * @returns Array of suggested actions
  */
 export async function generateNotebookSuggestions(
 	notebookUri: string,
 	participantService: ParticipantService,
 	log: vscode.LogOutputChannel,
-	token: vscode.CancellationToken
+	token: vscode.CancellationToken,
+	progressCallbackCommand?: string
 ): Promise<NotebookActionSuggestion[]> {
 	// Get the model to use for generation
 	const model = await getModel(participantService, log);
@@ -99,17 +89,8 @@ export async function generateNotebookSuggestions(
 			userMessage
 		], {}, token);
 
-		// Accumulate the response
-		let jsonResponse = '';
-		for await (const delta of response.text) {
-			if (token.isCancellationRequested) {
-				return [];
-			}
-			jsonResponse += delta;
-		}
-
-		// Parse and validate the JSON response
-		const suggestions = parseAndValidateSuggestions(jsonResponse, log);
+		// Parse XML response as it streams
+		const suggestions = await parseStreamingXML(response.text, log, token, progressCallbackCommand);
 
 		return suggestions;
 
@@ -126,90 +107,130 @@ export async function generateNotebookSuggestions(
 }
 
 /**
- * Parse and validate the LLM response as JSON suggestions
+ * Parse streaming XML response and build suggestions progressively
  */
-function parseAndValidateSuggestions(
-	jsonResponse: string,
-	log: vscode.LogOutputChannel
-): NotebookActionSuggestion[] {
-	try {
-		// Extract JSON from potential markdown code blocks
-		let jsonString = jsonResponse.trim();
+async function parseStreamingXML(
+	textStream: AsyncIterable<string>,
+	log: vscode.LogOutputChannel,
+	token: vscode.CancellationToken,
+	progressCallbackCommand?: string
+): Promise<NotebookActionSuggestion[]> {
+	const suggestions: NotebookActionSuggestion[] = [];
+	let currentSuggestion: Partial<NotebookActionSuggestion> | null = null;
+	let currentField: keyof NotebookActionSuggestion | null = null;
+	let currentFieldContent = '';
 
-		// Remove markdown code fence if present
-		const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
-		if (codeBlockMatch) {
-			jsonString = codeBlockMatch[1].trim();
+	// Create streaming tag lexer
+	const lexer = new StreamingTagLexer<SuggestionTag>({
+		tagNames: ['suggestions', 'suggestion', 'label', 'detail', 'query', 'mode', 'iconClass'],
+		contentHandler: async (chunk) => {
+			if (chunk.type === 'tag') {
+				if (chunk.name === 'suggestion') {
+					if (chunk.kind === 'open') {
+						// Start a new suggestion
+						// Reset any open field state from previous suggestion (handles malformed XML)
+						if (currentField) {
+							log.warn(`[notebook-suggestions] New suggestion opened while field '${currentField}' was still open, resetting field state`);
+							currentField = null;
+							currentFieldContent = '';
+						}
+						currentSuggestion = {};
+					} else if (chunk.kind === 'close' && currentSuggestion) {
+						// Save any pending field content before completing the suggestion
+						// This handles cases where a field tag was opened but never properly closed
+						if (currentField && currentFieldContent.trim()) {
+							currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];
+							currentField = null;
+							currentFieldContent = '';
+						}
+
+						// Complete the suggestion and add to results
+						const completed = completeSuggestion(currentSuggestion, log);
+						if (completed) {
+							suggestions.push(completed);
+							log.debug(`[notebook-suggestions] Completed suggestion: ${completed.label}`);
+
+							// Call progress callback command if provided
+							if (progressCallbackCommand) {
+								try {
+									await vscode.commands.executeCommand(progressCallbackCommand, completed);
+								} catch (error) {
+									// Log but don't fail if callback fails
+									log.warn(`[notebook-suggestions] Progress callback failed: ${error}`);
+								}
+							}
+						}
+						currentSuggestion = null;
+					}
+				} else if (chunk.name === 'label' || chunk.name === 'detail' ||
+					chunk.name === 'query' || chunk.name === 'mode' ||
+					chunk.name === 'iconClass') {
+					if (chunk.kind === 'open') {
+						// Start collecting content for this field
+						currentField = chunk.name;
+						currentFieldContent = '';
+					} else if (chunk.kind === 'close' && currentField && currentSuggestion) {
+						// Save the field content
+						currentSuggestion[currentField] = currentFieldContent.trim() as NotebookActionSuggestion['mode'];;
+						currentField = null;
+						currentFieldContent = '';
+					}
+				}
+			} else {
+				// Accumulate text content for the current field
+				if (currentField) {
+					currentFieldContent += chunk.text;
+				}
+			}
+		}
+	});
+
+	// Stream the response through the lexer
+	try {
+		for await (const delta of textStream) {
+			if (token.isCancellationRequested) {
+				break;
+			}
+			await lexer.process(delta);
 		}
 
-		// Parse the JSON - result is unknown, not any
-		const parsed: unknown = JSON.parse(jsonString);
-
-		// Ensure it's an array of unknown values
-		const suggestions: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
-
-		// Validate and normalize each suggestion
-		// Type guard narrows unknown to RawSuggestion, then normalize converts to NotebookActionSuggestion
-		return suggestions
-			.filter((s): s is RawSuggestion => validateSuggestion(s, log))
-			.map(s => normalizeSuggestion(s))
-			.slice(0, 5); // Limit to 5 suggestions
-
+		// Flush any remaining content
+		await lexer.flush();
 	} catch (error) {
-		log.error(`[notebook-suggestions] Failed to parse LLM response as JSON: ${error}`);
-		return [];
+		log.error(`[notebook-suggestions] Error during XML streaming: ${error}`);
+		// Re-throw to propagate to outer handler
+		throw error;
 	}
+
+	// Limit to 5 suggestions
+	return suggestions.slice(0, 5);
 }
 
 /**
- * Type guard to validate that a suggestion object has required fields
- * @param suggestion The unknown value to validate
- * @param log Log output channel for debugging
- * @returns True if the suggestion is a valid RawSuggestion
+ * Complete and validate a partial suggestion
  */
-function validateSuggestion(suggestion: unknown, log: vscode.LogOutputChannel): suggestion is RawSuggestion {
-	if (!isRecord(suggestion)) {
-		log.warn('[notebook-suggestions] Invalid suggestion: not an object');
-		return false;
+function completeSuggestion(
+	partial: Partial<NotebookActionSuggestion>,
+	log: vscode.LogOutputChannel
+): NotebookActionSuggestion | null {
+	// Validate required fields
+	if (!partial.label || !partial.query) {
+		log.warn('[notebook-suggestions] Invalid suggestion: missing label or query');
+		return null;
 	}
 
-	if (!suggestion.label || typeof suggestion.label !== 'string') {
-		log.warn('[notebook-suggestions] Invalid suggestion: missing or invalid label');
-		return false;
-	}
-
-	if (!suggestion.query || typeof suggestion.query !== 'string') {
-		log.warn('[notebook-suggestions] Invalid suggestion: missing or invalid query');
-		return false;
-	}
-
-	return true;
-}
-
-/**
- * Normalize a validated suggestion object to match the expected interface
- * @param suggestion The validated raw suggestion from JSON parsing
- * @returns Normalized NotebookActionSuggestion
- */
-function normalizeSuggestion(suggestion: RawSuggestion): NotebookActionSuggestion {
 	// Normalize mode to valid values
 	let mode: 'ask' | 'edit' | 'agent' = 'agent';
-	if (suggestion.mode === 'ask' || suggestion.mode === 'edit' || suggestion.mode === 'agent') {
-		mode = suggestion.mode;
-	}
-
-	// validateSuggestion ensures label and query are strings, so these are safe to use
-	// We still check at runtime for extra safety
-	if (typeof suggestion.label !== 'string' || typeof suggestion.query !== 'string') {
-		throw new Error('Invalid suggestion: label and query must be strings');
+	if (partial.mode === 'ask' || partial.mode === 'edit' || partial.mode === 'agent') {
+		mode = partial.mode;
 	}
 
 	return {
-		label: suggestion.label,
-		detail: typeof suggestion.detail === 'string' ? suggestion.detail : undefined,
-		query: suggestion.query,
+		label: partial.label,
+		detail: partial.detail,
+		query: partial.query,
 		mode,
-		iconClass: typeof suggestion.iconClass === 'string' ? suggestion.iconClass : undefined
+		iconClass: partial.iconClass
 	};
 }
 
