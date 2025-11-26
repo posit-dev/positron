@@ -29,14 +29,8 @@
 		--vscode-notebook-outputContainerBackgroundColor,
 		white
 	);
-	--vscode-positronNotebook-action-bar-background: var(
-		--vscode-dropdown-background,
-		white
-	);
-	--vscode-positronNotebook-action-bar-border-color: var(
-		--vscode-input-border,
-		grey
-	);
+	--vscode-positronNotebook-action-bar-background: var(--vscode-editor-background);
+	--vscode-positronNotebook-action-bar-border-color: var(--vscode-notebook-cellToolbarSeparator);
 
 	/* Size variables used throughout notebooks */
 	--vscode-positronNotebook-cell-radius: 8px;
@@ -64,6 +58,15 @@
 	span {
 		cursor: text;
 	}
+}
+
+/**
+* Override the global keyoard focus outline style for notebook containers.
+* This prevents focus outline from showing when a user clicks on the notebook.
+* This prevents empty notebooks from showing an outline when they are focused.
+*/
+.monaco-workbench .positron-notebook-container[tabindex="-1"]:focus {
+	outline: none;
 }
 
 .positron-notebook-cells-container {
