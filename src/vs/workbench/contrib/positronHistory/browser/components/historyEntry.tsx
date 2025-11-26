@@ -14,8 +14,14 @@ import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { localize } from '../../../../../nls.js';
 
 const ttPolicy = createTrustedTypesPolicy('positronHistoryEntry', { createHTML: value => value });
+
+// Localized strings
+const positronHistorySendToConsole = localize('positron.history.sendToConsole', 'Send to Console');
+const positronHistorySendToEditor = localize('positron.history.sendToEditor', 'Send to Editor');
+const positronHistoryCopy = localize('positron.history.copy', 'Copy');
 
 /**
  * Props for the HistoryEntry component
@@ -491,7 +497,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		// Add "Send to Console" action
 		actions.push({
 			id: 'positronHistory.sendToConsole',
-			label: 'Send to Console',
+			label: positronHistorySendToConsole,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
@@ -501,7 +507,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		// Add "Send to Editor" action
 		actions.push({
 			id: 'positronHistory.sendToEditor',
-			label: 'Send to Editor',
+			label: positronHistorySendToEditor,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
@@ -514,7 +520,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		// Add "Copy" action
 		actions.push({
 			id: 'positronHistory.copy',
-			label: 'Copy',
+			label: positronHistoryCopy,
 			tooltip: '',
 			class: undefined,
 			enabled: true,

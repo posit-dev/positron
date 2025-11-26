@@ -16,6 +16,7 @@ interface LanguageFilterMenuButtonProps {
 }
 
 const filterTooltip = nls.localize('positron.historyLanguageFilter', "Filter history by language");
+const noRuntimeText = nls.localize('positron.historyNoRuntime', "No Runtime");
 
 /**
  * LanguageFilterMenuButton component - dropdown to select which language's history to display
@@ -48,7 +49,7 @@ export const LanguageFilterMenuButton = (props: LanguageFilterMenuButtonProps) =
 	// Display current language or "No Runtime" if none selected
 	const displayText = currentLanguage
 		? currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)
-		: nls.localize('positron.historyNoRuntime', "No Runtime");
+		: noRuntimeText;
 
 	return (
 		<ActionBarMenuButton

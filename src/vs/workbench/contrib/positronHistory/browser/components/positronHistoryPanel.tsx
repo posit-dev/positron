@@ -30,6 +30,14 @@ import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import './positronHistoryPanel.css';
 
+// Localized strings
+const positronHistoryToConsole = localize('positronHistoryToConsole', "To Console");
+const positronHistoryToSource = localize('positronHistoryToSource', "To Source");
+const positronHistoryCopy = localize('positronHistoryCopy', "Copy");
+const positronHistorySearch = localize('positronHistorySearch', "Search");
+const positronHistoryClearSearch = localize('positronHistoryClearSearch', "Clear Search");
+const positronHistoryNoMatches = (searchText: string) => localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", searchText);
+
 /**
  * Props for the PositronHistoryPanel component
  */
@@ -793,27 +801,27 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
-							ariaLabel={(() => localize('positronHistoryToConsole', "To Console"))()}
+							ariaLabel={positronHistoryToConsole}
 							disabled={selectedIndex < 0}
 							icon={Codicon.play}
-							label={(() => localize('positronHistoryToConsole', "To Console"))()}
-							tooltip={(() => localize('positronHistoryToConsole', "To Console"))()}
+							label={positronHistoryToConsole}
+							tooltip={positronHistoryToConsole}
 							onPressed={handleToConsole}
 						/>
 						<ActionBarButton
-							ariaLabel={(() => localize('positronHistoryToSource', "To Source"))()}
+							ariaLabel={positronHistoryToSource}
 							disabled={selectedIndex < 0}
 							icon={Codicon.insert}
-							label={(() => localize('positronHistoryToSource', "To Source"))()}
-							tooltip={(() => localize('positronHistoryToSource', "To Source"))()}
+							label={positronHistoryToSource}
+							tooltip={positronHistoryToSource}
 							onPressed={handleToSource}
 						/>
 						<ActionBarButton
-							ariaLabel={(() => localize('positronHistoryCopy', "Copy"))()}
+							ariaLabel={positronHistoryCopy}
 							disabled={selectedIndex < 0}
 							icon={Codicon.copy}
-							label={(() => localize('positronHistoryCopy', "Copy"))()}
-							tooltip={(() => localize('positronHistoryCopy', "Copy"))()}
+							label={positronHistoryCopy}
+							tooltip={positronHistoryCopy}
 							onPressed={handleCopy}
 						/>
 					</ActionBarRegion>
@@ -827,7 +835,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							<ActionBarFilter
 								ref={filterRef}
 								initialFilterText={searchText}
-								placeholder={(() => localize('positronHistorySearch', "Search"))()}
+								placeholder={positronHistorySearch}
 								width={100}
 								onFilterTextChanged={handleSearchTextChange}
 							/>
@@ -852,13 +860,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					{listItems.length === 0 && debouncedSearchText ? (
 						<div className="history-no-match-message">
 							<div className="history-no-match-text">
-								{localize('positronHistoryNoMatches', "No history entries matching '{0}' were found.", debouncedSearchText)}
+								{positronHistoryNoMatches(debouncedSearchText)}
 							</div>
 							<button
 								className="history-clear-search-button monaco-button monaco-text-button"
 								onClick={handleClearSearch}
 							>
-								{localize('positronHistoryClearSearch', "Clear Search")}
+								{positronHistoryClearSearch}
 							</button>
 						</div>
 					) : listItems.length === 0 ? (
