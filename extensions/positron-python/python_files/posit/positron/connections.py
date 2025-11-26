@@ -44,6 +44,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_pyodbc_sqlserver(conn: Any) -> bool:
+    """Return True if `conn` is a pyodbc connection to SQL Server."""
+    if not safe_isinstance(conn, "pyodbc", "Connection"):
+        return False
+
+    try:
+        import pyodbc
+    except ImportError:
+        return False
+
+    try:
+        dbms_name = str(conn.getinfo(pyodbc.SQL_DBMS_NAME))
+    except Exception:
+        return False
+
+    upper_name = dbms_name.upper()
+    return "SQL SERVER" in upper_name or "AZURE SQL" in upper_name
+
+
 class ConnectionWarning(UserWarning):
     """
     Warning raised when there are issues in the Connections Pane relevant to the user.
@@ -321,6 +340,8 @@ class ConnectionsService:
             return GoogleBigQueryConnection(obj)
         elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
             return SnowflakeConnection(obj)
+        elif _is_pyodbc_sqlserver(obj) or safe_isinstance(obj, "pymssql", "Connection"):
+            return SQLServerConnection(obj)
         elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
             return DatabricksConnection(obj)
         elif safe_isinstance(obj, "redshift_connector", "Connection"):
@@ -344,6 +365,8 @@ class ConnectionsService:
                 )
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
                 or safe_isinstance(obj, "databricks.sql.client", "Connection")
+                or _is_pyodbc_sqlserver(obj)
+                or safe_isinstance(obj, "pymssql", "Connection")
                 or safe_isinstance(obj, "redshift_connector", "Connection")
             )
         except Exception as err:
@@ -1159,6 +1182,233 @@ class SnowflakeConnection(Connection):
                 code += f"    {arg}={val},\n"
         code += ")\n"
         return code
+
+
+class SQLServerConnection(Connection):
+    """Support for SQL Server connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+
+        try:
+            self.host = self._fetch_one_value("SELECT @@SERVERNAME")
+        except Exception:
+            self.host = "<unknown>"
+
+        self.database: str | None = None
+        with contextlib.suppress(Exception):
+            db_name = self._fetch_one_value("SELECT DB_NAME()")
+            self.database = str(db_name) if db_name not in (None, "") else None
+
+        self.type = "SQLServer" + (" (pyodbc)" if self._is_pyodbc() else " (pymssql)")
+        self.display_name = f"{self.type} - {self.host}"
+
+        self.code = self._make_code()
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAwXzg2NjZfNjYyNykiPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDFfODY2Nl82NjI3KSI+CjxtYXNrIGlkPSJtYXNrMF84NjY2XzY2MjciIHN0eWxlPSJtYXNrLXR5cGU6bHVtaW5hbmNlIiBtYXNrVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4PSIwIiB5PSIwIiB3aWR0aD0iNDgiIGhlaWdodD0iNDgiPgo8cGF0aCBkPSJNNDggMEgwVjQ4SDQ4VjBaIiBmaWxsPSJ3aGl0ZSIvPgo8L21hc2s+CjxnIG1hc2s9InVybCgjbWFzazBfODY2Nl82NjI3KSI+CjxwYXRoIGQ9Ik0yMy45OTgyIDMzLjZDMzQuNjAxOSAzMy42IDQzLjE5ODIgMzYuODIzNCA0My4xOTgyIDQwLjhWMjYuMzk5OEM0My4xOTgyIDIyLjQyMzQgMzQuNjAxOSAxOS4xOTk4IDIzLjk5ODIgMTkuMTk5OEgxOS4xOTgyVjMzLjZIMjMuOTk4MloiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl84NjY2XzY2MjcpIi8+CjxwYXRoIGQ9Ik00My4xOTg4IDI2LjM5OThDNDMuMTk4OCAzMC4zNzYzIDM0LjYwMjggMzMuNTk5NyAyMy45OTg4IDMzLjU5OTdDMTcuNTMxOCAzMy41OTk3IDExLjgxMTYgMzIuNDAwOCA4LjMzMjY3IDMwLjU2MzJDNi40NDg4MyAyOS43MjggNC43OTg4MyAzMC45OTM2IDQuNzk4ODMgMzIuNzA5MVY0MC43OTk3QzQuNzk4ODMgNDQuNzc2MyAxMy4zOTUgNDcuOTk5NyAyMy45OTg4IDQ3Ljk5OTdDMzQuNjAyOCA0Ny45OTk3IDQzLjE5ODggNDQuNzc2MyA0My4xOTg4IDQwLjc5OTdWMjYuMzk5OFoiIGZpbGw9InVybCgjcGFpbnQxX3JhZGlhbF84NjY2XzY2MjcpIi8+CjxwYXRoIGQ9Ik00My4xOTg4IDI2LjM5OThDNDMuMTk4OCAzMC4zNzYzIDM0LjYwMjggMzMuNTk5NyAyMy45OTg4IDMzLjU5OTdDMTcuNTMxOCAzMy41OTk3IDExLjgxMTYgMzIuNDAwOCA4LjMzMjY3IDMwLjU2MzJDNi40NDg4MyAyOS43MjggNC43OTg4MyAzMC45OTM2IDQuNzk4ODMgMzIuNzA5MVY0MC43OTk3QzQuNzk4ODMgNDQuNzc2MyAxMy4zOTUgNDcuOTk5NyAyMy45OTg4IDQ3Ljk5OTdDMzQuNjAyOCA0Ny45OTk3IDQzLjE5ODggNDQuNzc2MyA0My4xOTg4IDQwLjc5OTdWMjYuMzk5OFoiIGZpbGw9InVybCgjcGFpbnQyX3JhZGlhbF84NjY2XzY2MjcpIi8+CjxwYXRoIGQ9Ik0yMy45OTg4IDBDMzQuNjAyNiAwIDQzLjE5ODkgMy4yMjM1NSA0My4xOTg5IDcuMlYxNS4zNTYyQzQzLjE5ODkgMTYuNDcxOSA0Mi4wMzYyIDE4LjQzMTMgMzkuNjYyMSAxNy40MzQ5QzM2LjE4MjYgMTUuNTk4MyAzMC40NjM5IDE0LjQgMjMuOTk4OCAxNC40QzEzLjM5NSAxNC40IDQuNzk4ODMgMTcuNjIzNSA0Ljc5ODgzIDIxLjZWNy4yQzQuNzk4ODMgMy4yMjM1NSAxMy4zOTUgMCAyMy45OTg4IDBaIiBmaWxsPSJ1cmwoI3BhaW50M19saW5lYXJfODY2Nl82NjI3KSIvPgo8cGF0aCBkPSJNMjMuOTk4OCAxNC4zOTk4QzEzLjM5NSAxNC4zOTk4IDQuNzk4ODMgMTEuMTc2MyA0Ljc5ODgzIDcuMTk5ODNWMjEuNTk5OEM0Ljc5ODgzIDI1LjU3NjMgMTMuMzk1IDI4LjggMjMuOTk4OCAyOC44SDI1LjE5ODhDMjcuMTg3MSAyOC44IDI4Ljc5ODkgMjcuMTg4IDI4Ljc5ODkgMjUuMTk5OFYxNy45OTk4QzI4Ljc5ODkgMTYuMDExNiAyNy4xODcxIDE0LjM5OTggMjUuMTk4OCAxNC4zOTk4SDIzLjk5ODhaIiBmaWxsPSJ1cmwoI3BhaW50NF9yYWRpYWxfODY2Nl82NjI3KSIvPgo8cGF0aCBkPSJNMjMuOTk4OCAxNC4zOTk4QzEzLjM5NSAxNC4zOTk4IDQuNzk4ODMgMTEuMTc2MyA0Ljc5ODgzIDcuMTk5ODNWMjEuNTk5OEM0Ljc5ODgzIDI1LjU3NjMgMTMuMzk1IDI4LjggMjMuOTk4OCAyOC44SDI1LjE5ODhDMjcuMTg3MSAyOC44IDI4Ljc5ODkgMjcuMTg4IDI4Ljc5ODkgMjUuMTk5OFYxNy45OTk4QzI4Ljc5ODkgMTYuMDExNiAyNy4xODcxIDE0LjM5OTggMjUuMTk4OCAxNC4zOTk4SDIzLjk5ODhaIiBmaWxsPSJ1cmwoI3BhaW50NV9yYWRpYWxfODY2Nl82NjI3KSIvPgo8L2c+CjwvZz4KPC9nPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzg2NjZfNjYyNyIgeDE9IjM1Ljk5ODIiIHkxPSIxOS4xOTk4IiB4Mj0iMTUuOTMzNCIgeTI9IjM1LjgxOTQiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzAwOTRGMCIvPgo8c3RvcCBvZmZzZXQ9IjAuMjQzMDQ3IiBzdG9wLWNvbG9yPSIjMDA3OEQ0Ii8+CjxzdG9wIG9mZnNldD0iMC41ODQ0MDQiIHN0b3AtY29sb3I9IiMyMDUyQ0IiLz4KPHN0b3Agb2Zmc2V0PSIwLjgzMDYzOSIgc3RvcC1jb2xvcj0iIzMxMkE5QSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50MV9yYWRpYWxfODY2Nl82NjI3IiBjeD0iMCIgY3k9IjAiIHI9IjEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDMzLjU5ODggMjkuNTQ5OSkgcm90YXRlKDE0My41OTEpIHNjYWxlKDI5LjgyMTEgNTMuMDE1MikiPgo8c3RvcCBzdG9wLWNvbG9yPSIjM0JENUZGIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzAwNzhENCIvPgo8L3JhZGlhbEdyYWRpZW50Pgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50Ml9yYWRpYWxfODY2Nl82NjI3IiBjeD0iMCIgY3k9IjAiIHI9IjEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDM5LjU5ODggMjcuNTk5Nykgcm90YXRlKDE0Ni4zMSkgc2NhbGUoMjUuOTYgNDMuNzk2KSI+CjxzdG9wIHN0b3AtY29sb3I9IiNERUNCRkYiIHN0b3Atb3BhY2l0eT0iMC45Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0RFQ0JGRiIgc3RvcC1vcGFjaXR5PSIwIi8+CjwvcmFkaWFsR3JhZGllbnQ+CjxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQzX2xpbmVhcl84NjY2XzY2MjciIHgxPSIzMi4zOTg5IiB5MT0iMS4yIiB4Mj0iOS42NjgzNSIgeTI9IjI1Ljk0ODkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzBGQUZGRiIvPgo8c3RvcCBvZmZzZXQ9IjAuMTYyNzE0IiBzdG9wLWNvbG9yPSIjMDA5NEYwIi8+CjxzdG9wIG9mZnNldD0iMC41NjM4NzEiIHN0b3AtY29sb3I9IiMyMDUyQ0IiLz4KPHN0b3Agb2Zmc2V0PSIwLjc2NDI4MyIgc3RvcC1jb2xvcj0iIzMxMkE5QSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50NF9yYWRpYWxfODY2Nl82NjI3IiBjeD0iMCIgY3k9IjAiIHI9IjEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBncmFkaWVudFRyYW5zZm9ybT0idHJhbnNsYXRlKDIzLjY2NzggMTIuMTQ4OCkgcm90YXRlKDEzNy41Mykgc2NhbGUoMjQuNjYwNiAzOC40MTE3KSI+CjxzdG9wIHN0b3AtY29sb3I9IiMzQkQ1RkYiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMDA3OEQ0Ii8+CjwvcmFkaWFsR3JhZGllbnQ+CjxyYWRpYWxHcmFkaWVudCBpZD0icGFpbnQ1X3JhZGlhbF84NjY2XzY2MjciIGN4PSIwIiBjeT0iMCIgcj0iMSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjcuNTk4OSAxMC43OTk4KSByb3RhdGUoMTQ5LjAzNikgc2NhbGUoMjAuOTkxNCAzMy42MDA1KSI+CjxzdG9wIHN0b3AtY29sb3I9IiNERUNCRkYiIHN0b3Atb3BhY2l0eT0iMC45Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0QxRDFGRiIgc3RvcC1vcGFjaXR5PSIwIi8+CjwvcmFkaWFsR3JhZGllbnQ+CjxjbGlwUGF0aCBpZD0iY2xpcDBfODY2Nl82NjI3Ij4KPHBhdGggZD0iTTAgMTIuOEMwIDguMzE5NTggMCA2LjA3OTM3IDAuODcxOTQ4IDQuMzY4MDhDMS42Mzg5MyAyLjg2Mjc4IDIuODYyNzggMS42Mzg5MyA0LjM2ODA4IDAuODcxOTQ4QzYuMDc5MzcgMCA4LjMxOTU4IDAgMTIuOCAwSDM1LjJDMzkuNjgwNCAwIDQxLjkyMDYgMCA0My42MzE5IDAuODcxOTQ4QzQ1LjEzNzIgMS42Mzg5MyA0Ni4zNjExIDIuODYyNzggNDcuMTI4MSA0LjM2ODA4QzQ4IDYuMDc5MzcgNDggOC4zMTk1OCA0OCAxMi44VjM1LjJDNDggMzkuNjgwNCA0OCA0MS45MjA2IDQ3LjEyODEgNDMuNjMxOUM0Ni4zNjExIDQ1LjEzNzIgNDUuMTM3MiA0Ni4zNjExIDQzLjYzMTkgNDcuMTI4MUM0MS45MjA2IDQ4IDM5LjY4MDQgNDggMzUuMiA0OEgxMi44QzguMzE5NTggNDggNi4wNzkzNyA0OCA0LjM2ODA4IDQ3LjEyODFDMi44NjI3OCA0Ni4zNjExIDEuNjM4OTMgNDUuMTM3MiAwLjg3MTk0OCA0My42MzE5QzAgNDEuOTIwNiAwIDM5LjY4MDQgMCAzNS4yVjEyLjhaIiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8Y2xpcFBhdGggaWQ9ImNsaXAxXzg2NjZfNjYyNyI+CjxyZWN0IHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgZmlsbD0id2hpdGUiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K"
+
+    def disconnect(self):
+        with contextlib.suppress(Exception):
+            self.conn.close()
+
+    def list_object_types(self):
+        return {
+            "database": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+        }
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            rows = self._execute("SELECT name FROM sys.databases ORDER BY name;")
+            return [ConnectionObject({"name": row[0], "kind": "database"}) for row in rows]
+
+        if len(path) == 1:
+            database = path[0]
+            if database.kind != "database":
+                raise ValueError(
+                    f"Invalid path. Expected it to include a database, but got '{database.kind}'. Path: {path}"
+                )
+
+            rows = self._execute(
+                f"SELECT name FROM {self._qualify(database.name, 'sys', 'schemas')} ORDER BY name;"
+            )
+            return [ConnectionObject({"name": row[0], "kind": "schema"}) for row in rows]
+
+        if len(path) == 2:
+            database, schema = path
+            if database.kind != "database" or schema.kind != "schema":
+                raise ValueError(
+                    "Path must include a database and schema in this order. "
+                    f"Got database.kind={database.kind}, schema.kind={schema.kind}. Path: {path}"
+                )
+
+            rows = self._execute(
+                f"""
+                SELECT TABLE_NAME, TABLE_TYPE
+                FROM {self._qualify(database.name, 'INFORMATION_SCHEMA', 'TABLES')}
+                WHERE TABLE_SCHEMA = {self._quote_literal(schema.name)}
+                ORDER BY TABLE_NAME;
+                """
+            )
+
+            objects: list[ConnectionObject] = []
+            for table_name, table_type in rows:
+                kind = "view" if "VIEW" in str(table_type).upper() else "table"
+                objects.append(ConnectionObject({"name": table_name, "kind": kind}))
+            return objects
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+        if (
+            database.kind != "database"
+            or schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+        ):
+            raise ValueError(
+                "Path must include a database, schema and table/view in this order. "
+                f"Got database.kind={database.kind}, schema.kind={schema.kind}, table.kind={table.kind}. "
+                f"Path: {path}"
+            )
+
+        rows = self._execute(
+            f"""
+            SELECT COLUMN_NAME, DATA_TYPE
+            FROM {self._qualify(database.name, 'INFORMATION_SCHEMA', 'COLUMNS')}
+            WHERE TABLE_SCHEMA = {self._quote_literal(schema.name)} AND TABLE_NAME = {self._quote_literal(table.name)}
+            ORDER BY ORDINAL_POSITION;
+            """
+        )
+
+        return [ConnectionObjectFields({"name": name, "dtype": dtype}) for name, dtype in rows]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise ModuleNotFoundError("Pandas is required for previewing SQL Server tables.") from e
+
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+        if (
+            database.kind != "database"
+            or schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+        ):
+            raise ValueError(
+                "Path must include a database, schema and table/view in this order. "
+                f"Got database.kind={database.kind}, schema.kind={schema.kind}, table.kind={table.kind}. "
+                f"Path: {path}"
+            )
+
+        qualified_name = self._qualify(database.name, schema.name, table.name)
+        query = f"SELECT TOP 1000 * FROM {qualified_name};"
+        var_name = var_name or "conn"
+        preview_df = pd.read_sql(query, self.conn)
+        sql_string = (
+            f"# {table.name} = pd.read_sql({query!r}, {var_name}) "
+            f"# where {var_name} is your connection variable"
+        )
+        return preview_df, sql_string
+
+    def _execute(self, sql: str) -> list[tuple[Any, ...]]:
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(sql)
+            return cursor.fetchall()
+        finally:
+            with contextlib.suppress(Exception):
+                cursor.close()
+
+    def _fetch_one_value(self, sql: str) -> Any:
+        rows = self._execute(sql)
+        return rows[0][0] if rows else None
+
+    def _qualify(self, *parts: str) -> str:
+        return ".".join(self._quote_identifier(part) for part in parts)
+
+    def _quote_identifier(self, identifier: str) -> str:
+        return f"[{identifier.replace(']', ']]')}]"
+
+    def _quote_literal(self, value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    def _is_pyodbc(self) -> bool:
+        return safe_isinstance(self.conn, "pyodbc", "Connection")
+
+    def _pyodbc_getinfo(self, attr: str) -> str | None:
+        try:
+            import pyodbc  # type: ignore
+        except ImportError:
+            return None
+
+        constant = getattr(pyodbc, attr, None)
+        if constant is None:
+            return None
+
+        if not safe_isinstance(self.conn, "pyodbc", "Connection"):
+            return None
+
+        try:
+            value = self.conn.getinfo(constant)
+            return str(value) if value is not None else None
+        except Exception:
+            return None
+
+    def _pyodbc_connection_string(self) -> str | None:
+        driver = self._pyodbc_getinfo("SQL_DRIVER_NAME")
+        server = self._pyodbc_getinfo("SQL_SERVER_NAME")
+        if server is None and self.host != "<unknown>":
+            server = self.host
+        database = self._pyodbc_getinfo("SQL_DATABASE_NAME") or self.database
+
+        if driver is None and server is None and database is None:
+            return None
+
+        parts = []
+        if driver:
+            parts.append(f"DRIVER={{{driver}}}")
+        if server:
+            parts.append(f"SERVER={server}")
+        if database:
+            parts.append(f"DATABASE={database}")
+        parts.append("Trusted_Connection=yes")
+        return ";".join(parts) + ";"
+
+    def _default_connection_string(self) -> str:
+        server = self.host if self.host != "<unknown>" else "<server>"
+        database = self.database or "<database>"
+        return (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            "Trusted_Connection=yes;"
+        )
+
+    def _make_code(self):
+        if self._is_pyodbc():
+            conn_str = self._pyodbc_connection_string() or self._default_connection_string()
+            return (
+                "import pyodbc\n" f"conn = pyodbc.connect({conn_str!r})\n" "%connection_show conn\n"
+            )
+
+        server = self.host if self.host != "<unknown>" else "<server>"
+        database = self.database or "<database>"
+        return (
+            "import pymssql\n"
+            "conn = pymssql.connect(\n"
+            f"    server={server!r},\n"
+            f"    database={database!r},\n"
+            ")\n"
+            "%connection_show conn\n"
+        )
 
 
 class DatabricksConnection(Connection):
