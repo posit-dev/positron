@@ -1452,3 +1452,6 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	),
 	order: 0
 });
+
+// Notebook contributions
+import './contrib/find/positronNotebookFind.js';
