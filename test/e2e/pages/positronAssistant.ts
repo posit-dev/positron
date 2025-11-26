@@ -96,7 +96,8 @@ export class Assistant {
 
 	async verifyCodeBlockActions() {
 		await expect(this.code.driver.page.locator(RUN_BUTTON)).toHaveCount(1);
-		await expect(this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON)).toHaveCount(1);
+		// PR #10784: "Apply in Editor" button may be disabled depending on model chosen and user settings
+		await expect(await this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON).count()).toBeLessThanOrEqual(1);
 		await expect(this.code.driver.page.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(COPY_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
