@@ -818,7 +818,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 				})
 			);
 
-			return models;
+			return markDefaultModel(models, this.provider, this._config.model);
 		} catch (error) {
 			log.warn(`[${this.providerName}] Failed to fetch models from API: ${error}`);
 			return undefined;
@@ -1306,7 +1306,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			})
 		);
 
-		return modelListing;
+		return markDefaultModel(modelListing, this.provider, this._config.model);
 	}
 
 	private async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
