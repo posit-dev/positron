@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { localize } from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
@@ -14,6 +14,7 @@ import { IRuntimeSessionService } from '../../../../services/runtimeSession/comm
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { isCodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
@@ -30,6 +31,7 @@ import { HistoryEntry } from './historyEntry.js';
 import { HistorySeparator } from './historySeparator.js';
 import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 import './positronHistoryPanel.css';
 
 // Localized strings
@@ -46,6 +48,7 @@ const positronHistoryClearAll = localize('positronHistoryClearAll', "Clear All")
 const positronHistoryClearAllTooltip = localize('positronHistoryClearAllTooltip', "Clear all input history for the selected language");
 const positronHistoryClearAllConfirmTitle = localize('positronHistoryClearAllConfirmTitle', "Clear All History");
 const positronHistoryClearAllConfirmMessage = (language: string) => localize('positronHistoryClearAllConfirmMessage', "Are you sure you want to clear all input history for {0}? This action cannot be undone.", language);
+const positronHistoryLoading = localize('positronHistoryLoading', "Loading...");
 
 /**
  * Props for the PositronHistoryPanel component
@@ -175,8 +178,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			rowHeightsRef.current.set(index, height);
 			// Reset the list after this index to recalculate positions
 			// Use requestAnimationFrame to avoid interrupting user scrolling
-			if (listRef.current) {
-				requestAnimationFrame(() => {
+			if (listRef.current && containerRef.current) {
+				const targetWindow = DOM.getWindow(containerRef.current);
+				targetWindow.requestAnimationFrame(() => {
 					if (listRef.current) {
 						listRef.current.resetAfterIndex(index);
 					}
@@ -303,7 +307,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	/**
 	 * Load history entries for the current language
 	 */
-	const loadHistory = () => {
+	const loadHistory = useCallback(() => {
 		const language = currentLanguageRef.current;
 		if (language) {
 			const historyEntries = executionHistoryService.getInputEntries(language);
@@ -323,12 +327,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			const items = createListItems(searchFilteredEntries);
 			setListItems(items);
 		}
-	};
+	}, [executionHistoryService, debouncedSearchText, createListItems]);
 
 	/**
 	 * Discover all available languages from history
 	 */
-	const discoverLanguages = () => {
+	const discoverLanguages = useCallback(() => {
 		// Get all languages that have input history
 		const languages = executionHistoryService.getAvailableLanguages();
 
@@ -342,7 +346,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		});
 
 		setAvailableLanguages(Array.from(languageSet));
-	};
+	}, [executionHistoryService, runtimeSessionService]);
 
 	/**
 	 * Handle language selection from dropdown
@@ -418,9 +422,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		setSelectedIndex(index);
 		// Focus the container to ensure active selection styling and keyboard navigation
-		if (containerRef.current && document.activeElement !== containerRef.current) {
-			containerRef.current.focus();
-			setHasFocus(true);
+		if (containerRef.current) {
+			const targetWindow = DOM.getWindow(containerRef.current);
+			if (targetWindow.document.activeElement !== containerRef.current) {
+				containerRef.current.focus();
+				setHasFocus(true);
+			}
 		}
 		// Scroll to make the selected item visible
 		if (listRef.current) {
@@ -563,7 +570,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		);
 
 		const editor = editorService.activeTextEditorControl;
-		if (!editor) {
+		if (!editor || !isCodeEditor(editor)) {
 			return;
 		}
 
@@ -573,7 +580,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		// Insert the code at the cursor position with a trailing newline
-		(editor as any).executeEdits('positron-history', [{
+		editor.executeEdits('positron-history', [{
 			range: {
 				startLineNumber: position.lineNumber,
 				startColumn: position.column,
@@ -675,13 +682,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Set up IntersectionObserver to detect when the panel becomes visible
 		// This fixes the issue where the list is empty until scrolled when switching tabs
 		if (container) {
+			const targetWindow = DOM.getWindow(container);
 			const observer = new IntersectionObserver(
 				(entries) => {
 					for (const entry of entries) {
 						if (entry.isIntersecting && !wasVisibleRef.current) {
 							// Panel just became visible - force List to recalculate and re-render
 							// Use requestAnimationFrame to ensure the panel is fully laid out
-							requestAnimationFrame(() => {
+							targetWindow.requestAnimationFrame(() => {
 								if (listRef.current) {
 									// Reset from index 0 to force complete re-render
 									listRef.current.resetAfterIndex(0);
@@ -708,6 +716,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				container.removeEventListener('blur', handleBlur);
 			}
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	/**
@@ -796,6 +805,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		return () => {
 			container.removeEventListener('keydown', handleKeyDown);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	/**
@@ -842,7 +852,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	}, [currentLanguage]);
+	}, [currentLanguage, runtimeSessionService, discoverLanguages, loadHistory]);
 
 	/**
 	 * Load history when language or search changes
@@ -877,9 +887,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		const hadValidDimensions = lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40;
 		const hasValidDimensions = width > 0 && height > 40;
 
-		if (!hadValidDimensions && hasValidDimensions && listRef.current && listItems.length > 0) {
+		if (!hadValidDimensions && hasValidDimensions && listRef.current && listItems.length > 0 && containerRef.current) {
 			// Dimensions just became valid - force re-render once
-			requestAnimationFrame(() => {
+			const targetWindow = DOM.getWindow(containerRef.current);
+			targetWindow.requestAnimationFrame(() => {
 				if (listRef.current) {
 					listRef.current.resetAfterIndex(0);
 				}
@@ -891,9 +902,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Scroll to bottom when entries change (new entries added)
 	 */
 	useEffect(() => {
-		if (autoScrollEnabled && listItems.length > 0 && listRef.current) {
+		if (autoScrollEnabled && listItems.length > 0 && listRef.current && containerRef.current) {
 			// Use requestAnimationFrame to ensure DOM is fully updated before scrolling
-			requestAnimationFrame(() => {
+			const targetWindow = DOM.getWindow(containerRef.current);
+			targetWindow.requestAnimationFrame(() => {
 				if (listRef.current && autoScrollEnabled) {
 					listRef.current.scrollToItem(listItems.length - 1, 'end');
 				}
@@ -906,7 +918,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	return (
 		<PositronActionBarContextProvider {...props}>
-			<div className="positron-history-panel">
+			<div className='positron-history-panel'>
 				<PositronActionBar
 					borderBottom={true}
 					borderTop={true}
@@ -971,25 +983,25 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 				<div
 					ref={containerRef}
-					className="history-list-container"
+					className='history-list-container'
 					tabIndex={0}
 				>
 					{/* Floating sticky header */}
 					{stickyHeaderLabel && listItems.length > 0 && (
-						<div className="history-sticky-header">
-							<div className="history-separator-content">
-								<span className="history-separator-label">{stickyHeaderLabel}</span>
+						<div className='history-sticky-header'>
+							<div className='history-separator-content'>
+								<span className='history-separator-label'>{stickyHeaderLabel}</span>
 							</div>
 						</div>
 					)}
 
 					{listItems.length === 0 && debouncedSearchText ? (
-						<div className="history-no-match-message">
-							<div className="history-no-match-text">
+						<div className='history-no-match-message'>
+							<div className='history-no-match-text'>
 								{positronHistoryNoMatches(debouncedSearchText)}
 							</div>
 							<button
-								className="history-clear-search-button monaco-button monaco-text-button"
+								className='history-clear-search-button monaco-button monaco-text-button'
 								onClick={handleClearSearch}
 							>
 								{positronHistoryClearSearch}
@@ -1053,8 +1065,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 							}}
 						</List>
 					) : (
-						<div className="history-empty-message">
-							Loading...
+						<div className='history-empty-message'>
+							{positronHistoryLoading}
 						</div>
 					)}
 				</div>
