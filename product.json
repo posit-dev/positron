@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.42",
+			"version": "1.6.45",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "79a1d30b1034c871b34504970cde530c488b79971bdfbba439d5e38144b9b4e9",
+			"sha256": "e15b94f6002b252b3c7b2d0fc70f2db91ead1fbe1bdc664d575fd8f6673fea4f",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -198,8 +198,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.42.3",
-			"sha256sum": "e99d4f22adb1c23f041d2d847753ebdde954c0f52501bcafdcffbe7a9d757935",
+			"version": "0.43.1",
+			"sha256sum": "4ec7c80a766fb54e6aa0c034127d4a6cdd2404048ae2e19b5f6f789db9dbb1f0",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {

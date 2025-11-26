@@ -24,7 +24,7 @@ export interface CatalogProvider extends vscode.Disposable {
 	/**
 	 * Get additional details about the given node, if any.
 	 */
-	getDetails(node: CatalogNode): Promise<string | undefined>;
+	getDetails(node: CatalogNode): Promise<string | vscode.MarkdownString | undefined>;
 
 	/**
 	 * Get the children of the given node, or the top-level children of the
@@ -60,7 +60,7 @@ export class CatalogNode {
 		public readonly resourceUri?: vscode.Uri,
 	) { }
 
-	async getDetails(): Promise<string | undefined> {
+	async getDetails(): Promise<string | vscode.MarkdownString | undefined> {
 		return await this.provider.getDetails(this);
 	}
 

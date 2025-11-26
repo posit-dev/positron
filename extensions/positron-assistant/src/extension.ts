@@ -60,6 +60,15 @@ class ModelDisposable implements vscode.Disposable {
 }
 
 /**
+ * An error thrown by the assistant that can optionally be displayed to the user.
+ */
+export class AssistantError extends Error {
+	constructor(message: string, public readonly display: boolean = true) {
+		super(message);
+	}
+}
+
+/**
  * Dispose chat and/or completion models registered with Positron.
  * @param id If specified, only dispose models with the given ID. Otherwise, dispose all models.
  */
@@ -87,12 +96,15 @@ export const log = new BufferedLogOutputChannel(
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
-		const modelConfig = await getModelConfiguration(config.id, context, storage);
+		const modelConfig: ModelConfig = {
+			...config,
+			apiKey: undefined // will be filled in below if needed
+		};
 
 		if (modelConfig?.baseUrl) {
 			const apiKey = await storage.get(`apiKey-${modelConfig.id}`);
 			if (apiKey) {
-				(modelConfig as any).apiKey = apiKey;
+				modelConfig.apiKey = apiKey;
 			}
 		}
 
@@ -151,8 +163,11 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		}
 
 	} catch (e) {
-		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
-		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
+		if (!(e instanceof AssistantError) || e.display) {
+			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
+			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
+		}
+
 		return;
 	}
 
@@ -171,7 +186,9 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				autoconfiguredModels.push(config);
 			}
 		} catch (e) {
-			vscode.window.showErrorMessage(`${e}`);
+			if (!(e instanceof AssistantError) || e.display) {
+				vscode.window.showErrorMessage(`${e}`);
+			}
 		}
 	}
 
@@ -198,13 +215,13 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, instance?: positron.ai.LanguageModelChatProvider<vscode.LanguageModelChatInformation>) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		// const models = availableModels.get(modelConfig.provider);
 		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = newLanguageModelChatProvider(modelConfig, context, storage);
+		const languageModel = instance ?? newLanguageModelChatProvider(modelConfig, context, storage);
 
 		try {
 			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);

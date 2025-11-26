@@ -777,16 +777,16 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._providerExtensions.set(vendor, extensionId);
 		// --- End Positron ---
 
-		if (this._hasStoredModelForVendor(vendor)) {
-			// --- Start Positron ---
-			// Fire the provider change event after models are resolved so UI knows usable providers are available
-			this._resolveLanguageModels(vendor, true).then(() => {
-				this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
-				this._onDidChangeProviders.fire({ added: [vendor] });
-				this._onLanguageModelChange.fire(vendor);
-			});
-			// --- End Positron ---
-		}
+		// --- Start Positron ---
+		// Fire the provider change event after models are resolved so UI knows usable providers are available
+		//if (this._hasStoredModelForVendor(vendor)) {
+		this._resolveLanguageModels(vendor, true).then(() => {
+			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
+			this._onDidChangeProviders.fire({ added: [vendor] });
+			this._onLanguageModelChange.fire(vendor);
+		});
+		//}
+		// --- End Positron ---
 
 		const modelChangeListener = provider.onDidChange(async () => {
 			await this._resolveLanguageModels(vendor, true);
