@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from '../../../../../nls.js';
+
 /**
  * Get the start of the current day (midnight)
  */
@@ -36,12 +38,22 @@ function getStartOfLastWeek(currentDate: Date): Date {
 function formatMonthYear(date: Date): string {
 	// Validate the date first
 	if (isNaN(date.getTime())) {
-		return 'Older';
+		return nls.localize('positronHistory.older', "Older");
 	}
 
 	const monthNames = [
-		'January', 'February', 'March', 'April', 'May', 'June',
-		'July', 'August', 'September', 'October', 'November', 'December'
+		nls.localize('positronHistory.january', "January"),
+		nls.localize('positronHistory.february', "February"),
+		nls.localize('positronHistory.march', "March"),
+		nls.localize('positronHistory.april', "April"),
+		nls.localize('positronHistory.may', "May"),
+		nls.localize('positronHistory.june', "June"),
+		nls.localize('positronHistory.july', "July"),
+		nls.localize('positronHistory.august', "August"),
+		nls.localize('positronHistory.september', "September"),
+		nls.localize('positronHistory.october', "October"),
+		nls.localize('positronHistory.november', "November"),
+		nls.localize('positronHistory.december', "December")
 	];
 
 	const month = date.getMonth();
@@ -49,7 +61,7 @@ function formatMonthYear(date: Date): string {
 
 	// Additional validation - but allow dates before 1970 as they could be valid historical data
 	if (month < 0 || month > 11 || isNaN(year)) {
-		return 'Older';
+		return nls.localize('positronHistory.older', "Older");
 	}
 
 	return `${monthNames[month]} ${year}`;
@@ -59,55 +71,33 @@ function formatMonthYear(date: Date): string {
  * Get the section label for a given timestamp
  */
 export function getSectionLabel(timestamp: number, currentDate: Date = new Date()): string {
-	// Debug logging
-	console.log('[HistoryGrouping] getSectionLabel called with:', {
-		timestamp,
-		timestampType: typeof timestamp,
-		isNaN: isNaN(timestamp),
-		isFinite: isFinite(timestamp),
-		currentDate: currentDate.toISOString()
-	});
-
 	// Handle invalid/missing timestamps (NaN, undefined, null, or 0 which we use for unknown dates)
 	if (timestamp === undefined || timestamp === null || !isFinite(timestamp) || isNaN(timestamp) || timestamp === 0) {
-		console.log('[HistoryGrouping] Invalid timestamp detected, returning Older');
-		return 'Older';
+		return nls.localize('positronHistory.older', "Older");
 	}
 
 	const entryDate = new Date(timestamp);
-	console.log('[HistoryGrouping] Created date:', {
-		entryDate: entryDate.toISOString(),
-		entryDateTime: entryDate.getTime()
-	});
 
 	// Validate the date is valid
 	if (isNaN(entryDate.getTime())) {
-		console.log('[HistoryGrouping] Invalid date after parsing, returning Older');
-		return 'Older';
+		return nls.localize('positronHistory.older', "Older");
 	}
 
 	const startOfToday = getStartOfDay(currentDate);
 	const startOfYesterday = getStartOfYesterday(currentDate);
 	const startOfLastWeek = getStartOfLastWeek(currentDate);
 
-	console.log('[HistoryGrouping] Comparison dates:', {
-		startOfToday: startOfToday.toISOString(),
-		startOfYesterday: startOfYesterday.toISOString(),
-		startOfLastWeek: startOfLastWeek.toISOString()
-	});
-
 	let label;
 	if (entryDate >= startOfToday) {
-		label = 'Today';
+		label = nls.localize('positronHistory.today', "Today");
 	} else if (entryDate >= startOfYesterday) {
-		label = 'Yesterday';
+		label = nls.localize('positronHistory.yesterday', "Yesterday");
 	} else if (entryDate >= startOfLastWeek) {
-		label = 'Last week';
+		label = nls.localize('positronHistory.lastWeek', "Last week");
 	} else {
 		label = formatMonthYear(entryDate);
 	}
 
-	console.log('[HistoryGrouping] Returning label:', label);
 	return label;
 }
 
