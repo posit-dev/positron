@@ -1333,6 +1333,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return options;
 	}
 
+	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
+		return this._contributions.get(id) as T;
+	}
+
 	/**
 	 * Gets the current selected cells.
 	 * @returns An array of cell ranges, where each range represents a group of consecutive selected cells.
