@@ -15,7 +15,7 @@ import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
 import { CopilotService } from './copilot.js';
-import { PromptRenderer } from './promptRender.js';
+import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -415,18 +415,16 @@ export function getPositronContextPrompts(positronContext: positron.ai.ChatConte
 	return result;
 }
 
-function validateChatMode(mode: string | undefined): positron.PositronChatMode | positron.PositronChatAgentLocation {
-	switch (mode) {
-		case 'ask':
-		case 'edit':
-		case 'agent':
-			return mode as positron.PositronChatMode;
-		case 'editor':
-		case 'notebook':
-		case 'terminal':
-			return mode as positron.PositronChatAgentLocation;
-		// Default to 'agent' mode for e.g. custom modes
-		default:
-			return positron.PositronChatMode.Agent;
+function isEnumMember<T extends Record<string, unknown>>(
+	value: unknown | undefined,
+	enumObj: T
+): value is T[keyof T] {
+	return value !== undefined && Object.values(enumObj).includes(value);
+}
+
+function validateChatMode(mode: string | undefined): PromptMetadataMode {
+	if (isEnumMember(mode, positron.PositronChatMode) || isEnumMember(mode, positron.PositronChatAgentLocation)) {
+		return mode;
 	}
+	return positron.PositronChatMode.Agent;
 }
