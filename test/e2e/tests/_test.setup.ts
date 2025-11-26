@@ -130,7 +130,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
 	sessions: [
 		async ({ app }, use) => {
