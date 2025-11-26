@@ -129,7 +129,8 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param python - Fixture that starts the python session.
 	 */
-	test('Python: Verify running code in console from chat markdown response', { tag: [] }, async function ({ app, python }) {
+	// Skipping Console tests due to PR #10784
+	test.skip('Python: Verify running code in console from chat markdown response', { tag: [] }, async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
@@ -144,7 +145,8 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param r - Fixture that starts the R session.
 	 */
-	test('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
+	// Skipping Console tests due to PR #10784
+	test.skip('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
