@@ -121,6 +121,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const selectedIndexRef = useRef<number>(selectedIndex);
 	const listItemsRef = useRef<ListItem[]>(listItems);
 	const debouncedSearchTextRef = useRef<string>(debouncedSearchText);
+	const currentLanguageRef = useRef<string | undefined>(currentLanguage);
 	const lastValidWidthRef = useRef<number>(0);
 	const lastValidHeightRef = useRef<number>(0);
 	const wasVisibleRef = useRef<boolean>(true);
@@ -137,6 +138,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	useEffect(() => {
 		debouncedSearchTextRef.current = debouncedSearchText;
 	}, [debouncedSearchText]);
+
+	useEffect(() => {
+		currentLanguageRef.current = currentLanguage;
+	}, [currentLanguage]);
 
 	/**
 	 * Custom inner element for the List that enables sticky positioning
@@ -255,52 +260,53 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleDelete = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= listItems.length || !currentLanguage) {
+		const idx = (typeof index === 'number') ? index : selectedIndexRef.current;
+		const items = listItemsRef.current;
+		const language = currentLanguageRef.current;
+		if (idx < 0 || idx >= items.length || !language) {
 			return;
 		}
 
-		const item = listItems[idx];
+		const item = items[idx];
 		if (item.type === 'separator') {
 			return;
 		}
 
 		const entry = item.entry;
 
+		// Calculate the new selection BEFORE deleting (using current items)
+		// Find the next selectable item after the current one, or previous if at end
+		let newSelectedIndex = findNextSelectableIndex(idx + 1, 1, items);
+		if (newSelectedIndex === -1 || newSelectedIndex === idx) {
+			// No items after, try finding one before
+			newSelectedIndex = findNextSelectableIndex(idx - 1, -1, items);
+		}
+
 		// Delete the entry from the service
-		executionHistoryService.deleteInputEntry(currentLanguage, entry.when, entry.input);
+		executionHistoryService.deleteInputEntry(language, entry.when, entry.input);
+
+		// Update selection before reloading to avoid flickering
+		// After deletion, indices shift down, so the next item will be at the same index
+		// But if we selected the previous item, we need to adjust
+		if (newSelectedIndex > idx) {
+			// Selected an item after the deleted one - it will shift down by 1
+			setSelectedIndex(newSelectedIndex - 1);
+		} else {
+			// Selected an item before the deleted one - index stays the same
+			setSelectedIndex(newSelectedIndex);
+		}
 
 		// Reload the history to refresh the view
 		loadHistory();
-
-		// Update selection after deletion
-		// If there are remaining items, select the next item, or the previous if at end
-		const newListItems = listItemsRef.current;
-		if (newListItems.length === 0) {
-			setSelectedIndex(-1);
-		} else if (idx >= newListItems.length) {
-			// Deleted last item, select the new last item
-			const newLastIndex = findNextSelectableIndex(newListItems.length - 1, -1, newListItems);
-			setSelectedIndex(newLastIndex);
-		} else {
-			// Select the item at the same position (which is now the next item)
-			const newSelectedIndex = findNextSelectableIndex(idx, 1, newListItems);
-			if (newSelectedIndex === -1) {
-				// No items after, try finding one before
-				const beforeIndex = findNextSelectableIndex(idx - 1, -1, newListItems);
-				setSelectedIndex(beforeIndex);
-			} else {
-				setSelectedIndex(newSelectedIndex);
-			}
-		}
 	};
 
 	/**
 	 * Load history entries for the current language
 	 */
 	const loadHistory = () => {
-		if (currentLanguage) {
-			const historyEntries = executionHistoryService.getInputEntries(currentLanguage);
+		const language = currentLanguageRef.current;
+		if (language) {
+			const historyEntries = executionHistoryService.getInputEntries(language);
 
 			// Filter out consecutive duplicates
 			const filteredEntries = historyEntries.filter((entry, index) => {
@@ -505,12 +511,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 */
 	const handleToConsole = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
-		const idx = (typeof index === 'number') ? index : selectedIndex;
-		if (idx < 0 || idx >= listItems.length || !currentLanguage) {
+		const idx = (typeof index === 'number') ? index : selectedIndexRef.current;
+		const items = listItemsRef.current;
+		const language = currentLanguageRef.current;
+		if (idx < 0 || idx >= items.length || !language) {
 			return;
 		}
 
-		const item = listItems[idx];
+		const item = items[idx];
 		if (item.type === 'separator') {
 			return;
 		}
@@ -522,7 +530,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		// Execute the code in the console without focusing it
 		consoleService.executeCode(
-			currentLanguage,
+			language,
 			undefined, // session ID - use any available session
 			entry.input,
 			{ source: CodeAttributionSource.Interactive }, // attribution
@@ -719,7 +727,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 			if (currentListItems.length === 0) {
 				return;
-			} let newIndex = currentSelectedIndex;
+			}
+			let newIndex = currentSelectedIndex;
 			let handled = false;
 
 			switch (e.key) {
@@ -749,7 +758,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					break;
 				case 'Enter':
 					if (currentSelectedIndex >= 0) {
-						handleToConsole();
+						handleToConsole(currentSelectedIndex);
+						handled = true;
+					}
+					break;
+				case 'Delete':
+				case 'Backspace':
+					if (currentSelectedIndex >= 0) {
+						handleDelete(currentSelectedIndex);
 						handled = true;
 					}
 					break;
