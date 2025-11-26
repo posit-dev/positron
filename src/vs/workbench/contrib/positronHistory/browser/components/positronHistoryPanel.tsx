@@ -920,6 +920,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='positron-history-panel'>
 				<PositronActionBar
+					paddingRight={8}
 					borderBottom={true}
 					borderTop={true}
 				>
