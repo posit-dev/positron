@@ -229,9 +229,18 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			run: () => this.configurationService.updateValue('workbench.secondarySideBar.showLabels', !this.configuration.showLabels)
 		});
 
+		// --- Start Positron ---
+		// Just to avoid unused variables warnings
+		new SubmenuAction('workbench.action.panel.position', localize('activity bar position', "Activity Bar Position"), positionActions);
+		// --- End Positron ---
+
 		actions.push(...[
 			new Separator(),
-			new SubmenuAction('workbench.action.panel.position', localize('activity bar position', "Activity Bar Position"), positionActions),
+			// --- Start Positron ---
+			// Disable the Activity Bar Position submenu since we always use TITLE position.
+			// See https://github.com/posit-dev/positron/issues/2951
+			// new SubmenuAction('workbench.action.panel.position', localize('activity bar position', "Activity Bar Position"), positionActions),
+			// --- End Positron ---
 			toAction({ id: ToggleSidebarPositionAction.ID, label: currentPositionRight ? localize('move second side bar left', "Move Secondary Side Bar Left") : localize('move second side bar right', "Move Secondary Side Bar Right"), run: () => this.commandService.executeCommand(ToggleSidebarPositionAction.ID) }),
 			toggleShowLabelsAction,
 			toAction({ id: ToggleAuxiliaryBarAction.ID, label: localize('hide second side bar', "Hide Secondary Side Bar"), run: () => this.commandService.executeCommand(ToggleAuxiliaryBarAction.ID) })
