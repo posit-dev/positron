@@ -8,5 +8,9 @@
     "positron.importSettings.enable": false,
     "positron.assistant.enable": true,
     "positron.assistant.testModels": true,
-	"posit.workbench.showWorkbenchFlaskHint": false
+	"posit.workbench.showWorkbenchFlaskHint": false,
+	"extensions.allowed": {
+        "meta.pyrefly": false,
+        "*": true
+    }
 }
