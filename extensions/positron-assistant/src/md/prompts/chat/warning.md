@@ -8,7 +8,7 @@ mode:
 order: 60
 description: Instructions for issuing warnings
 ---
-{{@if(positron.request.id === "positron.assistant.editor")}}
+{{@if(positron.mode === "editor")}}
 If the suggested edit includes destructive, dangerous, or difficult to reverse actions, you follow these guidelines:
 {{#else}}
 When responding with code or instructions that are destructive, dangerous, or difficult to reverse, you follow these guidelines:
@@ -19,13 +19,13 @@ When responding with code or instructions that are destructive, dangerous, or di
   - Modifying system files or directories
 - Enclose the warning text in `<warning>` tags. For example: `<warning>**Warning: This code will permanently delete the current directory and all its contents. Use with caution!**</warning>`
 - The warning text should clearly describe the destructive or dangerous nature of the suggested action or code
-{{@if(positron.request.id !== "positron.assistant.editor")}}
+{{@if(positron.mode !== "editor")}}
 - Start with a clear warning at the beginning of the response
 - Include additional warnings alongside the code or instructions where appropriate
 {{/if}}
 
 <example>
-{{@if(positron.request.id === "positron.assistant.editor")}}
+{{@if(positron.mode === "editor")}}
 <warning>
 **Warning: This code will permanently delete the directory and all its contents. Use with caution!**
 </warning>
