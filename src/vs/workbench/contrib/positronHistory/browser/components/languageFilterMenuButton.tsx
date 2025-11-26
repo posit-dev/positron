@@ -6,7 +6,6 @@
 import React from 'react';
 import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { Codicon } from '../../../../../base/common/codicons.js';
 import * as nls from '../../../../../nls.js';
 
 interface LanguageFilterMenuButtonProps {
@@ -16,7 +15,6 @@ interface LanguageFilterMenuButtonProps {
 }
 
 const filterTooltip = nls.localize('positron.historyLanguageFilter', "Filter history by language");
-const noRuntimeText = nls.localize('positron.historyNoRuntime', "No Runtime");
 
 /**
  * LanguageFilterMenuButton component - dropdown to select which language's history to display
@@ -49,14 +47,13 @@ export const LanguageFilterMenuButton = (props: LanguageFilterMenuButtonProps) =
 	// Display current language or "No Runtime" if none selected
 	const displayText = currentLanguage
 		? currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)
-		: noRuntimeText;
+		: '';
 
 	return (
 		<ActionBarMenuButton
 			actions={actions}
 			align='left'
 			ariaLabel={filterTooltip}
-			icon={Codicon.filter}
 			label={displayText}
 			tooltip={filterTooltip}
 		/>
