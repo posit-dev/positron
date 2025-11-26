@@ -47,6 +47,7 @@ import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -245,6 +246,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * context for automatic behaviors like entering edit mode on cell addition.
 	 */
 	private _currentOperation: NotebookOperationType | undefined = undefined;
+
+	private _contributions = new Map<string, IPositronNotebookContribution>();
 
 	// =============================================================================================
 	// #region Public Properties
@@ -533,6 +536,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._onDidChangeViewCells.fire({ splices });
 			}
 		}));
+
+		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
+		for (const desc of contributions) {
+			const contribution = this._instantiationService.createInstance(desc.ctor, this);
+			this._contributions.set(desc.id, contribution);
+		}
 
 		this._positronNotebookService.registerInstance(this);
 	}
