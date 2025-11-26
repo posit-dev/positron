@@ -209,17 +209,37 @@ export class Application {
 	 */
 	private async checkPositronReady(code: Code): Promise<void> {
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench))
+				.toBeVisible({ timeout: 30000 }),
 			'Application#checkPositronReady: wait for monaco workbench',
 			this.logger
 		);
-		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkPositronReady: wait for workbench restored', this.logger);
+
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
-			'Application#checkPositronReady: wait for explorer view',
+			() => code.whenWorkbenchRestored(),
+			'Application#checkPositronReady: wait for workbench restored',
 			this.logger
 		);
+
+		await expect(async () => {
+			await measureAndLog(
+				async () => {
+					const explorerButton = code.driver.page.locator('.action-item .codicon-explorer-view-icon');
+					await explorerButton.click({ timeout: 5000 });
+				},
+				'Application#checkPositronReady: open explorer view',
+				this.logger
+			);
+
+			await measureAndLog(
+				() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView))
+					.toBeVisible({ timeout: 5000 }),
+				'Application#checkPositronReady: wait for explorer view',
+				this.logger
+			);
+		}).toPass({ timeout: 60000 });
 	}
+
 
 	/**
 	 * Posit Workbench readiness checks
