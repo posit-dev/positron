@@ -1,0 +1,113 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Allow pointer events to pass through the overlay */
+.positron-modal-overlay:has(.positron-find-widget) {
+	pointer-events: none;
+}
+
+/* Position the widget at the top right */
+.positron-find-widget-positioned {
+	position: absolute;
+	top: 0;
+	right: 0;
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* But capture pointer events on the find widget itself */
+.positron-find-widget {
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-editorWidget-border);
+	box-shadow: 0 0 8px 2px var(--vscode-widget-shadow);
+	padding: 4px;
+	pointer-events: auto;
+}
+
+.find-widget-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.find-input-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex: 1;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+}
+
+.find-input-container:focus-within {
+	border-color: var(--vscode-focusBorder);
+}
+
+.find-input {
+	flex: 1;
+	background: transparent;
+	border: none;
+	outline: none;
+	color: var(--vscode-input-foreground);
+	padding: 4px 6px;
+	font-size: 13px;
+	min-width: 0;
+}
+
+.find-input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.find-input-buttons {
+	display: flex;
+	align-items: center;
+	padding-right: 2px;
+}
+
+.find-action-button {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+	border-radius: 2px;
+}
+
+.find-action-button:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.find-action-button.active {
+	background: var(--vscode-inputOption-activeBackground);
+	color: var(--vscode-inputOption-activeForeground);
+	border: 1px solid var(--vscode-inputOption-activeBorder);
+}
+
+.find-action-button .codicon {
+	font-size: 14px;
+	line-height: 20px;
+}
+
+.find-results {
+	color: var(--vscode-editorWidget-foreground);
+	font-size: 12px;
+	white-space: nowrap;
+	min-width: 60px;
+	text-align: right;
+}
+
+.find-navigation-buttons {
+	display: flex;
+	gap: 2px;
+}
+
+.find-close-button {
+	margin-left: 2px;
+}
