@@ -6,11 +6,8 @@
 import React from 'react';
 
 interface ExecutionStatusBadgeProps {
-	cellSelected: boolean;
-	isHovered: boolean;
 	executionOrder?: number;
 	showPending: boolean;
-	executionStatus: string;
 	hasError: boolean;
 }
 
@@ -19,18 +16,7 @@ interface ExecutionStatusBadgeProps {
  * Used when the cell is not selected/hovered and showing static execution status.
  * Only renders when the cell is in the 'idle' execution state.
  */
-export function ExecutionStatusBadge({ cellSelected, isHovered, executionOrder, showPending, executionStatus, hasError }: ExecutionStatusBadgeProps) {
-
-	if (cellSelected || isHovered) {
-		// We show action buttons in this case
-		return null;
-	}
-
-	// Only show execution counter when cell is in idle state
-	if (executionStatus !== 'idle') {
-		return null;
-	}
-
+export function ExecutionStatusBadge({ executionOrder, showPending, hasError }: ExecutionStatusBadgeProps) {
 	if (showPending) {
 		return <span className='execution-order-badge'>-</span>;
 	}
