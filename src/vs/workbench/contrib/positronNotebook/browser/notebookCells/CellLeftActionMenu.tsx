@@ -103,13 +103,13 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 			<div
 				ref={containerRef}
 				className='left-hand-action-container'
+				data-execution-status={dataExecutionStatus}
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
 				{showExecutionStatus && (
 					<div
 						className='left-hand-action-container-top'
-						data-execution-status={dataExecutionStatus}
 					>
 						<div
 							aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
@@ -126,7 +126,6 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 				)}
 				<div
 					className='left-hand-action-container-bottom'
-					data-execution-status={dataExecutionStatus}
 				>
 					<ExecutionStatusBadge
 						executionOrder={executionOrder}
