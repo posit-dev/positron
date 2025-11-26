@@ -1475,11 +1475,11 @@ class RedshiftConnection(Connection):
             try:
                 cursor.execute(sql)
                 frame = cursor.fetch_dataframe()
-            except Exception as e:
+            except Exception:
                 # Rollback on error to avoid transaction issues
                 # for subsequent queries
                 self.conn.rollback()
-                raise e
+                raise
 
         var_name = var_name or "conn"
         return frame, (
@@ -1496,11 +1496,11 @@ class RedshiftConnection(Connection):
             description = cursor.description or []
             columns = [col[0] for col in description]
             return [dict(zip(columns, row)) for row in rows]
-        except Exception as e:
+        except Exception:
             # Rollback on error to avoid transaction issues
             # for subsequent queries
             self.conn.rollback()
-            raise e
+            raise
         finally:
             cursor.close()
 
