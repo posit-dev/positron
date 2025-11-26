@@ -887,7 +887,7 @@ class TestRedshiftConnectionsService:
         assert comm_id in connections_service.comms
 
     @pytest.mark.parametrize(
-        ("path_kind"),
+        "path_kind",
         [
             pytest.param("root", id="root"),
             pytest.param("database", id="database"),
@@ -902,7 +902,7 @@ class TestRedshiftConnectionsService:
         msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
         dummy_comm.handle_msg(msg)
         result = dummy_comm.messages[0]["data"]["result"]
-        assert result == (path_kind == "table")
+        assert result is (path_kind == "table")
 
     @pytest.mark.parametrize(
         ("path_kind", "expected"),
