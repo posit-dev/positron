@@ -222,8 +222,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
 
-		const descriptor = metadata.sessionName ? ` '${metadata.sessionName}'` : '';
-		this._kernelChannel.appendLine(`** Begin kernel log for session${descriptor} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
+		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 
 		// Open the established barrier immediately if we're restoring an
 		// existing session
@@ -441,8 +440,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 		await this._api.newSession(session);
 
-		const descriptor = sessionMetadata.sessionName ? ` '${sessionMetadata.sessionName}'` : '';
-		this.log(`${kernelSpec.display_name} session${descriptor} (${this.metadata.sessionId})' created in ${workingDir} with command:`, vscode.LogLevel.Info);
+		this.log(`${kernelSpec.display_name} (${this.metadata.sessionId})' created in ${workingDir} with command:`, vscode.LogLevel.Info);
 		this.log(args.join(' '), vscode.LogLevel.Info);
 
 		this._established.open();

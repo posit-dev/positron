@@ -1608,7 +1608,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName,
 			sessionMode,
 			notebookUri,
 			workingDirectory,
@@ -1619,7 +1618,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Provision the new session.
 		let session: ILanguageRuntimeSession;
 		try {
-			session = await sessionManager.createSession(runtimeMetadata, sessionMetadata);
+			session = await sessionManager.createSession(runtimeMetadata, sessionMetadata, sessionName);
 		} catch (err) {
 			this._logService.error(
 				`Creating session for language runtime ` +

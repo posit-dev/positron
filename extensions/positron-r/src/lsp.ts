@@ -63,8 +63,7 @@ export class ArkLsp implements vscode.Disposable {
 		private readonly _metadata: positron.RuntimeSessionMetadata,
 		private readonly _dynState: positron.LanguageRuntimeDynState,
 	) {
-		const descriptor = _metadata.sessionName ? ` '${_metadata.sessionName} -'` : '';
-		this.languageClientName = `Ark (R ${this._version} language client) for session ${descriptor}'${_metadata.sessionId}'`;
+		this.languageClientName = `Ark (R ${this._version} language client) for session ${_dynState.sessionName} - '${_metadata.sessionId}'`;
 	}
 
 	private setState(state: ArkLspState) {
@@ -144,8 +143,7 @@ export class ArkLsp implements vscode.Disposable {
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		const descriptor = this._metadata.sessionName ? ` '${this._metadata.sessionName}'` : '';
-		const message = `Creating Positron R ${this._version} language client (port ${port}) for session${descriptor} (${this._metadata.sessionId})`;
+		const message = `Creating ${this._dynState.sessionName} language client for session ${this._metadata.sessionId} on port ${port}`;
 
 		LOGGER.info(message);
 		outputChannel.appendLine(message);

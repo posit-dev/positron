@@ -82,9 +82,6 @@ export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
 
-	/** An optional descriptor for the session */
-	readonly sessionName?: string;
-
 	/** The session's mode  */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
@@ -274,7 +271,9 @@ export interface ILanguageRuntimeSessionManager {
 	 */
 	createSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
+	):
 		Promise<ILanguageRuntimeSession>;
 
 	/**
