@@ -37,7 +37,8 @@
 	content: "";
 	position: absolute;
 	width: var(--_positron-notebook-selection-bar-width);
-	background-color: var(--vscode-editor-background);
+	/* Match the cell editor background */
+	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
 	left: 0; /* Align with focus ring by removing gap */
 	top: var(--_positron-notebook-selection-bar-inset);
 	bottom: var(--_positron-notebook-selection-bar-inset);

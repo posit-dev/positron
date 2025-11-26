@@ -268,15 +268,16 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		...otherConfig,
 	};
 
-	// Update global state
-	await context.globalState.update(
-		'positron.assistant.models',
-		[...existingConfigs, newConfig]
-	);
 
 	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
+
+		// Update global state
+		await context.globalState.update(
+			'positron.assistant.models',
+			[...existingConfigs, newConfig]
+		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 

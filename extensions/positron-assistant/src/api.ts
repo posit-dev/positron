@@ -15,7 +15,7 @@ import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
 import { CopilotService } from './copilot.js';
-import { PromptRenderer } from './promptRender.js';
+import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -46,13 +46,9 @@ export class PositronAssistantApi {
 	 * @returns A string containing the assistant prompt content.
 	 */
 	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Determine the chat mode based on the participant ID
-		let mode = positron.PositronChatMode.Ask;
-		if (request.id === ParticipantID.Edit) {
-			mode = positron.PositronChatMode.Edit;
-		} else if (request.id === ParticipantID.Agent) {
-			mode = positron.PositronChatMode.Agent;
-		}
+		// Use the currently selected mode in the chat UI
+		const chatMode = await positron.ai.getCurrentChatMode();
+		const mode = validateChatMode(chatMode);
 
 		// Start with the system prompt
 		const activeSessions = await positron.runtime.getActiveSessions();
@@ -62,7 +58,7 @@ export class PositronAssistantApi {
 		// Get notebook context if available
 		const notebookContext = await getAttachedNotebookContext(request);
 
-		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits, notebookContext }).content;
+		let prompt = PromptRenderer.renderModePrompt({ mode, sessions, request, streamingEdits, notebookContext }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -345,7 +341,7 @@ export function getEnabledTools(
 		// Check if the user has opted-in to always include Copilot tools.
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.
-		const copilotTool = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+		const copilotTool = tool.name.startsWith('copilot_');
 
 		// Disable Copilot notebook tools when Positron notebook mode is active
 		// to avoid conflicts with Positron's specialized notebook tools.
@@ -417,4 +413,18 @@ export function getPositronContextPrompts(positronContext: positron.ai.ChatConte
 		log.debug(`[context] adding date context: ${dateNode.length} characters`);
 	}
 	return result;
+}
+
+function isEnumMember<T extends Record<string, unknown>>(
+	value: unknown | undefined,
+	enumObj: T
+): value is T[keyof T] {
+	return value !== undefined && Object.values(enumObj).includes(value);
+}
+
+function validateChatMode(mode: string | undefined): PromptMetadataMode {
+	if (isEnumMember(mode, positron.PositronChatMode) || isEnumMember(mode, positron.PositronChatAgentLocation)) {
+		return mode;
+	}
+	return positron.PositronChatMode.Agent;
 }

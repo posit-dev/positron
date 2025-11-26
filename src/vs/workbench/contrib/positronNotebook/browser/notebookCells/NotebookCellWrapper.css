@@ -4,10 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-cell {
-	/* Override the default editor background */
-	--vscode-editor-background: var(--vscode-checkbox-background, #f8f8f8);
-	--vscode-editorGutter-background: var(--vscode-editor-background);
-
 	position: relative;
 	margin-left: 12px;
 

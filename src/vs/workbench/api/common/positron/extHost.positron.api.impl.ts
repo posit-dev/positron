@@ -352,6 +352,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentProvider(): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.getCurrentProvider();
 			},
+			getCurrentChatMode(): Promise<string | undefined> {
+				return extHostAiFeatures.getCurrentChatMode();
+			},
 			getProviders(): Promise<positron.ai.ChatProvider[]> {
 				return extHostAiFeatures.getProviders();
 			},
