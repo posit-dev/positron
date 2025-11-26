@@ -893,7 +893,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			<div className="positron-history-panel">
 				<PositronActionBar
 					borderBottom={true}
-					borderTop={false}
+					borderTop={true}
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton

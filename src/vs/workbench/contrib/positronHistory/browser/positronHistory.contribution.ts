@@ -23,8 +23,7 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 registerSingleton(IPositronHistoryService, PositronHistoryService, InstantiationType.Delayed);
 
 // The Positron history view icon.
-// TODO@softwarenerd - Replace Codicon.positronPreviewView with Codicon.positronHistoryView.
-const positronHistoryViewIcon = registerIcon('positron-history-icon', Codicon.positronPreviewView, nls.localize('positronHistoryViewIcon', 'View icon of the Positron history view.'));
+const positronHistoryViewIcon = registerIcon('positron-history-icon', Codicon.history, nls.localize('positronHistoryViewIcon', 'View icon of the Positron history view.'));
 
 // Register the Positron history container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
@@ -34,7 +33,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 		original: 'History'
 	},
 	icon: positronHistoryViewIcon,
-	order: 2.5,
+	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_HISTORY_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: POSITRON_HISTORY_VIEW_ID,
 	hideIfEmpty: false,
