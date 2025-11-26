@@ -743,7 +743,7 @@ export function registerChatCodeCompareBlockActions() {
 // Used in multiple places, so extracted here
 const applyInEditorEnablement =
 	ContextKeyExpr.or(
-		ChatContextKeys.chatCurrentProvider.isEqualTo('copilot'),
+		ChatContextKeys.responseFromCopilot.isEqualTo(true),
 		ContextKeyExpr.has('config.positron.assistant.alwaysEnableApplyInEditorAction')
 	);
 // --- End Positron ---

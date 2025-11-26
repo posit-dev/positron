@@ -97,6 +97,7 @@ export namespace ChatContextKeys {
 	export const isKatexMathElement = new RawContextKey<boolean>('chatIsKatexMathElement', false, { type: 'boolean', description: localize('chatIsKatexMathElement', "True when focusing a KaTeX math element.") });
 	// --- Start Positron ---
 	export const chatCurrentProvider = new RawContextKey<string>('chatCurrentProvider', undefined, { type: 'string', description: localize('chatCurrentProvider', "The current chat provider.") });
+	export const responseFromCopilot = new RawContextKey<boolean>('chatResponseFromCopilot', false, { type: 'boolean', description: localize('chatResponseFromCopilot', "True when the chat response is from Copilot.") });
 	// --- End Positron ---
 }
 
