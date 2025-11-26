@@ -2,7 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { IConstructorSignature } from '../../../../platform/instantiation/common/instantiation.js';
+import { BrandedService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 /**
@@ -20,7 +20,9 @@ export interface IPositronNotebookContribution {
 	dispose(): void;
 }
 
-export type IPositronNotebookContributionCtor = IConstructorSignature<IPositronNotebookContribution, [IPositronNotebookInstance]>;
+export interface IPositronNotebookContributionCtor {
+	new(notebook: IPositronNotebookInstance, ...services: BrandedService[]): IPositronNotebookContribution;
+}
 
 export interface IPositronNotebookContributionDescription {
 	id: string;
@@ -32,7 +34,7 @@ class PositronNotebookContributionRegistry {
 	private readonly _contributions: IPositronNotebookContributionDescription[] = [];
 
 	public registerContribution(id: string, ctor: IPositronNotebookContributionCtor): void {
-		this._contributions.push({ id, ctor });
+		this._contributions.push({ id, ctor: ctor as IPositronNotebookContributionCtor });
 	}
 
 	public getContributions(): IPositronNotebookContributionDescription[] {
