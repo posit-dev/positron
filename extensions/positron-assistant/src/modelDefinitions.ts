@@ -31,7 +31,9 @@ export async function verifyProvidersInConfiguredModels() {
 	const configuredModels = config.get<Record<string, ModelDefinition[]>>('configuredModels', {});
 	const enabledProviders = await getEnabledProviders();
 
-	const invalidProviders = Object.keys(configuredModels).filter(providerId => !enabledProviders.includes(providerId));
+	const invalidProviders = Object.keys(configuredModels)
+		// Note: 'copilot' is a special case, where we don't support configuredModels
+		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
 	if (invalidProviders.length === 0) {
 		return;
 	}
