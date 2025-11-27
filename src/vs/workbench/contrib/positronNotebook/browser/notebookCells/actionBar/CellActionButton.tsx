@@ -49,10 +49,10 @@ export function CellActionButton({ action, cell, hoverManager }: CellActionButto
 			tooltip={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}
 			onPressed={() => handleActionClick(action)}
 		>
-			{action.item.icon ?
-				<Icon icon={action.item.icon} /> :
-				// Cell actions should have icons; this is a developer error
-				<DevErrorIcon />}
+			{action.item.icon
+				? <Icon icon={action.item.icon} />
+				: <DevErrorIcon /> // Cell actions should have icons; this is a developer error
+			}
 		</ActionButton>
 	);
 }
