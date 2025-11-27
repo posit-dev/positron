@@ -73,7 +73,7 @@
 }
 
 .connections-item .connections-icon[tabindex="0"]:focus {
-	outline-width: 0px;
+	outline-width: 0;
 }
 
 .connections-item .connections-icon .disabled {
