@@ -294,7 +294,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		return '';
 	}
 
-	const icon = (() => {
+	/*
+	Icon showing if the element kind (table, view, schema, etc)
+
+	The icon can be either a base64 encoded image or a codicon class.
+	If it's a base64 encoded image, we render an img tag.
+	If it's a codicon class, we render a div with the appropriate class.
+	*/
+	const ElementIcon = (() => {
 		// icon is a base64 encoded png
 		if (props.item.icon) {
 			return <img
@@ -310,7 +317,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			)}
 		>
 		</div>
-	})();
+	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
@@ -365,6 +372,29 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		)
 	});
 
+	const PreviewButton = (({ onPreview }: { onPreview: (() => Promise<void>) | undefined }) => {
+		const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
+		const previewCallback = async () => {
+			setShowSpinner(true);
+			try {
+				await onPreview?.();
+			} finally {
+				setShowSpinner(false);
+			}
+		};
+
+		return <div
+			className={positronClassNames(
+				'connections-icon',
+				{ 'disabled': props.item.preview === undefined || showSpinner }
+			)}
+			onClick={previewCallback}
+		>
+			{showSpinner ? <div className="codicon codicon-loading animate-spin" /> : <ElementIcon />}
+		</div>
+	});
+
 	return (
 		<div
 			className={positronClassNames(
@@ -386,15 +416,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{props.item.dtype && <span className='connections-dtype'>{props.item.dtype}</span>}
 				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
-			<div
-				className={positronClassNames(
-					'connections-icon',
-					{ 'disabled': props.item.preview === undefined }
-				)}
-				onClick={() => props.item.preview?.()}
-			>
-				{icon}
-			</div>
+			<PreviewButton onPreview={props.item.preview} />
 		</div>
 	);
 };
