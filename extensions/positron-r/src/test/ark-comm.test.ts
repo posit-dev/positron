@@ -16,7 +16,7 @@ suite('ArkComm', () => {
 	let comm: Comm;
 
 	suiteSetup(async () => {
-		const [ses, disposable] = await testKit.startR();
+		const [ses, disposable] = await testKit.startR('Suite: ArkComm');
 		session = ses;
 		sesDisposable = disposable;
 
