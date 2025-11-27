@@ -550,7 +550,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
-	 * Handle "To Source" button - inserts selected code at cursor position
+	 * Handle "To Source" button - inserts selected code at cursor position or opens new untitled buffer
 	 */
 	const handleToSource = (index?: number) => {
 		// When called from Button, index will be KeyboardModifiers object, so treat it as undefined
@@ -571,6 +571,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		const editor = editorService.activeTextEditorControl;
 		if (!editor || !isCodeEditor(editor)) {
+			// No active editor - open a new untitled buffer with the code
+			editorService.openEditor({
+				contents: entry.input,
+				languageId: currentLanguage,
+				resource: undefined
+			});
 			return;
 		}
 
@@ -920,9 +926,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='positron-history-panel'>
 				<PositronActionBar
-					paddingRight={8}
 					borderBottom={true}
 					borderTop={true}
+					paddingRight={8}
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
