@@ -18,6 +18,7 @@ import { IPositronConnectionEntry } from '../../../../services/positronConnectio
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 
 const DETAILS_BAR_HEIGHT = 26;
 
@@ -384,15 +385,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			}
 		};
 
-		return <div
-			className={positronClassNames(
-				'connections-icon',
-				{ 'disabled': props.item.preview === undefined || showSpinner }
-			)}
-			onClick={previewCallback}
+		return <PositronButton
+			ariaLabel={localize('positron.schemaNavigation.previewElement', 'Preview element')}
+			className='connections-icon'
+			disabled={onPreview === undefined || showSpinner}
+			onPressed={previewCallback}
 		>
-			{showSpinner ? <div className="codicon codicon-loading animate-spin" /> : <ElementIcon />}
-		</div>
+			{showSpinner ? <div className='codicon codicon-loading animate-spin' /> : <ElementIcon />}
+		</PositronButton>
 	});
 
 	return (
