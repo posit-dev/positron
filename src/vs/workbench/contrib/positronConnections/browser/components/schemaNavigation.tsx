@@ -296,7 +296,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	}
 
 	/*
-	Icon showing if the element kind (table, view, schema, etc)
+	Icon showing the element kind (table, view, schema, etc)
 
 	The icon can be either a base64 encoded image or a codicon class.
 	If it's a base64 encoded image, we render an img tag.
