@@ -932,7 +932,7 @@ export class KCApi implements PositronSupervisorApi {
 		let retried = false;
 		while (true) {
 			try {
-				await session.create(kernel, sessionMetadata);
+				await session.create(kernel);
 				break;
 			} catch (err) {
 				// If the connection was refused, check the server status; this
