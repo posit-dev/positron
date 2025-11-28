@@ -18,7 +18,7 @@ export interface FindWidgetProps {
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
-	readonly onFindTextChange?: (value: string) => void;
+	readonly onFindTextChange: (value: string) => void;
 	readonly onMatchCaseChange?: (value: boolean) => void;
 	readonly onMatchWholeWordChange?: (value: boolean) => void;
 	readonly onUseRegexChange?: (value: boolean) => void;
@@ -64,7 +64,13 @@ export const FindWidget = ({
 							placeholder='Find'
 							type='text'
 							value={findText}
-							onChange={(e) => onFindTextChange?.(e.target.value)}
+							onChange={(e) => onFindTextChange(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === 'Escape') {
+									return;
+								}
+								e.stopPropagation();
+							}}
 						/>
 						<div className='find-input-buttons'>
 							<ActionButton

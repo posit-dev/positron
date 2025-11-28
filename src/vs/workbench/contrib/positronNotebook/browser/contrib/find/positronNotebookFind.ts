@@ -7,7 +7,7 @@
 import React from 'react';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
-import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize2 } from '../../../../../../nls.js';
@@ -19,7 +19,10 @@ import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysMan
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { FindWidget } from './FindWidget.js';
+import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
+import { observableValue, runOnChange } from '../../../../../../base/common/observable.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { FindWidgetWrapper } from './FindWidgetWrapper.js';
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -29,7 +32,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
-		private readonly _notebook: IPositronNotebookInstance
+		private readonly _notebook: IPositronNotebookInstance,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 	}
@@ -38,6 +42,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		return notebook.getContribution<PositronNotebookFindController>(PositronNotebookFindController.ID);
 	}
 
+	public readonly searchString = observableValue('findStateSearchString', '');
+	public readonly isRegex = observableValue('findStateIsRegexActual', false);
+	public readonly wholeWord = observableValue('findStateWholeWordActual', false);
+	public readonly matchCase = observableValue('findStateMatchCaseActual', false);
+	public readonly preserveCase = observableValue('findStatePreserveCaseActual', false);
+
 	public start(): void {
 		if (!this._notebook.scopedContextKeyService) {
 			return;
@@ -45,6 +55,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// TODO: Feels like this should be a class...
 		const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
+
+		const disposables = new DisposableStore();
 
 		if (!this._renderer.value) {
 			if (!this._notebook.container) {
@@ -56,21 +68,86 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				disableCaptures: true, // permits the usage of the enter key where applicable
 				onDisposed: () => {
 					// activeFindWidgets.delete(container);
+					disposables.dispose();
 					findWidgetVisible.reset();
 				}
 			});
 		}
 
-		const findWidget = React.createElement(FindWidget, {
+		// TODO: Extract a component specific to this impl that accepts observables as props
+		const findWidget = React.createElement(FindWidgetWrapper, {
+			findText: this.searchString,
+			focusInput: true,
+			matchCase: this.matchCase,
+			matchWholeWord: this.wholeWord,
+			useRegex: this.isRegex,
 			onClose: () => {
 				this._renderer.clear();
 			},
 		});
 
+		disposables.add(runOnChange(this.searchString, (searchString) => {
+			this.research(searchString);
+		}));
+
 		this._renderer.value.render(findWidget);
 
 		// TODO: onVisible?
 		findWidgetVisible.set(true);
+	}
+
+	private research(searchString: string): void {
+		const newDecorations: IModelDeltaDecoration[] = [];
+		const matches: unknown[] = [];
+		for (const cell of this._notebook.cells.get()) {
+			if (cell.model.textModel) {
+				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
+				const cellMatches = cell.model.textModel.findMatches(
+					searchString,
+					null,
+					this.isRegex.get(),
+					this.matchCase.get(),
+					this.wholeWord.get() ? wordSeparators || null : null,
+					this.isRegex.get(),
+				);
+				matches.push({ cell, matches: cellMatches });
+				// TODO: Fall back to text buffer if no text model?
+
+				for (const match of cellMatches) {
+					newDecorations.push({
+						range: match.range,
+						options: {
+							description: 'text search range for notebook search scope',
+							isWholeLine: true,
+							className: 'nb-findScope'
+						}
+					});
+				}
+
+				cell.editor?.changeDecorations(accessor => {
+					accessor.deltaDecorations([], newDecorations);
+				});
+
+				// filter based on options and editing state
+				// return matches.filter(match => {
+				// 	if (match.cell.cellKind === CellKind.Code) {
+				// 		// code cell, we only include its match if include input is enabled
+				// 		return options.includeCodeInput;
+				// 	}
+
+				// 	// markup cell, it depends on the editing state
+				// 	if (match.cell.getEditState() === CellEditState.Editing) {
+				// 		// editing, even if we includeMarkupPreview
+				// 		return options.includeMarkupInput;
+				// 	} else {
+				// 		// cell in preview mode, we should only include it if includeMarkupPreview is false but includeMarkupInput is true
+				// 		// if includeMarkupPreview is true, then we should include the webview match result other than this
+				// 		return !options.includeMarkupPreview && options.includeMarkupInput;
+				// 	}
+				// }
+				// );
+			}
+		}
 	}
 
 	public closeFindWidget(): void {
