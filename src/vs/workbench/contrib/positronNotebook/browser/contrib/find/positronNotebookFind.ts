@@ -7,7 +7,7 @@
 import React from 'react';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
-import { Disposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize2 } from '../../../../../../nls.js';
@@ -20,17 +20,30 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { FindWidget } from './FindWidget.js';
+import { autorun } from '../../../../../../base/common/observable.js';
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
+	private readonly _renderer = new MutableDisposable<PositronModalReactRenderer>();
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance
 	) {
 		super();
+
+		autorun(reader => {
+			const container = this._notebook.containerObs.read(reader);
+			this._renderer.value = new PositronModalReactRenderer({
+				container,
+				disableCaptures: true, // permits the usage of the enter key where applicable
+				onDisposed: () => {
+					// activeFindWidgets.delete(container);
+				}
+			});
+		});
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
@@ -38,20 +51,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	public start(): void {
-		if (this._notebook.container) {
-			const renderer = new PositronModalReactRenderer({
-				container: this._notebook.container,
-				disableCaptures: true, // permits the usage of the enter key where applicable
-				onDisposed: () => {
-					// activeFindWidgets.delete(container);
-				}
+		// TODO: What if no renderer?
+		const renderer = this._renderer.value;
+		if (renderer) {
+			const findWidget = React.createElement(FindWidget, {
+				onClose: () => renderer.dispose(),
 			});
-			const widget = React.createElement(FindWidget, {
-				renderer,
-				focusInput: true,
-				searchInput: undefined,
-			});
-			renderer.render(widget);
+			renderer.render(findWidget);
 		}
 	}
 

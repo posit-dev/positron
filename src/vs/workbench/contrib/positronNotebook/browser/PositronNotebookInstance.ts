@@ -162,6 +162,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _container: HTMLElement | undefined = undefined;
 
+	public readonly containerObs = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	/**
@@ -1305,6 +1307,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
 		this.detachView();
 		this._container = container;
+		// TODO: Refactor _container to an observable?
+		this.containerObs.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 

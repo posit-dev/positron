@@ -7,36 +7,43 @@
 import './FindWidget.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 
 export interface FindWidgetProps {
-	readonly renderer: PositronModalReactRenderer;
-	readonly searchInput?: string;
+	readonly findText?: string;
+	readonly matchCase?: boolean;
+	readonly matchWholeWord?: boolean;
+	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
+	readonly onFindTextChange?: (value: string) => void;
+	readonly onMatchCaseChange?: (value: boolean) => void;
+	readonly onMatchWholeWordChange?: (value: boolean) => void;
+	readonly onUseRegexChange?: (value: boolean) => void;
+	readonly onPreviousMatch?: () => void;
+	readonly onNextMatch?: () => void;
+	readonly onFindInSelection?: () => void;
+	readonly onClose?: () => void;
 }
 
-export const FindWidget = ({ renderer, searchInput = '', focusInput = true }: FindWidgetProps) => {
-	const [findText, setFindText] = useState(searchInput);
-	const [matchCase, setMatchCase] = useState(false);
-	const [matchWholeWord, setMatchWholeWord] = useState(false);
-	const [useRegex, setUseRegex] = useState(false);
+export const FindWidget = ({
+	findText,
+	matchCase = false,
+	matchWholeWord = false,
+	useRegex = false,
+	focusInput = true,
+	onFindTextChange,
+	onMatchCaseChange,
+	onMatchWholeWordChange,
+	onUseRegexChange,
+	onPreviousMatch,
+	onNextMatch,
+	onFindInSelection,
+	onClose,
+}: FindWidgetProps) => {
 	const inputRef = useRef<HTMLInputElement>(null);
-
-	// Handle Escape key to close
-	useEffect(() => {
-		const disposable = renderer.onKeyDown(e => {
-			if (e.code === 'Escape') {
-				e.preventDefault();
-				e.stopPropagation();
-				renderer.dispose();
-			}
-		});
-		return () => disposable.dispose();
-	}, [renderer]);
 
 	// Focus input when requested
 	useEffect(() => {
@@ -57,34 +64,34 @@ export const FindWidget = ({ renderer, searchInput = '', focusInput = true }: Fi
 							placeholder='Find'
 							type='text'
 							value={findText}
-							onChange={(e) => setFindText(e.target.value)}
+							onChange={(e) => onFindTextChange?.(e.target.value)}
 						/>
 						<div className='find-input-buttons'>
 							<ActionButton
 								ariaLabel='Match Case'
 								className={`find-action-button ${matchCase ? 'active' : ''}`}
-								onPressed={() => setMatchCase(!matchCase)}
+								onPressed={() => onMatchCaseChange?.(matchCase)}
 							>
 								<div className='codicon codicon-case-sensitive' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Match Whole Word'
 								className={`find-action-button ${matchWholeWord ? 'active' : ''}`}
-								onPressed={() => setMatchWholeWord(!matchWholeWord)}
+								onPressed={() => onMatchWholeWordChange?.(matchWholeWord)}
 							>
 								<div className='codicon codicon-whole-word' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Use Regular Expression'
 								className={`find-action-button ${useRegex ? 'active' : ''}`}
-								onPressed={() => setUseRegex(!useRegex)}
+								onPressed={() => onUseRegexChange?.(useRegex)}
 							>
 								<div className='codicon codicon-regex' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Find in Selection'
 								className='find-action-button'
-								onPressed={() => { }}
+								onPressed={() => onFindInSelection?.()}
 							>
 								<div className='codicon codicon-selection' />
 							</ActionButton>
@@ -97,14 +104,14 @@ export const FindWidget = ({ renderer, searchInput = '', focusInput = true }: Fi
 						<ActionButton
 							ariaLabel='Previous Match'
 							className='find-action-button'
-							onPressed={() => { }}
+							onPressed={() => onPreviousMatch?.()}
 						>
 							<div className='codicon codicon-arrow-up' />
 						</ActionButton>
 						<ActionButton
 							ariaLabel='Next Match'
 							className='find-action-button'
-							onPressed={() => { }}
+							onPressed={() => onNextMatch?.()}
 						>
 							<div className='codicon codicon-arrow-down' />
 						</ActionButton>
@@ -112,53 +119,12 @@ export const FindWidget = ({ renderer, searchInput = '', focusInput = true }: Fi
 					<ActionButton
 						ariaLabel='Close'
 						className='find-action-button find-close-button'
-						onPressed={() => renderer.dispose()}
+						onPressed={() => onClose?.()}
 					>
 						<div className='codicon codicon-close' />
 					</ActionButton>
 				</div>
 			</div>
 		</div>
-	);
-}
-
-export interface PositronFindWidgetOptions {
-	readonly container: HTMLElement;
-}
-
-// Track active find widget renderer per container
-const activeFindWidgets = new WeakMap<HTMLElement, PositronModalReactRenderer>();
-
-export function showPositronFindWidget({ container }: PositronFindWidgetOptions) {
-	// If there's already an active find widget for this container, focus it
-	const existingRenderer = activeFindWidgets.get(container);
-	if (existingRenderer) {
-		// Re-render with focusInput=true to focus the input
-		existingRenderer.render(
-			<FindWidget
-				focusInput={true}
-				renderer={existingRenderer}
-			/>
-		);
-		return;
-	}
-
-	// Create new renderer
-	const renderer = new PositronModalReactRenderer({
-		container,
-		disableCaptures: true, // permits the usage of the enter key where applicable
-		onDisposed: () => {
-			activeFindWidgets.delete(container);
-		}
-	});
-
-	// Track the renderer
-	activeFindWidgets.set(container, renderer);
-
-	renderer.render(
-		<FindWidget
-			focusInput={true}
-			renderer={renderer}
-		/>
 	);
 }
