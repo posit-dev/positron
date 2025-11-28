@@ -29,6 +29,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
 	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
+	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
@@ -96,8 +97,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		findWidgetVisible.set(true);
 	}
 
+	// TODO: Make option object and pass in instead of reading observables. This method will eventually live on a delegate
 	private research(searchString: string): void {
-		const newDecorations: IModelDeltaDecoration[] = [];
 		const matches: unknown[] = [];
 		for (const cell of this._notebook.cells.get()) {
 			if (cell.model.textModel) {
@@ -113,19 +114,22 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				matches.push({ cell, matches: cellMatches });
 				// TODO: Fall back to text buffer if no text model?
 
+				const newDecorations: IModelDeltaDecoration[] = [];
 				for (const match of cellMatches) {
 					newDecorations.push({
 						range: match.range,
 						options: {
 							description: 'text search range for notebook search scope',
-							isWholeLine: true,
+							// isWholeLine: true,
 							className: 'nb-findScope'
 						}
 					});
 				}
 
+				const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
 				cell.editor?.changeDecorations(accessor => {
-					accessor.deltaDecorations([], newDecorations);
+					const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
+					this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
 				});
 
 				// filter based on options and editing state
