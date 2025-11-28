@@ -26,7 +26,7 @@ import { autorun } from '../../../../../../base/common/observable.js';
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
-	private readonly _renderer = new MutableDisposable<PositronModalReactRenderer>();
+	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
@@ -62,6 +62,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	public closeFindWidget(): void {
+		this._renderer.dispose();
 	}
 }
 
