@@ -20,7 +20,6 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { FindWidget } from './FindWidget.js';
-import { autorun } from '../../../../../../base/common/observable.js';
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -33,17 +32,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		private readonly _notebook: IPositronNotebookInstance
 	) {
 		super();
-
-		autorun(reader => {
-			const container = this._notebook.containerObs.read(reader);
-			this._renderer.value = new PositronModalReactRenderer({
-				container,
-				disableCaptures: true, // permits the usage of the enter key where applicable
-				onDisposed: () => {
-					// activeFindWidgets.delete(container);
-				}
-			});
-		});
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
@@ -51,18 +39,42 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	public start(): void {
-		// TODO: What if no renderer?
-		const renderer = this._renderer.value;
-		if (renderer) {
-			const findWidget = React.createElement(FindWidget, {
-				onClose: () => renderer.dispose(),
-			});
-			renderer.render(findWidget);
+		if (!this._notebook.scopedContextKeyService) {
+			return;
 		}
+
+		// TODO: Feels like this should be a class...
+		const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
+
+		if (!this._renderer.value) {
+			if (!this._notebook.container) {
+				return;
+			}
+
+			this._renderer.value = new PositronModalReactRenderer({
+				container: this._notebook.container,
+				disableCaptures: true, // permits the usage of the enter key where applicable
+				onDisposed: () => {
+					// activeFindWidgets.delete(container);
+					findWidgetVisible.reset();
+				}
+			});
+		}
+
+		const findWidget = React.createElement(FindWidget, {
+			onClose: () => {
+				this._renderer.clear();
+			},
+		});
+
+		this._renderer.value.render(findWidget);
+
+		// TODO: onVisible?
+		findWidgetVisible.set(true);
 	}
 
 	public closeFindWidget(): void {
-		this._renderer.dispose();
+		this._renderer.clear();
 	}
 }
 
