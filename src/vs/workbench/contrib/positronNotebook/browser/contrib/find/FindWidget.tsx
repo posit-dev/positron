@@ -19,13 +19,13 @@ export interface FindWidgetProps {
 	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
 	readonly onFindTextChange: (value: string) => void;
-	readonly onMatchCaseChange?: (value: boolean) => void;
-	readonly onMatchWholeWordChange?: (value: boolean) => void;
-	readonly onUseRegexChange?: (value: boolean) => void;
-	readonly onPreviousMatch?: () => void;
-	readonly onNextMatch?: () => void;
-	readonly onFindInSelection?: () => void;
-	readonly onClose?: () => void;
+	readonly onMatchCaseChange: (value: boolean) => void;
+	readonly onMatchWholeWordChange: (value: boolean) => void;
+	readonly onUseRegexChange: (value: boolean) => void;
+	readonly onPreviousMatch: () => void;
+	readonly onNextMatch: () => void;
+	readonly onFindInSelection: () => void;
+	readonly onClose: () => void;
 }
 
 export const FindWidget = ({
@@ -76,28 +76,28 @@ export const FindWidget = ({
 							<ActionButton
 								ariaLabel='Match Case'
 								className={`find-action-button ${matchCase ? 'active' : ''}`}
-								onPressed={() => onMatchCaseChange?.(matchCase)}
+								onPressed={() => onMatchCaseChange(!matchCase)}
 							>
 								<div className='codicon codicon-case-sensitive' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Match Whole Word'
 								className={`find-action-button ${matchWholeWord ? 'active' : ''}`}
-								onPressed={() => onMatchWholeWordChange?.(matchWholeWord)}
+								onPressed={() => onMatchWholeWordChange(!matchWholeWord)}
 							>
 								<div className='codicon codicon-whole-word' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Use Regular Expression'
 								className={`find-action-button ${useRegex ? 'active' : ''}`}
-								onPressed={() => onUseRegexChange?.(useRegex)}
+								onPressed={() => onUseRegexChange(!useRegex)}
 							>
 								<div className='codicon codicon-regex' />
 							</ActionButton>
 							<ActionButton
 								ariaLabel='Find in Selection'
 								className='find-action-button'
-								onPressed={() => onFindInSelection?.()}
+								onPressed={() => onFindInSelection()}
 							>
 								<div className='codicon codicon-selection' />
 							</ActionButton>
@@ -110,14 +110,14 @@ export const FindWidget = ({
 						<ActionButton
 							ariaLabel='Previous Match'
 							className='find-action-button'
-							onPressed={() => onPreviousMatch?.()}
+							onPressed={() => onPreviousMatch()}
 						>
 							<div className='codicon codicon-arrow-up' />
 						</ActionButton>
 						<ActionButton
 							ariaLabel='Next Match'
 							className='find-action-button'
-							onPressed={() => onNextMatch?.()}
+							onPressed={() => onNextMatch()}
 						>
 							<div className='codicon codicon-arrow-down' />
 						</ActionButton>
@@ -125,7 +125,7 @@ export const FindWidget = ({
 					<ActionButton
 						ariaLabel='Close'
 						className='find-action-button find-close-button'
-						onPressed={() => onClose?.()}
+						onPressed={() => onClose()}
 					>
 						<div className='codicon codicon-close' />
 					</ActionButton>

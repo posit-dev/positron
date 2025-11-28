@@ -14,7 +14,7 @@ interface FindWidgetWrapperProps {
 	matchCase: ISettableObservable<boolean>;
 	matchWholeWord: ISettableObservable<boolean>;
 	useRegex: ISettableObservable<boolean>;
-	onClose?: () => void;
+	onClose: () => void;
 }
 
 export const FindWidgetWrapper = ({
@@ -36,9 +36,12 @@ export const FindWidgetWrapper = ({
 		matchWholeWord={matchWholeWord}
 		useRegex={useRegex}
 		onClose={onClose}
+		onFindInSelection={() => { }}
 		onFindTextChange={(value) => findTextObs.set(value, undefined)}
 		onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
 		onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
+		onNextMatch={() => { }}
+		onPreviousMatch={() => { }}
 		onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
 	/>;
 }
