@@ -97,6 +97,8 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	readonly container: HTMLElement | undefined;
 
+	readonly containerObs: IObservable<HTMLElement | undefined>;
+
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.
 	 * @param container The container element to set, or null to clear
