@@ -20,8 +20,8 @@ export interface IPositronNotebookContribution {
 	dispose(): void;
 }
 
-export interface IPositronNotebookContributionCtor {
-	new(notebook: IPositronNotebookInstance, ...services: BrandedService[]): IPositronNotebookContribution;
+export interface IPositronNotebookContributionCtor<Services extends BrandedService[] = BrandedService[]> {
+	new(notebook: IPositronNotebookInstance, ...services: Services): IPositronNotebookContribution;
 }
 
 export interface IPositronNotebookContributionDescription {
@@ -33,7 +33,7 @@ class PositronNotebookContributionRegistry {
 	public static readonly INSTANCE = new PositronNotebookContributionRegistry();
 	private readonly _contributions: IPositronNotebookContributionDescription[] = [];
 
-	public registerContribution(id: string, ctor: IPositronNotebookContributionCtor): void {
+	public registerContribution<Services extends BrandedService[]>(id: string, ctor: IPositronNotebookContributionCtor<Services>): void {
 		this._contributions.push({ id, ctor: ctor as IPositronNotebookContributionCtor });
 	}
 
@@ -42,7 +42,7 @@ class PositronNotebookContributionRegistry {
 	}
 }
 
-export function registerPositronNotebookContribution(id: string, ctor: IPositronNotebookContributionCtor): void {
+export function registerPositronNotebookContribution<Services extends BrandedService[]>(id: string, ctor: IPositronNotebookContributionCtor<Services>): void {
 	PositronNotebookContributionRegistry.INSTANCE.registerContribution(id, ctor);
 }
 
