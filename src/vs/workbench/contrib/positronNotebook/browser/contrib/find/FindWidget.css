@@ -103,6 +103,10 @@
 	text-align: right;
 }
 
+.find-results.no-results {
+	color: var(--vscode-errorForeground);
+}
+
 .find-navigation-buttons {
 	display: flex;
 	gap: 2px;

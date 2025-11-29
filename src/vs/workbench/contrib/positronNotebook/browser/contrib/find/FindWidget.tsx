@@ -18,6 +18,8 @@ export interface FindWidgetProps {
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
+	readonly matchIndex?: number;
+	readonly matchCount?: number;
 	readonly onFindTextChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
 	readonly onMatchWholeWordChange: (value: boolean) => void;
@@ -34,6 +36,8 @@ export const FindWidget = ({
 	matchWholeWord = false,
 	useRegex = false,
 	focusInput = true,
+	matchIndex,
+	matchCount,
 	onFindTextChange,
 	onMatchCaseChange,
 	onMatchWholeWordChange,
@@ -66,7 +70,8 @@ export const FindWidget = ({
 							value={findText}
 							onChange={(e) => onFindTextChange(e.target.value)}
 							onKeyDown={(e) => {
-								if (e.key === 'Escape') {
+								// Don't consume Escape or keyboard shortcuts with modifiers
+								if (e.key === 'Escape' || e.metaKey || e.ctrlKey) {
 									return;
 								}
 								e.stopPropagation();
@@ -103,8 +108,10 @@ export const FindWidget = ({
 							</ActionButton>
 						</div>
 					</div>
-					<div className='find-results'>
-						{findText ? 'No results' : ''}
+					<div className={`find-results ${findText && matchCount === 0 ? 'no-results' : ''}`}>
+						{findText && matchCount !== undefined ? (
+							matchCount === 0 ? 'No results' : `${matchIndex ?? 1} of ${matchCount}`
+						) : ''}
 					</div>
 					<div className='find-navigation-buttons'>
 						<ActionButton
