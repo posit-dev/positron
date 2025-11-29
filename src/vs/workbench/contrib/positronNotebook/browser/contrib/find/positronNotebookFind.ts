@@ -60,12 +60,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const disposables = new DisposableStore();
 
 		if (!this._renderer.value) {
-			if (!this._notebook.container) {
+			if (!this._notebook.container?.parentElement) {
 				return;
 			}
 
 			this._renderer.value = new PositronModalReactRenderer({
-				container: this._notebook.container,
+				container: this._notebook.container.parentElement,
 				disableCaptures: true, // permits the usage of the enter key where applicable
 				onDisposed: () => {
 					// activeFindWidgets.delete(container);

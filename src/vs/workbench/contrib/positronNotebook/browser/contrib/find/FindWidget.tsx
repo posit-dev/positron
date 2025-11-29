@@ -69,13 +69,6 @@ export const FindWidget = ({
 							type='text'
 							value={findText}
 							onChange={(e) => onFindTextChange(e.target.value)}
-							onKeyDown={(e) => {
-								// Don't consume Escape or keyboard shortcuts with modifiers
-								if (e.key === 'Escape' || e.metaKey || e.ctrlKey) {
-									return;
-								}
-								e.stopPropagation();
-							}}
 						/>
 						<div className='find-input-buttons'>
 							<ActionButton
