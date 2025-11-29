@@ -43,9 +43,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
-import { ACTIVE_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
+import { PlotResult } from '../../../services/languageRuntime/common/positronPlotComm.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
@@ -829,7 +830,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const code = this._recentExecutions.has(event.message.parent_id) ?
 					this._recentExecutions.get(event.message.parent_id)! : '';
 
-				const data = event.message.data as any;
+				const data = event.message.data as { pre_render?: PlotResult };
 
 				// Create the metadata object
 				const metadata: IPositronPlotMetadata = {
@@ -1489,6 +1490,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				scheme: Schemas.positronPlotsEditor,
 				path: plotId,
 			}),
+			options: selectedEditorGroup === AUX_WINDOW_GROUP ? {
+				pinned: true,
+				auxiliary: {
+					compact: true,
+					bounds: { width: 900, height: 700 }
+				}
+			} : undefined
 		}, selectedEditorGroup);
 
 		if (!editorPane) {
@@ -1537,7 +1545,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @returns A new PositronPlotCommProxy instance.
 	 */
 	private createCommProxy(
-		client: IRuntimeClientInstance<any, any>,
+		client: IRuntimeClientInstance<unknown, unknown>,
 		metadata: IPositronPlotMetadata): PositronPlotCommProxy {
 
 		// Get or create the render queue for this session
