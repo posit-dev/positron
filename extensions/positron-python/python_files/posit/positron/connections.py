@@ -1310,8 +1310,22 @@ class SQLServerConnection(Connection):
 
         qualified_name = self._qualify(database.name, schema.name, table.name)
         query = f"SELECT TOP 1000 * FROM {qualified_name};"
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            cols = [c[0] for c in cursor.description or []]
+        finally:
+            with contextlib.suppress(Exception):
+                cursor.close()
+
+        if self._is_pyodbc():
+            # pyodbc returns rows as pyodbc.Row, which pandas cannot handle directly
+            rows = [tuple(row) for row in rows]
+
+        preview_df = pd.DataFrame(rows, columns=cols)
+
         var_name = var_name or "conn"
-        preview_df = pd.read_sql(query, self.conn)
         sql_string = (
             f"# {table.name} = pd.read_sql({query!r}, {var_name}) "
             f"# where {var_name} is your connection variable"
