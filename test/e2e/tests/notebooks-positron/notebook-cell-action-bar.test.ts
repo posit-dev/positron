@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -35,7 +34,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 			await notebooksPositron.selectCellAtIndex(2);
 
 			// Verify cell 2 has correct content before deletion
-			expect(await notebooksPositron.getCellContent(2)).toBe('# Cell 2');
+			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
 
 			// Delete the selected cell using action bar
 			await notebooksPositron.deleteCellWithActionBar(2);
@@ -44,7 +43,7 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 			await notebooksPositron.expectCellCountToBe(5);
 
 			// Verify what was cell 3 is now at index 2
-			expect(await notebooksPositron.getCellContent(2)).toBe('# Cell 3');
+			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 3');
 		});
 
 		// ========================================
@@ -94,7 +93,8 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		// ========================================
 		await test.step('Test 4: Delete first cell (cell 0)', async () => {
 			// Verify we're at the first cell with correct content
-			expect(await notebooksPositron.getCellContent(0)).toBe('# Cell 0');
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
+
 
 			// Delete the first cell using action bar
 			await notebooksPositron.deleteCellWithActionBar(0);
@@ -103,8 +103,8 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 			await notebooksPositron.expectCellCountToBe(2);
 
 			// Verify what was cell 1 is now at index 0
-			expect(await notebooksPositron.getCellContent(0)).toBe('# Cell 1');
-			expect(await notebooksPositron.getCellContent(1)).toBe('# Cell 3');
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 3');
 		});
 
 		// ========================================

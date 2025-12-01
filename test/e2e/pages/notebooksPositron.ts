@@ -75,7 +75,10 @@ export class PositronNotebooks extends Notebooks {
 		const cellType = await this.getCellType(cellIndex);
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
-			await this.selectCellAtIndex(cellIndex, { editMode: true });
+			const inViewMode = await this.expandMarkdownEditor.isVisible();
+			if (inViewMode) {
+				await this.selectCellAtIndex(cellIndex, { editMode: true });
+			}
 		}
 
 		const content = await test.step(`Get markdown content lines of cell at index: ${cellIndex}`, async () => {
@@ -565,28 +568,6 @@ export class PositronNotebooks extends Notebooks {
 				}).toPass({ timeout: DEFAULT_TIMEOUT });
 			}
 		});
-	}
-
-	/**
-	 * Verify: Cell content at specified index contains expected substring or matches RegExp.
-	 * @param cellIndex - The index of the cell to check.
-	 * @param expected - The substring or RegExp expected to be contained in the cell content.
-	 */
-	async expectCellContentAtIndexToContain(cellIndex: number, expected: string | RegExp): Promise<void> {
-		await test.step(
-			`Expect cell ${cellIndex} content to contain: ${expected instanceof RegExp ? expected.toString() : expected}`,
-			async () => {
-				await expect(async () => {
-					const actualContent = await this.getCellContent(cellIndex);
-
-					if (expected instanceof RegExp) {
-						expect(actualContent).toMatch(expected);
-					} else {
-						expect(actualContent).toContain(expected);
-					}
-				}).toPass({ timeout: DEFAULT_TIMEOUT });
-			}
-		);
 	}
 
 	/**
