@@ -43,8 +43,6 @@ test.describe('Notebook: Empty State Behavior', {
 		// Ensure can redo to delete cells again
 		await notebooksPositron.performCellAction('redo');
 		await notebooksPositron.expectCellCountToBe(0);
-
-
 	});
 
 	test('Can cut/paste on empty notebook', async function ({ app }) {
