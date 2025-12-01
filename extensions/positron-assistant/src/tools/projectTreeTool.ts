@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
+import minimatch from 'minimatch';
 
 /**
  * Represents either a file or a directory
@@ -23,6 +24,7 @@ interface ProjectTreeInput {
 	exclude?: string[];
 	skipDefaultExcludes?: boolean;
 	maxFiles?: number;
+	directoriesOnly?: boolean;
 }
 
 export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(PositronAssistantToolName.ProjectTree, {
@@ -48,8 +50,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		log.debug(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree for ${workspaceFolders.length} workspace folders...`);
 
-		// Parse the input options
-		const { include, exclude, skipDefaultExcludes, maxFiles } = options.input;
+		const { include, exclude, skipDefaultExcludes, maxFiles, directoriesOnly } = options.input;
 
 		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
@@ -100,14 +101,23 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		// Construct the project tree
 		const workspaceTrees: DirectoryInfo[] = [];
 		for (const folder of workspaceFolders) {
-			// NOTE: this will not include empty directories :/
-			const matchedFileUris = await vscode.workspace.findFiles2(
-				filePatterns,
-				findOptions,
-				token
-			);
-			const items = matchedFileUris.map(uri => vscode.workspace.asRelativePath(uri, false));
-			workspaceTrees.push({ folder, items, totalFiles: matchedFileUris.length });
+			if (directoriesOnly) {
+				const directories = await collectDirectories(
+					folder.uri,
+					filePatterns,
+					skipExcludes ? excludePatterns : [...DEFAULT_DIRECTORY_EXCLUDE_PATTERNS, ...excludePatterns],
+					token
+				);
+				workspaceTrees.push({ folder, items: directories, totalFiles: directories.length });
+			} else {
+				const matchedFileUris = await vscode.workspace.findFiles2(
+					filePatterns,
+					findOptions,
+					token
+				);
+				const items = matchedFileUris.map(uri => vscode.workspace.asRelativePath(uri, false));
+				workspaceTrees.push({ folder, items, totalFiles: matchedFileUris.length });
+			}
 		}
 
 		const totalFiles = workspaceTrees.reduce((sum, obj) => sum + obj.totalFiles, 0);
@@ -206,3 +216,66 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 	'**/*.so',
 	'**/*.tmp',
 ];
+
+const DEFAULT_DIRECTORY_EXCLUDE_PATTERNS = DEFAULT_EXCLUDE_PATTERNS
+	.filter(p => p.endsWith('/**'))
+	.map(p => p.slice(0, -3));
+
+async function collectDirectories(
+	workspaceUri: vscode.Uri,
+	includePatterns: string[],
+	excludePatterns: string[],
+	token: vscode.CancellationToken
+): Promise<string[]> {
+	const directories: string[] = [];
+
+	async function traverse(uri: vscode.Uri): Promise<void> {
+		if (token.isCancellationRequested) {
+			return;
+		}
+
+		try {
+			const entries = await vscode.workspace.fs.readDirectory(uri);
+
+			for (const [name, type] of entries) {
+				if (type === vscode.FileType.Directory) {
+					const dirUri = vscode.Uri.joinPath(uri, name);
+					const relativePath = vscode.workspace.asRelativePath(dirUri, false);
+
+					if (shouldIncludeDirectory(relativePath, includePatterns, excludePatterns)) {
+						directories.push(relativePath + '/');
+						await traverse(dirUri);
+					}
+				}
+			}
+		} catch (error) {
+			log.warn(`[${PositronAssistantToolName.ProjectTree}] Failed to read directory ${uri.fsPath}: ${error}`);
+		}
+	}
+
+	await traverse(workspaceUri);
+	return directories;
+}
+
+function shouldIncludeDirectory(
+	relativePath: string,
+	includePatterns: string[],
+	excludePatterns: string[]
+): boolean {
+	const pathWithSlash = relativePath + '/';
+
+	if (includePatterns.length > 0) {
+		const matchesInclude = includePatterns.some(pattern =>
+			minimatch(relativePath, pattern) || minimatch(pathWithSlash, pattern)
+		);
+		if (!matchesInclude) {
+			return false;
+		}
+	}
+
+	const matchesExclude = excludePatterns.some(pattern =>
+		minimatch(relativePath, pattern) || minimatch(pathWithSlash, pattern)
+	);
+
+	return !matchesExclude;
+}

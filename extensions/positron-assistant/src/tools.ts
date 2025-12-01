@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
-import { DirectoryStructureTool } from './tools/directoryStructureTool.js';
 import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
 import { registerNotebookTools } from './tools/notebookTools.js';
@@ -411,8 +410,6 @@ export function registerAssistantTools(
 	context.subscriptions.push(installPythonPackageTool);
 
 	context.subscriptions.push(ProjectTreeTool);
-
-	context.subscriptions.push(DirectoryStructureTool);
 
 	context.subscriptions.push(DocumentCreateTool);
 
