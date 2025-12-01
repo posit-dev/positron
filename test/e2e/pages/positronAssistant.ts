@@ -22,6 +22,7 @@ const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
+const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 const APPLY_IN_EDITOR_BUTTON = 'a.action-label.codicon.codicon-git-pull-request-go-to-changes[role="button"][aria-label="Apply in Editor"]';
@@ -130,6 +131,9 @@ export class Assistant {
 				break;
 			case 'copilot':
 				await this.code.driver.page.locator(COPILOT_BUTTON).click();
+				break;
+			case `openai-api`:
+				await this.code.driver.page.locator(OPENAI_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);

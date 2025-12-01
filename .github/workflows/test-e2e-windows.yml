@@ -105,6 +105,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
 
       - name: Set screen resolution
         shell: pwsh
