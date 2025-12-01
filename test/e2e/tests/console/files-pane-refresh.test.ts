@@ -5,12 +5,9 @@
 
 // Simple Test: Files Pane Refresh
 // Description: Verify that the Files pane refreshes after creating a file via the console.
-// TODO: I'm unsure about the tags, and whether it fits well within new-folder-flow.
-//       If it does, should I have it as standalone test or include it to another test?
-//		 Open to suggestions
 
 import { test, tags, expect } from '../_test.setup';
-import { createFileViaConsole } from './helpers/new-folder-flow';
+import { createFileViaConsole } from '../new-folder-flow/helpers/new-folder-flow';
 
 test.use({
 	suiteId: __filename
