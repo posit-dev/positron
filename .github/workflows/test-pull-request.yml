@@ -91,7 +91,6 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
-      skip_tags: "@:nightly-only"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
@@ -109,7 +108,6 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
-      skip_tags: "@:nightly-only"
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
