@@ -242,10 +242,15 @@ async function collectDirectories(
 					const dirUri = vscode.Uri.joinPath(uri, name);
 					const relativePath = vscode.workspace.asRelativePath(dirUri, false);
 
-					if (shouldIncludeDirectory(relativePath, includePatterns, excludePatterns)) {
-						directories.push(relativePath + '/');
-						await traverse(dirUri);
+					if (isExcluded(relativePath, excludePatterns)) {
+						continue;
 					}
+
+					if (matchesInclude(relativePath, includePatterns)) {
+						directories.push(relativePath + '/');
+					}
+
+					await traverse(dirUri);
 				}
 			}
 		} catch (error) {
@@ -257,25 +262,19 @@ async function collectDirectories(
 	return directories;
 }
 
-function shouldIncludeDirectory(
-	relativePath: string,
-	includePatterns: string[],
-	excludePatterns: string[]
-): boolean {
-	const pathWithSlash = relativePath + '/';
-
-	if (includePatterns.length > 0) {
-		const matchesInclude = includePatterns.some(pattern =>
-			minimatch(relativePath, pattern) || minimatch(pathWithSlash, pattern)
-		);
-		if (!matchesInclude) {
-			return false;
-		}
+function matchesInclude(relativePath: string, includePatterns: string[]): boolean {
+	if (includePatterns.length === 0) {
+		return true;
 	}
-
-	const matchesExclude = excludePatterns.some(pattern =>
+	const pathWithSlash = relativePath + '/';
+	return includePatterns.some(pattern =>
 		minimatch(relativePath, pattern) || minimatch(pathWithSlash, pattern)
 	);
+}
 
-	return !matchesExclude;
+function isExcluded(relativePath: string, excludePatterns: string[]): boolean {
+	const pathWithSlash = relativePath + '/';
+	return excludePatterns.some(pattern =>
+		minimatch(relativePath, pattern) || minimatch(pathWithSlash, pattern)
+	);
 }
