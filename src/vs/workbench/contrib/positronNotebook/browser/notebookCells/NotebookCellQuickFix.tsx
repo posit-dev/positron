@@ -35,10 +35,8 @@ interface NotebookCellQuickFixProps {
  * @returns The rendered component, or null if assistant is not enabled
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
-	const fixButtonRef = useRef<HTMLDivElement>(undefined!);
-	const explainButtonRef = useRef<HTMLDivElement>(undefined!);
-	const fixDropdownRef = useRef<HTMLDivElement>(undefined!);
-	const explainDropdownRef = useRef<HTMLDivElement>(undefined!);
+	const fixDropdownRef = useRef<HTMLDivElement>(null);
+	const explainDropdownRef = useRef<HTMLDivElement>(null);
 	const services = usePositronReactServicesContext();
 	const { quickChatService, commandService, contextMenuService } = services;
 
@@ -78,7 +76,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	/**
 	 * Handler for the "Fix" button primary click.
-	 * Opens the quick chat with a fix prompt containing the cell code and error.
+	 * Opens the quick chat with a fix prompt and error output.
 	 */
 	const pressedFixHandler = async () => {
 		quickChatService.open({
@@ -88,7 +86,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	/**
 	 * Handler for the "Explain" button primary click.
-	 * Opens the quick chat with an explain prompt containing the cell code and error.
+	 * Opens the quick chat with an explain prompt and error output.
 	 */
 	const pressedExplainHandler = async () => {
 		quickChatService.open({
@@ -100,9 +98,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	 * Shows the context menu for the Fix button dropdown.
 	 * Provides option to open in main chat panel instead of quick chat.
 	 *
-	 * @param event Mouse event from the dropdown button click
+	 * @param event Event from the dropdown button click or keyboard activation
 	 */
-	const showFixDropdownMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+	const showFixDropdownMenu = (event: React.SyntheticEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -121,6 +119,10 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			}
 		];
 
+		if (!fixDropdownRef.current) {
+			return;
+		}
+
 		const rect = fixDropdownRef.current.getBoundingClientRect();
 		contextMenuService.showContextMenu({
 			getActions: () => actions,
@@ -134,9 +136,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	 * Shows the context menu for the Explain button dropdown.
 	 * Provides option to open in main chat panel instead of quick chat.
 	 *
-	 * @param event Mouse event from the dropdown button click
+	 * @param event Event from the dropdown button click or keyboard activation
 	 */
-	const showExplainDropdownMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+	const showExplainDropdownMenu = (event: React.SyntheticEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
 
@@ -154,6 +156,10 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				}
 			}
 		];
+
+		if (!explainDropdownRef.current) {
+			return;
+		}
 
 		const rect = explainDropdownRef.current.getBoundingClientRect();
 		contextMenuService.showContextMenu({
@@ -185,7 +191,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 					className='assistant-action assistant-action-main'
 					onPressed={pressedFixHandler}
 				>
-					<div ref={fixButtonRef} className='link-text' title={fixTooltip}>
+					<div className='link-text' title={fixTooltip}>
 						<span className='codicon codicon-sparkle' />
 						{localize('positronNotebookAssistantFix', "Fix")}
 					</div>
@@ -199,8 +205,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 					title={fixDropdownTooltip}
 					onKeyDown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							showFixDropdownMenu(e as unknown as React.MouseEvent<HTMLDivElement>);
+							showFixDropdownMenu(e);
 						}
 					}}
 					onMouseDown={showFixDropdownMenu}
@@ -216,7 +221,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 					className='assistant-action assistant-action-main'
 					onPressed={pressedExplainHandler}
 				>
-					<div ref={explainButtonRef} className='link-text' title={explainTooltip}>
+					<div className='link-text' title={explainTooltip}>
 						<span className='codicon codicon-sparkle' />
 						{localize('positronNotebookAssistantExplain', "Explain")}
 					</div>
@@ -230,8 +235,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 					title={explainDropdownTooltip}
 					onKeyDown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							showExplainDropdownMenu(e as unknown as React.MouseEvent<HTMLDivElement>);
+							showExplainDropdownMenu(e);
 						}
 					}}
 					onMouseDown={showExplainDropdownMenu}
