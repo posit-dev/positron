@@ -22,10 +22,10 @@
  *
  * | Case | Data Range        | Expected Bins                                      | Description                          |
  * |------|-------------------|----------------------------------------------------|--------------------------------------|
- * | 1    | 0.0 -> 100.0       | 0–33, 34–66, 67–100                                | Integer range with whole number bins |
- * | 2    | 1.10 -> 3.90       | 1.10–2.03, 2.03–2.97, 2.97–3.90                    | Decimal range with 2-digit precision  |
- * | 3    | -1.10 -> 2.00      | -1.10–0.4500, 0.4500–2.00                          | Mixed negative/positive decimal range |
- * | 4    | -0.0001 -> 0.00009 | -0.0001–-5.00E-06, -5.00E-06–9.00E-05              | Very small values with scientific notation |
+ * | 1    | 0.0 -> 100.0       | 0-33, 34-66, 67-100                                | Integer range with whole number bins |
+ * | 2    | 1.10 -> 3.90       | 1.10-2.03, 2.03-2.97, 2.97-3.90                    | Decimal range with 2-digit precision  |
+ * | 3    | -1.10 -> 2.00      | -1.10-0.4500, 0.4500-2.00                          | Mixed negative/positive decimal range |
+ * | 4    | -0.0001 -> 0.00009 | -0.0001--5.00E-06, -5.00E-06-9.00E-05              | Very small values with scientific notation |
  */
 
 import { Page } from '@playwright/test';
@@ -69,7 +69,7 @@ test.describe('Data Explorer - Histogram Rounding', {
 
   const cases = [
     {
-      name: 'Case 1: 0.0 -> 100.0 -> Bins: 0–33, 34–66, 67–100',
+      name: 'Case 1: 0.0 -> 100.0 -> Bins: 0-33, 34-66, 67-100',
       varName: 'histRound1',
       python: `import pandas as pd\n# Integer range 0..100\nhistRound1 = pd.DataFrame({'x': list(range(0, 101, 10))})`,
       expectedPairs: [
@@ -79,7 +79,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 2: 1.10 -> 3.90 -> Bins: 1.10–2.03, 2.03–2.97, 2.97–3.90',
+      name: 'Case 2: 1.10 -> 3.90 -> Bins: 1.10-2.03, 2.03-2.97, 2.97-3.90',
       varName: 'histRound2',
       python: `import pandas as pd\n# Floating range ~[1.1, 3.9]\nhistRound2 = pd.DataFrame({'x': [1.1, 1.8, 2.0, 2.5, 3.0, 3.4, 3.9]})`,
       expectedPairs: [
@@ -89,7 +89,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 3: -1.10 -> 2.00 -> Bins: -1.10–0.4500, 0.4500–2.00',
+      name: 'Case 3: -1.10 -> 2.00 -> Bins: -1.10-0.4500, 0.4500-2.00',
       varName: 'histRound3',
       python: `import pandas as pd\n# Floating range ~[-1.1, 2.0]\nhistRound3 = pd.DataFrame({'x': [-1.1, -0.5, 0.0, 1.1, 2.0]})`,
       expectedPairs: [
@@ -98,7 +98,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 4: -0.0001 -> 0.00009 -> Bins: -0.0001–-5.00E-06, -5.00E-06–9.00E-05',
+      name: 'Case 4: -0.0001 -> 0.00009 -> Bins: -0.0001--5.00E-06, -5.00E-06-9.00E-05',
       varName: 'histRound4',
       python: `import pandas as pd\n# Tiny values around zero\nhistRound4 = pd.DataFrame({'x': [-0.0001, -0.00005, 0.0, 0.00005, 0.00009]})`,
       expectedPairs: [
