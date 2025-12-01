@@ -14,6 +14,7 @@ import re
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
+from webbrowser import get
 
 import psutil
 import traitlets
@@ -401,7 +402,7 @@ class PositronShell(ZMQInteractiveShell):
             return super()._showtraceback(etype, evalue, stb)  # type: ignore IPython type annotation is wrong
         if len(stb) == 1:
             # Avoid using tempfile name of the PositronShell for single-line tracebacks.
-            evalue_msg = evalue.msg
+            evalue_msg = getattr(evalue, "msg", "")
             return super()._showtraceback(etype, evalue_msg, stb)  # type: ignore IPython type annotation is wrong
 
         # Remove the first two lines of the traceback, which are the "---" header and the repeated
