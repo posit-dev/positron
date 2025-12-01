@@ -28,6 +28,7 @@
  * | 4    | -0.0001 -> 0.00009 | -0.0001–-5.00E-06, -5.00E-06–9.00E-05              | Very small values with scientific notation |
  */
 
+import { Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -46,7 +47,7 @@ test.describe('Data Explorer - Histogram Rounding', {
     await hotKeys.closeAllEditors();
   });
 
-  const hoverBinWithRange = async (page: any, expectedMin: string, expectedMax: string) => {
+  const hoverBinWithRange = async (page: Page, expectedMin: string, expectedMax: string) => {
     const bins = page.locator('.vector-histogram foreignObject.tooltip-container');
     const count = await bins.count();
     if (count === 0) {
