@@ -864,7 +864,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.openMarkdownEditor',
 			title: localize2('positronNotebook.cell.openMarkdownEditor', "Open Markdown Editor"),
-			icon: ThemeIcon.fromId('chevron-down'),
+			icon: ThemeIcon.fromId('edit'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 10,
@@ -899,7 +899,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.collapseMarkdownEditor',
 			title: localize2('positronNotebook.cell.collapseMarkdownEditor', "Collapse Markdown Editor"),
-			icon: ThemeIcon.fromId('chevron-up'),
+			icon: ThemeIcon.fromId('check'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 10,
