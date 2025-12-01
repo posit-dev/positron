@@ -109,7 +109,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       const { dataExplorer, variables, editors } = app.workbench;
       const { page } = app.code.driver;
 
-      await executeCode('Python', testCase.python);
+      await console.pasteCodeToConsole(testCase.python, true);
 
       await variables.doubleClickVariableRow(testCase.varName);
       await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true });
