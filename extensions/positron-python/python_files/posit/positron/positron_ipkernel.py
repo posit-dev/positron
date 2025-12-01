@@ -14,7 +14,6 @@ import re
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
-from webbrowser import get
 
 import psutil
 import traitlets
