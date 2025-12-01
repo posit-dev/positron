@@ -73,10 +73,11 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellContent(cellIndex: number): Promise<string[]> {
 		const cellType = await this.getCellType(cellIndex);
+
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
-			const inViewMode = await this.expandMarkdownEditor.isVisible();
-			if (inViewMode) {
+			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'Collapse markdown editor' }).isVisible();
+			if (!inEditMode) {
 				await this.selectCellAtIndex(cellIndex, { editMode: true });
 			}
 		}
@@ -563,9 +564,10 @@ export class PositronNotebooks extends Notebooks {
 				return;
 			} else {
 				// Single string comparison
-				await expect(async () => {
-					expect(actualContent[0]).toBe(expectedContent);
-				}).toPass({ timeout: DEFAULT_TIMEOUT });
+				if (actualContent.length !== 1) {
+					throw new Error(`Expected single line content but got ${actualContent.length} lines: ${actualContent.join('\n')}`);
+				}
+				expect(actualContent[0]).toBe(expectedContent)
 			}
 		});
 	}
