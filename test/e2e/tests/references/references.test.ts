@@ -23,7 +23,8 @@ test.describe('References', {
 
 	});
 
-	test('Python - Verify References Pane Lists All Function References Across Files', {
+	// skipping until we have pyrefly back on for tests
+	test.skip('Python - Verify References Pane Lists All Function References Across Files', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
 	}, async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
