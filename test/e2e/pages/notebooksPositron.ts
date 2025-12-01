@@ -68,38 +68,34 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Get cell content at specified index.
-	 * @param cellIndex - The index of the cell.
-	 * @returns - The content of the cell.
+	 * Get markdown cell content lines at specified index.
+	 * Returns an array where each item is the text of a single .view-line element.
 	 */
-	async getCellContent(cellIndex: number): Promise<string> {
+	async getCellContent(cellIndex: number): Promise<string[]> {
 		const cellType = await this.getCellType(cellIndex);
-		return cellType === 'code'
-			? await this.getCodeCellContent(cellIndex)
-			: await this.getMarkdownCellContent(cellIndex);
-	}
+		if (cellType === 'markdown') {
+			// Enter edit mode to ensure the monaco view-lines are present
+			await this.selectCellAtIndex(cellIndex, { editMode: true });
+		}
 
-
-	/**
-	 * Get markdown cell content at specified index.
-	 */
-	private async getMarkdownCellContent(cellIndex: number): Promise<string> {
-		return await test.step(`Get markdown content of cell at index: ${cellIndex}`, async () => {
-			return await this.cellMarkdown(cellIndex).textContent() ?? '';
-		});
-	}
-
-	/**
-	 * Get code cell content at specified index.
-	 */
-	private async getCodeCellContent(cellIndex: number): Promise<string> {
-		return await test.step(`Get content of cell at index: ${cellIndex}`, async () => {
+		const content = await test.step(`Get markdown content lines of cell at index: ${cellIndex}`, async () => {
 			const editor = this.cell.nth(cellIndex).locator('.positron-cell-editor-monaco-widget .view-lines');
-			const content = await editor.textContent() ?? '';
-			// Replace the weird ascii space with a proper space
-			return content.replace(/\u00a0/g, ' ');
+			const lineLocator = editor.locator('.view-line');
+
+			// allTextContents returns an array of text for each matching locator
+			const rawLines = await lineLocator.allTextContents();
+
+			// Normalize non-breaking spaces and trim line endings
+			return rawLines.map(l => (l ?? '').replace(/\u00a0/g, ' '));
 		});
+
+		if (cellType === 'markdown') {
+			await this.collapseMarkdownEditor.click();
+		}
+
+		return content;
 	}
+
 
 	/**
 	 * Get the index of the currently focused cell.
@@ -205,6 +201,7 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < codeCells; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
+				await this.expectCellContentAtIndexToBe(i, `# Cell ${i}`);
 				totalCellsAdded++;
 			}
 		}
@@ -214,6 +211,7 @@ export class PositronNotebooks extends Notebooks {
 				await this.addCell('markdown');
 				await keyboard.type(`### Cell ${totalCellsAdded}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
+				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
 				totalCellsAdded++;
 			}
 		}
@@ -549,15 +547,23 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedContent - The expected content of the cell.
 	 */
-	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string): Promise<void> {
+	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[]): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
-			const cellType = await this.getCellType(cellIndex);
-			const actualContent = cellType === 'code'
-				? await this.getCodeCellContent(cellIndex)
-				: await this.getMarkdownCellContent(cellIndex);
-			await expect(async () => {
-				expect(actualContent).toBe(expectedContent);
-			}).toPass({ timeout: DEFAULT_TIMEOUT });
+			const actualContent = await this.getCellContent(cellIndex);
+
+			if (Array.isArray(expectedContent)) {
+				// Compare arrays line by line
+				expect(actualContent.length).toBe(expectedContent.length);
+				for (let i = 0; i < expectedContent.length; i++) {
+					expect(actualContent[i]).toBe(expectedContent[i]);
+				}
+				return;
+			} else {
+				// Single string comparison
+				await expect(async () => {
+					expect(actualContent[0]).toBe(expectedContent);
+				}).toPass({ timeout: DEFAULT_TIMEOUT });
+			}
 		});
 	}
 
@@ -571,7 +577,7 @@ export class PositronNotebooks extends Notebooks {
 			`Expect cell ${cellIndex} content to contain: ${expected instanceof RegExp ? expected.toString() : expected}`,
 			async () => {
 				await expect(async () => {
-					const actualContent = await this.getCodeCellContent(cellIndex);
+					const actualContent = await this.getCellContent(cellIndex);
 
 					if (expected instanceof RegExp) {
 						expect(actualContent).toMatch(expected);
