@@ -28,6 +28,7 @@
  * | 4    | -0.0001 → 0.00009 | -0.0001–-5.00E-06, -5.00E-06–9.00E-05              | Very small values with scientific notation |
  */
 
+import { Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -46,7 +47,7 @@ test.describe('Data Explorer - Histogram Rounding', {
     await hotKeys.closeAllEditors();
   });
 
-  const hoverBinWithRange = async (page: any, expectedMin: string, expectedMax: string) => {
+  const hoverBinWithRange = async (page: Page, expectedMin: string, expectedMax: string) => {
     const bins = page.locator('.vector-histogram foreignObject.tooltip-container');
     const count = await bins.count();
     if (count === 0) {
@@ -68,7 +69,7 @@ test.describe('Data Explorer - Histogram Rounding', {
 
   const cases = [
     {
-      name: 'Case 1: 0.0 → 100.0 → Bins: 0–33, 34–66, 67–100',
+      name: 'Case 1: 0.0 -> 100.0 -> Bins: 0-33, 34-66, 67-100',
       varName: 'histRound1',
       python: `import pandas as pd\n# Integer range 0..100\nhistRound1 = pd.DataFrame({'x': list(range(0, 101, 10))})`,
       expectedPairs: [
@@ -78,7 +79,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 2: 1.10 → 3.90 → Bins: 1.10–2.03, 2.03–2.97, 2.97–3.90',
+      name: 'Case 2: 1.10 -> 3.90 -> Bins: 1.10-2.03, 2.03-2.97, 2.97-3.90',
       varName: 'histRound2',
       python: `import pandas as pd\n# Floating range ~[1.1, 3.9]\nhistRound2 = pd.DataFrame({'x': [1.1, 1.8, 2.0, 2.5, 3.0, 3.4, 3.9]})`,
       expectedPairs: [
@@ -88,7 +89,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 3: -1.10 → 2.00 → Bins: -1.10–0.4500, 0.4500–2.00',
+      name: 'Case 3: -1.10 -> 2.00 -> Bins: -1.10-0.4500, 0.4500-2.00',
       varName: 'histRound3',
       python: `import pandas as pd\n# Floating range ~[-1.1, 2.0]\nhistRound3 = pd.DataFrame({'x': [-1.1, -0.5, 0.0, 1.1, 2.0]})`,
       expectedPairs: [
@@ -97,7 +98,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       ]
     },
     {
-      name: 'Case 4: -0.0001 → 0.00009 → Bins: -0.0001–-5.00E-06, -5.00E-06–9.00E-05',
+      name: 'Case 4: -0.0001 -> 0.00009 -> Bins: -0.0001--5.00E-06, -5.00E-06-9.00E-05',
       varName: 'histRound4',
       python: `import pandas as pd\n# Tiny values around zero\nhistRound4 = pd.DataFrame({'x': [-0.0001, -0.00005, 0.0, 0.00005, 0.00009]})`,
       expectedPairs: [
@@ -107,15 +108,15 @@ test.describe('Data Explorer - Histogram Rounding', {
     }
   ];
 
-  for (const c of cases) {
-    test(c.name, async ({ app, executeCode, hotKeys, python }) => {
+  for (const testCase of cases) {
+    test(testCase.name, async ({ app, executeCode, hotKeys, python }) => {
       const { dataExplorer, variables, editors } = app.workbench;
       const { page } = app.code.driver;
 
-      await executeCode('Python', c.python);
+      await executeCode('Python', testCase.python);
 
-      await variables.doubleClickVariableRow(c.varName);
-      await editors.verifyTab(`Data: ${c.varName}`, { isVisible: true });
+      await variables.doubleClickVariableRow(testCase.varName);
+      await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true });
 
       await hotKeys.closePrimarySidebar();
       await hotKeys.closeSecondarySidebar();
@@ -126,7 +127,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       await page.locator('.vector-histogram').first().waitFor({ state: 'visible', timeout: 10000 });
 
       // Hover bins until all expected ranges are found
-      for (const pair of c.expectedPairs) {
+      for (const pair of testCase.expectedPairs) {
         await hoverBinWithRange(page, pair.min, pair.max);
       }
     });
