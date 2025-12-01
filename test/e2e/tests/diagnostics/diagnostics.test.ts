@@ -17,7 +17,7 @@ test.describe('Diagnostics', {
 		await runCommand('workbench.action.closeAllEditors');
 	});
 
-	test.skip('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
+	test('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
 		// Start Python Session and install 'termcolor'

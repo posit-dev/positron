@@ -32,7 +32,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			await outline.focus();
 		});
 
-		test.skip('Verify outline is based on editor and per session', async function ({ app, sessions }) {
+		test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 			const { outline, console, editor } = app.workbench;
 
 			// No active session - verify no outlines
@@ -141,7 +141,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 
 	test.describe('Outline: Basic', () => {
 
-		test.skip('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
+		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.outline.expectOutlineToContain([
 				'data_file_path',
