@@ -39,6 +39,10 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { resolveCommandsContext } from './editorCommandsContext.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { prepareMoveCopyEditors } from './editor.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { getAuxiliaryWindowOptionsForEditors } from './editor.js';
+// --- End Positron ---
 
 class ExecuteCommandAction extends Action2 {
 
@@ -2587,9 +2591,19 @@ abstract class BaseMoveCopyEditorToNewWindowAction extends Action2 {
 			return;
 		}
 
-		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart();
+		// --- Start Positron ---
+		// const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart();
+		// --- End Positron ---
 
 		const { group, editors } = resolvedContext.groupedEditors[0]; // only single group supported for move/copy for now
+
+		// --- Start Positron ---
+		// Use compact mode for plot editors
+		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(
+			getAuxiliaryWindowOptionsForEditors(editors)
+		);
+		// --- End Positron ---
+
 		const editorsWithOptions = prepareMoveCopyEditors(group, editors, resolvedContext.preserveFocus);
 		if (this.move) {
 			group.moveEditors(editorsWithOptions, auxiliaryEditorPart.activeGroup);
@@ -2650,7 +2664,14 @@ abstract class BaseMoveCopyEditorGroupToNewWindowAction extends Action2 {
 		const editorGroupService = accessor.get(IEditorGroupsService);
 		const activeGroup = editorGroupService.activeGroup;
 
-		const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart();
+		// --- Start Positron ---
+		// const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart();
+
+		// Use compact mode for plot editors
+		const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart(
+			getAuxiliaryWindowOptionsForEditors(activeGroup.editors)
+		);
+		// --- End Positron ---
 
 		editorGroupService.mergeGroup(activeGroup, auxiliaryEditorPart.activeGroup, {
 			mode: this.move ? MergeGroupMode.MOVE_EDITORS : MergeGroupMode.COPY_EDITORS
