@@ -18,10 +18,11 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { CHAT_OPEN_ACTION_ID } from '../../../chat/browser/actions/chatActions.js';
 
-const fixPrompt = '/fix';
-const explainPrompt = '/explain';
-
+/**
+ * Props for the NotebookCellQuickFix component.
+ */
 interface NotebookCellQuickFixProps {
+	/** The error output content from the cell execution */
 	errorContent: string;
 }
 
@@ -50,32 +51,48 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const showQuickFix = enableAssistant && enableNotebookMode && hasChatModels;
 
 	/**
-	 * Builds the query string with prompt and error content in a code block.
+	 * Builds a query string for asking the assistant to fix the erroring cell.
+	 * The assistant already has notebook context including the selected cell,
+	 * so we only need to include the error output.
 	 *
-	 * @param prompt The prompt prefix (/fix or /explain)
-	 * @returns The formatted query string
+	 * @returns The formatted fix query string
 	 */
-	const buildQuery = (prompt: string): string => {
-		return props.errorContent ? `${prompt}\n\`\`\`\n${props.errorContent}\n\`\`\`` : prompt;
+	const buildFixQuery = (): string => {
+		return props.errorContent
+			? `Fix this cell that produced an error:\n\`\`\`\n${props.errorContent}\n\`\`\``
+			: 'Fix this cell that produced an error.';
+	};
+
+	/**
+	 * Builds a query string for asking the assistant to explain the error.
+	 * The assistant already has notebook context including the selected cell,
+	 * so we only need to include the error output.
+	 *
+	 * @returns The formatted explain query string
+	 */
+	const buildExplainQuery = (): string => {
+		return props.errorContent
+			? `Explain why this cell produced an error:\n\`\`\`\n${props.errorContent}\n\`\`\``
+			: 'Explain why this cell produced an error.';
 	};
 
 	/**
 	 * Handler for the "Fix" button primary click.
-	 * Opens the quick chat with a fix prompt and the error content in a code block.
+	 * Opens the quick chat with a fix prompt containing the cell code and error.
 	 */
 	const pressedFixHandler = async () => {
 		quickChatService.open({
-			query: buildQuery(fixPrompt)
+			query: buildFixQuery()
 		});
 	};
 
 	/**
 	 * Handler for the "Explain" button primary click.
-	 * Opens the quick chat with an explain prompt and the error content in a code block.
+	 * Opens the quick chat with an explain prompt containing the cell code and error.
 	 */
 	const pressedExplainHandler = async () => {
 		quickChatService.open({
-			query: buildQuery(explainPrompt)
+			query: buildExplainQuery()
 		});
 	};
 
@@ -98,7 +115,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				enabled: true,
 				run: async () => {
 					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildQuery(fixPrompt)
+						query: buildFixQuery()
 					});
 				}
 			}
@@ -132,7 +149,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				enabled: true,
 				run: async () => {
 					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildQuery(explainPrompt)
+						query: buildExplainQuery()
 					});
 				}
 			}
