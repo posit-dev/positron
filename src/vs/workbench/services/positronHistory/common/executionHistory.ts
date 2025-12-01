@@ -90,6 +90,17 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	}
 
 	/**
+	 * Clear the input history for the given session
+	 *
+	 * @param sessionId Session ID to clear input history for
+	 */
+	clearSessionInputEntries(sessionId: string): void {
+		if (this._sessionHistories.has(sessionId)) {
+			this._sessionHistories.get(sessionId)!.delete();
+		}
+	}
+
+	/**
 	 * Delete a single input history entry for the given language
 	 *
 	 * @param languageId Language ID to delete the input history entry from

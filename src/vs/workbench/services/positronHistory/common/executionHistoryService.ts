@@ -112,6 +112,13 @@ export interface IExecutionHistoryService extends IDisposable {
 	clearInputEntries(languageId: string): void;
 
 	/**
+	 * Removes (clears) all the the input history entries for a given session.
+	 *
+	 * @param sessionId The ID of the session to clear input history for
+	 */
+	clearSessionInputEntries(sessionId: string): void;
+
+	/**
 	 * Removes a single input history entry for a given language.
 	 *
 	 * @param languageId The ID of the language to delete the input history entry from
