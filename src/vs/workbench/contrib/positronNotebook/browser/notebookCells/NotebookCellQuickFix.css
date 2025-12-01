@@ -1,0 +1,73 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container for all quick-fix buttons */
+.notebook-cell-quick-fix {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* Split button container - mimics action-bar-button.border style */
+.notebook-cell-quick-fix-split-button {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
+	background: transparent;
+}
+
+/* Main action button (left side) */
+.notebook-cell-quick-fix .assistant-action-main {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	border-radius: 3px 0 0 3px;
+}
+
+.notebook-cell-quick-fix .assistant-action-main:hover {
+	background: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.notebook-cell-quick-fix .assistant-action-main .link-text {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--vscode-textLink-foreground);
+	padding: 2px 6px;
+	font-size: 12px;
+}
+
+.notebook-cell-quick-fix .assistant-action-main .link-text .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: 12px;
+}
+
+/* Dropdown button (right side) - mimics action-bar-button-drop-down-button */
+.notebook-cell-quick-fix .assistant-action-dropdown {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 4px;
+	border-left: 1px solid var(--vscode-positronActionBar-selectBorder);
+	cursor: pointer;
+	user-select: none;
+	align-self: stretch;
+	border-radius: 0 3px 3px 0;
+}
+
+.notebook-cell-quick-fix .assistant-action-dropdown:hover {
+	background: var(--vscode-positronActionBar-hoverBackground);
+}
+
+.notebook-cell-quick-fix .assistant-action-dropdown .codicon {
+	color: var(--vscode-textLink-foreground);
+	font-size: 14px;
+	pointer-events: none;
+}
+
