@@ -25,10 +25,6 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
 import { ChatContextKeys } from './chatContextKeys.js';
 
-// --- Start Positron ---
-import { applyModelFilters } from './positron/modelFilters.js';
-// --- End Positron ---
-
 export const enum ChatMessageRole {
 	System,
 	User,
@@ -372,6 +368,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
 
+	// Track current provider in a context key
+	private readonly _currentProviderContextKey: IContextKey<string>;
+
 	// Track if we're in the initial setup phase to avoid changing provider during chat requests
 	private _isInitialSetup = true;
 
@@ -538,6 +537,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 				this._logService.trace('[LM] Configured models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
 			}
+		}));
+
+		// Track current provider in a context key
+		this._currentProviderContextKey = ChatContextKeys.chatCurrentProvider.bindTo(this._contextKeyService);
+		this._store.add(this.onDidChangeCurrentProvider(e => {
+			this._currentProviderContextKey.set(e || '');
 		}));
 		// --- End Positron ---
 	}
@@ -706,14 +711,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 				if (!silent && modelsAndIdentifiers.some(m => m.metadata.isUserSelectable)) {
 					modelsAndIdentifiers = modelsAndIdentifiers.filter(m => m.metadata.isUserSelectable || this._modelPickerUserPreferences[m.identifier] === true);
 				}
-
-				// --- Start Positron ---
-				// If the vendor is copilot, apply model filtering based on user settings.
-				// Other vendors are filtered in the Positron Assistant extension.
-				if (vendor === 'copilot') {
-					modelsAndIdentifiers = applyModelFilters(modelsAndIdentifiers, vendor, this._configurationService, this._logService);
-				}
-				// --- End Positron ---
 
 				this._clearModelCache(vendor);
 				for (const modelAndIdentifier of modelsAndIdentifiers) {

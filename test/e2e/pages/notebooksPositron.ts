@@ -44,9 +44,9 @@ export class PositronNotebooks extends Notebooks {
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
-	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
@@ -590,14 +590,13 @@ export class PositronNotebooks extends Notebooks {
 	 * @param timeout - Optional timeout for the expectation.
 	 */
 	async expectToolTipToContain(
-		expectedContent: { order?: number; duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
+		expectedContent: { duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
 		timeout = DEFAULT_TIMEOUT
 	): Promise<void> {
 		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
 			await expect(this.cellInfoToolTip).toBeVisible({ timeout });
 
 			const labelMap: Record<keyof typeof expectedContent, string> = {
-				order: 'Execution Order',
 				duration: 'Duration',
 				status: 'Status',
 				completed: 'Completed'
@@ -642,21 +641,19 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: Execution order for multiple cells.
 	 * @param executionOrders - { index, order }[] array specifying cell index, expected order.
 	 */
-	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined }[],): Promise<void> {
+	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined }[]): Promise<void> {
 		for (const { index, order } of executionOrders) {
 			await test.step(`Expect execution order at index ${index} to be: ${order}`, async () => {
-				// attempting to make any tooltips dissapear
-				await this.code.driver.page.keyboard.press('Escape');
-				await this.moveMouseAway();
+				const badge = this.executionOrderBadgeAtIndex(index);
 
-				// hover over the run button to show the tooltip
-				await this.cell.nth(index).click();
-				await this.runCellButtonAtIndex(index).hover();
-
-				// make sure only the right tooltip is visible (i've been seeing multiple tooltips sometimes)
-				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible();
-				await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
-				await this.expectToolTipToContain({ order }, DEFAULT_TIMEOUT);
+				if (order === undefined) {
+					// Cell hasn't been executed yet, should show "-"
+					const badgeText = await badge.textContent();
+					expect(badgeText?.trim()).toBe('-');
+				} else {
+					// Cell has been executed, should show the order number
+					await expect(badge).toHaveText(`${order}`);
+				}
 			});
 		}
 	}

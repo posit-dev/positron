@@ -276,6 +276,7 @@ suite('OpenAILanguageModel', () => {
 					isUserSelectable: true
 				};
 				mockHelpers.createModelInfo.returns(mockModelInfo);
+				mockHelpers.markDefaultModel.returns([mockModelInfo]);
 
 				const result = await openAIModel.resolveModels(cancellationToken);
 

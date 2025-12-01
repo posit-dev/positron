@@ -50,14 +50,12 @@ export const SNOWFLAKE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
  * @param credentialConfig - The credential configuration to check
  * @param providerId - The provider ID to check if enabled
  * @param displayName - The provider display name for logging
- * @param tokenExtractor - Optional function to extract the actual token from the environment
  * @returns A promise that resolves to the autoconfigure result
  */
 export async function autoconfigureWithManagedCredentials<T extends ManagedCredentialConfig>(
 	credentialConfig: T,
 	providerId: string,
-	displayName: string,
-	tokenExtractor?: () => Promise<string | undefined>
+	displayName: string
 ): Promise<AutoconfigureResult> {
 	// Configure automatically if:
 	// - We are on PWB, and
@@ -94,20 +92,8 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 
 	log.info(`[${displayName}] Auto-configuring with managed credentials`);
 
-	// Extract token if tokenExtractor is provided
-	let token: string | undefined;
-	if (tokenExtractor) {
-		token = await tokenExtractor();
-		if (!token) {
-			log.warn(`[${displayName}] Token extraction failed despite valid environment`);
-			return { signedIn: false };
-		}
-		log.debug(`[${displayName}] Token extracted successfully`);
-	}
-
 	return {
 		signedIn: true,
-		message: credentialConfig.displayName,
-		...(token && { token })
+		message: credentialConfig.displayName
 	};
 }
