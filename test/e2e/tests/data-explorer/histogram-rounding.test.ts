@@ -118,10 +118,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       await variables.doubleClickVariableRow(testCase.varName);
       await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true });
 
-      await hotKeys.closePrimarySidebar();
-      await hotKeys.closeSecondarySidebar();
-
-      await dataExplorer.summaryPanel.show();
+      await dataExplorer.maximize(true);
 
       // Ensure a histogram is present
       await page.locator('.vector-histogram').first().waitFor({ state: 'visible', timeout: 10000 });
