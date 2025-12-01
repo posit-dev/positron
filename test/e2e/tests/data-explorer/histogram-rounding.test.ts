@@ -39,10 +39,6 @@ test.describe('Data Explorer - Histogram Rounding', {
   tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
-  test.beforeEach(async ({ hotKeys }) => {
-    await hotKeys.stackedLayout();
-  });
-
   test.afterEach(async ({ hotKeys }) => {
     await hotKeys.closeAllEditors();
   });
