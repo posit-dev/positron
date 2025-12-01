@@ -35,16 +35,43 @@ test.describe('Notebook: Empty State Behavior', {
 		await notebooksPositron.performCellAction('delete');
 		await notebooksPositron.expectCellCountToBe(0);
 
-		// @dhruvisompura skipped while you fix this
 		// Ensure can undo to restore cells
-		// await notebooksPositron.performCellAction('undo');
-		// await notebooksPositron.expectCellCountToBe(4);
-		// await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', 'Cell 2', 'Cell 3']);
+		await notebooksPositron.performCellAction('undo');
+		await notebooksPositron.expectCellCountToBe(4);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '### Cell 2', '### Cell 3']);
 
-		// // Ensure can redo to delete cells again
-		// await notebooksPositron.performCellAction('redo');
-		// await notebooksPositron.expectCellCountToBe(0);
+		// Ensure can redo to delete cells again
+		await notebooksPositron.performCellAction('redo');
+		await notebooksPositron.expectCellCountToBe(0);
+	});
 
-		// cut? paste? undo? redo?
+	test('Can cut/paste on empty notebook', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// create a new notebook with 2 code cells and 2 markdown cells
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 2 });
+
+		// Cut all cells via multiselect
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown'); // all 4 cells selected
+		await notebooksPositron.performCellAction('cut');
+		await notebooksPositron.expectCellCountToBe(0);
+
+		// Paste into empty notebook
+		await notebooksPositron.performCellAction('paste');
+		await notebooksPositron.expectCellCountToBe(4);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '### Cell 2', '### Cell 3']);
+
+		// Undo the paste
+		await notebooksPositron.performCellAction('undo');
+		await notebooksPositron.expectCellCountToBe(0);
+
+		// Redo the paste
+		await notebooksPositron.performCellAction('redo');
+		await notebooksPositron.expectCellCountToBe(4);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '### Cell 2', '### Cell 3']);
 	});
 });
