@@ -24,9 +24,7 @@ test.describe('Interpreter: Includes', {
 		}, { reload: true });
 	});
 
-	test('Python - Can Include an Interpreter', {
-		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ sessions }) {
+	test('Python - Can Include an Interpreter', async function ({ sessions }) {
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
@@ -35,16 +33,15 @@ test.describe('Interpreter: Includes', {
 			: fail('Hidden Python version not set');
 	});
 
-	test('R - Can Include an Interpreter', {
-		tag: [tags.NIGHTLY_ONLY, tags.ARK]
-	}, async function ({ sessions }) {
+	test('R - Can Include an Interpreter',
+		{ tag: [tags.ARK] }, async function ({ sessions }) {
 
-		const hiddenR = process.env.POSITRON_HIDDEN_R;
+			const hiddenR = process.env.POSITRON_HIDDEN_R;
 
-		hiddenR
-			? await sessions.start('rHidden')
-			: fail('Hidden R version not set');
-	});
+			hiddenR
+				? await sessions.start('rHidden')
+				: fail('Hidden R version not set');
+		});
 });
 
 test.describe('Interpreter: Excludes', {
