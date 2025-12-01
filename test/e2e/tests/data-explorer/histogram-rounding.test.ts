@@ -28,7 +28,6 @@
  * | 4    | -0.0001 -> 0.00009 | -0.0001--5.00E-06, -5.00E-06-9.00E-05              | Very small values with scientific notation |
  */
 
-import { Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -43,25 +42,7 @@ test.describe('Data Explorer - Histogram Rounding', {
     await hotKeys.closeAllEditors();
   });
 
-  const hoverBinWithRange = async (page: Page, expectedMin: string, expectedMax: string) => {
-    const bins = page.locator('.vector-histogram foreignObject.tooltip-container');
-    const count = await bins.count();
-    if (count === 0) {
-      throw new Error('No histogram bins found');
-    }
 
-    for (let i = 0; i < count; i++) {
-      await bins.nth(i).hover();
-      const tooltip = page.locator('.hover-contents');
-      await tooltip.waitFor({ state: 'visible', timeout: 5000 });
-      const text = await tooltip.innerText();
-      if (text.includes(`Range: ${expectedMin} to ${expectedMax}`)) {
-        return; // matched expected range
-      }
-    }
-
-    throw new Error(`No bin tooltip matched Range: ${expectedMin} to ${expectedMax}`);
-  };
 
   const cases = [
     {
@@ -105,23 +86,20 @@ test.describe('Data Explorer - Histogram Rounding', {
   ];
 
   for (const testCase of cases) {
-    test(testCase.name, async ({ app, executeCode, hotKeys, python }) => {
+    test(testCase.name, async ({ app, python }) => {
       const { dataExplorer, variables, editors } = app.workbench;
-      const { page } = app.code.driver;
-
-      await console.pasteCodeToConsole(testCase.python, true);
+      await app.workbench.console.pasteCodeToConsole(testCase.python, true);
 
       await variables.doubleClickVariableRow(testCase.varName);
       await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true });
 
       await dataExplorer.maximize(true);
 
-      // Ensure a histogram is present
-      await page.locator('.vector-histogram').first().waitFor({ state: 'visible', timeout: 10000 });
+      await dataExplorer.summaryPanel.waitForVectorHistogramVisible(10000);
 
       // Hover bins until all expected ranges are found
       for (const pair of testCase.expectedPairs) {
-        await hoverBinWithRange(page, pair.min, pair.max);
+        await dataExplorer.summaryPanel.hoverHistogramBinWithRange(pair.min, pair.max);
       }
     });
   }
