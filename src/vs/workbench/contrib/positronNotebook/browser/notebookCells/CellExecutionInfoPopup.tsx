@@ -136,6 +136,13 @@ export function CellExecutionInfoPopup({
 		);
 	}
 
+	// Check if we have any content to display
+	// If we only have execution order but no other metadata, don't show the popup
+	const hasAnyContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
+	if (!hasAnyContent) {
+		return null;
+	}
+
 	return (
 		<div
 			aria-label='Cell execution details'
@@ -144,15 +151,6 @@ export function CellExecutionInfoPopup({
 		>
 			{/* Popup body: lists high-level status then timing metadata */}
 			{/* Status Section */}
-			{hasExecutionOrder && (
-				<div aria-label='Execution order' className='popup-row'>
-					{/* Execution order row: shows the cell's execution sequence number when available */}
-					<span className='popup-label-text'>
-						{localize('cellExecution.order.label', 'Execution order:')}
-					</span>
-					<span className='popup-value-text'>{executionOrder}</span>
-				</div>
-			)}
 			{hasExecutionResult && (
 				<div aria-label='Execution status' className='popup-row'>
 					{/* Execution result row: success/failure indicator with label */}

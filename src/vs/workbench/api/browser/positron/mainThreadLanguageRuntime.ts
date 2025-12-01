@@ -1786,11 +1786,16 @@ export class MainThreadLanguageRuntime
 	 */
 	async createSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
+	):
 		Promise<ILanguageRuntimeSession> {
 
-		const initialState = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
-			sessionMetadata);
+		const initialState = await this._proxy.$createLanguageRuntimeSession(
+			runtimeMetadata,
+			sessionMetadata,
+			sessionName,
+		);
 		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
 		this._sessions.set(initialState.handle, session);
 		return session;

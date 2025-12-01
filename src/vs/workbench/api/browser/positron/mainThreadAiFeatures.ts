@@ -23,7 +23,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
-	private readonly _chatPanel: Promise<ChatViewPane | null>;
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -36,7 +35,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		super();
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostAiFeatures);
-		this._chatPanel = this._viewsService.openView<ChatViewPane>(ChatViewId);
 	}
 
 	/**
@@ -147,7 +145,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Get the current chat mode selected in the Chat panel.
 	 */
 	async $getCurrentChatMode(): Promise<string | undefined> {
-		const chatPanel = await this._chatPanel;
+		const chatPanel = this._viewsService.getActiveViewWithId<ChatViewPane>(ChatViewId);
 		return chatPanel?.widget.input.currentModeKind;
 	}
 

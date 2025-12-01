@@ -176,7 +176,10 @@ class ConfigureToolsAction extends Action2 {
 
 		}
 
-		const result = await instaService.invokeFunction(showToolsPicker, placeholder, description, () => entriesMap.get());
+		// --- Start Positron ---
+		// Add selected language model so we can filter tools based on provider compatibility
+		const result = await instaService.invokeFunction(showToolsPicker, placeholder, description, () => entriesMap.get(), widget.input.selectedLanguageModel);
+		// --- End Positron ---
 		if (result) {
 			widget.input.selectedToolsModel.set(result, false);
 		}

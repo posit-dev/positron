@@ -10,6 +10,8 @@ import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
 import { PositWorkbench } from './workbench-pwb.js';
 
+const LOAD_TIMEOUT = 80000;
+
 const READINESS_LOCATORS = {
 	monacoWorkbench: '.monaco-workbench',
 	explorerFoldersView: '.explorer-folders-view',
@@ -215,7 +217,7 @@ export class Application {
 		);
 		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkPositronReady: wait for workbench restored', this.logger);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronReady: wait for explorer view',
 			this.logger
 		);
@@ -242,7 +244,7 @@ export class Application {
 			this.logger
 		);
 		await measureAndLog(
-			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: LOAD_TIMEOUT }),
 			'Application#checkPositronServerReady: wait for explorer view',
 			this.logger
 		);

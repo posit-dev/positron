@@ -14,7 +14,7 @@ suite('View', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await testKit.startR();
+		const [_ses, disposable] = await testKit.startR('Suite: View');
 		sesDisposable = disposable;
 	});
 

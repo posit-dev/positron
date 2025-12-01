@@ -33,6 +33,9 @@ import { ITerminalService } from '../../../terminal/browser/terminal.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITerminalCommand, TerminalCapability } from '../../../../../platform/terminal/common/capabilities/capabilities.js';
 
+// --- Start Positron ---
+import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
+// --- End Positron ---
 
 export class ChatContextContributions extends Disposable implements IWorkbenchContribution {
 
@@ -68,6 +71,12 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 	readonly icon: ThemeIcon = Codicon.tools;
 	readonly ordinal = -500;
 
+	// --- Start Positron ---
+	constructor(
+		@ILanguageModelToolsService private readonly _languageModelToolsService: ILanguageModelToolsService,
+	) { }
+	// --- End Positron ---
+
 	isEnabled(widget: IChatWidget): boolean {
 		return !!widget.attachmentCapabilities.supportsToolAttachments;
 	}
@@ -77,9 +86,27 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 		type Pick = IChatContextPickerPickItem & { toolInfo: { ordinal: number; label: string } };
 		const items: Pick[] = [];
 
+		// --- Start Positron ---
+		const selectedLanguageModel = widget.input.selectedLanguageModel;
+		// --- End Positron ---
+
 		for (const [entry, enabled] of widget.input.selectedToolsModel.entriesMap.get()) {
 			if (enabled) {
 				if (entry instanceof ToolSet) {
+					// --- Start Positron ---
+					// If no tools in the set are enabled for the selected model, skip the set
+					const tools = entry.getTools();
+					let hasEnabledTools = false;
+					for (const tool of tools) {
+						if (this._languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)) {
+							hasEnabledTools = true;
+							break;
+						}
+					}
+					if (!hasEnabledTools) {
+						continue;
+					}
+					// --- End Positron ---
 					items.push({
 						toolInfo: ToolDataSource.classify(entry.source),
 						label: entry.referenceName,
@@ -87,6 +114,12 @@ class ToolsContextPickerPick implements IChatContextPickerItem {
 						asAttachment: (): IChatRequestToolSetEntry => toToolSetVariableEntry(entry)
 					});
 				} else {
+					// --- Start Positron ---
+					// Filter out tools not enabled for the selected model
+					if (!this._languageModelToolsService.isToolEnabledForModel(entry.id, selectedLanguageModel)) {
+						continue;
+					}
+					// --- End Positron ---
 					items.push({
 						toolInfo: ToolDataSource.classify(entry.source),
 						label: entry.toolReferenceName ?? entry.displayName,

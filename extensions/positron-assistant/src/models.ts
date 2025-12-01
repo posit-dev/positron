@@ -29,7 +29,7 @@ import { PositronAssistantApi } from './api.js';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
-import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl } from './snowflakeAuth.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, getSnowflakeConnectionsTomlPath, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
@@ -846,7 +846,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 				})
 			);
 
-			return models;
+			return markDefaultModel(models, this.provider, this._config.model);
 		} catch (error) {
 			log.warn(`[${this.providerName}] Failed to fetch models from API: ${error}`);
 			return undefined;
@@ -934,6 +934,7 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 
 class SnowflakeLanguageModel extends OpenAILanguageModel {
 	protected aiProvider: OpenAIProvider;
+	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -961,37 +962,69 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
 	}
 
-	static override async autoconfigure(): Promise<AutoconfigureResult> {
-		// Token extractor function for Snowflake
-		const snowflakeTokenExtractor = async (): Promise<string | undefined> => {
-			const credentials = await detectSnowflakeCredentials();
-			// Return token only if credentials exist and token is non-empty
-			return credentials?.token && credentials.token.trim().length > 0 ? credentials.token : undefined;
-		};
-
-		const autoconfigureResult = await autoconfigureWithManagedCredentials(
-			SNOWFLAKE_MANAGED_CREDENTIALS,
-			SnowflakeLanguageModel.source.provider.id,
-			SnowflakeLanguageModel.source.provider.displayName,
-			snowflakeTokenExtractor
+	/**
+	 * Check if connections.toml has been modified since our last check and update token if needed
+	 */
+	private async checkForUpdatedCredentials(): Promise<void> {
+		const result = await checkForUpdatedSnowflakeCredentials(
+			this.lastConnectionsTomlCheck,
+			this._config.apiKey
 		);
 
-		// If we successfully got credentials, also include the baseUrl
-		if (autoconfigureResult.signedIn) {
-			try {
-				const credentials = await detectSnowflakeCredentials();
-				if (credentials?.baseUrl) {
-					return {
-						...autoconfigureResult,
-						baseUrl: credentials.baseUrl
-					};
-				}
-			} catch (error) {
-				log.debug(`[Snowflake] Failed to get baseUrl during autoconfigure: ${error}`);
+		if (result.updated && result.credentials) {
+			this._config.apiKey = result.credentials.token;
+			if (result.credentials.baseUrl && result.credentials.baseUrl !== this._config.baseUrl) {
+				this._config.baseUrl = result.credentials.baseUrl;
+			}
+
+			// Recreate the provider with updated credentials
+			this.aiProvider = createOpenAI({
+				apiKey: result.credentials.token,
+				baseURL: this.baseUrl,
+				fetch: createOpenAICompatibleFetch(this.providerName)
+			});
+
+			log.info(`[${this.providerName}] Refreshed credentials for account: ${result.credentials.account}`);
+		}
+		this.lastConnectionsTomlCheck = result.lastModified;
+	}
+
+	/**
+	 * Override to check for updated credentials before making requests
+	 */
+	override async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	) {
+		await this.checkForUpdatedCredentials();
+		return super.provideLanguageModelChatResponse(model, messages, options, progress, token);
+	}
+
+	static override async autoconfigure(): Promise<AutoconfigureResult> {
+		// Use the standard PWB flow for environment and settings validation
+		const configureResult = await autoconfigureWithManagedCredentials(
+			SNOWFLAKE_MANAGED_CREDENTIALS,
+			SnowflakeLanguageModel.source.provider.id,
+			SnowflakeLanguageModel.source.provider.displayName
+		);
+
+		// If PWB checks pass, get credentials and return with both token and baseUrl
+		if (configureResult.signedIn) {
+			const credentials = await detectSnowflakeCredentials();
+			if (credentials?.token && credentials.token.trim().length > 0) {
+				return {
+					signedIn: configureResult.signedIn,
+					message: configureResult.message,
+					token: credentials.token,
+					baseUrl: credentials.baseUrl
+				};
 			}
 		}
 
-		return autoconfigureResult;
+		return { signedIn: false };
 	}
 
 	override async parseProviderError(error: any): Promise<string | undefined> {
@@ -1410,7 +1443,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			})
 		);
 
-		return modelListing;
+		return markDefaultModel(modelListing, this.provider, this._config.model);
 	}
 
 	private async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
@@ -1467,7 +1500,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 			log.debug(`[${this.providerName}] Available models after processing: ${models.map(m => m.name).join(', ')}`);
 
-			return models;
+			return markDefaultModel(models, this.provider, this._config.model);
 		} catch (error) {
 			log.warn(`[${this.providerName}] Failed to fetch models from Bedrock API: ${error}`);
 			this._lastError = error instanceof Error ? error : new Error(String(error));
