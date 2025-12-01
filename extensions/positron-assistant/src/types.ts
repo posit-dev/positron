@@ -12,7 +12,6 @@ export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
 	GetTableSummary = 'getTableSummary',
 	GetPlot = 'getPlot',
-	InstallPythonPackage = 'installPythonPackage',
 	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',

@@ -14,6 +14,10 @@ import { ConfigurePythonEnvTool } from './configurePythonEnvTool';
 import { SelectPythonEnvTool } from './selectEnvTool';
 import { CreateVirtualEnvTool } from './createVirtualEnvTool';
 
+// --- Start Positron ---
+import { PositronInstallPackagesTool } from './positron/installPackagesTool';
+// --- End Positron ---
+
 export function registerTools(
     context: IExtensionContext,
     discoverApi: IDiscoveryAPI,
@@ -49,4 +53,14 @@ export function registerTools(
             new ConfigurePythonEnvTool(environmentsApi, serviceContainer, createVirtualEnvTool),
         ),
     );
+
+    // --- Start Positron ---
+    // Add the positron install packages tool
+    ourTools.add(
+        lm.registerTool(
+            PositronInstallPackagesTool.toolName,
+            new PositronInstallPackagesTool(),
+        ),
+    );
+    // --- End Positron ---
 }
