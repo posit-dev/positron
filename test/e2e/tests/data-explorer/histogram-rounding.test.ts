@@ -107,15 +107,15 @@ test.describe('Data Explorer - Histogram Rounding', {
     }
   ];
 
-  for (const c of cases) {
-    test(c.name, async ({ app, executeCode, hotKeys, python }) => {
+  for (const testCase of cases) {
+    test(testCase.name, async ({ app, executeCode, hotKeys, python }) => {
       const { dataExplorer, variables, editors } = app.workbench;
       const { page } = app.code.driver;
 
-      await executeCode('Python', c.python);
+      await executeCode('Python', testCase.python);
 
-      await variables.doubleClickVariableRow(c.varName);
-      await editors.verifyTab(`Data: ${c.varName}`, { isVisible: true });
+      await variables.doubleClickVariableRow(testCase.varName);
+      await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true });
 
       await hotKeys.closePrimarySidebar();
       await hotKeys.closeSecondarySidebar();
@@ -126,7 +126,7 @@ test.describe('Data Explorer - Histogram Rounding', {
       await page.locator('.vector-histogram').first().waitFor({ state: 'visible', timeout: 10000 });
 
       // Hover bins until all expected ranges are found
-      for (const pair of c.expectedPairs) {
+      for (const pair of testCase.expectedPairs) {
         await hoverBinWithRange(page, pair.min, pair.max);
       }
     });
