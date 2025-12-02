@@ -13,75 +13,41 @@ export async function verifyReticulateFunctionality(
 	value = '200',
 	value2 = '400',
 	value3 = '6'): Promise<void> {
-	// Verify that reticulate is installed
-	// Create a variable in Python and expect to be able to access it from R
-	await app.workbench.sessions.select(pythonSessionId);
+	const { console, sessions, variables } = app.workbench;
 
+	// Create a variable x in Python session
+	await sessions.select(pythonSessionId, true);
 	await app.code.wait(2000); // give ipykernel time to startup
+	await console.pasteCodeToConsole(`x=${value}`, true);
+	await variables.expectVariableToBe('x', value);
 
-	await app.workbench.console.pasteCodeToConsole(`x=${value}`, true);
-
-	await ensureVariablePresent(app, 'x', value);
-
-	await app.workbench.console.clearButton.click();
-
-	await app.workbench.sessions.select(rSessionId);
-
+	// Switch to the R session and create an R variable `y` by accessing the Python
+	// variable `x` through reticulate.
+	await console.clearButton.click();
+	await sessions.select(rSessionId);
 	await app.code.wait(2000); // wait a little for python var to get to R
+	await console.pasteCodeToConsole('y<-reticulate::py$x', true);
+	await variables.expectVariableToBe('y', value);
 
-	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x', true);
+	// Clear the console again and re-check to ensure the R-side variable persists.
+	await console.clearButton.click();
+	await variables.expectVariableToBe('y', value);
 
-	await ensureVariablePresent(app, 'y', value);
+	// Verify able to overwrite the R variable `y` with an integer literal on the R side.
+	await console.pasteCodeToConsole(`y <- ${value2}L`, true);
+	await variables.expectVariableToBe('y', value2);
 
-	await app.workbench.console.clearButton.click();
+	// Verify executing reticulate::repl_python() moves focus to the reticulate session
+	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${value3}")`, true);
+	await sessions.expectSessionPickerToBe(pythonSessionId, 20000);
 
-	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-
-	await ensureVariablePresent(app, 'y', value);
-
-	await app.workbench.layouts.enterLayout('stacked');
-
-	// Create a variable in R and expect to be able to access it from Python
-	await app.workbench.console.pasteCodeToConsole(`y <- ${value2}L`, true);
-
-	await ensureVariablePresent(app, 'y', value2);
-
-	// Executing reticulate::repl_python() should not start a new interpreter
-	// but should move focus to the reticulate interpreter
-	await app.workbench.console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${value3}")`, true);
-
-	// Expect that focus changed to the reticulate console
-	await expect(async () => {
-		try {
-			await app.workbench.sessions.expectSessionPickerToBe(pythonSessionId);
-		} catch (e) {
-			await app.code.wait(1000); // a little time for session picker to be updated
-			throw e;
-		}
-	}).toPass({ timeout: 20000 });
-
-	await app.workbench.console.pasteCodeToConsole('print(r.y)', true);
+	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
+	await console.pasteCodeToConsole('print(r.y)', true);
 	await ensureConsoleDataPresent(app, value2);
 
-	await app.workbench.console.pasteCodeToConsole('print(z)', true);
+	// Print the Python variable z (created via repl_python) and ensure it appears as well
+	await console.pasteCodeToConsole('print(z)', true);
 	await ensureConsoleDataPresent(app, value3);
-}
-
-async function ensureVariablePresent(app: Application, variableName: string, value: string) {
-
-	await expect(async () => {
-		try {
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get(variableName)).toStrictEqual({ value: value, type: 'int' });
-			await app.workbench.layouts.enterLayout('stacked');
-		} catch (e) {
-			await app.workbench.layouts.enterLayout('stacked');
-			console.log('Resending enter key');
-			await app.workbench.console.sendEnterKey();
-			throw e;
-		}
-	}).toPass({ timeout: 10000 });
 }
 
 async function ensureConsoleDataPresent(app: Application, value: string) {

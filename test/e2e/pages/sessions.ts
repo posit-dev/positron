@@ -878,8 +878,7 @@ export class Sessions {
 		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
 			const normalizedRuntimeName = runtimeName.replace(/-\s\d+$/, '').trim();
 			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName, { timeout });
-		}
-		);
+		});
 	}
 
 	/**

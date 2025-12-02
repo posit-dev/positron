@@ -165,7 +165,7 @@ export class Variables {
 		await this.contextMenu.triggerAndClick({
 			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').nth(1).locator('button'),
 			menuItemLabel: name,
-		})
+		});
 	}
 
 	async selectVariablesGroup(name: string) {
@@ -223,12 +223,10 @@ export class Variables {
 	async expectVariableToBe(variableName: string, value: string, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
-			const row = this.code.driver.page
-				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
-				.filter({ hasText: variableName });
+			const variableRow = this.variablesPane.locator('.name-column').filter({ hasText: variableName }).locator('..');
 
-			await expect(row).toBeVisible({ timeout });
-			await expect(row.locator('.details-column .value')).toHaveText(value);
+			await expect(variableRow).toBeVisible({ timeout });
+			await expect(variableRow.locator('.details-column .value')).toHaveText(value);
 		});
 	}
 

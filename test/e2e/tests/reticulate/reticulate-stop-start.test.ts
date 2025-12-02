@@ -22,42 +22,34 @@ test.describe('Reticulate', {
 			await settings.set({
 				'positron.reticulate.enabled': true,
 				'kernelSupervisor.transport': 'tcp'
-			});
+			}, { reload: true });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
-
-		await app.restart();
 	});
 
 	test('R - Verify Reticulate Stop/Start Functionality', {
 		tag: [tags.ARK]
 	}, async function ({ app, sessions, r }) {
+		const { modals, toasts } = app.workbench;
 
+		// start new reticulate session and verify functionality
 		await sessions.start('pythonReticulate');
-
-		await app.workbench.modals.installIPyKernel();
-
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
-
+		await modals.installIPyKernel();
+		await toasts.waitForDisappear('Creating the Reticulate Python session');
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`);
 
-		await app.workbench.sessions.delete(`R ${process.env.POSITRON_R_VER_SEL!}`);
-
-		// await app.workbench.sessions.delete('Python (reticulate)'); // doesn't seem to work on exited session
-
+		// stop reticulate session
+		await sessions.delete(`R ${process.env.POSITRON_R_VER_SEL!}`);
 		await app.workbench.console.waitForConsoleContents('exited');
 
+		// start reticulate session (again) and verify functionality
 		await sessions.start('pythonReticulate');
-
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
-
-		await app.workbench.sessions.rename('reticulate', 'reticulateNew');
-
+		await toasts.waitForDisappear('Creating the Reticulate Python session');
+		await sessions.rename('reticulate', 'reticulateNew');
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
-
 	});
 
 });
