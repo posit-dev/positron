@@ -93,12 +93,6 @@
           "description": "%configuration.gpuAvailability.description%",
           "default": "detect"
         },
-        "dev.containers.cacheVolume": {
-          "scope": "application",
-          "type": "boolean",
-          "description": "%configuration.cacheVolume.description%",
-          "default": true
-        },
         "dev.containers.copyGitConfig": {
           "scope": "machine",
           "type": "boolean",

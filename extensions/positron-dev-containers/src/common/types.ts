@@ -25,7 +25,6 @@ export interface DevContainerConfiguration {
 	defaultFeatures: Record<string, any>;
 	workspaceMountConsistency: 'consistent' | 'cached' | 'delegated';
 	gpuAvailability: 'all' | 'detect' | 'none';
-	cacheVolume: boolean;
 	copyGitConfig: boolean;
 	gitCredentialHelperConfigLocation: 'system' | 'global' | 'none';
 	dockerCredentialHelper: boolean;

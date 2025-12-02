@@ -47,7 +47,6 @@ export class Configuration {
 			defaultFeatures: this.getDefaultFeatures(),
 			workspaceMountConsistency: this.getWorkspaceMountConsistency(),
 			gpuAvailability: this.getGpuAvailability(),
-			cacheVolume: this.getCacheVolume(),
 			copyGitConfig: this.getCopyGitConfig(),
 			gitCredentialHelperConfigLocation: this.getGitCredentialHelperConfigLocation(),
 			dockerCredentialHelper: this.getDockerCredentialHelper(),
@@ -98,13 +97,6 @@ export class Configuration {
 	 */
 	getGpuAvailability(): 'all' | 'detect' | 'none' {
 		return this.config.get<'all' | 'detect' | 'none'>('gpuAvailability', 'detect');
-	}
-
-	/**
-	 * Get cache volume setting
-	 */
-	getCacheVolume(): boolean {
-		return this.config.get<boolean>('cacheVolume', true);
 	}
 
 	/**

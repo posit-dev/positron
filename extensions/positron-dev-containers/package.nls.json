@@ -15,7 +15,6 @@
 	"configuration.gpuAvailability.detect": "Availability should be detected automatically.",
 	"configuration.gpuAvailability.none": "No GPUs are available.",
 	"configuration.gpuAvailability.description": "Availability of GPUs when a dev container requires any.",
-	"configuration.cacheVolume.description": "Controls whether a Docker volume should be used to cache the VS Code server and extensions.",
 	"configuration.copyGitConfig.markdownDescription": "Controls whether the Git configuration (`~/.gitconfig`) should be copied into the container. This is done after installing any `#dotfiles.repository#` and will not overwrite an existing Git configuration file.",
 	"configuration.gitCredentialHelperConfigLocation.system": "Write to system config (`/etc/gitconfig`, requires root access).",
 	"configuration.gitCredentialHelperConfigLocation.global": "Write to user config (`~/.gitconfig`).",
