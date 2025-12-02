@@ -261,10 +261,11 @@ export async function createJupyterKernelSpec(
 	// dealing with Conda environments. Conda R installations have DLL
 	// dependencies in non-standard locations. These locations are part of the
 	// PATH set during Conda activation, but by default Ark has a more limited set
-	// of directories it searches for DLLs. The `--dll-search-path` option tells Ark
-	// to use Windows' standard DLL search path, which includes the PATH entries.
+	// of directories it searches for DLLs. The `--standard-dll-search-order`
+	// option tells Ark  to use Windows' standard DLL search path, which includes
+	// the PATH entries.
 	if (process.platform === 'win32' && options?.condaEnvironmentPath) {
-		argv.push('--dll-search-path');
+		argv.push('--standard-dll-search-order');
 	}
 
 	// Set the default repositories
