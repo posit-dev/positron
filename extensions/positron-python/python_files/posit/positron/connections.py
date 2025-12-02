@@ -1246,7 +1246,7 @@ class SQLServerConnection(Connection):
             rows = self._execute(
                 f"""
                 SELECT TABLE_NAME, TABLE_TYPE
-                FROM {self._qualify(database.name, 'INFORMATION_SCHEMA', 'TABLES')}
+                FROM {self._qualify(database.name, "INFORMATION_SCHEMA", "TABLES")}
                 WHERE TABLE_SCHEMA = {self._quote_literal(schema.name)}
                 ORDER BY TABLE_NAME;
                 """
@@ -1279,7 +1279,7 @@ class SQLServerConnection(Connection):
         rows = self._execute(
             f"""
             SELECT COLUMN_NAME, DATA_TYPE
-            FROM {self._qualify(database.name, 'INFORMATION_SCHEMA', 'COLUMNS')}
+            FROM {self._qualify(database.name, "INFORMATION_SCHEMA", "COLUMNS")}
             WHERE TABLE_SCHEMA = {self._quote_literal(schema.name)} AND TABLE_NAME = {self._quote_literal(table.name)}
             ORDER BY ORDINAL_POSITION;
             """
@@ -1409,9 +1409,7 @@ class SQLServerConnection(Connection):
     def _make_code(self):
         if self._is_pyodbc():
             conn_str = self._pyodbc_connection_string() or self._default_connection_string()
-            return (
-                "import pyodbc\n" f"conn = pyodbc.connect({conn_str!r})\n" "%connection_show conn\n"
-            )
+            return f"import pyodbc\nconn = pyodbc.connect({conn_str!r})\n%connection_show conn\n"
 
         server = self.host if self.host != "<unknown>" else "<server>"
         database = self.database or "<database>"
