@@ -31,7 +31,8 @@ export default defineConfig<ExtendedTestOptions>({
 		'example.test.ts',
 		'**/workbench/**',
 		'**/inspect-ai/**',
-		'**/remote-ssh/**'
+		'**/remote-ssh/**',
+		'**/pyrefly/**'
 	],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -150,6 +151,7 @@ export default defineConfig<ExtendedTestOptions>({
 			testIgnore: [
 				'example.test.ts',
 				'**/workbench/**',
+				'**/remote-ssh/**'
 			],
 			use: {
 				artifactDir: 'inspect-ai',
@@ -160,7 +162,8 @@ export default defineConfig<ExtendedTestOptions>({
 			name: 'e2e-workbench',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**'
+				'**/inspect-ai/**',
+				'**/remote-ssh/**'
 			],
 			use: {
 				artifactDir: 'e2e-workbench',
@@ -175,7 +178,8 @@ export default defineConfig<ExtendedTestOptions>({
 			name: 'e2e-remote-ssh',
 			testIgnore: [
 				'example.test.ts',
-				'**/inspect-ai/**'
+				'**/inspect-ai/**',
+				'**/workbench/**',
 			],
 			use: {
 				artifactDir: 'e2e-remote-ssh',
