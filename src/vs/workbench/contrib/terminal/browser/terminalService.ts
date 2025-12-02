@@ -713,8 +713,8 @@ export class TerminalService extends Disposable implements ITerminalService {
 		// wind up getting killed by the PtyHost. We use these background
 		// instances to run kernel processes, so we need them to stay alive.
 		//
-		// https://github.com/rstudio/positron/issues/939
-		for (const instance of [...this._terminalGroupService.instances, ...this._backgroundedTerminalInstances.map(bg => bg.instance)]) {
+		// https://github.com/posit-dev/positron/issues/939
+		for (const instance of [...this._terminalGroupService.instances]) {
 			if (shouldPersistTerminals && instance.shouldPersist) {
 				instance.detachProcessAndDispose(TerminalExitReason.Shutdown);
 			} else {
