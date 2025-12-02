@@ -199,6 +199,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		this._logService.debug(this._identifier, 'createEditor');
 		this._parentDiv = DOM.$('.positron-notebook-container');
+		// Make container focusable so it can maintain focus when empty
+		this._parentDiv.tabIndex = -1;
 		parent.appendChild(this._parentDiv);
 		this._parentDiv.style.display = 'relative';
 	}

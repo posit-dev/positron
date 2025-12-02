@@ -2362,6 +2362,11 @@ declare module 'positron' {
 		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
 
 		/**
+		 * Get the currently selected mode in the chat UI.
+		 */
+		export function getCurrentChatMode(): Thenable<string | undefined>;
+
+		/**
 		 * Get all the available langauge model providers.
 		 */
 		export function getProviders(): Thenable<ChatProvider[]>;

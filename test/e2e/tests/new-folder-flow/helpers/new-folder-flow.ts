@@ -96,3 +96,59 @@ export async function verifyPyprojectTomlNotCreated(app: Application) {
 		await expect(files.getByText('pyproject.toml')).toHaveCount(0, { timeout: 50000 });
 	});
 }
+
+/**
+ * Create a file and a folder via console and verify they appear in the Files pane.
+ */
+export async function createFileAndFolderViaConsole(
+	app: Application,
+	runtime: 'Python' | 'R',
+	fileName: string,
+	folderName: string
+) {
+	await test.step(`Create file and folder via ${runtime} and verify Files pane`, async () => {
+		if (runtime === 'Python') {
+			const pyCode = `
+import os
+with open('${fileName}', 'w') as f:
+    f.write('hello')
+os.makedirs('${folderName}', exist_ok=True)
+`;
+			await app.workbench.console.executeCode('Python', pyCode);
+		} else {
+			const rCode = `
+file.create('${fileName}')
+dir.create('${folderName}', showWarnings = FALSE)
+`;
+			await app.workbench.console.executeCode('R', rCode);
+		}
+
+		await app.workbench.explorer.verifyExplorerFilesExist([fileName]);
+		await app.workbench.explorer.verifyExplorerFilesExist([folderName]);
+	});
+}
+
+/**
+ * Create a single file via console and verify it appears in the Files pane.
+ */
+export async function createFileViaConsole(
+	app: Application,
+	runtime: 'Python' | 'R',
+	fileName: string
+) {
+	await test.step(`Create file via ${runtime} and verify Files pane`, async () => {
+		if (runtime === 'Python') {
+			const pyCode = `
+open('${fileName}', 'w').write('hello')
+`;
+			await app.workbench.console.executeCode('Python', pyCode);
+		} else {
+			const rCode = `
+file.create('${fileName}')
+`;
+			await app.workbench.console.executeCode('R', rCode);
+		}
+
+		await app.workbench.explorer.verifyExplorerFilesExist([fileName]);
+	});
+}

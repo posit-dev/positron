@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-code-cell-contents {
+	.positron-notebook-editor-section {
+		position: relative;
+	}
 
 	.positron-notebook-cell-outputs {
 		padding-inline: 1rem;

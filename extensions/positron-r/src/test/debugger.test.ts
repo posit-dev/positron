@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as testKit from './kit';
 
-suite.skip('Debugger', () => {
+suite('Debugger', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await testKit.startR();
+		const [_ses, disposable] = await testKit.startR('Suite: Debugger');
 		sesDisposable = disposable;
 	});
 

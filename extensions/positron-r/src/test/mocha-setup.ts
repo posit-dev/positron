@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as testKit from './kit';
 
-// This will run once per import in each test files
+export let currentTestName: string | undefined;
 
 suiteSetup(async () => {
 	// Set Ark log level to TRACE for easier debugging of tests
@@ -14,4 +14,12 @@ suiteSetup(async () => {
 
 	// To be safe
 	await testKit.closeAllEditors();
+});
+
+setup(function () {
+	currentTestName = this.currentTest.title;
+});
+
+teardown(function () {
+	currentTestName = undefined;
 });

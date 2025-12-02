@@ -271,7 +271,9 @@ export interface ILanguageRuntimeSessionManager {
 	 */
 	createSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
+	):
 		Promise<ILanguageRuntimeSession>;
 
 	/**

@@ -21,7 +21,7 @@ import { test, tags } from '../_test.setup.js';
 
 test.use({ suiteId: __filename });
 
-test.describe.skip('Positron Notebook Debugging', {
+test.describe('Positron Notebook Debugging', {
 	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
 }, () => {
 

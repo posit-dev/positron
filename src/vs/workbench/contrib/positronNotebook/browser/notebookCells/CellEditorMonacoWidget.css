@@ -13,6 +13,12 @@
 	overflow: hidden; /* Clip content to respect rounded corners */
 }
 
+/* Set cell editor background */
+.positron-cell-editor-monaco-widget .monaco-editor-background,
+.positron-cell-editor-monaco-widget .margin-view-overlays {
+	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
+}
+
 /* On hover, when NOT selected/editing: change border color to hover color */
 .positron-notebook-cell:not(.selected):not(.editing):hover .positron-cell-editor-monaco-widget {
 	border-color: var(--vscode-editorWidget-border);

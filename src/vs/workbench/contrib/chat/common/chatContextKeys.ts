@@ -95,6 +95,10 @@ export namespace ChatContextKeys {
 	export const isHistoryItem = new RawContextKey<boolean>('chatIsHistoryItem', false, { type: 'boolean', description: localize('chatIsHistoryItem', "True when the chat session item is from history.") });
 	export const isActiveSession = new RawContextKey<boolean>('chatIsActiveSession', false, { type: 'boolean', description: localize('chatIsActiveSession', "True when the chat session is currently active (not deletable).") });
 	export const isKatexMathElement = new RawContextKey<boolean>('chatIsKatexMathElement', false, { type: 'boolean', description: localize('chatIsKatexMathElement', "True when focusing a KaTeX math element.") });
+	// --- Start Positron ---
+	export const chatCurrentProvider = new RawContextKey<string>('chatCurrentProvider', undefined, { type: 'string', description: localize('chatCurrentProvider', "The current chat provider.") });
+	export const responseFromCopilot = new RawContextKey<boolean>('chatResponseFromCopilot', false, { type: 'boolean', description: localize('chatResponseFromCopilot', "True when the chat response is from Copilot.") });
+	// --- End Positron ---
 }
 
 export namespace ChatContextKeyExprs {

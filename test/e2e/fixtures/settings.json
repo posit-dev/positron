@@ -1,12 +1,17 @@
 {
-    "python.locator": "native",
-    "interpreters.startupBehavior": "manual",
-    "positron.r.kernel.logLevel": "trace",
-    "python.languageServerLogLevel": "debug",
-    "remote.autoForwardPortsFallback": 0,
-    "files.simpleDialog.enable": true,
-    "positron.importSettings.enable": false,
-    "positron.assistant.enable": true,
-    "positron.assistant.testModels": true,
-	"posit.workbench.showWorkbenchFlaskHint": false
+	"python.locator": "native",
+	"interpreters.startupBehavior": "manual",
+	"positron.r.kernel.logLevel": "trace",
+	"python.languageServerLogLevel": "debug",
+	"remote.autoForwardPortsFallback": 0,
+	"files.simpleDialog.enable": true,
+	"positron.importSettings.enable": false,
+	"positron.assistant.enable": true,
+	"positron.assistant.testModels": true,
+	"positron.assistant.enabledProviders": ["openai-api"],
+	"posit.workbench.showWorkbenchFlaskHint": false,
+	"extensions.allowed": {
+		"meta.pyrefly": false,
+		"*": true
+	}
 }

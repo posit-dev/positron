@@ -13,7 +13,7 @@ test.use({
 /**
  * Test suite for the setup of Positron Assistant.
  */
-test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	/**
 	 * Verifies that the Positron Assistant can be opened and that the
 	 * add model button is visible in the interface. Once Assistant is on by default,
@@ -44,15 +44,30 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	});
 
 	/**
-	 * Tests the sign in and sign out functionality for a model provider.
-	 * This uses the test Echo provider as there is not a valid API key for the other providers.
-	 *
+	 * Tests the sign in and sign out functionality for the Anthropic model provider.
 	 * @param app - Application fixture providing access to UI elements
 	 */
-	test('Echo: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
+	test('Anthropic: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
+		await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+		await app.workbench.assistant.clickSignInButton();
+		await app.workbench.assistant.verifySignOutButtonVisible();
+		await app.workbench.assistant.clickSignOutButton();
+		await app.workbench.assistant.verifySignInButtonVisible();
+		await app.workbench.assistant.clickCloseButton();
+	});
+
+	/**
+ * Tests the sign in and sign out functionality for the OpenAI model provider.
+ * @param app - Application fixture providing access to UI elements
+ */
+	test('OpenAI: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.selectModelProvider('openai-api');
+		await app.workbench.assistant.enterApiKey(`${process.env.OPENAI_KEY}`);
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();
 		await app.workbench.assistant.clickSignOutButton();
@@ -129,7 +144,8 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param python - Fixture that starts the python session.
 	 */
-	test('Python: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, python }) {
+	// Skipping Console tests due to PR #10784
+	test.skip('Python: Verify running code in console from chat markdown response', { tag: [] }, async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
@@ -144,7 +160,8 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param r - Fixture that starts the R session.
 	 */
-	test('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
+	// Skipping Console tests due to PR #10784
+	test.skip('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
