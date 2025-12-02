@@ -181,8 +181,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			},
-			previewUrl(url: vscode.Uri) {
-				return extHostPreviewPanels.previewUrl(extension, url);
+			previewUrl(url: vscode.Uri, source?: positron.PreviewSource) {
+				return extHostPreviewPanels.previewUrl(extension, url, source);
 			},
 			previewHtml(path: string) {
 				return extHostPreviewPanels.previewHtml(extension, path);
@@ -352,6 +352,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentProvider(): Promise<positron.ai.ChatProvider | undefined> {
 				return extHostAiFeatures.getCurrentProvider();
 			},
+			getCurrentChatMode(): Promise<string | undefined> {
+				return extHostAiFeatures.getCurrentChatMode();
+			},
 			getProviders(): Promise<positron.ai.ChatProvider[]> {
 				return extHostAiFeatures.getProviders();
 			},
@@ -494,6 +497,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,
 			PlotRenderFormat: extHostTypes.PlotRenderFormat,
+			PreviewSourceType: extHostTypes.PreviewSourceType,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
 		};
 	};

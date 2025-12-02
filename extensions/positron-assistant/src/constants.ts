@@ -22,6 +22,9 @@ export const DEFAULT_MAX_TOKEN_INPUT = 100_000;
 /** The default max token output if a model's maximum is unknown */
 export const DEFAULT_MAX_TOKEN_OUTPUT = 4_096;
 
+/** The minimum allowed token limit for input/output tokens */
+export const MIN_TOKEN_LIMIT = 512;
+
 /** Tag used by tools to indicate a workspace must be open in order to use the tool */
 export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 

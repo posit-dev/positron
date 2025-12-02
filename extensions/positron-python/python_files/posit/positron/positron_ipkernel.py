@@ -513,6 +513,14 @@ class PositronIPyKernel(IPythonKernel):
             module="jedi",
         )
 
+        # Due to PEP0765, this is fixed in ipython 9.X, but we bundle
+        # earlier versions to support Python 3.10
+        warnings.filterwarnings(
+            "ignore",
+            category=SyntaxWarning,
+            message=r"'return' in a 'finally' block",
+        )
+
         # Patch holoviews to use our custom notebook extension.
         set_holoviews_extension(self.ui_service)
         handle_bokeh_output(self.session_mode)

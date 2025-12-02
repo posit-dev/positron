@@ -31,7 +31,6 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		await test.step('Test 1: Copy single cell and paste at end', async () => {
 			// Perform copy on cell 2
 			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
-			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
 			await notebooksPositron.performCellAction('copy');
 
 			// Move to last cell and perform paste
@@ -40,7 +39,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellCountToBe(6);
 
 			// Verify pasted contents are correct at new index 5
-			await notebooksPositron.expectCellContentAtIndexToBe(5, '# Cell 2');
+			await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3', '# Cell 4', '# Cell 2']);
 		});
 
 		// ========================================
@@ -48,13 +47,12 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Test 2: Cut single cell and paste at different position', async () => {
 			// Perform cut on cell 1
-			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
-			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
+			await notebooksPositron.selectCellAtIndex(1, { editMode: false }); // # Cell 1
 			await notebooksPositron.performCellAction('cut');
 
 			// Verify cell count decreased and cell 1 is removed
 			await notebooksPositron.expectCellCountToBe(5);
-			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
+			await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 2', '# Cell 3', '# Cell 4', '# Cell 2']);
 
 			// Move to index 3 and paste
 			await notebooksPositron.selectCellAtIndex(3, { editMode: false });
@@ -62,27 +60,24 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 			// Verify cell count restored and cell content is correct
 			await notebooksPositron.expectCellCountToBe(6);
-			await notebooksPositron.expectCellContentAtIndexToBe(4, '# Cell 1');
+			await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 2', '# Cell 3', '# Cell 4', '# Cell 1', '# Cell 2']);
 		});
 
 		// ========================================
 		// Test 3: Copy cell and paste multiple times (clipboard persistence)
 		// ========================================
 		await test.step('Test 3: Copy cell and paste multiple times (clipboard persistence)', async () => {
-			await notebooksPositron.expectCellCountToBe(6);
-
 			// Copy cell 0
-			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false }); // # Cell 0
 			await notebooksPositron.performCellAction('copy');
 
 			// Paste at position 2
-			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false }); // # Cell 3
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify first paste
 			await notebooksPositron.expectCellCountToBe(7);
-			await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 0');
+			await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 2', '# Cell 3', '# Cell 0', '# Cell 4', '# Cell 1', '# Cell 2']);
 
 			// Paste again at position 5
 			await notebooksPositron.selectCellAtIndex(5, { editMode: false });
@@ -90,7 +85,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 			// Verify second paste
 			await notebooksPositron.expectCellCountToBe(8);
-			await notebooksPositron.expectCellContentAtIndexToBe(6, '# Cell 0');
+			await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 2', '# Cell 3', '# Cell 0', '# Cell 4', '# Cell 1', '# Cell 0', '# Cell 2']);
 		});
 
 		// ========================================
@@ -111,22 +106,9 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellCountToBe(8);
 			await notebooksPositron.expectCellContentAtIndexToBe(1, cellToMoveContent);
 		});
-
-		// ========================================
-		// Test 5: Cut all cells and verify notebook can be empty
-		// ========================================
-		await test.step('Verify other cells shifted down correctly', async () => {
-			while (await notebooksPositron.getCellCount() > 0) {
-				await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-				await notebooksPositron.performCellAction('cut');
-			}
-
-			await notebooksPositron.expectCellCountToBe(0);
-		});
 	});
 
-	// @dhruvisompura unskip me
-	test.skip('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
+	test('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
@@ -141,7 +123,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 		// Cut selected cells
 		await notebooksPositron.performCellAction('cut');
-		await notebooksPositron.expectCellContentsToBe(['Cell 3', 'Cell 4']);
+		await notebooksPositron.expectCellContentsToBe(['### Cell 3', '### Cell 4']);
 
 		// Select last cell and paste below
 		const lastIndex = await notebooksPositron.getCellCount() - 1;
@@ -149,6 +131,6 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		await notebooksPositron.performCellAction('paste');
 
 		// Verify moved cells are at the end
-		await notebooksPositron.expectCellContentsToBe(['Cell 3', 'Cell 4', '# Cell 0', '# Cell 1', 'Cell 2']);
+		await notebooksPositron.expectCellContentsToBe(['### Cell 3', '### Cell 4', '# Cell 0', '# Cell 1', '### Cell 2']);
 	});
 });

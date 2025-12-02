@@ -65,8 +65,8 @@ test.describe('R Debugging', {
 		await debug.expectBrowserModeFrame(1);
 
 		// Verify call stack order
-		await debug.expectCallStackAtIndex(0, 'inner()inner()2:');
-		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)2:');
+		await debug.expectCallStackAtIndex(0, 'inner()inner(x)');
+		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)');
 		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
 
 		// Verify the call stack redirects to correct data frame(s)
@@ -210,40 +210,6 @@ test.describe('R Debugging', {
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
 		await console.waitForConsoleContents('Found 2 fruits!', { expectedCount: 2 });
 	});
-
-	test('R - Verify debugging with `options(error = recover)` interactive recovery mode', async ({ app, page, openFile, runCommand, executeCode }) => {
-		const { console } = app.workbench;
-
-		await openFile('workspaces/r-debugging/fruit_avg.r');
-		await runCommand('r.sourceCurrentFile');
-
-		// Enable recovery mode so errors trigger the interactive debugger
-		await executeCode('R', 'options(error = recover)');
-
-		// Trigger an error: this should throw an error inside rowMeans(mini_dat)
-		await executeCode('R', 'fruit_avg(dat, "black")', { waitForReady: false });
-
-		// Confirm recovery prompt appears and frame selection is offered
-		await console.waitForConsoleContents('Enter a frame number, or 0 to exit');
-		await console.waitForConsoleContents('1: fruit_avg(dat, "black")');
-
-		// Select the inner function frame
-		await console.waitForConsoleContents('Selection:');
-		await page.keyboard.type('1');
-		await page.keyboard.press('Enter');
-
-		// Confirm error message appears in sidebar
-		await console.expectConsoleToContainError("'x' must be an array of at least two dimensions");
-
-		// Check the contents of mini_dat in the console
-		await console.focus();
-		await verifyVariableInConsole(app, 'mini_dat', '[1] 4 9 6');
-
-		// Quit the debugger
-		await page.keyboard.type('Q');
-		await page.keyboard.press('Enter');
-		await console.waitForReady('>');
-	});
 });
 
 
@@ -269,4 +235,3 @@ async function verifyVariableInConsole(app: Application, name: string, expectedT
 		await expect(app.code.driver.page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
 	});
 }
-

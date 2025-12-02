@@ -1239,6 +1239,15 @@ class DatabricksConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class BigQueryConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("google.cloud.bigquery.client.Client",)
+
+    def _is_active(self, value) -> bool:
+        # a connection is always active if the client exists
+        _ = value
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1280,6 +1289,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(IbisDataFrameInspector.CLASS_QNAME, IbisDataFrameInspector),
     **dict.fromkeys(SnowflakeConnectionInspector.CLASS_QNAME, SnowflakeConnectionInspector),
     **dict.fromkeys(DatabricksConnectionInspector.CLASS_QNAME, DatabricksConnectionInspector),
+    **dict.fromkeys(BigQueryConnectionInspector.CLASS_QNAME, BigQueryConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { getMaxConnectionAttempts, getProviderTimeoutMs, getEnabledProviders, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, getEnabledProviders, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -15,17 +15,22 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createMistral, MistralProvider } from '@ai-sdk/mistral';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
 import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
-import { processMessages, toAIMessage } from './utils';
+import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB } from './constants.js';
-import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
 import { PositLanguageModel } from './posit.js';
 import { applyModelFilters } from './modelFilters';
-import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from './pwb';
+import { PositronAssistantApi } from './api.js';
+import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
+import { getAllModelDefinitions } from './modelDefinitions';
+import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, getSnowflakeConnectionsTomlPath, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
+import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -132,6 +137,8 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
 		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+
+		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
 	}
 
@@ -268,12 +275,15 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
  * Result of an autoconfiguration attempt.
  * - Signed in indicates whether the model is configured and ready to use.
  * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
+ * - Token provides the authentication token when available.
  */
 export type AutoconfigureResult = {
 	signedIn: false;
 } | {
 	signedIn: true;
 	message: string;
+	token?: string;
+	baseUrl?: string;
 };
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -296,48 +306,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	constructor(
 		protected readonly _config: ModelConfig,
 		protected readonly _context?: vscode.ExtensionContext,
-		private readonly _storage?: SecretStorage,
+		protected readonly _storage?: SecretStorage,
 	) {
 		this.id = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
 	}
 
-	get providerName(): string {
-		return this.providerName;
-	}
-
-	protected getMaxTokens(id: string, type: 'input' | 'output'): number {
-		const defaultTokens = type === 'input'
-			? (this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT)
-			: (this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT);
-
-		const fixedModels = availableModels.get(this._config.provider);
-		const fixedValue = type === 'input'
-			? fixedModels?.find(m => m.identifier === id)?.maxInputTokens
-			: fixedModels?.find(m => m.identifier === id)?.maxOutputTokens;
-		let maxTokens = fixedValue ?? defaultTokens;
-
-		const configKey = type === 'input' ? 'maxInputTokens' : 'maxOutputTokens';
-		const tokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get(configKey, {});
-		for (const [key, value] of Object.entries(tokensConfig)) {
-			if (id.indexOf(key) !== -1 && value) {
-				if (typeof value !== 'number') {
-					log.warn(`[${this.providerName}] Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
-					continue;
-				}
-				if (value < 512) {
-					log.warn(`[${this.providerName}] Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
-					maxTokens = 512;
-				}
-				maxTokens = value;
-				break;
-			}
-		}
-
-		log.trace(`[${this.providerName}] Setting ${configKey} for (${id}) to ${maxTokens}`);
-		return maxTokens;
-	}
+	abstract get providerName(): string;
 
 	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
 		return applyModelFilters(models, this.provider, this.providerName);
@@ -391,7 +367,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-				const errorMsg = this.parseProviderError(error) ||
+				const errorMsg = await this.parseProviderError(error) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
 			}
@@ -464,7 +440,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				const input_schema = tool.inputSchema as Record<string, any> ?? {
 					type: 'object',
 					properties: {},
+					required: [],
 				};
+
+				// Ensure schema has a type field
 				if (!input_schema.type) {
 					log.warn(`[${this.providerName}] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 					input_schema.type = 'object';
@@ -499,7 +478,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: this.getMaxTokens(aiModel.modelId, 'output'),
+			maxTokens: getMaxTokens(aiModel.modelId, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -538,9 +517,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				flushAccumulatedTextDeltas();
 				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
 				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
-				const errorMsg = this.parseProviderError(part.error) ||
+				const errorMsg = await this.parseProviderError(part.error) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
-				return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
+				throw new Error(`${messagePrefix} Error in chat response: ${errorMsg}`);
 			}
 		}
 
@@ -548,13 +527,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		flushAccumulatedTextDeltas();
 
 		// Log all the warnings from the response
-		result.warnings.then((warnings) => {
-			if (warnings) {
-				for (const warning of warnings) {
-					log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
-				}
+		const warnings = await result.warnings;
+		if (warnings) {
+			for (const warning of warnings) {
+				log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
 			}
-		});
+		}
 
 		// ai-sdk provides token usage in the result but it's not clear how it is calculated
 		const usage = await result.usage;
@@ -606,7 +584,27 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 * @param error The error object returned by the provider.
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	parseProviderError(error: any): string | undefined {
+	async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for authorization errors (401/403) and bail immediately with helpful message
+		if (isAuthorizationError(error)) {
+			// Try to extract specific error message from response body
+			let specificMessage = '';
+			if (ai.APICallError.isInstance(error) && error.responseBody) {
+				try {
+					const parsed = JSON.parse(error.responseBody);
+					if (parsed.message) {
+						specificMessage = ` (${parsed.message})`;
+					}
+				} catch {
+					// Ignore JSON parsing errors, fall back to generic message
+				}
+			}
+
+			const authError = `Authentication failed${specificMessage}. Please check your credentials and try signing in again.`;
+			log.error(`[${this.providerName}] ${authError}`);
+			throw new Error(`[${this.providerName}] ${authError}`);
+		}
+
 		// Try to extract an API error message with ai-sdk
 		if (ai.APICallError.isInstance(error)) {
 			const responseBody = error.responseBody;
@@ -631,58 +629,58 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		log.debug(`[${this.providerName}] Resolving models...`);
 
-		const availableModelsForProvider = availableModels.get(this._config.provider);
-		if (!availableModelsForProvider || availableModelsForProvider.length === 0) {
-			log.info(`[${this.providerName}] No models available; returning default model information.`);
-			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
-			return [
-				{
-					id: aiModel.modelId,
-					name: this.name,
-					family: aiModel.provider,
-					version: aiModel.specificationVersion,
-					maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
-					maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
-					capabilities: this.capabilities,
-					isDefault: true,
-					isUserSelectable: true,
-				} satisfies vscode.LanguageModelChatInformation
-			];
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			this.modelListing = configuredModels;
+			return configuredModels;
 		}
 
-		const models: vscode.LanguageModelChatInformation[] = availableModelsForProvider.map(model => ({
-			id: model.identifier,
-			name: model.name,
-			family: this.provider,
-			version: this.aiProvider(model.identifier).specificationVersion,
-			maxInputTokens: 0,
-			maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-			capabilities: this.capabilities,
-			isDefault: this.isDefaultUserModel(model.identifier, model.name),
-			isUserSelectable: true,
-		} satisfies vscode.LanguageModelChatInformation));
-
-		// If no models match the default ID, make the first model the default.
-		if (models.length > 0 && !models.some(m => m.isDefault)) {
-			models[0] = {
-				...models[0],
-				isDefault: true,
-			};
-		}
-
-		this.modelListing = models;
-		return models;
+		// Fallback to default model if no configured models available
+		const defaultModel = this.createDefaultModel();
+		this.modelListing = defaultModel;
+		return defaultModel;
 	}
 
-	protected isDefaultUserModel(id: string, name?: string): boolean {
-		const config = vscode.workspace.getConfiguration('positron.assistant');
-		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
-		if (this.provider in defaultModels) {
-			if (id.includes(defaultModels[this.provider]) || name?.includes(defaultModels[this.provider])) {
-				return true;
-			}
+	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+		const configuredModels = getAllModelDefinitions(this.provider);
+		if (configuredModels.length === 0) {
+			return undefined;
 		}
-		return this._config.model === id;
+
+		log.info(`[${this.providerName}] Using ${configuredModels.length} configured models.`);
+
+		const models: vscode.LanguageModelChatInformation[] = configuredModels.map(model =>
+			createModelInfo({
+				id: model.identifier,
+				name: model.name,
+				family: this.provider,
+				version: this.aiProvider(model.identifier).specificationVersion,
+				provider: this.provider,
+				providerName: this.providerName,
+				capabilities: this.capabilities,
+				defaultMaxInput: model.maxInputTokens ?? 0,
+				defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
+			})
+		);
+
+		return markDefaultModel(models, this.provider, this._config.model);
+	}
+
+	protected createDefaultModel(): vscode.LanguageModelChatInformation[] {
+		log.info(`[${this.providerName}] No models available; returning default model information.`);
+		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
+		const modelInfo = createModelInfo({
+			id: aiModel.modelId,
+			name: this.name,
+			family: aiModel.provider,
+			version: aiModel.specificationVersion,
+			provider: this._config.provider,
+			providerName: this.providerName,
+			capabilities: this.capabilities,
+			defaultMaxInput: this._config.maxInputTokens,
+			defaultMaxOutput: this._config.maxOutputTokens
+		});
+		return [{ ...modelInfo, isDefault: true }];
 	}
 
 	/**
@@ -762,6 +760,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
 		});
 	}
 
@@ -775,34 +774,83 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		const models = await this.resolveModels(token) ?? [];
+
+		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		log.debug(`[${this.providerName}] Resolving models...`);
 
-		const data = await this.fetchModelsFromAPI();
-		if (!data?.data || !Array.isArray(data.data)) {
-			log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			this.modelListing = configuredModels;
+			return configuredModels;
+		}
+
+		const apiModels = await this.retrieveModelsFromApi();
+		if (apiModels) {
+			this.modelListing = apiModels;
+			return apiModels;
+		}
+
+		return undefined;
+	}
+
+	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+		const configuredModels = getAllModelDefinitions(this.provider);
+		if (configuredModels.length === 0) {
 			return undefined;
 		}
-		log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
 
-		const models = data.data.map((model: any) => ({
-			id: model.id,
-			name: model.id,
-			family: this.provider,
-			version: model.id,
-			maxInputTokens: 0,
-			maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-			capabilities: this.capabilities,
-			isDefault: this.isDefaultUserModel(model.id, model.name),
-			isUserSelectable: true,
-		} satisfies vscode.LanguageModelChatInformation));
+		log.info(`[${this.providerName}] Using ${configuredModels.length} configured models.`);
 
-		this.modelListing = models;
-		return this.modelListing;
+		const modelListing = configuredModels.map((modelDef) =>
+			createModelInfo({
+				id: modelDef.identifier,
+				name: modelDef.name,
+				family: this.provider,
+				version: modelDef.identifier,
+				provider: this.provider,
+				providerName: this.providerName,
+				capabilities: this.capabilities,
+				defaultMaxInput: modelDef.maxInputTokens ?? 0,
+				defaultMaxOutput: modelDef.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
+			})
+		);
+
+		return markDefaultModel(modelListing, this.provider, this._config.model);
+	}
+
+	private async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		try {
+			const data = await this.fetchModelsFromAPI();
+			if (!data?.data || !Array.isArray(data.data)) {
+				log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
+				return undefined;
+			}
+			log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
+
+			const models = data.data.map((model: any) =>
+				createModelInfo({
+					id: model.id,
+					name: model.id,
+					family: this.provider,
+					version: model.id,
+					provider: this.provider,
+					providerName: this.providerName,
+					capabilities: this.capabilities,
+					defaultMaxInput: 0,
+					defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
+				})
+			);
+
+			return markDefaultModel(models, this.provider, this._config.model);
+		} catch (error) {
+			log.warn(`[${this.providerName}] Failed to fetch models from API: ${error}`);
+			return undefined;
+		}
 	}
 
 	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
@@ -854,6 +902,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 		return data;
 	}
+
 }
 
 class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -880,6 +929,114 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 
 	override get baseUrl(): string | undefined {
 		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+}
+
+class SnowflakeLanguageModel extends OpenAILanguageModel {
+	protected aiProvider: OpenAIProvider;
+	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'snowflake-cortex',
+			displayName: 'Snowflake Cortex'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
+		defaults: {
+			name: 'Snowflake Cortex',
+			model: 'claude-4-sonnet',
+			baseUrl: getSnowflakeDefaultBaseUrl(),
+			toolCalls: true,
+			completions: false,
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
+		}
+	};
+
+	get providerName(): string {
+		return SnowflakeLanguageModel.source.provider.displayName;
+	}
+
+	get baseUrl(): string {
+		// Use the baseUrl from config or fallback to default
+		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
+	}
+
+	/**
+	 * Check if connections.toml has been modified since our last check and update token if needed
+	 */
+	private async checkForUpdatedCredentials(): Promise<void> {
+		const result = await checkForUpdatedSnowflakeCredentials(
+			this.lastConnectionsTomlCheck,
+			this._config.apiKey
+		);
+
+		if (result.updated && result.credentials) {
+			this._config.apiKey = result.credentials.token;
+			if (result.credentials.baseUrl && result.credentials.baseUrl !== this._config.baseUrl) {
+				this._config.baseUrl = result.credentials.baseUrl;
+			}
+
+			// Recreate the provider with updated credentials
+			this.aiProvider = createOpenAI({
+				apiKey: result.credentials.token,
+				baseURL: this.baseUrl,
+				fetch: createOpenAICompatibleFetch(this.providerName)
+			});
+
+			log.info(`[${this.providerName}] Refreshed credentials for account: ${result.credentials.account}`);
+		}
+		this.lastConnectionsTomlCheck = result.lastModified;
+	}
+
+	/**
+	 * Override to check for updated credentials before making requests
+	 */
+	override async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	) {
+		await this.checkForUpdatedCredentials();
+		return super.provideLanguageModelChatResponse(model, messages, options, progress, token);
+	}
+
+	static override async autoconfigure(): Promise<AutoconfigureResult> {
+		// Use the standard PWB flow for environment and settings validation
+		const configureResult = await autoconfigureWithManagedCredentials(
+			SNOWFLAKE_MANAGED_CREDENTIALS,
+			SnowflakeLanguageModel.source.provider.id,
+			SnowflakeLanguageModel.source.provider.displayName
+		);
+
+		// If PWB checks pass, get credentials and return with both token and baseUrl
+		if (configureResult.signedIn) {
+			const credentials = await detectSnowflakeCredentials();
+			if (credentials?.token && credentials.token.trim().length > 0) {
+				return {
+					signedIn: configureResult.signedIn,
+					message: configureResult.message,
+					token: credentials.token,
+					baseUrl: credentials.baseUrl
+				};
+			}
+		}
+
+		return { signedIn: false };
+	}
+
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		// Check for Snowflake-specific errors before generic authorization errors
+		if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
+			const snowflakeError = extractSnowflakeError(error);
+			if (snowflakeError) {
+				throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);
+			}
+		}
+
+		return super.parseProviderError(error);
 	}
 }
 
@@ -1068,14 +1225,14 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	bedrockClient: BedrockClient;
 	inferenceProfiles: InferenceProfileSummary[] = [];
 
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
-		// Update a stale model configuration to the latest defaults
-		const models = availableModels.get('amazon-bedrock')?.map(m => m.identifier) || [];
-		if (!(_config.model in models)) {
-			_config.name = AWSLanguageModel.source.defaults.name;
-			_config.model = AWSLanguageModel.source.defaults.model;
-		}
-		super(_config, _context);
+	// Keep state while we're resolving the connection
+	// Used to adjust error handling for SSO login prompts
+	private _resolvingConnection: boolean = false;
+	// Keep track of the last error to manage re-authentication prompts
+	private _lastError?: Error;
+
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
+		super(_config, _context, _storage);
 
 		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<BedrockProviderVariables>('bedrock', {});
 		log.debug(`[BedrockLanguageModel] positron.assistant.providerVariables.bedrock settings: ${JSON.stringify(environmentSettings)}`);
@@ -1097,6 +1254,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		// We use the Bedrock SDK to retrieve the list of available models instead
 		// of a predefined list.
 		this.bedrockClient = new BedrockClient({
+			profile,
 			region,
 			credentials: credentials
 		});
@@ -1111,8 +1269,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	 * @param error The error object
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	override parseProviderError(error: any): string | undefined {
-		const aiSdkError = super.parseProviderError(error);
+	override async parseProviderError(error: any): Promise<string | undefined> {
+		const aiSdkError = await super.parseProviderError(error);
 		if (aiSdkError) {
 			return aiSdkError;
 		}
@@ -1125,80 +1283,229 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		const message = error.message;
 
 		if (!message) {
-			return super.parseProviderError(error);
+			return await super.parseProviderError(error);
 		}
 
 		if (name === 'CredentialsProviderError') {
-			return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+			// This is specifically the error thrown the refresh token is expired and
+			// we need to re-authenticate with AWS SSO
+			if (message.includes('aws sso login')) {
+				// Give the user the option to login automatically
+				const existingModels = getStoredModels(this._context);
+
+				// Check if our model is already registered
+				if (!existingModels.some(m => m.provider === this._config.provider)) {
+					// The model is not yet registered, so just refresh without prompting
+					if (await this.refreshCredentials(true)) {
+						// If we're successful, return undefined to indicate no error
+						return undefined;
+					}
+
+				} else {
+					// The model has already been registered, so we can prompt the user to login
+					// Display an error message with an action the user can take
+					const isConnectionTest = this._resolvingConnection;
+					const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
+					vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
+						if (selection?.id === action.id) {
+							// User chose to login, so we need to refresh the credentials
+							await this.refreshCredentials(isConnectionTest);
+						}
+					});
+
+					if (isConnectionTest) {
+						// We're in a connection test, so throw an AssistantError to avoid showing a message box
+						// but that stops the model provider from being registered in core
+						throw new AssistantError(message, false);
+					} else {
+						// We are in a chat response, so we should return an error to display in the chat pane
+						throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile} --region ${this.bedrockClient.config.region}\` in the terminal, and retry this request.`));
+					}
+				}
+			} else {
+				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+			}
 		}
 
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
+	}
+
+	private async refreshCredentials(reregister: boolean = false): Promise<boolean> {
+		// Grab the profile & region to refresh from the Bedrock client config
+		const profile = this.bedrockClient.config.profile;
+		// Region may be an async function or a string, so handle both cases
+		const region = typeof this.bedrockClient.config.region === 'function' ? await this.bedrockClient.config.region() : this.bedrockClient.config.region;
+		// Execute the AWS SSO login command as a native task
+		const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
+			{ type: 'shell' },
+			vscode.TaskScope.Workspace,
+			'AWS SSO Login',
+			'AWS',
+			new vscode.ShellExecution(`aws sso login --profile ${profile} --region ${region}`)
+		));
+
+		const result = new Promise<boolean>((resolve) => {
+			vscode.tasks.onDidEndTaskProcess(e => {
+				if (e.execution === taskExecution) {
+					// Notify the user of the result
+					const success = e.exitCode === 0 || e.exitCode === undefined;
+					if (success) {
+						// Success
+						vscode.window.showInformationMessage(vscode.l10n.t('AWS login completed successfully'));
+					} else {
+						// Failure
+						vscode.window.showErrorMessage(vscode.l10n.t('AWS login failed with exit code {0}', e.exitCode));
+					}
+
+					// Open a URI to bring Positron to the foreground
+					// This is a little sneaky, but works + no other native method
+					const redirectUri = vscode.Uri.from({ scheme: vscode.env.uriScheme });
+					vscode.env.openExternal(redirectUri);
+
+					if (success && reregister) {
+						// If we were in a connection test, re-run it now that we've logged in
+						registerModelWithAPI(
+							this._config,
+							this._context,
+							this._storage,
+							this
+						).then(() => {
+							positron.ai.addLanguageModelConfig(expandConfigToSource(this._config));
+							PositronAssistantApi.get().notifySignIn(this._config.name);
+						});
+					}
+					resolve(success);
+				}
+			});
+		});
+		return result;
 	}
 
 	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
 		// means the credentials are valid.
 		log.debug(`[${this.providerName}] Resolving connection by fetching available models...`);
-		await this.resolveModels(token);
+		this._resolvingConnection = true;
+		try {
+			await this.resolveModels(token);
+			this.checkError();
+		} catch (error) {
+			// Try to parse specific Bedrock errors
+			// This way, we can handle SSO login errors specifically
+			const parsedError = await this.parseProviderError(error);
+			if (parsedError) {
+				return new Error(parsedError);
+			}
+		} finally {
+			this._resolvingConnection = false;
+		}
 
 		return undefined;
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		const command = new ListFoundationModelsCommand();
+		log.debug(`[${this.providerName}] Resolving models...`);
 
-		log.info(`[${this.providerName}] Fetching available Amazon Bedrock models for these providers: ` + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
-
-		const response = await this.bedrockClient.send(command);
-		const modelSummaries = response.modelSummaries;
-
-		if (!modelSummaries || modelSummaries.length === 0) {
-			log.error(`[${this.providerName}] No Amazon Bedrock models available`);
-			return [];
+		const configuredModels = this.retrieveModelsFromConfig();
+		if (configuredModels) {
+			this.modelListing = configuredModels;
+			return configuredModels;
 		}
-		log.info(`[${this.providerName}] Found ${modelSummaries.length} available models.`);
 
-		log.debug(`[${this.providerName}] Fetching available Amazon Bedrock inference profiles...`);
-		const inferenceResponse = await this.bedrockClient.send(new ListInferenceProfilesCommand());
-		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
-
-		if (this.inferenceProfiles.length === 0) {
-			log.error(`[${this.providerName}] No Amazon Bedrock inference profiles available`);
-			return [];
+		const apiModels = await this.retrieveModelsFromApi();
+		if (apiModels) {
+			this.modelListing = apiModels;
+			return apiModels;
 		}
-		log.debug(`[${this.providerName}] Total inference profiles available: ${this.inferenceProfiles.length}`);
 
-		// Filter for basic eligibility before creating model objects
-		const filteredModelSummaries = this.filterModelSummaries(modelSummaries);
-		log.debug(`[${this.providerName}] ${filteredModelSummaries.length} models available (from ${modelSummaries.length} total) after removing ineligible models.`);
+		return undefined;
+	}
 
-		// Convert eligible model summaries to LanguageModelChatInformation objects
-		const models = filteredModelSummaries.map(m => {
-			const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
-			const modelInfo: vscode.LanguageModelChatInformation = {
-				id: modelId,
-				name: m.modelName ?? modelId,
+	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+		const configuredModels = getAllModelDefinitions(this.provider);
+		if (configuredModels.length === 0) {
+			return undefined;
+		}
+
+		log.info(`[${this.providerName}] Using ${configuredModels.length} configured models.`);
+
+		const modelListing = configuredModels.map((modelDef) =>
+			createModelInfo({
+				id: modelDef.identifier,
+				name: modelDef.name,
 				family: 'Amazon Bedrock',
 				version: '',
-				maxInputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
-				maxOutputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT,
+				provider: this.provider,
+				providerName: this.providerName,
 				capabilities: this.capabilities,
-				isDefault: this.isDefaultUserModel(modelId, m.modelName),
-				isUserSelectable: true,
-			};
-			return modelInfo;
-		}).filter(m => {
-			if (!m.id) {
-				log.debug(`[${this.providerName}] Filtering out model without inference profile ARN: ${m.name}`);
-				return false;
+				defaultMaxInput: modelDef.maxInputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
+				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
+			})
+		);
+
+		return markDefaultModel(modelListing, this.provider, this._config.model);
+	}
+
+	private async retrieveModelsFromApi(): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		try {
+			const command = new ListFoundationModelsCommand();
+
+			log.info(`[${this.providerName}] Fetching available Amazon Bedrock models for these providers: ` + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
+
+			const response = await this.bedrockClient.send(command);
+			const modelSummaries = response.modelSummaries;
+
+			if (!modelSummaries || modelSummaries.length === 0) {
+				log.error(`[${this.providerName}] No Amazon Bedrock models available`);
+				return [];
 			}
-			return true;
-		});
+			log.info(`[${this.providerName}] Found ${modelSummaries.length} available models.`);
 
-		log.debug(`[${this.providerName}] Available models after processing: ${models.map(m => m.name).join(', ')}`);
+			log.debug(`[${this.providerName}] Fetching available Amazon Bedrock inference profiles...`);
+			const inferenceResponse = await this.bedrockClient.send(new ListInferenceProfilesCommand());
+			this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
 
-		this.modelListing = models;
-		return models;
+			if (this.inferenceProfiles.length === 0) {
+				log.error(`[${this.providerName}] No Amazon Bedrock inference profiles available`);
+				return [];
+			}
+			log.debug(`[${this.providerName}] Total inference profiles available: ${this.inferenceProfiles.length}`);
+
+			// Filter for basic eligibility before creating model objects
+			const filteredModelSummaries = this.filterModelSummaries(modelSummaries);
+			log.debug(`[${this.providerName}] ${filteredModelSummaries.length} models available (from ${modelSummaries.length} total) after removing ineligible models.`);
+
+			// Convert eligible model summaries to LanguageModelChatInformation objects
+			const models = filteredModelSummaries.map(m => {
+				const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
+				const modelInfo = createModelInfo({
+					id: modelId,
+					name: m.modelName ?? modelId,
+					family: 'Amazon Bedrock',
+					version: '',
+					provider: this.provider,
+					providerName: this.providerName,
+					capabilities: this.capabilities,
+					defaultMaxInput: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
+					defaultMaxOutput: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
+				});
+				return modelInfo;
+			}).filter(m => {
+				if (!m.id) {
+					log.debug(`[${this.providerName}] Filtering out model without inference profile ARN: ${m.name}`);
+					return false;
+				}
+				return true;
+			});
+
+			log.debug(`[${this.providerName}] Available models after processing: ${models.map(m => m.name).join(', ')}`);
+
+			return markDefaultModel(models, this.provider, this._config.model);
+		} catch (error) {
+			log.warn(`[${this.providerName}] Failed to fetch models from Bedrock API: ${error}`);
+			this._lastError = error instanceof Error ? error : new Error(String(error));
+			return undefined;
+		}
 	}
 
 	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
@@ -1268,6 +1575,17 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return undefined;
 	}
 
+	/**
+	 * Helper method to throw a stored error
+	 */
+	private checkError(): void {
+		if (this._lastError) {
+			const error = this._lastError;
+			this._lastError = undefined;
+			throw error;
+		}
+	}
+
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
 		return autoconfigureWithManagedCredentials(
 			AWS_MANAGED_CREDENTIALS,
@@ -1302,6 +1620,7 @@ export function getLanguageModels() {
 		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
 		PositLanguageModel,
+		SnowflakeLanguageModel,
 		VertexLanguageModel,
 	];
 	return languageModels;
@@ -1356,7 +1675,9 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						type: positron.PositronLanguageModelType.Chat,
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
-						apiKey: undefined,
+						apiKey: result.token,
+						// Use baseUrl from autoconfigure result if available, otherwise fall back to defaults
+						...(result.baseUrl && { baseUrl: result.baseUrl }),
 						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
@@ -1414,72 +1735,3 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		return GoogleLanguageModel.source.provider.displayName;
 	}
 }
-
-interface ModelDefinition {
-	name: string;
-	identifier: string;
-	maxInputTokens?: number;
-	maxOutputTokens?: number;
-}
-
-// Note: we don't query for available models using any provider API since it may return ones that are not
-// suitable for chat and we don't want the selection to be too large
-export const availableModels = new Map<string, ModelDefinition[]>(
-	[
-		//
-		['anthropic-api', [
-			{
-				name: 'Claude Sonnet 4.5',
-				identifier: 'claude-sonnet-4-5',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude Opus 4.1',
-				identifier: 'claude-opus-4-1',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude Haiku 4.5',
-				identifier: 'claude-haiku-4-5',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-		]],
-		['google', [
-			{
-				name: 'Gemini 2.5 Flash',
-				identifier: 'gemini-2.5-pro-exp-03-25',
-				maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview
-			},
-			{
-				name: 'Gemini 2.0 Flash',
-				identifier: 'gemini-2.0-flash-exp',
-				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
-			},
-			{
-				name: 'Gemini 1.5 Flash 002',
-				identifier: 'gemini-1.5-flash-002',
-				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
-			},
-		]],
-		['amazon-bedrock', [
-			{
-				name: 'Claude 4 Sonnet Bedrock',
-				identifier: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-			{
-				name: 'Claude 4 Opus Bedrock',
-				identifier: 'us.anthropic.claude-opus-4-20250514-v1:0',
-				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 32K tokens available)
-			},
-			{
-				name: 'Claude 3.7 Sonnet v1 Bedrock',
-				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-		]]
-	]
-);

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { getEnabledProviders } from './config';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
@@ -17,7 +18,9 @@ export interface ManagedCredentialConfig {
 	/** Environment variable name that indicates managed credentials are available */
 	readonly envVar: string;
 	/** Validator function to confirm the env var value for managed credentials */
-	readonly validator: (string) => boolean;
+	readonly validator: (value: string) => boolean;
+	/** Optional provider variable configuration key for VS Code settings */
+	readonly providerVariableKey?: string;
 }
 
 /**
@@ -26,6 +29,17 @@ export interface ManagedCredentialConfig {
 export const AWS_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
 	displayName: 'AWS managed credentials',
 	envVar: 'AWS_WEB_IDENTITY_TOKEN_FILE',
+	providerVariableKey: 'bedrock',
+	validator: (value: string) => value.includes('posit-workbench'),
+};
+
+/**
+ * Snowflake managed credentials configuration for Posit Workbench.
+ */
+export const SNOWFLAKE_MANAGED_CREDENTIALS: ManagedCredentialConfig = {
+	displayName: 'OAuth (Managed)',
+	envVar: 'SNOWFLAKE_HOME',
+	providerVariableKey: 'snowflake',
 	validator: (value: string) => value.includes('posit-workbench'),
 };
 
@@ -49,6 +63,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	// - managed credentials are available
 
 	if (!IS_RUNNING_ON_PWB) {
+		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
 		return { signedIn: false };
 	}
 
@@ -56,19 +71,29 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 		providers => providers.includes(providerId)
 	);
 	if (!providerEnabled) {
+		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings`);
 		return { signedIn: false };
 	}
 
 	// Check for managed credentials using the provided config
-	const tokenEnv = process.env[credentialConfig.envVar];
+	let tokenEnv = process.env[credentialConfig.envVar];
+
+	// Also check provider variables if configured
+	if (!tokenEnv && credentialConfig.providerVariableKey) {
+		const configSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<Record<string, any>>(credentialConfig.providerVariableKey, {});
+		tokenEnv = configSettings[credentialConfig.envVar];
+		log.debug(`[${displayName}] Checked provider variables for ${credentialConfig.envVar}: ${tokenEnv ? 'found' : 'not found'}`);
+	}
+
 	if (!tokenEnv || !credentialConfig.validator(tokenEnv)) {
-		// PWB managed credentials not set
+		log.debug(`[${displayName}] Managed credentials not available: ${credentialConfig.envVar}=${tokenEnv ? 'set but invalid' : 'not set'}`);
 		return { signedIn: false };
 	}
 
-	log.info(`[${displayName}] Auto-configuring with managed credentials.`);
+	log.info(`[${displayName}] Auto-configuring with managed credentials`);
+
 	return {
 		signedIn: true,
-		message: credentialConfig.displayName,
+		message: credentialConfig.displayName
 	};
 }

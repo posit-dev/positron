@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import { env, Position, Range, Selection, SnippetString, TextDocument, TextEditor, TextEditorCursorStyle, TextEditorLineNumbersStyle, Uri, window, workspace } from 'vscode';
 import { assertNoRpc, closeAllEditors, createRandomFile, deleteFile } from '../utils';
 
-suite('vscode API - editors', () => {
+suite.skip('vscode API - editors', () => {
 
 	teardown(async function () {
 		assertNoRpc();

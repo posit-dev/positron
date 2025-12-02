@@ -18,6 +18,7 @@ import { IPositronConnectionEntry } from '../../../../services/positronConnectio
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { KeyboardModifiers, PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 
 const DETAILS_BAR_HEIGHT = 26;
 
@@ -294,7 +295,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		return '';
 	}
 
-	const icon = (() => {
+	/*
+	Icon showing the element kind (table, view, schema, etc)
+
+	The icon can be either a base64 encoded image or a codicon class.
+	If it's a base64 encoded image, we render an img tag.
+	If it's a codicon class, we render a div with the appropriate class.
+	*/
+	const ElementIcon = (() => {
 		// icon is a base64 encoded png
 		if (props.item.icon) {
 			return <img
@@ -310,7 +318,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			)}
 		>
 		</div>
-	})();
+	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
@@ -365,6 +373,28 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		)
 	});
 
+	const PreviewButton = (({ onPreview }: { onPreview: (() => Promise<void>) | undefined }) => {
+		const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
+		const previewCallback = onPreview ? async (_e: KeyboardModifiers) => {
+			setShowSpinner(true);
+			try {
+				await onPreview();
+			} finally {
+				setShowSpinner(false);
+			}
+		} : undefined;
+
+		return <PositronButton
+			ariaLabel={localize('positron.schemaNavigation.previewElement', 'Preview element')}
+			className='connections-icon'
+			disabled={onPreview === undefined || showSpinner}
+			onPressed={previewCallback}
+		>
+			{showSpinner ? <div className='codicon codicon-loading animate-spin' /> : <ElementIcon />}
+		</PositronButton>
+	});
+
 	return (
 		<div
 			className={positronClassNames(
@@ -386,15 +416,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{props.item.dtype && <span className='connections-dtype'>{props.item.dtype}</span>}
 				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
-			<div
-				className={positronClassNames(
-					'connections-icon',
-					{ 'disabled': props.item.preview === undefined }
-				)}
-				onClick={() => props.item.preview?.()}
-			>
-				{icon}
-			</div>
+			<PreviewButton onPreview={props.item.preview} />
 		</div>
 	);
 };

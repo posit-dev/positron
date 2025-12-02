@@ -1,12 +1,15 @@
 {
-  "languages": {
-    "TypeScript": {
-      "tab_size": 2,
-      "hard_tabs": false,
-      "ensure_final_newline_on_save": true,
-      "remove_trailing_whitespace_on_save": true,
-      "format_on_save": "on",
-      "formatter": "language_server"
-    }
-  }
+	"languages": {
+		"TypeScript": {
+			"tab_size": 2,
+			"hard_tabs": false,
+			"ensure_final_newline_on_save": true,
+			"remove_trailing_whitespace_on_save": true,
+			"format_on_save": "on",
+			"formatter": "language_server",
+			"code_actions_on_format": {
+				"source.fixAll.eslint": false
+			}
+		}
+	}
 }

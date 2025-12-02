@@ -762,16 +762,12 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
-		// Get notebook context if available, with error handling
-		let notebookContext: SerializedNotebookContext | undefined;
-		try {
-			notebookContext = await getAttachedNotebookContext(request);
-		} catch (err) {
-			log.error('[PositronAssistantChatParticipant] Error checking notebook context:', err);
-		}
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
 
 		// Render prompt with notebook context
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, {
+		const prompt = PromptRenderer.renderModePrompt({
+			mode: positron.PositronChatMode.Ask,
 			request,
 			sessions,
 			notebookContext
@@ -793,7 +789,8 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 		const notebookContext = await getAttachedNotebookContext(request);
 
 		// Render prompt with notebook context
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, {
+		const prompt = PromptRenderer.renderModePrompt({
+			mode: positron.PositronChatMode.Edit,
 			request,
 			sessions,
 			notebookContext
@@ -815,7 +812,8 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 		const notebookContext = await getAttachedNotebookContext(request);
 
 		// Render prompt with notebook context
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, {
+		const prompt = PromptRenderer.renderModePrompt({
+			mode: positron.PositronChatMode.Agent,
 			request,
 			sessions,
 			notebookContext
@@ -833,7 +831,11 @@ export class PositronAssistantTerminalParticipant extends PositronAssistantParti
 		// The terminal prompt includes how to handle warnings in the response.
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, sessions });
+		const prompt = PromptRenderer.renderModePrompt({
+			mode: positron.PositronChatAgentLocation.Terminal,
+			request,
+			sessions
+		});
 		return prompt.content;
 	}
 }
@@ -848,7 +850,11 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		}
 
 		const streamingEdits = isStreamingEditsEnabled();
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, streamingEdits });
+		const prompt = PromptRenderer.renderModePrompt({
+			mode: positron.PositronChatAgentLocation.Editor,
+			request,
+			streamingEdits
+		});
 		return prompt.content;
 	}
 

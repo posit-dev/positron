@@ -37,3 +37,7 @@ bar to fill the center of the toolbar.
 .preview-action-bar .preview-title {
 	flex-grow: 1;
 }
+
+.preview-action-bar .action-bar-button-icon.interrupt::before {
+	color: var(--vscode-errorForeground);
+}
