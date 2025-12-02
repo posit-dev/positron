@@ -38,7 +38,7 @@ test.describe('Reticulate', {
 
 		await sessions.start('pythonReticulate');
 
-		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)');
+		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)', 60000);
 
 		await app.workbench.sessions.restart('Python (reticulate)', { waitForIdle: false });
 

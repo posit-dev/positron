@@ -325,7 +325,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	async $createLanguageRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata): Promise<extHostProtocol.RuntimeInitialState> {
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
+	): Promise<extHostProtocol.RuntimeInitialState> {
 		// Look up the session manager responsible for restoring this session
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
 
@@ -342,6 +344,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			const session =
 				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
 			const handle = this.attachToSession(session);
+
+			session.updateSessionName(sessionName);
+
 			const initalState = {
 				handle,
 				dynState: await session.getDynState()

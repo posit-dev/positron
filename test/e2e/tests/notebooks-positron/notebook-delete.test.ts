@@ -30,7 +30,7 @@ test.describe('Notebook: Delete', {
 		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
 		await notebooksPositron.performCellAction('delete');
 		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', 'Cell 3']);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '### Cell 3']);
 		await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 
 		// delete from bottom moves focus up to previous cell

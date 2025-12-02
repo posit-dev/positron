@@ -44,15 +44,30 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	});
 
 	/**
-	 * Tests the sign in and sign out functionality for a model provider.
-	 * This uses the test Echo provider as there is not a valid API key for the other providers.
-	 *
+	 * Tests the sign in and sign out functionality for the Anthropic model provider.
 	 * @param app - Application fixture providing access to UI elements
 	 */
-	test('Echo: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
+	test('Anthropic: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
+		await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+		await app.workbench.assistant.clickSignInButton();
+		await app.workbench.assistant.verifySignOutButtonVisible();
+		await app.workbench.assistant.clickSignOutButton();
+		await app.workbench.assistant.verifySignInButtonVisible();
+		await app.workbench.assistant.clickCloseButton();
+	});
+
+	/**
+ * Tests the sign in and sign out functionality for the OpenAI model provider.
+ * @param app - Application fixture providing access to UI elements
+ */
+	test('OpenAI: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.selectModelProvider('openai-api');
+		await app.workbench.assistant.enterApiKey(`${process.env.OPENAI_KEY}`);
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();
 		await app.workbench.assistant.clickSignOutButton();
