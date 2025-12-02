@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -61,7 +61,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 			.getByRole('heading', { name: 'Old Faithful' })
 			.waitFor({ state: 'visible', timeout: 30000 });
 	});
-})
+});
 
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
