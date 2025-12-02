@@ -787,9 +787,9 @@
               "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored files/directories). When true, only the explicit `exclude` patterns will be applied.",
               "default": false
             },
-            "maxFiles": {
+            "maxItems": {
               "type": "number",
-              "description": "The maximum number of files to include in the project tree (<=50). If this limit is reached, a compressed description of the project will be provided instead.",
+              "description": "The maximum number of items (files or directories) to include in the project tree (<=50). If this limit is reached, a compressed description of the project will be provided instead.",
               "default": 50
             },
             "directoriesOnly": {
