@@ -133,9 +133,13 @@
 		background-color: var(--vscode-textBlockQuote-background);
 	}
 
+	/* inline code styling */
 	code {
 		font-size: 1em;
 		font-family: var(--vscode-repl-font-family);
+		background-color: var(--vscode-textPreformat-background);
+		padding: 1px 3px;
+		border-radius: 4px;
 	}
 
 	pre code {
