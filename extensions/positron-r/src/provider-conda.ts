@@ -16,18 +16,6 @@ import { ReasonDiscovered } from './r-installation.js';
 const execPromise = util.promisify(exec);
 
 /**
- * Check if Conda is installed by running `conda --version`
- */
-export async function isCondaAvailable(): Promise<boolean> {
-	try {
-		await execPromise('conda --version');
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/**
  * Retrieve Conda environment paths from ~/.conda/environments.txt
  */
 function getCondaEnvironmentsFromFile(): string[] {
@@ -133,21 +121,20 @@ export async function discoverCondaBinaries(): Promise<RBinary[]> {
 }
 
 /**
- * Find the conda activate script path from a conda environment path
- * On Windows, returns the full path to activate.bat
- * On Unix, returns undefined (conda activate works via shell function)
+ * Find the conda executable path from a conda environment path
+ * On Windows, returns the full path to conda.exe
+ * On Unix, returns undefined (conda command works via PATH)
  *
  * @param envPath Path to the conda environment
- * @returns Path to activate script, or undefined if not found or not needed
+ * @returns Path to conda.exe, or undefined if not found or not needed
  */
-export function findCondaActivateScript(envPath: string): string | undefined {
+export function findCondaExe(envPath: string): string | undefined {
 	if (process.platform !== 'win32') {
-		// On Unix-like systems, conda activate is typically a shell function
-		// so we don't need to find a script path
+		// On Unix-like systems, conda command is typically available via PATH
 		return undefined;
 	}
 
-	// On Windows, try to find activate.bat
+	// On Windows, try to find conda.exe
 	// The environment path is typically: <conda_root>\envs\<env_name>
 	// or for the base environment: <conda_root>
 
@@ -164,20 +151,20 @@ export function findCondaActivateScript(envPath: string): string | undefined {
 		condaRoot = path.dirname(envPath);
 	}
 
-	// Try to find activate.bat in Scripts directory
-	const activatePath = path.join(condaRoot, 'Scripts', 'activate.bat');
-	if (fs.existsSync(activatePath)) {
-		LOGGER.info(`Found conda activate.bat at: ${activatePath}`);
-		return activatePath;
+	// Try to find conda.exe in Scripts directory
+	const condaExePath = path.join(condaRoot, 'Scripts', 'conda.exe');
+	if (fs.existsSync(condaExePath)) {
+		LOGGER.info(`Found conda.exe at: ${condaExePath}`);
+		return condaExePath;
 	}
 
 	// If that didn't work, try the condabin directory (newer conda installations)
-	const condabinActivatePath = path.join(condaRoot, 'condabin', 'activate.bat');
-	if (fs.existsSync(condabinActivatePath)) {
-		LOGGER.info(`Found conda activate.bat at: ${condabinActivatePath}`);
-		return condabinActivatePath;
+	const condabinCondaExePath = path.join(condaRoot, 'condabin', 'conda.exe');
+	if (fs.existsSync(condabinCondaExePath)) {
+		LOGGER.info(`Found conda.exe at: ${condabinCondaExePath}`);
+		return condabinCondaExePath;
 	}
 
-	LOGGER.warn(`Could not find conda activate.bat for environment: ${envPath}`);
+	LOGGER.warn(`Could not find conda.exe for environment: ${envPath}`);
 	return undefined;
 }
