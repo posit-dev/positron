@@ -82,7 +82,7 @@ def json_model_graded_eval():
 		data = json.load(f)
 
 	test_data = data.get("tests", [])
-	model_name = "anthropic/claude-3-7-sonnet-20250219"
+	model_name = "anthropic/claude-haiku-4-5-20251001"
 
 	# Create samples from the loaded JSON data
 	samples = [record_to_sample(record) for record in test_data]
