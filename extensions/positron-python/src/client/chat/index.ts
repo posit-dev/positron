@@ -56,11 +56,6 @@ export function registerTools(
 
     // --- Start Positron ---
     // Add the positron install packages tool
-    ourTools.add(
-        lm.registerTool(
-            PositronInstallPackagesTool.toolName,
-            new PositronInstallPackagesTool(),
-        ),
-    );
+    ourTools.add(lm.registerTool(PositronInstallPackagesTool.toolName, new PositronInstallPackagesTool()));
     // --- End Positron ---
 }
