@@ -108,7 +108,10 @@ function markedHighlight(options: marked.MarkedOptions & {
 			code({ text, lang, escaped }: marked.Tokens.Code) {
 				const classAttr = lang ? ` class="language-${escape(lang)}"` : '';
 				text = text.replace(/\n$/, '');
-				return `<pre><code${classAttr}>${escaped ? text : escape(text)}\n</code></pre>`;
+				// Note: We intentionally omit the trailing \n that marked-highlight includes.
+				// The \n is preserved by <pre>'s default white-space:pre behavior
+				// this causes visible whitespace at the bottom of code blocks in Positron notebooks.
+				return `<pre><code${classAttr}>${escaped ? text : escape(text)}</code></pre>`;
 			},
 		},
 	};
