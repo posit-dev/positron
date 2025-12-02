@@ -121,23 +121,23 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		const totalItems = workspaceTrees.reduce((sum, obj) => sum + obj.totalItems, 0);
 
-		// If we applied default exclusions and results are very sparse, run the search without the default exclusions and note if there are additional, excluded results in the tool results.
-		let excludedCount = 0;
+		// If we applied default exclusions and results are very sparse, check if there are any excluded results.
+		let hasExcludedResults = false;
 		const sparseThreshold = Math.floor(itemsLimit / 10);
 		if (!skipExcludes && totalItems < sparseThreshold) {
-			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Searching again to determine how many items were excluded...`);
-			let totalItemsBeforeExclusion = 0;
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Checking if any items were excluded...`);
 			for (const folder of workspaceFolders) {
 				if (directoriesOnly) {
-					const allDirectories = await collectDirectories(
+					const dirs = await collectDirectories(
 						folder.uri,
 						globPatterns,
 						excludePatterns,
-						token
+						token,
+						totalItems + 1
 					);
-					totalItemsBeforeExclusion += allDirectories.length;
+					hasExcludedResults = dirs.length > totalItems;
 				} else {
-					const allMatchesUris = await vscode.workspace.findFiles2(
+					const matchedUris = await vscode.workspace.findFiles2(
 						globPatterns,
 						{
 							exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
@@ -147,13 +147,16 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 								global: false,
 							},
 							useExcludeSettings: vscode.ExcludeSettingOptions.None,
+							maxResults: totalItems + 1,
 						},
 						token
 					);
-					totalItemsBeforeExclusion += allMatchesUris.length;
+					hasExcludedResults = matchedUris.length > totalItems;
+				}
+				if (hasExcludedResults) {
+					break;
 				}
 			}
-			excludedCount = totalItemsBeforeExclusion - totalItems;
 		}
 
 		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folders.`);
@@ -177,9 +180,8 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
 		}
 
-		// Inform the model if results were excluded
-		if (excludedCount > 0) {
-			const exclusionMessage = `${excludedCount} result${excludedCount === 1 ? ' was' : 's were'} excluded. Set \`skipDefaultExcludes\` to \`true\` to include them.`;
+		if (hasExcludedResults) {
+			const exclusionMessage = 'Results were excluded. Set `skipDefaultExcludes` to `true` to include them.';
 			log.debug(`[${PositronAssistantToolName.ProjectTree}] ${exclusionMessage}`);
 			resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
 		}
@@ -238,12 +240,13 @@ async function collectDirectories(
 	workspaceUri: vscode.Uri,
 	includePatterns: string[],
 	excludePatterns: string[],
-	token: vscode.CancellationToken
+	token: vscode.CancellationToken,
+	limit?: number
 ): Promise<string[]> {
 	const directories: string[] = [];
 
 	async function traverse(uri: vscode.Uri): Promise<void> {
-		if (token.isCancellationRequested) {
+		if (token.isCancellationRequested || (limit && directories.length >= limit)) {
 			return;
 		}
 
@@ -251,6 +254,9 @@ async function collectDirectories(
 			const entries = await vscode.workspace.fs.readDirectory(uri);
 
 			for (const [name, type] of entries) {
+				if (limit && directories.length >= limit) {
+					return;
+				}
 				if (type === vscode.FileType.Directory) {
 					const dirUri = vscode.Uri.joinPath(uri, name);
 					const relativePath = vscode.workspace.asRelativePath(dirUri, false);
