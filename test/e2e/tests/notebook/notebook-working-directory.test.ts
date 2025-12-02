@@ -70,7 +70,7 @@ test.describe('Notebook Working Directory Configuration', {
 });
 
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
-	await notebooks.openNotebook('working-directory.ipynb', false);
+	await notebooks.openNotebook('working-directory.ipynb');
 	await notebooks.selectInterpreter('Python');
 	await notebooks.runAllCells();
 	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
