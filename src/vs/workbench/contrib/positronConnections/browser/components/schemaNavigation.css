@@ -69,10 +69,9 @@
 	flex-shrink: 0;
 	flex-grow: 0;
 	padding: 0 5px;
-	outline-width: 0;
 }
 
-.connections-item .connections-icon[tabindex="0"]:focus:not(:focus-visible) {
+.connections-item .connections-icon:focus:not(:focus-visible) {
 	outline-width: 0;
 }
 
