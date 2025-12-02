@@ -26,6 +26,10 @@ import { ChatContextKeys } from '../../common/chatContextKeys.js';
 import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
 import { ConfigureToolSets } from '../tools/toolSetsContribution.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+// --- End Positron ---
+
 const enum BucketOrdinal { User, BuiltIn, Mcp, Extension }
 
 // Legacy QuickPick types (existing implementation)
@@ -183,6 +187,7 @@ function createToolSetTreeItem(toolset: ToolSet, checked: boolean, editorService
  * @param placeHolder - Placeholder text shown in the picker
  * @param description - Optional description text shown in the picker
  * @param toolsEntries - Optional initial selection state for tools and toolsets
+ * @param selectedLanguageModel - Optional selected language model to filter tools for
  * @param onUpdate - Optional callback fired when the selection changes
  * @returns Promise resolving to the final selection map, or undefined if cancelled
  */
@@ -190,7 +195,10 @@ export async function showToolsPicker(
 	accessor: ServicesAccessor,
 	placeHolder: string,
 	description?: string,
-	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>
+	// --- Start Positron ---
+	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>,
+	selectedLanguageModel?: ILanguageModelChatMetadataAndIdentifier
+	// --- End Positron ---
 ): Promise<ReadonlyMap<ToolSet | IToolData, boolean> | undefined> {
 
 	const quickPickService = accessor.get(IQuickInputService);
@@ -378,6 +386,10 @@ export async function showToolsPicker(
 			return bucket;
 		};
 
+		// --- Start Positron ---
+		const languageModelToolsService = accessor.get(ILanguageModelToolsService);
+		// --- End Positron ---
+
 		for (const toolSet of toolsService.toolSets.get()) {
 			if (!toolsEntries.has(toolSet)) {
 				continue;
@@ -388,6 +400,15 @@ export async function showToolsPicker(
 			}
 			const toolSetChecked = toolsEntries.get(toolSet) === true;
 			if (toolSet.source.type === 'mcp') {
+				// --- Start Positron ---
+				// Check if any tools in this MCP toolset are enabled for the selected model
+				const hasEnabledTools = [...toolSet.getTools()].some(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				if (!hasEnabledTools) {
+					continue;
+				}
+				// --- End Positron ---
 				// bucket represents the toolset
 				bucket.toolset = toolSet;
 				if (toolSetChecked) {
@@ -395,6 +416,16 @@ export async function showToolsPicker(
 				}
 				// all mcp tools are part of toolsService.getTools()
 			} else {
+				// --- Start Positron ---
+				// Filter tools first to check if any are enabled for the selected model
+				const enabledTools = [...toolSet.getTools()].filter(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				// Skip toolset entirely if no tools are enabled for the selected model
+				if (enabledTools.length === 0) {
+					continue;
+				}
+				// --- End Positron ---
 				const treeItem = createToolSetTreeItem(toolSet, toolSetChecked, editorService);
 				bucket.children.push(treeItem);
 				const children = [];
@@ -412,6 +443,12 @@ export async function showToolsPicker(
 			if (!tool.canBeReferencedInPrompt || !toolsEntries.has(tool)) {
 				continue;
 			}
+			// --- Start Positron ---
+			// Filter out tools not enabled for the selected model
+			if (!languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)) {
+				continue;
+			}
+			// --- End Positron ---
 			const bucket = getBucket(tool.source);
 			if (!bucket) {
 				continue;

@@ -29,6 +29,10 @@ import { ChatRequestToolReferenceEntry } from './chatVariableEntries.js';
 import { LanguageModelPartAudience } from './languageModels.js';
 import { PromptElementJSON, stringifyPromptElementJSON } from './tools/promptTsxTypes.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../common/languageModels.js';
+// --- End Positron ---
+
 export interface IToolData {
 	id: string;
 	source: ToolDataSource;
@@ -371,6 +375,10 @@ export interface ILanguageModelToolsService {
 	toToolAndToolSetEnablementMap(qualifiedToolOrToolSetNames: readonly string[], target: string | undefined): IToolAndToolSetEnablementMap;
 	toQualifiedToolNames(map: IToolAndToolSetEnablementMap): string[];
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[];
+
+	// --- Start Positron ---
+	isToolEnabledForModel(toolId: string, selectedLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean;
+	// --- End Positron ---
 }
 
 export function createToolInputUri(toolCallId: string): URI {

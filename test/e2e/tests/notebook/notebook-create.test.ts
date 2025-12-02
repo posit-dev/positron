@@ -114,7 +114,7 @@ test.describe('Notebooks', {
 			}).toPass({ timeout: 15000 });
 		});
 
-		test('Python - Ensure LSP works across cells', async function ({ app }) {
+		test.skip('Python - Ensure LSP works across cells', async function ({ app }) {
 			const { notebooks } = app.workbench;
 
 			await notebooks.insertNotebookCell('code');

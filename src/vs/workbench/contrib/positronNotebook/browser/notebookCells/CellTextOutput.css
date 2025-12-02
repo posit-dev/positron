@@ -29,6 +29,15 @@
 	opacity: 0.8;
 }
 
+/* Use theme link colors */
+.notebook-output-truncation-message a {
+	color: var(--vscode-textLink-foreground);
+}
+.notebook-output-truncation-message a:hover,
+.notebook-output-truncation-message a:active {
+	color: var(--vscode-textLink-activeForeground);
+}
+
 .positron-notebook-text-output.long-output-scroll + .notebook-output-truncation-message {
 	text-align: right;
 }

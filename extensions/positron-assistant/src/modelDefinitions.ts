@@ -31,7 +31,9 @@ export async function verifyProvidersInConfiguredModels() {
 	const configuredModels = config.get<Record<string, ModelDefinition[]>>('configuredModels', {});
 	const enabledProviders = await getEnabledProviders();
 
-	const invalidProviders = Object.keys(configuredModels).filter(providerId => !enabledProviders.includes(providerId));
+	const invalidProviders = Object.keys(configuredModels)
+		// Note: 'copilot' is a special case, where we don't support configuredModels
+		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
 	if (invalidProviders.length === 0) {
 		return;
 	}
@@ -81,6 +83,34 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			identifier: 'gemini-2.0-flash-exp',
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
+	]],
+	// Model listing reference: https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql#regional-availability
+	['snowflake-cortex', [
+		{
+			name: 'Claude Sonnet 4',
+			identifier: 'claude-4-sonnet',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Sonnet 4.5',
+			identifier: 'claude-sonnet-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'Claude Haiku 4.5',
+			identifier: 'claude-haiku-4-5',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		},
+		{
+			name: 'GPT-5',
+			identifier: 'openai-gpt-5',
+			maxInputTokens: 128_000, // Typical GPT-5 context window
+		},
+		{
+			name: 'GPT-4.1',
+			identifier: 'openai-gpt-4.1',
+			maxInputTokens: 128_000, // Typical GPT-5 context window
+		},
 	]]
 ]);
 
@@ -96,4 +126,3 @@ export function getAllModelDefinitions(providerId: string): ModelDefinition[] {
 	}
 	return builtInModelDefinitions.get(providerId) || [];
 }
-

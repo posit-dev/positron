@@ -30,13 +30,13 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.selectCellAtIndex(0);
 		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, inEditMode: true });
 		await keyboard.type('cell editor good');
-		await notebooksPositron.expectCellContentAtIndexToContain(0, 'cell editor good');
+		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0cell editor good');
 
 		// Markdown cell: Can successfully enter edit mode by double clicking and typing
 		await notebooksPositron.selectCellAtIndex(2, { editMode: true });
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, inEditMode: true });
 		await keyboard.type('markdown editor good');
-		await notebooksPositron.expectCellContentAtIndexToContain(2, 'markdown editor good');
+		await notebooksPositron.expectCellContentAtIndexToBe(2, 'markdown editor good### Cell 2');
 	});
 
 
@@ -55,7 +55,7 @@ test.describe('Notebook Edit Mode', {
 			inEditMode: true
 		});
 		await keyboard.type('code enter key');
-		await notebooksPositron.expectCellContentAtIndexToContain(0, 'code enter key');
+		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0code enter key');
 
 		// Markdown cell: Press Enter to enter edit mode and type
 		await notebooksPositron.selectCellAtIndex(2);
@@ -65,7 +65,7 @@ test.describe('Notebook Edit Mode', {
 			inEditMode: true
 		});
 		await keyboard.type('markdown enter key');
-		await notebooksPositron.expectCellContentAtIndexToContain(2, 'markdown enter key');
+		await notebooksPositron.expectCellContentAtIndexToBe(2, 'markdown enter key### Cell 2');
 
 	});
 
@@ -87,6 +87,6 @@ test.describe('Notebook Edit Mode', {
 
 		// Verify we can type immediately in the new cell
 		await keyboard.type('new cell content');
-		await notebooksPositron.expectCellContentAtIndexToContain(3, 'new cell content');
+		await notebooksPositron.expectCellContentAtIndexToBe(3, 'new cell content');
 	});
 });

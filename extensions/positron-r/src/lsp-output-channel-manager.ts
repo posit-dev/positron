@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 const LSP_OUTPUT_CHANNEL_DESCRIPTOR = 'Language Server';
 
@@ -48,7 +49,7 @@ export class RLspOutputChannelManager {
 
 		if (!out) {
 			const name = `${sessionName}: ${LSP_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1)})`;
-			out = vscode.window.createOutputChannel(name);
+			out = positron.window.createRawLogOutputChannel(name);
 			this._channels.set(key, out);
 		}
 

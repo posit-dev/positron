@@ -88,6 +88,23 @@ export class Console {
 	}
 
 	/**
+	 * Action: Create a single file via console
+	 */
+	async createFile(
+		runtime: 'Python' | 'R',
+		fileName: string
+	) {
+		await test.step(`Create file via ${runtime}`, async () => {
+			await this.focus();
+			const code = runtime === 'Python'
+				? `open('${fileName}', 'w').write('hello')`
+				: `file.create('${fileName}')`;
+
+			await this.pasteCodeToConsole(code, true);
+		});
+	}
+
+	/**
 	 * Verify: The session context menu contains the expected runtimes.
 	 *
 	 * @param contextMenu the context menu instance to use for interaction

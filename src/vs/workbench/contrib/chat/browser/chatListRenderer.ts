@@ -557,6 +557,17 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		} else {
 			ChatContextKeys.responseVote.bindTo(templateData.contextKeyService).set('');
 		}
+		// --- Start Positron ---
+		// Set current provider context key based the model used for the request
+		// Heuristic to determine if it is provided by Copilot, as model providers
+		// aren't guaranteed to be registered at this point for deterministic checks.
+		if (isResponseVM(element)) {
+			const provider = element.model.request?.modelId;
+			ChatContextKeys.responseFromCopilot
+				.bindTo(templateData.contextKeyService)
+				.set(provider?.includes('copilot') ?? false);
+		}
+		// --- End Positron ---
 
 		if (templateData.titleToolbar) {
 			templateData.titleToolbar.context = element;

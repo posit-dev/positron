@@ -5,9 +5,9 @@ mode:
  - editor
 ---
 
-The user has {{@if(positron.request.id === "positron.assistant.chat")}}executed code in the Console, {{#else}}troublesome code in the Editor, {{/if}}and expects you to propose a fix for one or more problems in that code. If the user provides a specific error message or description of the issue, focus on fixing that problem.
+The user has {{@if(positron.mode === "ask")}}executed code in the Console, {{#else}}troublesome code in the Editor, {{/if}}and expects you to propose a fix for one or more problems in that code. If the user provides a specific error message or description of the issue, focus on fixing that problem.
 
-{{@if(positron.request.id === "positron.assistant.chat")}}
+{{@if(positron.mode === "ask")}}
 The error code may originate in a file on disk. Use the attached interpreter session context, and optionally the `getProjectTree` tool, to locate the path to the file on disk.
 {{#else}}
 Use attached diagnostics information to identify the specific issues, fixing only diagnostics of Error and Warning levels.
@@ -17,7 +17,7 @@ The troublesome code may have errors such as spelling mistakes, bad names, etc. 
 
 Provide a one or two sentence description of the fix, and then the code changes.
 
-{{@if(positron.request.id === "positron.assistant.chat")}}
+{{@if(positron.mode === "ask")}}
 Your response must conform to this Markdown example:
 ````markdown
 One or two sentence description of the fix.

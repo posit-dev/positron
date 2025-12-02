@@ -22,6 +22,7 @@ const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
+const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 const APPLY_IN_EDITOR_BUTTON = 'a.action-label.codicon.codicon-git-pull-request-go-to-changes[role="button"][aria-label="Apply in Editor"]';
@@ -96,7 +97,8 @@ export class Assistant {
 
 	async verifyCodeBlockActions() {
 		await expect(this.code.driver.page.locator(RUN_BUTTON)).toHaveCount(1);
-		await expect(this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON)).toHaveCount(1);
+		// PR #10784: "Apply in Editor" button may be disabled depending on model chosen and user settings
+		await expect(await this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON).count()).toBeLessThanOrEqual(1);
 		await expect(this.code.driver.page.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(COPY_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
@@ -129,6 +131,9 @@ export class Assistant {
 				break;
 			case 'copilot':
 				await this.code.driver.page.locator(COPILOT_BUTTON).click();
+				break;
+			case `openai-api`:
+				await this.code.driver.page.locator(OPENAI_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
