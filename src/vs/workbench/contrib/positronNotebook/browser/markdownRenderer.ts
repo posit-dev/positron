@@ -108,7 +108,7 @@ function markedHighlight(options: marked.MarkedOptions & {
 			code({ text, lang, escaped }: marked.Tokens.Code) {
 				const classAttr = lang ? ` class="language-${escape(lang)}"` : '';
 				text = text.replace(/\n$/, '');
-				return `<pre><code${classAttr}>${escaped ? text : escape(text)}\n</code></pre>`;
+				return `<pre><code${classAttr}>${escaped ? text : escape(text)}</code></pre>`;
 			},
 		},
 	};

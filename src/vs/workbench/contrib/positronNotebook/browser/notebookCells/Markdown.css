@@ -142,10 +142,18 @@
 		border-radius: 4px;
 	}
 
+	/** code block styling */
+	pre {
+		background-color: var(--vscode-textCodeBlock-background);
+		padding: 16px;
+		border-radius: 4px;
+	}
+
 	pre code {
 		line-height: 1.357em;
 		white-space: pre-wrap;
 		padding: 0;
+		background-color: transparent; /* override inline code style */
 	}
 
 	li p {
