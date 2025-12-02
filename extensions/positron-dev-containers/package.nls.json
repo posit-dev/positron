@@ -15,28 +15,10 @@
 	"configuration.gpuAvailability.detect": "Availability should be detected automatically.",
 	"configuration.gpuAvailability.none": "No GPUs are available.",
 	"configuration.gpuAvailability.description": "Availability of GPUs when a dev container requires any.",
-	"configuration.copyGitConfig.markdownDescription": "Controls whether the Git configuration (`~/.gitconfig`) should be copied into the container. This is done after installing any `#dotfiles.repository#` and will not overwrite an existing Git configuration file.",
-	"configuration.gitCredentialHelperConfigLocation.system": "Write to system config (`/etc/gitconfig`, requires root access).",
-	"configuration.gitCredentialHelperConfigLocation.global": "Write to user config (`~/.gitconfig`).",
-	"configuration.gitCredentialHelperConfigLocation.none": "Do not set a credential helper.",
-	"configuration.gitCredentialHelperConfigLocation.description": "Where to write the configuration for the Git credential helper.",
-	"configuration.dockerCredentialHelper.markdownDescription": "Controls whether a credential helper should be registered as the `credStore` in the Docker configuration (`~/.docker/config.json`) of dev containers. This will not overwrite an existing `credStore` entry in the configuration file.",
-	"configuration.githubCLILoginWithToken.markdownDescription": "Controls whether GitHub CLI login with a token from the local GitHub CLI should be enabled in the Dev Container.",
-	"configuration.mountWaylandSocket.markdownDescription": "Controls whether a Wayland socket, if one exists, should be mounted into the Dev Container.",
 	"configuration.logLevel.description": "The log level for the extension.",
 	"configuration.dockerPath.description": "Docker (or Podman) executable name or path.",
 	"configuration.dockerComposePath.description": "Docker Compose executable name or path.",
 	"configuration.dockerSocketPath.description": "Docker socket path. Used, e.g., when connecting to a Dev Container with the devcontainer.json in a Docker Volume.",
-	"configuration.executeInWSL.description": "Controls whether CLI commands should always be executed in WSL. The default is to only execute in WSL for workspace folders in WSL. This setting has no effect on other platforms than Windows.",
-	"configuration.executeInWSLDistro.markdownDescription": "WSL distro to use when not reopening a WSL folder. The default is to use the default WSL distro (see `wsl -l`). This setting has no effect when `#dev.containers.executeInWSL#` is not enabled or on other platforms than Windows.",
-	"configuration.forwardWSLServices.description": "Controls whether services in WSL (SSH agent, GPG agent, X display, Wayland display) are forwarded into the container. This setting has no effect on other platforms than Windows.",
-	"configuration.repositoryConfigurationPaths.markdownDescription": {
-		"message": "List of additional paths to search for [repository configurations](https://code.visualstudio.com/docs/devcontainers/create-dev-container#_alternative-repository-configuration-folders).",
-		"comment": [
-			"{Locked='](https://code.visualstudio.com/docs/devcontainers/create-dev-container#_alternative-repository-configuration-folders)'}"
-		]
-	},
-	"configuration.optimisticallyLaunchDocker.description": "Optimistically attempt to start docker if the daemon is not already running.",
 	"command.category": "Dev Containers",
 	"command.developerCategory": "Dev Containers Developer",
 	"command.reopenInContainer": "Reopen in Container",

@@ -93,47 +93,6 @@
           "description": "%configuration.gpuAvailability.description%",
           "default": "detect"
         },
-        "dev.containers.copyGitConfig": {
-          "scope": "machine",
-          "type": "boolean",
-          "markdownDescription": "%configuration.copyGitConfig.markdownDescription%",
-          "default": true
-        },
-        "dev.containers.gitCredentialHelperConfigLocation": {
-          "scope": "machine",
-          "type": "string",
-          "enum": [
-            "system",
-            "global",
-            "none"
-          ],
-          "enumDescriptions": [
-            "%configuration.gitCredentialHelperConfigLocation.system%",
-            "%configuration.gitCredentialHelperConfigLocation.global%",
-            "%configuration.gitCredentialHelperConfigLocation.none%"
-          ],
-          "description": "%configuration.gitCredentialHelperConfigLocation.description%",
-          "default": "global"
-        },
-        "dev.containers.dockerCredentialHelper": {
-          "scope": "machine",
-          "type": "boolean",
-          "markdownDescription": "%configuration.dockerCredentialHelper.markdownDescription%",
-          "default": true
-        },
-        "dev.containers.githubCLILoginWithToken": {
-          "scope": "machine",
-          "type": "boolean",
-          "markdownDescription": "%configuration.githubCLILoginWithToken.markdownDescription%",
-          "default": false
-        },
-        "dev.containers.mountWaylandSocket": {
-          "scope": "application",
-          "ignoreSync": true,
-          "type": "boolean",
-          "markdownDescription": "%configuration.mountWaylandSocket.markdownDescription%",
-          "default": true
-        },
         "dev.containers.logLevel": {
           "scope": "application",
           "type": "string",
@@ -168,38 +127,6 @@
           "type": "string",
           "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz",
           "markdownDescription": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- `${quality}`: Positron server quality, e.g. stable or insiders\n- `${version}`: Positron server version, e.g. 2024.10.0-123\n- `${commit}`: Positron server release commit\n- `${os}`: Positron server OS, e.g. linux, darwin, win32\n- `${arch}`: Positron server arch, e.g. x64, arm64\n- `${arch-long}`: Positron server arch in long format, e.g. x86_64, arm64"
-        },
-        "dev.containers.executeInWSL": {
-          "scope": "application",
-          "type": "boolean",
-          "description": "%configuration.executeInWSL.description%",
-          "default": false
-        },
-        "dev.containers.executeInWSLDistro": {
-          "scope": "application",
-          "type": "string",
-          "markdownDescription": "%configuration.executeInWSLDistro.markdownDescription%"
-        },
-        "dev.containers.forwardWSLServices": {
-          "scope": "application",
-          "type": "boolean",
-          "description": "%configuration.forwardWSLServices.description%",
-          "default": true
-        },
-        "dev.containers.repositoryConfigurationPaths": {
-          "scope": "application",
-          "type": "array",
-          "markdownDescription": "%configuration.repositoryConfigurationPaths.markdownDescription%",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "dev.containers.optimisticallyLaunchDocker": {
-          "scope": "application",
-          "type": "boolean",
-          "description": "%configuration.optimisticallyLaunchDocker.description%",
-          "default": true
         }
       }
     },

@@ -25,20 +25,10 @@ export interface DevContainerConfiguration {
 	defaultFeatures: Record<string, any>;
 	workspaceMountConsistency: 'consistent' | 'cached' | 'delegated';
 	gpuAvailability: 'all' | 'detect' | 'none';
-	copyGitConfig: boolean;
-	gitCredentialHelperConfigLocation: 'system' | 'global' | 'none';
-	dockerCredentialHelper: boolean;
-	githubCLILoginWithToken: boolean;
-	mountWaylandSocket: boolean;
 	logLevel: LogLevel;
 	dockerPath: string;
 	dockerComposePath: string;
 	dockerSocketPath: string;
-	executeInWSL: boolean;
-	executeInWSLDistro?: string;
-	forwardWSLServices: boolean;
-	repositoryConfigurationPaths: string[];
-	optimisticallyLaunchDocker: boolean;
 }
 
 /**

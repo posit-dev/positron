@@ -47,20 +47,10 @@ export class Configuration {
 			defaultFeatures: this.getDefaultFeatures(),
 			workspaceMountConsistency: this.getWorkspaceMountConsistency(),
 			gpuAvailability: this.getGpuAvailability(),
-			copyGitConfig: this.getCopyGitConfig(),
-			gitCredentialHelperConfigLocation: this.getGitCredentialHelperConfigLocation(),
-			dockerCredentialHelper: this.getDockerCredentialHelper(),
-			githubCLILoginWithToken: this.getGithubCLILoginWithToken(),
-			mountWaylandSocket: this.getMountWaylandSocket(),
 			logLevel: this.getLogLevel(),
 			dockerPath: this.getDockerPath(),
 			dockerComposePath: this.getDockerComposePath(),
-			dockerSocketPath: this.getDockerSocketPath(),
-			executeInWSL: this.getExecuteInWSL(),
-			executeInWSLDistro: this.getExecuteInWSLDistro(),
-			forwardWSLServices: this.getForwardWSLServices(),
-			repositoryConfigurationPaths: this.getRepositoryConfigurationPaths(),
-			optimisticallyLaunchDocker: this.getOptimisticallyLaunchDocker()
+			dockerSocketPath: this.getDockerSocketPath()
 		};
 	}
 
@@ -97,41 +87,6 @@ export class Configuration {
 	 */
 	getGpuAvailability(): 'all' | 'detect' | 'none' {
 		return this.config.get<'all' | 'detect' | 'none'>('gpuAvailability', 'detect');
-	}
-
-	/**
-	 * Get copy git config setting
-	 */
-	getCopyGitConfig(): boolean {
-		return this.config.get<boolean>('copyGitConfig', true);
-	}
-
-	/**
-	 * Get git credential helper config location
-	 */
-	getGitCredentialHelperConfigLocation(): 'system' | 'global' | 'none' {
-		return this.config.get<'system' | 'global' | 'none'>('gitCredentialHelperConfigLocation', 'global');
-	}
-
-	/**
-	 * Get docker credential helper setting
-	 */
-	getDockerCredentialHelper(): boolean {
-		return this.config.get<boolean>('dockerCredentialHelper', true);
-	}
-
-	/**
-	 * Get GitHub CLI login with token setting
-	 */
-	getGithubCLILoginWithToken(): boolean {
-		return this.config.get<boolean>('githubCLILoginWithToken', false);
-	}
-
-	/**
-	 * Get mount Wayland socket setting
-	 */
-	getMountWaylandSocket(): boolean {
-		return this.config.get<boolean>('mountWaylandSocket', true);
 	}
 
 	/**
@@ -194,41 +149,6 @@ export class Configuration {
 	 */
 	getDockerSocketPath(): string {
 		return this.config.get<string>('dockerSocketPath', '/var/run/docker.sock');
-	}
-
-	/**
-	 * Get execute in WSL setting
-	 */
-	getExecuteInWSL(): boolean {
-		return this.config.get<boolean>('executeInWSL', false);
-	}
-
-	/**
-	 * Get execute in WSL distro setting
-	 */
-	getExecuteInWSLDistro(): string | undefined {
-		return this.config.get<string>('executeInWSLDistro');
-	}
-
-	/**
-	 * Get forward WSL services setting
-	 */
-	getForwardWSLServices(): boolean {
-		return this.config.get<boolean>('forwardWSLServices', true);
-	}
-
-	/**
-	 * Get repository configuration paths
-	 */
-	getRepositoryConfigurationPaths(): string[] {
-		return this.config.get<string[]>('repositoryConfigurationPaths', []);
-	}
-
-	/**
-	 * Get optimistically launch Docker setting
-	 */
-	getOptimisticallyLaunchDocker(): boolean {
-		return this.config.get<boolean>('optimisticallyLaunchDocker', true);
 	}
 }
 
