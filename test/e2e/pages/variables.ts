@@ -223,7 +223,11 @@ export class Variables {
 	async expectVariableToBe(variableName: string, value: string, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
-			const variableRow = this.variablesPane.locator('.name-column').filter({ hasText: variableName }).locator('..');
+			const variableRow = this.code.driver.page
+				.locator('.variables-instance[style*="z-index: 1"]')
+				.locator('.name-column')
+				.filter({ hasText: variableName })
+				.locator('..');
 
 			await expect(variableRow).toBeVisible({ timeout });
 			await expect(variableRow.locator('.details-column .value')).toHaveText(value);
