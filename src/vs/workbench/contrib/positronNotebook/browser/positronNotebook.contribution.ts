@@ -26,7 +26,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { checkPositronNotebookEnabled } from './positronNotebookExperimentalConfig.js';
+import { checkPositronNotebookEnabled, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -1362,6 +1362,46 @@ registerAction2(class extends NotebookAction2 {
 
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
 // Action is defined in AskAssistantAction.ts
+
+// Toggle Assistant Auto-Follow - Status indicator for automatic scrolling to AI-modified cells
+// This action displays as a status indicator showing "Following assistant" when enabled.
+// Clicking the status will toggle auto-follow off.
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.toggleAssistantAutoFollow',
+			title: localize2('toggleAssistantAutoFollow.disabled', 'Follow assistant'),
+			tooltip: localize2('toggleAssistantAutoFollow.disabledTooltip', 'Click to follow assistant edits and automatically scroll to cells modified by the AI assistant.'),
+			icon: ThemeIcon.fromId('eye-watch'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			toggled: {
+				condition: ContextKeyExpr.equals('config.positron.notebook.assistant.autoFollow', true),
+				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
+				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 55, // After Ask Assistant (50)
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
+				)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
+		const configurationService = accessor.get(IConfigurationService);
+		const currentValue = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+		configurationService.updateValue(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, !currentValue);
+	}
+});
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton

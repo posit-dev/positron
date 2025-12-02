@@ -155,8 +155,17 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	/**
 	 * Reveal the cell in the viewport
 	 * @param type Reveal type.
+	 * @returns Promise that resolves to true if the cell was successfully revealed, false otherwise.
 	 */
-	reveal(type?: CellRevealType): void;
+	reveal(type?: CellRevealType): Promise<boolean>;
+
+	/**
+	 * Temporarily highlight the cell with a flash animation to draw attention.
+	 * The highlight is automatically removed after the animation completes.
+	 * @param durationMs Optional duration in milliseconds. Defaults to 1500ms.
+	 * @returns Promise that resolves to true if the highlight was successfully added, false otherwise.
+	 */
+	highlightTemporarily(durationMs?: number): Promise<boolean>;
 
 	/**
 	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.

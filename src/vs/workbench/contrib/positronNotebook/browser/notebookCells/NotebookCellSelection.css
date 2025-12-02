@@ -143,3 +143,19 @@
 		transition: none;
 	}
 }
+
+/* Assistant cell highlight animation - used when AI modifies cells */
+.positron-notebook-cell.assistant-highlight {
+	animation: assistant-flash 1.5s ease-in-out;
+}
+
+@keyframes assistant-flash {
+	0%, 100% { background-color: transparent; }
+	25%, 75% { background-color: var(--vscode-editor-findMatchHighlightBackground); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.positron-notebook-cell.assistant-highlight {
+		animation: none;
+	}
+}
