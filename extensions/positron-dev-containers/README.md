@@ -80,15 +80,21 @@ When you've made changes to your `devcontainer.json` or `Dockerfile`:
 - Enables proper workspace resolution across window reloads
 - Provides cleanup for stale mappings
 
+#### Dev Container Reference CLI (spec/)
+- Copy of the Microsoft Dev Container Reference CLI
+- Used to manage containers and form Docker commands
+
 ### Remote Development Flow
 
-1. **User Action**: User invokes "Reopen in Container"
-2. **Container Setup**: Extension reads `devcontainer.json` and creates/starts container
-3. **Server Installation**: Positron server is downloaded and installed in container
-4. **Authority Resolution**: VS Code resolves the remote authority and establishes connection
-5. **Workspace Mapping**: Extension maps local paths to container paths
-6. **Port Forwarding**: Necessary ports are forwarded from container to host
-7. **Connected**: User can now work with code inside the container
+The workflow typically looks like this;
+
+1.  User invokes "Reopen in Container"
+2.  Extension reads `devcontainer.json` and creates/starts container
+3.  Positron server is downloaded and installed in container
+4.  VS Code resolves the remote authority and establishes connection
+5.  Extension maps local paths to container paths
+6.  Necessary ports are forwarded from container to host
+7.  User can now work with code inside the container
 
 ## Known Limitations
 
