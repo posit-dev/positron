@@ -39,7 +39,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 			logger.log('Test R Package');
 			await app.workbench.quickaccess.runCommand('r.packageTest');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]', { timeout: 20000 });
+				await app.workbench.terminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 1 | PASS 16 ]', { timeout: 20000 });
 				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks', { timeout: 20000 });
 			}).toPass({ timeout: 70000 });
 		});
