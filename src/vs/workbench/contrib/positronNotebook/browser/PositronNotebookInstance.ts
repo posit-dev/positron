@@ -1235,17 +1235,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const currentOp = this.getAndResetCurrentOperation();
 
 		if (newlyAddedCells.length === 1) {
-			// We don't auto-enter edit mode for paste, undo, or redo operations
-			const shouldAutoEdit = shouldAutoEditOnCellAdd(currentOp);
+			const newCell = newlyAddedCells[0];
+			const shouldAutoEdit = shouldAutoEditOnCellAdd(currentOp, newCell);
 
 			// Defer to next tick to allow React to mount the cell component
 			setTimeout(() => {
 				if (shouldAutoEdit) {
 					// Enter edit mode (which also selects the cell)
-					this.selectionStateMachine.enterEditor(newlyAddedCells[0]);
+					this.selectionStateMachine.enterEditor(newCell);
 				} else {
 					// Just select the cell without entering edit mode
-					this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Normal);
+					this.selectionStateMachine.selectCell(newCell, CellSelectionType.Normal);
 				}
 			}, 0);
 		}
@@ -1584,7 +1584,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #endregion
 }
 
-function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined): boolean {
+/**
+ * Determines whether a newly added cell should automatically enter edit mode.
+ *
+ * Generally returns `true` for normal cell insertions, but skips auto-edit
+ * for certain operations (like paste/undo) and markdown cells with content
+ * (to display rendered output instead).
+ *
+ * @param currentOp The current notebook operation type, or undefined if no operation is set.
+ * @param cell The newly added cell to check.
+ * @returns `true` if the cell should automatically enter edit mode, `false` otherwise.
+ */
+function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined, cell: IPositronNotebookCell): boolean {
 	// Don't auto-enter edit mode for paste, undo, or redo operations
-	return currentOp === NotebookOperationType.InsertAndEdit;
+	if (currentOp !== NotebookOperationType.InsertAndEdit) {
+		return false;
+	}
+
+	// For markdown cells with content, don't auto-enter edit mode
+	// so the rendered markdown is displayed instead of the raw editor.
+	// This is important for cells added by Assistant which come pre-populated.
+	if (cell.isMarkdownCell() && cell.getContent().trim().length > 0) {
+		return false;
+	}
+
+	return true;
 }
