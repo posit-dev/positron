@@ -25,6 +25,16 @@ export interface NotebookActionSuggestion {
 }
 
 /**
+ * Result object containing suggestions and raw response text for debugging.
+ * rawResponseText is only populated when no suggestions were parsed (for debugging).
+ */
+export interface NotebookSuggestionsResult {
+	suggestions: NotebookActionSuggestion[];
+	/** Raw LLM response text, only included when suggestions array is empty (for debugging) */
+	rawResponseText?: string;
+}
+
+/**
  * Valid XML tag names for parsing suggestions
  */
 type SuggestionTag = 'suggestions' | 'suggestion' | 'label' | 'detail' | 'query' | 'mode' | 'iconClass';
@@ -37,7 +47,7 @@ type SuggestionTag = 'suggestions' | 'suggestion' | 'label' | 'detail' | 'query'
  * @param log Log output channel for debugging
  * @param token Cancellation token
  * @param progressCallbackCommand Optional command ID to call for progress updates (enables progressive display)
- * @returns Array of suggested actions
+ * @returns Result object containing suggestions and raw response text
  */
 export async function generateNotebookSuggestions(
 	notebookUri: string,
@@ -45,7 +55,7 @@ export async function generateNotebookSuggestions(
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
 	progressCallbackCommand?: string
-): Promise<NotebookActionSuggestion[]> {
+): Promise<NotebookSuggestionsResult> {
 	// Get the model to use for generation
 	const model = await getModel(participantService, log);
 
@@ -53,7 +63,7 @@ export async function generateNotebookSuggestions(
 	const context = await positron.notebooks.getContext();
 	if (!context) {
 		log.warn('[notebook-suggestions] No notebook context available');
-		return [];
+		return { suggestions: [] };
 	}
 
 	// Get all cells if not already included in context
@@ -89,20 +99,24 @@ export async function generateNotebookSuggestions(
 			userMessage
 		], {}, token);
 
-		// Parse XML response as it streams
-		const suggestions = await parseStreamingXML(response.text, log, token, progressCallbackCommand);
+		// Parse XML response as it streams and collect raw text
+		const parseResult = await parseStreamingXML(response.text, log, token, progressCallbackCommand);
 
-		return suggestions;
+		// Only include rawResponseText when no suggestions were parsed (for debugging)
+		return {
+			suggestions: parseResult.suggestions,
+			rawResponseText: parseResult.suggestions.length === 0 ? parseResult.rawResponseText : undefined
+		};
 
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		log.error(`[notebook-suggestions] Error generating suggestions: ${errorMessage}`);
 
-		// Return empty array rather than throwing to allow graceful degradation
+		// Return empty result rather than throwing to allow graceful degradation
 		vscode.window.showWarningMessage(
 			`Failed to generate AI suggestions: ${errorMessage}. Please try again or use predefined actions.`
 		);
-		return [];
+		return { suggestions: [] };
 	}
 }
 
@@ -114,11 +128,12 @@ async function parseStreamingXML(
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken,
 	progressCallbackCommand?: string
-): Promise<NotebookActionSuggestion[]> {
+): Promise<{ suggestions: NotebookActionSuggestion[]; rawResponseText: string }> {
 	const suggestions: NotebookActionSuggestion[] = [];
 	let currentSuggestion: Partial<NotebookActionSuggestion> | null = null;
 	let currentField: keyof NotebookActionSuggestion | null = null;
 	let currentFieldContent = '';
+	let rawResponseText = '';
 
 	// Create streaming tag lexer
 	const lexer = new StreamingTagLexer<SuggestionTag>({
@@ -191,6 +206,8 @@ async function parseStreamingXML(
 			if (token.isCancellationRequested) {
 				break;
 			}
+			// Collect raw response text for debugging
+			rawResponseText += delta;
 			await lexer.process(delta);
 		}
 
@@ -203,7 +220,10 @@ async function parseStreamingXML(
 	}
 
 	// Limit to 5 suggestions
-	return suggestions.slice(0, 5);
+	return {
+		suggestions: suggestions.slice(0, 5),
+		rawResponseText
+	};
 }
 
 /**

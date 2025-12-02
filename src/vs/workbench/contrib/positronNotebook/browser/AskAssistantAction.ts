@@ -21,6 +21,7 @@ import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookAction2 } from './NotebookAction2.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
@@ -109,6 +110,7 @@ export class AskAssistantAction extends NotebookAction2 {
 		const commandService = accessor.get(ICommandService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
+		const logService = accessor.get(ILogService);
 
 		// Create cancellation token source for AI generation requests (In case
 		// the user closes the quick pick before the suggestions are generated)
@@ -132,8 +134,8 @@ export class AskAssistantAction extends NotebookAction2 {
 		disposables.add(quickPick.onWillAccept((e) => {
 			const selected = quickPick.selectedItems[0];
 
-			// Check if "Generate AI suggestions" was selected (type guard for PromptQuickPickItem)
-			if (selected && 'generateSuggestions' in selected && selected.generateSuggestions) {
+			// Check if "Generate AI suggestions" was selected
+			if (selected && selected.generateSuggestions) {
 				e.veto(); // Prevent the quick pick from closing
 
 				// Generate suggestions and update the quick pick in place
@@ -142,6 +144,7 @@ export class AskAssistantAction extends NotebookAction2 {
 					notebook,
 					commandService,
 					notificationService,
+					logService,
 					cancellationTokenSource.token
 				).catch(() => {
 					// Reset state on error (handleGenerateSuggestions already handles item cleanup)
@@ -247,6 +250,7 @@ export class AskAssistantAction extends NotebookAction2 {
 	 * @param notebook The active notebook instance to analyze for suggestions
 	 * @param commandService Service for executing extension commands
 	 * @param notificationService Service for displaying notifications to the user
+	 * @param logService Service for logging debug information
 	 * @param token Cancellation token that will be cancelled if the user closes the quick pick.
 	 *              The extension command uses this token to cancel ongoing LLM requests.
 	 * @returns Promise that resolves when suggestions are generated or cancelled
@@ -256,6 +260,7 @@ export class AskAssistantAction extends NotebookAction2 {
 		notebook: IPositronNotebookInstance,
 		commandService: ICommandService,
 		notificationService: INotificationService,
+		logService: ILogService,
 		token: CancellationToken
 	): Promise<void> {
 		// Create a loading item with animated spinner icon
@@ -306,7 +311,7 @@ export class AskAssistantAction extends NotebookAction2 {
 
 			try {
 				// Call extension command to generate suggestions with callback command ID
-				const suggestions = await commandService.executeCommand<PromptQuickPickItem[]>(
+				const result = await commandService.executeCommand<{ suggestions: PromptQuickPickItem[]; rawResponseText?: string }>(
 					'positron-assistant.generateNotebookSuggestions',
 					notebook.uri.toString(),
 					callbackCommandId,
@@ -325,7 +330,17 @@ export class AskAssistantAction extends NotebookAction2 {
 					return;
 				}
 
-				if (!suggestions || suggestions.length === 0) {
+				const suggestions = result?.suggestions || [];
+				const rawResponseText = result?.rawResponseText;
+
+				if (suggestions.length === 0) {
+					// Log raw response text for debugging when no suggestions are generated
+					if (rawResponseText) {
+						logService.warn('[AskAssistantAction] No suggestions generated. Raw LLM response:', rawResponseText);
+					} else {
+						logService.warn('[AskAssistantAction] No suggestions generated and no raw response text available');
+					}
+
 					notificationService.info(
 						localize(
 							'positronNotebook.assistant.noSuggestions',
