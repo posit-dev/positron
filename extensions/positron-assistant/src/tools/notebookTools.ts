@@ -153,9 +153,10 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 	index?: number;
 	content?: string;
 	cellIndex?: number;
+	run?: boolean;
 }>(PositronAssistantToolName.EditNotebookCells, {
 	prepareInvocation: async (options, _token) => {
-		const { operation, cellType, cellIndex } = options.input;
+		const { operation, cellType, cellIndex, run } = options.input;
 
 		// Get the active notebook context
 		const context = await getActiveNotebookContext();
@@ -182,14 +183,23 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 		// Build confirmation messages based on operation type
 		switch (operation) {
 			case 'add': {
-				const message = vscode.l10n.t('Add a {0} cell?', cellType || 'new');
+				const willRun = run !== false && cellType === 'code';
+				const message = willRun
+					? vscode.l10n.t('Add a {0} cell and run it?', cellType || 'new')
+					: vscode.l10n.t('Add a {0} cell?', cellType || 'new');
+				const invocationMessage = willRun
+					? vscode.l10n.t('Adding and running notebook cell')
+					: vscode.l10n.t('Adding notebook cell');
+				const pastTenseMessage = willRun
+					? vscode.l10n.t('Added and ran notebook cell')
+					: vscode.l10n.t('Added notebook cell');
 				return {
-					invocationMessage: vscode.l10n.t('Adding notebook cell'),
+					invocationMessage,
 					confirmationMessages: {
 						title: vscode.l10n.t('Add Notebook Cell'),
 						message: message
 					},
-					pastTenseMessage: vscode.l10n.t('Added notebook cell'),
+					pastTenseMessage,
 				};
 			}
 
@@ -238,7 +248,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 		}
 	},
 	invoke: async (options, token) => {
-		const { operation, cellType, index, content, cellIndex } = options.input;
+		const { operation, cellType, index, content, cellIndex, run } = options.input;
 
 		try {
 			const context = await getActiveNotebookContext();
@@ -295,16 +305,50 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
-					const newCellIndex = await positron.notebooks.addCell(
+					await positron.notebooks.addCell(
 						context.uri,
 						cellTypeEnum,
 						insertIndex,
 						content
 					);
 
+					// If run is not false and cellType is code, execute the cell and return outputs
+					// Note: insertIndex is the numeric index where the cell was inserted
+					if (run !== false && cellTypeEnum === positron.notebooks.NotebookCellType.Code) {
+						try {
+							await positron.notebooks.runCells(context.uri, [insertIndex]);
+
+							// Build mixed content response with support for images
+							const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+							resultParts.push(
+								new vscode.LanguageModelTextPart(
+									`Successfully added and executed code cell at index ${insertIndex}.\n\nOutputs:\n`
+								)
+							);
+
+							const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, insertIndex);
+							if (cellOutputs.length > 0) {
+								const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+								resultParts.push(...outputParts);
+							} else {
+								resultParts.push(new vscode.LanguageModelTextPart('No outputs'));
+							}
+
+							return new vscode.LanguageModelToolResult2(resultParts);
+						} catch (runError: unknown) {
+							// If execution fails, still report success for adding the cell, but mention execution failure
+							const errorMessage = runError instanceof Error ? runError.message : String(runError);
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(
+									`Successfully added code cell at index ${insertIndex}, but execution failed: ${errorMessage}`
+								)
+							]);
+						}
+					}
+
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart(
-							`Successfully added ${cellType} cell at index ${newCellIndex}`
+							`Successfully added ${cellType} cell at index ${insertIndex}`
 						)
 					]);
 				}

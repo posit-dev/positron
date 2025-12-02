@@ -921,7 +921,7 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -959,6 +959,10 @@
             "cellIndex": {
               "type": "number",
               "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+            },
+            "run": {
+              "type": "boolean",
+              "description": "Whether to execute the cell after adding it. Defaults to true for code cells. Ignored for markdown cells."
             }
           },
           "required": [
