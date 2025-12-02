@@ -16,6 +16,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -29,6 +30,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		_extHostContext: IExtHostContext,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// No initialization needed
 	}
@@ -71,6 +73,65 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		}
 
 		return baseDTO;
+	}
+
+	/**
+	 * Checks if a MIME type represents an image that should be base64 encoded.
+	 * @param mimeType The MIME type to check.
+	 * @returns True if the MIME type is an image type that requires base64 encoding.
+	 */
+	private isImageMimeType(mimeType: string): boolean {
+		// Image types that should be base64 encoded (excluding SVG which is text-based)
+		const imageMimeTypes = [
+			'image/png',
+			'image/jpeg',
+			'image/jpg',
+			'image/gif',
+			'image/webp',
+			'image/bmp'
+		];
+		return imageMimeTypes.includes(mimeType.toLowerCase());
+	}
+
+	/**
+	 * Checks if a MIME type represents text-based content that should be handled as plain text.
+	 * @param mimeType The MIME type to check.
+	 * @returns True if the MIME type is text-based and should be converted to string.
+	 */
+	private isTextBasedMimeType(mimeType: string): boolean {
+		// Text-based MIME types that should be converted to string
+		const textBasedMimeTypes = [
+			'text/latex',
+			'text/html',
+			'application/vnd.code.notebook.error',
+			'application/vnd.code.notebook.stdout',
+			'application/x.notebook.stdout',
+			'application/x.notebook.stream',
+			'application/vnd.code.notebook.stderr',
+			'application/x.notebook.stderr',
+			'text/plain',
+			'text/markdown',
+			'application/json'
+		];
+
+		const lowerMimeType = mimeType.toLowerCase();
+
+		// Check if it's in the known list
+		if (textBasedMimeTypes.includes(lowerMimeType)) {
+			return true;
+		}
+
+		// Check if it starts with 'text/' (covers text/xml, text/csv, etc.)
+		if (lowerMimeType.startsWith('text/')) {
+			return true;
+		}
+
+		// SVG is text-based XML
+		if (lowerMimeType === 'image/svg+xml') {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -303,24 +364,36 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
 			for (const item of output.outputs) {
-				// Handle different MIME types
-				if (item.mime === 'text/plain' || item.mime === 'application/vnd.code.notebook.stdout') {
-					// Plain text outputs
+				const mimeType = item.mime;
+
+				// Handle stderr outputs with prefix
+				if (mimeType === 'application/vnd.code.notebook.stderr') {
 					outputDTOs.push({
-						mimeType: item.mime,
-						data: item.data.toString()
-					});
-				} else if (item.mime === 'application/vnd.code.notebook.stderr') {
-					// Stderr outputs with prefix
-					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
 						data: `[stderr] ${item.data.toString()}`
 					});
-				} else {
-					// Binary outputs (images, etc.) - convert to base64 using VS Code's browser-compatible encoding
+				}
+				// Handle image MIME types - base64 encode
+				else if (this.isImageMimeType(mimeType)) {
 					const base64Data = encodeBase64(item.data);
 					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
+						data: base64Data
+					});
+				}
+				// Handle text-based MIME types - convert to string
+				else if (this.isTextBasedMimeType(mimeType)) {
+					outputDTOs.push({
+						mimeType: mimeType,
+						data: item.data.toString()
+					});
+				}
+				// Unknown MIME type - log warning and default to base64 encoding (safer for unknown binary data)
+				else {
+					this._logService.warn(`Unknown MIME type "${mimeType}" in notebook cell output. Defaulting to base64 encoding.`);
+					const base64Data = encodeBase64(item.data);
+					outputDTOs.push({
+						mimeType: mimeType,
 						data: base64Data
 					});
 				}
