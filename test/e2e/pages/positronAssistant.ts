@@ -188,8 +188,8 @@ export class Assistant {
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
-		// It can take a moement for the laoding locator to become visible.
-		await this.code.wait(1000);
+		// It can take a moment for the loading locator to become visible.
+		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 		// Optionally wait for any loading state on the most recent response to finish
 		if (waitForResponse) {
 			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });
