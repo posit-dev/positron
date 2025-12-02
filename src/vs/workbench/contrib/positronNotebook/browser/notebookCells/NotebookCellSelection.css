@@ -99,10 +99,14 @@
 	border: none;
 }
 
-/* When selected/editing AND no outputs: restore bottom rounding */
+/* When code cell is selected/editing AND no outputs: restore bottom rounding */
 .positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
 .positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after {
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
+/* When markdown cell is in edit mode (no output shown): restore bottom rounding */
+.positron-notebook-cell.selected:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after,
+.positron-notebook-cell.editing:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after,
+.positron-notebook-cell:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after {
 	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
 
