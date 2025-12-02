@@ -125,21 +125,34 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		let excludedCount = 0;
 		const sparseThreshold = Math.floor(itemsLimit / 10);
 		if (!skipExcludes && totalItems < sparseThreshold) {
-			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Searching files again to determine how many files were excluded...`);
-			const allMatchesUris = await vscode.workspace.findFiles2(
-				globPatterns,
-				{
-					exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
-					useIgnoreFiles: {
-						local: false,
-						parent: false,
-						global: false,
-					},
-					useExcludeSettings: vscode.ExcludeSettingOptions.None,
-				},
-				token
-			);
-			const totalItemsBeforeExclusion = allMatchesUris.length;
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Searching again to determine how many items were excluded...`);
+			let totalItemsBeforeExclusion = 0;
+			for (const folder of workspaceFolders) {
+				if (directoriesOnly) {
+					const allDirectories = await collectDirectories(
+						folder.uri,
+						globPatterns,
+						excludePatterns,
+						token
+					);
+					totalItemsBeforeExclusion += allDirectories.length;
+				} else {
+					const allMatchesUris = await vscode.workspace.findFiles2(
+						globPatterns,
+						{
+							exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
+							useIgnoreFiles: {
+								local: false,
+								parent: false,
+								global: false,
+							},
+							useExcludeSettings: vscode.ExcludeSettingOptions.None,
+						},
+						token
+					);
+					totalItemsBeforeExclusion += allMatchesUris.length;
+				}
+			}
 			excludedCount = totalItemsBeforeExclusion - totalItems;
 		}
 
