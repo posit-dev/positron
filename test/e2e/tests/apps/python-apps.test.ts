@@ -46,6 +46,18 @@ test.describe('Python Applications', {
 					: editorFrameLocator.getByText('Hello World')
 			).toBeVisible({ timeout: 30000 });
 		});
+
+		await test.step('Verify Clear Current URL clears Viewer', async () => {
+			await app.workbench.quickaccess.runCommand('positron.preview.clear');
+
+			await expect(async () => {
+				const iframeLocator = app.web
+					? viewer.viewerFrame.locator('iframe')
+					: viewer.getViewerFrame().locator('iframe');
+				const count = await iframeLocator.count();
+				expect(count).toBe(0);
+			}).toPass({ timeout: 30000 });
+		});
 	});
 
 	test('Python - Verify Basic FastAPI App', {
