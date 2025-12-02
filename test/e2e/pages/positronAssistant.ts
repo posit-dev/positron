@@ -35,7 +35,7 @@ const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.in
 const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
-const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
+const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
@@ -188,6 +188,8 @@ export class Assistant {
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// It can take a moement for the laoding locator to become visible.
+		await this.code.wait(1000);
 		// Optionally wait for any loading state on the most recent response to finish
 		if (waitForResponse) {
 			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });
