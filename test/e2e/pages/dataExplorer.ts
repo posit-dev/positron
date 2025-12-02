@@ -662,6 +662,7 @@ export class SummaryPanel {
 	columnSummary: Locator;
 	private columnSummaryName: Locator;
 	private verticalScrollbar: Locator;
+	vectorHistogram: Locator;
 
 	constructor(private code: Code, private workbench: Workbench,) {
 		this.summaryFilterBar = this.code.driver.page.locator('.summary-row-filter-bar');
@@ -671,6 +672,7 @@ export class SummaryPanel {
 		this.columnSummary = this.summaryPanel.locator('.column-summary');
 		this.columnSummaryName = this.columnSummary.locator('.column-name');
 		this.verticalScrollbar = this.summaryPanel.locator('div.data-grid-scrollbar-slider');
+		this.vectorHistogram = this.summaryPanel.locator('.vector-histogram');
 	}
 
 	// --- Actions ---
@@ -717,6 +719,28 @@ export class SummaryPanel {
 
 	async expandColumnProfile(rowNumber = 0): Promise<void> {
 		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
+	}
+
+	async waitForVectorHistogramVisible(timeout = 10000): Promise<void> {
+		await this.vectorHistogram.first().waitFor({ state: 'visible', timeout });
+	}
+
+	async hoverHistogramBinWithRange(expectedMin: string, expectedMax: string): Promise<void> {
+		const bins = this.summaryPanel.locator('.vector-histogram foreignObject.tooltip-container');
+		const count = await bins.count();
+		if (count === 0) {
+			throw new Error('No histogram bins found');
+		}
+		for (let i = 0; i < count; i++) {
+			await bins.nth(i).hover();
+			const tooltip = this.code.driver.page.locator('.hover-contents');
+			await tooltip.waitFor({ state: 'visible', timeout: 5000 });
+			const text = await tooltip.innerText();
+			if (text.includes(`Range: ${expectedMin} to ${expectedMax}`)) {
+				return;
+			}
+		}
+		throw new Error(`No bin tooltip matched Range: ${expectedMin} to ${expectedMax}`);
 	}
 
 	// --- Getters ---
