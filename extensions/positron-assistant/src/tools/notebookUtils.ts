@@ -564,3 +564,73 @@ export async function getAttachedNotebookContext(
 		return undefined;
 	}
 }
+
+/**
+ * Serialize notebook context as a user message for injection into the chat.
+ *
+ * This function formats the notebook context as XML suitable for a user message,
+ * allowing the system prompt to remain static (and thus more cacheable) while
+ * the dynamic notebook state is provided separately.
+ *
+ * The output includes:
+ * - Notebook info (kernel, cell count)
+ * - Context mode (full notebook vs sliding window)
+ * - Selected cells (if any)
+ * - All/windowed cells content
+ * - Context note explaining what's included
+ *
+ * @param context The serialized notebook context from getAttachedNotebookContext()
+ * @returns XML-formatted string for use as a user message
+ */
+export function serializeNotebookContextAsUserMessage(
+	context: SerializedNotebookContext
+): string {
+	const parts: string[] = [];
+
+	// Header explaining what this message contains
+	parts.push('<notebook-state>');
+	parts.push('The following is the current state of the notebook you are assisting with:');
+	parts.push('');
+
+	// Notebook info section
+	parts.push('<notebook-info>');
+	parts.push(context.kernelInfo);
+	if (context.cellCountInfo) {
+		parts.push(context.cellCountInfo);
+	}
+
+	// Determine context mode based on whether allCellsInfo exists
+	if (context.allCellsInfo) {
+		// Check if this is a full notebook or windowed context by examining the allCellsInfo
+		const isFullNotebook = context.allCellsInfo.includes('fewer than 20 cells');
+		const contextMode = isFullNotebook
+			? 'Full notebook (< 20 cells, all cells provided below)'
+			: 'Context window around selected/recent cells (notebook has 20+ cells)';
+		parts.push(xml.node('context-mode', contextMode));
+	} else {
+		parts.push(xml.node('context-mode', 'Selected cells only (use GetNotebookCells for other cells)'));
+	}
+	parts.push('</notebook-info>');
+
+	// Selected cells section (if any selected)
+	if (context.selectedCellsInfo && context.selectedCellsInfo !== 'No cells currently selected') {
+		parts.push('');
+		parts.push('<selected-cells>');
+		parts.push(context.selectedCellsInfo);
+		parts.push('</selected-cells>');
+	}
+
+	// All cells section (if available)
+	if (context.allCellsInfo) {
+		parts.push('');
+		parts.push(context.allCellsInfo);
+	}
+
+	// Context note
+	parts.push('');
+	parts.push(context.contextNote);
+
+	parts.push('</notebook-state>');
+
+	return parts.join('\n');
+}
