@@ -1418,6 +1418,8 @@ class SQLServerConnection(Connection):
             "conn = pymssql.connect(\n"
             f"    server={server!r},\n"
             f"    database={database!r},\n"
+            "    user='<username>',  # TODO: Replace with your username\n"
+            "    password='<password>',  # TODO: Replace with your password\n"
             ")\n"
             "%connection_show conn\n"
         )
