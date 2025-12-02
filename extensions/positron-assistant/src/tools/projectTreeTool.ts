@@ -110,6 +110,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 				);
 				workspaceTrees.push({ folder, items: directories, totalFiles: directories.length });
 			} else {
+				// NOTE: this will not include empty directories :/
 				const matchedFileUris = await vscode.workspace.findFiles2(
 					filePatterns,
 					findOptions,
@@ -217,9 +218,10 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 	'**/*.tmp',
 ];
 
+const DIRECTORY_SUFFIX = '/**';
 const DEFAULT_DIRECTORY_EXCLUDE_PATTERNS = DEFAULT_EXCLUDE_PATTERNS
-	.filter(p => p.endsWith('/**'))
-	.map(p => p.slice(0, -3));
+	.filter(p => p.endsWith(DIRECTORY_SUFFIX))
+	.map(p => p.slice(0, -DIRECTORY_SUFFIX.length));
 
 async function collectDirectories(
 	workspaceUri: vscode.Uri,
