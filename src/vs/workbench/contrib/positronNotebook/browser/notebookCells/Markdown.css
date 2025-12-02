@@ -125,10 +125,12 @@
 	}
 
 	blockquote {
-		margin: 0 7px 0 5px;
+		margin: 0 7px 0 0;
 		padding: 0 16px 0 10px;
 		border-left-width: 5px;
 		border-left-style: solid;
+		border-left-color: var(--vscode-textBlockQuote-border);
+		background-color: var(--vscode-textBlockQuote-background);
 	}
 
 	code {
