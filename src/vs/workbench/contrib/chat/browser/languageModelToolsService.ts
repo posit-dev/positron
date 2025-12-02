@@ -44,6 +44,10 @@ import { CountTokensCallback, createToolSchemaUri, GithubCopilotToolReference, I
 import { Target } from '../common/promptSyntax/promptFileParser.js';
 import { getToolConfirmationAlert } from './chatAccessibilityProvider.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../common/languageModels.js';
+// --- End Positron ---
+
 const jsonSchemaRegistry = Registry.as<JSONContributionRegistry.IJSONContributionRegistry>(JSONContributionRegistry.Extensions.JSONContribution);
 
 interface IToolEntry {
@@ -671,6 +675,33 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		}
 		return result;
 	}
+
+	// --- Start Positron ---
+	// Determines if a tool should be enabled for the currently selected language model.
+	// Based on the logic from chatToolPicker.ts
+	isToolEnabledForModel(toolId: string, selectedLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
+		// If no model is selected, enable all tools
+		if (!selectedLanguageModel) {
+			return true;
+		}
+
+		// Check if the user is using a Copilot model
+		const usingCopilotModel = selectedLanguageModel.metadata.vendor === 'copilot';
+		// Check if the user has opted-in to always include Copilot tools.
+		const alwaysIncludeCopilotTools = this._configurationService.getValue('positron.assistant.alwaysIncludeCopilotTools') as boolean;
+		// Check if the tool is provided by Copilot
+		const copilotTool = toolId.startsWith('copilot_');
+
+		// Enable Copilot tools only if using a Copilot model;
+		// otherwise, enable all non-Copilot tools
+		if (copilotTool) {
+			return usingCopilotModel || alwaysIncludeCopilotTools;
+		}
+
+		// All non-Copilot tools are enabled for all models
+		return true;
+	};
+	// --- End Positron ---
 
 	toQualifiedToolNames(map: IToolAndToolSetEnablementMap): string[] {
 		const result: string[] = [];

@@ -288,6 +288,7 @@ interface PromptRenderData {
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
 	notebookContext?: SerializedNotebookContext;
+	mode?: PromptMetadataMode;
 }
 
 export class PromptRenderer {
@@ -511,13 +512,13 @@ export class PromptRenderer {
 	/**
 	 * Get combined prompt for a specific command
 	 */
-	static renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		const promptData = PromptRenderer.instance._renderModePrompt(mode, data);
+	static renderModePrompt(data: PromptRenderData): PromptDocument {
+		const promptData = PromptRenderer.instance._renderModePrompt(data);
 		return promptData;
 	}
 
-	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		const matchingDocuments = this.getModePromptDocuments(mode);
+	private _renderModePrompt(data: PromptRenderData): PromptDocument {
+		const matchingDocuments = this.getModePromptDocuments(data.mode);
 		if (matchingDocuments.length === 0) {
 			return { content: '', metadata: {} };
 		}
@@ -527,7 +528,7 @@ export class PromptRenderer {
 		const mergedMetadata = this.mergeMetadata(matchingDocuments);
 
 		// Render prompt template
-		log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
+		log.trace('[PromptRender] Rendering prompt for mode:', data.mode, 'with data:', JSON.stringify(data));
 		const result = PromptTemplateEngine.render(mergedContent, data);
 
 		return {

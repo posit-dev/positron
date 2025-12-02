@@ -108,8 +108,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		});
 	});
 
-	// @dhruvisompura unskip me
-	test.skip('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
+	test('Multiselect: Cut from top and paste at bottom', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
@@ -124,7 +123,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 		// Cut selected cells
 		await notebooksPositron.performCellAction('cut');
-		await notebooksPositron.expectCellContentsToBe(['Cell 3', 'Cell 4']);
+		await notebooksPositron.expectCellContentsToBe(['### Cell 3', '### Cell 4']);
 
 		// Select last cell and paste below
 		const lastIndex = await notebooksPositron.getCellCount() - 1;
@@ -132,6 +131,6 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		await notebooksPositron.performCellAction('paste');
 
 		// Verify moved cells are at the end
-		await notebooksPositron.expectCellContentsToBe(['Cell 3', 'Cell 4', '# Cell 0', '# Cell 1', 'Cell 2']);
+		await notebooksPositron.expectCellContentsToBe(['### Cell 3', '### Cell 4', '# Cell 0', '# Cell 1', '### Cell 2']);
 	});
 });

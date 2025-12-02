@@ -152,8 +152,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
-		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
+		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
@@ -244,18 +244,18 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 
 const AutoconfiguredModel = (props: { provider: string, displayName: string, details?: IPositronLanguageModelAutoconfigure }) => {
 	if (props.details?.type === LanguageModelAutoconfigureType.EnvVariable) {
-		return (<div className='language-model-external-api-key'>
+		return (<div className='language-model-authentication-container'>
 			{
 				props.details.signedIn ?
-					<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use.", props.details.key)}</p>
+					<p>{localize('positron.languageModelConfig.externalApiInUse', "✓ {0} authenticated automatically using environment variable {1}", props.displayName, props.details.key)}</p>
 					:
 					<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.details.key)}</p>
 			}
 		</div>);
 	} else if (props.details?.type === LanguageModelAutoconfigureType.Custom && props.details.signedIn) {
-		return (<div className='language-model-external-api-key'>
+		return (<div className='language-model-authentication-container'>
 			{
-				<p>{localize('positron.languageModelConfig.autoconfiguredModelInUse', "{0} has been automatically configured using {1}", props.displayName, props.details.message)}</p>
+				<p>{localize('positron.languageModelConfig.autoconfiguredModelInUse', "✓ {0} authenticated automatically using {1}", props.displayName, props.details.message)}</p>
 			}
 		</div>);
 	} else {

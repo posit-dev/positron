@@ -836,12 +836,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.deleteCells([cell]);
 	}
 
-
 	/**
 	 * Deletes multiple cells from the notebook.
-	 * @param cellsToDelete Array of cells to delete
+	 * @param cells Array of cells to delete
 	 */
-	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
+	deleteCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToDelete = cells || getSelectedCells(this.selectionStateMachine.state.get());
+
 		this._assertTextModel();
 
 		if (cellsToDelete.length === 0) {
@@ -905,18 +906,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Moves a cell up by one position.
+	 * Moves the selected cell(s) up by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 * @param cell The cell to move up
 	 */
-	moveCellUp(cell: IPositronNotebookCell): void {
+	moveCellsUp(): void {
 		this._assertTextModel();
 
-		if (cell.index <= 0) {
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (cellsToMove.length === 0) {
 			return;
 		}
 
-		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
@@ -956,19 +956,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Moves a cell down by one position.
+	 * Moves the selected cell(s) down by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 * @param cell The cell to move down
 	 */
-	moveCellDown(cell: IPositronNotebookCell): void {
+	moveCellsDown(): void {
 		this._assertTextModel();
 
-		const cells = this.cells.get();
-		if (cell.index >= cells.length - 1) {
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (cellsToMove.length === 0) {
 			return;
 		}
 
-		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		const cells = this.cells.get();
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
@@ -1210,6 +1209,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._assertTextModel();
 		const modelCells = this.textModel.cells;
 
+		// Track if we're transitioning from empty to non-empty or vice versa
+		const wasEmpty = this.cells.get().length === 0;
+		const willBeEmpty = modelCells.length === 0;
+
 		const cellModelToCellMap = new Map(
 			this.cells.get().map(cell => [cell.model, cell])
 		);
@@ -1251,6 +1254,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
 		this.cells.set(cells, undefined);
+
+		// Check if we need to focus the notebook parent container.
+		// This happens when there are no cells left in the notebook
+		// after an operation.
+		if (!wasEmpty && willBeEmpty && this._container) {
+			this._container.focus();
+		}
 	}
 
 	/**
@@ -1460,7 +1470,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Pastes cells from the clipboard at the specified index.
-	 * @param index The position to paste cells at. If not provided, pastes after the last selected cell
+	 * @param index The position to paste cells at. If not provided, pastes after active cell or at end of notebook.
 	 */
 	pasteCells(index?: number): void {
 		if (!this.canPaste()) {
@@ -1517,13 +1527,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Pastes cells from the clipboard above the first selected cell.
+	 * Pastes cells from the clipboard above the active cell.
 	 */
 	pasteCellsAbove(): void {
-		const selection = getSelectedCells(this.selectionStateMachine.state.get());
-		if (selection.length > 0) {
-			const firstSelectedIndex = selection[0].index;
-			this.pasteCells(firstSelectedIndex);
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		if (activeCell) {
+			this.pasteCells(activeCell.index);
 		} else {
 			this.pasteCells(0);
 		}
@@ -1564,10 +1573,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// Helper method to get insertion index
 	private getInsertionIndex(): number {
-		const selections = getSelectedCells(this.selectionStateMachine.state.get());
-		if (selections.length > 0) {
-			const lastSelectedIndex = selections[selections.length - 1].index;
-			return lastSelectedIndex + 1;
+		// Use the active cell position for determining insertion, or at the end if no active cell
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		if (activeCell) {
+			return activeCell.index + 1;
 		}
 		return this.cells.get().length;
 	}

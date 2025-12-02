@@ -349,6 +349,20 @@ export function prepareMoveCopyEditors(sourceGroup: IEditorGroup, editors: Edito
 	return editorsWithOptions;
 }
 
+// --- Start Positron ---
+/**
+ * Determines auxiliary window options for editors being moved to a new window.
+ * Returns compact mode options for plot editors.
+ */
+export function getAuxiliaryWindowOptionsForEditors(editors: readonly EditorInput[]): IAuxiliaryWindowOpenOptions | undefined {
+	const hasPlotEditor = editors.some(editor => editor.typeId === 'workbench.input.positronPlots');
+	return hasPlotEditor ? {
+		compact: true,
+		bounds: { width: 900, height: 700 }
+	} : undefined;
+}
+// --- End Positron ---
+
 /**
  * A sub-interface of IEditorService to hide some workbench-core specific
  * events from clients.

@@ -16,6 +16,7 @@ fastcore==1.8.9; python_version == '3.9'
 fastcore==1.8.16; python_version >= '3.10'
 geopandas==1.0.1; python_version == '3.9'
 geopandas==1.1.1; python_version >= '3.10' and python_version < '3.14'
+google-cloud-bigquery==3.38.0
 haystack-ai==2.20.0
 holoviews==1.20.2; python_version == '3.9'
 holoviews==1.22.0; python_version >= '3.10'
