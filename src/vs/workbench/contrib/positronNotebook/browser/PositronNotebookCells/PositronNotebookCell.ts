@@ -169,20 +169,74 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._editor.set(undefined, undefined);
 	}
 
-	reveal(type?: CellRevealType): void {
-		// TODO: We may want to support type, but couldn't find any issues without it
+	/**
+	 * Waits for the container to be available by polling.
+	 * This handles the case where reveal/highlight is called before React mounts the cell.
+	 * @param maxWaitMs Maximum time to wait in milliseconds. Defaults to 100ms.
+	 * @param intervalMs Polling interval in milliseconds. Defaults to 10ms.
+	 * @returns Promise that resolves to true if container became available, false if timed out.
+	 */
+	private async _waitForContainer(maxWaitMs = 100, intervalMs = 10): Promise<boolean> {
 		if (this._container && this._instance.cellsContainer) {
-			// If the cell is less than 50% visible, scroll it to center
-			const rect = this._container.getBoundingClientRect();
-			const parentRect = this._instance.cellsContainer.getBoundingClientRect();
-			const visibleTop = Math.max(parentRect.top, rect.top);
-			const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
-			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-			const visibilityRatio = visibleHeight / rect.height;
-			if (visibilityRatio < 0.5) {
-				this._container.scrollIntoView({ behavior: 'instant', block: 'center' });
-			}
+			return true;
 		}
+
+		const startTime = Date.now();
+		return new Promise(resolve => {
+			const check = () => {
+				if (this._container && this._instance.cellsContainer) {
+					resolve(true);
+				} else if (Date.now() - startTime >= maxWaitMs) {
+					resolve(false);
+				} else {
+					setTimeout(check, intervalMs);
+				}
+			};
+			setTimeout(check, intervalMs);
+		});
+	}
+
+	async reveal(type?: CellRevealType): Promise<boolean> {
+		// TODO: We may want to support type, but couldn't find any issues without it
+		// Wait for container if not immediately available
+		const hasContainer = await this._waitForContainer();
+		if (!hasContainer || !this._container || !this._instance.cellsContainer) {
+			return false;
+		}
+
+		// If the cell is less than 50% visible, scroll it to center
+		const rect = this._container.getBoundingClientRect();
+		const parentRect = this._instance.cellsContainer.getBoundingClientRect();
+		const visibleTop = Math.max(parentRect.top, rect.top);
+		const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
+		const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+		const visibilityRatio = visibleHeight / rect.height;
+		if (visibilityRatio < 0.5) {
+			// Use smooth scrolling for better UX when revealing cells
+			this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+		return true;
+	}
+
+	async highlightTemporarily(durationMs?: number): Promise<boolean> {
+		const hasContainer = await this._waitForContainer();
+		if (!hasContainer || !this._container) {
+			return false;
+		}
+
+		const duration = durationMs ?? 1500;
+
+		// Add the highlight class
+		this._container.classList.add('assistant-highlight');
+
+		// Remove the class after the animation completes
+		setTimeout(() => {
+			if (this._container) {
+				this._container.classList.remove('assistant-highlight');
+			}
+		}, duration);
+
+		return true;
 	}
 
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
@@ -191,7 +245,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Scroll the cell into view
-		this.reveal(options.cellRevealType);
+		await this.reveal(options.cellRevealType);
 
 		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);
@@ -247,3 +301,4 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.insertMarkdownCellAndFocusContainer('below', this);
 	}
 }
+
