@@ -93,7 +93,11 @@ const mountRegex = /^type=(bind|volume),source=([^,]+),target=([^,]+)(?:,externa
 	y.epilog(`devcontainer@${version} ${packageFolder}`);
 	y.parse(restArgs ? argv.slice(1) : argv);
 
-})().catch(console.error);
+	// --- Start Positron ---
+	// Don't run this CLI in Positron; we only need the types it provides
+	// })().catch(console.error);
+});
+// --- End Positron ---
 
 export type UnpackArgv<T> = T extends Argv<infer U> ? U : T;
 
