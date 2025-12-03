@@ -133,6 +133,26 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		selectedIndexRef.current = selectedIndex;
 	}, [selectedIndex]);
 
+	/**
+	 * Restore focus to selected entry after selection changes cause a re-render.
+	 * react-window may recreate DOM elements during re-render, causing focus loss.
+	 */
+	useEffect(() => {
+		if (selectedIndex >= 0 && containerRef.current) {
+			const targetWindow = DOM.getWindow(containerRef.current);
+			// Use requestAnimationFrame to ensure DOM has been updated after re-render
+			targetWindow.requestAnimationFrame(() => {
+				const container = containerRef.current;
+				if (container) {
+					const selectedEntry = container.querySelector('.history-entry.selected, .history-entry.selected-unfocused') as HTMLElement | null;
+					if (selectedEntry && targetWindow.document.activeElement !== selectedEntry) {
+						selectedEntry.focus();
+					}
+				}
+			});
+		}
+	}, [selectedIndex]);
+
 	useEffect(() => {
 		listItemsRef.current = listItems;
 	}, [listItems]);
@@ -179,9 +199,27 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			// Use requestAnimationFrame to avoid interrupting user scrolling
 			if (listRef.current && containerRef.current) {
 				const targetWindow = DOM.getWindow(containerRef.current);
+				// Save currently focused element before reset
+				const activeElement = targetWindow.document.activeElement as HTMLElement | null;
+				const wasHistoryEntry = activeElement?.classList.contains('history-entry');
+
 				targetWindow.requestAnimationFrame(() => {
 					if (listRef.current) {
 						listRef.current.resetAfterIndex(index);
+
+						// Restore focus to the selected entry after the list resets
+						// Use another requestAnimationFrame to ensure the DOM has been updated
+						if (wasHistoryEntry) {
+							targetWindow.requestAnimationFrame(() => {
+								const container = containerRef.current;
+								if (container) {
+									const selectedEntry = container.querySelector('.history-entry.selected, .history-entry.selected-unfocused') as HTMLElement | null;
+									if (selectedEntry) {
+										selectedEntry.focus();
+									}
+								}
+							});
+						}
 					}
 				});
 			}
@@ -410,6 +448,36 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	};
 
 	/**
+	 * Check if an item at the given index is fully visible in the viewport
+	 */
+	const isItemFullyVisible = (index: number): boolean => {
+		if (!listRef.current || !containerRef.current) {
+			return false;
+		}
+
+		// Get the scroll offset from the list's internal state
+		// We need to calculate the item's position based on accumulated heights
+		let itemTop = 0;
+		for (let i = 0; i < index; i++) {
+			itemTop += getRowHeight(i);
+		}
+		const itemHeight = getRowHeight(index);
+		const itemBottom = itemTop + itemHeight;
+
+		// Get the current scroll position and viewport height
+		const listElement = containerRef.current.querySelector('[class*="react-window"]') as HTMLElement;
+		if (!listElement) {
+			return false;
+		}
+
+		const scrollTop = listElement.scrollTop;
+		const viewportHeight = height - 40; // Subtract toolbar height
+
+		// Check if the item is fully within the visible area
+		return itemTop >= scrollTop && itemBottom <= scrollTop + viewportHeight;
+	};
+
+	/**
 	 * Handle selection change
 	 */
 	const handleSelect = (index: number) => {
@@ -420,16 +488,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		setSelectedIndex(index);
-		// Focus the container to ensure active selection styling and keyboard navigation
-		if (containerRef.current) {
-			const targetWindow = DOM.getWindow(containerRef.current);
-			if (targetWindow.document.activeElement !== containerRef.current) {
-				containerRef.current.focus();
-				setHasFocus(true);
-			}
-		}
-		// Scroll to make the selected item visible
-		if (listRef.current) {
+
+		// Only scroll if the item is not already fully visible
+		if (listRef.current && !isItemFullyVisible(index)) {
 			listRef.current.scrollToItem(index, 'smart');
 		}
 	};
@@ -725,7 +786,95 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	}, []);
 
 	/**
-	 * Set up keyboard event listener
+	 * Handle keyboard navigation in the history list.
+	 * This is used both by the container's keydown listener and by HistoryEntry components.
+	 */
+	const handleKeyDown = useCallback((e: KeyboardEvent | React.KeyboardEvent) => {
+		const currentListItems = listItemsRef.current;
+		const currentSelectedIndex = selectedIndexRef.current;
+		const currentSearchText = debouncedSearchTextRef.current;
+
+		if (currentListItems.length === 0) {
+			return;
+		}
+
+		// Immediately prevent default for navigation keys to stop browser scroll behavior
+		// This must happen before any async processing
+		const navigationKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End'];
+		if (navigationKeys.includes(e.key)) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+
+		let newIndex = currentSelectedIndex;
+		let handled = false;
+
+		switch (e.key) {
+			case 'ArrowDown':
+				newIndex = findNextSelectableIndex(currentSelectedIndex + 1, 1, currentListItems);
+				handled = true;
+				break;
+			case 'ArrowUp':
+				newIndex = findNextSelectableIndex(currentSelectedIndex - 1, -1, currentListItems);
+				handled = true;
+				break;
+			case 'PageDown':
+				newIndex = findNextSelectableIndex(Math.min(currentSelectedIndex + 10, currentListItems.length - 1), 1, currentListItems);
+				handled = true;
+				break;
+			case 'PageUp':
+				newIndex = findNextSelectableIndex(Math.max(currentSelectedIndex - 10, 0), -1, currentListItems);
+				handled = true;
+				break;
+			case 'Home':
+				newIndex = findNextSelectableIndex(0, 1, currentListItems);
+				handled = true;
+				break;
+			case 'End':
+				newIndex = findNextSelectableIndex(currentListItems.length - 1, -1, currentListItems);
+				handled = true;
+				break;
+			case 'Enter':
+				if (currentSelectedIndex >= 0) {
+					handleToConsole(currentSelectedIndex);
+					handled = true;
+				}
+				break;
+			case 'Delete':
+			case 'Backspace':
+				if (currentSelectedIndex >= 0) {
+					handleDelete(currentSelectedIndex);
+					handled = true;
+				}
+				break;
+			case 'Escape':
+				if (currentSearchText) {
+					handleClearSearch();
+					handled = true;
+				}
+				break;
+		}
+
+		if (handled) {
+			// For non-navigation keys, prevent default here
+			if (!navigationKeys.includes(e.key)) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+
+			if (newIndex !== currentSelectedIndex && newIndex >= 0) {
+				setSelectedIndex(newIndex);
+				// Scroll to the newly selected item
+				if (listRef.current) {
+					listRef.current.scrollToItem(newIndex, 'smart');
+				}
+			}
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	/**
+	 * Set up keyboard event listener on the container
 	 */
 	useEffect(() => {
 		const container = containerRef.current;
@@ -734,84 +883,14 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		// Add keyboard event listener to the container
-		const handleKeyDown = (e: KeyboardEvent) => {
-			const currentListItems = listItemsRef.current;
-			const currentSelectedIndex = selectedIndexRef.current;
-			const currentSearchText = debouncedSearchTextRef.current;
+		const keyDownHandler = (e: KeyboardEvent) => handleKeyDown(e);
 
-			if (currentListItems.length === 0) {
-				return;
-			}
-			let newIndex = currentSelectedIndex;
-			let handled = false;
-
-			switch (e.key) {
-				case 'ArrowDown':
-					newIndex = findNextSelectableIndex(currentSelectedIndex + 1, 1, currentListItems);
-					handled = true;
-					break;
-				case 'ArrowUp':
-					newIndex = findNextSelectableIndex(currentSelectedIndex - 1, -1, currentListItems);
-					handled = true;
-					break;
-				case 'PageDown':
-					newIndex = findNextSelectableIndex(Math.min(currentSelectedIndex + 10, currentListItems.length - 1), 1, currentListItems);
-					handled = true;
-					break;
-				case 'PageUp':
-					newIndex = findNextSelectableIndex(Math.max(currentSelectedIndex - 10, 0), -1, currentListItems);
-					handled = true;
-					break;
-				case 'Home':
-					newIndex = findNextSelectableIndex(0, 1, currentListItems);
-					handled = true;
-					break;
-				case 'End':
-					newIndex = findNextSelectableIndex(currentListItems.length - 1, -1, currentListItems);
-					handled = true;
-					break;
-				case 'Enter':
-					if (currentSelectedIndex >= 0) {
-						handleToConsole(currentSelectedIndex);
-						handled = true;
-					}
-					break;
-				case 'Delete':
-				case 'Backspace':
-					if (currentSelectedIndex >= 0) {
-						handleDelete(currentSelectedIndex);
-						handled = true;
-					}
-					break;
-				case 'Escape':
-					if (currentSearchText) {
-						handleClearSearch();
-						handled = true;
-					}
-					break;
-			}
-
-			if (handled) {
-				e.preventDefault();
-				e.stopPropagation();
-
-				if (newIndex !== currentSelectedIndex && newIndex >= 0) {
-					setSelectedIndex(newIndex);
-					// Scroll to the newly selected item
-					if (listRef.current) {
-						listRef.current.scrollToItem(newIndex, 'smart');
-					}
-				}
-			}
-		};
-
-		container.addEventListener('keydown', handleKeyDown);
+		container.addEventListener('keydown', keyDownHandler);
 
 		return () => {
-			container.removeEventListener('keydown', handleKeyDown);
+			container.removeEventListener('keydown', keyDownHandler);
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [handleKeyDown]);
 
 	/**
 	 * Set up listeners for input events on active sessions
@@ -1056,6 +1135,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 												handleDelete(index);
 											}}
 											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
+											onKeyDown={handleKeyDown}
 											onSelect={() => handleSelect(index)}
 											onToConsole={() => {
 												setSelectedIndex(index);

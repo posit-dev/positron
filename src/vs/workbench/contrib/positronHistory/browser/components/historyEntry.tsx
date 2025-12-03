@@ -23,6 +23,7 @@ const positronHistorySendToConsole = localize('positron.history.sendToConsole', 
 const positronHistorySendToEditor = localize('positron.history.sendToEditor', 'Send to Editor');
 const positronHistoryCopy = localize('positron.history.copy', 'Copy');
 const positronHistoryDeleteEntry = localize('positron.history.delete', 'Delete');
+const positronHistoryMoreLines = (lines: number) => localize('positron.history.moreLines', '... {0} more lines', lines);
 
 /**
  * Props for the HistoryEntry component
@@ -41,6 +42,7 @@ interface HistoryEntryProps {
 	onToSource: () => void;
 	onCopy: () => void;
 	onDelete: () => void;
+	onKeyDown: (e: React.KeyboardEvent) => void;
 	instantiationService: IInstantiationService;
 	fontInfo: FontInfo;
 }
@@ -367,12 +369,13 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		onToSource,
 		onCopy,
 		onDelete,
+		onKeyDown,
 		instantiationService
 	} = props;
 
 	const services = usePositronReactServicesContext();
 	const [colorizedHtml, setColorizedHtml] = useState<string | null>(null);
-	const entryRef = useRef<HTMLDivElement>(null);
+	const entryRef = useRef<HTMLButtonElement>(null);
 	const codeRef = useRef<HTMLDivElement>(null);
 	const previousCodeRef = useRef<string>('');
 	const colorizedCacheRef = useRef<string | null>(null);
@@ -477,6 +480,34 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	}, [isSelected, colorizedHtml, smartExcerpt, onHeightChange]);
 
 	/**
+	 * Set up native keydown listener in capture phase to prevent scroll behavior
+	 */
+	useEffect(() => {
+		const button = entryRef.current;
+		if (!button) {
+			return;
+		}
+
+		const handleNativeKeyDown = (e: KeyboardEvent) => {
+			// For navigation keys, prevent default immediately in capture phase
+			// to stop browser scroll behavior before it happens.
+			// Do NOT call stopPropagation() here - we need the event to reach
+			// the React onKeyDown handler for selection logic.
+			const navigationKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End'];
+			if (navigationKeys.includes(e.key)) {
+				e.preventDefault();
+			}
+		};
+
+		// Use capture phase to intercept before bubbling
+		button.addEventListener('keydown', handleNativeKeyDown, true);
+
+		return () => {
+			button.removeEventListener('keydown', handleNativeKeyDown, true);
+		};
+	}, []);
+
+	/**
 	 * Apply font info after render
 	 */
 	useEffect(() => {
@@ -564,26 +595,22 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const styleWithoutHeight = { ...style, height: 'auto' };
 
 	return (
-		<div
+		<button
 			ref={entryRef}
 			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
 			style={styleWithoutHeight}
 			onContextMenu={handleContextMenu}
 			onDoubleClick={() => onToConsole()}
-			onMouseDown={(e) => {
-				// Use onMouseDown instead of onClick to ensure selection happens before focus events
-				// This prevents the two-click issue when the panel is unfocused
-				if (e.button === 0) { // Only handle left clicks
-					e.preventDefault(); // Prevent default focus behavior that steals focus
-					onSelect();
-				}
+			onKeyDown={onKeyDown}
+			onClick={(e) => {
+				onSelect();
 			}}
 		>
 			<div className='history-entry-content'>
 				{/* Show "... N more lines" above if smart excerpt hides lines above */}
 				{smartExcerpt && smartExcerpt.hiddenAbove > 0 && (
 					<div className='history-entry-line-indicator'>
-						... {smartExcerpt.hiddenAbove} more lines
+						{positronHistoryMoreLines(smartExcerpt.hiddenAbove)}
 					</div>
 				)}
 
@@ -616,6 +643,6 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 					</div>
 				)}
 			</div>
-		</div>
+		</button>
 	);
 };

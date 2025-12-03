@@ -120,6 +120,12 @@
 	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
+button.history-entry {
+	border: none;
+	text-align: left;
+	display: block;
+}
+
 .history-entry-content {
 	position: relative;
 }
