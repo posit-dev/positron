@@ -230,7 +230,7 @@ export class Variables {
 				.locator('..');
 
 			await expect(variableRow).toBeVisible({ timeout });
-			await expect(variableRow.locator('.details-column .value')).toHaveText(value);
+			await expect(variableRow.locator('.details-column .value')).toHaveText(value, { timeout: 3000 });
 		});
 	}
 

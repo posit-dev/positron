@@ -13,13 +13,13 @@ export async function verifyReticulateFunctionality(
 	xValue = '200',
 	yValue = '400',
 	zValue = '6'): Promise<void> {
-	const { console, sessions, variables } = app.workbench;
+	const { console, sessions } = app.workbench;
 
 	// Create a variable x in Python session
 	await sessions.select(pythonSessionId, true);
 	await app.code.wait(2000); // give ipykernel time to startup
 	await console.pasteCodeToConsole(`x=${xValue}`, true);
-	await variables.expectVariableToBe('x', xValue);
+	await ensureVariablePresent(app, 'x', xValue);
 
 	// Switch to the R session and create an R variable `y` by accessing the Python
 	// variable `x` through reticulate.
@@ -40,6 +40,7 @@ export async function verifyReticulateFunctionality(
 	// Verify executing reticulate::repl_python() moves focus to the reticulate session
 	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${zValue}")`, true);
 	await sessions.expectSessionPickerToBe(pythonSessionId, 20000);
+	await console.clearButton.click();
 
 	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
 	await console.pasteCodeToConsole('print(r.y)', true);
@@ -51,12 +52,11 @@ export async function verifyReticulateFunctionality(
 }
 
 async function ensureVariablePresent(app: Application, variableName: string, value: string) {
-
 	await expect(async () => {
 		try {
 			await app.workbench.variables.expectVariableToBe(variableName, value, 2000);
 		} catch (e) {
-			console.log(`Resending enter key to find variable: ${variableName}`);
+			console.log(`Resending enter key for variable: ${variableName}`);
 			await app.workbench.console.sendEnterKey();
 			throw e;
 		}
@@ -64,12 +64,12 @@ async function ensureVariablePresent(app: Application, variableName: string, val
 }
 
 async function ensureConsoleDataPresent(app: Application, value: string) {
-
 	await expect(async () => {
 		try {
-			await app.workbench.console.waitForConsoleContents(value);
+			await app.workbench.console.waitForConsoleContents(value, { timeout: 2000 });
 		} catch (e) {
-			console.log('Resending enter key');
+			console.log('Resending enter key for console data');
+
 			await app.workbench.console.sendEnterKey();
 			throw e;
 		}
