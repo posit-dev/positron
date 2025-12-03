@@ -40,7 +40,7 @@ export class QuickInput {
 		});
 	}
 
-	async waitForQuickInputOpened({ timeout = 10000 }: { timeout?: number } = {}): Promise<void> {
+	async waitForQuickInputOpened({ timeout = 3000 }: { timeout?: number } = {}): Promise<void> {
 		await expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout });
 	}
 
