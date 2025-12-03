@@ -41,11 +41,15 @@
 	color: var(--vscode-textLink-foreground);
 	padding: 2px 6px;
 	font-size: 12px;
+	cursor: pointer;
+	user-select: none;
 }
 
 .notebook-cell-quick-fix .assistant-action-main .link-text .codicon {
 	color: var(--vscode-textLink-foreground);
 	font-size: 12px;
+	cursor: pointer;
+	user-select: none;
 }
 
 /* Dropdown button (right side) - mimics action-bar-button-drop-down-button */

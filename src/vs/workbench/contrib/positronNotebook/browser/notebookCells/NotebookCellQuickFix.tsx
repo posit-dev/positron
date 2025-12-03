@@ -17,7 +17,8 @@ import { usePositronConfiguration, usePositronContextKey } from '../../../../../
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
-import { CHAT_OPEN_ACTION_ID } from '../../../chat/browser/actions/chatActions.js';
+import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
+import { ChatModeKind } from '../../../chat/common/constants.js';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -30,7 +31,8 @@ interface NotebookCellQuickFixProps {
 /**
  * Quick fix component for notebook cell errors.
  * Displays "Fix" and "Explain" split buttons that send the error content to the assistant chat.
- * Primary click opens quick chat, dropdown opens main chat panel to retain conversation context.
+ * Primary click starts a fresh chat session in agent mode (with tool access to modify notebooks),
+ * dropdown opens in the existing chat panel to retain conversation context.
  *
  * @param props Component props containing the error content
  * @returns The rendered component, or null if assistant is not enabled
@@ -39,7 +41,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	const fixDropdownRef = useRef<HTMLDivElement>(null);
 	const explainDropdownRef = useRef<HTMLDivElement>(null);
 	const services = usePositronReactServicesContext();
-	const { quickChatService, commandService, contextMenuService } = services;
+	const { commandService, contextMenuService } = services;
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
@@ -79,27 +81,33 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	/**
 	 * Handler for the "Fix" button primary click.
-	 * Opens the quick chat with a fix prompt and error output.
+	 * Starts a fresh chat session and opens the chat panel in agent mode with a fix prompt and error output.
+	 * Agent mode has tool access to modify notebooks.
 	 */
 	const pressedFixHandler = async () => {
-		quickChatService.open({
-			query: buildFixQuery()
+		await commandService.executeCommand(ACTION_ID_NEW_CHAT);
+		await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+			query: buildFixQuery(),
+			mode: ChatModeKind.Agent
 		});
 	};
 
 	/**
 	 * Handler for the "Explain" button primary click.
-	 * Opens the quick chat with an explain prompt and error output.
+	 * Starts a fresh chat session and opens the chat panel in agent mode with an explain prompt and error output.
+	 * Agent mode has tool access to modify notebooks.
 	 */
 	const pressedExplainHandler = async () => {
-		quickChatService.open({
-			query: buildExplainQuery()
+		await commandService.executeCommand(ACTION_ID_NEW_CHAT);
+		await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+			query: buildExplainQuery(),
+			mode: ChatModeKind.Agent
 		});
 	};
 
 	/**
 	 * Shows the context menu for the Fix button dropdown.
-	 * Provides option to open in main chat panel instead of quick chat.
+	 * Provides option to open in the existing chat panel to retain conversation context.
 	 *
 	 * @param event Event from the dropdown button click or keyboard activation
 	 */
@@ -109,14 +117,15 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 		const actions: IAction[] = [
 			{
-				id: 'open-in-chat-panel',
-				label: localize('positronNotebookAssistantOpenInChatPanel', "Open in Chat Panel"),
-				tooltip: localize('positronNotebookAssistantOpenInChatPanelTooltip', "Open in main chat panel to retain conversation context"),
+				id: 'continue-in-existing-chat',
+				label: localize('positronNotebookAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
+				tooltip: localize('positronNotebookAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 				class: undefined,
 				enabled: true,
 				run: async () => {
 					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildFixQuery()
+						query: buildFixQuery(),
+						mode: ChatModeKind.Agent
 					});
 				}
 			}
@@ -137,7 +146,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	/**
 	 * Shows the context menu for the Explain button dropdown.
-	 * Provides option to open in main chat panel instead of quick chat.
+	 * Provides option to open in the existing chat panel to retain conversation context.
 	 *
 	 * @param event Event from the dropdown button click or keyboard activation
 	 */
@@ -147,14 +156,15 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 		const actions: IAction[] = [
 			{
-				id: 'open-in-chat-panel',
-				label: localize('positronNotebookAssistantOpenInChatPanel', "Open in Chat Panel"),
-				tooltip: localize('positronNotebookAssistantOpenInChatPanelTooltip', "Open in main chat panel to retain conversation context"),
+				id: 'continue-in-existing-chat',
+				label: localize('positronNotebookAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
+				tooltip: localize('positronNotebookAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 				class: undefined,
 				enabled: true,
 				run: async () => {
 					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildExplainQuery()
+						query: buildExplainQuery(),
+						mode: ChatModeKind.Agent
 					});
 				}
 			}
@@ -179,9 +189,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	}
 
 	// Tooltip strings
-	const fixTooltip = localize('positronNotebookAssistantFixTooltip', "Ask the assistant to fix this error");
+	const fixTooltip = localize('positronNotebookAssistantFixTooltip', "Ask assistant to fix in new chat");
 	const fixDropdownTooltip = localize('positronNotebookAssistantFixDropdownTooltip', "More fix options");
-	const explainTooltip = localize('positronNotebookAssistantExplainTooltip', "Ask the assistant to explain this error");
+	const explainTooltip = localize('positronNotebookAssistantExplainTooltip', "Ask assistant to explain in new chat");
 	const explainDropdownTooltip = localize('positronNotebookAssistantExplainDropdownTooltip', "More explain options");
 
 	// Render.
