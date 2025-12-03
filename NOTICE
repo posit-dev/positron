@@ -43,7 +43,7 @@ Components used by Positron
 * anstyle-wincon (Apache, MIT licenses)
 * @antfu/install-pkg (MIT license)
 * @antfu/utils (MIT license)
-* @anthropic-ai/claude-agent-sdk (SEE-LICENSE-IN-README.MD license)
+* @anthropic-ai/claude-code (SEE-LICENSE-IN-README.MD license)
 * @anthropic-ai/sdk (MIT license)
 * anyhow (Apache, MIT licenses)
 * apache-arrow (Apache license)
@@ -361,9 +361,10 @@ Components used by Positron
 * dom-serializer (MIT license)
 * domelementtype (BSD license)
 * domhandler (BSD license)
-* dompurify version 3.2.6 (Apache, MPLv2 licenses)
-* dompurify version 3.2.4 (Apache, MPLv2 licenses)
+* dompurify version 3.3.0 (Apache, MPLv2 licenses)
+* dompurify version 3.2.7 (Apache, MPLv2 licenses)
 * domutils (BSD license)
+* Dotenv Language Basics (MIT license)
 * drop_bomb (Apache, MIT licenses)
 * dtoa (Apache, MIT licenses)
 * dtoa-short (MPLv2 license)
@@ -416,6 +417,7 @@ Components used by Positron
 * events (MIT license)
 * exceptiongroup (MIT license)
 * executing (MIT license)
+* exenv-es6 (MIT license)
 * expand-abbreviation (MIT license)
 * expand-template (MIT license)
 * expand-tilde (MIT license)
@@ -486,6 +488,7 @@ Components used by Positron
 * GitHub (MIT license)
 * GitHub Authentication (MIT license)
 * github-from-package (MIT license)
+* @github/copilot (SEE-LICENSE-IN-LICENSE.MD license)
 * @github/copilot-language-server (MIT license)
 * glob versions 10.4.5, 9.3.5 (ISC license)
 * glob version 7.2.3 (ISC license)
@@ -499,6 +502,7 @@ Components used by Positron
 * @google-cloud/promisify (Apache license)
 * @google-cloud/storage (Apache license)
 * google-logging-utils (Apache license)
+* @google/genai (Apache license)
 * gopd (MIT license)
 * graceful-fs (ISC license)
 * graphql (MIT license)
@@ -717,6 +721,10 @@ Components used by Positron
 * @microsoft/applicationinsights-web-basic (MIT license)
 * @microsoft/applicationinsights-web-snippet (MIT license)
 * @microsoft/dynamicproto-js (MIT license)
+* @microsoft/fast-element (MIT license)
+* @microsoft/fast-foundation (MIT license)
+* @microsoft/fast-react-wrapper (MIT license)
+* @microsoft/fast-web-utilities (MIT license)
 * @microsoft/tiktokenizer (MIT license)
 * mime (MIT license)
 * mime (Apache, MIT licenses)
@@ -1122,6 +1130,7 @@ Components used by Positron
 * synstructure (MIT license)
 * sysinfo (MIT license)
 * system-deps (Apache, MIT licenses)
+* tabbable (MIT license)
 * table-layout (MIT license)
 * tail (MIT license)
 * tar (ISC license)
@@ -1275,6 +1284,7 @@ Components used by Positron
 * @vscode/tree-sitter-wasm (MIT license)
 * @vscode/ts-package-manager (MIT license)
 * @vscode/vscode-languagedetection (MIT license)
+* @vscode/webview-ui-toolkit (MIT license)
 * @vscode/windows-mutex (MIT license)
 * @vscode/windows-process-tree (MIT license)
 * @vscode/windows-registry (MIT license)
@@ -3261,8 +3271,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-@anthropic-ai/claude-agent-sdk
-------------------------------
+@anthropic-ai/claude-code
+-------------------------
 Website: https://github.com/anthropics/claude-code
 
 Copyright © Anthropic PBC. Use is subject to Anthropic's Commercial Terms of Service.
@@ -6719,7 +6729,7 @@ attrs
 -----
 Website: https://pypi.org/project/attrs/
 
-Copyright (c) 2015 Hynek Schlawack and the attrs contributors
+Copyright 2015 Hynek Schlawack and the attrs contributors
 Distributed under the MIT License
 
 MIT License text:
@@ -16214,7 +16224,7 @@ cattrs
 ------
 Website: https://catt.rs
 
-Copyright (c) 2016, Tin Tvrtković
+Copyright 2016, Tin Tvrtković
 Distributed under the MIT License
 
 MIT License text:
@@ -20318,8 +20328,7 @@ decorator
 ---------
 Website: https://pypi.org/project/decorator/
 
-All rights reserved.
-Copyright (c) 2005-2025, Michele Simionato
+Copyright 2005-2025, Michele Simionato
 Distributed under the BSD 2-Clause license
 
 BSD 2-Clause license text:
@@ -22202,7 +22211,7 @@ THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRE
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-dompurify version 3.2.6
+dompurify version 3.3.0
 -----------------------
 Website: https://github.com/cure53/DOMPurify
 
@@ -22792,7 +22801,7 @@ With Secondary Licenses”, as defined by
 the Mozilla Public License, v. 2.0.
 
 
-dompurify version 3.2.4
+dompurify version 3.2.7
 -----------------------
 Website: https://github.com/cure53/DOMPurify
 
@@ -23403,6 +23412,14 @@ Redistributions in binary form must reproduce the above copyright notice, this l
 
 THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+Dotenv Language Basics
+----------------------
+Website: https://github.com/microsoft/vscode
+
+Copyright (c) Microsoft Corporation
+Distributed under the MIT License
 
 
 drop_bomb
@@ -25515,7 +25532,7 @@ exceptiongroup
 --------------
 Website: https://pypi.org/project/exceptiongroup/
 
-Copyright (c) 2022 Alex Grönholm
+Copyright 2022 Alex Grönholm
 Distributed under the MIT License
 
 MIT License text:
@@ -25600,6 +25617,38 @@ Website: https://github.com/alexmojaki/executing
 
 Published by Alex Hall
 Distributed under the MIT License
+
+
+exenv-es6
+---------
+Website: https://github.com/chrisdholt/exenv-es6
+
+Copyright 2018 Chris Holt
+Distributed under the MIT License
+
+MIT License text:
+
+MIT License
+
+Copyright (c) 2018 Chris Holt
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 expand-abbreviation
@@ -28035,6 +28084,18 @@ Published by James Halliday
 Distributed under the MIT License
 
 
+@github/copilot
+---------------
+Website: https://github.com/github/copilot-cli
+
+Copyright GitHub 2025. Use is subject to GitHub's Pre-release License Terms
+
+
+SEE-LICENSE-IN-LICENSE.MD License text:
+
+Copyright (c) GitHub 2025. All rights reserved. Use is subject to GitHub's Pre-release License Terms
+
+
 @github/copilot-language-server
 -------------------------------
 Website: https://github.com/github/copilot-language-server-release
@@ -28236,6 +28297,14 @@ google-logging-utils
 Website: https://github.com/googleapis/gax-nodejs
 
 Published by Google API Authors
+Distributed under the Apache License version 2.0
+
+
+@google/genai
+-------------
+Website: https://github.com/googleapis/js-genai
+
+Copyright 2025 Google LLC
 Distributed under the Apache License version 2.0
 
 
@@ -32092,8 +32161,7 @@ ipykernel
 ---------
 Website: https://github.com/ipython/ipykernel
 
-All rights reserved.
-Copyright (c) 2015, IPython Development Team
+Copyright 2015, IPython Development Team
 Distributed under the BSD 3-Clause license
 
 BSD 3-Clause license text:
@@ -33783,9 +33851,8 @@ jupyter-client
 --------------
 Website: https://github.com/jupyter/jupyter_client
 
-All rights reserved.
-Copyright (c) 2001-2015, IPython Development Team
-Copyright (c) 2015-, Jupyter Development Team
+Copyright 2001-2015, IPython Development Team -
+Copyright 2015-, Jupyter Development Team
 Distributed under the BSD 3-Clause license
 
 BSD 3-Clause license text:
@@ -36159,6 +36226,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+@microsoft/fast-element
+-----------------------
+Website: https://github.com/Microsoft/fast
+
+Published by Microsoft
+Distributed under the MIT License
+
+
+@microsoft/fast-foundation
+--------------------------
+Website: https://github.com/Microsoft/fast
+
+Published by Microsoft
+Distributed under the MIT License
+
+
+@microsoft/fast-react-wrapper
+-----------------------------
+Website: https://github.com/Microsoft/fast
+
+Published by Microsoft
+Distributed under the MIT License
+
+
+@microsoft/fast-web-utilities
+-----------------------------
+Website: https://github.com/Microsoft/fast
+
+Published by Microsoft
+Distributed under the MIT License
+
+
 @microsoft/tiktokenizer
 -----------------------
 Website: https://github.com/Microsoft/Tokenizer
@@ -37190,8 +37289,7 @@ nest-asyncio
 ------------
 Website: https://github.com/erdewit/nest_asyncio
 
-All rights reserved.
-Copyright (c) 2018-2020, Ewald de Wit
+Copyright 2018-2020, Ewald de Wit
 Distributed under the BSD 2-Clause license
 
 BSD 2-Clause license text:
@@ -40994,8 +41092,8 @@ pexpect
 -------
 Website: https://pexpect.readthedocs.io/
 
-Copyright (c) 2012, Noah Spurrier <noah@noah.org>
-Copyright (c) 2013-2016, Pexpect development team
+Copyright 2012, Noah Spurrier <noah@noah.org>
+Copyright 2013-2014, Pexpect development team
 Distributed under the ISC License
 
 ISC License text:
@@ -42744,8 +42842,7 @@ prompt-toolkit
 --------------
 Website: https://pypi.org/project/prompt-toolkit/
 
-All rights reserved.
-Copyright (c) 2014, Jonathan Slenders.
+Copyright 2014, Jonathan Slenders
 Distributed under the BSD 3-Clause license
 
 BSD 3-Clause license text:
@@ -42888,8 +42985,8 @@ ptyprocess
 ----------
 Website: https://github.com/pexpect/ptyprocess
 
-Copyright (c) 2012, Noah Spurrier <noah@noah.org>
-Copyright (c) 2013-2014, Pexpect development team
+Copyright 2012, Noah Spurrier <noah@noah.org>
+Copyright 2013-2014, Pexpect development team
 Distributed under the ISC License
 
 ISC License text:
@@ -43030,7 +43127,7 @@ pure-eval
 ---------
 Website: http://github.com/alexmojaki/pure_eval
 
-Copyright (c) 2019 Alex Hall
+Copyright 2019 Alex Hall
 Distributed under the MIT License
 
 MIT License text:
@@ -43102,7 +43199,7 @@ pydantic
 --------
 Website: https://github.com/pydantic/pydantic
 
-Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors.
+Copyright 2017 to present Pydantic Services Inc. and individual contributors.
 Distributed under the MIT License
 
 MIT License text:
@@ -43142,7 +43239,7 @@ pygments
 --------
 Website: https://github.com/pygments/pygments
 
-Copyright (c) 2006-2024 by the Pygments team
+Copyright 2006-2022 by the respective authors (see AUTHORS file).
 Distributed under the BSD 2-Clause license
 
 BSD 2-Clause license text:
@@ -43210,6 +43307,10 @@ python-dateutil
 ---------------
 Website: https://github.com/dateutil/dateutil
 
+Copyright 2003-2011 - Gustavo Niemeyer <gustavo@niemeyer.net>
+Copyright 2012-2014 - Tomi Pieviläinen <tomi.pievilainen@iki.fi>
+Copyright 2014-2016 - Yaron de Leeuw <me@jarondl.net>
+Copyright 2017- Paul Ganssle <paul@ganssle.io>
 Copyright 2017- dateutil contributors (see AUTHORS file)
 
 Distributed under multiple software licenses, including:
@@ -43285,7 +43386,11 @@ pywin32
 -------
 Website: https://github.com/mhammond/pywin32
 
-Copyright (c) Mark Hammond and pywin32 contributors
+Copyright 1994-2008, Mark Hammond
+Copyright 1996-2008, Greg Stein and Mark Hammond.
+Copyright 1998-2003 by Neil Hodgson <neilh@scintilla.org>
+Copyright 2002-2003 by Blackdog Software Pty Ltd.
+Copyright 2018 Microsoft
 
 Distributed under multiple software licenses, including:
     BSD 3-Clause license
@@ -43499,8 +43604,7 @@ pyzmq
 -----
 Website: https://github.com/zeromq/pyzmq
 
-All rights reserved.
-Copyright (c) 2009-2012, Brian Granger, Min Ragan-Kelley
+Copyright 2009-2012, Brian Granger, Min Ragan-Kelley
 Distributed under the BSD 3-Clause license
 
 BSD 3-Clause license text:
@@ -59982,7 +60086,7 @@ stack-data
 ----------
 Website: http://github.com/alexmojaki/stack_data
 
-Copyright (c) 2019 Alex Hall
+Copyright 2019 Alex Hall
 Distributed under the MIT License
 
 MIT License text:
@@ -61323,6 +61427,38 @@ Distributed under multiple software licenses, including:
     Apache License version 2.0
     MIT License
 Consult the documentation and source code of system-deps for more information.
+
+
+tabbable
+--------
+Website: https://github.com/focus-trap/tabbable
+
+Copyright 2015 David Clark
+Distributed under the MIT License
+
+MIT License text:
+
+The MIT License (MIT)
+
+Copyright (c) 2015 David Clark
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 table-layout
@@ -63415,8 +63551,7 @@ traitlets
 ---------
 Website: https://github.com/ipython/traitlets
 
-All rights reserved.
-Copyright (c) 2001-, IPython Development Team
+Copyright 2001-, IPython Development Team
 Distributed under the BSD 3-Clause license
 
 BSD 3-Clause license text:
@@ -63893,7 +64028,7 @@ typing-extensions
 -----------------
 Website: https://pypi.org/project/typing-extensions/
 
-Copyright (c) typing-extensions contributors
+Copyright 1991 - 1995, Stichting Mathematisch Centrum Amsterdam, The Netherlands.
 Distributed under the Python License version 2.0
 
 Python License version 2.0 text:
@@ -65890,7 +66025,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ----------------
 Website: https://github.com/microsoft/vscode-codicons
 
-Copyright (c) Microsoft Corporation
+Copyright Microsoft Corporation.
 
 Distributed under multiple software licenses, including:
     Creative Commons Attribution 4.0
@@ -66286,6 +66421,10 @@ the avoidance of doubt, this paragraph does not form part of the
 public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
+
+---
+
+Git Logo by Jason Long is licensed under the Creative Commons Attribution 3.0 Unported License.
 
 
 MIT License text:
@@ -67026,6 +67165,38 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
+
+
+@vscode/webview-ui-toolkit
+--------------------------
+Website: https://github.com/microsoft/vscode-webview-ui-toolkit
+
+Copyright Microsoft Corporation.
+Distributed under the MIT License
+
+MIT License text:
+
+Copyright (c) Microsoft Corporation.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED **AS IS**, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 @vscode/windows-mutex
