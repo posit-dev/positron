@@ -27,7 +27,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Editor Action Bar: Document Files', {
+test.describe('Editor Action Bar Behavior: Document Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
@@ -65,10 +65,19 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
-	test('Jupyter Notebook - Verify editor action bar is not visible', {
+	test('Vscode Notebook - Verify editor action bar is not visible', {
 		tag: [tags.NOTEBOOKS],
 	}, async function ({ app }) {
+		await app.workbench.notebooks.createNewNotebook();
 		await app.workbench.editorActionBar.verifyIsVisible(false);
+	});
+
+	test('Positron Notebook - Verify editor action bar is visible', {
+		tag: [tags.POSITRON_NOTEBOOKS],
+	}, async function ({ app, settings }) {
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+		await app.workbench.notebooksPositron.newNotebook();
+		await editorActionBar.verifyIsVisible(true, 2);
 	});
 });
 

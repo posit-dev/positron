@@ -201,10 +201,10 @@ export class EditorActionBar {
 	 *
 	 * @param isVisible whether the editor action bar is expected to be visible
 	 */
-	async verifyIsVisible(isVisible: boolean) {
+	async verifyIsVisible(isVisible: boolean, count = 1) {
 		await test.step(`Verify editor action bar is ${isVisible ? 'visible' : 'not visible'}`, async () => {
 			isVisible
-				? await expect(this.actionBar).toBeVisible()
+				? await expect(this.actionBar).toHaveCount(count)
 				: await expect(this.actionBar).not.toBeVisible();
 		});
 	}
