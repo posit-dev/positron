@@ -51,16 +51,6 @@ function transformRequestBody(init: RequestInit, providerName: string): RequestI
 			bodyModified = true;
 		}
 
-		// Remove temperature parameter, as the default 0 value is not supported by some models.
-		// `temperature` is no longer set to 0 by default in AI SDK v5.
-		// Example error message without this fix:
-		// [OpenAI] [gpt-5]' Error in chat response: {"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}
-		if (requestBody.temperature !== undefined) {
-			log.debug(`[${providerName}] [DEBUG] Removing temperature parameter to avoid unsupported value error`);
-			delete requestBody.temperature;
-			bodyModified = true;
-		}
-
 		if (bodyModified) {
 			log.debug(`[${providerName}] [DEBUG] Final request body:`, JSON.stringify(requestBody, null, 2));
 			return {

@@ -314,7 +314,7 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 
 		const body: Anthropic.MessageStreamParams = {
 			model: model.id,
-			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
+			max_tokens: options.modelOptions?.maxOutputTokens ?? this.maxOutputTokens,
 			tools,
 			tool_choice,
 			system,
@@ -428,7 +428,7 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 
 	async provideLanguageModelChatInformation(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = await this.resolveModels(token) ?? [];
+		const models = (await this.resolveModels(token)) ?? [];
 
 		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);

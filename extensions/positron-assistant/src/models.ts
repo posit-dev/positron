@@ -136,7 +136,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		const models = this.modelListing ?? (await this.resolveModels(token)) ?? [];
 
 		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
@@ -251,7 +251,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
-	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+	private getUserPrompt(messages: ai.ModelMessage[]): ai.ModelMessage | undefined {
 		if (messages.length === 0) {
 			return undefined;
 		}
@@ -292,7 +292,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly name;
 	public readonly provider;
 	public readonly id;
-	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	protected abstract aiProvider: (id: string, options?: Record<string, any>) => any;
 	protected aiOptions: Record<string, any> = {};
 
 	protected modelListing?: vscode.LanguageModelChatInformation[];
@@ -367,7 +368,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-				const errorMsg = await this.parseProviderError(error) ||
+				const errorMsg = (await this.parseProviderError(error)) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
 			}
@@ -381,7 +382,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		const models = this.modelListing ?? (await this.resolveModels(token)) ?? [];
 		return this.filterModels(models);
 	}
 
@@ -406,7 +407,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
-			aiModel.modelId.includes('anthropic');
+			model.id.includes('anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -414,7 +415,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
-			!aiModel.modelId.includes('anthropic.claude-3-5');
+			!model.id.includes('anthropic.claude-3-5');
 
 		// Add system prompt from `modelOptions.system`, if provided.
 		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
@@ -427,7 +428,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		// Convert all messages to the Vercel AI format.
-		const aiMessages: ai.CoreMessage[] = toAIMessage(
+		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
 			toolResultExperimentalContent,
 			bedrockCacheBreakpoint
@@ -450,7 +451,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				}
 				acc[tool.name] = ai.tool({
 					description: tool.description,
-					parameters: ai.jsonSchema(input_schema),
+					inputSchema: ai.jsonSchema(input_schema),
 				});
 				return acc;
 			}, {});
@@ -459,7 +460,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		log.debug(`[${this.providerName}] [${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
 			log.trace(`[${this.providerName}] tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
@@ -475,10 +476,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
-			maxSteps: modelOptions.maxSteps ?? 50,
+			stopWhen: ai.stepCountIs(modelOptions.maxSteps ?? 50),
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: getMaxTokens(aiModel.modelId, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
+			maxOutputTokens: getMaxTokens(model.id, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -496,28 +497,28 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				break;
 			}
 
-			if (part.type === 'reasoning') {
+			if (part.type === 'reasoning-delta') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.text}`);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'text-delta') {
-				accumulatedTextDeltas.push(part.textDelta);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				accumulatedTextDeltas.push(part.text);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.input)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
 			}
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
 				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
-				const errorMsg = await this.parseProviderError(part.error) ||
+				const errorMsg = (await this.parseProviderError(part.error)) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
 				throw new Error(`${messagePrefix} Error in chat response: ${errorMsg}`);
 			}
@@ -530,7 +531,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const warnings = await result.warnings;
 		if (warnings) {
 			for (const warning of warnings) {
-				log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
+				log.warn(`[${this.providerName}] [${model.id}] warn: ${warning}`);
 			}
 		}
 
@@ -538,8 +539,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const usage = await result.usage;
 		const metadata = await result.providerMetadata;
 		const tokens: TokenUsage = {
-			inputTokens: usage.promptTokens,
-			outputTokens: usage.completionTokens,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
 			cachedTokens: 0,
 			providerMetadata: metadata,
 		};
@@ -654,7 +655,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				id: model.identifier,
 				name: model.name,
 				family: this.provider,
-				version: this.aiProvider(model.identifier).specificationVersion,
+				version: 'v2',
 				provider: this.provider,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
@@ -668,12 +669,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	protected createDefaultModel(): vscode.LanguageModelChatInformation[] {
 		log.info(`[${this.providerName}] No models available; returning default model information.`);
-		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
 		const modelInfo = createModelInfo({
-			id: aiModel.modelId,
+			id: this._config.model,
 			name: this.name,
-			family: aiModel.provider,
-			version: aiModel.specificationVersion,
+			family: this._config.provider,
+			version: 'v2',
 			provider: this._config.provider,
 			providerName: this.providerName,
 			capabilities: this.capabilities,
@@ -774,7 +774,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = await this.resolveModels(token) ?? [];
+		const models = (await this.resolveModels(token)) ?? [];
 
 		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
