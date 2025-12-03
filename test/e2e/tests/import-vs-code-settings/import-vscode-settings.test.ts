@@ -21,7 +21,7 @@
  * 2. The import prompt can be reset via "Preferences: Reset Import Settings Prompt"
  */
 
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -81,6 +81,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	test.describe('Import with Positron settings', () => {
 		test('Verify diff displays and rejected settings are not saved', async ({ app, page, hotKeys }) => {
 			const { toasts } = app.workbench;
+			const testSettingLocator = page.getByText('"test": "positron-settings"');
 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
@@ -91,7 +92,8 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await toasts.clickButton('Reject');
 			await expectDiffToBeVisible(page, false);
 			await hotKeys.openUserSettingsJSON();
-			await expect(page.getByText('"test": "positron-settings"')).toHaveCount(1);
+			await scrollEditorUntilVisible(page, testSettingLocator);
+			await expect(testSettingLocator).toHaveCount(1);
 		});
 
 		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
@@ -134,15 +136,51 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 });
 
-async function expectDiffToBeVisible(page: Page, visible = true) {
+async function scrollEditorUntilVisible(
+	page: Page,
+	target: Locator,
+	maxSteps = 25,
+): Promise<void> {
+	const editor = page.locator(
+		'.monaco-editor[data-uri*="settings.json"]',
+	);
+
+	// Focus the editor so wheel events go to the monaco scrollable element
+	await editor.click({ position: { x: 50, y: 10 } });
+
+	for (let i = 0; i < maxSteps; i++) {
+		if (await target.isVisible()) return;
+
+		// Scroll down a bit
+		await page.mouse.wheel(0, 300);
+		// Give Monaco a moment to render new lines
+		await page.waitForTimeout(50);
+	}
+
+	throw new Error('Target text not visible after scrolling');
+}
+
+export async function expectDiffToBeVisible(page: Page, visible = true) {
+	const editor = page.locator(
+		'.monaco-editor[data-uri*="settings.json"]',
+	);
+	const settingsTab = page.getByRole('tab', { name: 'settings.json' });
+
+	const existingStart = editor.getByText('<<<<<<< Existing', { exact: true }).first();
+	const incomingEnd = editor.getByText('>>>>>>> Incoming', { exact: true }).first();
+
 	if (visible) {
-		await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
-		await expect(page.getByText('<<<<<<< Existing')).not.toHaveCount(0)
-		await expect(page.getByText('>>>>>>> Incoming')).not.toHaveCount(0);
+		await expect(settingsTab).toBeVisible();
+		await expect(editor).toBeVisible();
+
+		await scrollEditorUntilVisible(page, existingStart);
+		await expect(existingStart).toBeVisible();
+
+		await scrollEditorUntilVisible(page, incomingEnd);
+		await expect(incomingEnd).toBeVisible();
 	} else {
-		await page.waitForTimeout(3000); // waiting to avoid false positive
-		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
-		await expect(page.getByText('<<<<<<< Existing')).not.toBeVisible();
-		await expect(page.getByText('>>>>>>> Incoming')).not.toBeVisible();
+		await expect(settingsTab).not.toBeVisible();
+		await expect(existingStart).toHaveCount(0);
+		await expect(incomingEnd).toHaveCount(0);
 	}
 }
