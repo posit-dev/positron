@@ -180,11 +180,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		await instance.runCells(cellsToRun);
 
 		// Notify about assistant cell modification for follow mode
-		// Notify for the last cell that was run
-		const lastCellIndex = cellIndices[cellIndices.length - 1];
-		if (lastCellIndex !== undefined) {
-			await instance.handleAssistantCellModification(lastCellIndex);
-		}
+		// Use the last cell that was actually run (from filtered cellsToRun),
+		// not the original cellIndices array which may contain invalid indices
+		await instance.handleAssistantCellModification(lastCell.index);
 	}
 
 	/**
