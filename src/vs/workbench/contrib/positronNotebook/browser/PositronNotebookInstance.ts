@@ -617,16 +617,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Reveals a cell in the center of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInCenter(cell: IExtensionApiCellViewModel): void {
-		this._revealCell(cell, CellRevealType.Center);
+	async revealInCenter(cell: IExtensionApiCellViewModel): Promise<void> {
+		await this._revealCell(cell, CellRevealType.Center);
 	}
 
 	/**
 	 * Reveals a cell at the top of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInViewAtTop(cell: IExtensionApiCellViewModel): void {
-		this._revealCell(cell, CellRevealType.Top);
+	async revealInViewAtTop(cell: IExtensionApiCellViewModel): Promise<void> {
+		await this._revealCell(cell, CellRevealType.Top);
 	}
 
 	private _toPositronCell(cell: IExtensionApiCellViewModel): IPositronNotebookCell {
@@ -641,8 +641,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * @param cell The cell to reveal
 	 */
-	private _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): void {
-		this._toPositronCell(cell).reveal(type);
+	private async _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): Promise<void> {
+		await this._toPositronCell(cell).reveal(type);
 	}
 	//#endregion INotebookEditor
 
