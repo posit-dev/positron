@@ -183,7 +183,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Notify for the last cell that was run
 		const lastCellIndex = cellIndices[cellIndices.length - 1];
 		if (lastCellIndex !== undefined) {
-			await instance.handleAssistantCellModification(lastCellIndex, 'run');
+			await instance.handleAssistantCellModification(lastCellIndex);
 		}
 	}
 
@@ -209,7 +209,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		instance.addCell(cellKind, index, false, content);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(index, 'add');
+		await instance.handleAssistantCellModification(index);
 
 		return index;
 	}
@@ -291,7 +291,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(cellIndex, 'edit');
+		await instance.handleAssistantCellModification(cellIndex);
 	}
 
 	/**

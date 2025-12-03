@@ -1583,7 +1583,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
-	async handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run'): Promise<void> {
+	async handleAssistantCellModification(cellIndex: number): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return;
