@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { verifyReticulateFunctionality } from './helpers/verifyReticulateFunction.js';
+import { RETICULATE_START_MSG, verifyReticulateFunctionality } from './helpers/verifyReticulateFunction.js';
 
 test.use({
 	suiteId: __filename
@@ -32,22 +32,22 @@ test.describe('Reticulate', {
 
 	test('R - Verify Reticulate Stop/Start Functionality', {
 		tag: [tags.ARK]
-	}, async function ({ app, sessions, r }) {
-		const { modals, toasts } = app.workbench;
+	}, async function ({ app, r }) {
+		const { console, sessions, modals, toasts } = app.workbench;
 
 		// start new reticulate session and verify functionality
 		const reticulateSession = await sessions.start('pythonReticulate');
 		await modals.installIPyKernel();
-		await toasts.waitForDisappear('Creating the Reticulate Python session');
+		await toasts.waitForDisappear(RETICULATE_START_MSG);
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`);
 
 		// stop reticulate session
 		await sessions.delete(reticulateSession.id);
-		await app.workbench.console.waitForConsoleContents('exited');
+		await console.waitForConsoleContents('exited');
 
 		// start reticulate session (again) and verify functionality
 		await sessions.start('pythonReticulate');
-		await toasts.waitForDisappear('Creating the Reticulate Python session');
+		await toasts.waitForDisappear(RETICULATE_START_MSG);
 		await sessions.rename('reticulate', 'reticulateNew');
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
 	});

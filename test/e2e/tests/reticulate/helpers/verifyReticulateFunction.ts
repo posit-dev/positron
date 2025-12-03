@@ -6,6 +6,8 @@
 import { expect } from '@playwright/test';
 import { Application } from '../../../infra/index.js';
 
+export const RETICULATE_START_MSG = 'Creating the Reticulate Python session';
+
 export async function verifyReticulateFunctionality(
 	app: Application,
 	rSessionId: string,
@@ -13,29 +15,24 @@ export async function verifyReticulateFunctionality(
 	xValue = '200',
 	yValue = '400',
 	zValue = '6'): Promise<void> {
-	const { console, sessions } = app.workbench;
+	const { console, sessions, variables } = app.workbench;
 
 	// Create a variable x in Python session
 	await sessions.select(pythonSessionId, true);
-	await app.code.wait(2000); // give ipykernel time to startup
-	await console.pasteCodeToConsole(`x=${xValue}`, true);
-	await ensureVariablePresent(app, 'x', xValue);
+	await runCodeExpectVariable(app, `x=${xValue}`, { name: 'x', value: xValue });
 
 	// Switch to the R session and create an R variable `y` by accessing the Python
 	// variable `x` through reticulate.
 	await console.clearButton.click();
 	await sessions.select(rSessionId);
-	await app.code.wait(2000); // wait a little for python var to get to R
-	await console.pasteCodeToConsole('y<-reticulate::py$x', true);
-	await ensureVariablePresent(app, 'y', xValue);
+	await runCodeExpectVariable(app, 'y<-reticulate::py$x', { name: 'y', value: xValue });
 
 	// Clear the console again and re-check to ensure the R-side variable persists.
 	await console.clearButton.click();
-	await ensureVariablePresent(app, 'y', xValue);
+	await variables.expectVariableToBe('y', xValue);
 
 	// Verify able to overwrite the R variable `y` with an integer literal on the R side.
-	await console.pasteCodeToConsole(`y <- ${yValue}L`, true);
-	await ensureVariablePresent(app, 'y', yValue);
+	await runCodeExpectVariable(app, `y <- ${yValue}L`, { name: 'y', value: yValue });
 
 	// Verify executing reticulate::repl_python() moves focus to the reticulate session
 	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${zValue}")`, true);
@@ -43,30 +40,27 @@ export async function verifyReticulateFunctionality(
 	await console.clearButton.click();
 
 	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
-	await sendCodeToConsoleAndVerifyOutput(app, 'print(r.y)', yValue);
+	await runCodeExpectOutput(app, 'print(r.y)', yValue);
 
 	// Print the Python variable z (created via repl_python) and ensure it appears as well
-	await sendCodeToConsoleAndVerifyOutput(app, 'print(z)', zValue);
+	await runCodeExpectOutput(app, 'print(z)', zValue);
 }
 
-async function ensureVariablePresent(app: Application, variableName: string, value: string) {
+async function runCodeExpectVariable(app: Application, code: string, variable: { name: string; value: string } = { name: '', value: '' }) {
+	const { console, variables } = app.workbench;
 	await expect(async () => {
-		try {
-			await app.workbench.variables.expectVariableToBe(variableName, value, 2000);
-		} catch (e) {
-			console.log(`Resending enter key for variable: ${variableName}`);
-			await app.workbench.console.sendEnterKey();
-			throw e;
-		}
-	}, 'ensure variable is present').toPass({ timeout: 10000 });
+		await console.sendInterrupt();
+		await console.pasteCodeToConsole(code, true);
+		await variables.expectVariableToBe(variable.name, variable.value, 2000);
+	}, 'wait for variable to be present').toPass({ timeout: 10000 });
 }
 
-async function sendCodeToConsoleAndVerifyOutput(app: Application, commmand: string, value: string) {
+async function runCodeExpectOutput(app: Application, commmand: string, value: string) {
 	const { console } = app.workbench;
 
 	await expect(async () => {
 		await console.sendInterrupt();
 		await console.pasteCodeToConsole(commmand, true);
 		await console.waitForConsoleContents(value, { timeout: 2000 });
-	}, 'ensure console data is present').toPass({ timeout: 10000 });
+	}, 'run code and expect console output').toPass({ timeout: 10000 });
 }

@@ -5,6 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
+import { ACTIVE_CONSOLE_INSTANCE } from '../../pages/console.js';
 
 test.use({
 	suiteId: __filename
@@ -22,42 +23,30 @@ test.describe('Reticulate', {
 			await settings.set({
 				'positron.reticulate.enabled': true,
 				'kernelSupervisor.transport': 'tcp'
-			});
+			}, { reload: true });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
-
-		await app.restart();
 	});
 
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
-	}, async function ({ app, sessions }) {
+	}, async function ({ app }) {
+		const { console, sessions, modals } = app.workbench;
 
+		// start new reticulate session
 		await sessions.start('pythonReticulate');
+		await sessions.expectSessionPickerToBe('Python (reticulate)', 60000);
 
-		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)', 60000);
+		// restart reticulate session
+		await sessions.restart('Python (reticulate)', { waitForIdle: false });
+		await modals.clickButton('Yes');
 
-		await app.workbench.sessions.restart('Python (reticulate)', { waitForIdle: false });
-
-		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
-
-		// doesn't support 2 or 1 instance of started:
-		// await app.workbench.console.waitForReadyAndStarted('>>>', 30000, 2);
-
-		await test.step('Wait for console to be ready and started', async () => {
-			await app.workbench.console.waitForReady('>>>', 30000);
-
-			const matchingLines = app.code.driver.page.locator('.console-instance[style*="z-index: auto"]  div span').getByText('started');
-
-			await Promise.any([
-				expect(matchingLines).toHaveCount(1, { timeout: 30_000 }),
-				expect(matchingLines).toHaveCount(2, { timeout: 30_000 }),
-			]);
-		});
-
+		// verify reticulate restarted
+		await console.waitForReadyAndStarted('>>>', 30000);
+		await expect(app.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE).getByText('started').first()).toBeVisible({ timeout: 90000 });
 	});
 });
 

@@ -12,7 +12,7 @@ import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
-const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
+export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';

@@ -220,7 +220,7 @@ export class Variables {
 	 * @param value the expected value of the variable
 	 * @param timeout (optional) timeout in milliseconds for visibility (default 15000)
 	 */
-	async expectVariableToBe(variableName: string, value: string, timeout: number = 15000) {
+	async expectVariableToBe(variableName: string, value: string | RegExp, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
 			const variableRow = this.code.driver.page
