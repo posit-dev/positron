@@ -3,9 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import { ACTIVE_CONSOLE_INSTANCE } from '../../pages/console.js';
 import { RETICULATE_SESSION } from './helpers/verifyReticulateFunction.js';
 
 test.use({
@@ -34,20 +32,19 @@ test.describe('Reticulate', {
 
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
-	}, async function ({ app }) {
-		const { console, sessions, modals } = app.workbench;
+	}, async function ({ sessions }) {
 
 		// start new reticulate session
 		await sessions.start('pythonReticulate');
 		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
 
 		// restart reticulate session
-		await sessions.restart(RETICULATE_SESSION, { waitForIdle: false });
-		await modals.clickButton('Yes');
-
-		// verify reticulate restarted
-		await console.waitForReadyAndStarted('>>>', 30000);
-		await expect(app.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE).getByText('started').first()).toBeVisible({ timeout: 90000 });
+		await sessions.restart(RETICULATE_SESSION, {
+			clearConsole: true,
+			waitForIdle: true,
+			clickModalButton: 'Yes'
+		});
+		await sessions.expectAllSessionsToBeReady();
 	});
 });
 

@@ -53,7 +53,7 @@ async function runCodeExpectVariable(app: Application, code: string, variable: {
 		await console.sendInterrupt();
 		await console.pasteCodeToConsole(code, true);
 		await variables.expectVariableToBe(variable.name, variable.value, 2000);
-	}, 'run code and wait for variable to be present').toPass({ timeout: 10000 });
+	}, 'Run code and wait for variable to be present').toPass({ timeout: 10000 });
 }
 
 async function runCodeExpectOutput(app: Application, commmand: string, value: string) {
@@ -63,5 +63,5 @@ async function runCodeExpectOutput(app: Application, commmand: string, value: st
 		await console.sendInterrupt();
 		await console.pasteCodeToConsole(commmand, true);
 		await console.waitForConsoleContents(value, { timeout: 2000 });
-	}, 'run code and expect console output').toPass({ timeout: 10000 });
+	}, 'Run code and expect console output').toPass({ timeout: 10000 });
 }
