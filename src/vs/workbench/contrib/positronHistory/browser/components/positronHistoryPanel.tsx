@@ -117,7 +117,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
-	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(50));
+	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(25));
 	const filterRef = useRef<any>(null);
 	const hasInitializedSizeRef = useRef<boolean>(false);
 	const selectedIndexRef = useRef<number>(selectedIndex);
