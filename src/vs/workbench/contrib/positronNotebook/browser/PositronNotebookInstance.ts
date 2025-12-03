@@ -1583,28 +1583,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
-	/**
-	 * Check if a cell is currently visible in the viewport.
-	 * A cell is considered visible if at least 50% of it is within the viewport.
-	 * @param cell The cell to check
-	 * @returns true if the cell is visible, false otherwise
-	 */
-	private _isCellInViewport(cell: IPositronNotebookCell): boolean {
-		if (!cell.container || !this._cellsContainer) {
-			return false;
-		}
-
-		const cellRect = cell.container.getBoundingClientRect();
-		const containerRect = this._cellsContainer.getBoundingClientRect();
-
-		const visibleTop = Math.max(containerRect.top, cellRect.top);
-		const visibleBottom = Math.min(containerRect.bottom, cellRect.bottom);
-		const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-		const visibilityRatio = visibleHeight / cellRect.height;
-
-		return visibilityRatio >= 0.5;
-	}
-
 	async handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run'): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
@@ -1617,7 +1595,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		// Check if cell is visible in viewport
-		const isVisible = this._isCellInViewport(cell);
+		const isVisible = cell.isInViewport();
 		if (isVisible) {
 			// Cell is already visible, no action needed
 			return;

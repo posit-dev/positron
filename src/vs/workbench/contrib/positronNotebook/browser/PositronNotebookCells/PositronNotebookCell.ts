@@ -16,6 +16,18 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+
+/**
+ * Minimum visibility ratio required for a cell to be considered visible in the viewport.
+ * A cell is considered visible if at least this percentage of its height is within
+ * the visible area of the notebook container.
+ *
+ * This value is also used to determine when a cell should be scrolled into view:
+ * if a cell's visibility ratio is below this threshold, it will be scrolled to center.
+ *
+ * Value of 0.5 means 50% of the cell must be visible.
+ */
+const MIN_CELL_VISIBILITY_RATIO = 0.5;
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -213,6 +225,27 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		});
 	}
 
+	/**
+	 * Check if this cell is currently visible in the viewport.
+	 * A cell is considered visible if at least {@link MIN_CELL_VISIBILITY_RATIO} of it is within the viewport.
+	 * @returns true if the cell is visible, false otherwise
+	 */
+	isInViewport(): boolean {
+		if (!this._container || !this._instance.cellsContainer) {
+			return false;
+		}
+
+		const cellRect = this._container.getBoundingClientRect();
+		const containerRect = this._instance.cellsContainer.getBoundingClientRect();
+
+		const visibleTop = Math.max(containerRect.top, cellRect.top);
+		const visibleBottom = Math.min(containerRect.bottom, cellRect.bottom);
+		const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+		const visibilityRatio = visibleHeight / cellRect.height;
+
+		return visibilityRatio >= MIN_CELL_VISIBILITY_RATIO;
+	}
+
 	async reveal(type?: CellRevealType): Promise<boolean> {
 		// TODO: We may want to support type, but couldn't find any issues without it
 		// Wait for container if not immediately available
@@ -221,14 +254,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			return false;
 		}
 
-		// If the cell is less than 50% visible, scroll it to center
-		const rect = this._container.getBoundingClientRect();
-		const parentRect = this._instance.cellsContainer.getBoundingClientRect();
-		const visibleTop = Math.max(parentRect.top, rect.top);
-		const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
-		const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-		const visibilityRatio = visibleHeight / rect.height;
-		if (visibilityRatio < 0.5) {
+		// If the cell is not sufficiently visible, scroll it to center
+		if (!this.isInViewport()) {
 			// Use smooth scrolling for better UX when revealing cells
 			this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
 		}
