@@ -579,10 +579,10 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 				}
 			}}
 		>
-			<div className="history-entry-content">
+			<div className='history-entry-content'>
 				{/* Show "... N more lines" above if smart excerpt hides lines above */}
 				{smartExcerpt && smartExcerpt.hiddenAbove > 0 && (
-					<div className="history-entry-line-indicator">
+					<div className='history-entry-line-indicator'>
 						... {smartExcerpt.hiddenAbove} more lines
 					</div>
 				)}
@@ -604,14 +604,14 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 				{/* Show "... N more lines" below for normal truncation */}
 				{needsTruncation && (
-					<div className="history-entry-line-indicator">
+					<div className='history-entry-line-indicator'>
 						... {lineCount - MAX_COLLAPSED_LINES} more lines
 					</div>
 				)}
 
 				{/* Show "... N more lines" below if smart excerpt hides lines below */}
 				{smartExcerpt && smartExcerpt.hiddenBelow > 0 && (
-					<div className="history-entry-line-indicator">
+					<div className='history-entry-line-indicator'>
 						... {smartExcerpt.hiddenBelow} more lines
 					</div>
 				)}
