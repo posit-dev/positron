@@ -276,10 +276,11 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 					}
 
 					// Validate content length
-					if (content.length > MAX_CELL_CONTENT_LENGTH) {
+					const contentByteLength = Buffer.byteLength(content, 'utf8');
+					if (contentByteLength > MAX_CELL_CONTENT_LENGTH) {
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart(
-								`Content too large: ${content.length} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
+								`Content too large: ${contentByteLength} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
 							)
 						]);
 					}
@@ -367,10 +368,11 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 					}
 
 					// Validate content length
-					if (content.length > MAX_CELL_CONTENT_LENGTH) {
+					const contentByteLength = Buffer.byteLength(content, 'utf8');
+					if (contentByteLength > MAX_CELL_CONTENT_LENGTH) {
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart(
-								`Content too large: ${content.length} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
+								`Content too large: ${contentByteLength} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
 							)
 						]);
 					}

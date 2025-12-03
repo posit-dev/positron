@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
-import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
+import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT, getOriginalContentLength } from '../notebookContextFilter.js';
 import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../extension.js';
 
@@ -169,11 +169,17 @@ export function formatCells(options: FormatCellsOptions): string {
 		const cellLabel = cells.length === 1
 			? prefix
 			: `${prefix} ${idx + 1}`;
+
+		// Check if cell content was truncated (has originalContentLength property)
+		const originalLength = getOriginalContentLength(cell);
+		const wasTruncated = originalLength !== undefined && originalLength > cell.content.length;
+
 		const parts = [
 			`<cell index="${cell.index}" type="${cell.type}">`,
 			`  <label>${cellLabel}</label>`,
 			`  <status>${statusInfo}</status>`,
 			includeContent ? `<content>${cell.content}</content>` : '',
+			wasTruncated ? `  <truncated original-length="${originalLength}" />` : '',
 			`</cell>`
 		];
 		return parts.filter(Boolean).join('\n');
