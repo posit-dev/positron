@@ -1073,11 +1073,10 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				>
 					{/* Floating sticky header */}
 					{stickyHeaderLabel && listItems.length > 0 && (
-						<div className='history-sticky-header'>
-							<div className='history-separator-content'>
-								<span className='history-separator-label'>{stickyHeaderLabel}</span>
-							</div>
-						</div>
+						<HistorySeparator
+							className='history-sticky-header'
+							label={stickyHeaderLabel}
+							style={{}} />
 					)}
 
 					{listItems.length === 0 && debouncedSearchText ? (

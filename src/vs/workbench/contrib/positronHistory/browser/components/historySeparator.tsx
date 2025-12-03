@@ -11,6 +11,7 @@ import './historySeparator.css';
  */
 interface HistorySeparatorProps {
 	label: string;
+	className?: string;
 	style: CSSProperties;
 }
 
@@ -24,7 +25,7 @@ export const HistorySeparator = (props: HistorySeparatorProps) => {
 	const customStyle: CSSProperties = style;
 
 	return (
-		<div className="history-separator" style={customStyle}>
+		<div className={props.className || 'history-separator'} style={customStyle}>
 			<div className="history-separator-content">
 				<span className="history-separator-label">{label}</span>
 			</div>
