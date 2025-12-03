@@ -69,12 +69,24 @@ export class LanguageInputHistory extends Disposable {
 		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
-				// Parse the timestamp, falling back to current time if invalid
-				const parsedTime = Date.parse(languageRuntimeMessageInput.when);
-				const timestamp = isNaN(parsedTime) ? Date.now() : parsedTime;
+				// Record the input with the current timestamp.
+				let when = Date.now();
+
+				// If the input message has a timestamp, try to use that instead. Not all
+				// runtimes provide this, but if they do, it should be more accurate.
+				if (languageRuntimeMessageInput.when) {
+					const parsedTime = Date.parse(languageRuntimeMessageInput.when);
+					if (isNaN(parsedTime)) {
+						this._logService.warn(
+							`Invalid timestamp '${when}' on input message ${languageRuntimeMessageInput.id}; ` +
+							`Using current time instead.`);
+					} else {
+						when = parsedTime;
+					}
+				}
 
 				const entry: IInputHistoryEntry = {
-					when: timestamp,
+					when: when,
 					input: languageRuntimeMessageInput.code
 				};
 				this._pendingEntries.push(entry);
