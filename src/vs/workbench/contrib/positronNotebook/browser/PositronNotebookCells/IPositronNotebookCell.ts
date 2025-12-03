@@ -161,11 +161,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 
 	/**
 	 * Temporarily highlight the cell with a flash animation to draw attention.
-	 * The highlight is automatically removed after the animation completes.
-	 * @param durationMs Optional duration in milliseconds. Defaults to 1500ms.
+	 * The highlight animation is controlled by CSS and automatically completes.
+	 * Calling this method multiple times in quick succession will restart the animation.
 	 * @returns Promise that resolves to true if the highlight was successfully added, false otherwise.
 	 */
-	highlightTemporarily(durationMs?: number): Promise<boolean>;
+	highlightTemporarily(): Promise<boolean>;
 
 	/**
 	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.

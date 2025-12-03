@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { disposableTimeout } from '../../../../../base/common/async.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
@@ -172,27 +174,42 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	/**
 	 * Waits for the container to be available by polling.
 	 * This handles the case where reveal/highlight is called before React mounts the cell.
+	 * Uses disposableTimeout to ensure timeouts are cleaned up if the cell is disposed.
 	 * @param maxWaitMs Maximum time to wait in milliseconds. Defaults to 100ms.
 	 * @param intervalMs Polling interval in milliseconds. Defaults to 10ms.
-	 * @returns Promise that resolves to true if container became available, false if timed out.
+	 * @returns Promise that resolves to true if container became available, false if timed out or disposed.
 	 */
 	private async _waitForContainer(maxWaitMs = 100, intervalMs = 10): Promise<boolean> {
+		// Return early if already available
 		if (this._container && this._instance.cellsContainer) {
 			return true;
+		}
+
+		// Return early if already disposed
+		if (this._store.isDisposed) {
+			return false;
 		}
 
 		const startTime = Date.now();
 		return new Promise(resolve => {
 			const check = () => {
+				// Check if disposed before continuing the polling loop
+				if (this._store.isDisposed) {
+					resolve(false);
+					return;
+				}
+
 				if (this._container && this._instance.cellsContainer) {
 					resolve(true);
 				} else if (Date.now() - startTime >= maxWaitMs) {
 					resolve(false);
 				} else {
-					setTimeout(check, intervalMs);
+					// Use disposableTimeout registered with this._store so it's cancelled on disposal
+					disposableTimeout(check, intervalMs, this._store);
 				}
 			};
-			setTimeout(check, intervalMs);
+			// Start the first poll using disposableTimeout
+			disposableTimeout(check, intervalMs, this._store);
 		});
 	}
 
@@ -218,23 +235,22 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return true;
 	}
 
-	async highlightTemporarily(durationMs?: number): Promise<boolean> {
+	async highlightTemporarily(): Promise<boolean> {
 		const hasContainer = await this._waitForContainer();
 		if (!hasContainer || !this._container) {
 			return false;
 		}
 
-		const duration = durationMs ?? 1500;
+		const container = this._container;
 
-		// Add the highlight class
-		this._container.classList.add('assistant-highlight');
-
-		// Remove the class after the animation completes
-		setTimeout(() => {
-			if (this._container) {
-				this._container.classList.remove('assistant-highlight');
-			}
-		}, duration);
+		// Remove class and wait for next frame to re-add. The animation ends
+		// with no visual change so we can leave the class on. The class hanging
+		// around is a tradeoff to avoid having to handle removing the class via
+		// javascript which makes this more complex and fragile.
+		container.classList.remove('assistant-highlight');
+		DOM.getWindow(container).requestAnimationFrame(() => {
+			container.classList.add('assistant-highlight');
+		});
 
 		return true;
 	}
