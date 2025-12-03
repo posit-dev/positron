@@ -24,6 +24,7 @@ export const IMAGE_MIME_TYPES = [
 export const TEXT_BASED_MIME_TYPES = [
 	'text/latex',
 	'text/html',
+	'application/xml',
 	'application/vnd.code.notebook.error',
 	'application/vnd.code.notebook.stdout',
 	'application/x.notebook.stdout',
