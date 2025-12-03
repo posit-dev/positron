@@ -116,7 +116,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const listRef = useRef<List>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const rowHeightsRef = useRef<Map<number, number>>(new Map());
-	const disposablesRef = useRef<DisposableStore>(new DisposableStore());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
 	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(50));
 	const filterRef = useRef<any>(null);
@@ -601,7 +600,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Initialize - set up event listeners
 	 */
 	useEffect(() => {
-		const disposables = disposablesRef.current;
+		const disposables = new DisposableStore();
 
 		// Listen for size changes with debouncing to prevent flickering during resize
 		disposables.add(

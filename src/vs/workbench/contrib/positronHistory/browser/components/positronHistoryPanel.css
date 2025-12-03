@@ -3,6 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+
+.positron-history-container {
+	height: 100%;
+}
+
 .positron-history-panel {
 	display: flex;
 	flex-direction: column;
