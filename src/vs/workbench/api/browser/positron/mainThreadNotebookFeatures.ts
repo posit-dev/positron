@@ -183,7 +183,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Notify for the last cell that was run
 		const lastCellIndex = cellIndices[cellIndices.length - 1];
 		if (lastCellIndex !== undefined) {
-			instance.handleAssistantCellModification(lastCellIndex, 'run');
+			await instance.handleAssistantCellModification(lastCellIndex, 'run');
 		}
 	}
 
@@ -209,7 +209,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		instance.addCell(cellKind, index, false, content);
 
 		// Notify about assistant cell modification for follow mode
-		instance.handleAssistantCellModification(index, 'add');
+		await instance.handleAssistantCellModification(index, 'add');
 
 		return index;
 	}
@@ -235,7 +235,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Notify about assistant cell modification for follow mode
 		// Note: After deletion, the cellIndex may point to a different cell, but we still notify
 		// to handle the case where the deleted cell was outside the viewport
-		instance.handleAssistantCellModification(cellIndex, 'delete');
+		await instance.handleAssistantCellModification(cellIndex, 'delete');
 	}
 
 	/**
@@ -296,7 +296,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		instance.handleAssistantCellModification(cellIndex, 'edit');
+		await instance.handleAssistantCellModification(cellIndex, 'edit');
 	}
 
 	/**

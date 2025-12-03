@@ -347,7 +347,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param cellIndex The index of the cell that was modified
 	 * @param action The type of modification ('add' | 'edit' | 'run' | 'delete')
 	 */
-	handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): void;
+	handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): Promise<void>;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

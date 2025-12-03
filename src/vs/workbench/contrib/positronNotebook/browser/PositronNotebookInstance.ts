@@ -1605,7 +1605,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return visibilityRatio >= 0.5;
 	}
 
-	handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): void {
+	async handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return;
@@ -1627,9 +1627,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
 
 		if (autoFollow) {
-			// Auto-follow: scroll to cell and highlight
-			cell.reveal();
-			cell.highlightTemporarily();
+			const revealed = await cell.reveal();
+			const highlighted = await cell.highlightTemporarily();
+			if (!revealed || !highlighted) {
+				this._logService.debug(`Failed to reveal/highlight cell ${cellIndex} - container not available`);
+			}
 		}
 	}
 
