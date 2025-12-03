@@ -36,13 +36,13 @@ test.describe('Reticulate', {
 		const { modals, toasts } = app.workbench;
 
 		// start new reticulate session and verify functionality
-		await sessions.start('pythonReticulate');
+		const reticulateSession = await sessions.start('pythonReticulate');
 		await modals.installIPyKernel();
 		await toasts.waitForDisappear('Creating the Reticulate Python session');
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`);
 
 		// stop reticulate session
-		await sessions.delete(`R ${process.env.POSITRON_R_VER_SEL!}`);
+		await sessions.delete(reticulateSession.id);
 		await app.workbench.console.waitForConsoleContents('exited');
 
 		// start reticulate session (again) and verify functionality
