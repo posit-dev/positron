@@ -345,9 +345,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Handle assistant cell modification by showing notifications or auto-following
 	 * when cells are modified outside the viewport.
 	 * @param cellIndex The index of the cell that was modified
-	 * @param action The type of modification ('add' | 'edit' | 'run' | 'delete')
+	 * @param action The type of modification ('add' | 'edit' | 'run')
 	 */
-	handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): Promise<void>;
+	handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run'): Promise<void>;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

@@ -1605,7 +1605,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return visibilityRatio >= 0.5;
 	}
 
-	async handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run' | 'delete'): Promise<void> {
+	async handleAssistantCellModification(cellIndex: number, action: 'add' | 'edit' | 'run'): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return;
