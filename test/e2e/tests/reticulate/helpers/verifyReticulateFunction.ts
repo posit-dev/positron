@@ -27,15 +27,15 @@ export async function verifyReticulateFunctionality(
 	await sessions.select(rSessionId);
 	await app.code.wait(2000); // wait a little for python var to get to R
 	await console.pasteCodeToConsole('y<-reticulate::py$x', true);
-	await variables.expectVariableToBe('y', xValue);
+	await ensureVariablePresent(app, 'y', xValue);
 
 	// Clear the console again and re-check to ensure the R-side variable persists.
 	await console.clearButton.click();
-	await variables.expectVariableToBe('y', xValue);
+	await ensureVariablePresent(app, 'y', xValue);
 
 	// Verify able to overwrite the R variable `y` with an integer literal on the R side.
 	await console.pasteCodeToConsole(`y <- ${yValue}L`, true);
-	await variables.expectVariableToBe('y', yValue);
+	await ensureVariablePresent(app, 'y', yValue);
 
 	// Verify executing reticulate::repl_python() moves focus to the reticulate session
 	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${zValue}")`, true);
@@ -48,6 +48,19 @@ export async function verifyReticulateFunctionality(
 	// Print the Python variable z (created via repl_python) and ensure it appears as well
 	await console.pasteCodeToConsole('print(z)', true);
 	await ensureConsoleDataPresent(app, zValue);
+}
+
+async function ensureVariablePresent(app: Application, variableName: string, value: string) {
+
+	await expect(async () => {
+		try {
+			await app.workbench.variables.expectVariableToBe(variableName, value, 2000);
+		} catch (e) {
+			console.log(`Resending enter key to find variable: ${variableName}`);
+			await app.workbench.console.sendEnterKey();
+			throw e;
+		}
+	}).toPass({ timeout: 10000 });
 }
 
 async function ensureConsoleDataPresent(app: Application, value: string) {
