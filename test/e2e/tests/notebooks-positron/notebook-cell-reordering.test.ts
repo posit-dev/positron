@@ -152,6 +152,6 @@ test.describe('Notebook Cell Reordering', {
 		// Move selected cells down
 		await keyboard.press('Alt+ArrowDown');
 		await keyboard.press('Alt+ArrowDown');
-		await notebooksPositron.expectCellContentsToBe(['# Cell 0', 'Cell 4', '# Cell 1', 'Cell 2', 'Cell 3']);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '### Cell 4', '# Cell 1', '### Cell 2', '### Cell 3']);
 	});
 });

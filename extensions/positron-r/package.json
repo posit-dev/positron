@@ -276,6 +276,16 @@
             ],
             "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
           },
+          "positron.r.interpreters.condaDiscovery": {
+            "scope": "resource",
+            "type": "boolean",
+            "default": false,
+            "tags": [
+              "interpreterSettings",
+              "experimental"
+            ],
+            "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
@@ -928,7 +938,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.218"
+      "ark": "0.1.220"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

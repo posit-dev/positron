@@ -42,10 +42,10 @@ class ExtHostOutputChannel extends AbstractMessageLogger implements vscode.LogOu
 
 	// --- Start Positron ---
 	public setRawLogger() {
-		let loggerUnchecked = this.logger as any;
+		const loggerUnchecked = this.logger as any;
 		if (loggerUnchecked.setRawLogger) {
 			loggerUnchecked.setRawLogger();
-		};
+		}
 	}
 	// --- End Positron ---
 
@@ -175,7 +175,7 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 		const channel = this.createOutputChannel(name, { log: true }, extension);
 
 		// Set our custom raw log
-		const channelUnchecked = channel as any
+		const channelUnchecked = channel as any;
 		if (channelUnchecked.setRawLogger) {
 			channelUnchecked.setRawLogger();
 		}

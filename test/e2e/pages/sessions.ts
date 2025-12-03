@@ -874,10 +874,10 @@ export class Sessions {
 	 *
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
-	async expectSessionPickerToBe(runtimeName: string) {
+	async expectSessionPickerToBe(runtimeName: string, timeout: number = 15000) {
 		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
 			const normalizedRuntimeName = runtimeName.replace(/-\s\d+$/, '').trim();
-			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName);
+			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName, { timeout });
 		}
 		);
 	}

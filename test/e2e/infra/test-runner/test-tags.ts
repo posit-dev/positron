@@ -74,9 +74,6 @@ export enum TestTags {
 	WORKBENCH = '@:workbench',
 	REMOTE_SSH = '@:remote-ssh',
 
-	// exclude tags
-	NIGHTLY_ONLY = '@:nightly-only',
-
 	// soft fail tag for tests that shouldn't fail merge to main
 	SOFT_FAIL = '@:soft-fail'
 }

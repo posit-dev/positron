@@ -399,6 +399,10 @@ class PositronShell(ZMQInteractiveShell):
             # Don't modify the traceback in a notebook. The frontend assumes that it's unformatted
             # and applies its own formatting.
             return super()._showtraceback(etype, evalue, stb)  # type: ignore IPython type annotation is wrong
+        if len(stb) == 1:
+            # Avoid using tempfile name of the PositronShell for single-line tracebacks.
+            evalue_msg = getattr(evalue, "msg", "")
+            return super()._showtraceback(etype, evalue_msg, stb)  # type: ignore IPython type annotation is wrong
 
         # Remove the first two lines of the traceback, which are the "---" header and the repeated
         # exception name and "Traceback (most recent call last)".
