@@ -6,7 +6,7 @@
 import { expect } from '@playwright/test';
 import { Application } from '../../../infra/index.js';
 
-export const RETICULATE_START_MSG = 'Creating the Reticulate Python session';
+export const RETICULATE_SESSION = 'Python (reticulate)';
 
 export async function verifyReticulateFunctionality(
 	app: Application,
@@ -48,11 +48,12 @@ export async function verifyReticulateFunctionality(
 
 async function runCodeExpectVariable(app: Application, code: string, variable: { name: string; value: string } = { name: '', value: '' }) {
 	const { console, variables } = app.workbench;
+
 	await expect(async () => {
 		await console.sendInterrupt();
 		await console.pasteCodeToConsole(code, true);
 		await variables.expectVariableToBe(variable.name, variable.value, 2000);
-	}, 'wait for variable to be present').toPass({ timeout: 10000 });
+	}, 'run code and wait for variable to be present').toPass({ timeout: 10000 });
 }
 
 async function runCodeExpectOutput(app: Application, commmand: string, value: string) {

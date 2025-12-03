@@ -6,6 +6,7 @@
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { ACTIVE_CONSOLE_INSTANCE } from '../../pages/console.js';
+import { RETICULATE_SESSION } from './helpers/verifyReticulateFunction.js';
 
 test.use({
 	suiteId: __filename
@@ -38,10 +39,10 @@ test.describe('Reticulate', {
 
 		// start new reticulate session
 		await sessions.start('pythonReticulate');
-		await sessions.expectSessionPickerToBe('Python (reticulate)', 60000);
+		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
 
 		// restart reticulate session
-		await sessions.restart('Python (reticulate)', { waitForIdle: false });
+		await sessions.restart(RETICULATE_SESSION, { waitForIdle: false });
 		await modals.clickButton('Yes');
 
 		// verify reticulate restarted
