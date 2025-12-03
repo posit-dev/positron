@@ -278,6 +278,10 @@ export class Console {
 		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
+	async sendInterrupt() {
+		await this.hotKeys.sendInterrupt();
+	}
+
 	async pasteCodeToConsole(code: string, sendEnterKey = false) {
 		await test.step(`Paste code to console: ${code}`, async () => {
 			const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);

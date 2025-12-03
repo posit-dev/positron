@@ -43,12 +43,10 @@ export async function verifyReticulateFunctionality(
 	await console.clearButton.click();
 
 	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
-	await console.pasteCodeToConsole('print(r.y)', true);
-	await ensureConsoleDataPresent(app, yValue);
+	await sendCodeToConsoleAndVerifyOutput(app, 'print(r.y)', yValue);
 
 	// Print the Python variable z (created via repl_python) and ensure it appears as well
-	await console.pasteCodeToConsole('print(z)', true);
-	await ensureConsoleDataPresent(app, zValue);
+	await sendCodeToConsoleAndVerifyOutput(app, 'print(z)', zValue);
 }
 
 async function ensureVariablePresent(app: Application, variableName: string, value: string) {
@@ -60,18 +58,15 @@ async function ensureVariablePresent(app: Application, variableName: string, val
 			await app.workbench.console.sendEnterKey();
 			throw e;
 		}
-	}).toPass({ timeout: 10000 });
+	}, 'ensure variable is present').toPass({ timeout: 10000 });
 }
 
-async function ensureConsoleDataPresent(app: Application, value: string) {
-	await expect(async () => {
-		try {
-			await app.workbench.console.waitForConsoleContents(value, { timeout: 2000 });
-		} catch (e) {
-			console.log('Resending enter key for console data');
+async function sendCodeToConsoleAndVerifyOutput(app: Application, commmand: string, value: string) {
+	const { console } = app.workbench;
 
-			await app.workbench.console.sendEnterKey();
-			throw e;
-		}
-	}).toPass({ timeout: 10000 });
+	await expect(async () => {
+		await console.sendInterrupt();
+		await console.pasteCodeToConsole(commmand, true);
+		await console.waitForConsoleContents(value, { timeout: 2000 });
+	}, 'ensure console data is present').toPass({ timeout: 10000 });
 }
