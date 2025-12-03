@@ -85,6 +85,18 @@ const voidElements: Record<string, boolean> = {
 };
 
 /**
+ * Quick lookup table for table elements.
+ */
+const tableElements: Record<string, boolean> = {
+	'table': true,
+	'thead': true,
+	'tbody': true,
+	'tfoot': true,
+	'tr': true,
+	'colgroup': true
+};
+
+/**
  * Checks if a node is nested inside a <pre> element.
  * In <pre> elements, whitespace must be preserved per HTML spec.
  *
@@ -105,6 +117,19 @@ function isInsidePreElement(node: HtmlNode | undefined): boolean {
 		current = current.parent;
 	}
 	return false;
+}
+
+/**
+ * Checks if a node is a table elemen
+ *
+ * @param node The node to check (typically parent of a text node)
+ * @returns true if node is a table element
+ */
+function isTableElement(node: HtmlNode | undefined): boolean {
+	if (!node || !node.name) {
+		return false;
+	}
+	return tableElements[node.name] === true;
 }
 
 /**
@@ -321,14 +346,22 @@ export function parseHtml(html: string): Array<HtmlNode> {
 				nextChar &&
 				nextChar !== '<'
 			) {
-				// This is a text node; add it as a child node
-				if (current.children === undefined) {
-					current.children = [];
+				const textContent = html.slice(start, html.indexOf('<', start));
+				const isWhitespace = whitespaceRE.test(textContent);
+				// Check if we are in a table element context with whitespace-only text node
+				const whitespaceInTable = isWhitespace && isTableElement(current);
+
+				// Don't add whitespace-only text nodes if they are inside table elements
+				if (!whitespaceInTable) {
+					// This is a text node; add it as a child node
+					if (current.children === undefined) {
+						current.children = [];
+					}
+					current.children.push({
+						type: 'text',
+						content: decode(textContent),
+					});
 				}
-				current.children.push({
-					type: 'text',
-					content: decode(html.slice(start, html.indexOf('<', start))),
-				});
 			}
 
 			// if we're at root, push new base node
@@ -383,11 +416,14 @@ export function parseHtml(html: string): Array<HtmlNode> {
 					content = ' ';
 				}
 
-				// Don't add whitespace-only text nodes if they would be trailing text nodes
-				// or if they would be leading whitespace-only text nodes:
+				// Check if we are in a table element context with whitespace-only text node
+				const whitespaceInTable = whitespaceRE.test(content) && isTableElement(current);
+
+				// Don't add whitespace-only text nodes if they would be: trailing text nodes
+				// leading whitespace-only text nodes, or inside table elements:
 				//  * end > -1 indicates this is not a trailing text node
 				//  * leading node is when level is -1 and parent has length 0
-				if ((end > -1 && level + parent.length >= 0) || content !== ' ') {
+				if (!whitespaceInTable && ((end > -1 && level + parent.length >= 0) || content !== ' ')) {
 					parent.push({
 						type: 'text',
 						parent: current,
