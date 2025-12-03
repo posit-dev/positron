@@ -16,6 +16,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CHAT_OPEN_ACTION_ID } from '../../../chat/browser/actions/chatActions.js';
 
 /**
@@ -56,8 +57,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	 * @returns The formatted fix query string
 	 */
 	const buildFixQuery = (): string => {
-		return props.errorContent
-			? `Fix this cell that produced an error:\n\`\`\`\n${props.errorContent}\n\`\`\``
+		const cleanError = removeAnsiEscapeCodes(props.errorContent).trim();
+		return cleanError
+			? `Fix this cell that produced an error:\n\`\`\`\n${cleanError}\n\`\`\``
 			: 'Fix this cell that produced an error.';
 	};
 
@@ -69,8 +71,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	 * @returns The formatted explain query string
 	 */
 	const buildExplainQuery = (): string => {
-		return props.errorContent
-			? `Explain why this cell produced an error:\n\`\`\`\n${props.errorContent}\n\`\`\``
+		const cleanError = removeAnsiEscapeCodes(props.errorContent).trim();
+		return cleanError
+			? `Explain why this cell produced an error:\n\`\`\`\n${cleanError}\n\`\`\``
 			: 'Explain why this cell produced an error.';
 	};
 
