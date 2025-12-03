@@ -33,6 +33,7 @@ export const R_DOCUMENT_SELECTORS = [
 export interface RBinary {
 	path: string;
 	reasons: ReasonDiscovered[];
+	condaEnvironmentPath?: string;
 }
 
 interface DiscoveredBinaries {
@@ -69,7 +70,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Promote R binaries to R installations, filtering out any rejected R installations
 	const rejectedRInstallations: RInstallation[] = [];
 	const rInstallations: RInstallation[] = binaries
-		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons))
+		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons, rbin.condaEnvironmentPath))
 		.filter(r => {
 			if (!r.usable) {
 				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
@@ -248,7 +249,9 @@ export async function makeMetadata(
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
-	const runtimeName = `R ${runtimeShortName}`;
+	const condaAmendment = rInst.condaEnvironmentPath ?
+		` (Conda: ${path.basename(rInst.condaEnvironmentPath)})` : '';
+	const runtimeName = `R ${runtimeShortName}${condaAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.
@@ -272,6 +275,7 @@ export async function makeMetadata(
 		current: rInst.current,
 		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
+		condaEnvironmentPath: rInst.condaEnvironmentPath,
 	};
 
 	// Check the kernel supervisor's configuration; if it's configured to
@@ -368,7 +372,7 @@ async function currentRBinaryFromRegistry(): Promise<RBinary | undefined> {
 		return cachedRBinaryFromRegistry;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/naming-convention
+
 	const Registry = await import('@vscode/windows-registry');
 
 	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
@@ -546,7 +550,7 @@ async function discoverRegistryBinaries(): Promise<RBinary[]> {
 		return [];
 	}
 
-	// eslint-disable-next-line @typescript-eslint/naming-convention
+
 	const Registry = await import('@vscode/windows-registry');
 
 	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];

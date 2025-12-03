@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, Comm } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, StartupEnvironment, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -415,6 +415,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Whether to run the kernel in a login shell. Kallichore ignores this
 		// on Windows.
 		const runInShell = config.get('runInShell', false);
+		let startup_environment_arg = '';
+		let startup_environment: StartupEnvironment = runInShell ?
+			StartupEnvironment.Shell : StartupEnvironment.None;
+
+		// If a startup command is specified in the kernel spec, we need to
+		// run the kernel in a login shell.
+		if (kernelSpec.startup_command) {
+			startup_environment = StartupEnvironment.Command;
+			startup_environment_arg = kernelSpec.startup_command;
+		}
 
 		// Create the session in the underlying API
 		const session: NewSession = {
@@ -428,7 +438,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			continuation_prompt: '',
 			env: varActions,
 			working_directory: workingDir,
-			run_in_shell: runInShell,
+			startup_environment,
+			startup_environment_arg,
 			username: os.userInfo().username,
 			interrupt_mode: interruptMode,
 			connection_timeout: connectionTimeout,

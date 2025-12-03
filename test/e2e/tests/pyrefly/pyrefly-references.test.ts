@@ -23,18 +23,20 @@ test.describe('References', {
 
 	});
 
-	test('R - Verify References Pane Lists All Function References Across Files', {
-		tag: [tags.ARK]
-	}, async function ({ app, r, openFile }) {
-		const helper = 'helper.R';
+	// skipping until we have pyrefly back on for tests
+	test('Python - Verify References Pane Lists All Function References Across Files', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
+	}, async function ({ app, python, openFile }) {
+		const helper = 'helper.py';
 
-		await openFile(join('workspaces', 'references_tests', 'r', helper));
+		await openFile(join('workspaces', 'references_tests', 'python', helper));
 
 		await openAndCommonValidations(app, helper);
 
 		await test.step('Verify reference files', async () => {
-			await app.workbench.references.waitForReferenceFiles(['main.R', 'another_script.R', helper]);
+			await app.workbench.references.waitForReferenceFiles(['main.py', 'another_script.py', helper]);
 		});
+
 	});
 
 });

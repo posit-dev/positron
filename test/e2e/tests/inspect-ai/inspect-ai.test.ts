@@ -122,6 +122,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
+		const [rSession] = await sessions.start(['r']);
 
 		// Sign in to the assistant
 		await app.workbench.assistant.openPositronAssistantChat();
@@ -145,20 +146,29 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Define setup actions in a separate object (could even be moved to its own file later)
 		const setupActions = {
+			'sample_1': async () => {
+				// Start and select an R session
+				await sessions.select(rSession.id);
+			},
 			'sample_2': async (app: any) => {
 				await expect(async () => {
+					await sessions.select(pySession.id);
 					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 					await app.workbench.quickaccess.runCommand('python.execInConsole');
 				}).toPass({ timeout: 5000 });
 			},
 			'sample_3': async (app: any) => {
 				await expect(async () => {
+					await sessions.select(pySession.id);
 					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 				}).toPass({ timeout: 5000 });
 			},
 		} as const;
 		// Define cleanup actions in a separate object (could even be moved to its own file later)
 		const cleanupActions = {
+			'sample_1': async () => {
+				await sessions.restart(rSession.id);
+			},
 			'sample_2': async (app: any) => {
 
 				await hotKeys.closeAllEditors();
@@ -184,7 +194,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 			await app.workbench.assistant.enterChatMessage(item.question);
-			await app.workbench.assistant.waitForSendButtonVisible();
 			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 			if (!response || response.trim() === '') {

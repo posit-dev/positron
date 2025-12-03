@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,18 +14,13 @@ test.use({
 });
 
 test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }, () => {
-	test.beforeAll(async function ({ app }) {
-		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+	test.beforeAll(async function ({ openFile }) {
+		await openFile(path.join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		// Clean up any terminals that may have been created during Quarto operations
-		try {
-			await hotKeys.killAllTerminals();
-		} catch (error) {
-			// Ignore errors if no terminals exist
-		}
-		await deleteGeneratedFiles(app);
+	test.afterEach(async function ({ hotKeys, cleanup }) {
+		await hotKeys.killAllTerminals();
+		await cleanup.removeTestFiles(['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx']);
 	});
 
 	test('Verify Quarto can render html', { tag: [tags.WORKBENCH] }, async function ({ app, runDockerCommand }, testInfo) {
@@ -80,17 +75,6 @@ const verifyDocumentExists = async (app: Application, fileExtension: string, isW
 	await expect(async () => {
 		expect(await fileExists(app, `quarto_basic.${fileExtension}`, isWorkbench, runDockerCommand)).toBe(true);
 	}).toPass({ timeout: 30000 });
-};
-
-const deleteGeneratedFiles = async (app: Application) => {
-	const files = ['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx'];
-
-	for (const file of files) {
-		const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
-		if (await fs.pathExists(filePath)) {
-			await fs.remove(filePath);
-		}
-	}
 };
 
 const fileExists = async (
