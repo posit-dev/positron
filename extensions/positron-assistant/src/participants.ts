@@ -758,9 +758,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const defaultTextProcessor = new DefaultTextProcessor(response);
 
 		// Check if we're in a notebook context and should use streaming cell operations
-		// Only use notebook processor if notebook context is attached to the request
+		// Only use notebook processor if:
+		// 1. Notebook context is attached to the request
+		// 2. We're in Edit or Agent mode (cell modifications are allowed in these modes)
+		// This prevents prompt injection attacks that could modify cells in Ask mode
+		const isEditMode = this.id === ParticipantID.Edit;
+		const isAgentMode = this.id === ParticipantID.Agent;
 		const notebookContext = await getAttachedNotebookContext(request);
-		if (notebookContext) {
+		if (notebookContext && (isEditMode || isAgentMode)) {
 			// Get the raw context to access URI
 			const rawContext = await positron.notebooks.getContext();
 			if (rawContext) {

@@ -27,6 +27,9 @@ export class NotebookTextProcessor {
 	private _notebookUri: vscode.Uri | null = null;
 	private _progressCallback: ((message: string) => void) | undefined;
 	private _token: vscode.CancellationToken | undefined;
+	private _streamingCellIndex: number | null = null;  // Index of cell being streamed to
+	private _lastUpdateTime: number = 0;                // For throttling
+	private _pendingUpdate: NodeJS.Timeout | null = null;
 
 	constructor(
 		private readonly _response: vscode.ChatResponseStream,
@@ -69,6 +72,12 @@ export class NotebookTextProcessor {
 	async flush(): Promise<void> {
 		await this._lexer.flush();
 
+		// Cancel any pending throttled update
+		if (this._pendingUpdate) {
+			clearTimeout(this._pendingUpdate);
+			this._pendingUpdate = null;
+		}
+
 		// If we have buffered text, send it to default processor
 		if (this._textBuffer.trim()) {
 			await this._defaultProcessor.process(this._textBuffer);
@@ -80,7 +89,24 @@ export class NotebookTextProcessor {
 			if (this._progressCallback) {
 				this._progressCallback('⚠️ Incomplete cell tag detected, discarding');
 			}
+			// If we were streaming to a cell, try to finalize with whatever content we have
+			if (this._streamingCellIndex !== null && this._notebookUri && this._cellContent.trim()) {
+				try {
+					await positron.notebooks.updateCellContent(
+						this._notebookUri.toString(),
+						this._streamingCellIndex,
+						this._cellContent.trim()
+					);
+				} catch (error) {
+					log.warn(`[notebook-text-processor] Failed to finalize incomplete cell on flush: ${error}`);
+				}
+			}
 		}
+
+		// Clear streaming state
+		this._streamingCellIndex = null;
+		this._cellContent = '';
+		this._currentCellAttributes = {};
 
 		await this._defaultProcessor.flush();
 	}
@@ -112,18 +138,78 @@ export class NotebookTextProcessor {
 				} else {
 					log.warn(`[notebook-text-processor] Cannot show progress: operation=${operation}, indexStr=${indexStr}, callback=${!!this._progressCallback}`);
 				}
+
+				// Create cell early for streaming if operation is 'add'
+				if (operation === 'add' && this._notebookUri) {
+					await this.createCellForStreaming(chunk.attributes);
+				} else if (operation === 'update') {
+					// For update operations, just record the target index
+					// Reuse the index parsed above for progress callback
+					if (indexStr) {
+						const updateIndex = parseInt(indexStr, 10);
+						if (!isNaN(updateIndex) && updateIndex >= 0) {
+							this._streamingCellIndex = updateIndex;
+							this._lastUpdateTime = Date.now();
+						}
+					}
+				}
 			} else if (chunk.kind === 'close') {
-				// End of cell tag - execute the operation
+				// End of cell tag - finalize the operation
 				this._insideCell = false;
 
+				// Cancel any pending throttled update
+				if (this._pendingUpdate) {
+					clearTimeout(this._pendingUpdate);
+					this._pendingUpdate = null;
+				}
+
 				if (this._notebookUri) {
-					await this.executeCellOperation(this._currentCellAttributes, this._cellContent.trim());
+					// If we're streaming to a cell, perform final update with complete content
+					if (this._streamingCellIndex !== null) {
+						const finalContent = this._cellContent.trim();
+
+						// Validate content length
+						if (finalContent.length > MAX_CELL_CONTENT_LENGTH) {
+							const errorMsg = `Cell content too large: ${finalContent.length} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`;
+							if (this._progressCallback) {
+								this._progressCallback(`⚠️ ${errorMsg}`);
+							}
+							log.warn(`[notebook-text-processor] ${errorMsg}`);
+						} else {
+							try {
+								// Final update with complete content
+								await positron.notebooks.updateCellContent(
+									this._notebookUri.toString(),
+									this._streamingCellIndex,
+									finalContent
+								);
+
+								const operation = this._currentCellAttributes['operation'] as 'add' | 'update' | undefined;
+								if (this._progressCallback) {
+									const operationLabel = operation === 'add' ? 'Created' : 'Updated';
+									this._progressCallback(`${operationLabel} cell ${this._streamingCellIndex} ✓`);
+								}
+							} catch (error) {
+								const errorMessage = error instanceof Error ? error.message : String(error);
+								const operation = this._currentCellAttributes['operation'] as 'add' | 'update' | undefined;
+								log.error(`[notebook-text-processor] Failed to finalize ${operation} cell ${this._streamingCellIndex}: ${errorMessage}`);
+								if (this._progressCallback) {
+									this._progressCallback(`⚠️ Failed to ${operation} cell ${this._streamingCellIndex}: ${errorMessage}`);
+								}
+							}
+						}
+					} else {
+						// Fallback: execute operation normally (for cases where early creation failed)
+						await this.executeCellOperation(this._currentCellAttributes, this._cellContent.trim());
+					}
 				} else {
 					if (this._progressCallback) {
 						this._progressCallback('⚠️ No notebook URI set, cannot execute cell operation');
 					}
 				}
 
+				// Clear streaming state
+				this._streamingCellIndex = null;
 				this._cellContent = '';
 				this._currentCellAttributes = {};
 			}
@@ -131,10 +217,117 @@ export class NotebookTextProcessor {
 			if (this._insideCell) {
 				// Accumulate cell content
 				this._cellContent += chunk.text;
+				// Stream update to cell (throttled)
+				await this.streamCellContentUpdate();
 			} else {
 				// Accumulate regular text to send to default processor
 				this._textBuffer += chunk.text;
 			}
+		}
+	}
+
+	/**
+	 * Create a cell early for streaming content into it
+	 */
+	private async createCellForStreaming(attributes: Record<string, string>): Promise<void> {
+		const type = attributes['type'] as 'code' | 'markdown' | undefined;
+		const indexStr = attributes['index'];
+
+		if (!type) {
+			log.warn(`[notebook-text-processor] Missing type attribute for add operation, cannot create cell early`);
+			return;
+		}
+
+		if (!indexStr) {
+			log.warn(`[notebook-text-processor] Missing index attribute, cannot create cell early`);
+			return;
+		}
+
+		const index = parseInt(indexStr, 10);
+		if (isNaN(index) || index < 0) {
+			log.warn(`[notebook-text-processor] Invalid index: ${indexStr}, cannot create cell early`);
+			return;
+		}
+
+		try {
+			// Get notebook context
+			const context = await positron.notebooks.getContext();
+			if (!context) {
+				log.warn(`[notebook-text-processor] No active notebook found, cannot create cell early`);
+				return;
+			}
+
+			// Handle append case (-1 means append at end)
+			const insertIndex = index === -1 ? context.cellCount : index;
+
+			// Validate insert index
+			if (!Number.isInteger(insertIndex) || insertIndex < 0 || insertIndex > context.cellCount) {
+				log.warn(`[notebook-text-processor] Invalid insert index: ${insertIndex}, cannot create cell early`);
+				return;
+			}
+
+			// Map cell type to enum
+			const cellTypeEnum = type === 'code'
+				? positron.notebooks.NotebookCellType.Code
+				: positron.notebooks.NotebookCellType.Markdown;
+
+			// Create cell with empty content for streaming
+			await positron.notebooks.addCell(this._notebookUri!.toString(), cellTypeEnum, insertIndex, '');
+
+			// Store the index for streaming updates
+			this._streamingCellIndex = insertIndex;
+			this._lastUpdateTime = Date.now();
+
+			log.debug(`[notebook-text-processor] Created cell ${insertIndex} early for streaming`);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			log.warn(`[notebook-text-processor] Failed to create cell early for streaming: ${errorMessage}`);
+			// Don't throw - we'll fall back to creating it at the end
+			this._streamingCellIndex = null;
+		}
+	}
+
+	/**
+	 * Stream content update to cell with throttling
+	 */
+	private async streamCellContentUpdate(): Promise<void> {
+		// Skip if no cell is being streamed to
+		if (this._streamingCellIndex === null || !this._notebookUri) {
+			return;
+		}
+
+		// Check for cancellation
+		if (this._token?.isCancellationRequested) {
+			return;
+		}
+
+		// Throttle: only update every 50ms
+		const now = Date.now();
+		if (now - this._lastUpdateTime < 50) {
+			// Schedule a pending update if not already scheduled
+			if (!this._pendingUpdate) {
+				this._pendingUpdate = setTimeout(() => {
+					this._pendingUpdate = null;
+					this.streamCellContentUpdate().catch(err => {
+						log.warn(`[notebook-text-processor] Error in scheduled cell update: ${err}`);
+					});
+				}, 50);
+			}
+			return;
+		}
+
+		this._lastUpdateTime = now;
+
+		try {
+			await positron.notebooks.updateCellContent(
+				this._notebookUri.toString(),
+				this._streamingCellIndex,
+				this._cellContent
+			);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			log.warn(`[notebook-text-processor] Failed to stream cell content update: ${errorMessage}`);
+			// Don't throw - we'll try again on the next update or finalize at the end
 		}
 	}
 

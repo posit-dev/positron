@@ -13,7 +13,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
+import { CellKind } from '../../../contrib/notebook/common/notebookCommon.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -240,39 +240,14 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const cell = cells[cellIndex];
 
-		// Get the cell's model to access its properties
+		// Directly update the cell's text model instead of replacing the entire cell
+		// This avoids flickering by preserving the cell's identity and UI state
 		const cellModel = cell.model;
-
-		// Use the notebook text model's applyEdits to replace the cell content
-		// This preserves all other cell properties (language, outputs, metadata, etc.)
-		const textModel = instance.textModel;
+		const textModel = cellModel.textModel;
 		if (!textModel) {
-			throw new Error(`No text model for notebook: ${notebookUri}`);
+			throw new Error(`Text model not available for cell at index: ${cellIndex}`);
 		}
-
-		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
-
-		textModel.applyEdits([
-			{
-				editType: CellEditType.Replace,
-				index: cellIndex,
-				count: 1,
-				cells: [
-					{
-						source: content,
-						language: cellModel.language,
-						mime: cellModel.mime,
-						cellKind: cellModel.cellKind,
-						outputs: cellModel.outputs.map(output => ({
-							outputId: output.outputId,
-							outputs: output.outputs
-						})),
-						metadata: cellModel.metadata,
-						internalMetadata: cellModel.internalMetadata
-					}
-				]
-			}
-		], true, undefined, () => undefined, undefined, computeUndoRedo);
+		textModel.setValue(content);
 	}
 
 	/**
