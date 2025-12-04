@@ -447,7 +447,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 		await this._api.newSession(session);
 
-		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
+		this.log(`Session ${session.display_name} (${this.metadata.sessionId}) created in ${workingDir} with command:`, vscode.LogLevel.Info);
 		this.log(args.join(' '), vscode.LogLevel.Info);
 
 		this._established.open();
