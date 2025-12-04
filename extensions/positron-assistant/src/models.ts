@@ -658,7 +658,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				provider: this.provider,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
-				defaultMaxInput: model.maxInputTokens ?? 0,
+				defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
 		);
@@ -815,7 +815,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 				provider: this.provider,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
-				defaultMaxInput: modelDef.maxInputTokens ?? 0,
+				defaultMaxInput: modelDef.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
 		);
@@ -841,7 +841,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 					provider: this.provider,
 					providerName: this.providerName,
 					capabilities: this.capabilities,
-					defaultMaxInput: 0,
+					defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 					defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 				})
 			);
