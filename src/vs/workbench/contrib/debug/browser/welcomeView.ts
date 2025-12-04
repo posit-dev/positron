@@ -80,23 +80,19 @@ export class WelcomeView extends ViewPane {
 			if (isCodeEditor(editorControl)) {
 				const model = editorControl.getModel();
 				const language = model ? model.getLanguageId() : undefined;
-				// --- Start Positron ---
-				// if (language && this.debugService.getAdapterManager().someDebuggerInterestedInLanguage(language)) {
-				// Find debuggers for this language and check if any support UI launch
-				const adapterManager = this.debugService.getAdapterManager();
-				if (language && adapterManager.someDebuggerInterestedInLanguage(language)) {
-				    // --- End Positron ---
+
+				if (language && this.debugService.getAdapterManager().someDebuggerInterestedInLanguage(language)) {
 					this.debugStartLanguageContext.set(language);
 					this.debuggerInterestedContext.set(true);
 					storageSevice.store(debugStartLanguageKey, language, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 					// --- Start Positron ---
-
 					// Check if any debugger interested in this language supports UI launch
-					const supportsUiLaunch = adapterManager.someDebuggerInterestedInLanguageSupportsUiLaunch(language);
+					const supportsUiLaunch = this.debugService.getAdapterManager().someDebuggerInterestedInLanguageSupportsUiLaunch(language);
 					this.debuggerSupportsUiLaunchContext.set(supportsUiLaunch);
+					// --- End Positron ---
 					return;
 				}
-				// --- End Positron ---
+
 			}
 			this.debuggerInterestedContext.set(false);
 			// --- Start Positron ---
