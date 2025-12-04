@@ -368,10 +368,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (language) {
 			const historyEntries = executionHistoryService.getInputEntries(language);
 
-			// Filter out consecutive duplicates
+			// Filter out consecutive duplicates and empty entries
 			const filteredEntries = historyEntries.filter((entry, index) => {
 				if (index === 0) {
 					return true;
+				}
+				if (!entry.input.trim()) {
+					return false;
 				}
 				return entry.input !== historyEntries[index - 1].input;
 			});
