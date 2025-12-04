@@ -92,6 +92,7 @@
 
 .history-entry {
 	padding: 4px 8px;
+	margin-top: 1px;
 	cursor: pointer;
 	transition: background-color 0.1s ease;
 	background-color: var(--vscode-editor-background);

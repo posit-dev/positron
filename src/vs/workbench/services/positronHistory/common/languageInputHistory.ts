@@ -178,9 +178,14 @@ export class LanguageInputHistory extends Disposable {
 			return;
 		}
 
-		// Remove the matching entry
+		// Remove the matching entry. The matching criteria are:
+		// - The timestamp matches the 'when' parameter, or both are 0/undefined
+		// - The input text matches the 'input' parameter
 		const filteredEntries = parsedEntries.filter(entry =>
-			!(entry.when === when && entry.input === input)
+			!(
+				(entry.when === when || (!when && !entry.when)) &&
+				entry.input === input
+			)
 		);
 
 		// Save the filtered entries back to storage
