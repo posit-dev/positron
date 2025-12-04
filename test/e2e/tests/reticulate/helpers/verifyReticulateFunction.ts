@@ -17,8 +17,6 @@ export async function verifyReticulateFunctionality(
 	zValue = '6'): Promise<void> {
 	const { console, sessions, variables } = app.workbench;
 
-	await app.code.driver.page.waitForTimeout(20000);
-
 	// Create a variable x in Python session
 	await expect(async () => {
 		await console.executeCode('Python', `x = ${xValue}`);
