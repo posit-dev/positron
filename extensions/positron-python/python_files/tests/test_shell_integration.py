@@ -63,24 +63,21 @@ def test_excepthook_call():
     mock_excepthook.assert_called_once_with("mock_type", "mock_value", "mock_traceback")
 
 
-# --- Start Positron ---
-# We don't support the VS Code Native REPL in Positron, so we don't test for this message.
-# if sys.platform == "darwin":
-#
-#     def test_print_statement_darwin(monkeypatch):
-#         importlib.reload(pythonrc)
-#         with monkeypatch.context() as m:
-#             m.setattr("builtins.print", Mock())
-#             importlib.reload(sys.modules["pythonrc"])
-#             print.assert_any_call("Cmd click to launch VS Code Native REPL")
-#
-#
-# if sys.platform == "win32":
-#
-#     def test_print_statement_non_darwin(monkeypatch):
-#         importlib.reload(pythonrc)
-#         with monkeypatch.context() as m:
-#             m.setattr("builtins.print", Mock())
-#             importlib.reload(sys.modules["pythonrc"])
-#             print.assert_any_call("Ctrl click to launch VS Code Native REPL")
-# --- End Positron ---
+if sys.platform == "darwin":
+
+    def test_print_statement_darwin(monkeypatch):
+        importlib.reload(pythonrc)
+        with monkeypatch.context() as m:
+            m.setattr("builtins.print", Mock())
+            importlib.reload(sys.modules["pythonrc"])
+            print.assert_any_call("Cmd click to launch VS Code Native REPL")
+
+
+if sys.platform == "win32":
+
+    def test_print_statement_non_darwin(monkeypatch):
+        importlib.reload(pythonrc)
+        with monkeypatch.context() as m:
+            m.setattr("builtins.print", Mock())
+            importlib.reload(sys.modules["pythonrc"])
+            print.assert_any_call("Ctrl click to launch VS Code Native REPL")
