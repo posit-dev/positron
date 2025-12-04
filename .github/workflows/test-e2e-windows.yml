@@ -47,6 +47,10 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+    outputs:
+      extensions_failed:
+        description: "Whether the extensions tests failed"
+        value: ${{ jobs.e2e-windows.outputs.extensions_failed }}
 
   workflow_dispatch:
     inputs:
@@ -355,19 +359,3 @@ jobs:
         with:
           name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json
-
-  slack-notify:
-    if: ${{ needs.e2e-windows.outputs.extensions_failed == 'true' }}
-    needs:
-      - e2e-windows
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "Will notify on: ${{ env.notify_on }}"
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.3
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-rstats-test-results"
-          filter_jobs: "e2e"
