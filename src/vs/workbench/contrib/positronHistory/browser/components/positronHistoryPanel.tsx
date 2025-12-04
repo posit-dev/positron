@@ -69,6 +69,8 @@ interface PositronHistoryPanelProps {
 type ListItem = {
 	type: 'entry';
 	entry: IInputHistoryEntry;
+	lines: number; // Total number of lines in the entry input
+	visibleLines: number; // Number of lines shown when collapsed
 	originalIndex: number; // Index in the original entries array
 } | {
 	type: 'separator';
@@ -114,9 +116,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	// Refs
 	const listRef = useRef<List>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const rowHeightsRef = useRef<Map<number, number>>(new Map());
 	const searchDelayerRef = useRef<Delayer<void>>(new Delayer<void>(300));
-	const sizeDelayerRef = useRef<Delayer<void>>(new Delayer<void>(25));
 	const filterRef = useRef<any>(null);
 	const hasInitializedSizeRef = useRef<boolean>(false);
 	const selectedIndexRef = useRef<number>(selectedIndex);
@@ -131,6 +131,28 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	// Keep refs in sync with state
 	useEffect(() => {
 		selectedIndexRef.current = selectedIndex;
+	}, [selectedIndex]);
+
+	// Track previous selection to reset row heights for both old and new selection
+	const prevSelectedIndexRef = useRef<number>(-1);
+
+	/**
+	 * Reset row heights when selection changes.
+	 * This is needed because selected entries show all lines while collapsed entries show max 4 lines.
+	 */
+	useEffect(() => {
+		if (listRef.current) {
+			const prevIndex = prevSelectedIndexRef.current;
+			// Reset from the lower index to recalculate heights for both old and new selection
+			const resetFromIndex = Math.min(
+				prevIndex >= 0 ? prevIndex : selectedIndex,
+				selectedIndex >= 0 ? selectedIndex : prevIndex
+			);
+			if (resetFromIndex >= 0) {
+				listRef.current.resetAfterIndex(resetFromIndex);
+			}
+		}
+		prevSelectedIndexRef.current = selectedIndex;
 	}, [selectedIndex]);
 
 	/**
@@ -205,50 +227,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (item.type === 'separator') {
 			return SEPARATOR_HEIGHT;
 		}
-		return rowHeightsRef.current.get(item.originalIndex) || DEFAULT_ROW_HEIGHT;
-	};
-
-	/**
-	 * Update the height of a row
-	 */
-	const updateRowHeight = (index: number, height: number) => {
-		const currentHeight = rowHeightsRef.current.get(index);
-		// Only update if height changed by more than 1px to avoid scroll jumps from minor rendering differences
-		const heightDiff = currentHeight !== undefined ? Math.abs(currentHeight - height) : Infinity;
-		if (heightDiff > 1) {
-			rowHeightsRef.current.set(index, height);
-			// Reset the list after this index to recalculate positions
-			// Use requestAnimationFrame to avoid interrupting user scrolling
-			if (listRef.current && containerRef.current) {
-				const targetWindow = DOM.getWindow(containerRef.current);
-				// Save currently focused element before reset
-				const activeElement = targetWindow.document.activeElement as HTMLElement | null;
-				const wasHistoryEntry = activeElement?.classList.contains('history-entry');
-
-				targetWindow.requestAnimationFrame(() => {
-					if (listRef.current) {
-						listRef.current.resetAfterIndex(index);
-
-						// Restore focus to the selected entry after the list resets
-						// Use another requestAnimationFrame to ensure the DOM has been updated
-						if (wasHistoryEntry) {
-							targetWindow.requestAnimationFrame(() => {
-								const container = containerRef.current;
-								if (container) {
-									const selectedEntry = container.querySelector('.history-entry.selected, .history-entry.selected-unfocused') as HTMLElement | null;
-									if (selectedEntry) {
-										selectedEntry.focus();
-									}
-								}
-							});
-						}
-					}
-				});
-			}
-		} else if (currentHeight === undefined) {
-			// First time measuring, just store it without resetting
-			rowHeightsRef.current.set(index, height);
-		}
+		// When selected, show all lines; otherwise show collapsed (max 4) lines
+		const linesToShow = (index === selectedIndex) ? item.lines : item.visibleLines;
+		return linesToShow * (props.fontInfo.lineHeight) + 8;
 	};
 
 	/**
@@ -268,9 +249,11 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				const label = getSectionLabel(entry.when, currentDate);
 				items.push({ type: 'separator', label });
 			}
-
+			const lines = entry.input.split('\n').length;
+			const visibleLines = lines > 4 ?
+				5 : lines; // Show max 4 lines + ellipsis line when collapsed
 			// Add the entry
-			items.push({ type: 'entry', entry, originalIndex: i });
+			items.push({ type: 'entry', entry, lines, visibleLines, originalIndex: i });
 		}
 
 		return items;
@@ -681,34 +664,17 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	useEffect(() => {
 		const disposables = new DisposableStore();
 
-		// Listen for size changes with debouncing to prevent flickering during resize
+		// Listen for size changes
 		disposables.add(
 			reactComponentContainer.onSizeChanged(size => {
-				// Store valid dimensions immediately for use as fallback
-				if (size.width > 0 && size.height > 0) {
-					const widthDiff = Math.abs(size.width - lastValidWidthRef.current);
-					const heightDiff = Math.abs(size.height - lastValidHeightRef.current);
-
-					// For initial size or significant changes, update immediately without debounce
-					if (!hasInitializedSizeRef.current || widthDiff > 50 || heightDiff > 50) {
-						lastValidWidthRef.current = size.width;
-						lastValidHeightRef.current = size.height;
-						setWidth(size.width);
-						setHeight(size.height);
-						hasInitializedSizeRef.current = true;
-					} else if (widthDiff > 5 || heightDiff > 5) {
-						// For smaller changes, debounce to prevent flickering during resize
-						sizeDelayerRef.current.trigger(() => {
-							lastValidWidthRef.current = size.width;
-							lastValidHeightRef.current = size.height;
-							setWidth(size.width);
-							setHeight(size.height);
-							return Promise.resolve();
-						});
-					}
-				}
+				lastValidWidthRef.current = size.width;
+				lastValidHeightRef.current = size.height;
+				setWidth(size.width);
+				setHeight(size.height);
+				hasInitializedSizeRef.current = true;
 			})
-		);		// Listen for foreground session changes
+		);
+		// Listen for foreground session changes
 		disposables.add(
 			runtimeSessionService.onDidChangeForegroundSession(session => {
 				if (session) {
@@ -1136,7 +1102,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 												setSelectedIndex(index);
 												handleDelete(index);
 											}}
-											onHeightChange={(height: number) => updateRowHeight(item.originalIndex, height)}
 											onKeyDown={handleKeyDown}
 											onSelect={() => handleSelect(index)}
 											onToConsole={() => {

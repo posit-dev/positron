@@ -37,7 +37,6 @@ interface HistoryEntryProps {
 	languageId: string;
 	searchText?: string;
 	onSelect: () => void;
-	onHeightChange: (height: number) => void;
 	onToConsole: () => void;
 	onToSource: () => void;
 	onCopy: () => void;
@@ -364,7 +363,6 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		languageId,
 		searchText,
 		onSelect,
-		onHeightChange,
 		onToConsole,
 		onToSource,
 		onCopy,
@@ -468,16 +466,6 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [codeToHighlight, languageId, searchText, instantiationService]);
-
-	/**
-	 * Measure height after render
-	 */
-	useEffect(() => {
-		if (entryRef.current) {
-			const height = entryRef.current.offsetHeight;
-			onHeightChange(height);
-		}
-	}, [isSelected, colorizedHtml, smartExcerpt, onHeightChange]);
 
 	/**
 	 * Set up native keydown listener in capture phase to prevent scroll behavior
