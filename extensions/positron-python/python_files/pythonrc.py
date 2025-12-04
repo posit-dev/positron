@@ -79,10 +79,7 @@ class PS1:
 if sys.platform != "win32" and (not is_wsl):
     sys.ps1 = PS1()
 
-# --- Start Positron ---
-# We don't support the VS Code Native REPL in Positron, so we don't print this message.
-# if sys.platform == "darwin":
-#     print("Cmd click to launch VS Code Native REPL")
-# else:
-#     print("Ctrl click to launch VS Code Native REPL")
-# --- End Positron ---
+if sys.platform == "darwin":
+    print("Cmd click to launch VS Code Native REPL")
+else:
+    print("Ctrl click to launch VS Code Native REPL")
