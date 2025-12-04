@@ -817,31 +817,6 @@
         ]
       },
       {
-        "name": "installPythonPackage",
-        "displayName": "Install Python Package",
-        "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
-        "icon": "$(package)",
-        "toolReferenceName": "installPythonPackage",
-        "userDescription": "Install Python packages in the current environment",
-        "canBeReferencedInPrompt": true,
-        "tags": [
-          "positron-assistant"
-        ],
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "packages": {
-              "type": "array",
-              "description": "Array of Python package names to install.",
-              "items": {
-                "type": "string",
-                "description": "Name of the Python package to install."
-              }
-            }
-          }
-        }
-      },
-      {
         "name": "runNotebookCells",
         "displayName": "Run Notebook Cells",
         "modelDescription": "Execute one or more cells in the active notebook and return their outputs. Use this when the user wants to run code cells or see the results of cell execution.",
