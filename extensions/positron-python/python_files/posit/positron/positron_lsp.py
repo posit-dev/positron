@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
+from ._vendor.pygls.io_ import run_async
 from ._vendor.pygls.lsp.server import LanguageServer
 from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
 from .help_comm import ShowHelpTopicParams
@@ -99,28 +100,6 @@ class PositronInitializationOptions:
 def _is_console_document(uri: str) -> bool:
     """Check if the document is a Console document (in-memory scheme)."""
     return uri.startswith(f"{_INMEMORY_SCHEME}:")
-
-
-def _get_word_at_position(line: str, character: int) -> str:
-    """
-    Extract the word at the given character position in a line.
-
-    Uses a simple approach: find identifier characters around the position.
-    """
-    if not line or character < 0 or character > len(line):
-        return ""
-
-    # Find start of word
-    start = character
-    while start > 0 and (line[start - 1].isalnum() or line[start - 1] == "_"):
-        start -= 1
-
-    # Find end of word
-    end = character
-    while end < len(line) and (line[end].isalnum() or line[end] == "_"):
-        end += 1
-
-    return line[start:end]
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -272,35 +251,55 @@ class PositronLanguageServer(LanguageServer):
         self._loop.set_debug(self._debug)
         asyncio.set_event_loop(self._loop)
 
-        self._stop_event = threading.Event()
+        self._stop_event = stop_event = threading.Event()
 
-        # Create the TCP server with port=None to let the OS pick a port
-        self._server = self._loop.run_until_complete(
-            self._loop.create_server(self.protocol, host)  # type: ignore[arg-type]
-        )
+        async def lsp_connection(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            """Handle an incoming LSP connection."""
+            logger.debug("Connected to LSP client")
+            self.protocol.set_writer(writer)  # type: ignore[attr-defined]
+            await run_async(
+                stop_event=stop_event,
+                reader=reader,
+                protocol=self.protocol,
+                logger=logger,
+                error_handler=self.report_server_error,
+            )
+            logger.debug("LSP connection closed")
+            self._shutdown_server()
 
-        # Find the port we're listening on
-        for socket in self._server.sockets:
-            addr, port = socket.getsockname()
-            if addr == host:
-                logger.info("LSP server listening on %s:%d", host, port)
-                break
-        else:
-            raise AssertionError("Unable to determine LSP server port")
+        async def start_server() -> None:
+            # Use port=0 to let the OS pick a port
+            self._server = await asyncio.start_server(lsp_connection, host, 0)
 
-        # Notify the frontend that the server is ready
-        if self._comm is None:
-            logger.warning("LSP comm not set, cannot send server_started message")
-        else:
-            logger.info("LSP server ready, sending server_started message")
-            self._comm.send({"msg_type": "server_started", "content": {"port": port}})
+            # Find the port we're listening on
+            for socket in self._server.sockets:
+                addr, port = socket.getsockname()
+                if addr == host:
+                    logger.info("LSP server listening on %s:%d", host, port)
+                    break
+            else:
+                raise AssertionError("Unable to determine LSP server port")
 
-        # Run until stopped
+            # Notify the frontend that the server is ready
+            if self._comm is None:
+                logger.warning("LSP comm not set, cannot send server_started message")
+            else:
+                logger.info("LSP server ready, sending server_started message")
+                self._comm.send({"msg_type": "server_started", "content": {"port": port}})
+
+            # Serve until stopped
+            async with self._server:
+                await self._server.serve_forever()
+
+        # Run the server
         try:
-            while not self._stop_event.is_set():
-                self._loop.run_until_complete(asyncio.sleep(1))
+            self._loop.run_until_complete(start_server())
         except (KeyboardInterrupt, SystemExit):
             pass
+        except asyncio.CancelledError:
+            logger.debug("Server was cancelled")
         finally:
             self._shutdown_server()
 
@@ -709,37 +708,6 @@ def _get_dataframe_column_completions(obj: Any, prefix: str) -> list[types.Compl
         pass
 
     return items
-
-
-# def _get_env_var_completions(
-#     server: PositronLanguageServer, text_before_cursor: str
-# ) -> list[types.CompletionItem]:
-#     """Get environment variable completions."""
-#     # Check if we're in an os.environ context
-#     if "os.environ" not in text_before_cursor and "environ" not in text_before_cursor:
-#         return []
-
-#     # Check for string access pattern like os.environ["VAR or os.environ.get("VAR
-#     match = re.search(r'(?:environ\[|environ\.get\()["\'](\w*)$', text_before_cursor)
-#     if not match:
-#         return []
-
-#     prefix = match.group(1)
-#     items = []
-
-#     for name in os.environ:
-#         if not name.startswith(prefix):
-#             continue
-#         items.append(
-#             types.CompletionItem(
-#                 label=name,
-#                 kind=types.CompletionItemKind.Variable,
-#                 sort_text=f"e{name}",
-#                 detail="environment variable",
-#             )
-#         )
-
-#     return items
 
 
 def _get_magic_completions(
