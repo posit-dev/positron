@@ -67,7 +67,7 @@ jobs:
           USE_KEY: true
           GH_SUMMARY_REPORT: true
         run: |
-          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-electron --workers=1 --reporter=null
+          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-electron --workers=1 --reporter=html
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -95,7 +95,7 @@ jobs:
           USE_KEY: true
           GH_SUMMARY_REPORT: true
         run: |
-          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-chromium --workers=1 --reporter=null
+          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-chromium --workers=1 --reporter=html
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
