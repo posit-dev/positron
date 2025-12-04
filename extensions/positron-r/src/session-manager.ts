@@ -99,6 +99,9 @@ export class RSessionManager implements vscode.Disposable {
 			throw Error(`Foreground session with ID ${sessionId} must not be a background session.`);
 		}
 
+		// Multiple `activateConsoleSession()` might run concurrently if the
+		// `didChangeForegroundSession` event fires rapidly. We might want to queue
+		// the handling.
 		this._lastForegroundSessionId = session.metadata.sessionId;
 		await this.activateConsoleSession(session, 'foreground session changed');
 	}
