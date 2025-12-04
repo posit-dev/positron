@@ -75,31 +75,3 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-
-      - name: Send Results to GH Summary
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/gen-report-dir
-
-      - name: Run Playwright Tests - Chromium
-        if: ${{ success() || failure() }}
-        shell: bash
-        env:
-          POSITRON_PY_VER_SEL: "3.10.12"
-          POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: "3.13.0"
-          POSITRON_R_ALT_VER_SEL: 4.4.2
-          POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
-          POSITRON_HIDDEN_R: 4.4.1
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-          USE_KEY: true
-          GH_SUMMARY_REPORT: true
-        run: |
-          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-chromium --workers=1 --reporter=html
-
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
