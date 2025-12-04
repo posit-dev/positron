@@ -685,7 +685,7 @@
         "type": "ark",
         "label": "R Debugger",
         "languages": ["r"],
-        "supportsUILaunch": false
+        "supportsUiLaunch": false
       }
     ],
     "notebookRenderer": [

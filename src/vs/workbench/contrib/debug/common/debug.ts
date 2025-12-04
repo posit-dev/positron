@@ -81,7 +81,7 @@ export const CONTEXT_BREAKPOINTS_EXIST = new RawContextKey<boolean>('breakpoints
 export const CONTEXT_DEBUGGERS_AVAILABLE = new RawContextKey<boolean>('debuggersAvailable', false, { type: 'boolean', description: nls.localize('debuggersAvailable', "True when there is at least one debug extensions active.") });
 export const CONTEXT_DEBUG_EXTENSION_AVAILABLE = new RawContextKey<boolean>('debugExtensionAvailable', true, { type: 'boolean', description: nls.localize('debugExtensionsAvailable', "True when there is at least one debug extension installed and enabled.") });
 // --- Start Positron ---
-export const CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH = new RawContextKey<boolean>('debuggerSupportsUILaunch', true, { type: 'boolean', description: nls.localize('debuggerSupportsUILaunch', "True when the debugger for the current file supports launching from the Run and Debug UI. Some debuggers (like R) use alternative debugging approaches.") });
+export const CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH = new RawContextKey<boolean>('debuggerSupportsUiLaunch', true, { type: 'boolean', description: nls.localize('debuggersupportsUiLaunch', "True when the debugger for the current file supports launching from the Run and Debug UI. Some debuggers (like R) use alternative debugging approaches.") });
 // --- End Positron ---
 export const CONTEXT_DEBUG_PROTOCOL_VARIABLE_MENU_CONTEXT = new RawContextKey<string>('debugProtocolVariableMenuContext', undefined, { type: 'string', description: nls.localize('debugProtocolVariableMenuContext', "Represents the context the debug adapter sets on the focused variable in the VARIABLES view.") });
 export const CONTEXT_SET_VARIABLE_SUPPORTED = new RawContextKey<boolean>('debugSetVariableSupported', false, { type: 'boolean', description: nls.localize('debugSetVariableSupported', "True when the focused session supports 'setVariable' request.") });
@@ -956,7 +956,7 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 
 	// --- Start Positron ---
 	// Whether this debugger supports launching from the Run and Debug UI
-	supportsUILaunch?: boolean;
+	supportsUiLaunch?: boolean;
 	// --- End Positron ---
 
 	// debug configuration support
@@ -1060,7 +1060,7 @@ export interface IAdapterManager {
 	getDebuggerLabel(type: string): string | undefined;
 	someDebuggerInterestedInLanguage(language: string): boolean;
 	// --- Start Positron ---
-	someDebuggerInterestedInLanguageSupportsUILaunch(language: string): boolean;
+	someDebuggerInterestedInLanguageSupportsUiLaunch(language: string): boolean;
 	// --- End Positron ---
 	getDebugger(type: string): IDebuggerMetadata | undefined;
 

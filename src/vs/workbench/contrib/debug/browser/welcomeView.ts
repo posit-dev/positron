@@ -43,7 +43,7 @@ export class WelcomeView extends ViewPane {
 	private debugStartLanguageContext: IContextKey<string | undefined>;
 	private debuggerInterestedContext: IContextKey<boolean>;
 	// --- Start Positron ---
-	private debuggerSupportsUILaunchContext: IContextKey<boolean>;
+	private debuggerSupportsUiLaunchContext: IContextKey<boolean>;
 	// --- End Positron ---
 
 	constructor(
@@ -66,7 +66,7 @@ export class WelcomeView extends ViewPane {
 		this.debugStartLanguageContext = CONTEXT_DEBUG_START_LANGUAGE.bindTo(contextKeyService);
 		this.debuggerInterestedContext = CONTEXT_DEBUGGER_INTERESTED_IN_ACTIVE_EDITOR.bindTo(contextKeyService);
 		// --- Start Positron ---
-		this.debuggerSupportsUILaunchContext = CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH.bindTo(contextKeyService);
+		this.debuggerSupportsUiLaunchContext = CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH.bindTo(contextKeyService);
 		// --- End Positron ---
 		const lastSetLanguage = storageSevice.get(debugStartLanguageKey, StorageScope.WORKSPACE);
 		this.debugStartLanguageContext.set(lastSetLanguage);
@@ -90,15 +90,15 @@ export class WelcomeView extends ViewPane {
 					storageSevice.store(debugStartLanguageKey, language, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 					// Check if any debugger interested in this language supports UI launch
-					const supportsUILaunch = adapterManager.someDebuggerInterestedInLanguageSupportsUILaunch(language);
-					this.debuggerSupportsUILaunchContext.set(supportsUILaunch);
+					const supportsUiLaunch = adapterManager.someDebuggerInterestedInLanguageSupportsUiLaunch(language);
+					this.debuggerSupportsUiLaunchContext.set(supportsUiLaunch);
 					return;
 				}
 				// --- End Positron ---
 			}
 			this.debuggerInterestedContext.set(false);
 			// --- Start Positron ---
-			this.debuggerSupportsUILaunchContext.set(true); // Default to true when no debugger
+			this.debuggerSupportsUiLaunchContext.set(true); // Default to true when no debugger
 			// --- End Positron ---
 		};
 

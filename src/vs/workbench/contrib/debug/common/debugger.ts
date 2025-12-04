@@ -146,8 +146,8 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
 	}
 
 	// --- Start Positron ---
-	get supportsUILaunch(): boolean {
-		return this.debuggerContribution.supportsUILaunch !== false; // Defaults to true
+	get supportsUiLaunch(): boolean {
+		return this.debuggerContribution.supportsUiLaunch !== false; // Defaults to true
 	}
 	// --- End Positron ---
 

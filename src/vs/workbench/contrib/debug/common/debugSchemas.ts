@@ -65,8 +65,8 @@ export const debuggersExtPoint = extensionsRegistry.ExtensionsRegistry.registerE
 					type: 'array'
 				},
 				// --- Start Positron ---
-				supportsUILaunch: {
-					description: nls.localize('positron.extension.contributes.debuggers.supportsUILaunch', "Whether this debugger supports launching from the Run and Debug UI. Set to false for debuggers that use alternative debugging approaches (e.g., R's browser(), debug(), etc.). Defaults to true."),
+				supportsUiLaunch: {
+					description: nls.localize('positron.extension.contributes.debuggers.supportsUiLaunch', "Whether this debugger supports launching from the Run and Debug UI. Set to false for debuggers that use alternative debugging approaches (e.g., R's browser(), debug(), etc.). Defaults to true."),
 					type: 'boolean',
 					default: true
 				},

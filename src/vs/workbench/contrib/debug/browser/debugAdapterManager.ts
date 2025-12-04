@@ -342,11 +342,11 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 	}
 
 	// --- Start Positron ---
-	someDebuggerInterestedInLanguageSupportsUILaunch(languageId: string): boolean {
+	someDebuggerInterestedInLanguageSupportsUiLaunch(languageId: string): boolean {
 		const interestedDebuggers = this.debuggers
 			.filter(d => d.enabled && d.interestedInLanguage(languageId));
 		// Return true if at least one interested debugger supports UI launch
-		return interestedDebuggers.some(d => d.supportsUILaunch !== false);
+		return interestedDebuggers.some(d => d.supportsUiLaunch !== false);
 	}
 	// --- End Positron ---
 
