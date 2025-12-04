@@ -84,6 +84,7 @@
 	"r.walkthrough.migrateFromRStudio.workspaces.title": "Projects, folders, and workspaces",
 	"r.walkthrough.migrateFromRStudio.workspaces.description": "  \n[Open an existing folder](command:workbench.action.files.openFolder)",
 	"r.walkthrough.migrateFromRStudio.formatting.title": "Formatting your R code",
-	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.formatOnSave)"
+	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.formatOnSave)",
+  "r.welcome.views.debugger.content": "Positron currently provides limited debugging support for R code, but you can use R's native debugging features in Positron.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)"
 
 }

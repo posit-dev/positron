@@ -80,6 +80,9 @@ export const CONTEXT_STEP_INTO_TARGETS_SUPPORTED = new RawContextKey<boolean>('s
 export const CONTEXT_BREAKPOINTS_EXIST = new RawContextKey<boolean>('breakpointsExist', false, { type: 'boolean', description: nls.localize('breakpointsExist', "True when at least one breakpoint exists.") });
 export const CONTEXT_DEBUGGERS_AVAILABLE = new RawContextKey<boolean>('debuggersAvailable', false, { type: 'boolean', description: nls.localize('debuggersAvailable', "True when there is at least one debug extensions active.") });
 export const CONTEXT_DEBUG_EXTENSION_AVAILABLE = new RawContextKey<boolean>('debugExtensionAvailable', true, { type: 'boolean', description: nls.localize('debugExtensionsAvailable', "True when there is at least one debug extension installed and enabled.") });
+// --- Start Positron ---
+export const CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH = new RawContextKey<boolean>('debuggerSupportsUiLaunch', true, { type: 'boolean', description: nls.localize('debuggersupportsUiLaunch', "True when the debugger for the current file supports launching from the Run and Debug UI. Some debuggers (like R) use alternative debugging approaches.") });
+// --- End Positron ---
 export const CONTEXT_DEBUG_PROTOCOL_VARIABLE_MENU_CONTEXT = new RawContextKey<string>('debugProtocolVariableMenuContext', undefined, { type: 'string', description: nls.localize('debugProtocolVariableMenuContext', "Represents the context the debug adapter sets on the focused variable in the VARIABLES view.") });
 export const CONTEXT_SET_VARIABLE_SUPPORTED = new RawContextKey<boolean>('debugSetVariableSupported', false, { type: 'boolean', description: nls.localize('debugSetVariableSupported', "True when the focused session supports 'setVariable' request.") });
 export const CONTEXT_SET_DATA_BREAKPOINT_BYTES_SUPPORTED = new RawContextKey<boolean>('debugSetDataBreakpointAddressSupported', false, { type: 'boolean', description: nls.localize('debugSetDataBreakpointAddressSupported', "True when the focused session supports 'getBreakpointInfo' request on an address.") });
@@ -951,6 +954,11 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 	// supported languages
 	languages?: string[];
 
+	// --- Start Positron ---
+	// Whether this debugger supports launching from the Run and Debug UI
+	supportsUiLaunch?: boolean;
+	// --- End Positron ---
+
 	// debug configuration support
 	configurationAttributes?: Record<string, IJSONSchema>;
 	initialConfigurations?: unknown[];
@@ -1051,6 +1059,9 @@ export interface IAdapterManager {
 	getDebugAdapterDescriptor(session: IDebugSession): Promise<IAdapterDescriptor | undefined>;
 	getDebuggerLabel(type: string): string | undefined;
 	someDebuggerInterestedInLanguage(language: string): boolean;
+	// --- Start Positron ---
+	someDebuggerInterestedInLanguageSupportsUiLaunch(language: string): boolean;
+	// --- End Positron ---
 	getDebugger(type: string): IDebuggerMetadata | undefined;
 
 	activateDebuggers(activationEvent: string, debugType?: string): Promise<void>;
