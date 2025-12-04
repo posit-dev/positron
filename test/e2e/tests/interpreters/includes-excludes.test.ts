@@ -10,6 +10,28 @@ test.use({
 	suiteId: __filename
 });
 
+/**
+ * Helper function to verify that starting a session fails (e.g., when interpreter is excluded).
+ * If the session starts successfully, the test will fail.
+ */
+async function expectSessionStartToFail(
+	sessions: any,
+	interpreterName: string,
+	excludedPath: string
+): Promise<void> {
+	let sessionStarted = false;
+	try {
+		await sessions.start(interpreterName, { reuse: false });
+		sessionStarted = true;
+	} catch (e) {
+		// Expected - session should fail to start
+	}
+
+	if (sessionStarted) {
+		fail(`Expected interpreter to be excluded: ${excludedPath}`);
+	}
+}
+
 // these are CI only tests; its not recommended to try and get your local machine to run these tests
 test.describe('Interpreter: Includes', {
 	tag: [tags.INTERPRETER, tags.WEB]
@@ -47,62 +69,38 @@ test.describe('Interpreter: Includes', {
 test.describe('Interpreter: Excludes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
+	let excludedRPath: string;
+	let excludedPythonPath: string;
+	let alternateR: string;
+	let alternatePython: string;
 
-	test.beforeAll(async function ({ settings }) {
+	test.beforeAll(async function ({ settings, app }) {
+		// setup excluded R paths
+		alternateR = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
+		const rMajorMinor = alternateR?.split('.').slice(0, 2).join('.');
+		excludedRPath = process.env.CI
+			? `/opt/R/${alternateR}`
+			: `/Library/Frameworks/R.framework/Versions/${rMajorMinor}-arm64/Resources/bin/R`;
+
+		// setup excluded Python paths
+		alternatePython = process.env.POSITRON_PY_ALT_VER_SEL || 'alternate Python not set';
+		excludedPythonPath = process.env.CI
+			? `~/.pyenv`
+			: `/Users/runner/.pyenv/versions/${alternatePython}`;
+
+		// override settings to exclude the alternate interpreters
 		await settings.set({
-			'python.interpreters.exclude': ["~/.pyenv"],
-			'positron.r.interpreters.exclude': ["/opt/R/4.4.2"],
+			'python.interpreters.exclude': [excludedPythonPath],
+			'positron.r.interpreters.exclude': [excludedRPath]
 		}, { reload: true });
 	});
 
-	test('R - Can Exclude an Interpreter', {
-		tag: [tags.ARK]
-	}, async function ({ app, sessions }) {
-
-		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
-
-		if (!alternateR) {
-			return fail('Alternate R version not set');
-		}
-
-		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
-		try {
-			await sessions.start('rAlt', { reuse: false });
-			fail(failMessage);
-		} catch (e) {
-			if (e instanceof Error && e.message.includes(failMessage)) {
-				fail(failMessage);
-			}
-			// Success = interpreter was correctly excluded
-		}
-
-		await app.code.driver.page.keyboard.press('Escape');
+	test('R - Can Exclude an Interpreter', { tag: [tags.ARK] }, async function ({ sessions }) {
+		await expectSessionStartToFail(sessions, 'rAlt', excludedRPath);
 	});
 
-	test('Python - Can Exclude an Interpreter', async function ({ app, settings, sessions }) {
-
-		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
-
-		if (!alternatePython) {
-			return fail('Alternate Python version not set');
-		}
-
-		const failMessage = 'selectInterpreter was supposed to fail as /root/.pyenv was excluded';
-		await settings.set({
-			'python.interpreters.exclude': ["/root/.pyenv"]
-		}, { reload: true, waitMs: 5000 });
-
-		try {
-			await sessions.start('pythonAlt', { reuse: false });
-			fail(failMessage);
-		} catch (e) {
-			if (e instanceof Error && e.message.includes(failMessage)) {
-				fail(failMessage);
-			}
-			// Success = interpreter was correctly excluded
-		}
-
-		await app.code.driver.page.keyboard.press('Escape');
+	test('Python - Can Exclude an Interpreter', async function ({ sessions }) {
+		await expectSessionStartToFail(sessions, 'pythonAlt', excludedPythonPath);
 	});
 
 });
@@ -110,59 +108,29 @@ test.describe('Interpreter: Excludes', {
 test.describe('Interpreter: Override', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
+	let overrideRPath: string;
+	let overridePythonPath: string;
 
 	test.beforeAll(async function ({ settings }) {
-		const pythonPath = '/root/scratch/python-env';
+		const alternateR = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
+
+		overridePythonPath = '/root/scratch/python-env';
+		overrideRPath = `/opt/R/${alternateR}/bin/R`;
 
 		await settings.set({
-			'python.interpreters.override': [pythonPath],
-			'positron.r.interpreters.override': ["/opt/R/4.4.2/bin/R"]
+			// 'python.interpreters.override': [overridePythonPath],
+			'positron.r.interpreters.override': [overrideRPath]
 		}, { reload: true });
 	});
 
 	test('R - Can Override Interpreter Discovery', {
 		tag: [tags.ARK]
-	}, async function ({ app, sessions }) {
-
-		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
-
-		if (!alternateR) {
-			return fail('Alternate R version not set');
-		}
-
-		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was overriden';
-		try {
-			await sessions.start('r', { reuse: false });
-			fail(failMessage);
-		} catch (e) {
-			if (e instanceof Error && e.message.includes(failMessage)) {
-				fail(failMessage);
-			}
-			// Success = interpreter was correctly overriden
-		}
-		await app.code.driver.page.keyboard.press('Escape');
+	}, async function ({ sessions }) {
+		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 
-	test('Python - Can Override Interpreter Discovery', async function ({ app, sessions }) {
-
-		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
-
-		if (!alternatePython) {
-			return fail('Alternate Python version not set');
-		}
-
-		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was overriden';
-		try {
-			await sessions.start('python', { reuse: false });
-			fail(failMessage);
-		} catch (e) {
-			if (e instanceof Error && e.message.includes(failMessage)) {
-				fail(failMessage);
-			}
-			// Success = interpreter was correctly overriden
-		}
-
-		await app.code.driver.page.keyboard.press('Escape');
+	test('Python - Can Override Interpreter Discovery', async function ({ sessions }) {
+		await expectSessionStartToFail(sessions, 'python', overridePythonPath);
 	});
 
 });
