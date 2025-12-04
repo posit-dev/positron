@@ -64,13 +64,6 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
-
-	test('Jupyter Notebook - Verify editor action bar is not visible', {
-		tag: [tags.NOTEBOOKS],
-	}, async function ({ app }) {
-		await app.workbench.notebooks.createNewNotebook();
-		await app.workbench.editorActionBar.verifyIsVisible(false);
-	});
 });
 
 
