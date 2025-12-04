@@ -263,6 +263,9 @@ export class AskAssistantAction extends NotebookAction2 {
 		logService: ILogService,
 		token: CancellationToken
 	): Promise<void> {
+		// Set assistant working state to show spinning squares indicator
+		notebook.setAssistantWorking(true);
+
 		// Create a loading item with animated spinner icon
 		const loadingItem: PromptQuickPickItem = {
 			label: localize('positronNotebook.assistant.generating.label', 'Generating AI suggestions...'),
@@ -382,6 +385,8 @@ export class AskAssistantAction extends NotebookAction2 {
 			// Reset busy state
 			quickPick.busy = false;
 			quickPick.enabled = true;
+			// Reset assistant working state to hide spinning squares indicator
+			notebook.setAssistantWorking(false);
 		}
 	}
 }

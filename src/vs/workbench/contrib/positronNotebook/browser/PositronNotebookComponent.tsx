@@ -25,6 +25,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { SpinningSquares } from './utilityComponents/SpinningSquares.js';
 
 
 export function PositronNotebookComponent() {
@@ -75,6 +76,7 @@ export function PositronNotebookComponent() {
 					) :
 					<div>{localize('noCells', 'No cells')}</div>
 				}
+				<SpinningSquares />
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}

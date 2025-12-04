@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IObservable } from '../../../../base/common/observable.js';
+import { IObservable, ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
@@ -130,6 +130,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable of the notebook's selected kernel.
 	 */
 	readonly kernel: IObservable<RuntimeNotebookKernel | undefined>;
+
+	/**
+	 * Observable that tracks whether the Positron Assistant is currently working
+	 * on generating suggestions for this notebook.
+	 */
+	readonly assistantWorking: ISettableObservable<boolean>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
@@ -347,6 +353,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param cellIndex The index of the cell that was modified
 	 */
 	handleAssistantCellModification(cellIndex: number): Promise<void>;
+	/**
+	 * Sets whether the Positron Assistant is currently working on generating suggestions.
+	 * This is used to control UI indicators like the spinning squares animation.
+	 * @param working Whether the assistant is currently working
+	 */
+	setAssistantWorking(working: boolean): void;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

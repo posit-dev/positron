@@ -1,0 +1,204 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.spinning-squares-container {
+	position: sticky;
+	bottom: 1rem;
+	right: 1rem;
+	width: fit-content;
+	height: fit-content;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin-left: auto;
+	margin-top: auto;
+	align-self: flex-end;
+}
+
+.spinning-squares-spinner-container {
+	position: relative;
+	width: 3rem;
+	height: 3rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	background-color: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	padding: 0.5rem;
+	box-sizing: border-box;
+	mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+	-webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+}
+
+.spinning-squares-square-wrapper {
+	position: absolute;
+}
+
+.spinning-squares-square-cyan {
+	width: 1.5rem;
+	height: 1.5rem;
+	border: 2px solid var(--vscode-textLink-foreground);
+	border-radius: 2px;
+}
+
+.spinning-squares-square-pink {
+	width: 1.5rem;
+	height: 1.5rem;
+	border: 2px solid var(--vscode-button-secondaryForeground, var(--vscode-button-background));
+	border-radius: 2px;
+}
+
+.spinning-squares-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+	background-color: #1e293b;
+	padding: 1.5rem;
+	border-radius: 0.75rem;
+	width: 100%;
+	max-width: 20rem;
+}
+
+.spinning-squares-label {
+	color: #cbd5e1;
+	font-size: 0.875rem;
+	margin-bottom: 0.5rem;
+	display: block;
+}
+
+.spinning-squares-slider-cyan {
+	width: 100%;
+	accent-color: #22d3ee;
+}
+
+.spinning-squares-slider-pink {
+	width: 100%;
+	accent-color: #f472b6;
+}
+
+.spinning-squares-slider-yellow {
+	width: 100%;
+	accent-color: #facc15;
+}
+
+.spinning-squares-checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	color: #cbd5e1;
+	cursor: pointer;
+}
+
+.spinning-squares-checkbox-cyan {
+	width: 1rem;
+	height: 1rem;
+	accent-color: #22d3ee;
+}
+
+.spinning-squares-checkbox-yellow {
+	width: 1rem;
+	height: 1rem;
+	accent-color: #facc15;
+}
+
+.spinning-squares-hr {
+	border: none;
+	border-top: 1px solid #334155;
+}
+
+@keyframes spin-cw {
+	0% { transform: rotate(0deg); }
+	8% { transform: rotate(35deg); }
+	17% { transform: rotate(55deg); }
+	25% { transform: rotate(90deg); }
+	33% { transform: rotate(125deg); }
+	42% { transform: rotate(145deg); }
+	50% { transform: rotate(180deg); }
+	58% { transform: rotate(215deg); }
+	67% { transform: rotate(235deg); }
+	75% { transform: rotate(270deg); }
+	83% { transform: rotate(305deg); }
+	92% { transform: rotate(325deg); }
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes spin-ccw {
+	0% { transform: rotate(0deg); }
+	8% { transform: rotate(-35deg); }
+	17% { transform: rotate(-55deg); }
+	25% { transform: rotate(-90deg); }
+	33% { transform: rotate(-125deg); }
+	42% { transform: rotate(-145deg); }
+	50% { transform: rotate(-180deg); }
+	58% { transform: rotate(-215deg); }
+	67% { transform: rotate(-235deg); }
+	75% { transform: rotate(-270deg); }
+	83% { transform: rotate(-305deg); }
+	92% { transform: rotate(-325deg); }
+	100% { transform: rotate(-360deg); }
+}
+
+.spinning-squares-popup {
+	padding: 12px;
+	background: var(--vscode-editorHoverWidget-background);
+	border-radius: 6px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	font-size: 12px;
+	color: var(--vscode-editorHoverWidget-foreground);
+	min-width: 80px;
+	max-width: 300px;
+}
+
+.spinning-squares-popup .popup-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+	line-height: 1.4;
+}
+
+.spinning-squares-popup .popup-row:last-child {
+	margin-bottom: 0;
+}
+
+.spinning-squares-popup .popup-label {
+	flex: 1;
+	white-space: nowrap;
+	color: var(--vscode-editorHoverWidget-foreground);
+}
+
+/* Dark theme adjustments */
+.vscode-dark .spinning-squares-spinner-container {
+	background-color: rgba(255, 255, 255, 0.05);
+}
+
+.vscode-dark .spinning-squares-popup {
+	background: var(--vscode-editorHoverWidget-background);
+	border-color: var(--vscode-editorHoverWidget-border);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme adjustments */
+.vscode-light .spinning-squares-spinner-container {
+	background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* High contrast theme adjustments */
+.vscode-high-contrast .spinning-squares-spinner-container {
+	background-color: var(--vscode-editorHoverWidget-background);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	mask-image: none;
+	-webkit-mask-image: none;
+}
+
+.vscode-high-contrast .spinning-squares-popup {
+	background: var(--vscode-editorHoverWidget-background);
+	border: 2px solid var(--vscode-editorHoverWidget-border);
+}
+

@@ -35,7 +35,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorunDelta, ISettableObservable, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
@@ -287,6 +287,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Sets whether the Positron Assistant is currently working on generating suggestions.
+	 * This is used to control UI indicators like the spinning squares animation.
+	 * @param working Whether the assistant is currently working
+	 */
+	setAssistantWorking(working: boolean): void {
+		this.assistantWorking.set(working, undefined);
+	}
+
+	/**
 	 * Fire the scroll event for the cells container.
 	 * Called by React when scroll or DOM mutations occur.
 	 */
@@ -312,6 +321,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The current selected notebook kernel.
 	 */
 	kernel;
+
+	/**
+	 * Observable that tracks whether the Positron Assistant is currently working
+	 * on generating suggestions for this notebook.
+	 */
+	assistantWorking: ISettableObservable<boolean>;
 
 	/**
 	 * Language for the notebook.
@@ -464,6 +479,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._language = this.kernel.map(
 			kernel => /** @description positronNotebookLanguage */ kernel?.runtime?.languageId ?? 'plaintext'
 		);
+
+		// Initialize assistant working state observable
+		this.assistantWorking = observableValue<boolean>('positronNotebookAssistantWorking', false);
 
 		// Attach existing runtime session for the notebook if any
 		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri);
