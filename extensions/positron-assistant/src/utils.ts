@@ -73,8 +73,11 @@ export function toAIMessage(
 			// Add the tool messages.
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
+					const toolCall = toolCalls[part.callId];
+					if (!toolCall) {
+						log.warn(`[toAIMessage] Tool result with callId '${part.callId}' has no matching tool call in conversation history. Available tool calls: ${Object.keys(toolCalls).join(', ')}`);
+					}
 					if (toolResultExperimentalContent) {
-						const toolCall = toolCalls[part.callId];
 						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
 						if (cacheBreakpoint && bedrockCacheBreakpoint) {
 							cacheBreakpoint = false;
@@ -307,9 +310,10 @@ function convertToolResultToAiMessageExperimentalContent(
 }
 
 /**
- * Convert a getPlot tool result into a Vercel AI message.
+ * Convert a getPlot tool result into an AI SDK tool message with image content.
+ * AI SDK 5 supports images in tool results via the 'content' output type with 'media' parts.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.UserModelMessage {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.ToolModelMessage {
 	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
 		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
 	};
@@ -318,33 +322,50 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2)
 	// If there was no image, forward the response as text.
 	if (imageParts.length === 0) {
 		return {
-			role: 'user',
+			role: 'tool',
 			content: [
 				{
-					type: 'text',
-					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+					type: 'tool-result',
+					toolCallId: part.callId,
+					toolName: PositronAssistantToolName.GetPlot,
+					output: {
+						type: 'text',
+						value: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+					},
 				},
 			],
 		};
 	}
 
-	// Otherwise, convert to a user message containing the image,
-	// as Vercel AI doesn't support image tool results.
+	// AI SDK 5 supports image content in tool results via the 'content' output type.
+	// The 'content' type uses 'media' parts for images, which get converted to
+	// appropriate format for each provider (e.g., function_call_output for OpenAI Responses API).
+	type MediaContentPart = { type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string };
+	const contentValue: MediaContentPart[] = imageParts.flatMap((imgPart) => ([
+		{
+			type: 'text' as const,
+			text: 'Here is the current active plot:',
+		},
+		{
+			type: 'media' as const,
+			data: Buffer.from(imgPart.data).toString('base64'),
+			mediaType: imgPart.mimeType,
+		}
+	]));
+
 	return {
-		role: 'user',
-		// We only expect one image part, but just in case,
-		// include all image parts in the message.
-		content: imageParts.flatMap((imgPart) => ([
+		role: 'tool',
+		content: [
 			{
-				type: 'text',
-				text: 'Here is the current active plot:',
+				type: 'tool-result',
+				toolCallId: part.callId,
+				toolName: PositronAssistantToolName.GetPlot,
+				output: {
+					type: 'content',
+					value: contentValue,
+				},
 			},
-			{
-				type: 'image',
-				image: Buffer.from(imgPart.data).toString('base64'),
-				mimeType: imgPart.mimeType,
-			}
-		])),
+		],
 	};
 }
 

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, getEnabledProviders, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -19,7 +19,7 @@ import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MAX_STEPS } from './constants.js';
 import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
@@ -29,7 +29,7 @@ import { PositronAssistantApi } from './api.js';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
-import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, getSnowflakeConnectionsTomlPath, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
@@ -320,6 +320,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
+	/**
+	 * Determines if this model should use experimental content format for tool results.
+	 * Override in subclasses to customize behavior for specific providers.
+	 * @param model The model information
+	 * @returns true if experimental content format should be used
+	 */
+	protected useExperimentalToolResultContent(model: vscode.LanguageModelChatInformation): boolean {
+		return this.provider === 'anthropic-api' || model.id.includes('anthropic');
+	}
+
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		log.debug(`[${this.providerName}] Resolving connection...`);
 
@@ -404,10 +414,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		// Ensure all messages have content
 		const processedMessages = processMessages(messages);
-		// Only Anthropic currently supports experimental_content in tool
-		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
-			model.id.includes('anthropic');
+		// Determine if this model uses experimental content format for tool results.
+		// This is needed for Anthropic models and Snowflake Claude models.
+		const toolResultExperimentalContent = this.useExperimentalToolResultContent(model);
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -476,7 +485,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
-			stopWhen: ai.stepCountIs(modelOptions.maxSteps ?? 50),
+			stopWhen: ai.stepCountIs(modelOptions.maxSteps ?? DEFAULT_MAX_STEPS),
 			tools: modelTools,
 			abortSignal: signal,
 			maxOutputTokens: getMaxTokens(model.id, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
@@ -496,6 +505,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (token.isCancellationRequested) {
 				break;
 			}
+
+			// Log ALL part types for debugging
+			log.debug(`[${this.providerName}] [${this._config.name}] RECV part type: ${part.type}`);
 
 			if (part.type === 'reasoning-delta') {
 				flushAccumulatedTextDeltas();
@@ -933,7 +945,6 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 }
 
 class SnowflakeLanguageModel extends OpenAILanguageModel {
-	protected aiProvider: OpenAIProvider;
 	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
 
 	static source: positron.ai.LanguageModelSource = {
@@ -953,6 +964,30 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 		}
 	};
 
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
+		this.updateAiProvider();
+	}
+
+	/**
+	 * Creates a wrapped OpenAI provider that uses the Chat Completions API
+	 * instead of the Responses API. Snowflake Cortex only supports v1/chat/completions.
+	 */
+	private updateAiProvider(): void {
+		const baseProvider = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
+		});
+		// Create a callable wrapper that routes to .chat() for the default call
+		// This ensures Snowflake uses v1/chat/completions instead of v1/responses
+		const chatWrapper = ((modelId: string, options?: any) => baseProvider.chat(modelId)) as OpenAIProvider;
+		// Copy over any additional properties/methods from the base provider
+		Object.assign(chatWrapper, baseProvider);
+		// Override the callable to always use chat
+		this.aiProvider = chatWrapper;
+	}
+
 	get providerName(): string {
 		return SnowflakeLanguageModel.source.provider.displayName;
 	}
@@ -960,6 +995,13 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 	get baseUrl(): string {
 		// Use the baseUrl from config or fallback to default
 		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
+	}
+
+	/**
+	 * Snowflake uses Claude models which require experimental content format for tool results.
+	 */
+	protected override useExperimentalToolResultContent(model: vscode.LanguageModelChatInformation): boolean {
+		return true;
 	}
 
 	/**
@@ -977,12 +1019,8 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 				this._config.baseUrl = result.credentials.baseUrl;
 			}
 
-			// Recreate the provider with updated credentials
-			this.aiProvider = createOpenAI({
-				apiKey: result.credentials.token,
-				baseURL: this.baseUrl,
-				fetch: createOpenAICompatibleFetch(this.providerName)
-			});
+			// Recreate the provider with updated credentials using Chat Completions API
+			this.updateAiProvider();
 
 			log.info(`[${this.providerName}] Refreshed credentials for account: ${result.credentials.account}`);
 		}

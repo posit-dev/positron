@@ -57,4 +57,7 @@ export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
 /**
  * Determines if the Posit Web environment is detected.
  */
-export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
+export const IS_RUNNING_ON_PWB = true;
+
+/** The default max steps for an agent execution */
+export const DEFAULT_MAX_STEPS = 50;
