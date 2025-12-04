@@ -110,6 +110,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 	 * Load dataset and process each question
 	 */
 	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
+		test.setTimeout(5 * 60 * 1000); // 5 minutes
 		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
 		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
