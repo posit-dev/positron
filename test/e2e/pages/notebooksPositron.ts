@@ -76,7 +76,7 @@ export class PositronNotebooks extends Notebooks {
 
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
-			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'Collapse markdown editor' }).isVisible();
+			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'View markdown' }).isVisible();
 			if (!inEditMode) {
 				await this.selectCellAtIndex(cellIndex, { editMode: true });
 			}
@@ -94,7 +94,7 @@ export class PositronNotebooks extends Notebooks {
 		});
 
 		if (cellType === 'markdown') {
-			await this.collapseMarkdownEditor.click();
+			await this.viewMarkdown.click();
 		}
 
 		return content;
