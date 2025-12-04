@@ -47,13 +47,13 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Send Results to GH Summary
-        uses: ./.github/actions/gen-report-dir
-
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Run Playwright Tests
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Run Playwright Tests - Electron
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
@@ -67,7 +67,7 @@ jobs:
           USE_KEY: true
           GH_SUMMARY_REPORT: true
         run: |
-          SKIP_BOOTSTRAP=true npx playwright test --project e2e-elctron test/e2e/tests/pyrefly --workers 1 --reporter=json
+          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/pyrefly --project=e2e-electron --workers=1 --reporter=html
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
