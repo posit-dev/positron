@@ -1741,7 +1741,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							entry.id + '-output',
 							entry.id,
 							new Date(entry.when),
-							{ 'text/plain': entry.output }
+							{ 'text/plain': entry.output as string }
 						);
 					inputItem.addActivityItem(outputActivityItem);
 				}
