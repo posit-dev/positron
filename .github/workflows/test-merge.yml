@@ -110,3 +110,4 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-rstats-test-results"
           filter_jobs: "windows"
+          notify_on: "always"
