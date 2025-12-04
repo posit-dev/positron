@@ -99,15 +99,25 @@
 	border: none;
 }
 
-/* When code cell is selected/editing AND no outputs: restore bottom rounding */
-.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-/* When markdown cell is in edit mode (no output shown): restore bottom rounding */
-.positron-notebook-cell.selected:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) .positron-notebook-editor-container::after {
-	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+/* Restore bottom rounding when no outputs are shown */
+.positron-notebook-cell {
+	/* Code cells with no outputs */
+	&.selected:has(.positron-notebook-cell-outputs.no-outputs),
+	&.editing:has(.positron-notebook-cell-outputs.no-outputs),
+	&:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) {
+		.positron-notebook-editor-container::after {
+			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+		}
+	}
+
+	/* Markdown cells in edit mode (no output element) */
+	&.selected:not(:has(.positron-notebook-cell-outputs)),
+	&.editing:not(:has(.positron-notebook-cell-outputs)),
+	&:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) {
+		.positron-notebook-editor-container::after {
+			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+		}
+	}
 }
 
 /* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
