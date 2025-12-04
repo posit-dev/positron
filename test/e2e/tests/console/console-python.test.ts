@@ -18,12 +18,14 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 	});
 
 	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
+		await app.workbench.console.clearButton.click();
 		await app.workbench.console.executeCode('Python', 'import time');
 		await app.workbench.console.executeCode('Python', 'time.sleep(10)', { waitForReady: false });
 		await app.workbench.console.interruptExecution();
 	});
 
 	test('Python - Verify console commands are queued during execution', async function ({ app, python }) {
+		await app.workbench.console.clearButton.click();
 		await app.workbench.console.pasteCodeToConsole('123 + 123');
 		await app.workbench.console.executeCode('Python', '456 + 456');
 
@@ -38,10 +40,11 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		const code = `
 import time
 for i in range(10):
-    print(f"Step {i}")
-    time.sleep(1)
+	print(f"Step {i}")
+	time.sleep(1)
 print("Completed all steps")
 `;
+		await app.workbench.console.clearButton.click();
 		await app.workbench.console.executeCode('Python', code, { waitForReady: false });
 
 		// Wait for some work to be done (at least 2-3 steps)
