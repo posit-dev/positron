@@ -16,8 +16,8 @@ import pytest
 from positron._vendor import cattrs
 from positron._vendor.lsprotocol.types import (
     ClientCapabilities,
-    ClientCompletionItemOptions,
     CompletionClientCapabilities,
+    CompletionClientCapabilitiesCompletionItemType,
     CompletionItem,
     CompletionParams,
     DidOpenNotebookDocumentParams,
@@ -58,7 +58,7 @@ def create_test_server(
         capabilities=ClientCapabilities(
             text_document=TextDocumentClientCapabilities(
                 completion=CompletionClientCapabilities(
-                    completion_item=ClientCompletionItemOptions(
+                    completion_item=CompletionClientCapabilitiesCompletionItemType(
                         documentation_format=[MarkupKind.Markdown]
                     ),
                 )
@@ -69,15 +69,8 @@ def create_test_server(
         },
     )
 
-    # In pygls 2.0, lsp_initialize is a generator that needs to be fully consumed
-    # to properly initialize the workspace
-    gen = server.protocol.lsp_initialize(init_params)
-    try:
-        # Consume the generator to complete initialization
-        while True:
-            next(gen)  # type: ignore[arg-type]
-    except StopIteration:
-        pass
+    # In pygls 2.0, lsp is the protocol and lsp_initialize is a regular function
+    server.lsp.lsp_initialize(init_params)
 
     # Mock the shell
     server.shell = Mock()

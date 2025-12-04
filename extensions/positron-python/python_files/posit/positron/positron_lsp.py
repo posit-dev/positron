@@ -35,12 +35,12 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Generator
+from typing import TYPE_CHECKING, Any, Callable
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
-from ._vendor.pygls.lsp.server import LanguageServer
 from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
+from ._vendor.pygls.server import LanguageServer
 from .help_comm import ShowHelpTopicParams
 from .utils import debounce
 
@@ -165,9 +165,7 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         return super().get_message_type(method)
 
     @lsp_method(types.INITIALIZE)
-    def lsp_initialize(
-        self, params: types.InitializeParams
-    ) -> Generator[Any, Any, types.InitializeResult]:
+    def lsp_initialize(self, params: types.InitializeParams) -> types.InitializeResult:
         """Handle the initialize request."""
         server: PositronLanguageServer = self._server  # type: ignore[assignment]
 
@@ -177,16 +175,14 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
             init_opts = cattrs.structure(raw_opts, PositronInitializationOptions)
         except cattrs.BaseValidationError as error:
             msg = f"Invalid PositronInitializationOptions, using defaults: {cattrs.transform_error(error)}"
-            server.window_show_message(
-                types.ShowMessageParams(message=msg, type=types.MessageType.Error)
-            )
+            server.show_message(msg, types.MessageType.Error)
             init_opts = PositronInitializationOptions()
 
         # Store the working directory (using params.root_path since workspace may not be initialized yet)
         server._working_directory = init_opts.working_directory or params.root_path  # noqa: SLF001
 
-        # Yield to parent implementation which handles workspace setup
-        return (yield from super().lsp_initialize(params))
+        # Call parent implementation which handles workspace setup
+        return super().lsp_initialize(params)
 
     def _data_received(self, data: bytes) -> None:  # type: ignore[override]
         """
@@ -276,7 +272,7 @@ class PositronLanguageServer(LanguageServer):
 
         # Create the TCP server with port=None to let the OS pick a port
         self._server = self._loop.run_until_complete(
-            self._loop.create_server(self.protocol, host)  # type: ignore[arg-type]
+            self._loop.create_server(self.lsp, host)  # type: ignore[arg-type]
         )
 
         # Find the port we're listening on
@@ -321,7 +317,7 @@ class PositronLanguageServer(LanguageServer):
         self.shell = shell
 
         # Reset shutdown flag if restarting
-        self.protocol._shutdown = False  # noqa: SLF001
+        self.lsp._shutdown = False  # noqa: SLF001
 
         # Stop any existing server thread
         if self._server_thread is not None and self._server_thread.is_alive():
@@ -350,7 +346,8 @@ class PositronLanguageServer(LanguageServer):
             self._stop_event.set()
 
         if self._thread_pool:
-            self._thread_pool.shutdown()
+            self._thread_pool.close()
+            self._thread_pool.join()
 
         if self._server:
             self._server.close()
@@ -381,8 +378,13 @@ def create_server() -> PositronLanguageServer:
         text_document_sync_kind=types.TextDocumentSyncKind.Incremental,
         notebook_document_sync=types.NotebookDocumentSyncOptions(
             notebook_selector=[
-                types.NotebookDocumentFilterWithCells(
-                    cells=[types.NotebookCellLanguage(language="python")]
+                types.NotebookDocumentSyncOptionsNotebookSelectorType1(
+                    notebook="jupyter-notebook",
+                    cells=[
+                        types.NotebookDocumentSyncOptionsNotebookSelectorType1CellsType(
+                            language="python"
+                        )
+                    ],
                 )
             ]
         ),
@@ -458,9 +460,7 @@ def _register_features(server: PositronLanguageServer) -> None:
     @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
     def did_close(params: types.DidCloseTextDocumentParams) -> None:
         """Handle document close - clear diagnostics."""
-        server.text_document_publish_diagnostics(
-            types.PublishDiagnosticsParams(uri=params.text_document.uri, diagnostics=[])
-        )
+        server.publish_diagnostics(params.text_document.uri, diagnostics=[])
 
 
 # --- Completion Handlers ---
@@ -1109,9 +1109,7 @@ def _publish_diagnostics(server: PositronLanguageServer, uri: str) -> None:
                     )
                 )
 
-    server.text_document_publish_diagnostics(
-        types.PublishDiagnosticsParams(uri=uri, diagnostics=diagnostics)
-    )
+    server.publish_diagnostics(uri, diagnostics=diagnostics)
 
 
 # Create the server instance

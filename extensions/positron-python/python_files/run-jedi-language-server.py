@@ -9,6 +9,6 @@ sys.path.insert(0, os.fsdecode(extension_dir / "python_files" / "lib" / "jedilsp
 del extension_dir
 
 
-from jedi_language_server.cli import cli  # noqa: E402
+from jedi_language_server.cli import cli  # type: ignore # noqa: E402
 
 sys.exit(cli())
