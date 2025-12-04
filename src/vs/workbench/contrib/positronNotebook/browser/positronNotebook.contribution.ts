@@ -442,7 +442,7 @@ registerAction2(class extends NotebookAction2 {
  * This command handles the keybinding for all cell types.
  *
  * This action has a counterpart command called
- * `positronNotebook.cell.collapseMarkdownEditor` that is
+ * `positronNotebook.cell.viewMarkdown` that is
  * used to contribute the same functionality to markdown
  * cell action bars. We should keep both commands in sync
  * to ensure consistent behavior.
@@ -864,7 +864,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.cell.openMarkdownEditor',
 			title: localize2('positronNotebook.cell.openMarkdownEditor', "Open Markdown Editor"),
-			icon: ThemeIcon.fromId('chevron-down'),
+			icon: ThemeIcon.fromId('edit'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 10,
@@ -887,7 +887,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 /**
- * Collapse markdown editor (For action bar)
+ * View markdown (For action bar)
  *
  * Handles contributing the behavior of
  * `positronNotebook.cell.quitEdit` to markdown cell
@@ -897,9 +897,9 @@ registerAction2(class extends NotebookAction2 {
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.cell.collapseMarkdownEditor',
-			title: localize2('positronNotebook.cell.collapseMarkdownEditor', "Collapse Markdown Editor"),
-			icon: ThemeIcon.fromId('chevron-up'),
+			id: 'positronNotebook.cell.viewMarkdown',
+			title: localize2('positronNotebook.cell.viewMarkdown', "View Markdown"),
+			icon: ThemeIcon.fromId('check'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 10,
