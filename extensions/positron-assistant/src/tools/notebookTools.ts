@@ -634,7 +634,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 export function registerNotebookTools(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		RunNotebookCellsTool,
-		EditNotebookCellsTool,
+		// EditNotebookCellsTool removed - cell modifications now use XML streaming format
 		GetNotebookCellsTool
 	);
 }

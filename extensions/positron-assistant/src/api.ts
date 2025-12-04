@@ -267,7 +267,7 @@ export function getEnabledTools(
 			// Notebook tools require both a notebook attached as context AND an active notebook editor.
 			// Tool availability varies by mode:
 			// - Execution tools (RunNotebookCells): Agent mode only
-			// - Modification tools (EditNotebookCells): Edit and Agent modes
+			// - Cell modifications: Use XML streaming format (not tools) in Agent mode
 			// - Read-only tools (GetNotebookCells): All modes (Ask, Edit, Agent)
 			case PositronAssistantToolName.RunNotebookCells:
 				// Execution requires Agent mode
@@ -275,12 +275,7 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			case PositronAssistantToolName.EditNotebookCells:
-				// Modification requires Edit or Agent mode
-				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
-					continue;
-				}
-				break;
+			// EditNotebookCells tool removed - cell modifications now use XML streaming format
 			case PositronAssistantToolName.GetNotebookCells:
 				// Read-only tools available in all modes
 				if (!(inChatPane && hasActiveNotebook)) {

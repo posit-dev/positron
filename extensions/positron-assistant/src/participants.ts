@@ -13,6 +13,7 @@ import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
+import { NotebookTextProcessor } from './notebookTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
@@ -657,7 +658,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Create a streaming text processor to allow the model to stream to the chat
 		// response e.g. using a loose XML format.
 		// This will be undefined if the current context does not require a text processor.
-		const textProcessor = this.createTextProcessor(request, response);
+		const textProcessor = await this.createTextProcessor(request, response, token);
 
 		for await (const chunk of modelResponse.stream) {
 			if (token.isCancellationRequested) {
@@ -746,10 +747,32 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	 *
 	 * @param request The current chat request.
 	 * @param response The chat response stream to write to.
+	 * @param token Cancellation token for the request.
 	 * @returns The appropriate processor for the request.
 	 */
-	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor {
+	private async createTextProcessor(
+		request: vscode.ChatRequest,
+		response: vscode.ChatResponseStream,
+		token: vscode.CancellationToken
+	): Promise<TextProcessor> {
 		const defaultTextProcessor = new DefaultTextProcessor(response);
+
+		// Check if we're in a notebook context and should use streaming cell operations
+		// Only use notebook processor if notebook context is attached to the request
+		const notebookContext = await getAttachedNotebookContext(request);
+		if (notebookContext) {
+			// Get the raw context to access URI
+			const rawContext = await positron.notebooks.getContext();
+			if (rawContext) {
+				const notebookProcessor = new NotebookTextProcessor(response);
+				notebookProcessor.setNotebookUri(vscode.Uri.parse(rawContext.uri));
+				notebookProcessor.setProgressCallback((message) => {
+					response.progress(message);
+				});
+				notebookProcessor.setCancellationToken(token);
+				return notebookProcessor;
+			}
+		}
 
 		// Check if streaming edits are enabled and we're in an editor context
 		if (isStreamingEditsEnabled() && isTextEditRequest(request)) {
