@@ -33,23 +33,26 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 			<div className={`positron-notebook-editor-container ${editorShown ? '' : 'editor-hidden'}`}>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 			</div>
-			{!editorShown && (
-				<div className='cell-contents positron-notebook-cell-outputs'>
-					<div
-						className='positron-notebook-markdown-rendered'
-						onDoubleClick={() => cell.toggleEditor()}
-					>
-						{
-							markdownString.length > 0 ?
-								<Markdown content={markdownString} />
-								: <div className='empty-output-msg'>
-									{emptyMarkdownCell}
-									{doubleClickToEdit}
-								</div>
-						}
+			{!editorShown
+				? (
+					<div className='cell-contents positron-notebook-cell-outputs'>
+						<div
+							className='positron-notebook-markdown-rendered'
+							onDoubleClick={() => cell.toggleEditor()}
+						>
+							{
+								markdownString.length > 0
+									? <Markdown content={markdownString} />
+									: <div className='empty-output-msg'>
+										{emptyMarkdownCell}
+										{doubleClickToEdit}
+									</div>
+							}
+						</div>
 					</div>
-				</div>
-			)}
+				)
+				: null
+			}
 		</NotebookCellWrapper>
 	);
 }
