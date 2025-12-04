@@ -15,7 +15,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	const rListPackageHelpTopicsTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string }>('listPackageHelpTopics', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getSessionById(options.input.sessionIdentifier);
+			const session = await manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
@@ -44,7 +44,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	const rListAvailableVignettesTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string }>('listAvailableVignettes', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getSessionById(options.input.sessionIdentifier);
+			const session = await manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
@@ -73,7 +73,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	const rGetPackageVignetteTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string; vignetteName: string }>('getPackageVignette', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getSessionById(options.input.sessionIdentifier);
+			const session = await manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
@@ -103,7 +103,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	const rGetHelpPageTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName?: string; helpTopic: string }>('getHelpPage', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getSessionById(options.input.sessionIdentifier);
+			const session = await manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),

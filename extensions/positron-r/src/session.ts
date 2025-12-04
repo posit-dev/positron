@@ -129,7 +129,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._created = Date.now();
 
 		// Register this session with the session manager
-		RSessionManager.instance.setSession(metadata.sessionId, this);
+		RSessionManager.instance.setSession(this);
 
 		this.onDidChangeRuntimeState(async (state) => {
 			await this.onStateChange(state);
@@ -988,7 +988,7 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 export async function checkInstalled(pkgName: string,
 	pkgVersion?: string,
 	session?: RSession): Promise<boolean> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.checkInstalled(pkgName, pkgVersion);
 	}
@@ -996,7 +996,7 @@ export async function checkInstalled(pkgName: string,
 }
 
 export async function getLocale(session?: RSession): Promise<Locale> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.getLocale();
 	}
@@ -1004,9 +1004,15 @@ export async function getLocale(session?: RSession): Promise<Locale> {
 }
 
 export async function getEnvVars(envVars: string[], session?: RSession): Promise<EnvVar[]> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.getEnvVars(envVars);
 	}
 	throw new Error(`Cannot get env var information; no R session available`);
+}
+
+/** Get the active R language runtime sessions. */
+export async function getActiveRSessions(): Promise<RSession[]> {
+	const sessions = await positron.runtime.getActiveSessions();
+	return sessions.filter((session) => session instanceof RSession) as RSession[];
 }
