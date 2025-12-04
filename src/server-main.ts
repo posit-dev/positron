@@ -388,7 +388,7 @@ async function startKernelSupervisor() {
 	// Start the supervisor process.
 	process.stdout.write(`\nStarting Positron Kernel Supervisor (${supervisorPath})...\n`);
 	const supervisorProcess = spawn(supervisorPath, [
-		'--connection-file', connectionFile, '--log-file', logFile,]);
+		'--transport', 'tcp', '--connection-file', connectionFile, '--log-file', logFile,]);
 	supervisorProcess.stdout.on('data', (data) => {
 		process.stdout.write(data);
 	});

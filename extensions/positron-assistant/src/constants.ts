@@ -48,6 +48,15 @@ export const TOOL_TAG_REQUIRES_ACTIVE_SESSION = 'requires-session';
  */
 export const TOOL_TAG_REQUIRES_NOTEBOOK = 'requires-notebook';
 
+/**
+ * Tag used by tools to indicate that actions will be performed as part of the tool invocation.
+ * Actions may include code execution in the Console or Terminal, file system modifications, or
+ * other changes to the user's environment that shouldn't be available in Ask mode.
+ *
+ * Tools with this tag will be filtered out of Ask mode sessions to prevent unintended actions.
+ */
+export const TOOL_TAG_REQUIRES_ACTIONS = 'requires-actions';
+
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;
 
