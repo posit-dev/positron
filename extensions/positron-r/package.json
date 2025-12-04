@@ -670,7 +670,7 @@
       },
       {
         "view": "debug",
-        "contents": "Positron currently provides initial debugging support for R code.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)",
+        "contents": "Positron currently provides limited debugging support for R code, but you can use R's native debugging features in Positron.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)",
         "when": "debugStartLanguage == 'r'"
       }
     ],
