@@ -134,7 +134,7 @@
             "%configuration.transport.ipc.label%",
             "%configuration.transport.tcp.label%"
           ],
-          "default": "ipc"
+          "default": "tcp"
         }
       }
     },
