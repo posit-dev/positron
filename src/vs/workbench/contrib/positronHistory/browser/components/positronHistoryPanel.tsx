@@ -175,6 +175,16 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 	}, [selectedIndex]);
 
+	/**
+	 * Reset all row heights when list items change (e.g., language change, search filter change).
+	 * This is needed because all entries are replaced with new ones that have different heights.
+	 */
+	useEffect(() => {
+		if (listRef.current) {
+			listRef.current.resetAfterIndex(0);
+		}
+	}, [listItems]);
+
 	useEffect(() => {
 		listItemsRef.current = listItems;
 	}, [listItems]);
