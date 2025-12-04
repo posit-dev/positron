@@ -61,7 +61,14 @@ export class RSessionManager implements vscode.Disposable {
 			throw new Error(`Session ${sessionId} already registered.`);
 		}
 		this._sessions.set(sessionId, session);
-		this._disposables.push(
+
+		session.register({
+			dispose: () => {
+				this._sessions.delete(sessionId);
+			}
+		});
+
+		session.register(
 			session.onDidChangeRuntimeState(async (state) => {
 				await this.didChangeSessionRuntimeState(session, state);
 			})

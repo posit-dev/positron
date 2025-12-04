@@ -99,6 +99,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Cache of installed packages and associated version info */
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
+	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
+	private _disposables: vscode.Disposable[] = [];
+
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
 
@@ -408,6 +411,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (this._kernel) {
 			await this._kernel.dispose();
 		}
+
+		// LIFO clean up of external resources
+		while (this._disposables.length > 0) {
+			this._disposables.pop()?.dispose();
+		}
+	}
+
+	async register(disposable: vscode.Disposable) {
+		this._disposables.push(disposable);
 	}
 
 	/**
@@ -882,7 +894,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				LOGGER.info(`Unknown DAP message: ${message.method}`);
 
 				if (message.kind === 'request') {
-					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`) });
+					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`); });
 				}
 			}
 		}
