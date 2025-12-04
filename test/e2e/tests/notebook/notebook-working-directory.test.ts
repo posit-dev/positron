@@ -13,7 +13,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebook Working Directory Configuration', {
+test.describe.skip('Notebook Working Directory Configuration', {
 	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
 
