@@ -85,9 +85,11 @@ export class WelcomeView extends ViewPane {
 				// Find debuggers for this language and check if any support UI launch
 				const adapterManager = this.debugService.getAdapterManager();
 				if (language && adapterManager.someDebuggerInterestedInLanguage(language)) {
+				    // --- End Positron ---
 					this.debugStartLanguageContext.set(language);
 					this.debuggerInterestedContext.set(true);
 					storageSevice.store(debugStartLanguageKey, language, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+					// --- Start Positron ---
 
 					// Check if any debugger interested in this language supports UI launch
 					const supportsUiLaunch = adapterManager.someDebuggerInterestedInLanguageSupportsUiLaunch(language);
