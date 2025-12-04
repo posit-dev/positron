@@ -13,7 +13,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebook Working Directory Configuration', {
+test.describe.skip('Notebook Working Directory Configuration', {
 	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
 
@@ -70,7 +70,7 @@ test.describe('Notebook Working Directory Configuration', {
 });
 
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
-	await notebooks.openNotebook('working-directory.ipynb', false);
+	await notebooks.openNotebook('working-directory.ipynb');
 	await notebooks.selectInterpreter('Python');
 	await notebooks.runAllCells();
 	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));

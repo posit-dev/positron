@@ -144,6 +144,10 @@ export class HotKeys {
 		return this.pressHotKeys('Cmd+J O', 'Execute code in console');
 	}
 
+	public async sendInterrupt() {
+		await this.pressHotKeys('Cmd+C', 'Send interrupt to console');
+	}
+
 	// ----------------------
 	// --- Layout Views ---
 	// ----------------------

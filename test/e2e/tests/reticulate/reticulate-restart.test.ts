@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
+import { RETICULATE_SESSION } from './helpers/verifyReticulateFunction.js';
 
 test.use({
 	suiteId: __filename
@@ -22,42 +22,29 @@ test.describe('Reticulate', {
 			await settings.set({
 				'positron.reticulate.enabled': true,
 				'kernelSupervisor.transport': 'tcp'
-			});
+			}, { reload: true });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
-
-		await app.restart();
 	});
 
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
-	}, async function ({ app, sessions }) {
+	}, async function ({ sessions }) {
 
+		// start new reticulate session
 		await sessions.start('pythonReticulate');
+		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
 
-		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)');
-
-		await app.workbench.sessions.restart('Python (reticulate)', { waitForIdle: false });
-
-		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
-
-		// doesn't support 2 or 1 instance of started:
-		// await app.workbench.console.waitForReadyAndStarted('>>>', 30000, 2);
-
-		await test.step('Wait for console to be ready and started', async () => {
-			await app.workbench.console.waitForReady('>>>', 30000);
-
-			const matchingLines = app.code.driver.page.locator('.console-instance[style*="z-index: auto"]  div span').getByText('started');
-
-			await Promise.any([
-				expect(matchingLines).toHaveCount(1, { timeout: 30_000 }),
-				expect(matchingLines).toHaveCount(2, { timeout: 30_000 }),
-			]);
+		// restart reticulate session
+		await sessions.restart(RETICULATE_SESSION, {
+			clearConsole: true,
+			waitForIdle: true,
+			clickModalButton: 'Yes'
 		});
-
+		await sessions.expectAllSessionsToBeReady();
 	});
 });
 

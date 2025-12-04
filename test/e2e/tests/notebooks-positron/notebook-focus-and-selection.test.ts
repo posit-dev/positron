@@ -106,7 +106,7 @@ test.describe('Notebook Focus and Selection', {
 
 
 	test('Notebook navigation and default cell selection between tabs', async function ({ app }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });
 
@@ -128,7 +128,7 @@ test.describe('Notebook Focus and Selection', {
 		// Open an existing notebook (tab 2) which will steal focus away from the first notebook
 		await test.step('Open existing notebook: Ensure 1st cell is selected', async () => {
 			const notebookPath = path.join('workspaces', 'bitmap-notebook', TAB_2);
-			await notebooks.openNotebook(notebookPath, false);
+			await notebooksPositron.openNotebook(notebookPath);
 			await notebooksPositron.expectToBeVisible();
 			await notebooksPositron.expectCellCountToBe(20);
 
@@ -156,7 +156,7 @@ test.describe('Notebook Focus and Selection', {
 		});
 	});
 
-	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell", async function ({ app }) {
+	test('`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 1 });
@@ -172,7 +172,7 @@ test.describe('Notebook Focus and Selection', {
 
 		// Ensure new code cell is editable
 		await keyboard.type('print("Hello, World!")');
-		await notebooksPositron.expectCellContentAtIndexToContain(2, 'print("Hello, World!")');
+		await notebooksPositron.expectCellContentAtIndexToBe(2, 'print("Hello, World!")');
 
 		// Click the + Markdown button and verify the cell is inserted after the active cell
 		await notebooksPositron.addCell('markdown');
@@ -181,10 +181,10 @@ test.describe('Notebook Focus and Selection', {
 
 		// Ensure new markdown cell is editable
 		await keyboard.type('# Heading 1');
-		await notebooksPositron.expectCellContentAtIndexToContain(3, '# Heading 1');
+		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Heading 1');
 	});
 
-	test("Multi-select and deselect retains anchor/active cell", async function ({ app }) {
+	test('Multi-select and deselect retains anchor/active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
@@ -222,7 +222,7 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
 	});
 
-	test("Multi-select and insert cell above/below becomes the active cell", async function ({ app }) {
+	test('Multi-select and insert cell above/below becomes the active cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
@@ -245,6 +245,6 @@ test.describe('Notebook Focus and Selection', {
 		// Ensure we can type into the new cell
 		await keyboard.press('Enter'); // enter edit mode
 		await keyboard.type('print("New Below")');
-		await notebooksPositron.expectCellContentAtIndexToContain(1, 'print("New Below")');
+		await notebooksPositron.expectCellContentAtIndexToBe(1, 'print("New Below")');
 	});
-})
+});

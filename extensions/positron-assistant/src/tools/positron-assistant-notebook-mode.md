@@ -125,7 +125,7 @@ Notebook tools are conditionally available based on the assistant mode, with fil
 - `RunNotebookCells` - Execute cells in the kernel using `cellIndices` parameter
 
 **Modification Tools (Edit and Agent modes):**
-- `EditNotebookCells` - Unified tool for adding, modifying, or deleting cells using `operation` parameter ('add', 'update', 'delete')
+- `EditNotebookCells` - Unified tool for adding, modifying, or deleting cells using `operation` parameter ('add', 'update', 'delete'). Code cells added with 'add' are executed by default (set `run: false` to skip execution).
 
 **Read-Only Tools (Available in all modes - Ask, Edit, Agent):**
 - `GetNotebookCells` - Read cell contents with status information using `cellIndices` parameter
@@ -446,8 +446,8 @@ The chosen approach (attached context detection) provides the cleanest implement
    - Execution tools do NOT appear: `RunNotebookCells`
    - All available tools can be referenced using `#getNotebookCells`, `#getCellOutputs`, `#editNotebookCells`
    - Ask "Show me the output of cell 2" → Should use GetCellOutputs
-   - Ask "Update cell 3 to add error handling" → Should use EditNotebookCells with `operation: 'update'`
-   - Ask "Add a new cell after cell 2" → Should use EditNotebookCells with `operation: 'add'`
+  - Ask "Update cell 3 to add error handling" → Should use EditNotebookCells with `operation: 'update'`
+  - Ask "Add a new cell after cell 2" → Should use EditNotebookCells with `operation: 'add'` (code cells run by default)
    - Ask "Run cell 1" → Should respond: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
    - Try referencing: `#editNotebookCells modify cell 3` → Should work
    - Try referencing: `#editNotebookCells add a markdown cell` → Should work
@@ -459,9 +459,9 @@ The chosen approach (attached context detection) provides the cleanest implement
 4. **Verify behavior**:
    - All 4 notebook tools appear in tool list
    - All tools can be referenced: `#runNotebookCells`, `#editNotebookCells`, `#getCellOutputs`, `#getNotebookCells`
-   - Request cell modification → Should use EditNotebookCells with `operation: 'update'`
-   - Request cell execution → Should use RunNotebookCells with `cellIndices`
-   - Request adding new cell → Should use EditNotebookCells with `operation: 'add'`
+  - Request cell modification → Should use EditNotebookCells with `operation: 'update'`
+  - Request cell execution → Should use RunNotebookCells with `cellIndices`
+  - Request adding new cell → Should use EditNotebookCells with `operation: 'add'` (code cells run by default, returns outputs)
    - Assistant can perform all notebook operations
    - Assistant understands index shifting when adding/deleting cells
    - Try referencing: `#runNotebookCells execute cell 0` → Should work

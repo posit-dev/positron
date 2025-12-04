@@ -34,7 +34,7 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Verify default behavior - VS Code notebook editor should be used when no association is set
 		// This tests the fallback behavior when positron.notebook.enabled=true but no explicit association exists
-		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.openNotebook(NOTEBOOK_PATH);
 		await notebooksVscode.expectToBeVisible();
 
 		// Configure Positron as the default notebook editor
@@ -43,7 +43,7 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Verify that newly opened notebooks now use the Positron editor
 		// The same notebook file should now open with the Positron interface instead of VS Code
-		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 		await notebooksPositron.expectToBeVisible();
 
 		// Reset to default configuration and verify VS Code editor is used again
@@ -53,7 +53,7 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Confirm that removing the association restores VS Code notebook editor
 		// This ensures the configuration change is properly applied and the fallback works
-		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.openNotebook(NOTEBOOK_PATH);
 		await notebooksVscode.expectToBeVisible();
 	});
 
