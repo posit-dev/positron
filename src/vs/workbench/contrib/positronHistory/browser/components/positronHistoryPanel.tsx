@@ -106,7 +106,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
 	const [width, setWidth] = useState(0);
 	const [height, setHeight] = useState(0);
-	const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 	const [hasFocus, setHasFocus] = useState(false);
 	const [stickyHeaderLabel, setStickyHeaderLabel] = useState<string | null>(null);
 	const [searchText, setSearchText] = useState<string>('');
@@ -127,6 +126,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const lastValidWidthRef = useRef<number>(0);
 	const lastValidHeightRef = useRef<number>(0);
 	const wasVisibleRef = useRef<boolean>(true);
+	const pendingFocusIndexRef = useRef<number>(-1);
 
 	// Keep refs in sync with state
 	useEffect(() => {
@@ -155,6 +155,28 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 	useEffect(() => {
 		listItemsRef.current = listItems;
+	}, [listItems]);
+
+	/**
+	 * Focus the pending item after deletion causes a re-render.
+	 * This effect runs when listItems changes and checks if there's a pending focus index.
+	 */
+	useEffect(() => {
+		if (pendingFocusIndexRef.current >= 0 && containerRef.current) {
+			pendingFocusIndexRef.current = -1; // Clear the pending focus
+
+			const targetWindow = DOM.getWindow(containerRef.current);
+			// Use requestAnimationFrame to ensure DOM has been updated after re-render
+			targetWindow.requestAnimationFrame(() => {
+				const container = containerRef.current;
+				if (container) {
+					const selectedEntry = container.querySelector('.history-entry.selected, .history-entry.selected-unfocused') as HTMLElement | null;
+					if (selectedEntry) {
+						selectedEntry.focus();
+					}
+				}
+			});
+		}
 	}, [listItems]);
 
 	useEffect(() => {
@@ -326,16 +348,21 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Delete the entry from the service
 		executionHistoryService.deleteInputEntry(language, entry.when, entry.input);
 
-		// Update selection before reloading to avoid flickering
-		// After deletion, indices shift down, so the next item will be at the same index
-		// But if we selected the previous item, we need to adjust
+		// Calculate the final index after deletion (indices shift down)
+		let finalIndex: number;
 		if (newSelectedIndex > idx) {
 			// Selected an item after the deleted one - it will shift down by 1
-			setSelectedIndex(newSelectedIndex - 1);
+			finalIndex = newSelectedIndex - 1;
 		} else {
 			// Selected an item before the deleted one - index stays the same
-			setSelectedIndex(newSelectedIndex);
+			finalIndex = newSelectedIndex;
 		}
+
+		// Set the pending focus index so that after re-render, we focus the new item
+		pendingFocusIndexRef.current = finalIndex;
+
+		// Update selection before reloading
+		setSelectedIndex(finalIndex);
 
 		// Reload the history to refresh the view
 		loadHistory();
@@ -499,15 +526,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	 * Handle scroll event to update auto-scroll state and sticky header
 	 */
 	const handleScroll = ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
-		if (!scrollUpdateWasRequested && listRef.current) {
-			// User scrolled manually - check if they scrolled away from bottom
-			const totalHeight = listItems.reduce((sum, _, i) => sum + getRowHeight(i), 0);
-			const viewportHeight = height - 40; // Subtract toolbar height
-			// Use a larger threshold (1.5x default row height) to account for dynamic height changes
-			const threshold = DEFAULT_ROW_HEIGHT * 1.5;
-			const isAtBottom = scrollOffset + viewportHeight >= totalHeight - threshold;
-			setAutoScrollEnabled(isAtBottom);
-		}
 
 		// Find which section is currently at the top of the viewport
 		let currentOffset = 0;
@@ -981,21 +999,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			});
 		}
 	}, [width, height, listItems.length]);
-
-	/**
-	 * Scroll to bottom when entries change (new entries added)
-	 */
-	useEffect(() => {
-		if (autoScrollEnabled && listItems.length > 0 && listRef.current && containerRef.current) {
-			// Use requestAnimationFrame to ensure DOM is fully updated before scrolling
-			const targetWindow = DOM.getWindow(containerRef.current);
-			targetWindow.requestAnimationFrame(() => {
-				if (listRef.current && autoScrollEnabled) {
-					listRef.current.scrollToItem(listItems.length - 1, 'end');
-				}
-			});
-		}
-	}, [listItems.length, autoScrollEnabled]);
 
 	// Check if there is any history at all (for any language)
 	const hasAnyHistory = availableLanguages.length > 0;
