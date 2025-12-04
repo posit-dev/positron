@@ -35,7 +35,7 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Generator
+from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
 from ._vendor.lsprotocol import types
@@ -93,7 +93,7 @@ class HelpTopicRequest:
 class PositronInitializationOptions:
     """Positron-specific language server initialization options."""
 
-    working_directory: str | None = attrs.field(default=None)
+    working_directory: Optional[str] = attrs.field(default=None)  # noqa: UP045 because cattrs can't deal with | None in 3.9
 
 
 def _is_console_document(uri: str) -> bool:
