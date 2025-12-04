@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './mocha-setup'
+import './mocha-setup';
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
@@ -55,7 +55,7 @@ suite('Debugger', () => {
 					new RegExp('Virtual namespace of package graphics'),
 					`Unexpected editor contents for ${ed.document.uri.fsPath}: Expected graphics namespace`
 				);
-			})
+			});
 		});
 	});
 
@@ -86,7 +86,7 @@ suite('Debugger', () => {
 					new RegExp('f <- function'),
 					`Unexpected editor contents for ${ed.document.uri.fsPath}`
 				);
-			})
+			});
 		});
 	});
 });
