@@ -21,8 +21,9 @@
  * 2. The import prompt can be reset via "Preferences: Reset Import Settings Prompt"
  */
 
-import { Locator, Page } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
+import { Application } from '../../infra/application.js';
 
 test.use({
 	suiteId: __filename
@@ -86,13 +87,13 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
 			await hotKeys.minimizeBottomPanel();
-			await expectDiffToBeVisible(page);
+			await expectDiffToBeVisible(app);
 
 			// reject the changes
 			await toasts.clickButton('Reject');
-			await expectDiffToBeVisible(page, false);
+			await expectDiffToBeVisible(app, false);
 			await hotKeys.openUserSettingsJSON();
-			await scrollEditorUntilVisible(page, testSettingLocator);
+			await scrollEditorUntilVisible(app, testSettingLocator);
 			await expect(testSettingLocator).toHaveCount(1);
 		});
 
@@ -102,7 +103,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
 			await hotKeys.minimizeBottomPanel();
-			await expectDiffToBeVisible(page);
+			await expectDiffToBeVisible(app);
 
 			// accept changes
 			await toasts.clickButton('Accept');
@@ -137,34 +138,35 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 });
 
 async function scrollEditorUntilVisible(
-	page: Page,
+	app: Application,
 	target: Locator,
 	maxSteps = 25,
 ): Promise<void> {
-	const editor = page.locator(
+	const editor = app.code.driver.page.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
 
 	// Focus the editor so wheel events go to the monaco scrollable element
+	await app.workbench.hotKeys.scrollToTop();
 	await editor.click({ position: { x: 50, y: 10 } });
 
 	for (let i = 0; i < maxSteps; i++) {
-		if (await target.isVisible()) return;
+		if (await target.isVisible()) { return; }
 
 		// Scroll down a bit
-		await page.mouse.wheel(0, 300);
+		await app.code.driver.page.mouse.wheel(0, 300);
 		// Give Monaco a moment to render new lines
-		await page.waitForTimeout(50);
+		await app.code.driver.page.waitForTimeout(50);
 	}
 
 	throw new Error('Target text not visible after scrolling');
 }
 
-export async function expectDiffToBeVisible(page: Page, visible = true) {
-	const editor = page.locator(
+export async function expectDiffToBeVisible(app: Application, visible = true) {
+	const editor = app.code.driver.page.locator(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
-	const settingsTab = page.getByRole('tab', { name: 'settings.json' });
+	const settingsTab = app.code.driver.page.getByRole('tab', { name: 'settings.json' });
 
 	const existingStart = editor.getByText('<<<<<<< Existing', { exact: true }).first();
 	const incomingEnd = editor.getByText('>>>>>>> Incoming', { exact: true }).first();
@@ -173,10 +175,10 @@ export async function expectDiffToBeVisible(page: Page, visible = true) {
 		await expect(settingsTab).toBeVisible();
 		await expect(editor).toBeVisible();
 
-		await scrollEditorUntilVisible(page, existingStart);
+		await scrollEditorUntilVisible(app, existingStart);
 		await expect(existingStart).toBeVisible();
 
-		await scrollEditorUntilVisible(page, incomingEnd);
+		await scrollEditorUntilVisible(app, incomingEnd);
 		await expect(incomingEnd).toBeVisible();
 	} else {
 		await expect(settingsTab).not.toBeVisible();
