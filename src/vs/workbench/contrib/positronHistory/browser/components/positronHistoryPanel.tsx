@@ -108,7 +108,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
 	const [width, setWidth] = useState(0);
 	const [height, setHeight] = useState(0);
-	const [hasFocus, setHasFocus] = useState(false);
 	const [stickyHeaderLabel, setStickyHeaderLabel] = useState<string | null>(null);
 	const [searchText, setSearchText] = useState<string>('');
 	const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
@@ -733,11 +732,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		// Add focus/blur listeners to the container to track focus state
 		const container = containerRef.current;
-		const handleFocus = () => setHasFocus(true);
-		const handleBlur = () => setHasFocus(false); if (container) {
-			container.addEventListener('focus', handleFocus);
-			container.addEventListener('blur', handleBlur);
-		}
 
 		// Set up IntersectionObserver to detect when the panel becomes visible
 		// This fixes the issue where the list is empty until scrolled when switching tabs
@@ -771,10 +765,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 
 		return () => {
 			disposables.dispose();
-			if (container) {
-				container.removeEventListener('focus', handleFocus);
-				container.removeEventListener('blur', handleBlur);
-			}
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
@@ -1097,7 +1087,6 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 										<HistoryEntry
 											entry={item.entry}
 											fontInfo={props.fontInfo}
-											hasFocus={hasFocus}
 											index={item.originalIndex}
 											instantiationService={instantiationService}
 											isSelected={index === selectedIndex}

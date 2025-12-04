@@ -103,7 +103,7 @@
 	background-color: var(--vscode-list-hoverBackground);
 }
 
-.history-entry.selected-unfocused {
+.history-entry.selected {
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 	color: var(--vscode-list-inactiveSelectionForeground);
 }
@@ -112,7 +112,7 @@
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
-.history-entry.selected {
+.history-entry.selected:focus {
 	background-color: var(--vscode-list-activeSelectionBackground);
 	color: var(--vscode-list-activeSelectionForeground);
 }

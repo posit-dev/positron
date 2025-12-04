@@ -33,7 +33,6 @@ interface HistoryEntryProps {
 	index: number;
 	style: CSSProperties;
 	isSelected: boolean;
-	hasFocus: boolean;
 	languageId: string;
 	searchText?: string;
 	onSelect: () => void;
@@ -359,7 +358,6 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		entry,
 		style,
 		isSelected,
-		hasFocus,
 		languageId,
 		searchText,
 		onSelect,
@@ -585,7 +583,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	return (
 		<button
 			ref={entryRef}
-			className={`history-entry ${isSelected ? (hasFocus ? 'selected' : 'selected-unfocused') : ''}`}
+			className={`history-entry${isSelected ? ' selected' : ''}`}
 			style={styleWithoutHeight}
 			onContextMenu={handleContextMenu}
 			onDoubleClick={() => onToConsole()}
