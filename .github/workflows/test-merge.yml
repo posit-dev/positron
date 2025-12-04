@@ -97,7 +97,7 @@ jobs:
           include_job_durations: false
           notify_on: "failure"
 
-  slack-notify-windows-extensions:
+  slack-notify-win-extensions:
     if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
     needs:
       - e2e-windows-electron
