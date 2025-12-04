@@ -21,7 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
-import { SerializedNotebookContext, serializeNotebookContext, getAttachedNotebookContext } from './tools/notebookUtils.js';
+import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -328,8 +328,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		// The context message is the second-last message in the chat messages.
+		// The context message is fairly stable during iterative workflows, so it comes before
+		// the more volatile notebook context.
 		const contextInfo = await attachContextInfo(messages);
+
+		// Add notebook context as a separate user message with cache breakpoint.
+		// This is placed AFTER the general context message because notebook state (cells, selection)
+		// changes more frequently than session variables. By placing the most volatile content last,
+		// we maximize cache hits on the stable prefix (system prompt + context message).
+		const notebookContext = await getAttachedNotebookContext(request);
+		if (notebookContext) {
+			const notebookContextContent = serializeNotebookContextAsUserMessage(notebookContext);
+			const notebookMessage = vscode.LanguageModelChatMessage.User([
+				new vscode.LanguageModelTextPart(notebookContextContent),
+				languageModelCacheBreakpointPart(), // Cache breakpoint after notebook context
+			]);
+			messages.push(notebookMessage);
+			log.debug(`[participant] Added notebook context as user message (${notebookContextContent.length} chars)`);
+		}
 
 		// Add the user's prompt.
 		// The user's prompt is the last message in the chat messages.
@@ -908,70 +924,25 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 
 }
 
-/** The participant used in notebook inline chats. */
+/**
+ * The participant used in notebook inline chats.
+ *
+ * Notebook context is injected as a separate user message in defaultRequestHandler()
+ * rather than via getCustomPrompt(). This allows the system prompt to contain only
+ * static instructions (cacheable), while dynamic notebook state is added as a user
+ * message with its own cache breakpoint.
+ */
 export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
 
-	override async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Check if notebook mode feature is enabled
-		const notebookModeEnabled = vscode.workspace
-			.getConfiguration('positron.assistant.notebookMode')
-			.get('enable', false);
-
-		if (!notebookModeEnabled) {
-			log.debug('[notebook participant] Notebook mode disabled via feature flag');
-			return super.getCustomPrompt(request);
-		}
-
-		// Get the active notebook context
-		const notebookContext = await positron.notebooks.getContext();
-		if (!notebookContext) {
-			log.debug('[notebook participant] No notebook context available for inline chat');
-			return super.getCustomPrompt(request);
-		}
-
-		// Positron notebooks send requests with the location2 type of
-		// ChatRequestEditorData which is because it's much easier/cleaner to
-		// just route the requests from positron notebooks here without totally
-		// changing the request body. Standard VS Code notebooks send We rely on
-		// the editor being a positron notebook for notebook-wide awareness so
-		// we can return early if it's not.
-		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-			// Fall back to non-positron-notebook aware behavior.
-			return super.getCustomPrompt(request);
-		}
-
-		const cellDoc = request.location2.document;
-
-		const cellUri = cellDoc.uri.toString();
-
-		// Get all cells from the notebook
-		let allCells: positron.notebooks.NotebookCell[];
-		try {
-			allCells = await positron.notebooks.getCells(notebookContext.uri);
-		} catch (err) {
-			log.error('[notebook participant] Failed to get notebook cells:', err);
-			return super.getCustomPrompt(request);
-		}
-
-		// Find the current cell by matching URI
-		const currentCell = allCells.find(c => c.id === cellUri);
-		if (!currentCell) {
-			log.debug('[notebook participant] Could not find current cell in notebook');
-			return super.getCustomPrompt(request);
-		}
-
-		const currentIndex = currentCell.index;
-
-		// Use unified serialization helper with current cell as anchor and full wrapping
-		// This applies filtering logic (sliding window around current cell) and formats consistently with chat pane
-		const serialized = serializeNotebookContext(notebookContext, {
-			anchorIndex: currentIndex,
-			wrapInNotebookContext: true
-		});
-
-		const serializedContext = serialized.fullContext || '';
-		return serializedContext;
+	/**
+	 * Returns empty string to prevent the parent EditorParticipant from adding
+	 * cell content as if it were a standalone file. Notebook cells should be
+	 * presented as part of the notebook context (handled in defaultRequestHandler),
+	 * not as individual documents with selection/diagnostics.
+	 */
+	override async getCustomPrompt(_request: vscode.ChatRequest): Promise<string> {
+		return '';
 	}
 }
 
