@@ -67,7 +67,7 @@ on:
         type: number
       skip_extension_test:
         required: false
-        description: "Whether to skip the bootstrap extensions test."
+        description: "Skip the bootstrap extensions test."
         type: boolean
         default: true
 
