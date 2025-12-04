@@ -97,6 +97,7 @@ export class WelcomeView extends ViewPane {
 			this.debuggerInterestedContext.set(false);
 			// --- Start Positron ---
 			this.debuggerSupportsUiLaunchContext.set(true); // Default to true when no debugger
+			this.debugStartLanguageContext.reset(); // Clear the language context when no debugger is interested
 			// --- End Positron ---
 		};
 
