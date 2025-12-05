@@ -54,20 +54,20 @@
 }
 
 /* Hide the circle outline when the cell isn't running */
-.left-hand-action-container-top:not([data-execution-status='running']) {
+.left-hand-action-container:not([data-execution-status='running']) {
 	--_circle-border-width: 0;
 }
 
 /* Status-specific styling for the container */
-.left-hand-action-container-top[data-execution-status='running'] {
+.left-hand-action-container[data-execution-status='running'] {
 	color: var(--vscode-debugIcon-startForeground);
 }
 
-.left-hand-action-container-top[data-execution-status='success'] {
+.left-hand-action-container[data-execution-status='success'] {
 	border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 70%, transparent);
 }
 
-.left-hand-action-container-top[data-execution-status='failed'] {
+.left-hand-action-container[data-execution-status='failed'] {
 	border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 70%, transparent);
 }
 
@@ -75,15 +75,15 @@
 	color: var(--vscode-testing-iconFailed);
 }
 
-.left-hand-action-container-top[data-execution-status='neutral'] {
+.left-hand-action-container[data-execution-status='neutral'] {
 	border-color: var(--vscode-textLink-foreground);
 }
 
-.left-hand-action-container-top[data-execution-status='pending'] {
+.left-hand-action-container[data-execution-status='pending'] {
 	color: color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
 }
 
-.left-hand-action-container-top[data-execution-status='queued'] {
+.left-hand-action-container[data-execution-status='queued'] {
 	border-color: color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
 }
 
@@ -97,14 +97,14 @@
 	border: var(--_circle-border-width, 1px) solid color-mix(in srgb, var(--vscode-descriptionForeground) 50%, transparent);
 }
 
-.left-hand-action-container-top[data-execution-status='running'] .cell-execution-status-animation {
+.left-hand-action-container[data-execution-status='running'] .cell-execution-status-animation {
 	border: var(--_circle-border-width, 1px) solid var(--vscode-debugIcon-startForeground);
 	border-top-color: transparent;
 	animation: spin 1.2s cubic-bezier(0.4, 0.3, 0.5, 0.7) infinite;
 	transform-origin: center;
 }
 
-.left-hand-action-container-top[data-execution-status='pending'] .cell-execution-status-animation {
+.left-hand-action-container[data-execution-status='pending'] .cell-execution-status-animation {
 	border: 1px dashed color-mix(in srgb, var(--vscode-widget-border) 50%, transparent);
 }
 

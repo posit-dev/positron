@@ -108,7 +108,7 @@ GRADING SCALE:
 
 Provide your evaluation in the following format:
 GRADE: [C/P/I]
-Explanation: [Brief explanation focusing ONLY on how well the specified criteria were met]
+EXPLANATION: [Brief explanation focusing ONLY on how well the specified criteria were met]
 			""",
 			grade_pattern=r"GRADE:\s*([CPI])",
 			partial_credit=True,

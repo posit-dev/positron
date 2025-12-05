@@ -99,11 +99,25 @@
 	border: none;
 }
 
-/* When selected/editing AND no outputs: restore bottom rounding */
-.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::after {
-	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+/* Restore bottom rounding when no outputs are shown */
+.positron-notebook-cell {
+	/* Code cells with no outputs */
+	&.selected:has(.positron-notebook-cell-outputs.no-outputs),
+	&.editing:has(.positron-notebook-cell-outputs.no-outputs),
+	&:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) {
+		.positron-notebook-editor-container::after {
+			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+		}
+	}
+
+	/* Markdown cells in edit mode (no output element) */
+	&.selected:not(:has(.positron-notebook-cell-outputs)),
+	&.editing:not(:has(.positron-notebook-cell-outputs)),
+	&:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) {
+		.positron-notebook-editor-container::after {
+			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+		}
+	}
 }
 
 /* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
@@ -141,5 +155,49 @@
 @media (prefers-reduced-motion: reduce) {
 	.positron-notebook-editor-container::after {
 		transition: none;
+	}
+}
+
+/* Assistant cell highlight animation - used when AI modifies cells */
+.positron-notebook-cell.assistant-highlight {
+	position: relative;
+}
+
+.positron-notebook-cell.assistant-highlight::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-color: var(--vscode-button-background);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	pointer-events: none;
+	z-index: 0;
+	opacity: 0;
+	animation: assistant-flash 1.5s ease-in-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes assistant-flash {
+	0%, 100% { opacity: 0; }
+	25%, 75% { opacity: 0.2; }
+}
+
+/* Use border-based highlight for high contrast themes instead of background overlay */
+.hc-black .positron-notebook-cell.assistant-highlight::before,
+.hc-light .positron-notebook-cell.assistant-highlight::before {
+	background-color: transparent;
+	border: 2px solid var(--vscode-focusBorder);
+	animation: assistant-flash-hc 1.5s ease-in-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes assistant-flash-hc {
+	0%, 100% { opacity: 0; }
+	25%, 75% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.positron-notebook-cell.assistant-highlight::before {
+		animation: none;
+		opacity: 0;
 	}
 }

@@ -3,7 +3,7 @@
 	"tests": [
 		{
 			"id": "sample_1",
-			"description": "EVAL: Check for a hallucination when the LLM makes up column data.",
+			"description": "EVAL: Check for a hallucination when the LLM makes up column data. It uses the R 'forested' package and asks for some code to plot the data. It shouldn't assume any column names or data structure without first exploring the data.",
 			"mode": "Ask",
 			"question": "Load the forested package and make some plots of the forested data",
 			"model_response": "",
@@ -24,6 +24,14 @@
 			"question": "Add a method to return today's date.",
 			"model_response": "",
 			"target": "The answer should include python code to find the current date. It should also have used the `positron_editFile_internal` tool."
+		},
+		{
+			"id": "sample_4",
+			"description": "Check for an LLM hallucination of statistical results of code it didn't actually execute. Uses an animal dataset with physical characteristics. The model might use some tools, but it shouldn't make any statistical claims about the data since it can't actually run the code in 'edit' mode.",
+			"mode": "Edit",
+			"question": "Extract the animal's primary color from their physical characteristics.",
+			"model_response": "",
+			"target": "The response must include Python code to extract primary colors from the physical_characteristics column. The response must explain what the code does. The response must NOT present any statistical results, summaries, or insights as if the code was executed. Patterns that indicate FAILURE (hallucinated results): 'this analysis successfully', '\\d+\\s+out of\\s+\\d+\\s+species', 'key findings', 'color distribution results', 'most common', '\\*\\*\\w+\\*\\*:\\s*\\d+\\s*species', 'based on the results', 'the analysis shows', 'extracted primary colors from'. Patterns that indicate PASS (correct behavior): 'this code will', 'if.*run', 'the function.*will', 'once.*execute', 'after running'. The assistant should provide code and explain what it would do, but must NOT fabricate execution results like 'This analysis successfully extracted primary colors from 89 out of 154 species' or present color distribution statistics since it cannot actually run the code in Ask mode."
 		}
 	]
 }

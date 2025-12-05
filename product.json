@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.45",
+			"version": "1.6.46",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "e15b94f6002b252b3c7b2d0fc70f2db91ead1fbe1bdc664d575fd8f6673fea4f",
+			"sha256": "a5d808dc2964b389e433d57bbd97ba6d88aac9389468ab1f73a0adf01331ec3f",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2025.30.0",
+			"version": "2025.32.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -229,7 +229,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.27.0",
+			"version": "1.27.3",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",

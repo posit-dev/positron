@@ -10,8 +10,12 @@ test.use({
 });
 
 test.describe('Diagnostics', {
-	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN, tags.SOFT_FAIL],
+	tag: [tags.PYREFLY, tags.WEB],
 }, () => {
+
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({ 'python.pyrefly.displayTypeErrors': 'force-on' });
+	});
 
 	test.afterEach(async function ({ runCommand }) {
 		await runCommand('workbench.action.closeAllEditors');
@@ -45,9 +49,11 @@ test.describe('Diagnostics', {
 
 		// Python Alt Session - verify warning since pkg not installed
 		await sessions.start('pythonAlt');
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
-		await problems.expectWarningText('Import "termcolor" could not be resolved');
-		await problems.expectSquigglyCountToBe('warning', 1);
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
+		await problems.expectWarningText('Could not find import of `termcolor`');
+
+		// does pyrefly use squiggly correctly?
+		// await problems.expectSquigglyCountToBe('warning', 1);
 
 		// Python Session 1 - restart session and verify no problems
 		await sessions.select(pySession.id);

@@ -14,13 +14,13 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
+test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 	test.afterAll(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	test.describe('Outline: Sessions', { tag: [tags.SESSIONS, tags.ARK] }, () => {
+	test.describe('Outline: Sessions', () => {
 
 		test.beforeAll(async function ({ app, openFile, hotKeys }) {
 			const { outline } = app.workbench;
@@ -80,7 +80,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			await verifyPythonOutline(outline);
 		});
 
-		test('Verify outline after reload with Python in foreground and R in background', {
+		test.skip('Verify outline after reload with Python in foreground and R in background', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 		}, async function ({ app, runCommand, sessions }) {
 			const { outline, editor } = app.workbench;
@@ -110,7 +110,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			await verifyROutline(outline);
 		});
 
-		test('Verify outline after reload with R in foreground and Python in background', {
+		test.skip('Verify outline after reload with R in foreground and Python in background', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 		},
 			async function ({ app, runCommand, sessions }) {
