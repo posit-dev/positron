@@ -151,8 +151,16 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
 	}
 
-	async clickCloseButton() {
+	async clickCloseButton({ abandonChanges = true } = {}) {
 		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+
+		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
+		if (abandonModalisVisible) {
+			abandonChanges
+				? await this.modals.getButton('Yes').click()
+				: await this.modals.getButton('No').click();
+		}
+
 		await this.modals.expectToBeVisible('Configure Language Model', { visible: false });
 	}
 
