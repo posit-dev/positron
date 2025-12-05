@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { FindInput, IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
+import { IKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
 
 export interface PositronFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
@@ -16,6 +17,7 @@ export interface PositronFindInputProps {
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
+	readonly onKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onValueChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
 	readonly onMatchWholeWordChange: (value: boolean) => void;
@@ -31,6 +33,7 @@ export const PositronFindInput = ({
 	useRegex = false,
 	focusInput = false,
 	findInputOptions,
+	onKeyDown,
 	onValueChange,
 	onMatchCaseChange,
 	onMatchWholeWordChange,
@@ -94,6 +97,16 @@ export const PositronFindInput = ({
 
 		return () => disposable.dispose();
 	}, [findInput, onMatchCaseChange, onMatchWholeWordChange, onUseRegexChange]);
+
+	useEffect(() => {
+		if (findInput && onKeyDown) {
+			const disposable = findInput.onKeyDown((e) => {
+				onKeyDown(e);
+			});
+			return () => disposable.dispose();
+		}
+		return;
+	}, [findInput, onKeyDown]);
 
 	// Set up focus listener
 	useEffect(() => {
