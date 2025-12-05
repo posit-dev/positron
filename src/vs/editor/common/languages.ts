@@ -193,6 +193,14 @@ export interface Hover {
 	 * Can decrease the verbosity of the hover
 	 */
 	canDecreaseVerbosity?: boolean;
+
+	// --- Start Positron ---
+	/**
+	 * Id of the extension that provided this hover.
+	 * Used to filter duplicate hovers from certain extensions.
+	 */
+	extensionId?: string;
+	// --- End Positron ---
 }
 
 /**
