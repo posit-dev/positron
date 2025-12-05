@@ -50,6 +50,18 @@
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
+.find-action-button:disabled {
+	cursor: default;
+
+	.codicon {
+		color: var(--vscode-disabledForeground);
+	}
+
+	&:hover {
+		background: transparent;
+	}
+}
+
 .find-action-button .codicon {
 	font-size: 14px;
 	line-height: 20px;

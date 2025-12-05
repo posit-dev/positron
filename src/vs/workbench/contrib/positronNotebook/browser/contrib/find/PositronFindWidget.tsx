@@ -15,6 +15,8 @@ import { PositronFindInput } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
+import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
@@ -50,6 +52,8 @@ export const PositronFindWidget = ({
 	const matchIndex = useObservedValue(matchIndexObs);
 	const matchCount = useObservedValue(matchCountObs);
 
+	const noMatches = !matchCount;
+
 	return (
 		<div className='positron-find-widget-positioned'>
 			<div className='positron-find-widget'>
@@ -75,18 +79,18 @@ export const PositronFindWidget = ({
 						<ActionButton
 							ariaLabel='Previous Match'
 							className='find-action-button'
-							disabled={!matchCount}
+							disabled={noMatches}
 							onPressed={() => onPreviousMatch()}
 						>
-							<div className='codicon codicon-arrow-up' />
+							<ThemeIcon icon={Codicon.arrowUp} />
 						</ActionButton>
 						<ActionButton
 							ariaLabel='Next Match'
 							className='find-action-button'
-							disabled={!matchCount}
+							disabled={noMatches}
 							onPressed={() => onNextMatch()}
 						>
-							<div className='codicon codicon-arrow-down' />
+							<ThemeIcon icon={Codicon.arrowDown} />
 						</ActionButton>
 					</div>
 					<ActionButton
