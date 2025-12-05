@@ -95,7 +95,7 @@ export class QuickInput {
 	async selectQuickInputElementContaining(text: string, { timeout, force = true }: { timeout?: number; force?: boolean } = {}): Promise<string> {
 		const firstMatch = this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
 
-		const firstMatchResult = await firstMatch.locator('.quick-input-list-row').nth(0).textContent() || '';
+		const firstMatchResult = await firstMatch.locator('.quick-input-list-row').nth(0).textContent({ timeout }) || '';
 		await firstMatch.click({ force, timeout });
 		await this.code.driver.page.mouse.move(0, 0);
 

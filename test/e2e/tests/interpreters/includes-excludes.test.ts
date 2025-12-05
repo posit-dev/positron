@@ -5,34 +5,12 @@
 
 import { fail } from 'assert';
 import { test, tags } from '../_test.setup';
+import { buildPythonPath, buildRPath, expectSessionStartToFail } from './helpers/include-excludes.js';
 
 test.use({
 	suiteId: __filename
 });
 
-/**
- * Helper function to verify that starting a session fails (e.g., when interpreter is excluded).
- * If the session starts successfully, the test will fail.
- */
-async function expectSessionStartToFail(
-	sessions: any,
-	interpreterName: string,
-	excludedPath: string
-): Promise<void> {
-	let sessionStarted = false;
-	try {
-		await sessions.start(interpreterName, { reuse: false });
-		sessionStarted = true;
-	} catch (e) {
-		// Expected - session should fail to start
-	}
-
-	if (sessionStarted) {
-		fail(`Expected interpreter to be excluded: ${excludedPath}`);
-	}
-}
-
-// these are CI only tests; its not recommended to try and get your local machine to run these tests
 test.describe('Interpreter: Includes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
@@ -47,7 +25,6 @@ test.describe('Interpreter: Includes', {
 	});
 
 	test('Python - Can Include an Interpreter', async function ({ sessions }) {
-
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
 		hiddenPython
@@ -55,15 +32,13 @@ test.describe('Interpreter: Includes', {
 			: fail('Hidden Python version not set');
 	});
 
-	test('R - Can Include an Interpreter',
-		{ tag: [tags.ARK] }, async function ({ sessions }) {
+	test('R - Can Include an Interpreter', { tag: [tags.ARK] }, async function ({ sessions }) {
+		const hiddenR = process.env.POSITRON_HIDDEN_R;
 
-			const hiddenR = process.env.POSITRON_HIDDEN_R;
-
-			hiddenR
-				? await sessions.start('rHidden')
-				: fail('Hidden R version not set');
-		});
+		hiddenR
+			? await sessions.start('rHidden')
+			: fail('Hidden R version not set');
+	});
 });
 
 test.describe('Interpreter: Excludes', {
@@ -71,24 +46,11 @@ test.describe('Interpreter: Excludes', {
 }, () => {
 	let excludedRPath: string;
 	let excludedPythonPath: string;
-	let alternateR: string;
-	let alternatePython: string;
 
-	test.beforeAll(async function ({ settings, app }) {
-		// setup excluded R paths
-		alternateR = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
-		const rMajorMinor = alternateR?.split('.').slice(0, 2).join('.');
-		excludedRPath = process.env.CI
-			? `/opt/R/${alternateR}`
-			: `/Library/Frameworks/R.framework/Versions/${rMajorMinor}-arm64/Resources/bin/R`;
+	test.beforeAll(async function ({ settings }) {
+		excludedRPath = buildRPath('exclude');
+		excludedPythonPath = buildPythonPath('exclude');
 
-		// setup excluded Python paths
-		alternatePython = process.env.POSITRON_PY_ALT_VER_SEL || 'alternate Python not set';
-		excludedPythonPath = process.env.CI
-			? `~/.pyenv`
-			: `/Users/runner/.pyenv/versions/${alternatePython}`;
-
-		// override settings to exclude the alternate interpreters
 		await settings.set({
 			'python.interpreters.exclude': [excludedPythonPath],
 			'positron.r.interpreters.exclude': [excludedRPath]
@@ -102,7 +64,6 @@ test.describe('Interpreter: Excludes', {
 	test('Python - Can Exclude an Interpreter', async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'pythonAlt', excludedPythonPath);
 	});
-
 });
 
 test.describe('Interpreter: Override', {
@@ -112,20 +73,16 @@ test.describe('Interpreter: Override', {
 	let overridePythonPath: string;
 
 	test.beforeAll(async function ({ settings }) {
-		const alternateR = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
-
-		overridePythonPath = '/root/scratch/python-env';
-		overrideRPath = `/opt/R/${alternateR}/bin/R`;
+		overridePythonPath = buildPythonPath('override');
+		overrideRPath = buildRPath('override');
 
 		await settings.set({
-			// 'python.interpreters.override': [overridePythonPath],
+			'python.interpreters.override': [overridePythonPath],
 			'positron.r.interpreters.override': [overrideRPath]
 		}, { reload: true });
 	});
 
-	test('R - Can Override Interpreter Discovery', {
-		tag: [tags.ARK]
-	}, async function ({ sessions }) {
+	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'r', overrideRPath);
 	});
 
