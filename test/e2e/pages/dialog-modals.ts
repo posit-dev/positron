@@ -89,11 +89,18 @@ export class Modals {
 		});
 	}
 
-	async expectToBeVisible(title?: string, { timeout = 30000 } = {}) {
-		await test.step(`Verify modal dialog box is visible${title ? ` : ${title}` : ''}`, async () => {
-			await expect(this.modalBox).toBeVisible({ timeout });
-			if (title) {
-				await expect(this.modalTitle).toHaveText(title, { timeout });
+	async expectToBeVisible(title?: string, { timeout = 30000, visible = true } = {}) {
+		await test.step(`Verify modal dialog box is ${visible ? 'visible' : 'not visible'}${title ? ` : ${title}` : ''}`, async () => {
+			if (visible) {
+				await expect(this.modalBox).toBeVisible({ timeout });
+				if (title) {
+					await expect(this.modalTitle).toHaveText(title, { timeout });
+				}
+			} else {
+				await expect(this.modalBox).not.toBeVisible({ timeout });
+				if (title) {
+					await expect(this.modalTitle).not.toHaveText(title, { timeout });
+				}
 			}
 		});
 	}

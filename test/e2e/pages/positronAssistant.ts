@@ -8,6 +8,7 @@ import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
+import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
@@ -45,7 +46,7 @@ const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Lan
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -152,6 +153,7 @@ export class Assistant {
 
 	async clickCloseButton() {
 		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+		await this.modals.expectToBeVisible('Configure Language Model', { visible: false });
 	}
 
 	async clickSignOutButton() {
