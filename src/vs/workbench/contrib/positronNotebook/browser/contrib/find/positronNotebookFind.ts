@@ -27,6 +27,7 @@ import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+import { Position } from '../../../../../../editor/common/core/position.js';
 
 interface CellMatch {
 	cell: IPositronNotebookCell;
@@ -208,10 +209,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return;
 		}
 
-		const currentIndex = this.matchIndex.get() ?? 0;
-		const nextIndex = currentIndex >= this._allMatches.length ? 1 : currentIndex + 1;
-
-		this.navigateToMatch(nextIndex);
+		// Find the next match from the current cursor position
+		const nextMatchIndex = this.findNextMatchFromCursor();
+		if (nextMatchIndex !== -1) {
+			this.navigateToMatch(nextMatchIndex);
+		}
 	}
 
 	private findPrevious(): void {
@@ -219,10 +221,103 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return;
 		}
 
-		const currentIndex = this.matchIndex.get() ?? 1;
-		const prevIndex = currentIndex <= 1 ? this._allMatches.length : currentIndex - 1;
+		// Find the previous match from the current cursor position
+		const prevMatchIndex = this.findPreviousMatchFromCursor();
+		if (prevMatchIndex !== -1) {
+			this.navigateToMatch(prevMatchIndex);
+		}
+	}
 
-		this.navigateToMatch(prevIndex);
+	private findNextMatchFromCursor(): number {
+		// Get the currently focused cell and cursor position
+		const cells = this._notebook.cells.get();
+		let currentCellIndex = -1;
+		let currentPosition: Position | null = null;
+
+		// Find the currently focused cell
+		for (let i = 0; i < cells.length; i++) {
+			const cell = cells[i];
+			if (cell.editor?.hasTextFocus()) {
+				currentCellIndex = i;
+				currentPosition = cell.editor.getPosition();
+				break;
+			}
+		}
+
+		// If no cell is focused, start from the first match
+		if (currentCellIndex === -1) {
+			return 1;
+		}
+
+		// Find the next match after the current position
+		for (let i = 0; i < this._allMatches.length; i++) {
+			const { cell: matchCell, match } = this._allMatches[i];
+
+			// Get the cell index for this match
+			const matchCellIndex = cells.findIndex(c => c.handle === matchCell.handle);
+
+			// If match is in a later cell, it's the next match
+			if (matchCellIndex > currentCellIndex) {
+				return i + 1;
+			}
+
+			// If match is in the same cell, check if it's after the cursor
+			if (matchCellIndex === currentCellIndex && currentPosition) {
+				if (match.range.startLineNumber > currentPosition.lineNumber ||
+					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn > currentPosition.column)) {
+					return i + 1;
+				}
+			}
+		}
+
+		// Wrap around to the first match
+		return 1;
+	}
+
+	private findPreviousMatchFromCursor(): number {
+		// Get the currently focused cell and cursor position
+		const cells = this._notebook.cells.get();
+		let currentCellIndex = -1;
+		let currentPosition: Position | null = null;
+
+		// Find the currently focused cell
+		for (let i = 0; i < cells.length; i++) {
+			const cell = cells[i];
+			if (cell.editor?.hasTextFocus()) {
+				currentCellIndex = i;
+				currentPosition = cell.editor.getPosition();
+				break;
+			}
+		}
+
+		// If no cell is focused, start from the last match
+		if (currentCellIndex === -1) {
+			return this._allMatches.length;
+		}
+
+		// Find the previous match before the current position (search backwards)
+		for (let i = this._allMatches.length - 1; i >= 0; i--) {
+			const { cell: matchCell, match } = this._allMatches[i];
+
+			// Get the cell index for this match
+			const matchCellIndex = cells.findIndex(c => c.handle === matchCell.handle);
+
+			// If match is in an earlier cell, it's the previous match
+			if (matchCellIndex < currentCellIndex) {
+				return i + 1;
+			}
+
+			// If match is in the same cell, check if it's before the cursor
+			if (matchCellIndex === currentCellIndex && currentPosition) {
+				if (match.range.startLineNumber < currentPosition.lineNumber ||
+					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn < currentPosition.column)) {
+					return i + 1;
+				}
+			}
+		}
+
+		// Wrap around to the last match
+		return this._allMatches.length;
 	}
 
 	private navigateToMatch(matchIndex: number): void {
