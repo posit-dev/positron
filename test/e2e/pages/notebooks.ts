@@ -37,6 +37,7 @@ export class Notebooks {
 	frameLocator: FrameLocator;
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
+	stopCellExecutionBtn: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		this.code = code;
@@ -49,6 +50,8 @@ export class Notebooks {
 		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
+		this.stopCellExecutionBtn = this.code.driver.page.getByLabel('Stop Cell Execution');
+
 	}
 
 	async selectInterpreter(
@@ -162,14 +165,18 @@ export class Notebooks {
 		await expect(markdownLocator).toHaveText(expectedText);
 	}
 
-	async runAllCells(timeout: number = 30000) {
+	async runAllCells({ timeout = 15000, throwError = false } = {}): Promise<void> {
 		await test.step('Run all cells', async () => {
 			await this.code.driver.page.getByLabel('Run All').click();
 			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
-				await expect(stopExecutionLocator).toBeVisible();
+				await expect(stopExecutionLocator).toBeVisible({ timeout: 5000 });
 				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
-			} catch { } // can be normal with very fast execution
+			} catch {
+				if (throwError) {
+					throw new Error('Timeout waiting for all cells to finish executing');
+				}
+			} // can be normal with very fast execution
 		});
 	}
 

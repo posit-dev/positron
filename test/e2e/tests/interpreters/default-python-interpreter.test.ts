@@ -6,6 +6,8 @@
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
+import { buildPythonPath } from './helpers/include-excludes.js';
+import path from 'path';
 
 test.use({
 	suiteId: __filename
@@ -17,50 +19,39 @@ test.describe('Default Interpreters - Python', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-
-		await settings.remove(['interpreters.startupBehavior']);
 		await settings.set({ 'interpreters.startupBehavior': 'always' });
-
 		await deletePositronHistoryFiles();
 
-		// local debugging sample:
-		// const homeDir = process.env.HOME || '';
-		// await settings.set({'python.defaultInterpreterPath': `${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}`}, { reload: true });
+		// Build environment-aware path for default interpreter
+		const pythonVersion = process.env.POSITRON_PY_VER_SEL || '3.10.12';
+		const pythonPath = process.env.CI
+			? `${buildPythonPath('include')}/bin/python`
+			: path.join(process.env.HOME || '', `.pyenv/versions/${pythonVersion}/bin/python`);
 
-		const pythonPath = '/root/scratch/python-env/bin/python';
-
+		// First reload: "Apply these settings"
 		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true });
-
 	});
 
 	test.afterAll(async function ({ cleanup }) {
-
 		await cleanup.discardAllChanges();
-
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ runCommand, sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ hotKeys, sessions }) {
+		// Second reload: "Now actually start the interpreter with these settings"
+		await hotKeys.reloadWindow(true);
 
-		await runCommand('workbench.action.reloadWindow');
+		// Get version from environment and create regex patterns
+		const pythonVersion = process.env.POSITRON_PY_VER_SEL || '3.10.12';
+		const versionRegex = new RegExp(`Python ${pythonVersion.replace(/\./g, '\\.')}`);
 
-		await expect(async () => {
+		// Build environment-aware path regex
+		const pathRegex = process.env.CI
+			? /python-env\/bin\/python/
+			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-			try {
-				const { name, path } = await sessions.getMetadata();
+		const { name, path } = await sessions.getMetadata();
 
-				// Local debugging sample:
-				// expect(name).toMatch(/Python 3\.13\.0/);
-				// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
-
-				// hidden CI interpreter:
-				expect(name).toMatch(/Python 3\.12\.10/);
-				expect(path).toMatch(/python-env\/bin\/python/);
-
-			} catch (error) {
-				await runCommand('workbench.action.reloadWindow');
-				throw error;
-			}
-
-		}).toPass({ timeout: 60000 });
+		expect(name).toMatch(versionRegex);
+		expect(path).toMatch(pathRegex);
 	});
 });
