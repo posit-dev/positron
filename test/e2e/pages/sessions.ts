@@ -451,7 +451,7 @@ export class Sessions {
 			// Wait until the desired runtime appears in the list and select it.
 			// We need to click instead of using 'enter' because the Python select interpreter command
 			// may include additional items above the desired interpreter string.
-			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
+			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`, { timeout: 5000 });
 			await this.quickinput.waitForQuickInputClosed();
 
 			// Move mouse to prevent tooltip hover
