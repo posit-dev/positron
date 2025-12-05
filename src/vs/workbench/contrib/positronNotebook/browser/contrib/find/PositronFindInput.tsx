@@ -8,7 +8,6 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { FindInput, IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 
 export interface PositronFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
@@ -17,7 +16,6 @@ export interface PositronFindInputProps {
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
 	readonly focusInput?: boolean;
-	readonly additionalToggles?: Toggle[];
 	readonly onValueChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
 	readonly onMatchWholeWordChange: (value: boolean) => void;
@@ -30,7 +28,6 @@ export const PositronFindInput = ({
 	matchWholeWord = false,
 	useRegex = false,
 	focusInput = false,
-	additionalToggles,
 	findInputOptions,
 	onValueChange,
 	onMatchCaseChange,
@@ -41,10 +38,7 @@ export const PositronFindInput = ({
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
 
 	// Capture initial options to avoid recreating FindInput on prop changes
-	const initialOptionsRef = useRef({
-		...findInputOptions,
-		additionalToggles,
-	});
+	const initialOptionsRef = useRef(findInputOptions);
 
 	// Initialize FindInput widget once on mount
 	useEffect(() => {
@@ -96,13 +90,6 @@ export const PositronFindInput = ({
 
 		return () => disposable.dispose();
 	}, [findInput, onMatchCaseChange, onMatchWholeWordChange, onUseRegexChange]);
-
-	// Update additionalToggles dynamically
-	useEffect(() => {
-		if (findInput && additionalToggles) {
-			findInput.setAdditionalToggles(additionalToggles);
-		}
-	}, [findInput, additionalToggles]);
 
 	// Update value
 	useEffect(() => {
