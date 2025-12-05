@@ -69,6 +69,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// TODO: Feels like this should be a class...
 		const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
+		const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
 
 		const disposables = new DisposableStore();
 
@@ -97,6 +98,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					// activeFindWidgets.delete(container);
 					disposables.dispose();
 					findWidgetVisible.reset();
+					findInputFocused.reset();
 				}
 			});
 		}
@@ -121,6 +123,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			onNextMatch: () => this.findNext(),
 			onClose: () => {
 				this._renderer.clear();
+			},
+			onInputFocus: () => {
+				findInputFocused.set(true);
+			},
+			onInputBlur: () => {
+				findInputFocused.set(false);
 			},
 		});
 

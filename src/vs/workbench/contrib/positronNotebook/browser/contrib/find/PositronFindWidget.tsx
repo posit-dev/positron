@@ -30,6 +30,8 @@ export interface PositronFindWidgetProps {
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
 	readonly onClose: () => void;
+	readonly onInputFocus?: () => void;
+	readonly onInputBlur?: () => void;
 }
 
 export const PositronFindWidget = ({
@@ -44,6 +46,8 @@ export const PositronFindWidget = ({
 	onPreviousMatch,
 	onNextMatch,
 	onClose,
+	onInputFocus,
+	onInputBlur,
 }: PositronFindWidgetProps) => {
 	const findText = useObservedValue(findTextObs);
 	const matchCase = useObservedValue(matchCaseObs);
@@ -65,6 +69,8 @@ export const PositronFindWidget = ({
 						matchWholeWord={matchWholeWord}
 						useRegex={useRegex}
 						value={findText}
+						onInputBlur={onInputBlur}
+						onInputFocus={onInputFocus}
 						onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
 						onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
 						onUseRegexChange={(value) => useRegexObs.set(value, undefined)}

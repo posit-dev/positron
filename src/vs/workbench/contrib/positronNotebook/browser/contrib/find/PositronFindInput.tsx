@@ -20,6 +20,8 @@ export interface PositronFindInputProps {
 	readonly onMatchCaseChange: (value: boolean) => void;
 	readonly onMatchWholeWordChange: (value: boolean) => void;
 	readonly onUseRegexChange: (value: boolean) => void;
+	readonly onInputFocus?: () => void;
+	readonly onInputBlur?: () => void;
 }
 
 export const PositronFindInput = ({
@@ -33,6 +35,8 @@ export const PositronFindInput = ({
 	onMatchCaseChange,
 	onMatchWholeWordChange,
 	onUseRegexChange,
+	onInputFocus,
+	onInputBlur,
 }: PositronFindInputProps) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
@@ -90,6 +94,28 @@ export const PositronFindInput = ({
 
 		return () => disposable.dispose();
 	}, [findInput, onMatchCaseChange, onMatchWholeWordChange, onUseRegexChange]);
+
+	// Set up focus listener
+	useEffect(() => {
+		if (findInput && onInputFocus) {
+			const disposable = findInput.inputBox.onDidFocus(() => {
+				onInputFocus();
+			});
+			return () => disposable.dispose();
+		}
+		return;
+	}, [findInput, onInputFocus]);
+
+	// Set up blur listener
+	useEffect(() => {
+		if (findInput && onInputBlur) {
+			const disposable = findInput.inputBox.onDidBlur(() => {
+				onInputBlur();
+			});
+			return () => disposable.dispose();
+		}
+		return;
+	}, [findInput, onInputBlur]);
 
 	// Update value
 	useEffect(() => {
