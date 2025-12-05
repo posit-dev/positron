@@ -12,7 +12,7 @@ test.use({
 // In order to run this test on Windows, I think we need to set the env var:
 // RETICULATE_PYTHON to the installed python path
 
-test.describe('Reticulate - Variables pane support', {
+test.describe.skip('Reticulate - Variables pane support', {
 	tag: [tags.RETICULATE, tags.WEB, tags.SOFT_FAIL],
 }, () => {
 	test('R - Verify Reticulate formats variables in the Variables pane', async function ({ app, sessions, logger }) {

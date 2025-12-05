@@ -42,7 +42,8 @@ test.describe('Default Interpreters - Python', {
 
 		// Get version from environment and create regex patterns
 		const pythonVersion = process.env.POSITRON_PY_VER_SEL || '3.10.12';
-		const versionRegex = new RegExp(`Python ${pythonVersion.replace(/\./g, '\\.')}`);
+		// Match version with optional text after (e.g., "Python 3.12.10 (Conda)")
+		const versionRegex = new RegExp(`Python ${pythonVersion.replace(/\./g, '\\.')}(\\s.*)?`);
 
 		// Build environment-aware path regex
 		const pathRegex = process.env.CI
