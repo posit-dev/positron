@@ -51,7 +51,6 @@ export class Notebooks {
 		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
 		this.stopCellExecutionBtn = this.code.driver.page.getByLabel('Stop Cell Execution');
-
 	}
 
 	async selectInterpreter(
