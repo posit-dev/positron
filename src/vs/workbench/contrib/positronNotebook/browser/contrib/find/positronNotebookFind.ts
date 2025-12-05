@@ -19,13 +19,19 @@ import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysMan
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
+import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
 import { observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+
+interface CellMatch {
+	cell: IPositronNotebookCell;
+	match: FindMatch;
+}
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -33,6 +39,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
+	private _allMatches: CellMatch[] = [];
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
@@ -109,8 +116,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			useRegex: this.isRegex,
 			matchIndex: this.matchIndex,
 			matchCount: this.matchCount,
-			onPreviousMatch: () => { },
-			onNextMatch: () => { },
+			onPreviousMatch: () => this.findPrevious(),
+			onNextMatch: () => this.findNext(),
 			onClose: () => {
 				this._renderer.clear();
 			},
@@ -128,7 +135,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	// TODO: Make option object and pass in instead of reading observables. This method will eventually live on a delegate
 	private research(searchString: string): void {
-		const matches: unknown[] = [];
+		this._allMatches = [];
 		let totalMatchCount = 0;
 
 		for (const cell of this._notebook.cells.get()) {
@@ -142,7 +149,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					this.wholeWord.get() ? wordSeparators || null : null,
 					this.isRegex.get(),
 				);
-				matches.push({ cell, matches: cellMatches });
+
+				// Store each match with its cell reference
+				for (const match of cellMatches) {
+					this._allMatches.push({ cell, match });
+				}
 				totalMatchCount += cellMatches.length;
 				// TODO: Fall back to text buffer if no text model?
 
@@ -190,6 +201,49 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			this.matchCount.set(totalMatchCount, tx);
 			this.matchIndex.set(totalMatchCount > 0 ? 1 : undefined, tx);
 		});
+	}
+
+	private findNext(): void {
+		if (this._allMatches.length === 0) {
+			return;
+		}
+
+		const currentIndex = this.matchIndex.get() ?? 0;
+		const nextIndex = currentIndex >= this._allMatches.length ? 1 : currentIndex + 1;
+
+		this.navigateToMatch(nextIndex);
+	}
+
+	private findPrevious(): void {
+		if (this._allMatches.length === 0) {
+			return;
+		}
+
+		const currentIndex = this.matchIndex.get() ?? 1;
+		const prevIndex = currentIndex <= 1 ? this._allMatches.length : currentIndex - 1;
+
+		this.navigateToMatch(prevIndex);
+	}
+
+	private navigateToMatch(matchIndex: number): void {
+		if (matchIndex < 1 || matchIndex > this._allMatches.length) {
+			return;
+		}
+
+		const { cell, match } = this._allMatches[matchIndex - 1]; // Convert to 0-based index
+
+		// Focus the cell
+		if (cell.editor) {
+			// Set the selection to the match range
+			cell.editor.setSelection(match.range);
+			// Reveal the range in the editor
+			cell.editor.revealRangeInCenter(match.range);
+			// Focus the editor
+			cell.editor.focus();
+		}
+
+		// Update the match index
+		this.matchIndex.set(matchIndex, undefined);
 	}
 
 	public closeFindWidget(): void {
