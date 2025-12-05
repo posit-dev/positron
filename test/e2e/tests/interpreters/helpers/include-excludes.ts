@@ -9,14 +9,14 @@ import { SessionRuntimes, Sessions } from '../../../pages/sessions.js';
 /**
  * Helper function to build R path based on environment.
  * Reads version from POSITRON_R_ALT_VER_SEL environment variable.
- * @param usage - Whether to build path for 'include', 'exclude', or 'override'
+ * @param usage - Whether to build path for 'customRoot', 'exclude', or 'override'
  */
-export function buildRPath(usage: 'include' | 'exclude' | 'override' = 'exclude'): string {
+export function buildRPath(usage: 'customRoot' | 'exclude' | 'override' = 'exclude'): string {
 	const version = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
 	const majorMinor = version.split('.').slice(0, 2).join('.');
 
-	if (usage === 'include') {
-		// Include path - the hidden R interpreter location
+	if (usage === 'customRoot') {
+		// Custom root - the custom folder for R discovery
 		return process.env.CI
 			? '/root/scratch'
 			: '/Users/runner/scratch'; // <-- modify for local testing

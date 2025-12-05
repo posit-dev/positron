@@ -18,7 +18,7 @@ test.describe('Interpreter: Includes', {
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
 			'python.interpreters.include': [buildPythonPath('include')],
-			'positron.r.customRootFolders': [buildRPath('include')]
+			'positron.r.customRootFolders': [buildRPath('customRoot')]
 		}, { reload: true });
 	});
 
