@@ -27,7 +27,7 @@ import { ActionBarFilter } from '../../../../../platform/positronActionBar/brows
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { LanguageFilterMenuButton } from './languageFilterMenuButton.js';
-import { HistoryEntry } from './historyEntry.js';
+import { HistoryEntry, MAX_COLLAPSED_LINES } from './historyEntry.js';
 import { HistorySeparator } from './historySeparator.js';
 import { getSectionLabel, isSameSection } from './historyGrouping.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
@@ -64,18 +64,30 @@ interface PositronHistoryPanelProps {
 }
 
 /**
- * Type for list items - can be either a history entry or a separator
+ * Type for a history entry item in the list
  */
-type ListItem = {
+export type HistoryEntryItem = {
 	type: 'entry';
 	entry: IInputHistoryEntry;
 	lines: number; // Total number of lines in the entry input
+	originalInput: string; // The original full code input
+	trimmedInput: string; // The trimmed code input
 	visibleLines: number; // Number of lines shown when collapsed
 	originalIndex: number; // Index in the original entries array
-} | {
+};
+
+/**
+ * Type for a separator item in the list
+ */
+export type HistorySeparatorItem = {
 	type: 'separator';
 	label: string;
 };
+
+/**
+ * Type for list items - can be either a history entry or a separator
+ */
+export type ListItem = HistoryEntryItem | HistorySeparatorItem;
 
 /**
  * The default height for a history entry row (3 lines of code)
@@ -226,7 +238,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	));
 
 	/**
-	 * Get the height of a row
+	 * Get the height of a row.
+	 *
+	 * It's important that we compute this accurately, since react-window relies
+	 * on these heights for virtualization. Incorrectly computed heights will
+	 * lead to overlapping items or excessive blank space.
+	 *
+	 * @param index The index of the row
 	 */
 	const getRowHeight = (index: number): number => {
 		const item = listItems[index];
@@ -236,9 +254,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		if (item.type === 'separator') {
 			return SEPARATOR_HEIGHT;
 		}
-		// When selected, show all lines; otherwise show collapsed (max 4) lines
+
+		// When selected, show all lines; otherwise show collapsed lines
 		const linesToShow = (index === selectedIndex) ? item.lines : item.visibleLines;
-		return linesToShow * (props.fontInfo.lineHeight) + 8;
+
+		// Compute the height based on font line height + padding
+		return linesToShow * (props.fontInfo.lineHeight) + 9;
 	};
 
 	/**
@@ -258,11 +279,24 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				const label = getSectionLabel(entry.when, currentDate);
 				items.push({ type: 'separator', label });
 			}
-			const lines = entry.input.split('\n').length;
-			const visibleLines = lines > 4 ?
-				5 : lines; // Show max 4 lines + ellipsis line when collapsed
+
+			const trimmedInput = entry.input.trimEnd();
+
+			// Compute the number of lines in the entry
+			const lines = trimmedInput.split('\n').length;
+			const visibleLines = lines > MAX_COLLAPSED_LINES ?
+				MAX_COLLAPSED_LINES + 1 : lines; // Show max 4 lines + ellipsis line when collapsed
+
 			// Add the entry
-			items.push({ type: 'entry', entry, lines, visibleLines, originalIndex: i });
+			items.push({
+				type: 'entry',
+				entry,
+				originalInput: entry.input,
+				trimmedInput,
+				lines,
+				visibleLines,
+				originalIndex: i
+			});
 		}
 
 		return items;
@@ -1088,9 +1122,8 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 								} else {
 									return (
 										<HistoryEntry
-											entry={item.entry}
+											historyItem={item}
 											fontInfo={props.fontInfo}
-											index={item.originalIndex}
 											instantiationService={instantiationService}
 											isSelected={index === selectedIndex}
 											languageId={currentLanguage || ''}

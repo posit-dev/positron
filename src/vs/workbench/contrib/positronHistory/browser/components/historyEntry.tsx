@@ -5,7 +5,6 @@
 
 import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { createTrustedTypesPolicy } from '../../../../../base/browser/trustedTypes.js';
-import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { tokenizeToString } from '../../../../../editor/common/languages/textToHtmlTokenizer.js';
@@ -15,6 +14,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { localize } from '../../../../../nls.js';
+import { HistoryEntryItem } from './positronHistoryPanel.js';
 
 const ttPolicy = createTrustedTypesPolicy('positronHistoryEntry', { createHTML: value => value });
 
@@ -29,8 +29,7 @@ const positronHistoryMoreLines = (lines: number) => localize('positron.history.m
  * Props for the HistoryEntry component
  */
 interface HistoryEntryProps {
-	entry: IInputHistoryEntry;
-	index: number;
+	historyItem: HistoryEntryItem;
 	style: CSSProperties;
 	isSelected: boolean;
 	languageId: string;
@@ -48,7 +47,7 @@ interface HistoryEntryProps {
 /**
  * Maximum number of lines to show when collapsed
  */
-const MAX_COLLAPSED_LINES = 4;
+export const MAX_COLLAPSED_LINES = 4;
 
 /**
  * Find all match positions in text (case insensitive)
@@ -355,7 +354,7 @@ const getSmartExcerpt = (code: string, search: string): { excerpt: string; hidde
  */
 export const HistoryEntry = (props: HistoryEntryProps) => {
 	const {
-		entry,
+		historyItem,
 		style,
 		isSelected,
 		languageId,
@@ -375,6 +374,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	const codeRef = useRef<HTMLDivElement>(null);
 	const previousCodeRef = useRef<string>('');
 	const colorizedCacheRef = useRef<string | null>(null);
+	const input = historyItem.trimmedInput;
 
 	/**
 	 * Count lines in the code
@@ -395,15 +395,15 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	};
 
 	// Calculate line count synchronously during render to avoid layout shifts
-	const lineCount = countLines(entry.input);
+	const lineCount = countLines(input);
 
 	// Calculate smart excerpt synchronously to determine if we'll show indicators
-	const smartExcerpt = (!isSelected && searchText) ? getSmartExcerpt(entry.input, searchText) : null;
+	const smartExcerpt = (!isSelected && searchText) ? getSmartExcerpt(input, searchText) : null;
 
 	// Determine what code to show - calculated synchronously to avoid layout shifts
 	const codeToHighlight = isSelected
-		? entry.input
-		: (smartExcerpt ? smartExcerpt.excerpt : truncateCode(entry.input, MAX_COLLAPSED_LINES));
+		? input
+		: (smartExcerpt ? smartExcerpt.excerpt : truncateCode(input, MAX_COLLAPSED_LINES));
 
 	/**
 	 * Tokenize and highlight the code
@@ -571,7 +571,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 	const showExpandButton = lineCount > MAX_COLLAPSED_LINES;
 	const needsTruncation = showExpandButton && !isSelected && !smartExcerpt;
-	const codeToDisplay = isSelected ? entry.input : truncateCode(entry.input, MAX_COLLAPSED_LINES);
+	const codeToDisplay = isSelected ? input : truncateCode(input, MAX_COLLAPSED_LINES);
 
 	// Determine truncation state for CSS classes
 	const hasTruncatedTop = smartExcerpt && smartExcerpt.hiddenAbove > 0;
@@ -618,14 +618,14 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 				{/* Show "... N more lines" below for normal truncation */}
 				{needsTruncation && (
 					<div className='history-entry-line-indicator'>
-						... {lineCount - MAX_COLLAPSED_LINES} more lines
+						{positronHistoryMoreLines(lineCount - MAX_COLLAPSED_LINES)}
 					</div>
 				)}
 
 				{/* Show "... N more lines" below if smart excerpt hides lines below */}
 				{smartExcerpt && smartExcerpt.hiddenBelow > 0 && (
 					<div className='history-entry-line-indicator'>
-						... {smartExcerpt.hiddenBelow} more lines
+						{positronHistoryMoreLines(smartExcerpt.hiddenBelow)}
 					</div>
 				)}
 			</div>
