@@ -42,6 +42,17 @@ import { IInlineCompletionsUnificationState } from '../../services/inlineComplet
 
 // --- Start Positron ---
 import type * as positron from 'positron';
+
+/**
+ * Extracts plain text from a markdown string by removing code block syntax.
+ */
+function extractPlainTextFromMarkdown(text: string): string {
+	return text
+		.trim()
+		.replace(/^```\w*\n?/gm, '')
+		.replace(/```$/gm, '')
+		.trim();
+}
 // --- End Positron ---
 
 // --- adapter
@@ -276,6 +287,9 @@ class HoverAdapter {
 	constructor(
 		private readonly _documents: ExtHostDocuments,
 		private readonly _provider: vscode.HoverProvider,
+		// --- Start Positron ---
+		private readonly _extensionId: string,
+		// --- End Positron ---
 	) { }
 
 	async provideHover(resource: URI, position: IPosition, context: languages.HoverContext<{ id: number }> | undefined, token: CancellationToken): Promise<extHostProtocol.HoverWithId | undefined> {
@@ -298,6 +312,18 @@ class HoverAdapter {
 		if (!value || isFalsyOrEmpty(value.contents)) {
 			return undefined;
 		}
+		// --- Start Positron ---
+		// Filter out hovers that only contain "Unknown" text (possibly in a markdown code block).
+		// This is because that's the literal message Pyrefly sends when it has no useful hover info to provide.
+		const contentsText = extractPlainTextFromMarkdown(
+			value.contents
+				.map(c => typeof c === 'string' ? c : typeof c === 'object' && 'value' in c ? c.value : '')
+				.join('')
+		);
+		if (contentsText === 'Unknown') {
+			return undefined;
+		}
+		// --- End Positron ---
 		if (!value.range) {
 			value.range = doc.getWordRangeAtPosition(pos);
 		}
@@ -315,7 +341,10 @@ class HoverAdapter {
 		this._hoverCounter += 1;
 		const hover: extHostProtocol.HoverWithId = {
 			...convertedHover,
-			id
+			id,
+			// --- Start Positron ---
+			extensionId: this._extensionId,
+			// --- End Positron ---
 		};
 		return hover;
 	}
@@ -1568,6 +1597,16 @@ class SignatureHelpAdapter {
 
 		const value = await this._provider.provideSignatureHelp(doc, pos, token, vscodeContext);
 		if (value) {
+			// --- Start Positron ---
+			// Filter out signature help that only contains "Unknown" text (possibly in a markdown code block).
+			// This is because that's the literal message Pyrefly sends when it has no useful info to provide.
+			const allSignaturesUnknown = value.signatures.length > 0 && value.signatures.every(sig =>
+				extractPlainTextFromMarkdown(sig.label) === 'Unknown'
+			);
+			if (allSignaturesUnknown) {
+				return undefined;
+			}
+			// --- End Positron ---
 			const id = this._cache.add([value]);
 			return { ...typeConvert.SignatureHelp.from(value), id };
 		}
@@ -2383,7 +2422,10 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 	// --- extra info
 
 	registerHoverProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: vscode.HoverProvider, extensionId?: ExtensionIdentifier): vscode.Disposable {
-		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider), extension);
+		// --- Start Positron ---
+		// added extensionId parameter to HoverAdapter
+		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider, extension.identifier.value), extension);
+		// --- End Positron ---
 		this._proxy.$registerHoverProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
 	}
