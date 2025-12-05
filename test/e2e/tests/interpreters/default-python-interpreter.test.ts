@@ -23,9 +23,10 @@ test.describe('Default Interpreters - Python', {
 		await deletePositronHistoryFiles();
 
 		// Build environment-aware path for default interpreter
+		// Note: CI uses hidden Python in /root/scratch, local uses pyenv version
 		const pythonVersion = process.env.POSITRON_PY_VER_SEL || '3.10.12';
 		const pythonPath = process.env.CI
-			? `${buildPythonPath('include')}/bin/python`
+			? `${buildPythonPath('include')}/bin/python` // Hidden Python (POSITRON_HIDDEN_PY)
 			: path.join(process.env.HOME || '', `.pyenv/versions/${pythonVersion}/bin/python`);
 
 		// First reload: "Apply these settings"
@@ -40,8 +41,11 @@ test.describe('Default Interpreters - Python', {
 		// Second reload: "Now actually start the interpreter with these settings"
 		await hotKeys.reloadWindow(true);
 
-		// Get version from environment and create regex patterns
-		const pythonVersion = process.env.POSITRON_PY_VER_SEL || '3.10.12';
+		// Get version from appropriate env var (hidden Python in CI, regular in local)
+		const pythonVersion = process.env.CI
+			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
+			: process.env.POSITRON_PY_VER_SEL || '3.10.12';
+
 		// Match version with optional text after (e.g., "Python 3.12.10 (Conda)")
 		const versionRegex = new RegExp(`Python ${pythonVersion.replace(/\./g, '\\.')}(\\s.*)?`);
 
