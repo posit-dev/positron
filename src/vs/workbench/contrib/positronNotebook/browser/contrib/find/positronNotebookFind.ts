@@ -336,19 +336,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		const { cell, match } = this._allMatches[matchIndex - 1]; // Convert to 0-based index
 
-		// Reveal the cell in the notebook
-		if (cell.container) {
-			cell.container.scrollIntoView({ behavior: 'instant', block: 'center' });
-		}
+		// Select the cell
+		this._notebook.selectionStateMachine.selectCell(cell);
 
-		// Focus the cell
+		// Select the match in the editor
 		if (cell.editor) {
 			// Set the selection to the match range
 			cell.editor.setSelection(match.range);
 			// Reveal the range in the editor
 			cell.editor.revealRangeInCenter(match.range);
-			// Focus the editor
-			cell.editor.focus();
 		}
 
 		// Update the match index
