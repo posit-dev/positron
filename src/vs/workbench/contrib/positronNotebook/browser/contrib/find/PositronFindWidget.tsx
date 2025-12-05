@@ -75,6 +75,7 @@ export const PositronFindWidget = ({
 						<ActionButton
 							ariaLabel='Previous Match'
 							className='find-action-button'
+							disabled={!matchCount}
 							onPressed={() => onPreviousMatch()}
 						>
 							<div className='codicon codicon-arrow-up' />
@@ -82,6 +83,7 @@ export const PositronFindWidget = ({
 						<ActionButton
 							ariaLabel='Next Match'
 							className='find-action-button'
+							disabled={!matchCount}
 							onPressed={() => onNextMatch()}
 						>
 							<div className='codicon codicon-arrow-down' />
