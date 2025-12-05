@@ -23,6 +23,9 @@ import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js'
 import { observableValue, runOnChange } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { FindWidgetWrapper } from './FindWidgetWrapper.js';
+import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
+import { defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -59,6 +62,19 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		const disposables = new DisposableStore();
 
+		// Create find in selection toggle for notebook-specific functionality
+		const findInSelectionToggle = disposables.add(new Toggle({
+			icon: Codicon.selection,
+			title: 'Find in Selection',
+			isChecked: false,
+			...defaultToggleStyles,
+		}));
+
+		disposables.add(findInSelectionToggle.onChange(() => {
+			// TODO: Implement find in selection logic for notebooks
+			console.log('Find in selection toggled');
+		}));
+
 		if (!this._renderer.value) {
 			if (!this._notebook.container?.parentElement) {
 				return;
@@ -82,6 +98,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			matchCase: this.matchCase,
 			matchWholeWord: this.wholeWord,
 			useRegex: this.isRegex,
+			additionalToggles: [findInSelectionToggle],
 			onClose: () => {
 				this._renderer.clear();
 			},
