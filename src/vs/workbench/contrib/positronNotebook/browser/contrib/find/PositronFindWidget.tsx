@@ -17,6 +17,7 @@ import { IObservable, ISettableObservable } from '../../../../../../base/common/
 import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
+import { KeyCode } from '../../../../../../base/common/keyCodes.js';
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
@@ -71,6 +72,17 @@ export const PositronFindWidget = ({
 						value={findText}
 						onInputBlur={onInputBlur}
 						onInputFocus={onInputFocus}
+						onKeyDown={(e) => {
+							if (e.equals(KeyCode.Enter)) {
+								onNextMatch();
+								e.preventDefault();
+								return;
+							} else if (e.equals(KeyCode.Shift | KeyCode.Enter)) {
+								onPreviousMatch();
+								e.preventDefault();
+								return;
+							}
+						}}
 						onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
 						onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
 						onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
