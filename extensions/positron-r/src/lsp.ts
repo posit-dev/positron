@@ -20,9 +20,18 @@ import {
 
 import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
-import { RLspOutputChannelManager } from './lsp-output-channel-manager';
 import { R_DOCUMENT_SELECTORS } from './provider';
 import { VirtualDocumentProvider } from './virtual-documents';
+
+/**
+ * Global output channel for R LSP sessions
+ *
+ * Since we only have one LSP session active at any time, and since the start of
+ * a new session is logged with a session ID, we use a single output channel for
+ * all LSP sessions. Watch out for session start log messages to find the
+ * relevant section of the log.
+ */
+const LSP_OUTPUT_CHANNEL = positron.window.createRawLogOutputChannel('R Language Server');
 
 /**
  * The state of the language server.
@@ -107,12 +116,6 @@ export class ArkLsp implements vscode.Disposable {
 
 		const { notebookUri } = this._metadata;
 
-		// Persistant output channel, used across multiple sessions of the same name + mode combination
-		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._dynState.sessionName,
-			this._metadata.sessionMode
-		);
-
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
@@ -126,7 +129,7 @@ export class ArkLsp implements vscode.Disposable {
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
 			errorHandler: new RErrorHandler(this._version, port),
-			outputChannel: outputChannel,
+			outputChannel: LSP_OUTPUT_CHANNEL,
 			revealOutputChannelOn: RevealOutputChannelOn.Never,
 			middleware: {
 				handleDiagnostics(uri, diagnostics, next) {
@@ -146,7 +149,7 @@ export class ArkLsp implements vscode.Disposable {
 		const message = `Creating language client ${this._dynState.sessionName} for session ${this._metadata.sessionId} on port ${port}`;
 
 		LOGGER.info(message);
-		outputChannel.appendLine(message);
+		LSP_OUTPUT_CHANNEL.appendLine(message);
 
 		this.client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
 
@@ -319,10 +322,6 @@ export class ArkLsp implements vscode.Disposable {
 	}
 
 	public showOutput() {
-		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._dynState.sessionName,
-			this._metadata.sessionMode
-		);
-		outputChannel.show();
+		LSP_OUTPUT_CHANNEL.show();
 	}
 }
