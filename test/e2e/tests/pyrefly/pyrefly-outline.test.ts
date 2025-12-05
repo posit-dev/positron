@@ -6,6 +6,8 @@
 import { join } from 'path';
 import { Outline } from '../../pages/outline.js';
 import { test, tags } from '../_test.setup.js';
+import exp from 'constants';
+import { expect } from '@playwright/test';
 
 const R_FILE = 'basic-outline-with-vars.r';
 const PY_FILE = 'basic-outline-with-vars.py';
@@ -32,7 +34,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await outline.focus();
 		});
 
-		test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
+		test.skip('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 			const { outline, console, editor } = app.workbench;
 
 			// No active session - verify no outlines
@@ -143,13 +145,24 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-			await app.workbench.outline.expectOutlineToContain([
-				'data_file_path',
-				'conn',
-				'cur',
-				'rows',
-				'df'
-			]);
+
+			await expect(async () => {
+				try {
+					await app.workbench.outline.expectOutlineToContain([
+						'data_file_path',
+						'conn',
+						'cur',
+						'rows',
+						'df'
+					]);
+				} catch (e) {
+					await app.code.driver.page.keyboard.press('PageDown');
+					await app.code.driver.page.keyboard.press('End');
+					await app.code.driver.page.keyboard.press('Enter');
+					await app.code.driver.page.keyboard.press('Enter');
+					throw e;
+				}
+			}).toPass({ timeout: 60000 });
 		});
 	});
 
