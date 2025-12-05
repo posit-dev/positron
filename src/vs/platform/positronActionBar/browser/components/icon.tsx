@@ -50,7 +50,7 @@ interface URIIconProps {
  * @param props The component properties.
  * @returns The rendered component.
  */
-const ThemeIcon = (props: ThemeIconProps) => {
+export const ThemeIcon = (props: ThemeIconProps) => {
 	const iconClassNames = ThemeIconClass.asClassNameArray(props.icon);
 
 	return (
@@ -66,7 +66,7 @@ const ThemeIcon = (props: ThemeIconProps) => {
  * @param props The component properties.
  * @returns The rendered component.
  */
-const URIIcon = (props: URIIconProps) => {
+export const URIIcon = (props: URIIconProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
