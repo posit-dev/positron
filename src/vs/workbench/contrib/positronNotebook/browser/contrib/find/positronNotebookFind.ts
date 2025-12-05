@@ -9,7 +9,7 @@ import { PositronModalReactRenderer } from '../../../../../../base/browser/posit
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
-import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
+import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize2 } from '../../../../../../nls.js';
 import { registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -28,9 +28,15 @@ import { Codicon } from '../../../../../../base/common/codicons.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
+import { getActiveCell } from '../../selectionMachine.js';
+import { NextMatchFindAction, PreviousMatchFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
+import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
+import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 
 interface CellMatch {
 	cell: IPositronNotebookCell;
+	cellIndex: number;
 	match: FindMatch;
 }
 
@@ -159,9 +165,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					this.isRegex.get(),
 				);
 
-				// Store each match with its cell reference
+				// Store each match with its cell reference and index
+				const cellIndex = cell.index;
 				for (const match of cellMatches) {
-					this._allMatches.push({ cell, match });
+					this._allMatches.push({ cell, cellIndex, match });
 				}
 				totalMatchCount += cellMatches.length;
 				// TODO: Fall back to text buffer if no text model?
@@ -212,7 +219,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		});
 	}
 
-	private findNext(): void {
+	public findNext(): void {
 		if (this._allMatches.length === 0) {
 			return;
 		}
@@ -224,7 +231,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 	}
 
-	private findPrevious(): void {
+	public findPrevious(): void {
 		if (this._allMatches.length === 0) {
 			return;
 		}
@@ -237,32 +244,29 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findNextMatchFromCursor(): number {
-		// Get the currently focused cell and cursor position
-		const cells = this._notebook.cells.get();
+		const selectionState = this._notebook.selectionStateMachine.state.get();
+		const activeCell = getActiveCell(selectionState);
+
+		// Get the currently active cell and cursor position
 		let currentCellIndex = -1;
 		let currentPosition: Position | null = null;
 
-		// Find the currently focused cell
-		for (let i = 0; i < cells.length; i++) {
-			const cell = cells[i];
-			if (cell.editor?.hasTextFocus()) {
-				currentCellIndex = i;
-				currentPosition = cell.editor.getPosition();
-				break;
+		// Find the currently active cell
+		if (activeCell) {
+			currentCellIndex = activeCell.index;
+			if (activeCell.editor) {
+				currentPosition = activeCell.editor.getPosition();
 			}
 		}
 
-		// If no cell is focused, start from the first match
+		// If no cell is active, start from the first match
 		if (currentCellIndex === -1) {
 			return 1;
 		}
 
 		// Find the next match after the current position
 		for (let i = 0; i < this._allMatches.length; i++) {
-			const { cell: matchCell, match } = this._allMatches[i];
-
-			// Get the cell index for this match
-			const matchCellIndex = cells.findIndex(c => c.handle === matchCell.handle);
+			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
 
 			// If match is in a later cell, it's the next match
 			if (matchCellIndex > currentCellIndex) {
@@ -283,32 +287,29 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findPreviousMatchFromCursor(): number {
-		// Get the currently focused cell and cursor position
-		const cells = this._notebook.cells.get();
+		const selectionState = this._notebook.selectionStateMachine.state.get();
+		const activeCell = getActiveCell(selectionState);
+
+		// Get the currently active cell and cursor position
 		let currentCellIndex = -1;
 		let currentPosition: Position | null = null;
 
-		// Find the currently focused cell
-		for (let i = 0; i < cells.length; i++) {
-			const cell = cells[i];
-			if (cell.editor?.hasTextFocus()) {
-				currentCellIndex = i;
-				currentPosition = cell.editor.getPosition();
-				break;
+		// Find the currently active cell
+		if (activeCell) {
+			currentCellIndex = activeCell.index;
+			if (activeCell.editor) {
+				currentPosition = activeCell.editor.getPosition();
 			}
 		}
 
-		// If no cell is focused, start from the last match
+		// If no cell is active, start from the last match
 		if (currentCellIndex === -1) {
 			return this._allMatches.length;
 		}
 
 		// Find the previous match before the current position (search backwards)
 		for (let i = this._allMatches.length - 1; i >= 0; i--) {
-			const { cell: matchCell, match } = this._allMatches[i];
-
-			// Get the cell index for this match
-			const matchCellIndex = cells.findIndex(c => c.handle === matchCell.handle);
+			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
 
 			// If match is in an earlier cell, it's the previous match
 			if (matchCellIndex < currentCellIndex) {
@@ -334,6 +335,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		const { cell, match } = this._allMatches[matchIndex - 1]; // Convert to 0-based index
+
+		// Reveal the cell in the notebook
+		if (cell.container) {
+			cell.container.scrollIntoView({ behavior: 'instant', block: 'center' });
+		}
 
 		// Focus the cell
 		if (cell.editor) {
@@ -415,4 +421,36 @@ registerAction2(class extends PositronNotebookFindAction {
 		controller.closeFindWidget();
 		// editor.focus();
 	}
+});
+
+NextMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+	const editorService = accessor.get(IEditorService);
+	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
+	if (!notebook) {
+		return false;
+	}
+
+	const controller = PositronNotebookFindController.get(notebook);
+	if (!controller) {
+		return false;
+	}
+
+	controller.findNext();
+	return true;
+});
+
+PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+	const editorService = accessor.get(IEditorService);
+	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
+	if (!notebook) {
+		return false;
+	}
+
+	const controller = PositronNotebookFindController.get(notebook);
+	if (!controller) {
+		return false;
+	}
+
+	controller.findPrevious();
+	return true;
 });
