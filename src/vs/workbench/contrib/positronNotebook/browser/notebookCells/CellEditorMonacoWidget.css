@@ -42,24 +42,15 @@
 	min-height: 1rem;
 }
 
-/* Focus target element - hidden by default, visible when focused */
+/* Focus target element - overlays the editor, visible only when focused */
 .positron-cell-editor-focus-target {
-	height: 0;
-	width: 100%;
-	overflow: hidden;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
 }
 
 .positron-cell-editor-focus-target:focus {
-	height: auto;
-	padding: 4px 8px;
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
-	background: var(--vscode-editor-background);
-}
-
-/* Show hint text when focused */
-.positron-cell-editor-focus-target:focus::after {
-	content: 'Press Enter to edit';
-	font-size: 12px;
-	color: var(--vscode-descriptionForeground);
 }

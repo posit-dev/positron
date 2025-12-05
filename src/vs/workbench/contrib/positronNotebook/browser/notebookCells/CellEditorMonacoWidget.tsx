@@ -55,16 +55,16 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 
 	return <>
 		<div
-			className='positron-cell-editor-focus-target'
-			tabIndex={0}
-			role='button'
-			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
-			onKeyDown={handleKeyDown}
-		/>
-		<div
 			ref={editorPartRef}
 			className='positron-cell-editor-monaco-widget'
 			tabIndex={-1}
+		/>
+		<div
+			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
+			className='positron-cell-editor-focus-target'
+			role='button'
+			tabIndex={0}
+			onKeyDown={handleKeyDown}
 		/>
 	</>;
 }
