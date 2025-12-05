@@ -25,7 +25,7 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
+import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -92,6 +92,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		const findWidget = React.createElement(PositronFindWidget, {
+			findInputOptions: {
+				label: 'Find', // localize?
+				placeholder: 'Find', // localize?
+				showCommonFindToggles: true,
+				inputBoxStyles: defaultInputBoxStyles,
+				toggleStyles: defaultToggleStyles,
+			},
 			findText: this.searchString,
 			focusInput: true,
 			matchCase: this.matchCase,
