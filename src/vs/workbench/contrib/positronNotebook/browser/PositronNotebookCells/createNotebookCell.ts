@@ -9,6 +9,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { PositronNotebookCodeCell } from './PositronNotebookCodeCell.js';
 import { PositronNotebookMarkdownCell } from './PositronNotebookMarkdownCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { IPositronNotebookCell } from './IPositronNotebookCell.js';
 
 /**
  * Instantiate a notebook cell based on the cell's kind
@@ -17,7 +18,7 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
  * @param instantiationService The instantiation service to use to create the cell
  * @returns The instantiated notebook cell of the correct type.
  */
-export function createNotebookCell(cell: NotebookCellTextModel, instance: PositronNotebookInstance, instantiationService: IInstantiationService) {
+export function createNotebookCell(cell: NotebookCellTextModel, instance: PositronNotebookInstance, instantiationService: IInstantiationService): IPositronNotebookCell {
 	if (cell.cellKind === CellKind.Code) {
 		return instantiationService.createInstance(PositronNotebookCodeCell, cell, instance);
 	} else {

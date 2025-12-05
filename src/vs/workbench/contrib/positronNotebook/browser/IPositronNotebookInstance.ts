@@ -53,7 +53,11 @@ export enum NotebookOperationType {
 	/** Cells restored via undo operation */
 	Undo = 'Undo',
 	/** Cells restored via redo operation */
-	Redo = 'Redo'
+	Redo = 'Redo',
+	/** Cells added by the AI assistant - should not auto-select or scroll */
+	AssistantAdd = 'AssistantAdd',
+	/** Cells edited by the AI assistant - should not auto-select or scroll */
+	AssistantEdit = 'AssistantEdit'
 }
 
 /**
@@ -337,6 +341,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	fireScrollEvent(): void;
 
+	/**
+	 * Handle assistant cell modification by showing notifications or auto-following
+	 * when cells are modified outside the viewport.
+	 * @param cellIndex The index of the cell that was modified
+	 */
+	handleAssistantCellModification(cellIndex: number): Promise<void>;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

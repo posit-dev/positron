@@ -26,6 +26,7 @@ import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, Sel
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
@@ -616,16 +617,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Reveals a cell in the center of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInCenter(cell: IExtensionApiCellViewModel): void {
-		this._revealCell(cell, CellRevealType.Center);
+	async revealInCenter(cell: IExtensionApiCellViewModel): Promise<void> {
+		await this._revealCell(cell, CellRevealType.Center);
 	}
 
 	/**
 	 * Reveals a cell at the top of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInViewAtTop(cell: IExtensionApiCellViewModel): void {
-		this._revealCell(cell, CellRevealType.Top);
+	async revealInViewAtTop(cell: IExtensionApiCellViewModel): Promise<void> {
+		await this._revealCell(cell, CellRevealType.Top);
 	}
 
 	private _toPositronCell(cell: IExtensionApiCellViewModel): IPositronNotebookCell {
@@ -640,8 +641,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * @param cell The cell to reveal
 	 */
-	private _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): void {
-		this._toPositronCell(cell).reveal(type);
+	private async _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): Promise<void> {
+		await this._toPositronCell(cell).reveal(type);
 	}
 	//#endregion INotebookEditor
 
@@ -1234,18 +1235,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const currentOp = this.getAndResetCurrentOperation();
 
-		if (newlyAddedCells.length === 1) {
-			// We don't auto-enter edit mode for paste, undo, or redo operations
-			const shouldAutoEdit = shouldAutoEditOnCellAdd(currentOp);
+		// Skip auto-selection for assistant-added and assistant-edited cells - the follow mode will handle reveal behavior
+		if (currentOp !== NotebookOperationType.AssistantAdd && currentOp !== NotebookOperationType.AssistantEdit && newlyAddedCells.length === 1) {
+			const newCell = newlyAddedCells[0];
+			const shouldAutoEdit = shouldAutoEditOnCellAdd(currentOp, newCell);
 
 			// Defer to next tick to allow React to mount the cell component
 			setTimeout(() => {
 				if (shouldAutoEdit) {
 					// Enter edit mode (which also selects the cell)
-					this.selectionStateMachine.enterEditor(newlyAddedCells[0]);
+					this.selectionStateMachine.enterEditor(newCell);
 				} else {
 					// Just select the cell without entering edit mode
-					this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Normal);
+					this.selectionStateMachine.selectCell(newCell, CellSelectionType.Normal);
 				}
 			}, 0);
 		}
@@ -1581,10 +1583,62 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
+	async handleAssistantCellModification(cellIndex: number): Promise<void> {
+		const cells = this.cells.get();
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			return;
+		}
+
+		const cell = cells[cellIndex];
+		if (!cell) {
+			return;
+		}
+
+		// Check if cell is visible in viewport
+		const isVisible = cell.isInViewport();
+		if (isVisible) {
+			// Cell is already visible, no action needed
+			return;
+		}
+
+		// Check if auto-follow is enabled
+		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+
+		if (autoFollow) {
+			const revealed = await cell.reveal();
+			const highlighted = await cell.highlightTemporarily();
+			if (!revealed || !highlighted) {
+				this._logService.debug(`Failed to reveal/highlight cell ${cellIndex} - container not available`);
+			}
+		}
+	}
+
 	// #endregion
 }
 
-function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined): boolean {
+/**
+ * Determines whether a newly added cell should automatically enter edit mode.
+ *
+ * Generally returns `true` for normal cell insertions, but skips auto-edit
+ * for certain operations (like paste/undo) and markdown cells with content
+ * (to display rendered output instead).
+ *
+ * @param currentOp The current notebook operation type, or undefined if no operation is set.
+ * @param cell The newly added cell to check.
+ * @returns `true` if the cell should automatically enter edit mode, `false` otherwise.
+ */
+function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined, cell: IPositronNotebookCell): boolean {
 	// Don't auto-enter edit mode for paste, undo, or redo operations
-	return currentOp === NotebookOperationType.InsertAndEdit;
+	if (currentOp !== NotebookOperationType.InsertAndEdit) {
+		return false;
+	}
+
+	// For markdown cells with content, don't auto-enter edit mode
+	// so the rendered markdown is displayed instead of the raw editor.
+	// This is important for cells added by Assistant which come pre-populated.
+	if (cell.isMarkdownCell() && cell.getContent().trim().length > 0) {
+		return false;
+	}
+
+	return true;
 }

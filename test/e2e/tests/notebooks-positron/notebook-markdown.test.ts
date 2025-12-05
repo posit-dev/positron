@@ -38,6 +38,9 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		const markdownContent = '# Heading 1\n\n## Heading 2\n\n**Bold Text**\n\n*Italic Text*';
 		await notebooksPositron.addCodeToCell(1, markdownContent);
 
+		await notebooksPositron.viewMarkdown.click();
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+
 		// verify markdown rendered correctly
 		await notebooksPositron.expectMarkdownTagToBe('h1', 'Heading 1');
 		await notebooksPositron.expectMarkdownTagToBe('h2', 'Heading 2');
@@ -62,7 +65,7 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 
 		// switch to preview mode and verify
-		await notebooksPositron.collapseMarkdownEditor.click();
+		await notebooksPositron.viewMarkdown.click();
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
 		await notebooksPositron.expectMarkdownTagToBe('strong', 'bold');
 		await notebooksPositron.expectMarkdownTagToBe('em', 'italic');

@@ -677,6 +677,11 @@
         "view": "testing",
         "contents": "No testthat tests found.\n[Add a test](command:r.useTest)",
         "when": "isRPackage && config.positron.r.testing && testthatIsConfigured && !testthatHasTests"
+      },
+      {
+        "view": "debug",
+        "contents": "%r.welcome.views.debugger.content%",
+        "when": "debugStartLanguage == 'r'"
       }
     ],
     "taskDefinitions": [
@@ -688,7 +693,9 @@
     "debuggers": [
       {
         "type": "ark",
-        "label": "R Debugger"
+        "label": "R Debugger",
+        "languages": ["r"],
+        "supportsUiLaunch": false
       }
     ],
     "notebookRenderer": [

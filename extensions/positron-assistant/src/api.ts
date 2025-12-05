@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
 import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext } from './tools/notebookUtils.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
@@ -238,6 +238,11 @@ export function getEnabledTools(
 			continue;
 		}
 
+		// If the tool requires actions, skip it in Ask mode.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIONS) && isAskMode) {
+			continue;
+		}
+
 		// If the tool is designed for Positron Assistant but we don't have a
 		// Positron assistant ID, skip it.
 		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
@@ -317,12 +322,6 @@ export function getEnabledTools(
 			// Only include the inspectVariables tool if there are variables defined.
 			case PositronAssistantToolName.InspectVariables:
 				if (!hasVariables) {
-					continue;
-				}
-				break;
-			// Only include the installPythonPackage tool when NOT in Ask mode.
-			case PositronAssistantToolName.InstallPythonPackage:
-				if (isAskMode) {
 					continue;
 				}
 				break;

@@ -139,7 +139,7 @@ export class QuickAccess {
 
 			// Await for quick input widget opened
 			try {
-				await this.quickInput.waitForQuickInputOpened();
+				await this.quickInput.waitForQuickInputOpened({ timeout: 3000 });
 			} catch (err) {
 				await this.code.driver.page.keyboard.press('Escape');
 				throw err;

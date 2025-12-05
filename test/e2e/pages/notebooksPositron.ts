@@ -50,7 +50,7 @@ export class PositronNotebooks extends Notebooks {
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
-	collapseMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Collapse markdown editor' });
+	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
@@ -76,7 +76,7 @@ export class PositronNotebooks extends Notebooks {
 
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
-			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'Collapse markdown editor' }).isVisible();
+			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'View markdown' }).isVisible();
 			if (!inEditMode) {
 				await this.selectCellAtIndex(cellIndex, { editMode: true });
 			}
@@ -94,7 +94,7 @@ export class PositronNotebooks extends Notebooks {
 		});
 
 		if (cellType === 'markdown') {
-			await this.collapseMarkdownEditor.click();
+			await this.viewMarkdown.click();
 		}
 
 		return content;
