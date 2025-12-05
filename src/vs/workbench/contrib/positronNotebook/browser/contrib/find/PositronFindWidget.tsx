@@ -13,42 +13,41 @@ import React from 'react';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { PositronFindInput } from './PositronFindInput.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
+import { ISettableObservable } from '../../../../../../base/common/observable.js';
+import { useObservedValue } from '../../useObservedValue.js';
 
-export interface FindWidgetProps {
-	readonly findText?: string;
-	readonly matchCase?: boolean;
-	readonly matchWholeWord?: boolean;
-	readonly useRegex?: boolean;
+export interface PositronFindWidgetProps {
+	readonly findText: ISettableObservable<string>;
+	readonly matchCase: ISettableObservable<boolean>;
+	readonly matchWholeWord: ISettableObservable<boolean>;
+	readonly useRegex: ISettableObservable<boolean>;
 	readonly focusInput?: boolean;
 	readonly matchIndex?: number;
 	readonly matchCount?: number;
 	readonly additionalToggles?: Toggle[];
-	readonly onFindTextChange: (value: string) => void;
-	readonly onMatchCaseChange: (value: boolean) => void;
-	readonly onMatchWholeWordChange: (value: boolean) => void;
-	readonly onUseRegexChange: (value: boolean) => void;
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
 	readonly onClose: () => void;
 }
 
-export const FindWidget = ({
-	findText,
-	matchCase = false,
-	matchWholeWord = false,
-	useRegex = false,
+export const PositronFindWidget = ({
+	findText: findTextObs,
+	matchCase: matchCaseObs,
+	matchWholeWord: matchWholeWordObs,
+	useRegex: useRegexObs,
 	focusInput = true,
 	matchIndex,
 	matchCount,
 	additionalToggles,
-	onFindTextChange,
-	onMatchCaseChange,
-	onMatchWholeWordChange,
-	onUseRegexChange,
 	onPreviousMatch,
 	onNextMatch,
 	onClose,
-}: FindWidgetProps) => {
+}: PositronFindWidgetProps) => {
+	const findText = useObservedValue(findTextObs);
+	const matchCase = useObservedValue(matchCaseObs);
+	const matchWholeWord = useObservedValue(matchWholeWordObs);
+	const useRegex = useObservedValue(useRegexObs);
+
 	return (
 		<div className='positron-find-widget-positioned'>
 			<div className='positron-find-widget'>
@@ -61,10 +60,10 @@ export const FindWidget = ({
 							matchWholeWord={matchWholeWord}
 							useRegex={useRegex}
 							value={findText}
-							onMatchCaseChange={onMatchCaseChange}
-							onMatchWholeWordChange={onMatchWholeWordChange}
-							onUseRegexChange={onUseRegexChange}
-							onValueChange={onFindTextChange}
+							onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
+							onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
+							onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
+							onValueChange={(value) => findTextObs.set(value, undefined)}
 						/>
 					</div>
 					<div className={`find-results ${findText && matchCount === 0 ? 'no-results' : ''}`}>
