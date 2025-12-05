@@ -17,7 +17,6 @@
 	background: var(--vscode-positronVariables-headerBackground);
 	border-top: 0.5px solid var(--vscode-positronVariables-border);
 	border-bottom: 0.5px solid var(--vscode-positronVariables-border);
-	pointer-events: none; /* Prevent any interaction */
 	user-select: none; /* Prevent text selection */
 }
 

@@ -121,6 +121,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 	const [width, setWidth] = useState(0);
 	const [height, setHeight] = useState(0);
 	const [stickyHeaderLabel, setStickyHeaderLabel] = useState<string | null>(null);
+	const [stickyHeaderSeparatorIndex, setStickyHeaderSeparatorIndex] = useState<number>(-1);
 	const [searchText, setSearchText] = useState<string>('');
 	const [debouncedSearchText, setDebouncedSearchText] = useState<string>('');
 
@@ -559,6 +560,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		// Find which section is currently at the top of the viewport
 		let currentOffset = 0;
 		let currentSectionLabel: string | null = null;
+		let currentSeparatorIndex = -1;
 
 		for (let i = 0; i < listItems.length; i++) {
 			const item = listItems[i];
@@ -568,10 +570,12 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				// If we haven't scrolled past this separator yet, it's the current section
 				if (currentOffset + itemHeight > scrollOffset) {
 					currentSectionLabel = item.label;
+					currentSeparatorIndex = i;
 					break;
 				}
-				// Update the current section label as we pass each separator
+				// Update the current section as we pass each separator
 				currentSectionLabel = item.label;
+				currentSeparatorIndex = i;
 			}
 
 			currentOffset += itemHeight;
@@ -583,6 +587,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 
 		setStickyHeaderLabel(currentSectionLabel);
+		setStickyHeaderSeparatorIndex(currentSeparatorIndex);
 	};
 
 	/**
@@ -615,6 +620,40 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 		}
 		// No selectable items found
 		return -1;
+	};
+
+	/**
+	 * Handle click on the sticky header - scrolls to show the separator and selects the first entry after it
+	 */
+	const handleStickyHeaderClick = () => {
+		if (stickyHeaderSeparatorIndex < 0 || !listRef.current || !containerRef.current) {
+			return;
+		}
+
+		// Scroll to the separator so it's visible at the top
+		listRef.current.scrollToItem(stickyHeaderSeparatorIndex, 'start');
+
+		// Select the first entry after this separator
+		const nextEntryIndex = findNextSelectableIndex(stickyHeaderSeparatorIndex + 1, 1, listItems);
+		if (nextEntryIndex < 0) {
+			return;
+		}
+
+		// Use double requestAnimationFrame to ensure scroll and DOM update complete before focusing
+		const targetWindow = DOM.getWindow(containerRef.current);
+		targetWindow.requestAnimationFrame(() => {
+			targetWindow.requestAnimationFrame(() => {
+				setSelectedIndex(nextEntryIndex);
+				// Focus the entry after selection state updates
+				const container = containerRef.current;
+				if (container) {
+					const selectedEntry = container.querySelector('.history-entry.selected, .history-entry.selected-unfocused') as HTMLElement | null;
+					if (selectedEntry) {
+						selectedEntry.focus();
+					}
+				}
+			});
+		});
 	};
 
 	/**
@@ -1082,7 +1121,9 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 						<HistorySeparator
 							className='history-sticky-header'
 							label={stickyHeaderLabel}
-							style={{}} />
+							style={{}}
+							onClick={handleStickyHeaderClick}
+						/>
 					)}
 
 					{listItems.length === 0 && debouncedSearchText ? (
@@ -1117,6 +1158,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 										<HistorySeparator
 											label={item.label}
 											style={style}
+											onClick={() => {
+												// Select the first entry after this separator
+												const nextEntryIndex = findNextSelectableIndex(index + 1, 1, listItems);
+												if (nextEntryIndex >= 0) {
+													handleSelect(nextEntryIndex);
+												}
+											}}
 										/>
 									);
 								} else {

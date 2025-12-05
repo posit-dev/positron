@@ -13,19 +13,24 @@ interface HistorySeparatorProps {
 	label: string;
 	className?: string;
 	style: CSSProperties;
+	onClick?: () => void;
 }
 
 /**
  * HistorySeparator component - renders a sticky section header for history groups
  */
 export const HistorySeparator = (props: HistorySeparatorProps) => {
-	const { label, style } = props;
+	const { label, style, onClick } = props;
 
 	// Use the style from react-window as-is (no sticky positioning)
 	const customStyle: CSSProperties = style;
 
 	return (
-		<div className={props.className || 'history-separator'} style={customStyle}>
+		<div
+			className={props.className || 'history-separator'}
+			style={customStyle}
+			onClick={onClick}
+		>
 			<div className="history-separator-content">
 				<span className="history-separator-label">{label}</span>
 			</div>
