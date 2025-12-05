@@ -20,127 +20,86 @@
 
 .spinning-squares-spinner-container {
 	position: relative;
-	width: 3rem;
-	height: 3rem;
+	width: 4rem;
+	height: 4.5rem;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	backdrop-filter: blur(6px);
-	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
 	background-color: rgba(255, 255, 255, 0.05);
 	border-radius: 8px;
 	padding: 0.5rem;
 	box-sizing: border-box;
-	mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
-	-webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+	mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0.8) 55%, rgba(0, 0, 0, 0.4) 70%, rgba(0, 0, 0, 0) 100%);
+	-webkit-mask-image: radial-gradient(circle, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0.8) 55%, rgba(0, 0, 0, 0.4) 70%, rgba(0, 0, 0, 0) 100%);
 }
 
-.spinning-squares-square-wrapper {
-	position: absolute;
-}
-
-.spinning-squares-square-cyan {
-	width: 1.5rem;
-	height: 1.5rem;
-	border: 2px solid var(--vscode-textLink-foreground);
-	border-radius: 2px;
-}
-
-.spinning-squares-square-pink {
-	width: 1.5rem;
-	height: 1.5rem;
-	border: 2px solid var(--vscode-button-secondaryForeground, var(--vscode-button-background));
-	border-radius: 2px;
-}
-
-.spinning-squares-controls {
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-	background-color: #1e293b;
-	padding: 1.5rem;
-	border-radius: 0.75rem;
+.thinking-robot-svg {
 	width: 100%;
-	max-width: 20rem;
+	height: 100%;
+	color: var(--vscode-editorHoverWidget-foreground);
 }
 
-.spinning-squares-label {
-	color: #cbd5e1;
-	font-size: 0.875rem;
-	margin-bottom: 0.5rem;
-	display: block;
+.robot-body {
+	animation: headTilt 4s ease-in-out infinite;
+	transform-origin: center center;
 }
 
-.spinning-squares-slider-cyan {
-	width: 100%;
-	accent-color: #22d3ee;
+.robot-pupil {
+	fill: var(--vscode-editorHoverWidget-foreground);
+	animation: eyeTrack 3s ease-in-out infinite;
 }
 
-.spinning-squares-slider-pink {
-	width: 100%;
-	accent-color: #f472b6;
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
-.spinning-squares-slider-yellow {
-	width: 100%;
-	accent-color: #facc15;
+@keyframes spinReverse {
+	from {
+		transform: rotate(360deg);
+	}
+	to {
+		transform: rotate(0deg);
+	}
 }
 
-.spinning-squares-checkbox-label {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	color: #cbd5e1;
-	cursor: pointer;
+@keyframes pulse {
+	0%, 100% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 1;
+	}
 }
 
-.spinning-squares-checkbox-cyan {
-	width: 1rem;
-	height: 1rem;
-	accent-color: #22d3ee;
+@keyframes headTilt {
+	0%, 100% {
+		transform: translate(0, 2px) rotate(0deg);
+	}
+	25% {
+		transform: translate(0, 2px) rotate(2deg);
+	}
+	75% {
+		transform: translate(0, 2px) rotate(-2deg);
+	}
 }
 
-.spinning-squares-checkbox-yellow {
-	width: 1rem;
-	height: 1rem;
-	accent-color: #facc15;
-}
-
-.spinning-squares-hr {
-	border: none;
-	border-top: 1px solid #334155;
-}
-
-@keyframes spin-cw {
-	0% { transform: rotate(0deg); }
-	8% { transform: rotate(35deg); }
-	17% { transform: rotate(55deg); }
-	25% { transform: rotate(90deg); }
-	33% { transform: rotate(125deg); }
-	42% { transform: rotate(145deg); }
-	50% { transform: rotate(180deg); }
-	58% { transform: rotate(215deg); }
-	67% { transform: rotate(235deg); }
-	75% { transform: rotate(270deg); }
-	83% { transform: rotate(305deg); }
-	92% { transform: rotate(325deg); }
-	100% { transform: rotate(360deg); }
-}
-
-@keyframes spin-ccw {
-	0% { transform: rotate(0deg); }
-	8% { transform: rotate(-35deg); }
-	17% { transform: rotate(-55deg); }
-	25% { transform: rotate(-90deg); }
-	33% { transform: rotate(-125deg); }
-	42% { transform: rotate(-145deg); }
-	50% { transform: rotate(-180deg); }
-	58% { transform: rotate(-215deg); }
-	67% { transform: rotate(-235deg); }
-	75% { transform: rotate(-270deg); }
-	83% { transform: rotate(-305deg); }
-	92% { transform: rotate(-325deg); }
-	100% { transform: rotate(-360deg); }
+@keyframes eyeTrack {
+	0%, 100% {
+		transform: translateX(0);
+	}
+	30% {
+		transform: translateX(0.4px);
+	}
+	70% {
+		transform: translateX(-0.4px);
+	}
 }
 
 .spinning-squares-popup {
