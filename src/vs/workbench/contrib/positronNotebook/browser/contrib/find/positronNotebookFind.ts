@@ -22,7 +22,7 @@ import { IPositronNotebookContribution, registerPositronNotebookContribution } f
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
 import { observableValue, runOnChange } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { FindWidgetWrapper } from './FindWidgetWrapper.js';
+import { PositronFindWidget } from './PositronFindWidget.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
@@ -91,14 +91,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			});
 		}
 
-		// TODO: Extract a component specific to this impl that accepts observables as props
-		const findWidget = React.createElement(FindWidgetWrapper, {
+		const findWidget = React.createElement(PositronFindWidget, {
 			findText: this.searchString,
 			focusInput: true,
 			matchCase: this.matchCase,
 			matchWholeWord: this.wholeWord,
 			useRegex: this.isRegex,
 			additionalToggles: [findInSelectionToggle],
+			onPreviousMatch: () => { },
+			onNextMatch: () => { },
 			onClose: () => {
 				this._renderer.clear();
 			},
