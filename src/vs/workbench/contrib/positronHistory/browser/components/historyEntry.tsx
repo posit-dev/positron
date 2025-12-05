@@ -303,6 +303,10 @@ const highlightMatchesInText = (text: string, search: string): string => {
 /**
  * Get smart excerpt of code when search matches but entry is collapsed
  * Shows the matching portion plus context to fill MAX_COLLAPSED_LINES
+ *
+ * When both hiddenAbove and hiddenBelow would be > 0, we reduce the lines shown
+ * by 1 to compensate for the extra "more lines" indicator, ensuring the total
+ * height never exceeds MAX_COLLAPSED_LINES + one indicator.
  */
 const getSmartExcerpt = (code: string, search: string): { excerpt: string; hiddenAbove: number; hiddenBelow: number } | null => {
 	if (!search) {
@@ -329,17 +333,35 @@ const getSmartExcerpt = (code: string, search: string): { excerpt: string; hidde
 		return null; // No match found
 	}
 
-	// Calculate how many lines to show
 	const totalLines = lines.length;
-	const linesToShow = MAX_COLLAPSED_LINES;
+
+	// First, calculate the initial window position with MAX_COLLAPSED_LINES
+	let linesToShow = MAX_COLLAPSED_LINES;
 
 	// Try to center the match, but prioritize showing context after
 	let startLine = Math.max(0, matchLineIndex - 1);
-	const endLine = Math.min(totalLines, startLine + linesToShow);
+	let endLine = Math.min(totalLines, startLine + linesToShow);
 
 	// Adjust if we're at the end
 	if (endLine - startLine < linesToShow) {
 		startLine = Math.max(0, endLine - linesToShow);
+	}
+
+	// Check if we would have indicators both above and below
+	const wouldHaveHiddenAbove = startLine > 0;
+	const wouldHaveHiddenBelow = endLine < totalLines;
+
+	// If we need two indicators, reduce the content by one line to compensate
+	if (wouldHaveHiddenAbove && wouldHaveHiddenBelow) {
+		linesToShow = MAX_COLLAPSED_LINES - 1;
+		// Recalculate window, keeping match visible
+		startLine = Math.max(0, matchLineIndex - 1);
+		endLine = Math.min(totalLines, startLine + linesToShow);
+
+		// Adjust if we're at the end
+		if (endLine - startLine < linesToShow) {
+			startLine = Math.max(0, endLine - linesToShow);
+		}
 	}
 
 	const excerpt = lines.slice(startLine, endLine).join('\n');
@@ -595,7 +617,7 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 			<div className='history-entry-content'>
 				{/* Show "... N more lines" above if smart excerpt hides lines above */}
 				{smartExcerpt && smartExcerpt.hiddenAbove > 0 && (
-					<div className='history-entry-line-indicator'>
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
 						{positronHistoryMoreLines(smartExcerpt.hiddenAbove)}
 					</div>
 				)}
@@ -617,14 +639,14 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 
 				{/* Show "... N more lines" below for normal truncation */}
 				{needsTruncation && (
-					<div className='history-entry-line-indicator'>
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
 						{positronHistoryMoreLines(lineCount - MAX_COLLAPSED_LINES)}
 					</div>
 				)}
 
 				{/* Show "... N more lines" below if smart excerpt hides lines below */}
 				{smartExcerpt && smartExcerpt.hiddenBelow > 0 && (
-					<div className='history-entry-line-indicator'>
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
 						{positronHistoryMoreLines(smartExcerpt.hiddenBelow)}
 					</div>
 				)}

@@ -1102,7 +1102,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 					) : (lastValidWidthRef.current > 0 && lastValidHeightRef.current > 40) ? (
 						<List
 							ref={listRef}
-							height={Math.max(lastValidHeightRef.current, height) - 40} // Subtract toolbar height
+							height={Math.max(lastValidHeightRef.current, height) - 30} // Subtract toolbar height
 							innerElementType={StickyInnerElement}
 							itemCount={listItems.length}
 							itemSize={getRowHeight}
