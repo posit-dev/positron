@@ -48,7 +48,7 @@ test.describe('Python Applications', {
 		});
 
 		await test.step('Verify Clear Current URL clears Viewer', async () => {
-			await app.workbench.quickaccess.runCommand('positron.preview.clear');
+			await app.workbench.locator('.codicon-clear-all').click();
 
 			await expect(async () => {
 				const iframeLocator = app.web
