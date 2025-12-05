@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
 
 export function SettingsFixture(app: Application) {
@@ -19,10 +18,7 @@ export function SettingsFixture(app: Application) {
 			await settings.set(newSettings, { keepOpen });
 
 			if (reload === true || (reload === 'web' && app.web === true)) {
-				await app.workbench.hotKeys.reloadWindow();
-				// wait for the reload to complete
-				await app.code.driver.page.waitForTimeout(3000);
-				await playwright.expect(app.code.driver.page.locator('.monaco-workbench')).toBeVisible();
+				await app.workbench.hotKeys.reloadWindow(false);
 			}
 			if (waitMs) {
 				await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect

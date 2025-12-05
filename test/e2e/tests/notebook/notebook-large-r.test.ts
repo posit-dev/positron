@@ -25,7 +25,7 @@ test.describe('Large R Notebook', {
 		// open the large R notebook and run all cells
 		await openDataFile(join('workspaces', 'large_r_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('R');
-		await notebooks.runAllCells(120000);
+		await notebooks.runAllCells({ timeout: 12000 });
 
 		// scroll through the notebook and count unique plot outputs
 		await layouts.enterLayout('notebook');

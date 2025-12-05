@@ -16,12 +16,16 @@ export class Toasts {
 
 	// --- Actions ---
 
-	async waitForAppear(timeout = 20000) {
-		await this.toastNotification.waitFor({ state: 'attached', timeout });
+	async waitForAppear(title?: string | RegExp, { timeout = 20000 } = {}) {
+		title
+			? await this.toastNotification.getByText(title).waitFor({ state: 'attached', timeout })
+			: await this.toastNotification.waitFor({ state: 'attached', timeout });
 	}
 
-	async waitForDisappear(timeout = 20000) {
-		await this.toastNotification.waitFor({ state: 'detached', timeout });
+	async waitForDisappear(title?: string | RegExp, { timeout = 20000 } = {}) {
+		title
+			? await this.toastNotification.getByText(title).waitFor({ state: 'detached', timeout })
+			: await this.toastNotification.waitFor({ state: 'detached', timeout });
 	}
 
 	async clickButton(button: string) {

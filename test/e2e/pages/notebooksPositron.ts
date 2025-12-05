@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Sessions, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -50,10 +50,10 @@ export class PositronNotebooks extends Notebooks {
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
-	collapseMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Collapse markdown editor' });
+	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
@@ -76,7 +76,7 @@ export class PositronNotebooks extends Notebooks {
 
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
-			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'Collapse markdown editor' }).isVisible();
+			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'View markdown' }).isVisible();
 			if (!inEditMode) {
 				await this.selectCellAtIndex(cellIndex, { editMode: true });
 			}
@@ -94,7 +94,7 @@ export class PositronNotebooks extends Notebooks {
 		});
 
 		if (cellType === 'markdown') {
-			await this.collapseMarkdownEditor.click();
+			await this.viewMarkdown.click();
 		}
 
 		return content;
@@ -175,6 +175,7 @@ export class PositronNotebooks extends Notebooks {
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
 		await settings.set(config, { reload: 'web' });
+		await this.sessions.expectNoStartUpMessaging();
 	}
 
 	/**

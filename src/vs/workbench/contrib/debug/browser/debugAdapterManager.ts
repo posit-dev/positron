@@ -341,6 +341,15 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 			.find(a => a.interestedInLanguage(languageId));
 	}
 
+	// --- Start Positron ---
+	someDebuggerInterestedInLanguageSupportsUiLaunch(languageId: string): boolean {
+		const interestedDebuggers = this.debuggers
+			.filter(d => d.enabled && d.interestedInLanguage(languageId));
+		// Return true if at least one interested debugger supports UI launch
+		return interestedDebuggers.some(d => d.supportsUiLaunch !== false);
+	}
+	// --- End Positron ---
+
 	async guessDebugger(gettingConfigurations: boolean): Promise<IGuessedDebugger | undefined> {
 		const activeTextEditorControl = this.editorService.activeTextEditorControl;
 		let candidates: Debugger[] = [];

@@ -1,0 +1,662 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
+import { createTrustedTypesPolicy } from '../../../../../base/browser/trustedTypes.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { tokenizeToString } from '../../../../../editor/common/languages/textToHtmlTokenizer.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { localize } from '../../../../../nls.js';
+import { HistoryEntryItem } from './positronHistoryPanel.js';
+
+const ttPolicy = createTrustedTypesPolicy('positronHistoryEntry', { createHTML: value => value });
+
+// Localized strings
+const positronHistorySendToConsole = localize('positron.history.sendToConsole', 'Send to Console');
+const positronHistorySendToEditor = localize('positron.history.sendToEditor', 'Send to Editor');
+const positronHistoryCopy = localize('positron.history.copy', 'Copy');
+const positronHistoryDeleteEntry = localize('positron.history.delete', 'Delete');
+const positronHistoryMoreLines = (lines: number) => localize('positron.history.moreLines', '... {0} more lines', lines);
+
+/**
+ * Props for the HistoryEntry component
+ */
+interface HistoryEntryProps {
+	historyItem: HistoryEntryItem;
+	style: CSSProperties;
+	isSelected: boolean;
+	languageId: string;
+	searchText?: string;
+	onSelect: () => void;
+	onToConsole: () => void;
+	onToSource: () => void;
+	onCopy: () => void;
+	onDelete: () => void;
+	onKeyDown: (e: React.KeyboardEvent) => void;
+	instantiationService: IInstantiationService;
+	fontInfo: FontInfo;
+}
+
+/**
+ * Maximum number of lines to show when collapsed
+ */
+export const MAX_COLLAPSED_LINES = 4;
+
+/**
+ * Find all match positions in text (case insensitive)
+ */
+const findMatches = (text: string, search: string): Array<{ start: number; end: number }> => {
+	if (!search) {
+		return [];
+	}
+
+	const matches: Array<{ start: number; end: number }> = [];
+	const searchLower = search.toLowerCase();
+	const textLower = text.toLowerCase();
+	let pos = 0;
+
+	while (pos < text.length) {
+		const index = textLower.indexOf(searchLower, pos);
+		if (index === -1) {
+			break;
+		}
+		matches.push({ start: index, end: index + search.length });
+		pos = index + search.length;
+	}
+
+	return matches;
+};
+
+/**
+ * Decode HTML entities to get the actual text character
+ */
+const decodeEntity = (entity: string): string => {
+	const textarea = document.createElement('textarea');
+	textarea.innerHTML = entity;
+	return textarea.value;
+};
+
+/**
+ * Highlight matches in HTML string by wrapping them with <mark> tags
+ * This function carefully preserves the HTML structure and only highlights text content
+ */
+const highlightMatchesInHtml = (html: string, text: string, search: string): string => {
+	if (!search) {
+		return html;
+	}
+
+	const matches = findMatches(text, search);
+	if (matches.length === 0) {
+		return html;
+	}
+
+	// Build a set of text positions that should be highlighted for O(1) lookup
+	const highlightSet = new Set<number>();
+	for (const match of matches) {
+		for (let i = match.start; i < match.end; i++) {
+			highlightSet.add(i);
+		}
+	}
+
+	// Walk through the HTML and track text position
+	// Key: Monaco uses <br/> for newlines, which we need to count as \n characters
+	let result = '';
+	let textPos = 0;
+	let i = 0;
+	let inTag = false;
+	let inHighlight = false;
+
+	while (i < html.length) {
+		const char = html[i];
+
+		if (char === '<') {
+			// Check if this is a <br/> or <br> tag
+			const isBr = html.substring(i, i + 4) === '<br>' || html.substring(i, i + 5) === '<br/>';
+
+			if (isBr) {
+				// <br> represents a newline character in the original text
+				const shouldHighlight = highlightSet.has(textPos);
+
+				// Close highlight if needed before the br tag
+				if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				// Add the br tag
+				if (html.substring(i, i + 5) === '<br/>') {
+					result += '<br/>';
+					i += 5;
+				} else {
+					result += '<br>';
+					i += 4;
+				}
+
+				// Count this as a newline character
+				textPos++;
+
+				// Reopen highlight if needed after the br tag
+				if (textPos < text.length && highlightSet.has(textPos) && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				}
+
+				continue;
+			}
+
+			// Regular tag - close any open highlight
+			if (inHighlight) {
+				result += '</mark>';
+				inHighlight = false;
+			}
+			inTag = true;
+			result += char;
+			i++;
+		} else if (char === '>') {
+			// Exiting a tag
+			inTag = false;
+			result += char;
+			i++;
+		} else if (inTag) {
+			// Inside a tag, just copy
+			result += char;
+			i++;
+		} else if (char === '&') {
+			// Possible HTML entity
+			let entityEnd = i + 1;
+			while (entityEnd < html.length && html[entityEnd] !== ';' && (entityEnd - i) < 10) {
+				entityEnd++;
+			}
+
+			if (entityEnd < html.length && html[entityEnd] === ';') {
+				// Valid entity
+				const entity = html.substring(i, entityEnd + 1);
+				const decoded = decodeEntity(entity);
+
+				// Check if this position should be highlighted
+				const shouldHighlight = highlightSet.has(textPos);
+
+				if (shouldHighlight && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				} else if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				result += entity;
+				textPos += decoded.length;
+				i = entityEnd + 1;
+			} else {
+				// Not a valid entity, treat as regular character
+				const shouldHighlight = highlightSet.has(textPos);
+
+				if (shouldHighlight && !inHighlight) {
+					result += '<mark class="history-search-highlight">';
+					inHighlight = true;
+				} else if (!shouldHighlight && inHighlight) {
+					result += '</mark>';
+					inHighlight = false;
+				}
+
+				result += char;
+				textPos++;
+				i++;
+			}
+		} else {
+			// Regular text character
+			const shouldHighlight = highlightSet.has(textPos);
+
+			if (shouldHighlight && !inHighlight) {
+				result += '<mark class="history-search-highlight">';
+				inHighlight = true;
+			} else if (!shouldHighlight && inHighlight) {
+				result += '</mark>';
+				inHighlight = false;
+			}
+
+			result += char;
+			textPos++;
+			i++;
+		}
+	}
+
+	// Close any open highlight
+	if (inHighlight) {
+		result += '</mark>';
+	}
+
+	return result;
+};
+
+/**
+ * Highlight matches in plain text by wrapping them with <mark> tags
+ * Returns HTML-escaped text with mark tags
+ */
+const highlightMatchesInText = (text: string, search: string): string => {
+	if (!search) {
+		// Escape HTML entities in plain text
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+
+	const matches = findMatches(text, search);
+	if (matches.length === 0) {
+		// Escape HTML entities in plain text
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+
+	let result = '';
+	let lastIndex = 0;
+
+	for (const match of matches) {
+		// Add text before match (escaped)
+		const beforeText = text.substring(lastIndex, match.start);
+		result += beforeText
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+
+		// Add highlighted match (escaped)
+		const matchText = text.substring(match.start, match.end);
+		const escapedMatch = matchText
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+		result += `<mark class="history-search-highlight">${escapedMatch}</mark>`;
+
+		lastIndex = match.end;
+	}
+
+	// Add remaining text (escaped)
+	const remainingText = text.substring(lastIndex);
+	result += remainingText
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+
+	return result;
+};
+
+/**
+ * Get smart excerpt of code when search matches but entry is collapsed
+ * Shows the matching portion plus context to fill MAX_COLLAPSED_LINES
+ *
+ * When both hiddenAbove and hiddenBelow would be > 0, we reduce the lines shown
+ * by 1 to compensate for the extra "more lines" indicator, ensuring the total
+ * height never exceeds MAX_COLLAPSED_LINES + one indicator.
+ */
+const getSmartExcerpt = (code: string, search: string): { excerpt: string; hiddenAbove: number; hiddenBelow: number } | null => {
+	if (!search) {
+		return null;
+	}
+
+	const lines = code.split('\n');
+	// No need for smart excerpt if we have MAX_COLLAPSED_LINES + 1 or fewer,
+	// since showing "1 more lines" would use the same space as showing the actual line
+	if (lines.length <= MAX_COLLAPSED_LINES + 1) {
+		return null; // No need for smart excerpt
+	}
+
+	// Find first line with a match
+	const searchLower = search.toLowerCase();
+	let matchLineIndex = -1;
+
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].toLowerCase().includes(searchLower)) {
+			matchLineIndex = i;
+			break;
+		}
+	}
+
+	if (matchLineIndex === -1) {
+		return null; // No match found
+	}
+
+	const totalLines = lines.length;
+
+	// First, calculate the initial window position with MAX_COLLAPSED_LINES
+	let linesToShow = MAX_COLLAPSED_LINES;
+
+	// Try to center the match, but prioritize showing context after
+	let startLine = Math.max(0, matchLineIndex - 1);
+	let endLine = Math.min(totalLines, startLine + linesToShow);
+
+	// Adjust if we're at the end
+	if (endLine - startLine < linesToShow) {
+		startLine = Math.max(0, endLine - linesToShow);
+	}
+
+	// Check if we would have indicators both above and below
+	const wouldHaveHiddenAbove = startLine > 0;
+	const wouldHaveHiddenBelow = endLine < totalLines;
+
+	// If we need two indicators, reduce the content by one line to compensate
+	if (wouldHaveHiddenAbove && wouldHaveHiddenBelow) {
+		linesToShow = MAX_COLLAPSED_LINES - 1;
+		// Recalculate window, keeping match visible
+		startLine = Math.max(0, matchLineIndex - 1);
+		endLine = Math.min(totalLines, startLine + linesToShow);
+
+		// Adjust if we're at the end
+		if (endLine - startLine < linesToShow) {
+			startLine = Math.max(0, endLine - linesToShow);
+		}
+	}
+
+	const excerpt = lines.slice(startLine, endLine).join('\n');
+	const hiddenAbove = startLine;
+	const hiddenBelow = totalLines - endLine;
+
+	return { excerpt, hiddenAbove, hiddenBelow };
+};
+
+/**
+ * HistoryEntry component - renders a single history entry with syntax highlighting
+ */
+export const HistoryEntry = (props: HistoryEntryProps) => {
+	const {
+		historyItem,
+		style,
+		isSelected,
+		languageId,
+		searchText,
+		onSelect,
+		onToConsole,
+		onToSource,
+		onCopy,
+		onDelete,
+		onKeyDown,
+		instantiationService
+	} = props;
+
+	const services = usePositronReactServicesContext();
+	const [colorizedHtml, setColorizedHtml] = useState<string | null>(null);
+	const entryRef = useRef<HTMLButtonElement>(null);
+	const codeRef = useRef<HTMLDivElement>(null);
+	const previousCodeRef = useRef<string>('');
+	const colorizedCacheRef = useRef<string | null>(null);
+	const input = historyItem.trimmedInput;
+
+	/**
+	 * Count lines in the code
+	 */
+	const countLines = (code: string): number => {
+		return code.split('\n').length;
+	};
+
+	/**
+	 * Truncate code to first N lines.
+	 * Note: We allow maxLines + 1 without truncation because the "1 more lines"
+	 * indicator would take the same space as showing that 1 extra line.
+	 */
+	const truncateCode = (code: string, maxLines: number): string => {
+		const lines = code.split('\n');
+		// Don't truncate if we have maxLines + 1 or fewer, since showing
+		// "1 more lines" would use the same space as showing the actual line
+		if (lines.length <= maxLines + 1) {
+			return code;
+		}
+		return lines.slice(0, maxLines).join('\n');
+	};	// Calculate line count synchronously during render to avoid layout shifts
+	const lineCount = countLines(input);
+
+	// Calculate smart excerpt synchronously to determine if we'll show indicators
+	const smartExcerpt = (!isSelected && searchText) ? getSmartExcerpt(input, searchText) : null;
+
+	// Determine what code to show - calculated synchronously to avoid layout shifts
+	const codeToHighlight = isSelected
+		? input
+		: (smartExcerpt ? smartExcerpt.excerpt : truncateCode(input, MAX_COLLAPSED_LINES));
+
+	/**
+	 * Tokenize and highlight the code
+	 */
+	useEffect(() => {
+		// If the code hasn't changed and we have a cached result, keep using it
+		// This prevents flickering during re-renders (e.g., during panel resize)
+		if (codeToHighlight === previousCodeRef.current && colorizedCacheRef.current !== null) {
+			if (colorizedHtml !== colorizedCacheRef.current) {
+				setColorizedHtml(colorizedCacheRef.current);
+			}
+			return;
+		}
+
+		// Store the current code for comparison
+		previousCodeRef.current = codeToHighlight;
+
+		// If no languageId, show plain text with highlighting
+		if (!languageId) {
+			if (searchText) {
+				const highlighted = highlightMatchesInText(codeToHighlight, searchText);
+				const trustedHtml = (ttPolicy?.createHTML(highlighted) ?? highlighted) as string;
+				colorizedCacheRef.current = trustedHtml;
+				setColorizedHtml(trustedHtml);
+			} else {
+				colorizedCacheRef.current = null;
+				setColorizedHtml(null);
+			}
+			return;
+		}
+
+		const languageService = instantiationService.invokeFunction(accessor =>
+			accessor.get(ILanguageService)
+		);
+
+		tokenizeToString(languageService, codeToHighlight, languageId).then(html => {
+			// Apply search highlighting if present
+			let finalHtml = html;
+			if (searchText) {
+				finalHtml = highlightMatchesInHtml(html, codeToHighlight, searchText);
+			}
+
+			// Use TrustedTypes policy if available, otherwise use the html string directly
+			const trustedHtml = (ttPolicy?.createHTML(finalHtml) ?? finalHtml) as string;
+			colorizedCacheRef.current = trustedHtml;
+			setColorizedHtml(trustedHtml);
+		}).catch(err => {
+			// Fallback to plain text on error
+			if (searchText) {
+				const highlighted = highlightMatchesInText(codeToHighlight, searchText);
+				const trustedHtml = (ttPolicy?.createHTML(highlighted) ?? highlighted) as string;
+				colorizedCacheRef.current = trustedHtml;
+				setColorizedHtml(trustedHtml);
+			} else {
+				colorizedCacheRef.current = null;
+				setColorizedHtml(null);
+			}
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [codeToHighlight, languageId, searchText, instantiationService]);
+
+	/**
+	 * Set up native keydown listener in capture phase to prevent scroll behavior
+	 */
+	useEffect(() => {
+		const button = entryRef.current;
+		if (!button) {
+			return;
+		}
+
+		const handleNativeKeyDown = (e: KeyboardEvent) => {
+			// For navigation keys, prevent default immediately in capture phase
+			// to stop browser scroll behavior before it happens.
+			// Do NOT call stopPropagation() here - we need the event to reach
+			// the React onKeyDown handler for selection logic.
+			const navigationKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End'];
+			if (navigationKeys.includes(e.key)) {
+				e.preventDefault();
+			}
+		};
+
+		// Use capture phase to intercept before bubbling
+		button.addEventListener('keydown', handleNativeKeyDown, true);
+
+		return () => {
+			button.removeEventListener('keydown', handleNativeKeyDown, true);
+		};
+	}, []);
+
+	/**
+	 * Apply font info after render
+	 */
+	useEffect(() => {
+		if (codeRef.current) {
+			applyFontInfo(codeRef.current, props.fontInfo);
+		}
+	});
+
+	/**
+	 * Handle context menu
+	 */
+	const handleContextMenu = (event: React.MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const x = event.clientX;
+		const y = event.clientY;
+
+		const actions: IAction[] = [];
+
+		// Add "Send to Console" action
+		actions.push({
+			id: 'positronHistory.sendToConsole',
+			label: positronHistorySendToConsole,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onToConsole()
+		});
+
+		// Add "Send to Editor" action
+		actions.push({
+			id: 'positronHistory.sendToEditor',
+			label: positronHistorySendToEditor,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onToSource()
+		});
+
+		// Add separator
+		actions.push(new Separator());
+
+		// Add "Copy" action
+		actions.push({
+			id: 'positronHistory.copy',
+			label: positronHistoryCopy,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onCopy()
+		});
+
+		// Add separator
+		actions.push(new Separator());
+
+		// Add "Delete" action
+		actions.push({
+			id: 'positronHistory.delete',
+			label: positronHistoryDeleteEntry,
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => onDelete()
+		});
+
+		// Show the context menu
+		services.contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({ x, y }),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+		});
+	};
+
+	// Only show expand indicator if we have more than MAX_COLLAPSED_LINES + 1 lines,
+	// since showing "1 more lines" would use the same space as showing that 1 extra line
+	const showExpandButton = lineCount > MAX_COLLAPSED_LINES + 1;
+	const needsTruncation = showExpandButton && !isSelected && !smartExcerpt;
+	const codeToDisplay = isSelected ? input : truncateCode(input, MAX_COLLAPSED_LINES);
+
+	// Determine truncation state for CSS classes
+	const hasTruncatedTop = smartExcerpt && smartExcerpt.hiddenAbove > 0;
+	const hasTruncatedBottom = needsTruncation || (smartExcerpt && smartExcerpt.hiddenBelow > 0);
+
+	// Override the height from react-window's style to allow natural content sizing
+	const styleWithoutHeight = { ...style, height: 'auto' };
+
+	return (
+		<button
+			ref={entryRef}
+			className={`history-entry${isSelected ? ' selected' : ''}`}
+			style={styleWithoutHeight}
+			onContextMenu={handleContextMenu}
+			onDoubleClick={() => onToConsole()}
+			onKeyDown={onKeyDown}
+			onClick={(e) => {
+				onSelect();
+			}}
+		>
+			<div className='history-entry-content'>
+				{/* Show "... N more lines" above if smart excerpt hides lines above */}
+				{smartExcerpt && smartExcerpt.hiddenAbove > 0 && (
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
+						{positronHistoryMoreLines(smartExcerpt.hiddenAbove)}
+					</div>
+				)}
+
+				{colorizedHtml ? (
+					<div
+						dangerouslySetInnerHTML={{ __html: colorizedHtml }}
+						ref={codeRef}
+						className={`history-entry-code ${hasTruncatedTop ? 'truncated-top' : ''} ${hasTruncatedBottom ? 'truncated-bottom' : ''}`}
+					/>
+				) : (
+					<div
+						ref={codeRef}
+						className={`history-entry-code ${hasTruncatedTop ? 'truncated-top' : ''} ${hasTruncatedBottom ? 'truncated-bottom' : ''}`}
+					>
+						{codeToDisplay}
+					</div>
+				)}
+
+				{/* Show "... N more lines" below for normal truncation */}
+				{needsTruncation && (
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
+						{positronHistoryMoreLines(lineCount - MAX_COLLAPSED_LINES)}
+					</div>
+				)}
+
+				{/* Show "... N more lines" below if smart excerpt hides lines below */}
+				{smartExcerpt && smartExcerpt.hiddenBelow > 0 && (
+					<div className='history-entry-line-indicator' style={{ height: props.fontInfo.lineHeight + 'px' }} >
+						{positronHistoryMoreLines(smartExcerpt.hiddenBelow)}
+					</div>
+				)}
+			</div>
+		</button>
+	);
+};

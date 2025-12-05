@@ -26,7 +26,7 @@ test.describe('Large Python Notebook', {
 		// open the large Python notebook and run all cells
 		await openDataFile(join('workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python');
-		await notebooks.runAllCells(120000);
+		await notebooks.runAllCells({ timeout: 12000 });
 
 		// scroll through the notebook and count unique plot outputs
 		await layouts.enterLayout('notebook');

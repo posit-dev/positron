@@ -1,0 +1,228 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+
+.positron-history-container {
+	height: 100%;
+}
+
+.positron-history-panel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	background-color: var(--vscode-editor-background);
+}
+
+.history-list-container {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+	background-color: var(--vscode-editor-background);
+	outline: none; /* Remove default focus outline, selection styling handles focus indication */
+}
+
+.history-sticky-header {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 100;
+	display: flex;
+	border: none;
+	font-size: 11px;
+	padding-right: 8px;
+	margin-right: 8px;
+	align-items: center;
+	box-sizing: border-box;
+	text-transform: uppercase;
+	background: var(--vscode-positronVariables-headerBackground);
+	border-top: 0.5px solid var(--vscode-positronVariables-border);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-border);
+	user-select: none;
+}
+
+.history-empty-message {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.history-no-match-message {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px 20px;
+	gap: 20px;
+}
+
+.history-no-match-text {
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	text-align: center;
+	max-width: 400px;
+	line-height: 1.5;
+}
+
+.history-clear-search-button {
+	padding: 6px 14px;
+	margin-top: 8px;
+	color: var(--vscode-button-secondaryForeground);
+	background-color: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-border, transparent);
+	cursor: pointer;
+	display: inline-block;
+	width: auto;
+}
+
+.history-clear-search-button:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.history-clear-search-button:active {
+	background-color: var(--vscode-button-secondaryBackground);
+}
+
+.history-entry {
+	padding: 4px 8px;
+	margin-top: 1px;
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+	background-color: var(--vscode-editor-background);
+	box-sizing: border-box;
+}
+
+.history-entry:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.history-entry.selected {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+}
+
+.history-entry.selected-unfocused:hover {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.history-entry.selected:focus {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.history-entry.selected:hover {
+	background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+button.history-entry {
+	border: none;
+	text-align: left;
+	display: block;
+}
+
+.history-entry-content {
+	position: relative;
+}
+
+.history-entry-code {
+	white-space: pre;
+	overflow: hidden;
+	margin: 0;
+	padding: 0;
+	/* Font styling is applied via applyFontInfo() in historyEntry.tsx */
+}
+
+.history-entry-code.truncated-top,
+.history-entry-code.truncated-bottom {
+	position: relative;
+}
+
+/* Top gradient for when lines are hidden above */
+.history-entry-code.truncated-top::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 1.4em; /* Approximately one line height */
+	background: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, var(--vscode-editor-background) 100%);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.history-entry:hover .history-entry-code.truncated-top::before {
+	background: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, var(--vscode-list-hoverBackground) 100%);
+}
+
+.history-entry.selected .history-entry-code.truncated-top::before,
+.history-entry.selected-unfocused .history-entry-code.truncated-top::before {
+	background: none;
+}
+
+/* Bottom gradient for when lines are hidden below */
+.history-entry-code.truncated-bottom::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1.4em; /* Approximately one line height */
+	background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--vscode-editor-background) 100%);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.history-entry:hover .history-entry-code.truncated-bottom::after {
+	background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, var(--vscode-list-hoverBackground) 100%);
+}
+
+.history-entry.selected .history-entry-code.truncated-bottom::after,
+.history-entry.selected-unfocused .history-entry-code.truncated-bottom::after {
+	background: none;
+}
+
+.history-entry-line-indicator {
+	margin-top: 4px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	opacity: 0.7;
+}
+
+.history-entry-code .monaco-tokenized-source {
+	white-space: pre;
+}
+
+/* Search highlighting */
+.history-search-highlight {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+	color: var(--vscode-editor-findMatchHighlightForeground);
+	border: 1px solid var(--vscode-editor-findMatchHighlightBorder, transparent);
+	border-radius: 2px;
+	padding: 0;
+	margin: 0;
+}
+
+.history-entry.selected .history-search-highlight,
+.history-entry.selected-unfocused .history-search-highlight {
+	/* Use a brighter, more visible highlight for selected items */
+	background-color: var(--vscode-list-filterMatchBackground);
+	color: var(--vscode-list-focusHighlightForeground);
+	border: 1px solid var(--vscode-list-filterMatchBorder, transparent);
+}
+
+/* Remove unused styles for truncated indicator and expand button */
+
+.action-bar-text {
+	padding: 0 8px;
+	display: flex;
+	align-items: center;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+}

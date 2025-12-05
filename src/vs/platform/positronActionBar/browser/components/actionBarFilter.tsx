@@ -20,6 +20,7 @@ interface ActionBarFilterProps {
 	width: number;
 	disabled?: boolean;
 	initialFilterText?: string;
+	placeholder?: string;
 	onFilterTextChanged: (filterText: string) => void;
 }
 
@@ -63,6 +64,15 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		}
 	};
 
+	// Input key down handler.
+	const inputKeyDownHandler = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === 'Escape' && filterText !== '') {
+			e.preventDefault();
+			e.stopPropagation();
+			buttonClearClickHandler();
+		}
+	};
+
 	useImperativeHandle(ref, () => ({
 		setFilterText: (text: string) => {
 			setFilterText(text);
@@ -79,12 +89,13 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					ref={inputRef}
 					className='text-input'
 					disabled={props.disabled}
-					placeholder={(() => localize('positronFilterPlaceholder', "Filter"))()}
+					placeholder={props.placeholder ?? (() => localize('positronFilterPlaceholder', "Filter"))()}
 					type='text'
 					value={filterText}
 					onBlur={() => setFocused(false)}
 					onChange={changeHandler}
 					onFocus={() => setFocused(true)}
+					onKeyDown={inputKeyDownHandler}
 				/>
 				{filterText !== '' && (
 					<button

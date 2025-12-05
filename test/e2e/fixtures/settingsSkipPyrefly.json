@@ -1,0 +1,6 @@
+{
+	"extensions.allowed": {
+		"meta.pyrefly": false,
+		"*": true
+	}
+}

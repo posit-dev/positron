@@ -256,7 +256,7 @@ export function registerPositronConsoleActions() {
 					// Clear the active Positron console instance and the history for its language from the
 					// execution history service.
 					activePositronConsoleInstance.clearInputHistory();
-					executionHistoryService.clearInputEntries(
+					executionHistoryService.clearSessionInputEntries(
 						activePositronConsoleInstance.sessionMetadata.sessionId
 					);
 
