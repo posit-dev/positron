@@ -116,6 +116,10 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
+		//
+		// Note: We don't pass IContextKeyService here. Monaco will create its own
+		// scoped service as a child of the parent instantiation service. This avoids
+		// the double-scoping error that occurred when we explicitly created one.
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
