@@ -16,6 +16,7 @@ import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runti
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
+import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -344,6 +345,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param language The language to get the options for.
 	 */
 	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+
+	/**
+	 * Gets the shared scoped context key service used by all cell editors.
+	 * All cell editors should use this service to ensure consistent context key state.
+	 * @returns The shared scoped context key service, or undefined if not attached to a view
+	 */
+	getSharedEditorContextKeyService(): IScopedContextKeyService | undefined;
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
 

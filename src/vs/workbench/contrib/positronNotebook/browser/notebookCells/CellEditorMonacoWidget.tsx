@@ -31,6 +31,7 @@ import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
 /**
  *
@@ -107,15 +108,19 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const language = cell.model.language;
 
+		// Get the shared context key service that all cell editors use.
+		// This ensures consistent context key state across all editors (important for find operations).
+		const sharedEditorContextKeyService = instance.getSharedEditorContextKeyService();
+		if (!sharedEditorContextKeyService) {
+			services.logService.warn('Positron Notebook | useCellEditorWidget() | No shared editor context key service available');
+			return;
+		}
+
 		// We need to ensure the EditorProgressService (or a fake) is available
 		// in the service collection because monaco editors will try and access
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
-		//
-		// Note: We don't pass IContextKeyService here. Monaco will create its own
-		// scoped service as a child of the parent instantiation service. This avoids
-		// the double-scoping error that occurred when we explicitly created one.
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
@@ -130,7 +135,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					async showWhile(promise: Promise<any>): Promise<void> {
 						await promise;
 					}
-				}]
+				}],
+			// Pass the shared context key service so all cell editors share the same scope
+			[IContextKeyService, sharedEditorContextKeyService],
 		);
 
 		const editorInstaService = services.instantiationService.createChild(serviceCollection);
