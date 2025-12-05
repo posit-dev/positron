@@ -60,7 +60,7 @@
 	font-size: 12px;
 	white-space: nowrap;
 	min-width: 60px;
-	text-align: right;
+	text-align: left;
 }
 
 .find-results.no-results {
