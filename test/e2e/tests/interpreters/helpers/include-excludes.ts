@@ -12,7 +12,10 @@ import { SessionRuntimes, Sessions } from '../../../pages/sessions.js';
  * @param usage - Whether to build path for 'customRoot', 'exclude', or 'override'
  */
 export function buildRPath(usage: 'customRoot' | 'exclude' | 'override' = 'exclude'): string {
-	const version = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
+	const version = process.env.POSITRON_R_ALT_VER_SEL
+	if (!version) {
+		throw new Error('Environment variable POSITRON_R_ALT_VER_SEL not set');
+	}
 	const majorMinor = version.split('.').slice(0, 2).join('.');
 
 	if (usage === 'customRoot') {
@@ -39,7 +42,10 @@ export function buildRPath(usage: 'customRoot' | 'exclude' | 'override' = 'exclu
  * @param usage - Whether to build path for 'include', 'exclude', or 'override'
  */
 export function buildPythonPath(usage: 'include' | 'exclude' | 'override' = 'exclude'): string {
-	const version = process.env.POSITRON_PY_ALT_VER_SEL || 'alternate Python not set';
+	const version = process.env.POSITRON_PY_ALT_VER_SEL;
+	if (!version) {
+		throw new Error('Environment variable POSITRON_PY_ALT_VER_SEL not set');
+	}
 
 	if (usage === 'include' || usage === 'override') {
 		// Include and Override path - the hidden Python interpreter directory
