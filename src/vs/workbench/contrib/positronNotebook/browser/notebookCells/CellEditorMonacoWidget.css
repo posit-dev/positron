@@ -25,12 +25,14 @@
 }
 
 /* Show focus outline with default VS Code focus color */
+.positron-cell-editor-monaco-widget:focus,
 .positron-cell-editor-monaco-widget:focus-within {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
 /* When the parent cell has an error, highlight the editor with error color */
+.positron-notebook-cell[data-has-error="true"] .positron-cell-editor-monaco-widget:focus,
 .positron-notebook-cell[data-has-error="true"] .positron-cell-editor-monaco-widget:focus-within {
 	outline-color: var(--vscode-positronNotebook-error-color);
 }
@@ -38,4 +40,26 @@
 /* Ensure the editor container has minimum height for empty cells */
 .positron-monaco-editor-container {
 	min-height: 1rem;
+}
+
+/* Focus target element - hidden by default, visible when focused */
+.positron-cell-editor-focus-target {
+	height: 0;
+	width: 100%;
+	overflow: hidden;
+}
+
+.positron-cell-editor-focus-target:focus {
+	height: auto;
+	padding: 4px 8px;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+	background: var(--vscode-editor-background);
+}
+
+/* Show hint text when focused */
+.positron-cell-editor-focus-target:focus::after {
+	content: 'Press Enter to edit';
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
 }

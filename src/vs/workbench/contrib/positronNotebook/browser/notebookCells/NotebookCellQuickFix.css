@@ -75,3 +75,14 @@
 	pointer-events: none;
 }
 
+/* Focus styles for keyboard accessibility */
+.notebook-cell-quick-fix .assistant-action-main:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.notebook-cell-quick-fix .assistant-action-dropdown:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+

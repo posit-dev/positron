@@ -9,6 +9,9 @@ import './CellEditorMonacoWidget.css';
 // React.
 import React from 'react';
 
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
@@ -35,10 +38,35 @@ import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/i
  */
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div
-		ref={editorPartRef}
-		className='positron-cell-editor-monaco-widget'
-	/>;
+
+	/**
+	 * Handler for keyboard events on the focus target.
+	 * When Enter is pressed, focuses the Monaco editor to enter edit mode.
+	 *
+	 * @param e Keyboard event from the focus target element
+	 */
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			// Focus the Monaco editor to enter edit mode
+			cell.editor?.focus();
+		}
+	};
+
+	return <>
+		<div
+			className='positron-cell-editor-focus-target'
+			tabIndex={0}
+			role='button'
+			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
+			onKeyDown={handleKeyDown}
+		/>
+		<div
+			ref={editorPartRef}
+			className='positron-cell-editor-monaco-widget'
+			tabIndex={-1}
+		/>
+	</>;
 }
 
 /**
@@ -93,6 +121,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
 			...editorOptions.getDefaultValue(),
+			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			dimension: {
 				width: 0,
 				height: 0,
