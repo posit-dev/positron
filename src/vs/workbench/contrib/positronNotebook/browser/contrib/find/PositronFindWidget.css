@@ -32,19 +32,6 @@
 	gap: 6px;
 }
 
-.find-input-container {
-	position: relative;
-	display: flex;
-	align-items: center;
-	flex: 1;
-	background: var(--vscode-input-background);
-	border: 1px solid var(--vscode-input-border);
-}
-
-.find-input-container:focus-within {
-	border-color: var(--vscode-focusBorder);
-}
-
 .find-action-button {
 	width: 20px;
 	height: 20px;

@@ -55,21 +55,19 @@ export const PositronFindWidget = ({
 		<div className='positron-find-widget-positioned'>
 			<div className='positron-find-widget'>
 				<div className='find-widget-row'>
-					<div className='find-input-container'>
-						<PositronFindInput
-							additionalToggles={additionalToggles}
-							findInputOptions={findInputOptions}
-							focusInput={focusInput}
-							matchCase={matchCase}
-							matchWholeWord={matchWholeWord}
-							useRegex={useRegex}
-							value={findText}
-							onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
-							onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
-							onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
-							onValueChange={(value) => findTextObs.set(value, undefined)}
-						/>
-					</div>
+					<PositronFindInput
+						additionalToggles={additionalToggles}
+						findInputOptions={findInputOptions}
+						focusInput={focusInput}
+						matchCase={matchCase}
+						matchWholeWord={matchWholeWord}
+						useRegex={useRegex}
+						value={findText}
+						onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
+						onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
+						onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
+						onValueChange={(value) => findTextObs.set(value, undefined)}
+					/>
 					<div className={`find-results ${findText && matchCount === 0 ? 'no-results' : ''}`}>
 						{findText && matchCount !== undefined ? (
 							matchCount === 0 ? 'No results' : `${matchIndex ?? 1} of ${matchCount}`
