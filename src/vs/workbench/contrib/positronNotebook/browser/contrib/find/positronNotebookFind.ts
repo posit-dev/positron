@@ -93,12 +93,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}));
 
 		if (!this._renderer.value) {
-			if (!this._notebook.container?.parentElement) {
+			if (!this._notebook.container) {
 				return;
 			}
 
 			this._renderer.value = new PositronModalReactRenderer({
-				container: this._notebook.container.parentElement,
+				container: this._notebook.container,
 				disableCaptures: true, // permits the usage of the enter key where applicable
 				onDisposed: () => {
 					// activeFindWidgets.delete(container);
@@ -134,7 +134,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				findInputFocused.set(true);
 			},
 			onInputBlur: () => {
-				findInputFocused.set(false);
+				findInputFocused.reset();
 			},
 		});
 

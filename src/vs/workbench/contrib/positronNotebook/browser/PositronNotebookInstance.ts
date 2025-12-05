@@ -167,6 +167,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	/**
+	 * Shared off-screen DOM element for scoping all cell editor context keys.
+	 * All cell editors share the same context key service scoped to this element,
+	 * ensuring consistent context key state across all cells (important for find operations).
+	 */
+	private _sharedEditorContextKeyDOM: HTMLElement | undefined = undefined;
+
+	/**
+	 * Shared scoped context key service for all cell editors.
+	 * This ensures all cell editors share the same context key scope, which is critical
+	 * for features like find that need consistent context keys across editors.
+	 */
+	private _sharedEditorContextKeyService: IScopedContextKeyService | undefined = undefined;
+
+	/**
 	 * Disposables for the editor container event listeners
 	 */
 	private readonly _editorContainerListeners = this._register(new DisposableStore());
@@ -304,6 +318,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
 		}
 		return this._scopedContextKeyService;
+	}
+
+	/**
+	 * Gets the shared scoped context key service used by all cell editors.
+	 * All cell editors should use this service to ensure consistent context key state.
+	 * @returns The shared scoped context key service, or undefined if not attached to a view
+	 */
+	getSharedEditorContextKeyService(): IScopedContextKeyService | undefined {
+		return this._sharedEditorContextKeyService;
 	}
 
 	/**
@@ -1312,6 +1335,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
+		// Create off-screen DOM element for shared editor context keys
+		this._sharedEditorContextKeyDOM = container.appendChild(DOM.$('.shared-editor-context-key-scope'));
+		this._sharedEditorContextKeyDOM.style.position = 'absolute';
+		this._sharedEditorContextKeyDOM.style.top = '-50000px';
+		this._sharedEditorContextKeyDOM.style.width = '1px';
+		this._sharedEditorContextKeyDOM.style.height = '1px';
+
+		//
+		// Note: We don't pass IContextKeyService here. Monaco will create its own
+		// scoped service as a child of the parent instantiation service. This avoids
+		// the double-scoping error that occurred when we explicitly created one.
+		// Create shared scoped context key service for all cell editors
+		this._sharedEditorContextKeyService = this._contextKeyService.createScoped(this._sharedEditorContextKeyDOM);
+
 		this._logService.debug(this._id, 'attachView');
 	}
 
@@ -1368,6 +1405,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Detaches the notebook view from its container and cleans up resources.
 	 */
 	detachView(): void {
+		// Clean up shared editor context key service
+		this._sharedEditorContextKeyService?.dispose();
+		this._sharedEditorContextKeyService = undefined;
+
+		// Clean up shared editor context key DOM
+		this._sharedEditorContextKeyDOM?.remove();
+		this._sharedEditorContextKeyDOM = undefined;
+
 		this._container = undefined;
 		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
