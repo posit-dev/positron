@@ -9,37 +9,48 @@ import { SessionRuntimes, Sessions } from '../../../pages/sessions.js';
 /**
  * Helper function to build R path based on environment.
  * Reads version from POSITRON_R_ALT_VER_SEL environment variable.
- * @param usage - Whether to build path for 'exclude' or 'override'
+ * @param usage - Whether to build path for 'include', 'exclude', or 'override'
  */
-export function buildRPath(usage: 'exclude' | 'override' = 'exclude'): string {
+export function buildRPath(usage: 'include' | 'exclude' | 'override' = 'exclude'): string {
 	const version = process.env.POSITRON_R_ALT_VER_SEL || 'alternate R not set';
 	const majorMinor = version.split('.').slice(0, 2).join('.');
-	if (process.env.CI) {
-		// Linux: excludes use directory path, overrides use full binary path
-		return usage === 'exclude' ? `/opt/R/${version}` : `/opt/R/${version}/bin/R`;
+
+	if (usage === 'include') {
+		// Include path - the hidden R interpreter location
+		return process.env.CI
+			? '/root/scratch'
+			: '/Users/runner/scratch'; // <-- modify for local testing
+	} else if (usage === 'exclude') {
+		// Exclude path - the standard R installation location for the version
+		return process.env.CI
+			? `/opt/R/${version}`
+			: `/Library/Frameworks/R.framework/Versions/${majorMinor}-arm64`; // <-- modify for local testing
 	} else {
-		// macOS: excludes include /Resources, overrides don't
-		const resourcesPath = usage === 'exclude' ? '/Resources' : '';
-		return `/Library/Frameworks/R.framework/Versions/${majorMinor}-arm64${resourcesPath}/bin/R`;
+		// Override path - the hidden R interpreter location
+		return process.env.CI
+			? `/root/scratch/r-env/bin/R`
+			: `/Users/runner/scratch/r-env/bin/R`; // <-- modify for local testing
 	}
 }
 
 /**
  * Helper function to build Python path based on environment.
  * Reads version from POSITRON_PY_ALT_VER_SEL environment variable.
- * @param usage - Whether to build path for 'exclude' or 'override'
+ * @param usage - Whether to build path for 'include', 'exclude', or 'override'
  */
-export function buildPythonPath(usage: 'exclude' | 'override' = 'exclude'): string {
+export function buildPythonPath(usage: 'include' | 'exclude' | 'override' = 'exclude'): string {
 	const version = process.env.POSITRON_PY_ALT_VER_SEL || 'alternate Python not set';
-	if (usage === 'exclude') {
-		return process.env.CI
-			? `~/.pyenv`
-			: `/Users/runner/.pyenv/versions/${version}`;
-	} else {
-		// Override path - the hidden Python interpreter location
+
+	if (usage === 'include' || usage === 'override') {
+		// Include and Override path - the hidden Python interpreter directory
 		return process.env.CI
 			? '/root/scratch/python-env'
-			: '/Users/runner/scratch/python-env';
+			: '/Users/runner/scratch/python-env'; // <-- modify for local testing
+	} else {
+		// Exclude path - the standard pyenv location for the version
+		return process.env.CI
+			? `~/.pyenv`
+			: `/Users/runner/.pyenv/versions/${version}`; // <-- modify for local testing
 	}
 }
 

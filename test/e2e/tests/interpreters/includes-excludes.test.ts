@@ -16,11 +16,9 @@ test.describe('Interpreter: Includes', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-		const basePath = '/root/scratch';
-
 		await settings.set({
-			'python.interpreters.include': [`${basePath}/python-env`],
-			'positron.r.customRootFolders': [basePath]
+			'python.interpreters.include': [buildPythonPath('include')],
+			'positron.r.customRootFolders': [buildRPath('include')]
 		}, { reload: true });
 	});
 
@@ -89,5 +87,4 @@ test.describe('Interpreter: Override', {
 	test('Python - Can Override Interpreter Discovery', async function ({ sessions }) {
 		await expectSessionStartToFail(sessions, 'python', overridePythonPath);
 	});
-
 });
