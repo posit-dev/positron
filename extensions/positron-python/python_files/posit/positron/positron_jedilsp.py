@@ -303,8 +303,6 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
 
         # Remove LSP features that are redundant with Pyrefly.
         features_to_remove = [
-            "textDocument/hover",
-            "textDocument/signatureHelp",
             "textDocument/declaration",
             "textDocument/definition",
             "textDocument/typeDefinition",

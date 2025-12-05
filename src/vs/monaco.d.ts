@@ -7229,6 +7229,11 @@ declare namespace monaco.languages {
 		 * Can decrease the verbosity of the hover
 		 */
 		canDecreaseVerbosity?: boolean;
+		/**
+		 * Id of the extension that provided this hover.
+		 * Used to filter duplicate hovers from certain extensions.
+		 */
+		extensionId?: string;
 	}
 
 	/**
