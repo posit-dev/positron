@@ -22,7 +22,7 @@ test.describe('Python Applications', {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Basic Dash App', { tag: [tags.WIN] }, async function ({ app, openFile, python }) {
+	test('Python - Verify Basic Dash App', { tag: [tags.WIN] }, async function ({ app, openFile, python, page }) {
 		const viewer = app.workbench.viewer;
 
 		await openFile(join('workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
