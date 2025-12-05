@@ -37,7 +37,7 @@ export class Notebooks {
 	frameLocator: FrameLocator;
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
-	stopCellExecutionBtn: Locator;
+	interruptButton: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		this.code = code;
@@ -50,7 +50,7 @@ export class Notebooks {
 		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
-		this.stopCellExecutionBtn = this.code.driver.page.getByLabel('Stop Cell Execution');
+		this.interruptButton = this.code.driver.page.getByRole('button', { name: 'Interrupt' });
 	}
 
 	async selectInterpreter(

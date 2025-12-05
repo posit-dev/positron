@@ -82,7 +82,7 @@ async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd:
 			await notebooks.runAllCells({ timeout: 10000, throwError: true });
 			await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
 		} catch (e) {
-			await notebooks.stopCellExecutionBtn.click({ timeout: 2000 }).catch(() => { });
+			await notebooks.interruptButton.click({ timeout: 3000 }).catch(() => { });
 			throw e;
 		}
 	}, 'Expect working directory to end with: ' + expectedEnd).toPass({ timeout: 30000 });
