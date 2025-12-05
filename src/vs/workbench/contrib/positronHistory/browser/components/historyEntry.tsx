@@ -314,7 +314,9 @@ const getSmartExcerpt = (code: string, search: string): { excerpt: string; hidde
 	}
 
 	const lines = code.split('\n');
-	if (lines.length <= MAX_COLLAPSED_LINES) {
+	// No need for smart excerpt if we have MAX_COLLAPSED_LINES + 1 or fewer,
+	// since showing "1 more lines" would use the same space as showing the actual line
+	if (lines.length <= MAX_COLLAPSED_LINES + 1) {
 		return null; // No need for smart excerpt
 	}
 
@@ -406,17 +408,19 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 	};
 
 	/**
-	 * Truncate code to first N lines
+	 * Truncate code to first N lines.
+	 * Note: We allow maxLines + 1 without truncation because the "1 more lines"
+	 * indicator would take the same space as showing that 1 extra line.
 	 */
 	const truncateCode = (code: string, maxLines: number): string => {
 		const lines = code.split('\n');
-		if (lines.length <= maxLines) {
+		// Don't truncate if we have maxLines + 1 or fewer, since showing
+		// "1 more lines" would use the same space as showing the actual line
+		if (lines.length <= maxLines + 1) {
 			return code;
 		}
 		return lines.slice(0, maxLines).join('\n');
-	};
-
-	// Calculate line count synchronously during render to avoid layout shifts
+	};	// Calculate line count synchronously during render to avoid layout shifts
 	const lineCount = countLines(input);
 
 	// Calculate smart excerpt synchronously to determine if we'll show indicators
@@ -591,7 +595,9 @@ export const HistoryEntry = (props: HistoryEntryProps) => {
 		});
 	};
 
-	const showExpandButton = lineCount > MAX_COLLAPSED_LINES;
+	// Only show expand indicator if we have more than MAX_COLLAPSED_LINES + 1 lines,
+	// since showing "1 more lines" would use the same space as showing that 1 extra line
+	const showExpandButton = lineCount > MAX_COLLAPSED_LINES + 1;
 	const needsTruncation = showExpandButton && !isSelected && !smartExcerpt;
 	const codeToDisplay = isSelected ? input : truncateCode(input, MAX_COLLAPSED_LINES);
 
