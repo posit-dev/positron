@@ -25,7 +25,6 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 
 	test('R - Verify Basic Test Explorer Functionality', {
 		tag: [tags.ARK],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10682' }]
 	}, async function ({ app, openFolder }) {
 
 		// Open R package embedded in qa-example-content
