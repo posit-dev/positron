@@ -35,6 +35,8 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
+	// Track previous selection status to detect edit mode exit
+	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>();
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -45,18 +47,25 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 
 	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
+		const prevStatus = prevSelectionStatusRef.current;
+		prevSelectionStatusRef.current = selectionStatus;
+
 		if (!cellRef.current) {
 			return;
 		}
 
 		/**
 		 * Focus the cell container element when this cell becomes the active cell,
-		 * except when in editing mode (the Monaco editor should have focus then).
+		 * except when:
+		 * 1. In editing mode (the Monaco editor should have focus then)
+		 * 2. Transitioning from Editing state for CODE cells only
+		 *    (markdown cells should still get container focus since their editor unmounts)
 		 */
-		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing) {
+		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing && cell.isCodeCell();
+		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing && !wasEditingCodeCell) {
 			cellRef.current.focus();
 		}
-	}, [isActiveCell, selectionStatus, cellRef]);
+	}, [isActiveCell, selectionStatus, cellRef, cell]);
 
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);

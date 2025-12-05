@@ -24,7 +24,7 @@ import { useEnvironment } from '../EnvironmentProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { autorun } from '../../../../../base/common/observable.js';
+import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
@@ -37,7 +37,7 @@ import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/i
  * @returns An editor widget for the cell
  */
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
-	const { editorPartRef } = useCellEditorWidget(cell);
+	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
 
 	/**
 	 * Handler for keyboard events on the focus target.
@@ -60,6 +60,7 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 			tabIndex={-1}
 		/>
 		<div
+			ref={focusTargetRef}
 			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
 			className='positron-cell-editor-focus-target'
 			role='button'
@@ -252,7 +253,27 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		return () => disposable.dispose();
 	}, [cell, instance.selectionStateMachine]);
 
-	return { editorPartRef };
+	// Create a ref for the focus target element
+	const focusTargetRef = React.useRef<HTMLDivElement>(null);
+
+	// Watch for exit-editor transitions to return focus to the focus trap
+	React.useEffect(() => {
+		const disposable = autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
+			// Check if we transitioned from editing THIS cell to single selection of THIS cell
+			if (lastValue?.type === SelectionState.EditingSelection &&
+				lastValue.active === cell &&
+				newValue.type === SelectionState.SingleSelection &&
+				newValue.active === cell) {
+				// Return focus to the focus trap so user can continue tabbing
+				// For markdown cells, this component unmounts so the focus is lost anyway
+				// and NotebookCellWrapper will focus the container instead
+				focusTargetRef.current?.focus();
+			}
+		});
+		return () => disposable.dispose();
+	}, [cell, instance.selectionStateMachine]);
+
+	return { editorPartRef, focusTargetRef };
 }
 
 

@@ -46,11 +46,29 @@
 .positron-cell-editor-focus-target {
 	position: absolute;
 	inset: 0;
-	z-index: 1;
+	z-index: 2;
 	pointer-events: none;
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 }
 
 .positron-cell-editor-focus-target:focus {
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: -1px;
+	outline-offset: 1px;
+}
+
+/* Remove bottom-left radius when there are outputs below */
+.positron-notebook-cell.selected .positron-cell-editor-focus-target,
+.positron-notebook-cell.editing .positron-cell-editor-focus-target,
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-cell-editor-focus-target {
+	border-bottom-left-radius: 0;
+}
+
+/* Restore bottom-left radius when no outputs */
+.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
+.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
+.positron-notebook-cell.selected:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target,
+.positron-notebook-cell.editing:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target,
+.positron-notebook-cell:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target {
+	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 }
