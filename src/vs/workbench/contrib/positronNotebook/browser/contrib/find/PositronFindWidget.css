@@ -45,27 +45,6 @@
 	border-color: var(--vscode-focusBorder);
 }
 
-.find-input {
-	flex: 1;
-	background: transparent;
-	border: none;
-	outline: none;
-	color: var(--vscode-input-foreground);
-	padding: 4px 6px;
-	font-size: 13px;
-	min-width: 0;
-}
-
-.find-input::placeholder {
-	color: var(--vscode-input-placeholderForeground);
-}
-
-.find-input-buttons {
-	display: flex;
-	align-items: center;
-	padding-right: 2px;
-}
-
 .find-action-button {
 	width: 20px;
 	height: 20px;
@@ -82,12 +61,6 @@
 
 .find-action-button:hover {
 	background: var(--vscode-toolbar-hoverBackground);
-}
-
-.find-action-button.active {
-	background: var(--vscode-inputOption-activeBackground);
-	color: var(--vscode-inputOption-activeForeground);
-	border: 1px solid var(--vscode-inputOption-activeBorder);
 }
 
 .find-action-button .codicon {
