@@ -110,6 +110,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 	 * Load dataset and process each question
 	 */
 	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
+		test.setTimeout(5 * 60 * 1000); // 5 minutes
 		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
 		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
@@ -163,6 +164,48 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 				}).toPass({ timeout: 5000 });
 			},
+			'sample_4': async (app: any) => {
+				await expect(async () => {
+					await sessions.select(pySession.id);
+					const polarsCode = `import polars as pl
+
+# Create sample species data matching the Georgia Aquarium structure
+species = pl.DataFrame({
+	"name": [
+		"Blue Tang Surgeonfish",
+		"Red Lionfish",
+		"Green Sea Turtle",
+		"Yellow Tang",
+		"Orange Clownfish",
+		"Black Drum",
+		"White Beluga Whale",
+		"Purple Sea Urchin",
+		"Pink Skunk Clownfish",
+		"Silver Tarpon",
+		"Blacktip Reef Shark",
+		"Gray Reef Shark",
+		"Brown Smooth-hound Shark"
+	],
+	"physical_characteristics": [
+		"Deep blue in color with distinct black markings. Has a yellow tail with black upper and lower margins.",
+		"Zebra-banded with narrow reddish or golden brown vertical bars stretching across a whitish-to-yellow background.",
+		"Carapace is light to dark brown in color with a creamy underside. Skin is cream to yellow in color.",
+		"Characterized by a long snout and large dorsal fin. Coloration is a bright yellow.",
+		"Body is bright orange with three vertical white bars edged in black.",
+		"Oblong body with silver, grey or dark brown coloration. Juveniles may have 4-5 vertical black bars.",
+		"Generally pale gray to pure white as adults. Areas such as the dorsal ridge may be darker.",
+		"Spiny and ovoid-shaped with vivid purple coloring on adults. Juveniles are greenish-colored.",
+		"Adults appear pink to orange in coloration with a white stripe running dorsally.",
+		"Body covered with large scales. Coloration is blue-grey on the back and bright silver on the sides.",
+		"Grey body with distinctive black tips on dorsal and caudal fins. White underside.",
+		"Dark grey to bronze coloration on upper body, lighter on underside. No distinctive markings.",
+		"Slender body with bronze to brown coloration. Smooth skin texture with white belly."
+	]
+})`;
+					await app.workbench.console.executeCode('Python', polarsCode, '>>>');
+					await app.workbench.console.clearButton.click();
+				}).toPass({ timeout: 5000 });
+			},
 		} as const;
 		// Define cleanup actions in a separate object (could even be moved to its own file later)
 		const cleanupActions = {
@@ -177,6 +220,10 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			},
 			'sample_3': async (app: any) => {
 				await hotKeys.closeAllEditors();
+				await sessions.restart(pySession.id);
+			},
+			'sample_4': async () => {
+				await sessions.restart(pySession.id);
 			},
 		} as const;
 
