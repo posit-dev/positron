@@ -19,7 +19,7 @@ test.describe('Interpreter: Includes', {
 		await settings.set({
 			'python.interpreters.include': [buildPythonPath('include')],
 			'positron.r.customRootFolders': [buildRPath('customRoot')]
-		}, { reload: true });
+		}, { reload: true, waitForReady: true });
 	});
 
 	test('Python - Can Include an Interpreter', async function ({ sessions }) {
@@ -52,7 +52,7 @@ test.describe('Interpreter: Excludes', {
 		await settings.set({
 			'python.interpreters.exclude': [excludedPythonPath],
 			'positron.r.interpreters.exclude': [excludedRPath]
-		}, { reload: true });
+		}, { reload: true, waitForReady: true });
 	});
 
 	test('R - Can Exclude an Interpreter', { tag: [tags.ARK] }, async function ({ sessions }) {
@@ -77,7 +77,7 @@ test.describe('Interpreter: Override', {
 		await settings.set({
 			'python.interpreters.override': [overridePythonPath],
 			'positron.r.interpreters.override': [overrideRPath]
-		}, { reload: true });
+		}, { reload: true, waitForReady: true });
 	});
 
 	test('R - Can Override Interpreter Discovery', { tag: [tags.ARK] }, async function ({ sessions }) {
