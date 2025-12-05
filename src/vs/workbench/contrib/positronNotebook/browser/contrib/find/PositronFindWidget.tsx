@@ -13,8 +13,7 @@ import React from 'react';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { PositronFindInput } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
-import { ISettableObservable } from '../../../../../../base/common/observable.js';
+import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
 
 export interface PositronFindWidgetProps {
@@ -23,9 +22,8 @@ export interface PositronFindWidgetProps {
 	readonly matchWholeWord: ISettableObservable<boolean>;
 	readonly useRegex: ISettableObservable<boolean>;
 	readonly focusInput?: boolean;
-	readonly matchIndex?: number;
-	readonly matchCount?: number;
-	readonly additionalToggles?: Toggle[];
+	readonly matchIndex: IObservable<number | undefined>;
+	readonly matchCount: IObservable<number | undefined>;
 	readonly findInputOptions: IFindInputOptions;
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
@@ -38,9 +36,8 @@ export const PositronFindWidget = ({
 	matchWholeWord: matchWholeWordObs,
 	useRegex: useRegexObs,
 	focusInput = true,
-	matchIndex,
-	matchCount,
-	additionalToggles,
+	matchIndex: matchIndexObs,
+	matchCount: matchCountObs,
 	findInputOptions,
 	onPreviousMatch,
 	onNextMatch,
@@ -50,13 +47,14 @@ export const PositronFindWidget = ({
 	const matchCase = useObservedValue(matchCaseObs);
 	const matchWholeWord = useObservedValue(matchWholeWordObs);
 	const useRegex = useObservedValue(useRegexObs);
+	const matchIndex = useObservedValue(matchIndexObs);
+	const matchCount = useObservedValue(matchCountObs);
 
 	return (
 		<div className='positron-find-widget-positioned'>
 			<div className='positron-find-widget'>
 				<div className='find-widget-row'>
 					<PositronFindInput
-						additionalToggles={additionalToggles}
 						findInputOptions={findInputOptions}
 						focusInput={focusInput}
 						matchCase={matchCase}
@@ -68,11 +66,11 @@ export const PositronFindWidget = ({
 						onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
 						onValueChange={(value) => findTextObs.set(value, undefined)}
 					/>
-					<div className={`find-results ${findText && matchCount === 0 ? 'no-results' : ''}`}>
-						{findText && matchCount !== undefined ? (
-							matchCount === 0 ? 'No results' : `${matchIndex ?? 1} of ${matchCount}`
-						) : ''}
-					</div>
+					<FindResult
+						findText={findText}
+						matchCount={matchCount}
+						matchIndex={matchIndex}
+					/>
 					<div className='find-navigation-buttons'>
 						<ActionButton
 							ariaLabel='Previous Match'
@@ -101,3 +99,29 @@ export const PositronFindWidget = ({
 		</div>
 	);
 }
+
+interface FindResultProps {
+	findText: string;
+	matchIndex?: number;
+	matchCount?: number;
+}
+
+const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
+	// Case 1: No find text - show "No results" in ordinary color
+	if (!findText) {
+		return <div className='find-results'>No results</div>;
+	}
+
+	// Case 2: Find text but matchCount not yet calculated
+	if (matchCount === undefined) {
+		return <div className='find-results'></div>;
+	}
+
+	// Case 3: Find text but no matches found - different color
+	if (matchCount === 0) {
+		return <div className='find-results no-results'>No results</div>;
+	}
+
+	// Case 4: Matches found - show count
+	return <div className='find-results'>{matchIndex ?? 1} of {matchCount}</div>;
+};

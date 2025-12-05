@@ -20,7 +20,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
-import { observableValue, runOnChange } from '../../../../../../base/common/observable.js';
+import { observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
@@ -51,6 +51,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	public readonly wholeWord = observableValue('findStateWholeWordActual', false);
 	public readonly matchCase = observableValue('findStateMatchCaseActual', false);
 	public readonly preserveCase = observableValue('findStatePreserveCaseActual', false);
+	public readonly matchIndex = observableValue<number | undefined>('findStateMatchIndex', undefined);
+	public readonly matchCount = observableValue<number | undefined>('findStateMatchCount', undefined);
 
 	public start(): void {
 		if (!this._notebook.scopedContextKeyService) {
@@ -98,13 +100,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				showCommonFindToggles: true,
 				inputBoxStyles: defaultInputBoxStyles,
 				toggleStyles: defaultToggleStyles,
+				additionalToggles: [findInSelectionToggle],
 			},
 			findText: this.searchString,
 			focusInput: true,
 			matchCase: this.matchCase,
 			matchWholeWord: this.wholeWord,
 			useRegex: this.isRegex,
-			additionalToggles: [findInSelectionToggle],
+			matchIndex: this.matchIndex,
+			matchCount: this.matchCount,
 			onPreviousMatch: () => { },
 			onNextMatch: () => { },
 			onClose: () => {
@@ -125,6 +129,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	// TODO: Make option object and pass in instead of reading observables. This method will eventually live on a delegate
 	private research(searchString: string): void {
 		const matches: unknown[] = [];
+		let totalMatchCount = 0;
+
 		for (const cell of this._notebook.cells.get()) {
 			if (cell.model.textModel) {
 				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
@@ -137,6 +143,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					this.isRegex.get(),
 				);
 				matches.push({ cell, matches: cellMatches });
+				totalMatchCount += cellMatches.length;
 				// TODO: Fall back to text buffer if no text model?
 
 				const newDecorations: IModelDeltaDecoration[] = [];
@@ -177,6 +184,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				// );
 			}
 		}
+
+		// Update match count and index
+		transaction((tx) => {
+			this.matchCount.set(totalMatchCount, tx);
+			this.matchIndex.set(totalMatchCount > 0 ? 1 : undefined, tx);
+		});
 	}
 
 	public closeFindWidget(): void {
