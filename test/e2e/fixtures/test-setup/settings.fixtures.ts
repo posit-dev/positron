@@ -18,7 +18,7 @@ export function SettingsFixture(app: Application) {
 			await settings.set(newSettings, { keepOpen });
 
 			if (reload === true || (reload === 'web' && app.web === true)) {
-				await app.workbench.hotKeys.reloadWindow(true);
+				await app.workbench.hotKeys.reloadWindow(false);
 			}
 			if (waitMs) {
 				await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
