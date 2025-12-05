@@ -157,3 +157,47 @@
 		transition: none;
 	}
 }
+
+/* Assistant cell highlight animation - used when AI modifies cells */
+.positron-notebook-cell.assistant-highlight {
+	position: relative;
+}
+
+.positron-notebook-cell.assistant-highlight::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-color: var(--vscode-button-background);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	pointer-events: none;
+	z-index: 0;
+	opacity: 0;
+	animation: assistant-flash 1.5s ease-in-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes assistant-flash {
+	0%, 100% { opacity: 0; }
+	25%, 75% { opacity: 0.2; }
+}
+
+/* Use border-based highlight for high contrast themes instead of background overlay */
+.hc-black .positron-notebook-cell.assistant-highlight::before,
+.hc-light .positron-notebook-cell.assistant-highlight::before {
+	background-color: transparent;
+	border: 2px solid var(--vscode-focusBorder);
+	animation: assistant-flash-hc 1.5s ease-in-out;
+	animation-fill-mode: forwards;
+}
+
+@keyframes assistant-flash-hc {
+	0%, 100% { opacity: 0; }
+	25%, 75% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.positron-notebook-cell.assistant-highlight::before {
+		animation: none;
+		opacity: 0;
+	}
+}
