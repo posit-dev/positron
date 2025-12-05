@@ -16,8 +16,8 @@
 	content: ' ';
 	background-image: url('../../../../browser/media/positron-header.svg');
 	height: 6em;
-	/* Maintains the 4.14:1 aspect ratio with 6em height */
-	width: 24.84em;
+	/* Maintains the 3.95:1 aspect ratio with 6em height */
+	width: 23.7em;
 	display: block;
 }
 
@@ -25,8 +25,8 @@
 	content: ' ';
 	background-image: url('../../../../browser/media/positron-header-dark.svg');
 	height: 6em;
-	/* Maintains the 4.14:1 aspect ratio with 6em height */
-	width: 24.84em;
+	/* Maintains the 3.95:1 aspect ratio with 6em height */
+	width: 23.7em;
 	display: block;
 }
 
