@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './FindWidget.css';
+import './PositronFindWidget.css';
 
 // React.
 import React from 'react';
