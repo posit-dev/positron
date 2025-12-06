@@ -20,7 +20,7 @@ export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
 	toolResultExperimentalContent: boolean = false,
 	bedrockCacheBreakpoint: boolean = false
-): ai.CoreMessage[] {
+): ai.ModelMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
 		for (const part of message.content) {
@@ -32,7 +32,7 @@ export function toAIMessage(
 	}, {});
 
 	// Convert messages from vscode to ai format
-	const aiMessages: ai.CoreMessage[] = [];
+	const aiMessages: ai.ModelMessage[] = [];
 	const systemContent: string[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
@@ -49,14 +49,14 @@ export function toAIMessage(
 					userContent.push({ type: 'text', text: part.value });
 				} else if (part instanceof vscode.LanguageModelDataPart) {
 					if (isChatImagePart(part)) {
-						userContent.push({ type: 'image', image: part.data, mimeType: part.mimeType });
+						userContent.push({ type: 'image', image: part.data, mediaType: part.mimeType });
 					} else if (part.mimeType === LanguageModelDataPartMimeType.CacheControl) {
 						cacheBreakpoint = true;
 					}
 				}
 			}
 			if (userContent.length > 0) {
-				const messageContent: ai.CoreUserMessage = {
+				const messageContent: ai.UserModelMessage = {
 					role: 'user',
 					content: userContent
 				};
@@ -73,8 +73,11 @@ export function toAIMessage(
 			// Add the tool messages.
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
+					const toolCall = toolCalls[part.callId];
+					if (!toolCall) {
+						log.warn(`[toAIMessage] Tool result with callId '${part.callId}' has no matching tool call in conversation history. Available tool calls: ${Object.keys(toolCalls).join(', ')}`);
+					}
 					if (toolResultExperimentalContent) {
-						const toolCall = toolCalls[part.callId];
 						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
 						if (cacheBreakpoint && bedrockCacheBreakpoint) {
 							cacheBreakpoint = false;
@@ -89,17 +92,34 @@ export function toAIMessage(
 						if (toolCall.name === PositronAssistantToolName.GetPlot) {
 							aiMessages.push(getPlotToolResultToAiMessage(part));
 						} else {
-							aiMessages.push({
-								role: 'tool',
+							// Convert part.content (an array of LanguageModelParts) to a string for non-experimental providers
+							// AI SDK 5 expects output in structured format: { type: 'text' | 'json', value: ... }
+							const textContent = part.content
+								.filter((c): c is vscode.LanguageModelTextPart => c instanceof vscode.LanguageModelTextPart)
+								.map(c => c.value)
+								.join('');
+
+							// Try to parse as JSON if it looks like JSON, otherwise use as text
+							let output: { type: 'json'; value: unknown } | { type: 'text'; value: string };
+							try {
+								const parsed = JSON.parse(textContent);
+								output = { type: 'json' as const, value: parsed };
+							} catch {
+								output = { type: 'text' as const, value: textContent };
+							}
+
+							const toolResultMessage = {
+								role: 'tool' as const,
 								content: [
 									{
-										type: 'tool-result',
+										type: 'tool-result' as const,
 										toolCallId: part.callId,
 										toolName: toolCall.name,
-										result: part.content,
+										output,
 									},
 								],
-							});
+							};
+							aiMessages.push(toolResultMessage as ai.ToolModelMessage);
 						}
 
 					}
@@ -134,7 +154,7 @@ export function toAIMessage(
 						type: 'tool-call',
 						toolCallId: part.callId,
 						toolName: part.name,
-						args: part.input,
+						input: part.input,
 					});
 				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
 					// Convert PromptTSX parts to text
@@ -145,7 +165,7 @@ export function toAIMessage(
 					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
 				}
 			}
-			const aiMessage: ai.CoreAssistantMessage = {
+			const aiMessage: ai.AssistantModelMessage = {
 				role: 'assistant',
 				content,
 			};
@@ -175,7 +195,7 @@ export function toAIMessage(
 
 	if (systemContent.length > 0) {
 		// Not all providers support multiple system messages, so we consolidate.
-		const systemMessage: ai.CoreSystemMessage = {
+		const systemMessage: ai.SystemModelMessage = {
 			role: 'system',
 			content: systemContent.join('\n'),
 		};
@@ -193,7 +213,7 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
-export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMessage {
+export function markBedrockCacheBreakpoint(message: ai.ModelMessage): ai.ModelMessage {
 	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
 	message.providerOptions = {
 		bedrock: {
@@ -212,36 +232,54 @@ export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMess
 function convertToolResultToAiMessageExperimentalContent(
 	part: vscode.LanguageModelToolResultPart,
 	toolCall: vscode.LanguageModelToolCallPart,
-): ai.CoreToolMessage {
+): ai.ToolModelMessage {
 	// If experimental content is enabled for tool calls,
 	// that means tool results can contain images.
 
-	const toolMessage: ai.CoreToolMessage = {
+	type ToolResultOutput =
+		| { type: 'text'; value: string }
+		| { type: 'content'; value: Array<{ type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string }> };
+
+	const toolMessage: {
+		role: 'tool';
+		content: [{
+			type: 'tool-result';
+			toolCallId: string;
+			toolName: string;
+			output: ToolResultOutput;
+		}];
+	} = {
 		role: 'tool',
 		content: [
 			{
 				type: 'tool-result',
 				toolCallId: part.callId,
 				toolName: toolCall.name,
-				result: '',
+				output: { type: 'text', value: '' },
 			},
 		],
 	};
 
 	// If there's 0 or 1 parts and that part is text, we can just return a
-	// normal CoreToolMessage object with a `result` field.
+	// normal ToolModelMessage object with a `output` field.
 	if (
 		part.content.length <= 1 &&
 		part.content.every(
 			(content) => content instanceof vscode.LanguageModelTextPart
 		)
 	) {
-		toolMessage.content[0].result = part.content;
+		// Convert text parts to string for output
+		// AI SDK 5 expects { type: 'text', value: string }
+		const textContent = part.content
+			.filter((c): c is vscode.LanguageModelTextPart => c instanceof vscode.LanguageModelTextPart)
+			.map(c => c.value)
+			.join('');
+		toolMessage.content[0].output = { type: 'text' as const, value: textContent };
 	} else {
-		// This is a multi-part tool result, and may contain images. We can
-		// convert it to a Vercel AI message with experimental_content.
-		const toolResultContent: ToolResultContent = part.content.map(
-			(content): ToolResultContent[number] => {
+		// This is a multi-part tool result, and may contain images.
+		// AI SDK 5 expects { type: 'content', value: [...] } for multi-part results
+		const toolResultContent = part.content.map(
+			(content): { type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string } => {
 				if (content instanceof vscode.LanguageModelTextPart) {
 					return {
 						type: 'text',
@@ -249,9 +287,9 @@ function convertToolResultToAiMessageExperimentalContent(
 					};
 				} else if (content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)) {
 					return {
-						type: 'image',
+						type: 'media',
 						data: Buffer.from(content.data).toString('base64'),
-						mimeType: content.mimeType,
+						mediaType: content.mimeType,
 					};
 				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
 					return {
@@ -260,22 +298,22 @@ function convertToolResultToAiMessageExperimentalContent(
 					};
 				} else {
 					throw new Error(
-						`Unsupported part type on tool result message: ${(content as any).constructor?.name ?? typeof content}`
+						`Unsupported part type on tool result message: ${typeof content === 'object' && content !== null && 'constructor' in content ? (content.constructor as { name?: string }).name : typeof content}`
 					);
 				}
 			}
 		);
-		toolMessage.content[0].result = toolResultContent;
-		toolMessage.content[0].experimental_content = toolResultContent;
+		toolMessage.content[0].output = { type: 'content' as const, value: toolResultContent };
 	}
 
-	return toolMessage;
+	return toolMessage as ai.ToolModelMessage;
 }
 
 /**
- * Convert a getPlot tool result into a Vercel AI message.
+ * Convert a getPlot tool result into an AI SDK tool message with image content.
+ * AI SDK 5 supports images in tool results via the 'content' output type with 'media' parts.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.ToolModelMessage {
 	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
 		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
 	};
@@ -284,33 +322,50 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2)
 	// If there was no image, forward the response as text.
 	if (imageParts.length === 0) {
 		return {
-			role: 'user',
+			role: 'tool',
 			content: [
 				{
-					type: 'text',
-					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+					type: 'tool-result',
+					toolCallId: part.callId,
+					toolName: PositronAssistantToolName.GetPlot,
+					output: {
+						type: 'text',
+						value: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+					},
 				},
 			],
 		};
 	}
 
-	// Otherwise, convert to a user message containing the image,
-	// as Vercel AI doesn't support image tool results.
+	// AI SDK 5 supports image content in tool results via the 'content' output type.
+	// The 'content' type uses 'media' parts for images, which get converted to
+	// appropriate format for each provider (e.g., function_call_output for OpenAI Responses API).
+	type MediaContentPart = { type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string };
+	const contentValue: MediaContentPart[] = imageParts.flatMap((imgPart) => ([
+		{
+			type: 'text' as const,
+			text: 'Here is the current active plot:',
+		},
+		{
+			type: 'media' as const,
+			data: Buffer.from(imgPart.data).toString('base64'),
+			mediaType: imgPart.mimeType,
+		}
+	]));
+
 	return {
-		role: 'user',
-		// We only expect one image part, but just in case,
-		// include all image parts in the message.
-		content: imageParts.flatMap((imgPart) => ([
+		role: 'tool',
+		content: [
 			{
-				type: 'text',
-				text: 'Here is the current active plot:',
+				type: 'tool-result',
+				toolCallId: part.callId,
+				toolName: PositronAssistantToolName.GetPlot,
+				output: {
+					type: 'content',
+					value: contentValue,
+				},
 			},
-			{
-				type: 'image',
-				image: Buffer.from(imgPart.data).toString('base64'),
-				mimeType: imgPart.mimeType,
-			}
-		])),
+		],
 	};
 }
 
