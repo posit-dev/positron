@@ -9,6 +9,19 @@ test.use({
 	suiteId: __filename
 });
 
+test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
+
+	test.beforeAll(async ({ settings }) => {
+		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true, waitMs: 1000 });
+	});
+
+	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
+		await sessions.start('pythonAlt', { reuse: false });
+		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
+		await app.workbench.console.waitForConsoleContents('site-packages');
+	});
+});
+
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
@@ -51,18 +64,4 @@ print("Completed all steps")
 		// Verify that not all work was completed (Step 9 should not appear)
 		await console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
 	});
-});
-
-test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
-
-	test.beforeAll(async ({ settings }) => {
-		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
-	});
-
-	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
-		await sessions.start('pythonAlt', { reuse: false });
-		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
-		await app.workbench.console.waitForConsoleContents('site-packages');
-	});
-
 });
