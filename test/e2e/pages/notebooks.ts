@@ -169,7 +169,7 @@ export class Notebooks {
 			await this.code.driver.page.getByLabel('Run All').click();
 			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
-				await expect(stopExecutionLocator).toBeVisible({ timeout: 5000 });
+				await expect(stopExecutionLocator).toBeVisible({ timeout });
 				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
 			} catch {
 				if (throwError) {

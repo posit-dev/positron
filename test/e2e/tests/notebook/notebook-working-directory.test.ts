@@ -79,7 +79,7 @@ async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd:
 	await notebooks.selectInterpreter('Python');
 	await expect(async () => {
 		try {
-			await notebooks.runAllCells({ timeout: 10000, throwError: true });
+			await notebooks.runAllCells({ timeout: 5000, throwError: true });
 			await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
 		} catch (e) {
 			await notebooks.interruptButton.click({ timeout: 3000 }).catch(() => { });
