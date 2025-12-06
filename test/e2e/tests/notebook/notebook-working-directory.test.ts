@@ -57,7 +57,7 @@ test.describe('Notebook Working Directory Configuration', {
 		test(title, async function ({ app, settings }) {
 			workingDirectory === null
 				? await settings.clear()
-				: await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web' });
+				: await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web', waitForReady: true });
 
 			await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, expectedEnd);
 		});
@@ -77,6 +77,7 @@ test.describe('Notebook Working Directory Configuration', {
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
 	await notebooks.openNotebook('working-directory.ipynb');
 	await notebooks.selectInterpreter('Python');
+
 	await expect(async () => {
 		try {
 			await notebooks.runAllCells({ timeout: 5000, throwError: true });

@@ -68,7 +68,7 @@ export class Clipboard {
 		return clipboardText;
 	}
 
-	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string): Promise<void> {
+	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string, { timeout = 20000 } = {}): Promise<void> {
 		await expect(async () => {
 			let clipboardText = await this.getClipboardText();
 
@@ -85,7 +85,7 @@ export class Clipboard {
 			}
 
 			expect(clipboardText).toBe(expectedText);
-		}, { message: 'clipboard text to be...' }).toPass({ timeout: 20000 });
+		}, { message: 'clipboard text to be...' }).toPass({ timeout });
 	}
 
 	async setClipboardText(text: string): Promise<void> {

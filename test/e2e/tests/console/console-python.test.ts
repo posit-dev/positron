@@ -60,8 +60,7 @@ print("Completed all steps")
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
 	test.beforeAll(async ({ settings, app }) => {
-		await settings.set({ 'python.useBundledIpykernel': false });
-		await app.restart();
+		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
 	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {

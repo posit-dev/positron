@@ -24,7 +24,7 @@ export function SettingsFixture(app: Application) {
 				await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 			}
 
-			if (waitForReady) {
+			if (waitForReady || reload) {
 				await app.code.driver.page.waitForTimeout(3000);
 				await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 				await app.workbench.sessions.expectNoStartUpMessaging();
