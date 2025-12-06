@@ -10,7 +10,6 @@ test.use({
 });
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
-
 	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");',);
@@ -52,14 +51,11 @@ print("Completed all steps")
 		// Verify that not all work was completed (Step 9 should not appear)
 		await console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
 	});
-
 });
 
-// This nesting is necessary because the settings fixture must be used in a
-// beforeAll hook to ensure app instances pass to test correctly
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
-	test.beforeAll(async ({ settings, app }) => {
+	test.beforeAll(async ({ settings }) => {
 		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
 	});
 

@@ -14,11 +14,12 @@ test.use({
 });
 
 test.describe('Notebook Working Directory Configuration', {
-	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.NOTEBOOKS]
+	// Web tag removed: path resolution is browser-agnostic; Electron provides full coverage
 }, () => {
 
-	test.beforeAll(async function ({ python, app }) {
-		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
+	test.beforeAll(async function ({ hotKeys }) {
+		await hotKeys.notebookLayout();
 	});
 
 	test.afterEach(async function ({ app }) {
@@ -30,11 +31,6 @@ test.describe('Notebook Working Directory Configuration', {
 			title: 'Default working directory is the notebook parent',
 			workingDirectory: null, // null = use default (clear settings)
 			expectedEnd: 'working-directory-notebook',
-		},
-		{
-			title: 'workspaceFolder works',
-			workingDirectory: '${workspaceFolder}',
-			expectedEnd: 'qa-example-content',
 		},
 		{
 			title: 'fileDirname works',
@@ -51,13 +47,18 @@ test.describe('Notebook Working Directory Configuration', {
 			workingDirectory: '${asdasd}',
 			expectedEnd: 'working-directory-notebook',
 		},
+		{
+			title: 'workspaceFolder works',
+			workingDirectory: '${workspaceFolder}',
+			expectedEnd: 'qa-example-content',
+		},
 	];
 
 	testCases.forEach(({ title, workingDirectory, expectedEnd }) => {
 		test(title, async function ({ app, settings }) {
 			workingDirectory === null
 				? await settings.clear()
-				: await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web' });
+				: await settings.set({ 'notebook.workingDirectory': workingDirectory }, { reload: 'web', waitMs: 1000 });
 
 			await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, expectedEnd);
 		});
@@ -80,8 +81,8 @@ async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd:
 
 	await expect(async () => {
 		try {
-			await notebooks.runAllCells({ timeout: 5000, throwError: true });
-			await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
+			await notebooks.runAllCells({ timeout: 5000 });
+			await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`), 0, { timeout: 5000 });
 		} catch (e) {
 			await notebooks.interruptButton.click({ timeout: 3000 }).catch(() => { });
 			throw e;
