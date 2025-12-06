@@ -13,6 +13,7 @@ import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
 import { formatCommandWithEcho, escapeShellArg } from '../spec/spec-node/commandGeneration';
 import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
+import { Mount } from '../spec/spec-configuration/containerFeaturesConfiguration';
 
 /**
  * Result from terminal build
@@ -277,11 +278,20 @@ export class TerminalBuilder {
 			scriptContent += `${echoCmd} "==> Using image: ${imageName}"\n\n`;
 		}
 
-		// Prepare mounts array
+		// Prepare mounts array - handle both string and Mount object formats
 		const mounts: string[] = [];
 		if (devContainerConfig.mounts) {
 			for (const mount of devContainerConfig.mounts) {
-				mounts.push(mount);
+				if (typeof mount === 'string') {
+					mounts.push(mount);
+				} else {
+					// Convert Mount object to string format for --mount option
+					const mountObj = mount as Mount;
+					const type = `type=${mountObj.type}`;
+					const source = mountObj.source ? `,src=${mountObj.source}` : '';
+					const target = `,dst=${mountObj.target}`;
+					mounts.push(`${type}${source}${target}`);
+				}
 			}
 		}
 
