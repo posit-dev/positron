@@ -13,7 +13,7 @@ export function SettingsFixture(app: Application) {
 			newSettings: Record<string, unknown>,
 			options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
 		) => {
-			const { reload = false, waitMs = 0, waitForReady = false, keepOpen = false } = options || {};
+			const { reload = false, waitMs = 0, waitForReady = true, keepOpen = false } = options || {};
 
 			await settings.set(newSettings, { keepOpen });
 
@@ -24,7 +24,7 @@ export function SettingsFixture(app: Application) {
 				await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 			}
 
-			if (waitForReady || reload) {
+			if (waitForReady) {
 				await app.code.driver.page.waitForTimeout(3000);
 				await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 				await app.workbench.sessions.expectNoStartUpMessaging();
