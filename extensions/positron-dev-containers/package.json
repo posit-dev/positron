@@ -144,44 +144,52 @@
       {
         "command": "remote-containers.rebuildAndReopenInContainer",
         "title": "%command.rebuildAndReopenInContainer%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.rebuildNoCacheAndReopenInContainer",
         "title": "%command.rebuildNoCacheAndReopenInContainer%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.reopenLocally",
         "title": "%command.reopenLocally%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openFolder",
         "title": "%command.openFolder%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openFolderInContainerInCurrentWindow",
         "title": "%command.openFolderInContainerInCurrentWindow%",
         "category": "%command.category%",
-        "icon": "$(arrow-right)"
+        "icon": "$(arrow-right)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openFolderInContainerInNewWindow",
         "title": "%command.openFolderInContainerInNewWindow%",
         "category": "%command.category%",
-        "icon": "$(empty-window)"
+        "icon": "$(empty-window)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openWorkspace",
         "title": "%command.openWorkspace%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.attachToRunningContainer",
         "title": "%command.attachToRunningContainer%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.rebuildContainer",
@@ -191,81 +199,96 @@
         "actionBarOptions": {
           "controlType": "button",
           "displayTitle": true
-        }
+        },
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.rebuildContainerNoCache",
         "title": "%command.rebuildContainerNoCache%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.settings",
         "title": "%command.settings%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openDevContainerFile",
         "title": "%command.openDevContainerFile%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.revealLogTerminal",
         "title": "%command.revealLogTerminal%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openLogFile",
         "title": "%command.openLogFile%",
-        "category": "%command.developerCategory%"
+        "category": "%command.developerCategory%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.openLastLogFile",
         "title": "%command.openLastLogFile%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.testConnection",
         "title": "%command.testConnection%",
-        "category": "%command.developerCategory%"
+        "category": "%command.developerCategory%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.attachToContainerInCurrentWindow",
         "title": "%command.attachToContainerInCurrentWindow%",
         "category": "%command.category%",
-        "icon": "$(arrow-right)"
+        "icon": "$(arrow-right)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.attachToContainerInNewWindow",
         "title": "%command.attachToContainerInNewWindow%",
         "category": "%command.category%",
-        "icon": "$(empty-window)"
+        "icon": "$(empty-window)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.stopContainer",
         "title": "%command.stopContainer%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.startContainer",
         "title": "%command.startContainer%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.removeContainer",
         "title": "%command.removeContainer%",
         "category": "%command.category%",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.explorerTargetsRefresh",
         "title": "%command.explorerTargetsRefresh%",
         "category": "%command.category%",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "enablement": "dev.containers.enabled"
       },
       {
         "command": "remote-containers.showContainerLog",
         "title": "%command.showContainerLog%",
-        "category": "%command.category%"
+        "category": "%command.category%",
+        "enablement": "dev.containers.enabled"
       }
     ],
     "menus": {
