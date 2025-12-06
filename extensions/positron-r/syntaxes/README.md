@@ -1,3 +1,5 @@
+The code in this folder is licensed under MIT.
+
 ## R TextMate Grammar
 
 To generate `r.tmGrammar.gen.json` from `r.tm.Grammar.src.json`, first navigate to the positron-r extension folder:
