@@ -1,0 +1,17 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"references": [
+		{
+			"path": "../spec-utils"
+		},
+		{
+			"path": "../spec-common"
+		},
+		{
+			"path": "../spec-configuration"
+		},
+		{
+			"path": "../spec-shutdown"
+		}
+	]
+}
