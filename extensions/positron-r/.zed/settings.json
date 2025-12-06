@@ -1,0 +1,19 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+  "languages": {
+    "TypeScript": {
+      "tab_size": 2,
+      "hard_tabs": true,
+      "ensure_final_newline_on_save": true,
+      "remove_trailing_whitespace_on_save": true,
+      "format_on_save": "on",
+      "formatter": "language_server",
+      "code_actions_on_format": {
+        "source.fixAll.eslint": false
+      }
+    }
+  }
+}
