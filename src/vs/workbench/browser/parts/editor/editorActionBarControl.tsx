@@ -26,8 +26,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
-import { PositronPlotsEditorInput } from '../../../contrib/positronPlotsEditor/browser/positronPlotsEditorInput.js';
-import { IsCompactTitleBarContext } from '../../../common/contextkeys.js';
+import { IsAuxiliaryWindowContext, IsCompactTitleBarContext } from '../../../common/contextkeys.js';
 
 /**
  * Constants.
@@ -232,19 +231,18 @@ export class EditorActionBarControlFactory {
 			return;
 		}
 
-		// Notebooks always disable the editor action bar.
-		if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
+		// Auxiliary windows in compact mode always disable the editor action bar.
+		const isAuxiliaryWindow = IsAuxiliaryWindowContext.getValue(this._contextKeyService);
+		const isCompact = IsCompactTitleBarContext.getValue(this._contextKeyService);
+		if (isAuxiliaryWindow && isCompact) {
 			this.updateEnablement(false);
 			return;
 		}
 
-		// Plots in compact windows disable the editor action bar.
-		if (editorInput.typeId === PositronPlotsEditorInput.TypeID) {
-			const isCompact = IsCompactTitleBarContext.getValue(this._contextKeyService);
-			if (isCompact) {
-				this.updateEnablement(false);
-				return;
-			}
+		// Notebooks always disable the editor action bar.
+		if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
+			this.updateEnablement(false);
+			return;
 		}
 
 		// Settings always enables editor action bar.
