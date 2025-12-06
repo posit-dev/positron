@@ -65,7 +65,12 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         sinon.restore();
     });
 
-    test('Verify createDirectory is called when shell integration is enabled', async () => {
+    // --- Start Positron ---
+    // In Positron, shell integration is always disabled (pythonrcSetting is hardcoded to false).
+    // We only test that the disabled behavior works correctly.
+    // test('Verify createDirectory is called when shell integration is enabled', async () => {
+    test.skip('Verify createDirectory is called when shell integration is enabled', async () => {
+        // --- End Positron ---
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
 
         await registerPythonStartup(context.object);
@@ -81,7 +86,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         sinon.assert.notCalled(createDirectoryStub);
     });
 
-    test('Verify copy is called when shell integration is enabled', async () => {
+    // --- Start Positron ---
+    // test('Verify copy is called when shell integration is enabled', async () => {
+    test.skip('Verify copy is called when shell integration is enabled', async () => {
+        // --- End Positron ---
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
 
         await registerPythonStartup(context.object);
@@ -97,7 +105,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         sinon.assert.notCalled(copyStub);
     });
 
-    test('PYTHONSTARTUP is set when enableShellIntegration setting is true', async () => {
+    // --- Start Positron ---
+    // test('PYTHONSTARTUP is set when enableShellIntegration setting is true', async () => {
+    test.skip('PYTHONSTARTUP is set when enableShellIntegration setting is true', async () => {
+        // --- End Positron ---
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
 
         await registerPythonStartup(context.object);
@@ -108,7 +119,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         );
     });
 
-    test('environmentCollection should not remove PYTHONSTARTUP when enableShellIntegration setting is true', async () => {
+    // --- Start Positron ---
+    // test('environmentCollection should not remove PYTHONSTARTUP when enableShellIntegration setting is true', async () => {
+    test.skip('environmentCollection should not remove PYTHONSTARTUP when enableShellIntegration setting is true', async () => {
+        // --- End Positron ---
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
 
         await registerPythonStartup(context.object);
@@ -135,7 +149,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         globalEnvironmentVariableCollection.verify((c) => c.delete('PYTHONSTARTUP'), TypeMoq.Times.once());
     });
 
-    test('PYTHON_BASIC_REPL is set when shell integration is enabled', async () => {
+    // --- Start Positron ---
+    // test('PYTHON_BASIC_REPL is set when shell integration is enabled', async () => {
+    test.skip('PYTHON_BASIC_REPL is set when shell integration is enabled', async () => {
+        // --- End Positron ---
         pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => true);
         await registerPythonStartup(context.object);
         globalEnvironmentVariableCollection.verify(
@@ -145,6 +162,7 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
     });
     // --- Start Positron ---
     // We don't use the terminal link provider for the native repl, so we skip this test.
+    // test('Ensure registering terminal link calls registerTerminalLinkProvider', async () => {
     test.skip('Ensure registering terminal link calls registerTerminalLinkProvider', async () => {
         // --- End Positron ---
         const registerTerminalLinkProviderStub = sinon.stub(
@@ -171,7 +189,12 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
     });
 
     if (process.platform === 'darwin') {
-        test('Mac - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+        // --- Start Positron ---
+        // Terminal link provider tests are skipped since that functionality is disabled in Positron
+        // and the message will never appear in the console.
+        // test('Mac - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+        test.skip('Mac - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+            // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
                 line: 'Some random string with Cmd click to launch VS Code Native REPL',
@@ -213,7 +236,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         });
     }
     if (process.platform !== 'darwin') {
-        test('Windows/Linux - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+        // --- Start Positron ---
+        // test('Windows/Linux - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+        test.skip('Windows/Linux - Verify provideTerminalLinks returns links when context.line contains expectedNativeLink', () => {
+            // --- End Positron ---
             const provider = new CustomTerminalLinkProvider();
             const context: TerminalLinkContext = {
                 line: 'Some random string with Ctrl click to launch VS Code Native REPL',
@@ -255,7 +281,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
         });
     }
 
-    test('Verify provideTerminalLinks returns no links when context.line does not contain expectedNativeLink', () => {
+    // --- Start Positron ---
+    // test('Verify provideTerminalLinks returns no links when context.line does not contain expectedNativeLink', () => {
+    test.skip('Verify provideTerminalLinks returns no links when context.line does not contain expectedNativeLink', () => {
+        // --- End Positron ---
         const provider = new CustomTerminalLinkProvider();
         const context: TerminalLinkContext = {
             line: 'Some random string without the expected link',
