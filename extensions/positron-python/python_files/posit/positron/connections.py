@@ -311,7 +311,6 @@ class ConnectionsService:
         if not self.object_is_supported(obj):
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
-
         if safe_isinstance(obj, "sqlite3", "Connection"):
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
@@ -324,6 +323,8 @@ class ConnectionsService:
             return SnowflakeConnection(obj)
         elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
             return DatabricksConnection(obj)
+        elif safe_isinstance(obj, "redshift_connector", "Connection"):
+            return RedshiftConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -343,6 +344,7 @@ class ConnectionsService:
                 )
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
                 or safe_isinstance(obj, "databricks.sql.client", "Connection")
+                or safe_isinstance(obj, "redshift_connector", "Connection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -1339,6 +1341,181 @@ class DatabricksConnection(Connection):
             "con = sql.connect(\n"
             f"    server_hostname = '{hostname}',\n"
             f"    http_path       = '{http_path}'\n"
+            ")\n"
+            "%connection_show con\n"
+        )
+
+
+class RedshiftConnection(Connection):
+    """Support for Redshift connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+
+        try:
+            # Unfortunately there's no public API to get the host, so we access the protected member.
+            # to at least provide some info in the connection display name.
+            host, _ = conn._usock.getpeername()  # noqa: SLF001
+        except AttributeError:
+            host = "<unknown>"
+
+        self.host = str(host)
+
+        self.display_name = f"Redshift ({self.host})"
+        self.type = "Redshift"
+        self.code = self._make_code()
+
+        self.icon = "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iODBweCIgaGVpZ2h0PSI4MHB4IiB2aWV3Qm94PSIwIDAgODAgODAiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8IS0tIEdlbmVyYXRvcjogU2tldGNoIDY0ICg5MzUzNykgLSBodHRwczovL3NrZXRjaC5jb20gLS0+CiAgICA8dGl0bGU+SWNvbi1BcmNoaXRlY3R1cmUvNjQvQXJjaF9BbWF6b24tUmVkc2hpZnRjdF82NDwvdGl0bGU+CiAgICA8ZGVzYz5DcmVhdGVkIHdpdGggU2tldGNoLjwvZGVzYz4KICAgIDxkZWZzPgogICAgICAgIDxsaW5lYXJHcmFkaWVudCB4MT0iMCUiIHkxPSIxMDAlIiB4Mj0iMTAwJSIgeTI9IjAlIiBpZD0ibGluZWFyR3JhZGllbnQtMSI+CiAgICAgICAgICAgIDxzdG9wIHN0b3AtY29sb3I9IiM0RDI3QTgiIG9mZnNldD0iMCUiPjwvc3RvcD4KICAgICAgICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iI0ExNjZGRiIgb2Zmc2V0PSIxMDAlIj48L3N0b3A+CiAgICAgICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDwvZGVmcz4KICAgIDxnIGlkPSJJY29uLUFyY2hpdGVjdHVyZS82NC9BcmNoX0FtYXpvbi1SZWRzaGlmdGN0XzY0IiBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8ZyBpZD0iSWNvbi1BcmNoaXRlY3R1cmUtQkcvNjQvQW5hbHl0aWNzIiBmaWxsPSJ1cmwoI2xpbmVhckdyYWRpZW50LTEpIj4KICAgICAgICAgICAgPHJlY3QgaWQ9IlJlY3RhbmdsZSIgeD0iMCIgeT0iMCIgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIj48L3JlY3Q+CiAgICAgICAgPC9nPgogICAgICAgIDxwYXRoIGQ9Ik01MC44MjUwMzU1LDM1LjE3MDQ4ODUgQzQ5Ljc2NTIwNjksMzUuMTcwNDg4NSA0OC45MDQxNTg2LDM0LjMxMTA2NjggNDguOTA0MTU4NiwzMy4yNTQyMzczIEM0OC45MDQxNTg2LDMyLjE5NzQwNzggNDkuNzY1MjA2OSwzMS4zMzY5ODkgNTAuODI1MDM1NSwzMS4zMzY5ODkgQzUxLjg4Mzg2NTIsMzEuMzM2OTg5IDUyLjc0NDkxMzUsMzIuMTk3NDA3OCA1Mi43NDQ5MTM1LDMzLjI1NDIzNzMgQzUyLjc0NDkxMzUsMzQuMzExMDY2OCA1MS44ODM4NjUyLDM1LjE3MDQ4ODUgNTAuODI1MDM1NSwzNS4xNzA0ODg1IE00NS45NTk0MTMzLDQ2LjgyNDUyNjQgQzQ0LjkwMDU4MzYsNDYuODI0NTI2NCA0NC4wMzk1MzUzLDQ1Ljk2NTEwNDcgNDQuMDM5NTM1Myw0NC45MDgyNzUyIEM0NC4wMzk1MzUzLDQzLjg1MTQ0NTcgNDQuOTAwNTgzNiw0Mi45OTIwMjM5IDQ1Ljk1OTQxMzMsNDIuOTkyMDIzOSBDNDcuMDE4MjQzLDQyLjk5MjAyMzkgNDcuODgwMjkwMiw0My44NTE0NDU3IDQ3Ljg4MDI5MDIsNDQuOTA4Mjc1MiBDNDcuODgwMjkwMiw0NS45NjUxMDQ3IDQ3LjAxODI0Myw0Ni44MjQ1MjY0IDQ1Ljk1OTQxMzMsNDYuODI0NTI2NCBNMzQuMjgyMzE5NSw0NC44ODIzNTI5IEMzMy4yMjQ0ODg3LDQ0Ljg4MjM1MjkgMzIuMzYzNDQwNCw0NC4wMjI5MzEyIDMyLjM2MzQ0MDQsNDIuOTY2MTAxNyBDMzIuMzYzNDQwNCw0MS45MDkyNzIyIDMzLjIyNDQ4ODcsNDEuMDQ4ODUzNCAzNC4yODIzMTk1LDQxLjA0ODg1MzQgQzM1LjM0MjE0ODIsNDEuMDQ4ODUzNCAzNi4yMDMxOTY1LDQxLjkwOTI3MjIgMzYuMjAzMTk2NSw0Mi45NjYxMDE3IEMzNi4yMDMxOTY1LDQ0LjAyMjkzMTIgMzUuMzQyMTQ4Miw0NC44ODIzNTI5IDM0LjI4MjMxOTUsNDQuODgyMzUyOSBNMjkuNDE3Njk2Miw1NS41NjUzMDQxIEMyOC4zNTk4NjU0LDU1LjU2NTMwNDEgMjcuNDk3ODE4Miw1NC43MDU4ODI0IDI3LjQ5NzgxODIsNTMuNjQ5MDUyOCBDMjcuNDk3ODE4Miw1Mi41OTIyMjMzIDI4LjM1OTg2NTQsNTEuNzMyODAxNiAyOS40MTc2OTYyLDUxLjczMjgwMTYgQzMwLjQ3NzUyNDgsNTEuNzMyODAxNiAzMS4zMzg1NzMyLDUyLjU5MjIyMzMgMzEuMzM4NTczMiw1My42NDkwNTI4IEMzMS4zMzg1NzMyLDU0LjcwNTg4MjQgMzAuNDc3NTI0OCw1NS41NjUzMDQxIDI5LjQxNzY5NjIsNTUuNTY1MzA0MSBNNTAuODI1MDM1NSwyOS4zNDI5NzExIEM0OC42NjQ0MjM1LDI5LjM0Mjk3MTEgNDYuOTA2MzY2NiwzMS4wOTc3MDY5IDQ2LjkwNjM2NjYsMzMuMjU0MjM3MyBDNDYuOTA2MzY2NiwzNC41NzYyNzEyIDQ3LjU3MDYzMjUsMzUuNzQxNzc0NyA0OC41ODA1MTYzLDM2LjQ1MDY0ODEgTDQ2Ljc1MjUzNjcsNDEuMDc4NzYzNyBDNDYuNDk1ODIwNCw0MS4wMjU5MjIyIDQ2LjIzMDExNDEsNDAuOTk4MDA2IDQ1Ljk1OTQxMzMsNDAuOTk4MDA2IEM0NC4yNDEzMTIyLDQwLjk5ODAwNiA0Mi43OTM5MTIsNDIuMTE0NjU2IDQyLjI2NzQ5MzgsNDMuNjU1MDM0OSBMMzguMTc3MDE0OSw0Mi43MjY4MTk1IEMzOC4wNTAxNTUxLDQwLjY4Mzk0ODIgMzYuMzYyMDIwOSwzOS4wNTQ4MzU1IDM0LjI4MjMxOTUsMzkuMDU0ODM1NSBDMzIuMTIyNzA2NSwzOS4wNTQ4MzU1IDMwLjM2NTY0ODUsNDAuODA5NTcxMyAzMC4zNjU2NDg1LDQyLjk2NjEwMTcgQzMwLjM2NTY0ODUsNDMuOTc0MDc3OCAzMC43NTkyMTM1LDQ0Ljg4NTM0NCAzMS4zODk1MTY4LDQ1LjU3OTI2MjIgTDI5LjYwNDQ4OTgsNDkuNzU3NzI2OCBDMjkuNTQwNTYwNCw0OS43NTM3Mzg4IDI5LjQ4MTYyNTYsNDkuNzM4NzgzNiAyOS40MTc2OTYyLDQ5LjczODc4MzYgQzI3LjI1ODA4MzIsNDkuNzM4NzgzNiAyNS41MDAwMjYzLDUxLjQ5MjUyMjQgMjUuNTAwMDI2Myw1My42NDkwNTI4IEMyNS41MDAwMjYzLDU1LjgwNDU4NjIgMjcuMjU4MDgzMiw1Ny41NTkzMjIgMjkuNDE3Njk2Miw1Ny41NTkzMjIgQzMxLjU3ODMwODIsNTcuNTU5MzIyIDMzLjMzNjM2NTEsNTUuODA0NTg2MiAzMy4zMzYzNjUxLDUzLjY0OTA1MjggQzMzLjMzNjM2NTEsNTIuMjY1MjA0NCAzMi42MDkxNjg4LDUxLjA1NDgzNTUgMzEuNTE5MzczMyw1MC4zNTg5MjMyIEwzMy4wOTQ2MzIyLDQ2LjY3Mjk4MTEgQzMzLjQ3MjIxNDksNDYuNzkzNjE5MSAzMy44NjU3Nzk5LDQ2Ljg3NjM3MDkgMzQuMjgyMzE5NSw0Ni44NzYzNzA5IEMzNS44MjM2MTYsNDYuODc2MzcwOSAzNy4xNDcxNTMxLDQ1Ljk3NjA3MTggMzcuNzg1NDQ3Nyw0NC42ODI5NTExIEw0Mi4xMTg2NTgzLDQ1LjY2NjAwMiBDNDIuNDczMjY2NCw0Ny40NjA2MTgxIDQ0LjA1OTUxMzIsNDguODE4NTQ0NCA0NS45NTk0MTMzLDQ4LjgxODU0NDQgQzQ4LjEyMDAyNTIsNDguODE4NTQ0NCA0OS44NzgwODIxLDQ3LjA2NDgwNTYgNDkuODc4MDgyMSw0NC45MDgyNzUyIEM0OS44NzgwODIxLDQzLjc0Mjc3MTcgNDkuMzUzNjYxNyw0Mi43MDY4Nzk0IDQ4LjU0MDU2MDQsNDEuOTg5MDMyOSBMNTAuNDYxNDM3NCwzNy4xMjc2MTcxIEM1MC41ODMzMDI3LDM3LjEzOTU4MTMgNTAuNzAwMTczNSwzNy4xNjQ1MDY1IDUwLjgyNTAzNTUsMzcuMTY0NTA2NSBDNTIuOTg0NjQ4NSwzNy4xNjQ1MDY1IDU0Ljc0MjcwNTQsMzUuNDA5NzcwNyA1NC43NDI3MDU0LDMzLjI1NDIzNzMgQzU0Ljc0MjcwNTQsMzEuMDk3NzA2OSA1Mi45ODQ2NDg1LDI5LjM0Mjk3MTEgNTAuODI1MDM1NSwyOS4zNDI5NzExIE00MCw2Ni4wMDU5ODIxIEMzMC4yNjg3NTU2LDY2LjAwNTk4MjEgMjIuOTk3NzkxOSw2My4wODQ3NDU4IDIyLjk5Nzc5MTksNjAuNDcyNTgyMyBMMjIuOTk3NzkxOSwyMy4xNTE1NDU0IEMyNi4zMDgxMzMxLDI1Ljg0MTQ3NTYgMzMuMzE1Mzg4MywyNy4yNjMyMTA0IDQwLjAyMDk3NjgsMjcuMjYzMjEwNCBDNDYuNjk2NTk4NSwyNy4yNjMyMTA0IDUzLjY3Mzg4NjgsMjUuODUzNDM5NyA1Ny4wMDIyMDgxLDIzLjE4NjQ0MDcgTDU3LjAwMjIwODEsNjAuNDcyNTgyMyBDNTcuMDAyMjA4MSw2My4wODQ3NDU4IDQ5LjczMDI0NTUsNjYuMDA1OTgyMSA0MCw2Ni4wMDU5ODIxIE00MC4wMjA5NzY4LDEzLjk5NDAxNzkgQzUwLjAyNzkxNjUsMTMuOTk0MDE3OSA1Ny4wMDIyMDgxLDE2Ljk2NTEwNDcgNTcuMDAyMjA4MSwxOS42MzIxMDM3IEM1Ny4wMDIyMDgxLDIyLjI5ODEwNTcgNTAuMDI3OTE2NSwyNS4yNjkxOTI0IDQwLjAyMDk3NjgsMjUuMjY5MTkyNCBDMzAuMDEzMDM4MiwyNS4yNjkxOTI0IDIzLjAzOTc0NTUsMjIuMjk4MTA1NyAyMy4wMzk3NDU1LDE5LjYzMjEwMzcgQzIzLjAzOTc0NTUsMTYuOTY1MTA0NyAzMC4wMTMwMzgyLDEzLjk5NDAxNzkgNDAuMDIwOTc2OCwxMy45OTQwMTc5IE01OSwxOS42MzIxMDM3IEM1OSwxNC42NzQ5NzUxIDQ5LjIyMTgwNzUsMTIgNDAuMDIwOTc2OCwxMiBDMzAuODIwMTQ2MiwxMiAyMS4wNDE5NTM2LDE0LjY3NDk3NTEgMjEuMDQxOTUzNiwxOS42MzIxMDM3IEMyMS4wNDE5NTM2LDE5LjY0MDA3OTggMjEuMDQzOTUxNCwxOS42NDkwNTI4IDIxLjA0Mzk1MTQsMTkuNjU3MDI4OSBMMjEsMTkuNjU3MDI4OSBMMjEsNjAuNDcyNTgyMyBDMjEsNjUuMzYxOTE0MyAzMC43ODkxODA0LDY4IDQwLDY4IEM0OS4yMTA4MTk2LDY4IDU5LDY1LjM2MTkxNDMgNTksNjAuNDcyNTgyMyBMNTksMTkuNjU3MDI4OSBMNTguOTk4MDAyMiwxOS42NTcwMjg5IEM1OC45OTgwMDIyLDE5LjY0OTA1MjggNTksMTkuNjQwMDc5OCA1OSwxOS42MzIxMDM3IiBpZD0iQW1hem9uLVJlZHNoaWZ0X0ljb25fNjRfU3F1aWQiIGZpbGw9IiNGRkZGRkYiPjwvcGF0aD4KICAgIDwvZz4KPC9zdmc+"
+
+    def disconnect(self):
+        with contextlib.suppress(Exception):
+            self.conn.close()
+
+    def list_object_types(self):
+        return {
+            "database": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+        }
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            rows = self._query("SHOW DATABASES;")
+            return [
+                ConnectionObject({"name": row["database_name"], "kind": "database"}) for row in rows
+            ]
+
+        if len(path) == 1:
+            database = path[0]
+            if database.kind != "database":
+                raise ValueError("Expected database on path position 0.", f"Path: {path}")
+            database_ident = self._qualify(database.name)
+            rows = self._query(f"SHOW SCHEMAS FROM DATABASE {database_ident};")
+            return [
+                ConnectionObject(
+                    {
+                        "name": row["schema_name"],
+                        "kind": "schema",
+                    }
+                )
+                for row in rows
+            ]
+
+        if len(path) == 2:
+            database, schema = path
+            if database.kind != "database" or schema.kind != "schema":
+                raise ValueError(
+                    "Expected database and schema objects at positions 0 and 1.", f"Path: {path}"
+                )
+            location = f"{self._qualify(database.name)}.{self._qualify(schema.name)}"
+            tables = self._query(f"SHOW TABLES FROM SCHEMA {location};")
+            return [
+                ConnectionObject(
+                    {
+                        "name": row["table_name"],
+                        "kind": row["table_type"].lower(),
+                    }
+                )
+                for row in tables
+            ]
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+        if (
+            database.kind != "database"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected database, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(database.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        rows = self._query(f"SHOW COLUMNS FROM TABLE {identifier};")
+        return [
+            ConnectionObjectFields(
+                {
+                    "name": row["column_name"],
+                    "dtype": row["data_type"],
+                }
+            )
+            for row in rows
+        ]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+        if (
+            database.kind != "database"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected database, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(database.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        sql = f"SELECT * FROM {identifier} LIMIT 1000;"
+
+        with self.conn.cursor() as cursor:
+            try:
+                cursor.execute(sql)
+                frame = cursor.fetch_dataframe()
+            except Exception:
+                # Rollback on error to avoid transaction issues
+                # for subsequent queries
+                self.conn.rollback()
+                raise
+
+        var_name = var_name or "conn"
+        return frame, (
+            f"with {var_name}.cursor() as cursor:\n"
+            f"    cursor.execute({sql!r})\n"
+            f"    {table.name} = cursor.fetch_dataframe()"
+        )
+
+    def _query(self, sql: str) -> list[dict[str, Any]]:
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            description = cursor.description or []
+            columns = [col[0] for col in description]
+            return [dict(zip(columns, row)) for row in rows]
+        except Exception:
+            # Rollback on error to avoid transaction issues
+            # for subsequent queries
+            self.conn.rollback()
+            raise
+        finally:
+            cursor.close()
+
+    def _qualify(self, identifier: str) -> str:
+        escaped = identifier.replace('"', '""')
+        return f'"{escaped}"'
+
+    def _make_code(self) -> str:
+        return (
+            "# Requires redshift-connector package\n"
+            "# Authentication steps may be incomplete, adjust as needed.\n"
+            "import redshift_connector\n"
+            "con = redshift_connector.connect(\n"
+            "    iam = True,\n"
+            f"    host = '{self.host}',\n"
             ")\n"
             "%connection_show con\n"
         )
