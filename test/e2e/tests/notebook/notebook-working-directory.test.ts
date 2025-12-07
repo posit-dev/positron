@@ -18,7 +18,7 @@ test.describe('Notebook Working Directory Configuration', {
 	// Web tag removed: path resolution is browser-agnostic; Electron provides full coverage
 }, () => {
 
-	test.beforeAll(async function ({ hotKeys }) {
+	test.beforeAll(async function ({ hotKeys, python }) {
 		await hotKeys.notebookLayout();
 	});
 
@@ -64,7 +64,7 @@ test.describe('Notebook Working Directory Configuration', {
 		});
 	});
 
-	test('A hardcoded path works', async function ({ app, settings }) {
+	test('A hardcoded path works', async function ({ app, settings, python }) {
 		// Make a temp dir
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notebook-test'));
 		await settings.set({
@@ -77,7 +77,6 @@ test.describe('Notebook Working Directory Configuration', {
 
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
 	await notebooks.openNotebook('working-directory.ipynb');
-	await notebooks.selectInterpreter('Python');
 	await notebooks.runAllCells({ timeout: 5000 });
 	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`), 0, { timeout: 30000 });
 }
