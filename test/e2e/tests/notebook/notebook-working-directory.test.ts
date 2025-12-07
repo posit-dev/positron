@@ -6,7 +6,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { Notebooks } from '../../pages/notebooks.js';
 
 test.use({
@@ -78,14 +78,6 @@ test.describe('Notebook Working Directory Configuration', {
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
 	await notebooks.openNotebook('working-directory.ipynb');
 	await notebooks.selectInterpreter('Python');
-
-	await expect(async () => {
-		try {
-			await notebooks.runAllCells({ timeout: 5000 });
-			await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`), 0, { timeout: 5000 });
-		} catch (e) {
-			await notebooks.interruptButton.click({ timeout: 3000 }).catch(() => { });
-			throw e;
-		}
-	}, 'Expect working directory to end with: ' + expectedEnd).toPass({ timeout: 30000 });
+	await notebooks.runAllCells({ timeout: 5000 });
+	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`), 0, { timeout: 30000 });
 }
