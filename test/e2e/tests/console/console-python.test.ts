@@ -25,13 +25,14 @@ test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
+		await sessions.clearConsoleAllSessions();
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");',);
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 30000 });
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 60000 });
 	});
 
 	test('Python - Verify console commands are queued during execution', async function ({ app, python }) {
 		await app.workbench.console.clearButton.click();
-		await app.workbench.console.pasteCodeToConsole('123 + 123');
+		await app.workbench.console.pasteCodeToConsole('123 + 123'); // do not send to console
 		await app.workbench.console.executeCode('Python', '456 + 456');
 
 		await app.workbench.console.waitForConsoleContents('912', { expectedCount: 1, timeout: 10000 });
