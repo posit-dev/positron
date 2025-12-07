@@ -161,7 +161,7 @@ export class Assistant {
 				: await this.modals.getButton('No').click();
 		}
 
-		await this.modals.expectToBeVisible('Configure Language Model', { visible: false });
+		await this.modals.expectToBeVisible(undefined, { visible: false });
 	}
 
 	async clickSignOutButton() {

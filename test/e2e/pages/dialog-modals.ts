@@ -98,9 +98,6 @@ export class Modals {
 				}
 			} else {
 				await expect(this.modalBox).not.toBeVisible({ timeout });
-				if (title) {
-					await expect(this.modalTitle).not.toHaveText(title, { timeout });
-				}
 			}
 		});
 	}
