@@ -22,6 +22,35 @@ import { workspaceFromPath } from '../spec/spec-utils/workspaces';
 import { makeLog, LogLevel } from '../spec/spec-utils/log';
 
 /**
+ * Format an error for logging, handling both Error instances and docker command errors
+ * which have stdout/stderr/code properties.
+ */
+function formatError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === 'object' && error !== null) {
+		// Handle docker command errors which have stdout/stderr/code
+		const err = error as { message?: string; stderr?: Buffer; code?: number };
+		const parts: string[] = [];
+		if (err.message) {
+			parts.push(err.message);
+		}
+		if (err.stderr && Buffer.isBuffer(err.stderr)) {
+			const stderrText = err.stderr.toString().trim();
+			if (stderrText) {
+				parts.push(stderrText);
+			}
+		}
+		if (err.code !== undefined) {
+			parts.push(`Exit code: ${err.code}`);
+		}
+		return parts.length > 0 ? parts.join(' - ') : JSON.stringify(error);
+	}
+	return String(error);
+}
+
+/**
  * Options for creating/starting a dev container
  */
 export interface DevContainerOptions {
@@ -368,29 +397,8 @@ export class DevContainerManager {
 			const params = await this.createDockerParams();
 			await dockerCLI(params, 'start', containerId);
 			logger.info(`Container started: ${containerId}`);
-		} catch (error: any) {
-			let errorMsg = 'Unknown error';
-			if (error instanceof Error) {
-				errorMsg = error.message;
-			} else if (typeof error === 'object' && error !== null) {
-				// Handle docker command errors which have stdout/stderr/code
-				const parts: string[] = [];
-				if (error.message) {
-					parts.push(error.message);
-				}
-				if (error.stderr && Buffer.isBuffer(error.stderr)) {
-					const stderrText = error.stderr.toString().trim();
-					if (stderrText) {
-						parts.push(stderrText);
-					}
-				}
-				if (error.code !== undefined) {
-					parts.push(`Exit code: ${error.code}`);
-				}
-				errorMsg = parts.length > 0 ? parts.join(' - ') : JSON.stringify(error);
-			} else {
-				errorMsg = String(error);
-			}
+		} catch (error) {
+			const errorMsg = formatError(error);
 			logger.error(`Failed to start container: ${errorMsg}`, error);
 			throw new Error(`Failed to start container: ${errorMsg}`);
 		}
@@ -544,7 +552,8 @@ export class DevContainerManager {
 			logger.debug('Docker is available');
 			return true;
 		} catch (error) {
-			logger.warn('Docker not available:', error instanceof Error ? error.message : String(error));
+			const errorMsg = formatError(error);
+			logger.warn(`Docker not available: ${errorMsg}`, error);
 			if (error instanceof Error && error.stack) {
 				logger.debug('Stack trace:', error.stack);
 			}
