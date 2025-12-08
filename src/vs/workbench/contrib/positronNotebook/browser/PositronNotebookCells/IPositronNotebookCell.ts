@@ -189,6 +189,12 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	get container(): HTMLElement | undefined;
 
 	/**
+	 * Get the notebook container that this cell belongs to.
+	 * @returns The notebook container element, or undefined if not available
+	 */
+	getNotebookContainer(): HTMLElement | undefined;
+
+	/**
 	 * Check if this cell is currently visible in the viewport.
 	 * A cell is considered visible if at least {@link MIN_CELL_VISIBILITY_RATIO} of it is within the viewport.
 	 * @returns true if the cell is visible, false otherwise
