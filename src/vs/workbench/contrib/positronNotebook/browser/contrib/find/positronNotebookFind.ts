@@ -71,6 +71,31 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	public readonly matchIndex = observableValue<number | undefined>('findStateMatchIndex', undefined);
 	public readonly matchCount = observableValue<number | undefined>('findStateMatchCount', undefined);
 
+	// TODO: Or should we always just dispose the previous and create a new one?...
+	// Case 1: Renderer exists -> widget is visible? don't rerender & just take focus?
+	// Case 2: No renderer -> create & render
+	private getOrCreateRenderer(onDisposed: () => void): PositronModalReactRenderer {
+		if (!this._renderer.value) {
+			if (!this._notebook.container?.parentElement) {
+				throw new Error('Notebook container not available for Find Widget rendering');
+			}
+
+			this._renderer.value = new PositronModalReactRenderer({
+				container: this._notebook.container.parentElement,
+				disableCaptures: true, // permits the usage of the enter key where applicable
+				// TODO: Do we need to do these things here? or when find widget closes?
+				onDisposed,
+				// onDisposed: () => {
+				// disposables.dispose();
+				// findWidgetVisible.reset();
+				// findInputFocused.reset();
+				// }
+			});
+		}
+
+		return this._renderer.value;
+	}
+
 	public start(): void {
 		if (!this._notebook.scopedContextKeyService) {
 			return;
@@ -95,22 +120,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			console.log('Find in selection toggled');
 		}));
 
-		if (!this._renderer.value) {
-			if (!this._notebook.container?.parentElement) {
-				return;
-			}
-
-			this._renderer.value = new PositronModalReactRenderer({
-				container: this._notebook.container.parentElement,
-				disableCaptures: true, // permits the usage of the enter key where applicable
-				onDisposed: () => {
-					// activeFindWidgets.delete(container);
-					disposables.dispose();
-					findWidgetVisible.reset();
-					findInputFocused.reset();
-				}
-			});
-		}
+		// TODO: Better lifecycle mgmt. Bug here if there is an existing renderer. We still render a new widget and create new disposables
+		const renderer = this.getOrCreateRenderer(() => {
+			disposables.dispose();
+			findWidgetVisible.reset();
+			findInputFocused.reset();
+		});
 
 		const findWidget = React.createElement(PositronFindWidget, {
 			findInputOptions: {
@@ -150,7 +165,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Do the initial search
 		this.research(this.searchString.get());
 
-		this._renderer.value.render(findWidget);
+		renderer.render(findWidget);
 
 		// TODO: onVisible?
 		findWidgetVisible.set(true);
