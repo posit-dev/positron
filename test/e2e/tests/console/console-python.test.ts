@@ -17,6 +17,7 @@ test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, 
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
 		await sessions.start('pythonAlt');
+		await sessions.clearConsoleAllSessions();
 		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
 		await app.workbench.console.waitForConsoleContents('site-packages');
 		await sessions.deleteAll();
