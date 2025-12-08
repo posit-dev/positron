@@ -18,6 +18,7 @@ import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
+import { discoverPixiBinaries } from './provider-pixi.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -34,6 +35,9 @@ export interface RBinary {
 	path: string;
 	reasons: ReasonDiscovered[];
 	condaEnvironmentPath?: string;
+	pixiEnvironmentPath?: string;
+	pixiManifestPath?: string;
+	pixiEnvironmentName?: string;
 }
 
 interface DiscoveredBinaries {
@@ -49,6 +53,7 @@ export enum RRuntimeSource {
 	user = 'User',
 	homebrew = 'Homebrew',
 	conda = 'Conda',
+	pixi = 'Pixi',
 }
 
 /**
@@ -70,7 +75,15 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Promote R binaries to R installations, filtering out any rejected R installations
 	const rejectedRInstallations: RInstallation[] = [];
 	const rInstallations: RInstallation[] = binaries
-		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons, rbin.condaEnvironmentPath))
+		.map(rbin => new RInstallation(
+			rbin.path,
+			rbin.path === currentBinary,
+			rbin.reasons,
+			rbin.condaEnvironmentPath,
+			rbin.pixiEnvironmentPath,
+			rbin.pixiManifestPath,
+			rbin.pixiEnvironmentName
+		))
 		.filter(r => {
 			if (!r.usable) {
 				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
@@ -162,6 +175,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const currentBinaries = await currentRBinaryCandidates();
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
+	const pixiBinaries = await discoverPixiBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -177,6 +191,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 		...currentBinaries,
 		...systemBinaries,
 		...condaBinaries,
+		...pixiBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -238,12 +253,14 @@ export async function makeMetadata(
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
 	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
+	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
 
-	// Be sure to check for conda installations first, as conda can be installed via Homebrew
+	// Be sure to check for pixi/conda installations first, as they can be installed via Homebrew
 	const runtimeSource =
-		isCondaInstallation ? RRuntimeSource.conda :
-			isHomebrewInstallation ? RRuntimeSource.homebrew :
-				isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
+		isPixiInstallation ? RRuntimeSource.pixi :
+			isCondaInstallation ? RRuntimeSource.conda :
+				isHomebrewInstallation ? RRuntimeSource.homebrew :
+					isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
@@ -251,7 +268,9 @@ export async function makeMetadata(
 	// Full name shown to users
 	const condaAmendment = rInst.condaEnvironmentPath ?
 		` (Conda: ${path.basename(rInst.condaEnvironmentPath)})` : '';
-	const runtimeName = `R ${runtimeShortName}${condaAmendment}`;
+	const pixiAmendment = rInst.pixiEnvironmentPath ?
+		` (Pixi: ${rInst.pixiEnvironmentName || path.basename(rInst.pixiEnvironmentPath)})` : '';
+	const runtimeName = `R ${runtimeShortName}${condaAmendment}${pixiAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.
@@ -276,6 +295,9 @@ export async function makeMetadata(
 		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 		condaEnvironmentPath: rInst.condaEnvironmentPath,
+		pixiEnvironmentPath: rInst.pixiEnvironmentPath,
+		pixiManifestPath: rInst.pixiManifestPath,
+		pixiEnvironmentName: rInst.pixiEnvironmentName,
 	};
 
 	// Check the kernel supervisor's configuration; if it's configured to

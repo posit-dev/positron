@@ -286,6 +286,16 @@
             ],
             "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
           },
+          "positron.r.interpreters.pixiDiscovery": {
+            "scope": "resource",
+            "type": "boolean",
+            "default": false,
+            "tags": [
+              "interpreterSettings",
+              "experimental"
+            ],
+            "markdownDescription": "%r.configuration.interpreters.pixiDiscovery.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",

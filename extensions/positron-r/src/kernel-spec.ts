@@ -13,6 +13,7 @@ import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { findCondaExe } from './provider-conda';
+import { findPixiExe } from './provider-pixi';
 import { LOGGER } from './extension';
 
 /**
@@ -166,6 +167,112 @@ async function captureCondaEnvVarsWindows(env: Record<string, string>, envPath: 
 }
 
 /**
+ * JSON output format from `pixi shell-hook --json`
+ */
+interface PixiShellHookJson {
+	// Environment variables to set (new values)
+	export_env: Record<string, string>;
+	// Environment variables to unset
+	unset_env: string[];
+}
+
+/**
+ * Capture Pixi environment variables by running `pixi shell-hook --json` and parsing
+ * the JSON output. This is more reliable than parsing shell scripts.
+ *
+ * @param env The environment record to populate with pixi variables
+ * @param manifestPath The path to the pixi manifest file (pixi.toml or pyproject.toml)
+ * @param envName The name of the pixi environment
+ * @returns A promise that resolves when activation is complete
+ */
+async function capturePixiEnvVars(
+	env: Record<string, string>,
+	manifestPath: string,
+	envName?: string
+): Promise<void> {
+	const pixiExe = await findPixiExe();
+	if (!pixiExe) {
+		// This shouldn't happen since we discovered the environment via pixi
+		LOGGER.error('Could not find pixi executable for environment activation');
+		return;
+	}
+
+	let cancelled = false;
+
+	const doActivation = (): void => {
+		try {
+			let command = `"${pixiExe}" shell-hook --manifest-path "${manifestPath}" --json`;
+			if (envName && envName !== 'default') {
+				command += ` --environment "${envName}"`;
+			}
+			LOGGER.debug(`Running to capture Pixi variables: ${command}`);
+			const output = execSync(command, { encoding: 'utf8', timeout: 30000 });
+
+			if (cancelled) {
+				throw new Error('Pixi activation cancelled by user');
+			}
+
+			// Parse JSON output
+			const hookData: PixiShellHookJson = JSON.parse(output);
+
+			// Apply exported environment variables
+			for (const [key, value] of Object.entries(hookData.export_env)) {
+				env[key] = value;
+				LOGGER.trace(`Set ${key}=${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+			}
+
+			// Note: We don't handle unset_env here since we're building a fresh env record
+		} catch (e) {
+			LOGGER.error('Failed to capture pixi environment variables:', e.message);
+			if (e.stdout) {
+				LOGGER.error('stdout:', e.stdout);
+			}
+			if (e.stderr) {
+				LOGGER.error('stderr:', e.stderr);
+			}
+			// Don't fall back to speculative values - if pixi shell-hook fails,
+			// the R session will start without environment activation.
+			// R_HOME is already set, so basic functionality should still work.
+		}
+	};
+
+	const activationPromise = new Promise<void>((resolve) => {
+		doActivation();
+		resolve();
+	});
+
+	// Show progress toast if activation takes longer than 2 seconds
+	const progressDelay = 2000;
+	let showProgress = true;
+
+	const timeoutPromise = new Promise<void>((resolve) => {
+		setTimeout(() => {
+			if (showProgress) {
+				vscode.window.withProgress(
+					{
+						location: vscode.ProgressLocation.Notification,
+						title: vscode.l10n.t("Activating Pixi environment '{0}'...", envName || 'default'),
+						cancellable: true
+					},
+					async (_progress, token) => {
+						token.onCancellationRequested(() => {
+							cancelled = true;
+							LOGGER.info('User cancelled pixi activation');
+						});
+						await activationPromise;
+					}
+				);
+			}
+			resolve();
+		}, progressDelay);
+	});
+
+	await Promise.race([activationPromise, timeoutPromise]);
+	showProgress = false;
+	await activationPromise;
+}
+
+/**
  * Create a new Jupyter kernel spec.
  *
  * @param rHomePath The R_HOME path for the R version
@@ -180,7 +287,14 @@ export async function createJupyterKernelSpec(
 	rHomePath: string,
 	runtimeName: string,
 	sessionMode: positron.LanguageRuntimeSessionMode,
-	options?: { rBinaryPath?: string; rArchitecture?: string; condaEnvironmentPath?: string }): Promise<JupyterKernelSpec> {
+	options?: {
+		rBinaryPath?: string;
+		rArchitecture?: string;
+		condaEnvironmentPath?: string;
+		pixiEnvironmentPath?: string;
+		pixiManifestPath?: string;
+		pixiEnvironmentName?: string;
+	}): Promise<JupyterKernelSpec> {
 
 	// Path to the kernel executable
 	const kernelPath = getArkKernelPath({
@@ -239,6 +353,14 @@ export async function createJupyterKernelSpec(
 		}
 	}
 
+	// If this R is from a pixi environment, activate the pixi environment
+	// to ensure that compilation tools and other dependencies are available
+	if (options?.pixiManifestPath) {
+		// For Pixi, we capture environment variables directly on all platforms
+		// since pixi shell-hook --json provides a consistent interface
+		await capturePixiEnvVars(env, options.pixiManifestPath, options.pixiEnvironmentName);
+	}
+
 	// R script to run on session startup
 	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
 
@@ -258,13 +380,13 @@ export async function createJupyterKernelSpec(
 	}
 
 	// On Windows, we need to tell ark to use a different DLL search path when
-	// dealing with Conda environments. Conda R installations have DLL
+	// dealing with Conda/Pixi environments. These R installations have DLL
 	// dependencies in non-standard locations. These locations are part of the
-	// PATH set during Conda activation, but by default Ark has a more limited set
+	// PATH set during environment activation, but by default Ark has a more limited set
 	// of directories it searches for DLLs. The `--standard-dll-search-order`
-	// option tells Ark  to use Windows' standard DLL search path, which includes
+	// option tells Ark to use Windows' standard DLL search path, which includes
 	// the PATH entries.
-	if (process.platform === 'win32' && options?.condaEnvironmentPath) {
+	if (process.platform === 'win32' && (options?.condaEnvironmentPath || options?.pixiEnvironmentPath)) {
 		argv.push('--standard-dll-search-order');
 	}
 
