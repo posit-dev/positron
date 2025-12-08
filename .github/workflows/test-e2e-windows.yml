@@ -160,18 +160,45 @@ jobs:
         shell: pwsh
         # Parallel install strategy:
         # 1. Pre-install build/ so postinstall can access gulp-merge-json
-        # 2. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
-        # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
-        # 4. test/e2e is not in postinstall list, so we install it separately
+        # 2. Run root and test/e2e npm ci in parallel as background jobs
+        # 3. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
+        # 4. Postinstall skips build/ since it's already installed (avoids duplicate work)
         run: |
           # Pre-install build directory (required by postinstall for gulp-merge-json)
           npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
+          # Run root and test/e2e installs in parallel
+          $jobs = @()
+
           # Root install triggers parallel postinstall (will skip build/ automatically)
-          npm ci --no-audit --no-fund --fetch-timeout 120000
+          $jobs += Start-Job -ScriptBlock {
+            param($token)
+            $env:POSITRON_GITHUB_RO_PAT = $token
+            $env:POSITRON_PARALLEL_INSTALL = '1'
+            $env:POSITRON_NPM_CONCURRENCY = '30'
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+          } -ArgumentList "${{ github.token }}"
 
           # test/e2e not handled by postinstall (see build/npm/dirs.js)
-          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
+          $jobs += Start-Job -ScriptBlock {
+            npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
+          }
+
+          # Wait for all jobs and check for failures
+          $failed = $false
+          foreach ($job in $jobs) {
+            $job | Wait-Job | Receive-Job
+            if ($job.State -eq 'Failed') {
+              $failed = $true
+            }
+          }
+
+          if ($failed) {
+            Write-Error "One or more npm ci commands failed"
+            exit 1
+          }
+
+          Write-Host "All npm ci commands completed successfully"
 
       - name: Cache Ark binary
         uses: actions/cache@v4
