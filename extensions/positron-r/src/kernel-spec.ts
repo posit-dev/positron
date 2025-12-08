@@ -170,10 +170,7 @@ async function captureCondaEnvVarsWindows(env: Record<string, string>, envPath: 
  * JSON output format from `pixi shell-hook --json`
  */
 interface PixiShellHookJson {
-	// Environment variables to set (new values)
-	export_env: Record<string, string>;
-	// Environment variables to unset
-	unset_env: string[];
+	environment_variables: Record<string, string>;
 }
 
 /**
@@ -215,13 +212,11 @@ async function capturePixiEnvVars(
 			// Parse JSON output
 			const hookData: PixiShellHookJson = JSON.parse(output);
 
-			// Apply exported environment variables
-			for (const [key, value] of Object.entries(hookData.export_env)) {
+			// Apply environment variables
+			for (const [key, value] of Object.entries(hookData.environment_variables)) {
 				env[key] = value;
 				LOGGER.trace(`Set ${key}=${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
 			}
-
-			// Note: We don't handle unset_env here since we're building a fresh env record
 		} catch (e) {
 			LOGGER.error('Failed to capture pixi environment variables:', e.message);
 			if (e.stdout) {
