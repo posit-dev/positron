@@ -55,6 +55,9 @@ export class PositronFindInstance extends Disposable {
 	private readonly _isVisible = observableValue('findStateIsVisible', false);
 	private readonly _inputFocused = observableValue('findStateInputFocused', false);
 
+	public readonly isVisible: IObservable<boolean> = this._isVisible;
+	public readonly inputFocused: IObservable<boolean> = this._inputFocused;
+
 	constructor(
 		private readonly _options: IPositronFindInstanceOptions
 	) {
@@ -72,14 +75,6 @@ export class PositronFindInstance extends Disposable {
 				});
 			}
 		}));
-	}
-
-	public get isVisible(): IObservable<boolean> {
-		return this._isVisible;
-	}
-
-	public get inputFocused(): IObservable<boolean> {
-		return this._inputFocused;
 	}
 
 	/**
@@ -130,7 +125,6 @@ export class PositronFindInstance extends Disposable {
 	 * Hides the find widget.
 	 */
 	public hide(): void {
-		// TODO: Make isVisible public readonly?
 		this._isVisible.set(false, undefined);
 	}
 }
