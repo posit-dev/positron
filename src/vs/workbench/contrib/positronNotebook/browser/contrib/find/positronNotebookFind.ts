@@ -139,9 +139,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			},
 		});
 
+		// Research when the search string changes e.g. as the user types
+		// TODO: debounce & delay
 		disposables.add(runOnChange(this.searchString, (searchString) => {
 			this.research(searchString);
 		}));
+
+		// Do the initial search
+		this.research(this.searchString.get());
 
 		this._renderer.value.render(findWidget);
 
