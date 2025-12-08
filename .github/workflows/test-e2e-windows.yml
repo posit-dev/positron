@@ -202,6 +202,7 @@ jobs:
             ${{ runner.os }}-builtins-
 
       - name: Cache Playwright browsers
+        id: cache-playwright
         uses: actions/cache@v4
         with:
           path: ~\AppData\Local\ms-playwright
@@ -209,8 +210,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+
       - name: Compile and Download
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64" playwright-install
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
+
+      - name: Install Playwright browsers
+        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
+        run: npm run playwright-install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
