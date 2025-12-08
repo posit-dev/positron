@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    name: build
+    name: build-win
     timeout-minutes: 90
     runs-on:
       labels: [windows-latest-8x]
@@ -49,19 +49,6 @@ jobs:
             package-lock.json
             build/package-lock.json
             test/e2e/package-lock.json
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~\AppData\Roaming\npm-cache
-            node_modules
-            build\node_modules
-            extensions\node_modules
-            remote\node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
 
       - name: Cache centralized npm tarball cache
         uses: actions/cache@v4
@@ -273,6 +260,10 @@ jobs:
       - name: Create Build Artifact
         shell: bash
         run: |
+          # Install pigz for parallel compression (3-4x faster than gzip)
+          echo "Installing pigz for parallel compression"
+          choco install pigz -y
+
           # Copy QA example content into workspace for bundling
           mkdir -p test/e2e
           if [ -d "/c/tmp/qa-example-content-cache" ]; then
@@ -285,12 +276,15 @@ jobs:
           # Create tarball of workspace
           mkdir -p /c/tmp/artifacts
 
-          # Use tar with gzip compression (Windows has tar but not zstd by default)
-          echo "Creating gzip archive of build"
+          # Use pigz for parallel compression with fast compression level (-1)
+          echo "Creating parallel gzip archive with pigz"
           tar --exclude='.git' \
               --exclude='.npm-cache' \
               --exclude='.pip-cache' \
-              -czf /c/tmp/artifacts/positron-build.tar.gz \
+              --exclude='node_modules/.cache' \
+              --exclude='.build/logs' \
+              --use-compress-program='pigz -1' \
+              -cf /c/tmp/artifacts/positron-build.tar.gz \
               .
 
       - name: Upload Build Artifact

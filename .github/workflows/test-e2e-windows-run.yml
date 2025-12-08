@@ -136,12 +136,29 @@ jobs:
         shell: bash
         run: |
           BUILD_ARCHIVE="/c/tmp/artifacts/positron-build.tar.gz"
-          if [ ! -f "$BUILD_ARCHIVE" ]; then
-            echo "Build artifact not found at $BUILD_ARCHIVE"
+
+          if [ -f "$BUILD_ARCHIVE" ]; then
+            echo "Extracting build archive into workspace"
+
+            # Extract directly into current directory (which is the workspace)
+            if command -v pigz >/dev/null 2>&1; then
+              echo "Using pigz for parallel decompression"
+              tar --use-compress-program=pigz -xf "$BUILD_ARCHIVE" || exit 1
+            else
+              echo "Using standard gzip decompression"
+              tar -xzf "$BUILD_ARCHIVE" || exit 1
+            fi
+
+            # Clean up compressed archive to free disk space
+            echo "Cleaning up compressed archive"
+            rm -f "$BUILD_ARCHIVE"
+
+            echo "✓ Build artifact extracted successfully"
+          else
+            echo "✗ Build archive not found at $BUILD_ARCHIVE"
+            ls -la /c/tmp/artifacts || true
             exit 1
           fi
-          echo "Extracting build archive into workspace"
-          tar -xzf "$BUILD_ARCHIVE" -C "$GITHUB_WORKSPACE"
 
       - name: Validate QA cache
         shell: bash

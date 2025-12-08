@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: build
+    name: build-ubuntu
     timeout-minutes: 25
     runs-on: ubuntu-latest-8x
     container:

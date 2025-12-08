@@ -54,12 +54,12 @@ concurrency:
 
 jobs:
   setup-ubuntu:
-    name: setup-ubuntu
+    name: setup
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
   setup-win:
-    name: setup-windows
+    name: setup
     if: ${{ inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows-build.yml
     secrets: inherit
@@ -93,7 +93,7 @@ jobs:
     with:
       grep: ""
       project: "e2e-windows"
-      display_name: "electron (win)"
+      display_name: "windows"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_currents: false
       allow_soft_fail: false
