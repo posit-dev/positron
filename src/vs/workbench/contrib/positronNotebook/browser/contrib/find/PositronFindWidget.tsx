@@ -17,7 +17,7 @@ import { IObservable, ISettableObservable } from '../../../../../../base/common/
 import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { KeyCode } from '../../../../../../base/common/keyCodes.js';
+import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
@@ -79,7 +79,7 @@ export const PositronFindWidget = ({
 								onNextMatch();
 								e.preventDefault();
 								return;
-							} else if (e.equals(KeyCode.Shift | KeyCode.Enter)) {
+							} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
 								onPreviousMatch();
 								e.preventDefault();
 								return;
