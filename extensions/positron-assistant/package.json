@@ -966,7 +966,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1",
     "yaml": "^2.8.1"
   },
   "extensionDependencies": [
