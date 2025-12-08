@@ -178,6 +178,7 @@ export class TerminalBuilder {
 		const scriptExt = isWindows ? '.ps1' : '.sh';
 		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}${scriptExt}`);
 		const markerPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.done`);
+		const errorPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.error`);
 		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.id`);
 		const containerNamePath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.name`);
 
@@ -193,7 +194,8 @@ export class TerminalBuilder {
 		const generateShellScript = () => {
 			let script = '#!/bin/sh\nset -e\n\n';
 			script += '# Trap errors to keep terminal open so user can see what failed\n';
-			script += 'trap \'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; read dummy\' ERR\n\n';
+			script += '# Write error marker and exit 0 to avoid VS Code toast about exit code\n';
+			script += `trap 'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; echo "failed" > "${errorPath}"; read dummy; exit 0' ERR\n\n`;
 
 			if (rebuild) {
 				script += 'echo "==> Removing existing containers..."\n';
@@ -206,14 +208,16 @@ export class TerminalBuilder {
 		const generatePowerShellScript = () => {
 			let script = '$ErrorActionPreference = "Stop"\n\n';
 			script += '# Trap errors to keep terminal open so user can see what failed\n';
+			script += '# Write error marker and exit 0 to avoid VS Code toast about exit code\n';
 			script += 'trap {\n';
 			script += '    Write-Host ""\n';
 			script += '    Write-Host "==> ERROR: Build failed!"\n';
 			script += '    Write-Host "Error: $_" -ForegroundColor Red\n';
 			script += '    Write-Host ""\n';
+			script += `    "failed" | Out-File -FilePath "${errorPath}" -Encoding utf8\n`;
 			script += '    Write-Host "Press Enter to close this terminal..."\n';
 			script += '    Read-Host\n';
-			script += '    exit 1\n';
+			script += '    exit 0\n';
 			script += '}\n\n';
 
 			if (rebuild) {
@@ -449,8 +453,19 @@ export class TerminalBuilder {
 		const timeout = 10 * 60 * 1000; // 10 minutes
 
 		while (true) {
+			// Check for success marker
 			if (fs.existsSync(markerPath)) {
 				break;
+			}
+
+			// Check for error marker (build failed but exited cleanly)
+			if (fs.existsSync(errorPath)) {
+				// Clean up
+				try {
+					fs.unlinkSync(scriptPath);
+					fs.unlinkSync(errorPath);
+				} catch { }
+				throw new Error('Container build failed. Check the terminal output for details.');
 			}
 
 			if (Date.now() - startTime > timeout) {
@@ -480,6 +495,7 @@ export class TerminalBuilder {
 			try {
 				fs.unlinkSync(scriptPath);
 				fs.unlinkSync(markerPath);
+				fs.unlinkSync(errorPath);
 				fs.unlinkSync(containerIdPath);
 				fs.unlinkSync(containerNamePath);
 			} catch { }
