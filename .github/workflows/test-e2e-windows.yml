@@ -157,10 +157,10 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
-        shell: pwsh
+        shell: bash
         # Parallel install strategy:
         # 1. Pre-install build/ so postinstall can access gulp-merge-json
-        # 2. Run root and test/e2e npm ci in parallel as background jobs
+        # 2. Run root and test/e2e npm ci in parallel as background processes
         # 3. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
         # 4. Postinstall skips build/ since it's already installed (avoids duplicate work)
         run: |
@@ -168,37 +168,24 @@ jobs:
           npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
           # Run root and test/e2e installs in parallel
-          $jobs = @()
+          pids=()
+          npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
 
-          # Root install triggers parallel postinstall (will skip build/ automatically)
-          $jobs += Start-Job -ScriptBlock {
-            param($token)
-            $env:POSITRON_GITHUB_RO_PAT = $token
-            $env:POSITRON_PARALLEL_INSTALL = '1'
-            $env:POSITRON_NPM_CONCURRENCY = '30'
-            npm ci --no-audit --no-fund --fetch-timeout 120000
-          } -ArgumentList "${{ github.token }}"
+          # Wait for all processes and check exit codes
+          exit_code=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              exit_code=1
+            fi
+          done
 
-          # test/e2e not handled by postinstall (see build/npm/dirs.js)
-          $jobs += Start-Job -ScriptBlock {
-            npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
-          }
-
-          # Wait for all jobs and check for failures
-          $failed = $false
-          foreach ($job in $jobs) {
-            $job | Wait-Job | Receive-Job
-            if ($job.State -eq 'Failed') {
-              $failed = $true
-            }
-          }
-
-          if ($failed) {
-            Write-Error "One or more npm ci commands failed"
+          if [ $exit_code -ne 0 ]; then
+            echo "One or more npm ci commands failed"
             exit 1
-          }
+          fi
 
-          Write-Host "All npm ci commands completed successfully"
+          echo "All npm ci commands completed successfully"
 
       - name: Cache Ark binary
         uses: actions/cache@v4
