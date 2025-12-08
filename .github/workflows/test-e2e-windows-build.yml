@@ -260,10 +260,6 @@ jobs:
       - name: Create Build Artifact
         shell: bash
         run: |
-          # Install pigz for parallel compression (3-4x faster than gzip)
-          echo "Installing pigz for parallel compression"
-          choco install pigz -y
-
           # Copy QA example content into workspace for bundling
           mkdir -p test/e2e
           if [ -d "/c/tmp/qa-example-content-cache" ]; then
@@ -276,16 +272,14 @@ jobs:
           # Create tarball of workspace
           mkdir -p /c/tmp/artifacts
 
-          # Use pigz for parallel compression with fast compression level (-1)
-          echo "Creating parallel gzip archive with pigz"
+          # Use fast compression level with gzip
+          echo "Creating gzip archive with fast compression"
           tar --exclude='.git' \
               --exclude='.npm-cache' \
               --exclude='.pip-cache' \
               --exclude='node_modules/.cache' \
               --exclude='.build/logs' \
-              --use-compress-program='pigz -1' \
-              -cf /c/tmp/artifacts/positron-build.tar.gz \
-              .
+              -cf - . | gzip -1 > /c/tmp/artifacts/positron-build.tar.gz
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
