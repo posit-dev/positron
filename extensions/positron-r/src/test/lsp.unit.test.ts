@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './mocha-setup'
+import './mocha-setup';
 
 import * as assert from 'assert';
 import * as testKit from './kit';
@@ -45,7 +45,7 @@ suite('Session manager', () => {
 			// The LSP of the first session eventually goes back online
 			testKit.pollForSuccess(() => {
 				assert.strictEqual(ses1Lsp.state, ArkLspState.Running);
-			})
+			});
 
 			// We would expect the following but currently we start the LSP client
 			// anew on each activation, so the event handler is no longer active.
