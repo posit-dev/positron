@@ -6,7 +6,7 @@
 import path from 'path';
 import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
-import { copyFixtureFile, MultiLogger, Application } from '../../infra';
+import { MultiLogger, Application } from '../../infra';
 import { SPEC_NAME, ROOT_PATH } from './constants';
 
 let fixtureScreenshot: Buffer | undefined;
