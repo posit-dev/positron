@@ -152,6 +152,9 @@
     "keytar": "file:./packageMocks/keytar",
     "vscode-tas-client": "^0.1.84"
   },
+  "overrides": {
+    "jsonwebtoken": "^9.0.3"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/microsoft/vscode.git"
