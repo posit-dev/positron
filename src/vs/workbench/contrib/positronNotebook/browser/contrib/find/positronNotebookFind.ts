@@ -29,7 +29,7 @@ import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../pl
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
 import { getActiveCell } from '../../selectionMachine.js';
-import { NextMatchFindAction, PreviousMatchFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
+import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
@@ -448,5 +448,23 @@ PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEd
 	}
 
 	controller.findPrevious();
+	return true;
+});
+
+// Invoked when Cmd+F is pressed while editing a notebook cell
+StartFindAction.addImplementation(100, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+	const editorService = accessor.get(IEditorService);
+	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
+	if (!notebook) {
+		return false;
+	}
+
+	const controller = PositronNotebookFindController.get(notebook);
+	if (!controller) {
+		return false;
+	}
+
+	// TODO: Seed the search with the cursor word or selection
+	controller.start();
 	return true;
 });
