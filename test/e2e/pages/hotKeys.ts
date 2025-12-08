@@ -316,8 +316,14 @@ export class HotKeys {
 			});
 
 			// Hacky solution to get shortcut to show up as an action in the trace
-			await this.code.driver.page.evaluate(msg => {
-			}, `Shortcut: ${description}`);
+			if (!this.code.driver.page.isClosed()) {
+				try {
+					await this.code.driver.page.evaluate(msg => {
+					}, `Shortcut: ${description}`);
+				} catch (e) {
+					// Ignore - context may not be ready after navigation
+				}
+			}
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);
