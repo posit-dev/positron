@@ -304,7 +304,8 @@
 		"publisherUrl": ""
 	},
 	"trustedExtensionAuthAccess": [
-		"GitHub.copilot-chat"
+		"GitHub.copilot-chat",
+		"positron.positron-assistant"
 	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
