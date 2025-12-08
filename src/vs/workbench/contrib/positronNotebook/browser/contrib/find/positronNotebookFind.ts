@@ -161,7 +161,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	public start(): void {
 		const findInstance = this.getOrCreateFindInstance();
-		// Show the widget (autorun will trigger research)
 		findInstance.show();
 	}
 
@@ -435,16 +434,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 }
 
-// class FindInstance {
-// 	// TODO: Who should render the find instance component?...
-// }
-
 registerPositronNotebookContribution(PositronNotebookFindController.ID, PositronNotebookFindController);
 
 abstract class PositronNotebookFindAction extends NotebookAction2 {
 	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {
 		const controller = PositronNotebookFindController.get(notebook);
-		// controller.show(undefined, { findScope: { findScopeType: NotebookFindScopeType.None } });
 		if (controller) {
 			await this.runFindAction(controller);
 		}
@@ -472,7 +466,6 @@ registerAction2(class extends PositronNotebookFindAction {
 
 	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
 		controller.start();
-		// controller.show(undefined, { findScope: { findScopeType: NotebookFindScopeType.None } });
 	}
 });
 
@@ -494,7 +487,6 @@ registerAction2(class extends PositronNotebookFindAction {
 
 	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
 		controller.closeWidget();
-		// editor.focus();
 	}
 });
 
