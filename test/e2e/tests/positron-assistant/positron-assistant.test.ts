@@ -169,92 +169,95 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
-		await app.workbench.assistant.verifyManageModelsOptionVisible();
-	});
-});
-
-// Skipping web. See https://github.com/posit-dev/positron/issues/8568
-// Skippig all due to https://github.com/posit-dev/positron/issues/9402
-test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
-	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickCloseButton();
+		// sometimes the menu closes due to language model loading (?), so retry
+		await expect(async () => {
+			await app.workbench.assistant.pickModel();
+			await app.workbench.assistant.expectManageModelsVisible();
+		}).toPass({ timeout: 30000 });
 	});
 
-	test.beforeEach('Clear chat', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
-		await app.workbench.assistant.clickNewChatButton();
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
-	});
+	// Skipping web. See https://github.com/posit-dev/positron/issues/8568
+	// Skippig all due to https://github.com/posit-dev/positron/issues/9402
+	test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
+		test.beforeAll('Enable Assistant', async function ({ app, settings }) {
+			await app.workbench.assistant.openPositronAssistantChat();
+			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.selectModelProvider('echo');
+			await app.workbench.assistant.clickSignInButton();
+			await app.workbench.assistant.clickCloseButton();
+		});
 
-	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
-	});
+		test.beforeEach('Clear chat', async function ({ app, settings }) {
+			await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+			await app.workbench.assistant.clickNewChatButton();
+			await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+		});
 
-	test('Token usage is displayed in chat response', async function ({ app }) {
-		const message = 'What is the meaning of life?';
-		await app.workbench.assistant.enterChatMessage(message);
-		await app.workbench.assistant.verifyTokenUsageVisible();
-		const tokenUsage = await app.workbench.assistant.getTokenUsage();
-		expect(tokenUsage).toMatchObject({
-			inputTokens: message.length,
-			outputTokens: message.length
+		test.afterAll('Sign out of Assistant', async function ({ app }) {
+			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.selectModelProvider('echo');
+			await app.workbench.assistant.clickSignOutButton();
+			await app.workbench.assistant.clickCloseButton();
+		});
+
+		test('Token usage is displayed in chat response', async function ({ app }) {
+			const message = 'What is the meaning of life?';
+			await app.workbench.assistant.enterChatMessage(message);
+			await app.workbench.assistant.verifyTokenUsageVisible();
+			const tokenUsage = await app.workbench.assistant.getTokenUsage();
+			expect(tokenUsage).toMatchObject({
+				inputTokens: message.length,
+				outputTokens: message.length
+			});
+		});
+
+		test('Token usage is not displayed when setting is disabled', async function ({ app, settings }) {
+			await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+			await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+
+			expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		});
+
+		test('Token usage is not displayed for non-supported providers', async function ({ app, settings }) {
+			await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+			await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+
+			expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+		});
+
+		test('Token usage updates when settings change', async function ({ app, settings }) {
+			await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+			await app.workbench.assistant.verifyTokenUsageVisible();
+
+			await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+			expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+			await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+			await app.workbench.assistant.verifyTokenUsageVisible();
+
+			await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+			expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+			await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+			await app.workbench.assistant.verifyTokenUsageVisible();
+		});
+
+		// Only reports tokens used by first message.
+		test('Total token usage is displayed in chat header', async function ({ app }) {
+			const message1 = 'What is the meaning of life?';
+			const message2 = 'Forty-two';
+
+			await app.workbench.assistant.enterChatMessage(message1);
+			await app.workbench.assistant.waitForReadyToSend();
+			await app.workbench.assistant.enterChatMessage(message2);
+
+			await app.workbench.assistant.waitForReadyToSend();
+
+			const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
+			expect(totalTokens).toBeDefined();
+			expect(totalTokens).toMatchObject({
+				inputTokens: message1.length + message2.length,
+				outputTokens: message1.length + message2.length
+			});
 		});
 	});
-
-	test('Token usage is not displayed when setting is disabled', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
-
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
-	});
-
-	test('Token usage is not displayed for non-supported providers', async function ({ app, settings }) {
-		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
-
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
-	});
-
-	test('Token usage updates when settings change', async function ({ app, settings }) {
-		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
-		await app.workbench.assistant.verifyTokenUsageVisible();
-
-		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
-
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
-		await app.workbench.assistant.verifyTokenUsageVisible();
-
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
-		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
-
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
-		await app.workbench.assistant.verifyTokenUsageVisible();
-	});
-
-	// Only reports tokens used by first message.
-	test('Total token usage is displayed in chat header', async function ({ app }) {
-		const message1 = 'What is the meaning of life?';
-		const message2 = 'Forty-two';
-
-		await app.workbench.assistant.enterChatMessage(message1);
-		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.enterChatMessage(message2);
-
-		await app.workbench.assistant.waitForReadyToSend();
-
-		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
-		expect(totalTokens).toBeDefined();
-		expect(totalTokens).toMatchObject({
-			inputTokens: message1.length + message2.length,
-			outputTokens: message1.length + message2.length
-		});
-	});
-});
