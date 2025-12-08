@@ -31,7 +31,13 @@ import { VirtualDocumentProvider } from './virtual-documents';
  * all LSP sessions. Watch out for session start log messages to find the
  * relevant section of the log.
  */
-const LSP_OUTPUT_CHANNEL = positron.window.createRawLogOutputChannel('R Language Server');
+let _lspOutputChannel: vscode.OutputChannel | undefined;
+function getLspOutputChannel(): vscode.OutputChannel {
+	if (!_lspOutputChannel) {
+		_lspOutputChannel = positron.window.createRawLogOutputChannel('R Language Server');
+	}
+	return _lspOutputChannel;
+}
 
 /**
  * The state of the language server.
@@ -129,7 +135,7 @@ export class ArkLsp implements vscode.Disposable {
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
 			errorHandler: new RErrorHandler(this._version, port),
-			outputChannel: LSP_OUTPUT_CHANNEL,
+			outputChannel: getLspOutputChannel(),
 			revealOutputChannelOn: RevealOutputChannelOn.Never,
 			middleware: {
 				handleDiagnostics(uri, diagnostics, next) {
@@ -149,7 +155,7 @@ export class ArkLsp implements vscode.Disposable {
 		const message = `Creating language client ${this._dynState.sessionName} for session ${this._metadata.sessionId} on port ${port}`;
 
 		LOGGER.info(message);
-		LSP_OUTPUT_CHANNEL.appendLine(message);
+		getLspOutputChannel().appendLine(message);
 
 		this.client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
 
@@ -322,6 +328,6 @@ export class ArkLsp implements vscode.Disposable {
 	}
 
 	public showOutput() {
-		LSP_OUTPUT_CHANNEL.show();
+		getLspOutputChannel().show();
 	}
 }
