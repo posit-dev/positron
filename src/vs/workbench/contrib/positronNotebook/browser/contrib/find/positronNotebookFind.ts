@@ -48,6 +48,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
 	private _allMatches: CellMatch[] = [];
+	private _currentMatchCellHandle: number | undefined;
+	private _currentMatchIndex: number | undefined;
 	// private readonly _findInstance?: FindInstance;
 
 	constructor(
@@ -157,6 +159,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	// TODO: Make option object and pass in instead of reading observables. This method will eventually live on a delegate
 	private research(searchString: string): void {
 		this._allMatches = [];
+		this._currentMatchCellHandle = undefined;
+		this._currentMatchIndex = undefined;
 		let totalMatchCount = 0;
 
 		for (const cell of this._notebook.cells.get()) {
@@ -179,19 +183,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				totalMatchCount += cellMatches.length;
 				// TODO: Fall back to text buffer if no text model?
 
-				const newDecorations: IModelDeltaDecoration[] = [];
-				for (const match of cellMatches) {
-					newDecorations.push({
-						range: match.range,
-						options: FindDecorations._FIND_MATCH_DECORATION
-					});
-				}
-
-				const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-				cell.editor?.changeDecorations(accessor => {
-					const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
-					this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
-				});
+				// Update decorations for this cell
+				this.updateCellDecorations(cell);
 
 				// filter based on options and editing state
 				// return matches.filter(match => {
@@ -331,12 +324,55 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		return this._allMatches.length;
 	}
 
+	private updateCellDecorations(cell: IPositronNotebookCell): void {
+		// Get all matches for this cell
+		const cellMatches = this._allMatches
+			.filter(m => m.cell.handle === cell.handle)
+			.map((m) => {
+				const globalIndex = this._allMatches.indexOf(m);
+				return { match: m.match, globalIndex };
+			});
+
+		const newDecorations: IModelDeltaDecoration[] = [];
+		for (const { match, globalIndex } of cellMatches) {
+			// Use current match decoration if this is the current match
+			const isCurrentMatch = globalIndex === this._currentMatchIndex;
+			newDecorations.push({
+				range: match.range,
+				options: isCurrentMatch
+					? FindDecorations._CURRENT_FIND_MATCH_DECORATION
+					: FindDecorations._FIND_MATCH_DECORATION
+			});
+		}
+
+		const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
+		cell.editor?.changeDecorations(accessor => {
+			const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
+			this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
+		});
+	}
+
 	private navigateToMatch(matchIndex: number): void {
 		if (matchIndex < 1 || matchIndex > this._allMatches.length) {
 			return;
 		}
 
 		const { cell, match } = this._allMatches[matchIndex - 1]; // Convert to 0-based index
+
+		// Clear previous current match decoration
+		if (this._currentMatchCellHandle !== undefined && this._currentMatchIndex !== undefined) {
+			const prevCell = this._notebook.cells.get().find(c => c.handle === this._currentMatchCellHandle);
+			if (prevCell) {
+				this.updateCellDecorations(prevCell);
+			}
+		}
+
+		// Update current match tracking
+		this._currentMatchCellHandle = cell.handle;
+		this._currentMatchIndex = matchIndex - 1;
+
+		// Update decorations to highlight the current match
+		this.updateCellDecorations(cell);
 
 		// Select the cell
 		this._notebook.selectionStateMachine.selectCell(cell);
@@ -366,6 +402,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 		this._decorationIdsByCellHandle.clear();
 		this._allMatches = [];
+		this._currentMatchCellHandle = undefined;
+		this._currentMatchIndex = undefined;
 		transaction((tx) => {
 			this.matchCount.set(undefined, tx);
 			this.matchIndex.set(undefined, tx);
