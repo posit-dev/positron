@@ -65,7 +65,8 @@ function isInAgentsFolder(fileUri: URI): boolean {
 // Additional search paths for `.vscode/positron` directory
 export const PROMPT_POSITRON_SOURCE_FOLDER = '.vscode/positron/prompts';
 export const INSTRUCTIONS_POSITRON_SOURCE_FOLDER = '.vscode/positron/instructions';
-export const MODE_POSITRON_SOURCE_FOLDER = '.vscode/positron/chatmodes';
+export const LEGACY_MODE_POSITRON_SOURCE_FOLDER = '.vscode/positron/chatmodes';
+export const AGENTS_POSITRON_SOURCE_FOLDER = '.vscode/positron/agents';
 // --- End Positron ---
 
 /**
