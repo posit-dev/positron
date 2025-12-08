@@ -7,9 +7,8 @@
 import React from 'react';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
-import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { observableValue, transaction } from '../../../../../../base/common/observable.js';
-import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
+import { Emitter } from '../../../../../../base/common/event.js';
+import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 
@@ -27,11 +26,6 @@ export interface IPositronFindInstanceOptions {
 	 * Options for the find input widget.
 	 */
 	findInputOptions: IFindInputOptions;
-
-	/**
-	 * Additional toggles to add to the find input.
-	 */
-	additionalToggles?: Toggle[];
 }
 
 /**
@@ -44,22 +38,9 @@ export class PositronFindInstance extends Disposable {
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
 	private readonly _onDidRequestFindPrevious = this._register(new Emitter<void>());
-	private readonly _onDidRequestClose = this._register(new Emitter<void>());
 
-	public readonly onDidRequestFindNext: Event<void> = this._onDidRequestFindNext.event;
-	public readonly onDidRequestFindPrevious: Event<void> = this._onDidRequestFindPrevious.event;
-	public readonly onDidRequestClose: Event<void> = this._onDidRequestClose.event;
-
-	// Events for visibility and focus state
-	private readonly _onDidShow = this._register(new Emitter<void>());
-	private readonly _onDidHide = this._register(new Emitter<void>());
-	private readonly _onDidFocusInput = this._register(new Emitter<void>());
-	private readonly _onDidBlurInput = this._register(new Emitter<void>());
-
-	public readonly onDidShow: Event<void> = this._onDidShow.event;
-	public readonly onDidHide: Event<void> = this._onDidHide.event;
-	public readonly onDidFocusInput: Event<void> = this._onDidFocusInput.event;
-	public readonly onDidBlurInput: Event<void> = this._onDidBlurInput.event;
+	public readonly onDidRequestFindNext = this._onDidRequestFindNext.event;
+	public readonly onDidRequestFindPrevious = this._onDidRequestFindPrevious.event;
 
 	// Observable state for find operations
 	public readonly searchString = observableValue('findStateSearchString', '');
@@ -70,10 +51,35 @@ export class PositronFindInstance extends Disposable {
 	public readonly matchIndex = observableValue<number | undefined>('findStateMatchIndex', undefined);
 	public readonly matchCount = observableValue<number | undefined>('findStateMatchCount', undefined);
 
+	// Observable state for visibility and focus
+	private readonly _isVisible = observableValue('findStateIsVisible', false);
+	private readonly _inputFocused = observableValue('findStateInputFocused', false);
+
 	constructor(
 		private readonly _options: IPositronFindInstanceOptions
 	) {
 		super();
+
+		this._register(runOnChange(this._isVisible, (visible) => {
+			if (!visible) {
+				// Clear the renderer
+				this._renderer.clear();
+
+				// Clear match info when hiding
+				transaction(() => {
+					this.matchCount.set(undefined, undefined);
+					this.matchIndex.set(undefined, undefined);
+				});
+			}
+		}));
+	}
+
+	public get isVisible(): IObservable<boolean> {
+		return this._isVisible;
+	}
+
+	public get inputFocused(): IObservable<boolean> {
+		return this._inputFocused;
 	}
 
 	/**
@@ -102,6 +108,8 @@ export class PositronFindInstance extends Disposable {
 			findInputOptions: this._options.findInputOptions,
 			findText: this.searchString,
 			focusInput: true,
+			inputFocused: this._inputFocused,
+			isVisible: this._isVisible,
 			matchCase: this.matchCase,
 			matchWholeWord: this.wholeWord,
 			useRegex: this.isRegex,
@@ -109,35 +117,20 @@ export class PositronFindInstance extends Disposable {
 			matchCount: this.matchCount,
 			onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
 			onNextMatch: () => this._onDidRequestFindNext.fire(),
-			onClose: () => this.hide(),
-			onInputFocus: () => this._onDidFocusInput.fire(),
-			onInputBlur: () => this._onDidBlurInput.fire(),
 		});
 
 		// Render the widget
 		renderer.render(findWidget);
 
-		// Fire show event
-		this._onDidShow.fire();
+		// Update visibility
+		this._isVisible.set(true, undefined);
 	}
 
 	/**
-	 * Hides the find widget and fires the close event.
+	 * Hides the find widget.
 	 */
 	public hide(): void {
-		// Clear the renderer
-		this._renderer.clear();
-
-		// Fire hide event
-		this._onDidHide.fire();
-
-		// Fire the close event so implementations can clean up
-		this._onDidRequestClose.fire();
-
-		// Reset match state
-		transaction((tx) => {
-			this.matchCount.set(undefined, tx);
-			this.matchIndex.set(undefined, tx);
-		});
+		// TODO: Make isVisible public readonly?
+		this._isVisible.set(false, undefined);
 	}
 }

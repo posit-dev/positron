@@ -17,7 +17,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
-import { autorun, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -104,26 +104,43 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Subscribe to user action events
 			this._register(instance.onDidRequestFindNext(() => this.findNext()));
 			this._register(instance.onDidRequestFindPrevious(() => this.findPrevious()));
-			this._register(instance.onDidRequestClose(() => this.handleClose()));
 
-			// Subscribe to visibility events
-			this._register(instance.onDidShow(() => {
-				findWidgetVisible.set(true);
-			}));
-			this._register(instance.onDidHide(() => {
-				findWidgetVisible.reset();
-				findInputFocused.reset();
+			// Subscribe to visibility changes
+			this._register(runOnChange(instance.isVisible, (visible) => {
+				if (visible) {
+					findWidgetVisible.set(true);
+				} else {
+					// Reset context keys
+					findWidgetVisible.reset();
+					findInputFocused.reset();
+
+					// Clear decorations
+					for (const cell of this._notebook.cells.get()) {
+						const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
+						cell.editor?.changeDecorations(accessor => {
+							accessor.deltaDecorations(oldDecorationIds, []);
+						});
+					}
+
+					// TODO: Should we clear state, or restore on reshow?
+					// Clear state
+					this._decorationIdsByCellHandle.clear();
+					this._allMatches = [];
+					this._currentMatchCellHandle = undefined;
+					this._currentMatchIndex = undefined;
+				}
 			}));
 
-			// Subscribe to focus events
-			this._register(instance.onDidFocusInput(() => {
-				findInputFocused.set(true);
-			}));
-			this._register(instance.onDidBlurInput(() => {
-				findInputFocused.set(false);
+			// Subscribe to focus changes
+			this._register(runOnChange(instance.inputFocused, (focused) => {
+				if (focused) {
+					findInputFocused.set(true);
+				} else {
+					findInputFocused.reset();
+				}
 			}));
 
-			// Subscribe to search parameter changes using autorun
+			// Subscribe to search parameter changes
 			this._register(autorun(reader => {
 				const searchString = instance.searchString.read(reader);
 				const isRegex = instance.isRegex.read(reader);
@@ -415,24 +432,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Update the match index
 		const findInstance = this.getOrCreateFindInstance();
 		findInstance.matchIndex.set(matchIndex, undefined);
-	}
-
-	/**
-	 * Handles the close event from the find instance.
-	 * Cleans up notebook-specific state.
-	 */
-	private handleClose(): void {
-		// Clear decorations
-		for (const cell of this._notebook.cells.get()) {
-			const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-			cell.editor?.changeDecorations(accessor => {
-				accessor.deltaDecorations(oldDecorationIds, []);
-			});
-		}
-		this._decorationIdsByCellHandle.clear();
-		this._allMatches = [];
-		this._currentMatchCellHandle = undefined;
-		this._currentMatchIndex = undefined;
 	}
 }
 
