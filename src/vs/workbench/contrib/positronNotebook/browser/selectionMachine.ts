@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 import { autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
-import { PositronNotebookCellGeneral } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
@@ -342,10 +341,8 @@ export class SelectionStateMachine extends Disposable {
 	 * This method intelligently handles focus:
 	 * - If the editor already has focus (e.g., from a focus event), it only updates state
 	 * - If the editor doesn't have focus (e.g., from a keyboard shortcut), it gives focus
-	 * - When no cell is provided, checks which cell has DOM focus (from Tab navigation)
-	 *   and enters edit mode for that cell instead of the selected cell
 	 *
-	 * @param cell The cell to edit. If omitted, checks for focused cell or uses currently selected cell.
+	 * @param cell The cell to edit. If omitted, uses currently selected cell.
 	 */
 	async enterEditor(cell?: IPositronNotebookCell): Promise<void> {
 		// Determine which cell to edit
@@ -355,41 +352,12 @@ export class SelectionStateMachine extends Disposable {
 			// Use the provided cell
 			cellToEdit = cell;
 		} else {
-			// No cell provided - check if there's a focused cell within the notebook
+			// Use the active cell (works in both single and multi-selection)
 			const state = this._state.get();
 			if (state.type === SelectionState.NoCells) {
 				return;
 			}
-
-			// Get the notebook container from a cell to check focus
-			const cells = this._cells.get();
-			if (cells.length === 0) {
-				return;
-			}
-
-			// Get the notebook container from the first cell
-			const notebookContainer = cells[0].getNotebookContainer();
-
-			// Try to find the cell that has DOM focus
-			if (notebookContainer) {
-				const activeElement = notebookContainer.ownerDocument.activeElement;
-				if (activeElement && notebookContainer.contains(activeElement)) {
-					// Find which cell contains the focused element
-					const focusedCell = cells.find(c => {
-						const cellInstance = c as PositronNotebookCellGeneral;
-						return cellInstance.containsElement(activeElement);
-					});
-
-					if (focusedCell) {
-						cellToEdit = focusedCell;
-					}
-				}
-			}
-
-			// Fall back to the active cell if no focused cell was found
-			if (!cellToEdit) {
-				cellToEdit = state.active;
-			}
+			cellToEdit = state.active;
 		}
 
 		// Update state to editing mode

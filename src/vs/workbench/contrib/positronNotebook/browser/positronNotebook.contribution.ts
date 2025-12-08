@@ -431,7 +431,8 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		notebook.selectionStateMachine.enterEditor().catch(err => {
+		const focusedCell = notebook.getFocusedCell();
+		notebook.selectionStateMachine.enterEditor(focusedCell ?? undefined).catch(err => {
 			console.error('Error entering editor:', err);
 		});
 	}

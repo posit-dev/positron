@@ -175,19 +175,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._container;
 	}
 
-	getNotebookContainer(): HTMLElement | undefined {
-		return this._instance.container;
-	}
-
-	/**
-	 * Check if this cell's container contains the given element.
-	 * @param element The element to check
-	 * @returns true if the element is contained within this cell's container, false otherwise
-	 */
-	containsElement(element: Element): boolean {
-		return this._container?.contains(element) ?? false;
-	}
-
 	attachEditor(editor: CodeEditorWidget): void {
 		this._editor.set(editor, undefined);
 	}
