@@ -54,7 +54,7 @@ import { ILanguageModelToolsConfirmationService } from '../common/languageModelT
 import { ILanguageModelToolsService } from '../common/languageModelToolsService.js';
 import { ChatPromptFilesExtensionPointHandler } from '../common/promptSyntax/chatPromptFilesContribution.js';
 import { PromptsConfig } from '../common/promptSyntax/config/config.js';
-import { INSTRUCTIONS_DEFAULT_SOURCE_FOLDER, INSTRUCTION_FILE_EXTENSION, LEGACY_MODE_DEFAULT_SOURCE_FOLDER, LEGACY_MODE_FILE_EXTENSION, PROMPT_DEFAULT_SOURCE_FOLDER, PROMPT_FILE_EXTENSION, PROMPT_POSITRON_SOURCE_FOLDER, MODE_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
+import { INSTRUCTIONS_DEFAULT_SOURCE_FOLDER, INSTRUCTION_FILE_EXTENSION, LEGACY_MODE_DEFAULT_SOURCE_FOLDER, LEGACY_MODE_FILE_EXTENSION, PROMPT_DEFAULT_SOURCE_FOLDER, PROMPT_FILE_EXTENSION } from '../common/promptSyntax/config/promptFileLocations.js';
 import { PromptLanguageFeaturesProvider } from '../common/promptSyntax/promptFileContributions.js';
 import { AGENT_DOCUMENTATION_URL, INSTRUCTIONS_DOCUMENTATION_URL, PROMPT_DOCUMENTATION_URL } from '../common/promptSyntax/promptTypes.js';
 import { IPromptsService } from '../common/promptSyntax/service/promptsService.js';
@@ -132,7 +132,7 @@ import { ChatViewsWelcomeHandler } from './viewsWelcome/chatViewsWelcomeHandler.
 // --- Start Positron ---
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
 import { ChatRuntimeSessionContextContribution } from './contrib/chatRuntimeSessionContext.js';
-import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
+import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 // --- End Positron ---
 
 // Register configuration
@@ -627,8 +627,8 @@ configurationRegistry.registerConfiguration({
 				AGENT_DOCUMENTATION_URL,
 			),
 			default: {
-					// --- Start Positron ---
-				[MODE_POSITRON_SOURCE_FOLDER]: true,
+				// --- Start Positron ---
+				[LEGACY_MODE_POSITRON_SOURCE_FOLDER]: true,
 				// --- End Positron ---
 				[LEGACY_MODE_DEFAULT_SOURCE_FOLDER]: true,
 			},

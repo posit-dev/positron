@@ -24,6 +24,10 @@ import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 
+// --- Start Positron ---
+import { AGENTS_POSITRON_SOURCE_FOLDER } from '../config/promptFileLocations.js';
+// --- End Positron ---
+
 /**
  * Utility class to locate prompt files.
  */
@@ -104,7 +108,12 @@ export class PromptFilesLocator extends Disposable {
 	}
 
 	public getAgentSourceFolder(): readonly URI[] {
+		// --- Start Positron ---
+		/*
 		return this.toAbsoluteLocations([AGENTS_SOURCE_FOLDER]);
+		*/
+		return this.toAbsoluteLocations([AGENTS_SOURCE_FOLDER, AGENTS_POSITRON_SOURCE_FOLDER]);
+		// --- End Positron ---
 	}
 
 	/**
@@ -189,6 +198,9 @@ export class PromptFilesLocator extends Disposable {
 		const configuredLocations = PromptsConfig.promptSourceFolders(this.configService, type);
 		if (type === PromptsType.agent) {
 			configuredLocations.push(AGENTS_SOURCE_FOLDER);
+			// --- Start Positron ---
+			configuredLocations.push(AGENTS_POSITRON_SOURCE_FOLDER);
+			// --- End Positron ---
 		}
 		const absoluteLocations = this.toAbsoluteLocations(configuredLocations);
 		return absoluteLocations.map(firstNonGlobParentAndPattern);
