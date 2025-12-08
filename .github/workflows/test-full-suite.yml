@@ -53,15 +53,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: setup
+  setup-ubuntu:
+    name: setup-ubuntu
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+  setup-win:
+    name: setup-windows
+    if: ${{ inputs.run_e2e_windows }}
+    uses: ./.github/workflows/test-e2e-windows-build.yml
     secrets: inherit
 
   e2e-electron:
     name: e2e
-    needs: [setup]
+    needs: [setup-ubuntu]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
@@ -81,19 +86,25 @@ jobs:
 
   e2e-windows:
     name: e2e
+    needs: [setup-win]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
-    uses: ./.github/workflows/test-e2e-windows.yml
+    uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
       grep: ""
+      project: "e2e-windows"
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_currents: false
       allow_soft_fail: false
+      upload_logs: false
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-chromium:
     name: e2e
-    needs: [setup]
+    needs: [setup-ubuntu]
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit

@@ -1,0 +1,285 @@
+name: "E2E: Build Positron (Windows)"
+
+on:
+  workflow_call: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: build
+    timeout-minutes: 90
+    runs-on:
+      labels: [windows-latest-8x]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Roaming\npm-cache
+            node_modules
+            build\node_modules
+            extensions\node_modules
+            remote\node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Cache Ark binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            extensions/positron-r/resources/ark
+            ./ark
+          key: ${{ runner.os }}-ark-${{ hashFiles('extensions/positron-r/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-ark-
+
+      - name: Cache Kallichore binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            extensions/positron-supervisor/resources/kallichore
+            ./kallichore
+          key: ${{ runner.os }}-kallichore-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-kallichore-
+
+      - name: Cache built-in extensions
+        uses: actions/cache@v4
+        with:
+          path: .build/builtInExtensions
+          key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
+          restore-keys: |
+            ${{ runner.os }}-builtins-
+
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: Install node dependencies
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '30'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        shell: bash
+        run: |
+          # Pre-install build directory (required by postinstall for gulp-merge-json)
+          npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+
+          # Run root and test/e2e installs in parallel
+          pids=()
+          npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+
+          # Wait for all processes and check exit codes
+          exit_code=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              exit_code=1
+            fi
+          done
+
+          if [ $exit_code -ne 0 ]; then
+            echo "One or more npm ci commands failed"
+            exit 1
+          fi
+
+          echo "All npm ci commands completed successfully"
+
+      - name: Compile and Download
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
+
+      - name: Install Playwright browsers
+        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
+        run: npm run playwright-install
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - shell: bash
+        run: npm run prelaunch
+
+      - name: Compile E2E Tests
+        run: |
+          npm --prefix test/e2e run compile
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install trcli
+
+      # Alternate python version
+      - name: Install Python 3.13.0
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.0"
+
+      - name: Install ipykernel for Python 3.13.0
+        run: |
+          python --version  # Verify it's 3.13.0
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel
+
+      # Install rig (R Installation Manager)
+      - name: Install rig
+        run: |
+          choco install rig
+
+      # Install R 4.4.0 using rig
+      - name: Install R 4.4.0
+        run: |
+          rig add 4.4.0
+          rig default 4.4.0
+          rig ls
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-4.4.0\library
+          key: ${{ runner.os }}-r-4.4.0-${{ hashFiles('**/DESCRIPTION') }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.4.0-
+
+      - name: Install R packages for 4.4.0
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "install.packages('pak')"
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      # Install R 4.4.2 using rig
+      - name: Install R 4.4.2
+        run: |
+          rig add 4.4.2
+          rig ls
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
+      - name: Cache QA example content
+        id: cache-qa-content
+        uses: actions/cache@v4
+        with:
+          path: C:\tmp\qa-example-content-cache
+          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-windows-build.yml') }}-v1
+          restore-keys: |
+            qa-content-
+
+      - name: Clone QA example content
+        if: steps.cache-qa-content.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          echo "Cache miss - Cloning QA example content"
+          rm -rf /c/tmp/qa-example-content-cache || true
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /c/tmp/qa-example-content-cache || true
+          if [ -d /c/tmp/qa-example-content-cache ]; then
+            (cd /c/tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+          fi
+
+      - name: Create Build Artifact
+        shell: bash
+        run: |
+          # Copy QA example content into workspace for bundling
+          mkdir -p test/e2e
+          if [ -d "/c/tmp/qa-example-content-cache" ]; then
+            echo "Copying cached QA content to workspace"
+            cp -R /c/tmp/qa-example-content-cache test/e2e/qa-example-content-cache || true
+          else
+            echo "Warning: QA content cache not found at /c/tmp/qa-example-content-cache"
+          fi
+
+          # Create tarball of workspace
+          mkdir -p /c/tmp/artifacts
+
+          # Use tar with gzip compression (Windows has tar but not zstd by default)
+          echo "Creating gzip archive of build"
+          tar --exclude='.git' \
+              --exclude='.npm-cache' \
+              --exclude='.pip-cache' \
+              -czf /c/tmp/artifacts/positron-build.tar.gz \
+              .
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "positron-build-windows"
+          path: C:\tmp\artifacts
+          retention-days: 1
+          compression-level: 0  # Skip GitHub compression since we use tar.gz

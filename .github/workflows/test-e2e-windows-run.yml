@@ -1,0 +1,345 @@
+name: "Test: E2E (Windows) — Run-only"
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
+        default: "@:critical" # MARIE: TEMPORARY change back to @:win
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
+      shards:
+        required: false
+        description: "Total number of shards (for display purposes and shard argument)"
+        default: 1
+        type: number
+      matrix:
+        required: false
+        description: "Pre-calculated matrix JSON from build workflow"
+        default: '{"shard":[1]}'
+        type: string
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-windows-run"
+        type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: ""
+        type: string
+      report_currents:
+        required: false
+        description: "Whether or not to report results to Currents."
+        type: boolean
+        default: false
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: false
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+      max_failures:
+        required: false
+        description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
+        type: number
+        default: 10
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e-windows-run:
+    name: ${{ inputs.display_name }}-${{ matrix.shard }}
+    runs-on:
+      labels: [windows-latest-8x]
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.matrix) }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      AWS_S3_BUCKET: positron-test-reports
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+    outputs:
+      extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Prepare artifact directory
+        shell: bash
+        run: |
+          mkdir -p /c/tmp/artifacts
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: "positron-build-windows"
+          path: C:\tmp\artifacts
+
+      - name: Extract build artifact
+        shell: bash
+        run: |
+          BUILD_ARCHIVE="/c/tmp/artifacts/positron-build.tar.gz"
+          if [ ! -f "$BUILD_ARCHIVE" ]; then
+            echo "Build artifact not found at $BUILD_ARCHIVE"
+            exit 1
+          fi
+          echo "Extracting build archive into workspace"
+          tar -xzf "$BUILD_ARCHIVE" -C "$GITHUB_WORKSPACE"
+
+      - name: Validate QA cache
+        shell: bash
+        run: |
+          if [ -f "test/e2e/qa-example-content-cache/.cached-commit" ]; then
+            echo "✓ Cached commit found: $(cat test/e2e/qa-example-content-cache/.cached-commit)"
+          else
+            echo "✗ Cached commit missing at test/e2e/qa-example-content-cache/.cached-commit"
+            ls -la test/e2e || true
+            exit 1
+          fi
+
+      - name: Restore Playwright browser cache
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
+        run: npm run playwright-install
+
+      - name: Setup Python 3.10.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install trcli
+
+      - name: Install Python 3.13.0
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.0"
+
+      - name: Install ipykernel for Python 3.13.0
+        run: |
+          python --version  # Verify it's 3.13.0
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel
+
+      - name: Install rig
+        run: |
+          choco install rig
+
+      - name: Install R 4.4.0
+        run: |
+          rig add 4.4.0
+          rig default 4.4.0
+          rig ls
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-4.4.0\library
+          key: ${{ runner.os }}-r-4.4.0-${{ hashFiles('**/DESCRIPTION') }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.4.0-
+
+      - name: Install R packages for 4.4.0
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "install.packages('pak')"
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      - name: Install R 4.4.2
+        run: |
+          rig add 4.4.2
+          rig ls
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Run Extensions Tests
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p extensions-tests-logs
+          npm run test-extension -- -l positron-r 2>&1 | tee extensions-tests-logs/runner.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Save Extensions Tests Logs
+        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          if [ -d ".build/logs/integration-tests" ]; then
+            echo "Uploading VSCode integration test logs"
+            mkdir -p extensions-tests-logs
+            cp -r .build/logs/integration-tests/* extensions-tests-logs/ || true
+          else
+            echo "No VSCode logs directory found at .build/logs/integration-tests"
+          fi
+          exit 0
+
+      - name: Run Bootstrap Extensions Test
+        if: ${{ inputs.skip_extension_test != true }}
+        id: bootstrap
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
+
+      - name: Run Main Test Suite (Electron)
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win' }}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+        run: |
+          if [ -z "$PW_TAGS" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"$PW_TAGS\""
+          fi
+
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
+          else
+            SHARD_ARG=""
+          fi
+
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --shard argument: $SHARD_ARG"
+
+          CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+
+          echo "Running: $CMD"
+
+          if [[ "${{ inputs.allow_soft_fail }}" == "true" ]]; then
+            eval $CMD || true
+          else
+            eval $CMD
+          fi
+
+      - name: Upload Extensions Test Logs If Failed
+        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensions-tests-logs
+          path: extensions-tests-logs/
+          if-no-files-found: ignore
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-win-logs
+          path: test-logs
+          if-no-files-found: ignore
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json
