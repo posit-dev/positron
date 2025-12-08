@@ -40,6 +40,13 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
 
 	/**
+	 * Skip focus trap when cell has no outputs (avoids double-tab with same visual).
+	 * When there are no outputs, the focus trap and cell container share the same visual
+	 * styling, requiring users to tab twice to see any change.
+	 */
+	const hasOutputs = cell.outputsViewModels.length > 0;
+
+	/**
 	 * Handler for keyboard events on the focus target.
 	 * When Enter is pressed, focuses the Monaco editor to enter edit mode.
 	 *
@@ -64,7 +71,8 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
 			className='positron-cell-editor-focus-target'
 			role='button'
-			tabIndex={0}
+			// Skip focus trap when no outputs - see hasOutputs comment above for details
+			tabIndex={hasOutputs ? 0 : -1}
 			onKeyDown={handleKeyDown}
 		/>
 	</>;

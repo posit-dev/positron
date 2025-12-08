@@ -73,6 +73,13 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
 
+	/**
+	 * Check if the cell has outputs to determine aria-label.
+	 * When there are no outputs, the focus trap is skipped, so we need to include
+	 * the "Press Enter to edit" instruction in the cell container's aria-label.
+	 */
+	const hasOutputs = cell.outputsViewModels.length > 0;
+
 	// State for ARIA announcements
 	const [announcement, setAnnouncement] = React.useState<string>('');
 
@@ -110,7 +117,9 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 
 	return <div
 		ref={cellRef}
-		aria-label={localize('notebookCell', '{0} cell', cellType)}
+		aria-label={hasOutputs
+			? localize('notebookCell', '{0} cell', cellType)
+			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-has-error={hasError}
