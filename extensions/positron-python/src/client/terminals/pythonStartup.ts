@@ -3,12 +3,22 @@
 
 import { ExtensionContext, Uri } from 'vscode';
 import * as path from 'path';
-import { copy, createDirectory, getConfiguration, onDidChangeConfiguration } from '../common/vscodeApis/workspaceApis';
+// --- Start Positron ---
+// import { copy, createDirectory, getConfiguration, onDidChangeConfiguration } from '../common/vscodeApis/workspaceApis';
+import { copy, createDirectory, onDidChangeConfiguration } from '../common/vscodeApis/workspaceApis';
+// --- End Positron ---
 import { EXTENSION_ROOT_DIR } from '../constants';
 
 async function applyPythonStartupSetting(context: ExtensionContext): Promise<void> {
-    const config = getConfiguration('python');
-    const pythonrcSetting = config.get<boolean>('terminal.shellIntegration.enabled');
+    // --- Start Positron ---
+    // const config = getConfiguration('python');
+    // const pythonrcSetting = config.get<boolean>('terminal.shellIntegration.enabled');
+
+    // We don't use VSCode's Python-specific terminal shell integration in Positron.
+    // Setting PYTHONSTARTUP causes pythonrc.py to run in our Jupyter-based console.
+    // Always treat this as disabled in Positron to ensure cleanup of any existing settings.
+    const pythonrcSetting = false;
+    // --- End Positron ---
 
     if (pythonrcSetting) {
         const storageUri = context.storageUri || context.globalStorageUri;
