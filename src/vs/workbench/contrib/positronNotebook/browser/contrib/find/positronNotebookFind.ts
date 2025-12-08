@@ -33,6 +33,7 @@ import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '.
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
+import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
 
 interface CellMatch {
 	cell: IPositronNotebookCell;
@@ -177,11 +178,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				for (const match of cellMatches) {
 					newDecorations.push({
 						range: match.range,
-						options: {
-							description: 'text search range for notebook search scope',
-							// isWholeLine: true,
-							className: 'nb-findScope'
-						}
+						options: FindDecorations._FIND_MATCH_DECORATION
 					});
 				}
 
