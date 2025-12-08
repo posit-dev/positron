@@ -44,6 +44,11 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            build/package-lock.json
+            test/e2e/package-lock.json
 
       - name: Cache npm dependencies
         uses: actions/cache@v4
@@ -57,6 +62,14 @@ jobs:
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
+
+      - name: Cache centralized npm tarball cache
+        uses: actions/cache@v4
+        with:
+          path: C:\\tmp\\npm-cache
+          key: ${{ runner.os }}-npm-tarballs-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-tarballs-
 
       - name: Cache Ark binary
         uses: actions/cache@v4
@@ -114,15 +127,19 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_CACHE: C:\\tmp\\npm-cache
         shell: bash
         run: |
+          # Ensure npm cache directory exists (and gets cached by CI)
+          mkdir -p /c/tmp/npm-cache || true
+
           # Pre-install build directory (required by postinstall for gulp-merge-json)
-          npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+          npm --prefix build ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000
 
           # Run root and test/e2e installs in parallel
           pids=()
-          npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
-          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000 & pids+=($!)
+          npm --prefix test/e2e ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000 & pids+=($!)
 
           # Wait for all processes and check exit codes
           exit_code=0
