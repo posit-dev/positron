@@ -11,5 +11,9 @@
   "positron.assistant.enabledProviders": [
     "openai-api"
   ],
-  "posit.workbench.showWorkbenchFlaskHint": false
+  "posit.workbench.showWorkbenchFlaskHint": false,
+  "extensions.allowed": {
+    "meta.pyrefly": false,
+    "*": true
+  }
 }
