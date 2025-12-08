@@ -898,20 +898,24 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async startDapMessageLoop(): Promise<void> {
 		LOGGER.info('Starting DAP loop');
 
-		if (!this._dapComm?.comm) {
-			throw new Error('Must create comm before use');
-		}
+		try {
+			if (!this._dapComm?.comm) {
+				throw new Error('Must create comm before use');
+			}
 
-		for await (const message of this._dapComm.comm.receiver) {
-			LOGGER.trace('Received DAP message:', JSON.stringify(message));
+			for await (const message of this._dapComm.comm.receiver) {
+				LOGGER.trace('Received DAP message:', JSON.stringify(message));
 
-			if (!await this._dapComm.handleMessage(message)) {
-				LOGGER.info(`Unknown DAP message: ${message.method}`);
+				if (!await this._dapComm.handleMessage(message)) {
+					LOGGER.info(`Unknown DAP message: ${message.method}`);
 
-				if (message.kind === 'request') {
-					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`); });
+					if (message.kind === 'request') {
+						message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`); });
+					}
 				}
 			}
+		} catch (err) {
+			LOGGER.error(`Error in DAP loop: ${err}`);
 		}
 
 		LOGGER.info('Exiting DAP loop');
