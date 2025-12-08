@@ -268,6 +268,13 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J S', 'Debugger: Clear All Breakpoints');
 	}
 
+	// -----------------------
+	// ---     Plots       ---
+	// -----------------------
+	public clearPlots() {
+		return this.pressHotKeys('Cmd+L C', 'Clear Plots');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
