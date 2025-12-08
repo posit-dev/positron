@@ -13,7 +13,7 @@ import React from 'react';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { PositronFindInput } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
+import { IObservable, ISettableObservable, transaction } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -28,11 +28,10 @@ export interface PositronFindWidgetProps {
 	readonly matchIndex: IObservable<number | undefined>;
 	readonly matchCount: IObservable<number | undefined>;
 	readonly findInputOptions: IFindInputOptions;
+	readonly isVisible: ISettableObservable<boolean>;
+	readonly inputFocused: ISettableObservable<boolean>;
 	readonly onPreviousMatch: () => void;
 	readonly onNextMatch: () => void;
-	readonly onClose: () => void;
-	readonly onInputFocus?: () => void;
-	readonly onInputBlur?: () => void;
 }
 
 export const PositronFindWidget = ({
@@ -43,12 +42,11 @@ export const PositronFindWidget = ({
 	focusInput = true,
 	matchIndex: matchIndexObs,
 	matchCount: matchCountObs,
+	isVisible,
+	inputFocused,
 	findInputOptions,
 	onPreviousMatch,
 	onNextMatch,
-	onClose,
-	onInputFocus,
-	onInputBlur,
 }: PositronFindWidgetProps) => {
 	const findText = useObservedValue(findTextObs);
 	const matchCase = useObservedValue(matchCaseObs);
@@ -70,8 +68,8 @@ export const PositronFindWidget = ({
 						matchWholeWord={matchWholeWord}
 						useRegex={useRegex}
 						value={findText}
-						onInputBlur={onInputBlur}
-						onInputFocus={onInputFocus}
+						onInputBlur={() => inputFocused.set(false, undefined)}
+						onInputFocus={() => inputFocused.set(true, undefined)}
 						onKeyDown={(e) => {
 							// TODO: Can/should we use actions instead of handling here?
 							//       Upstream plaintext find uses actions but notebook editor does not
@@ -84,7 +82,10 @@ export const PositronFindWidget = ({
 								e.preventDefault();
 								return;
 							} else if (e.equals(KeyCode.Escape)) {
-								onClose();
+								transaction((tx) => {
+									inputFocused.set(false, tx);
+									isVisible.set(false, tx);
+								})
 								e.preventDefault();
 								return;
 							}
@@ -120,7 +121,7 @@ export const PositronFindWidget = ({
 					<ActionButton
 						ariaLabel='Close'
 						className='find-action-button find-close-button'
-						onPressed={() => onClose()}
+						onPressed={() => isVisible.set(false, undefined)}
 					>
 						<div className='codicon codicon-close' />
 					</ActionButton>
