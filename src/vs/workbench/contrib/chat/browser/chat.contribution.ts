@@ -132,6 +132,7 @@ import { ChatViewsWelcomeHandler } from './viewsWelcome/chatViewsWelcomeHandler.
 // --- Start Positron ---
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
 import { ChatRuntimeSessionContextContribution } from './contrib/chatRuntimeSessionContext.js';
+// eslint-disable-next-line no-duplicate-imports
 import { INSTRUCTIONS_POSITRON_SOURCE_FOLDER, PROMPT_POSITRON_SOURCE_FOLDER, LEGACY_MODE_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 // --- End Positron ---
 
