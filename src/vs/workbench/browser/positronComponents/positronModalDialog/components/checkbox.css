@@ -31,7 +31,7 @@
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.positron-modal-dialog-box .checkbox-button .check-indicator {
+.positron-modal-dialog-box .checkbox-button .codicon[class*="codicon-"] {
 	font-size: 12px;
 	font-weight: bold;
 	color: var(--vscode-positronModalDialog-checkboxForeground);
