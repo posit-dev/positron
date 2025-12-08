@@ -19,12 +19,12 @@ import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
-import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 
 
 export function PositronNotebookComponent() {
@@ -91,7 +91,7 @@ function useFontStyles(): React.CSSProperties {
 
 	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
 	const targetWindow = DOM.getActiveWindow();
-	const fontInfo = FontMeasurements.readFontInfo(targetWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
+	const fontInfo = FontMeasurements.readFontInfo(targetWindow, createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
 
 	return {

@@ -48,6 +48,7 @@ export enum TestTags {
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',
 	PUBLISHER = '@:publisher',
+	PYREFLY = '@:pyrefly',
 	REFERENCES = '@:references',
 	R_MARKDOWN = '@:r-markdown',
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
@@ -73,9 +74,6 @@ export enum TestTags {
 	WIN = '@:win',
 	WORKBENCH = '@:workbench',
 	REMOTE_SSH = '@:remote-ssh',
-
-	// exclude tags
-	NIGHTLY_ONLY = '@:nightly-only',
 
 	// soft fail tag for tests that shouldn't fail merge to main
 	SOFT_FAIL = '@:soft-fail'

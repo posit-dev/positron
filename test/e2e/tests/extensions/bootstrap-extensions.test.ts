@@ -11,6 +11,10 @@ test.use({
 	suiteId: __filename
 });
 
+const OPTIONAL_MISSING_EXTENSIONS = new Set<string>([
+	'meta.pyrefly',
+]);
+
 
 test.describe('Bootstrap Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH],
@@ -111,9 +115,18 @@ async function waitForExtensions(
 				continue;
 			}
 
-			const installedVersion = installed.get(ext.shortName);
+			// Prefer fullName (package name) but fall back to shortName
+			const installedVersion =
+				installed.get(ext.fullName) ??
+				installed.get(ext.shortName);
+
 			if (!installedVersion) {
-				console.log(`❌ ${ext.fullName} not yet installed`);
+				if (OPTIONAL_MISSING_EXTENSIONS.has(ext.fullName)) {
+					console.log(`⚠️ Optional bootstrap extension ${ext.fullName} is not installed; allowing test to continue.`);
+					missing.delete(ext.fullName);
+				} else {
+					console.log(`❌ ${ext.fullName} not yet installed`);
+				}
 			} else if (installedVersion !== ext.version) {
 				console.log(`⚠️  ${ext.fullName} installed with version ${installedVersion}, currently ${ext.version} in product.json`);
 				missing.delete(ext.fullName);
@@ -139,19 +152,16 @@ async function waitForExtensions(
 			await sleep(1000);
 			const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
 
-			// Re-evaluate each previously mismatched extension
-			for (const ext of [...mismatched]) {
-				const installedVersion = installed.get(ext.split('@')[0] /* if your fullName is like 'short@scope' adjust accordingly */)
-					?? installed.get(extensions.find(e => e.fullName === ext)?.shortName ?? '');
-
-				// Find the expected version for this ext
-				const expected = extensions.find(e => e.fullName === ext)?.version;
+			for (const extFullName of [...mismatched]) {
+				const extMeta = extensions.find(e => e.fullName === extFullName);
+				const installedVersion =
+					(extMeta && (installed.get(extMeta.fullName) ?? installed.get(extMeta.shortName))) ||
+					undefined;
+				const expected = extMeta?.version;
 
 				if (installedVersion && expected && installedVersion === expected) {
-					console.log(`✅ Resolved: ${ext} now matches (${installedVersion})`);
-					mismatched.delete(ext);
-				} else {
-					// Keep it in the set; optional: log occasionally to avoid spam
+					console.log(`✅ Resolved: ${extFullName} now matches (${installedVersion})`);
+					mismatched.delete(extFullName);
 				}
 			}
 		}

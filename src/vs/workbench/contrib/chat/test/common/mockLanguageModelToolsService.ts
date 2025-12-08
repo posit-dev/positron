@@ -12,21 +12,39 @@ import { IVariableReference } from '../../common/chatModes.js';
 import { ChatRequestToolReferenceEntry } from '../../common/chatVariableEntries.js';
 import { CountTokensCallback, ILanguageModelToolsService, IToolAndToolSetEnablementMap, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolSet } from '../../common/languageModelToolsService.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+// --- End Positron ---
+
 export class MockLanguageModelToolsService implements ILanguageModelToolsService {
 	_serviceBrand: undefined;
 
 	constructor() { }
 
-	cancelToolCallsForRequest(requestId: string): void {
-	}
-
-	onDidChangeTools: Event<void> = Event.None;
+	readonly onDidChangeTools: Event<void> = Event.None;
+	readonly onDidPrepareToolCallBecomeUnresponsive: Event<{ sessionId: string; toolData: IToolData }> = Event.None;
 
 	registerToolData(toolData: IToolData): IDisposable {
 		return Disposable.None;
 	}
 
 	resetToolAutoConfirmation(): void {
+
+	}
+
+	getToolPostExecutionAutoConfirmation(toolId: string): 'workspace' | 'profile' | 'session' | 'never' {
+		return 'never';
+	}
+
+	resetToolPostExecutionAutoConfirmation(): void {
+
+	}
+
+	flushToolUpdates(): void {
+
+	}
+
+	cancelToolCallsForRequest(requestId: string): void {
 
 	}
 
@@ -86,6 +104,12 @@ export class MockLanguageModelToolsService implements ILanguageModelToolsService
 		throw new Error('Method not implemented.');
 	}
 
+	// --- Start Positron ---
+	isToolEnabledForModel(toolId: string, languageModel: ILanguageModelChatMetadataAndIdentifier | undefined): boolean {
+		throw new Error('Method not implemented.');
+	}
+	// --- End Positron ---
+
 	toToolReferences(variableReferences: readonly IVariableReference[]): ChatRequestToolReferenceEntry[] {
 		throw new Error('Method not implemented.');
 	}
@@ -107,6 +131,10 @@ export class MockLanguageModelToolsService implements ILanguageModelToolsService
 	}
 
 	getDeprecatedQualifiedToolNames(): Map<string, string> {
+		throw new Error('Method not implemented.');
+	}
+
+	mapGithubToolName(githubToolName: string): string {
 		throw new Error('Method not implemented.');
 	}
 }

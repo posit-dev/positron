@@ -8,10 +8,11 @@ import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
+import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Configure Model Providers..."]';
+const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -22,6 +23,7 @@ const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
+const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 const APPLY_IN_EDITOR_BUTTON = 'a.action-label.codicon.codicon-git-pull-request-go-to-changes[role="button"][aria-label="Apply in Editor"]';
@@ -31,20 +33,20 @@ const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="bu
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
-const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label^="Send"]';
+const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
-const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
+const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage language models"]';
+const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -71,7 +73,11 @@ export class Assistant {
 	}
 
 	async clickAddModelButton() {
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click();
+		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
+		if (!addModelLinkIsVisible) {
+			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		}
+		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
 	}
 
 	async verifyAddModelLinkVisible() {
@@ -80,6 +86,7 @@ export class Assistant {
 	}
 
 	async verifyAddModelButtonVisible() {
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
 	}
@@ -91,16 +98,20 @@ export class Assistant {
 
 	async verifyCodeBlockActions() {
 		await expect(this.code.driver.page.locator(RUN_BUTTON)).toHaveCount(1);
-		await expect(this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON)).toHaveCount(1);
+		// PR #10784: "Apply in Editor" button may be disabled depending on model chosen and user settings
+		await expect(await this.code.driver.page.locator(APPLY_IN_EDITOR_BUTTON).count()).toBeLessThanOrEqual(1);
 		await expect(this.code.driver.page.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(COPY_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
-	async verifyManageModelsOptionVisible() {
+	async pickModel() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
 	}
+
+	async expectManageModelsVisible() {
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
+	};
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
@@ -125,6 +136,9 @@ export class Assistant {
 			case 'copilot':
 				await this.code.driver.page.locator(COPILOT_BUTTON).click();
 				break;
+			case `openai-api`:
+				await this.code.driver.page.locator(OPENAI_BUTTON).click();
+				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
 		}
@@ -140,8 +154,17 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
 	}
 
-	async clickCloseButton() {
+	async clickCloseButton({ abandonChanges = true } = {}) {
 		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+
+		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
+		if (abandonModalisVisible) {
+			abandonChanges
+				? await this.modals.getButton('Yes').click()
+				: await this.modals.getButton('No').click();
+		}
+
+		await this.modals.expectToBeVisible(undefined, { visible: false });
 	}
 
 	async clickSignOutButton() {
@@ -178,6 +201,8 @@ export class Assistant {
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// It can take a moment for the loading locator to become visible.
+		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 		// Optionally wait for any loading state on the most recent response to finish
 		if (waitForResponse) {
 			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });

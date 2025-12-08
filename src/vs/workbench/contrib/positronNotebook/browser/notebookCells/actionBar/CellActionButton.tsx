@@ -10,14 +10,22 @@ import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { DevErrorIcon, Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+
+interface CellActionButtonProps {
+	action: MenuItemAction | SubmenuItemAction;
+	cell: IPositronNotebookCell;
+	hoverManager?: IHoverManager;
+}
 
 /**
  * Standardized action button component for notebook cell actions. Handles cell selection and command execution.
  * @param action The action to execute
  * @param cell The cell to execute the action on
+ * @param hoverManager Optional hover manager for tooltip display
  * @returns A button that executes the action when clicked.
  */
-export function CellActionButton({ action, cell }: { action: MenuItemAction | SubmenuItemAction; cell: IPositronNotebookCell; }) {
+export function CellActionButton({ action, cell, hoverManager }: CellActionButtonProps) {
 	const instance = useNotebookInstance();
 
 	const handleActionClick = async (action: MenuItemAction | SubmenuItemAction) => {
@@ -36,13 +44,15 @@ export function CellActionButton({ action, cell }: { action: MenuItemAction | Su
 		<ActionButton
 			key={action.id}
 			ariaLabel={action.label}
-			tooltip={action.tooltip}
+			hoverManager={hoverManager}
+			// Match VSCode behavior: prefer tooltip but default to label
+			tooltip={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}
 			onPressed={() => handleActionClick(action)}
 		>
-			{action.item.icon ?
-				<Icon icon={action.item.icon} /> :
-				// Cell actions should have icons; this is a developer error
-				<DevErrorIcon />}
+			{action.item.icon
+				? <Icon icon={action.item.icon} />
+				: <DevErrorIcon /> // Cell actions should have icons; this is a developer error
+			}
 		</ActionButton>
 	);
 }

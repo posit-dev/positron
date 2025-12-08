@@ -2,7 +2,7 @@ name: "Test: E2E Cross Browser"
 
 on:
   schedule:
-    - cron: '0 10 * * *' # 4:00 AM CST = 10:00 UTC.
+    - cron: '0 10 * * 1-5' # 4:00 AM CST = 10:00 UTC, Mon-Fri only
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
@@ -51,10 +51,12 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "firefox (ubuntu)"
+      display_name: "firefox"
       project: "e2e-firefox"
       report_currents: false
       allow_soft_fail: false
+      shards: 1
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-webkit:
@@ -63,10 +65,12 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "webkit (ubuntu)"
+      display_name: "webkit"
       project: "e2e-webkit"
       report_currents: false
       allow_soft_fail: false
+      shards: 1
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-edge:
@@ -75,10 +79,12 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "edge (ubuntu)"
+      display_name: "edge"
       project: "e2e-edge"
       report_currents: false
       allow_soft_fail: false
+      shards: 1
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   slack-notify:
@@ -94,11 +100,12 @@ jobs:
       - name: Set short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
-          filter_jobs: '^(?!.*build$).*'
-          custom_title: "E2E Cross Browser Tests — `main` (commit ${{ github.sha }})"
+          filter_jobs: "(e2e / ([^0-9]*))$"
+          include_job_durations: false
+          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"

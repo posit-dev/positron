@@ -105,4 +105,8 @@
         "key": "cmd+l a",
         "command": "notebook.debugCell" // Debugger: Debug Cell
     },
+    {
+        "key": "cmd+l c",
+        "command": "workbench.action.positronPlots.clear" // Clear Plots
+    }
 ]

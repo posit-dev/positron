@@ -36,12 +36,23 @@ import { ExtHostDiagnostics } from './extHostDiagnostics.js';
 import { ExtHostDocuments } from './extHostDocuments.js';
 import { ExtHostTelemetry, IExtHostTelemetry } from './extHostTelemetry.js';
 import * as typeConvert from './extHostTypeConverters.js';
-import { CodeAction, CodeActionKind, CompletionList, DataTransfer, Disposable, DocumentDropOrPasteEditKind, DocumentSymbol, InlineCompletionsDisposeReasonKind, InlineCompletionDisplayLocationKind, InlineCompletionTriggerKind, InternalDataTransferItem, Location, NewSymbolNameTriggerKind, Range, SemanticTokens, SemanticTokensEdit, SemanticTokensEdits, SnippetString, SymbolInformation, SyntaxTokenType } from './extHostTypes.js';
+import { CodeAction, CodeActionKind, CompletionList, DataTransfer, Disposable, DocumentDropOrPasteEditKind, DocumentSymbol, InlineCompletionsDisposeReasonKind, InlineCompletionTriggerKind, InternalDataTransferItem, Location, NewSymbolNameTriggerKind, Range, SemanticTokens, SemanticTokensEdit, SemanticTokensEdits, SnippetString, SymbolInformation, SyntaxTokenType } from './extHostTypes.js';
 import { Emitter } from '../../../base/common/event.js';
 import { IInlineCompletionsUnificationState } from '../../services/inlineCompletions/common/inlineCompletionsUnification.js';
 
 // --- Start Positron ---
 import type * as positron from 'positron';
+
+/**
+ * Extracts plain text from a markdown string by removing code block syntax.
+ */
+function extractPlainTextFromMarkdown(text: string): string {
+	return text
+		.trim()
+		.replace(/^```\w*\n?/gm, '')
+		.replace(/```$/gm, '')
+		.trim();
+}
 // --- End Positron ---
 
 // --- adapter
@@ -198,6 +209,7 @@ class CodeLensAdapter {
 
 function convertToLocationLinks(value: vscode.Location | vscode.Location[] | vscode.LocationLink[] | undefined | null): languages.LocationLink[] {
 	if (Array.isArray(value)) {
+		// eslint-disable-next-line local/code-no-any-casts
 		return (<any>value).map(typeConvert.DefinitionLink.from);
 	} else if (value) {
 		return [typeConvert.DefinitionLink.from(value)];
@@ -275,6 +287,9 @@ class HoverAdapter {
 	constructor(
 		private readonly _documents: ExtHostDocuments,
 		private readonly _provider: vscode.HoverProvider,
+		// --- Start Positron ---
+		private readonly _extensionId: string,
+		// --- End Positron ---
 	) { }
 
 	async provideHover(resource: URI, position: IPosition, context: languages.HoverContext<{ id: number }> | undefined, token: CancellationToken): Promise<extHostProtocol.HoverWithId | undefined> {
@@ -297,6 +312,18 @@ class HoverAdapter {
 		if (!value || isFalsyOrEmpty(value.contents)) {
 			return undefined;
 		}
+		// --- Start Positron ---
+		// Filter out hovers that only contain "Unknown" text (possibly in a markdown code block).
+		// This is because that's the literal message Pyrefly sends when it has no useful hover info to provide.
+		const contentsText = extractPlainTextFromMarkdown(
+			value.contents
+				.map(c => typeof c === 'string' ? c : typeof c === 'object' && 'value' in c ? c.value : '')
+				.join('')
+		);
+		if (contentsText === 'Unknown') {
+			return undefined;
+		}
+		// --- End Positron ---
 		if (!value.range) {
 			value.range = doc.getWordRangeAtPosition(pos);
 		}
@@ -314,7 +341,10 @@ class HoverAdapter {
 		this._hoverCounter += 1;
 		const hover: extHostProtocol.HoverWithId = {
 			...convertedHover,
-			id
+			id,
+			// --- Start Positron ---
+			extensionId: this._extensionId,
+			// --- End Positron ---
 		};
 		return hover;
 	}
@@ -714,6 +744,7 @@ class DocumentFormattingAdapter {
 
 		const document = this._documents.getDocument(resource);
 
+		// eslint-disable-next-line local/code-no-any-casts
 		const value = await this._provider.provideDocumentFormattingEdits(document, <any>options, token);
 		if (Array.isArray(value)) {
 			return value.map(typeConvert.TextEdit.from);
@@ -734,6 +765,7 @@ class RangeFormattingAdapter {
 		const document = this._documents.getDocument(resource);
 		const ran = typeConvert.Range.to(range);
 
+		// eslint-disable-next-line local/code-no-any-casts
 		const value = await this._provider.provideDocumentRangeFormattingEdits(document, ran, <any>options, token);
 		if (Array.isArray(value)) {
 			return value.map(typeConvert.TextEdit.from);
@@ -746,6 +778,7 @@ class RangeFormattingAdapter {
 
 		const document = this._documents.getDocument(resource);
 		const _ranges = <Range[]>ranges.map(typeConvert.Range.to);
+		// eslint-disable-next-line local/code-no-any-casts
 		const value = await this._provider.provideDocumentRangesFormattingEdits(document, _ranges, <any>options, token);
 		if (Array.isArray(value)) {
 			return value.map(typeConvert.TextEdit.from);
@@ -768,6 +801,7 @@ class OnTypeFormattingAdapter {
 		const document = this._documents.getDocument(resource);
 		const pos = typeConvert.Position.to(position);
 
+		// eslint-disable-next-line local/code-no-any-casts
 		const value = await this._provider.provideOnTypeFormattingEdits(document, pos, ch, <any>options, token);
 		if (Array.isArray(value)) {
 			return value.map(typeConvert.TextEdit.from);
@@ -1425,20 +1459,20 @@ class InlineCompletionAdapter {
 
 				const insertText = item.insertText;
 				return ({
-					insertText: typeof insertText === 'string' ? insertText : { snippet: insertText.value },
-					filterText: item.filterText,
+					insertText: insertText === undefined ? undefined : (typeof insertText === 'string' ? insertText : { snippet: insertText.value }),
 					range: item.range ? typeConvert.Range.from(item.range) : undefined,
 					showRange: (this._isAdditionsProposedApiEnabled && item.showRange) ? typeConvert.Range.from(item.showRange) : undefined,
 					command,
-					action,
+					gutterMenuLinkAction: action,
 					idx: idx,
 					completeBracketPairs: this._isAdditionsProposedApiEnabled ? item.completeBracketPairs : false,
 					isInlineEdit: this._isAdditionsProposedApiEnabled ? item.isInlineEdit : false,
 					showInlineEditMenu: this._isAdditionsProposedApiEnabled ? item.showInlineEditMenu : false,
-					displayLocation: (item.displayLocation && this._isAdditionsProposedApiEnabled) ? {
+					hint: (item.displayLocation && this._isAdditionsProposedApiEnabled) ? {
 						range: typeConvert.Range.from(item.displayLocation.range),
-						label: item.displayLocation.label,
-						kind: item.displayLocation.kind ? typeConvert.InlineCompletionDisplayLocationKind.from(item.displayLocation.kind) : InlineCompletionDisplayLocationKind.Code,
+						content: item.displayLocation.label,
+						style: item.displayLocation.kind ? typeConvert.InlineCompletionHintStyle.from(item.displayLocation.kind) : languages.InlineCompletionHintStyle.Code,
+						jumpToEdit: item.displayLocation.jumpToEdit ?? false,
 					} : undefined,
 					warning: (item.warning && this._isAdditionsProposedApiEnabled) ? {
 						message: typeConvert.MarkdownString.from(item.warning.message),
@@ -1446,6 +1480,7 @@ class InlineCompletionAdapter {
 					} : undefined,
 					correlationId: this._isAdditionsProposedApiEnabled ? item.correlationId : undefined,
 					suggestionId: undefined,
+					uri: (this._isAdditionsProposedApiEnabled && item.uri) ? item.uri : undefined,
 				});
 			}),
 			commands: commands.map(c => {
@@ -1562,6 +1597,16 @@ class SignatureHelpAdapter {
 
 		const value = await this._provider.provideSignatureHelp(doc, pos, token, vscodeContext);
 		if (value) {
+			// --- Start Positron ---
+			// Filter out signature help that only contains "Unknown" text (possibly in a markdown code block).
+			// This is because that's the literal message Pyrefly sends when it has no useful info to provide.
+			const allSignaturesUnknown = value.signatures.length > 0 && value.signatures.every(sig =>
+				extractPlainTextFromMarkdown(sig.label) === 'Unknown'
+			);
+			if (allSignaturesUnknown) {
+				return undefined;
+			}
+			// --- End Positron ---
 			const id = this._cache.add([value]);
 			return { ...typeConvert.SignatureHelp.from(value), id };
 		}
@@ -2215,6 +2260,7 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 		this._inlineCompletionsUnificationState = {
 			codeUnification: false,
 			modelUnification: false,
+			extensionUnification: false,
 			expAssignments: []
 		};
 	}
@@ -2376,7 +2422,10 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 	// --- extra info
 
 	registerHoverProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: vscode.HoverProvider, extensionId?: ExtensionIdentifier): vscode.Disposable {
-		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider), extension);
+		// --- Start Positron ---
+		// added extensionId parameter to HoverAdapter
+		const handle = this._addNewAdapter(new HoverAdapter(this._documents, provider, extension.identifier.value), extension);
+		// --- End Positron ---
 		this._proxy.$registerHoverProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
 	}
@@ -2625,8 +2674,16 @@ export class ExtHostLanguageFeatures extends CoreDisposable implements extHostPr
 
 	registerDocumentRangeSemanticTokensProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: vscode.DocumentRangeSemanticTokensProvider, legend: vscode.SemanticTokensLegend): vscode.Disposable {
 		const handle = this._addNewAdapter(new DocumentRangeSemanticTokensAdapter(this._documents, provider), extension);
-		this._proxy.$registerDocumentRangeSemanticTokensProvider(handle, this._transformDocumentSelector(selector, extension), legend);
-		return this._createDisposable(handle);
+		const eventHandle = (typeof provider.onDidChangeSemanticTokens === 'function' ? this._nextHandle() : undefined);
+		this._proxy.$registerDocumentRangeSemanticTokensProvider(handle, this._transformDocumentSelector(selector, extension), legend, eventHandle);
+		let result = this._createDisposable(handle);
+
+		if (eventHandle) {
+			const subscription = provider.onDidChangeSemanticTokens!(_ => this._proxy.$emitDocumentRangeSemanticTokensEvent(eventHandle));
+			result = Disposable.from(result, subscription);
+		}
+
+		return result;
 	}
 
 	$provideDocumentRangeSemanticTokens(handle: number, resource: UriComponents, range: IRange, token: CancellationToken): Promise<VSBuffer | null> {

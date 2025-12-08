@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './mocha-setup'
+import './mocha-setup';
 
 import * as assert from 'assert';
 import { matchRunnable } from '../hyperlink';

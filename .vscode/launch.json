@@ -185,6 +185,7 @@
 				"order": 4
 			}
 		},
+		// --- Start Positron
 		{
 			// Note this uses the version of Code/Positron you launch it from.
 			// i.e., launch from dev Positron if your tests need dev Positron.
@@ -205,6 +206,7 @@
 				"order": 5
 			}
 		},
+		// --- End Positron
 		{
 			"type": "extensionHost",
 			"request": "launch",

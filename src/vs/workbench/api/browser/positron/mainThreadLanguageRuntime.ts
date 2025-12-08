@@ -242,7 +242,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				if (ed.kind === 'uri') {
 					file = URI.parse(ed.file);
 				} else {
-					file = URI.file(ed.file);
+					file = URI.from({
+						scheme: this._pathService.defaultUriScheme,
+						path: ed.file
+					});
 				}
 
 				const editor: ITextResourceEditorInput = {
@@ -261,7 +264,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
 				const openWith = ev.data as OpenWithSystemEvent;
-				const uri = URI.file(openWith.path);
+				const uri = URI.from({
+					scheme: this._pathService.defaultUriScheme,
+					path: openWith.path
+				});
 
 				// Use VS Code's opener service with external option
 				await this._openerService.open(uri, { openExternal: true });
@@ -1786,11 +1792,16 @@ export class MainThreadLanguageRuntime
 	 */
 	async createSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
+	):
 		Promise<ILanguageRuntimeSession> {
 
-		const initialState = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
-			sessionMetadata);
+		const initialState = await this._proxy.$createLanguageRuntimeSession(
+			runtimeMetadata,
+			sessionMetadata,
+			sessionName,
+		);
 		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
 		this._sessions.set(initialState.handle, session);
 		return session;

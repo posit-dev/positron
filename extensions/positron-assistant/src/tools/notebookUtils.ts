@@ -6,8 +6,9 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
-import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
+import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT, getOriginalContentLength } from '../notebookContextFilter.js';
 import { isRuntimeSessionReference } from '../utils.js';
+import { log } from '../extension.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)
@@ -168,11 +169,17 @@ export function formatCells(options: FormatCellsOptions): string {
 		const cellLabel = cells.length === 1
 			? prefix
 			: `${prefix} ${idx + 1}`;
+
+		// Check if cell content was truncated (has originalContentLength property)
+		const originalLength = getOriginalContentLength(cell);
+		const wasTruncated = originalLength !== undefined && originalLength > cell.content.length;
+
 		const parts = [
 			`<cell index="${cell.index}" type="${cell.type}">`,
 			`  <label>${cellLabel}</label>`,
 			`  <status>${statusInfo}</status>`,
 			includeContent ? `<content>${cell.content}</content>` : '',
+			wasTruncated ? `  <truncated original-length="${originalLength}" />` : '',
 			`</cell>`
 		];
 		return parts.filter(Boolean).join('\n');
@@ -249,6 +256,8 @@ export interface SerializedNotebookContext {
 	contextNote: string;
 	/** Full wrapped context (if wrapInNotebookContext is true) */
 	fullContext?: string;
+	/** Whether this serialized context represents a full notebook (true) or a windowed context (false). Undefined when allCellsInfo is not present. */
+	isFullNotebookContext?: boolean;
 }
 
 /**
@@ -271,6 +280,13 @@ export function serializeNotebookContext(
 	// Get all cells from context (may already be filtered)
 	const allCells = context.allCells || [];
 	const totalCells = context.cellCount;
+	const canIncludeFullNotebook = totalCells < MAX_CELLS_FOR_ALL_CELLS_CONTEXT;
+
+	// Helper function to find executed cells (used in multiple places)
+	const getExecutedCells = (cells: positron.notebooks.NotebookCell[]) => {
+		const codeCells = cells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
+		return codeCells.filter(c => c.executionOrder !== undefined);
+	};
 
 	// Determine anchor index for sliding window if not provided
 	let effectiveAnchorIndex: number;
@@ -281,8 +297,7 @@ export function serializeNotebookContext(
 		effectiveAnchorIndex = Math.max(...context.selectedCells.map(cell => cell.index));
 	} else {
 		// Try to find last executed cell
-		const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
-		const executedCells = codeCells.filter(c => c.executionOrder !== undefined);
+		const executedCells = getExecutedCells(allCells);
 		if (executedCells.length > 0) {
 			effectiveAnchorIndex = Math.max(...executedCells.map(c => c.index));
 		} else {
@@ -294,7 +309,7 @@ export function serializeNotebookContext(
 	// Apply filtering logic to determine which cells to include
 	let cellsToInclude: positron.notebooks.NotebookCell[];
 
-	if (totalCells < MAX_CELLS_FOR_ALL_CELLS_CONTEXT) {
+	if (canIncludeFullNotebook) {
 		// Small notebooks: include all cells
 		cellsToInclude = allCells.length > 0 ? allCells : [];
 	} else if (context.selectedCells.length === 0 && allCells.length === 0) {
@@ -302,13 +317,12 @@ export function serializeNotebookContext(
 		cellsToInclude = [];
 	} else if (context.selectedCells.length === 0) {
 		// Large notebooks without selection: use sliding window around executed cells
-		const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
-		const executedCells = codeCells.filter(c => c.executionOrder !== undefined);
+		const executedCells = getExecutedCells(allCells);
 		if (executedCells.length > 0 || effectiveAnchorIndex !== 0) {
 			const { startIndex, endIndex } = calculateSlidingWindow(allCells.length, effectiveAnchorIndex);
 			cellsToInclude = allCells.slice(startIndex, endIndex);
 		} else {
-			// No executed cells, use first 20 cells
+			// No executed cells, use first MAX_CELLS_FOR_ALL_CELLS_CONTEXT cells
 			cellsToInclude = allCells.slice(0, MAX_CELLS_FOR_ALL_CELLS_CONTEXT);
 		}
 	} else {
@@ -343,8 +357,7 @@ export function serializeNotebookContext(
 	let allCellsInfo: string | undefined;
 	let formattedCells: string | undefined;
 	if (cellsToInclude.length > 0) {
-		const isFullNotebook = context.cellCount < 20;
-		const description = isFullNotebook
+		const description = canIncludeFullNotebook
 			? 'All cells in notebook (notebook has fewer than 20 cells)'
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
 		// Format cells once and reuse
@@ -357,7 +370,7 @@ export function serializeNotebookContext(
 	// Generate context note XML
 	let contextNote: string;
 	if (cellsToInclude.length > 0) {
-		if (context.cellCount < 20) {
+		if (canIncludeFullNotebook) {
 			contextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
 		} else {
 			contextNote = xml.node('note', 'A context window around the selected/recent cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
@@ -372,13 +385,13 @@ export function serializeNotebookContext(
 		cellCountInfo,
 		selectedCellsInfo,
 		allCellsInfo,
-		contextNote
+		contextNote,
+		isFullNotebookContext: allCellsInfo ? canIncludeFullNotebook : undefined
 	};
 
 	// Optionally wrap in notebook-context node
 	if (wrapInNotebookContext) {
-		const isFullNotebook = context.cellCount < 20;
-		const contextMode = isFullNotebook
+		const contextMode = canIncludeFullNotebook
 			? 'Full notebook (< 20 cells, all cells provided below)'
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
 
@@ -537,16 +550,99 @@ export function hasAttachedNotebookContext(
  * 2. That notebook's URI is attached as context
  *
  * Applies filtering to limit context size for large notebooks.
+ *
+ * This function handles errors internally and will return `undefined` if any error
+ * occurs during context retrieval, filtering, or serialization. Errors are logged
+ * automatically. Callers do not need to wrap this function in try-catch blocks.
+ *
+ * @param request The chat request to check for attached notebook context
+ * @returns The serialized notebook context if available, or `undefined` if no context
+ *   is available or if an error occurs
  */
 export async function getAttachedNotebookContext(
 	request: vscode.ChatRequest
 ): Promise<SerializedNotebookContext | undefined> {
-	const activeContext = await getRawAttachedNotebookContext(request);
-	if (!activeContext) {
+	try {
+		const activeContext = await getRawAttachedNotebookContext(request);
+		if (!activeContext) {
+			return undefined;
+		}
+
+		// Apply filtering before returning context
+		const filteredContext = filterNotebookContext(activeContext);
+		return serializeNotebookContext(filteredContext);
+	} catch (err) {
+		log.error('[getAttachedNotebookContext] Error getting notebook context:', err);
 		return undefined;
 	}
+}
 
-	// Apply filtering before returning context
-	const filteredContext = filterNotebookContext(activeContext);
-	return serializeNotebookContext(filteredContext);
+/**
+ * Serialize notebook context as a user message for injection into the chat.
+ *
+ * This function formats the notebook context as XML suitable for a user message,
+ * allowing the system prompt to remain static (and thus more cacheable) while
+ * the dynamic notebook state is provided separately.
+ *
+ * The output includes:
+ * - Notebook info (kernel, cell count)
+ * - Context mode (full notebook vs sliding window)
+ * - Selected cells (if any)
+ * - All/windowed cells content
+ * - Context note explaining what's included
+ *
+ * @param context The serialized notebook context from getAttachedNotebookContext()
+ * @returns XML-formatted string for use as a user message
+ */
+export function serializeNotebookContextAsUserMessage(
+	context: SerializedNotebookContext
+): string {
+	const parts: string[] = [];
+
+	// Header explaining what this message contains
+	parts.push('<notebook-state>');
+	parts.push('The following is the current state of the notebook you are assisting with:');
+	parts.push('');
+
+	// Notebook info section
+	parts.push('<notebook-info>');
+	parts.push(context.kernelInfo);
+	if (context.cellCountInfo) {
+		parts.push(context.cellCountInfo);
+	}
+
+	// Determine context mode based on whether allCellsInfo exists
+	if (context.allCellsInfo) {
+		// Use explicit isFullNotebookContext field instead of parsing XML
+		const isFullNotebookContext = context.isFullNotebookContext === true;
+		const contextMode = isFullNotebookContext
+			? 'Full notebook (< 20 cells, all cells provided below)'
+			: 'Context window around selected/recent cells (notebook has 20+ cells)';
+		parts.push(xml.node('context-mode', contextMode));
+	} else {
+		parts.push(xml.node('context-mode', 'Selected cells only (use GetNotebookCells for other cells)'));
+	}
+	parts.push('</notebook-info>');
+
+	// Selected cells section (if any selected)
+	if (context.selectedCellsInfo && context.selectedCellsInfo !== 'No cells currently selected') {
+		parts.push('');
+		parts.push('<selected-cells>');
+		parts.push(context.selectedCellsInfo);
+		parts.push('</selected-cells>');
+	}
+
+	// All cells section (if available)
+	if (context.allCellsInfo) {
+		parts.push('');
+		parts.push(context.allCellsInfo);
+	}
+
+	// Context note
+	parts.push('');
+	parts.push(context.contextNote);
+
+	parts.push('</notebook-state>');
+
+	return parts.join('\n');
 }

@@ -394,6 +394,13 @@ export enum PositronLanguageModelType {
 	Completion = 'completion',
 }
 
+// Equivalent in positron.d.ts API: LanguageModelAutoconfigureType
+export enum LanguageModelAutoconfigureType {
+	EnvVariable = 0,
+	Custom = 1
+}
+
+
 /**
  * The possible locations a Positron Assistant chat request can be invoked from.
  */
@@ -425,6 +432,16 @@ export enum NotebookCellType {
 
 	/** A markdown cell */
 	Markdown = 'markdown',
+}
+
+/**
+ * The type of source that opened a preview.
+ */
+export enum PreviewSourceType {
+	/** The preview was opened by a language runtime. */
+	Runtime = 'runtime',
+	/** The preview was opened by a terminal. */
+	Terminal = 'terminal',
 }
 
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';

@@ -36,7 +36,7 @@ export interface IHistorySummaryEntry {
 	output: string;
 
 	/** The error, if any, that occurred during the execution. Can be text or structured object */
-	error?: any;
+	error?: unknown;
 }
 
 /**
@@ -232,8 +232,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			}
 		}));
 
-		this._register(this.chatService.onDidSubmitRequest(({ chatSessionId }) => {
-			const widget = this.chatWidgetService.getWidgetBySessionId(chatSessionId);
+		this._register(this.chatService.onDidSubmitRequest(({ chatSessionResource }) => {
+			const widget = this.chatWidgetService.getWidgetBySessionResource(chatSessionResource);
 			if (!widget?.input.runtimeContext) {
 				return;
 			}
@@ -413,7 +413,8 @@ export class ChatRuntimeSessionContext extends Disposable {
 			}
 
 			// Compute the cost of the entry
-			let cost = entry.input.length + entry.output.length;
+			const output = typeof entry.output === 'string' ? entry.output : '';
+			let cost = entry.input.length + output.length;
 			let errorContent: string | undefined = undefined;
 			if (entry.error) {
 				errorContent = JSON.stringify(entry.error);
@@ -436,7 +437,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 					const budgets = this.calculateBudgetAllocation(availableBudget, true);
 					const { truncatedInput, truncatedOutput, truncatedErrorContent, cost } = this.truncateEntryContent(
 						entry.input,
-						entry.output,
+						output,
 						errorContent,
 						budgets
 					);
@@ -469,7 +470,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 				const budgets = this.calculateBudgetAllocation(availableBudget, !!entry.error);
 				const { truncatedInput, truncatedOutput, truncatedErrorContent, cost: truncatedCost } = this.truncateEntryContent(
 					entry.input,
-					entry.output,
+					output,
 					errorContent,
 					budgets
 				);
@@ -500,7 +501,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 			currentCost += cost;
 			summarized.push({
 				input: entry.input,
-				output: entry.output,
+				output: output,
 				error: entry.error,
 			});
 			// Mark that we've included a traceback if this entry contains an error

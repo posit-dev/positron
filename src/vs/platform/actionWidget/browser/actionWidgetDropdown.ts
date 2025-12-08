@@ -75,36 +75,60 @@ export class ActionWidgetDropdown extends BaseDropdown {
 			});
 
 		for (let i = 0; i < sortedCategories.length; i++) {
-			const [, categoryActions] = sortedCategories[i];
+			// --- Start Positron ---
+			// The entire body of this loop has been replaced to support
+			// separator categories with icons
+			const [categoryLabel, categoryActions] = sortedCategories[i];
 
-			// Push actions for each category
-			for (const action of categoryActions) {
-				actionWidgetItems.push({
-					item: action,
-					tooltip: action.tooltip,
-					description: action.description,
-					kind: ActionListItemKind.Action,
-					canPreview: false,
-					group: { title: '', icon: action.icon ?? ThemeIcon.fromId(action.checked ? Codicon.check.id : Codicon.blank.id) },
-					disabled: false,
-					hideIcon: false,
-					label: action.label,
-					keybinding: this._options.showItemKeybindings ?
-						this.keybindingService.lookupKeybinding(action.id) :
-						undefined,
-				});
-			}
+			// Check if this category represents separator items (disabled actions with special category prefix)
+			const isSeparatorCategory = categoryLabel.startsWith('__separator_');
 
-			// Add separator at the end of each category except the last one
-			if (i < sortedCategories.length - 1) {
+			if (isSeparatorCategory && categoryActions.length > 0) {
+				// Render as a separator with the action's label and icon
+				const separatorAction = categoryActions[0];
 				actionWidgetItems.push({
-					label: '',
+					label: separatorAction.label,
 					kind: ActionListItemKind.Separator,
 					canPreview: false,
 					disabled: false,
 					hideIcon: false,
+					group: separatorAction.icon ? { title: '', icon: separatorAction.icon } : undefined,
 				});
+			} else {
+				// Push actions for each category normally
+				for (const action of categoryActions) {
+					actionWidgetItems.push({
+						item: action,
+						tooltip: action.tooltip,
+						description: action.description,
+						kind: ActionListItemKind.Action,
+						canPreview: false,
+						group: { title: '', icon: action.icon ?? ThemeIcon.fromId(action.checked ? Codicon.check.id : Codicon.blank.id) },
+						disabled: false,
+						hideIcon: false,
+						label: action.label,
+						keybinding: this._options.showItemKeybindings ?
+							this.keybindingService.lookupKeybinding(action.id) :
+							undefined,
+					});
+				}
+
+				// Add separator at the end of each category except the last one (but not after separator categories)
+				if (i < sortedCategories.length - 1 && !isSeparatorCategory) {
+					const nextCategory = sortedCategories[i + 1];
+					const nextIsSeparator = nextCategory[0].startsWith('__separator_');
+					if (!nextIsSeparator) {
+						actionWidgetItems.push({
+							label: '',
+							kind: ActionListItemKind.Separator,
+							canPreview: false,
+							disabled: false,
+							hideIcon: false,
+						});
+					}
+				}
 			}
+			// --- End Positron ---
 		}
 
 		const previouslyFocusedElement = getActiveElement();
@@ -124,7 +148,7 @@ export class ActionWidgetDropdown extends BaseDropdown {
 
 		actionBarActions = actionBarActions.map(action => ({
 			...action,
-			run: async (...args: any[]) => {
+			run: async (...args: unknown[]) => {
 				this.actionWidgetService.hide();
 				return action.run(...args);
 			}

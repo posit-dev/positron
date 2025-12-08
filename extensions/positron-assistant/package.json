@@ -198,6 +198,18 @@
         "title": "%commands.managePromptFiles.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && isDevelopment"
+      },
+      {
+        "command": "positron-assistant.collectDiagnostics",
+        "title": "%commands.collectDiagnostics.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.resetState",
+        "title": "%commands.resetState.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [
@@ -278,7 +290,10 @@
           },
           "positron.assistant.followups.enable": {
             "type": "boolean",
-            "default": true,
+            "default": false,
+            "tags": [
+              "experimental"
+            ],
             "description": "%configuration.followups.enable.description%"
           },
           "positron.assistant.consoleActions.enable": {
@@ -374,6 +389,62 @@
               "experimental"
             ]
           },
+          "positron.assistant.configuredModels": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.configuredModels.description%",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Display name for the model"
+                  },
+                  "identifier": {
+                    "type": "string",
+                    "description": "Model identifier for API calls"
+                  },
+                  "maxInputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum input tokens for this model"
+                  },
+                  "maxOutputTokens": {
+                    "type": "number",
+                    "minimum": 512,
+                    "description": "Maximum output tokens for this model"
+                  }
+                },
+                "required": [
+                  "name",
+                  "identifier"
+                ]
+              }
+            },
+            "examples": [
+              {
+                "openai-compatible": [
+                  {
+                    "name": "Claude Sonnet 4.5",
+                    "identifier": "claude-sonnet-4-5",
+                    "maxInputTokens": 200000,
+                    "maxOutputTokens": 64000
+                  },
+                  {
+                    "name": "GPT-4 Turbo",
+                    "identifier": "gpt-4-turbo",
+                    "maxInputTokens": 8192,
+                    "maxOutputTokens": 2048
+                  }
+                ]
+              }
+            ],
+            "tags": [
+              "experimental"
+            ]
+          },
           "positron.assistant.notebookSuggestions.model": {
             "type": "array",
             "default": [
@@ -413,6 +484,27 @@
               }
             },
             "additionalProperties": false
+          },
+          "positron.assistant.providerVariables.snowflake": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.providerVariables.snowflake.description%",
+            "properties": {
+              "SNOWFLAKE_ACCOUNT": {
+                "type": "string",
+                "default": null
+              },
+              "SNOWFLAKE_HOME": {
+                "type": "string",
+                "default": null
+              }
+            },
+            "additionalProperties": false
+          },
+          "positron.assistant.alwaysEnableApplyInEditorAction": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.alwaysEnableApplyInEditorAction.description%"
           }
         }
       }
@@ -446,6 +538,11 @@
       {
         "vendor": "posit-ai",
         "displayName": "Posit AI",
+        "managementCommand": "positron-assistant.configureModels"
+      },
+      {
+        "vendor": "snowflake-cortex",
+        "displayName": "Snowflake Cortex",
         "managementCommand": "positron-assistant.configureModels"
       }
     ],
@@ -657,7 +754,7 @@
       {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
-        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files. Empty folders are not included in the tree.",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files. Empty folders are not included in the tree unless `directoriesOnly` is true. Set `directoriesOnly` to true to return only directories without listing files within them; this is more efficient for discovering directories.",
         "icon": "$(file-directory)",
         "toolReferenceName": "projectTree",
         "userDescription": "Get the project tree of the current workspace.",
@@ -690,71 +787,20 @@
               "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored files/directories). When true, only the explicit `exclude` patterns will be applied.",
               "default": false
             },
-            "maxFiles": {
+            "maxItems": {
               "type": "number",
-              "description": "The maximum number of files to include in the project tree (<=50). If this limit is reached, a compressed description of the project will be provided instead.",
+              "description": "The maximum number of items (files or directories) to include in the project tree (<=50). If this limit is reached, a compressed description of the project will be provided instead.",
               "default": 50
+            },
+            "directoriesOnly": {
+              "type": "boolean",
+              "description": "When true, returns only directories without listing files within them. Empty directories are included. This is more efficient for directory queries. Prefer this over running code in the terminal for finding directories.",
+              "default": false
             }
           },
           "required": [
             "include"
           ]
-        }
-      },
-      {
-        "name": "getDirectoryStructure",
-        "displayName": "Get Directory Structure",
-        "modelDescription": "Returns a list of directories without listing files within them. Empty directories are included. Unlike getProjectTree, this tool focuses on directories only and is more efficient for directory queries. Prefer this tool over running code in the terminal for finding directories.",
-        "icon": "$(folder)",
-        "toolReferenceName": "directoryStructure",
-        "userDescription": "Get the directory structure of the workspace.",
-        "canBeReferencedInPrompt": true,
-        "tags": [
-          "positron-assistant",
-          "requires-workspace"
-        ],
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string",
-              "description": "Starting path to explore (relative to workspace root). Defaults to workspace root if not specified."
-            },
-            "maxDepth": {
-              "type": "number",
-              "description": "Maximum recursion depth. 1 shows only immediate subdirectories. Must be between 1 and 3.",
-              "default": 1,
-              "minimum": 1,
-              "maximum": 3
-            },
-            "maxDirectories": {
-              "type": "number",
-              "description": "Maximum number of directories to return.",
-              "default": 50,
-              "maximum": 100
-            },
-            "include": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "description": "A glob pattern to include directories."
-              },
-              "description": "Glob patterns to include directories. Only directories matching these patterns will be returned."
-            },
-            "exclude": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "description": "A glob pattern to exclude directories."
-              },
-              "description": "Glob patterns to exclude directories. These patterns will be applied in addition to the default excludes unless `skipDefaultExcludes` is true."
-            },
-            "skipDefaultExcludes": {
-              "type": "boolean",
-              "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored directories). When true, only the explicit `exclude` patterns will be applied.",
-              "default": false
-            }
-          }
         }
       },
       {
@@ -769,31 +815,6 @@
         "tags": [
           "positron-assistant"
         ]
-      },
-      {
-        "name": "installPythonPackage",
-        "displayName": "Install Python Package",
-        "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
-        "icon": "$(package)",
-        "toolReferenceName": "installPythonPackage",
-        "userDescription": "Install Python packages in the current environment",
-        "canBeReferencedInPrompt": true,
-        "tags": [
-          "positron-assistant"
-        ],
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "packages": {
-              "type": "array",
-              "description": "Array of Python package names to install.",
-              "items": {
-                "type": "string",
-                "description": "Name of the Python package to install."
-              }
-            }
-          }
-        }
       },
       {
         "name": "runNotebookCells",
@@ -824,7 +845,7 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -862,6 +883,10 @@
             "cellIndex": {
               "type": "number",
               "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+            },
+            "run": {
+              "type": "boolean",
+              "description": "Whether to execute the cell after adding it. Defaults to true for code cells. Ignored for markdown cells."
             }
           },
           "required": [

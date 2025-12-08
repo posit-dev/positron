@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup';
+
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as testKit from './kit';
@@ -16,7 +18,7 @@ suite('ArkComm', () => {
 	let comm: Comm;
 
 	suiteSetup(async () => {
-		const [ses, disposable] = await testKit.startR();
+		const [ses, disposable] = await testKit.startR('Suite: ArkComm');
 		session = ses;
 		sesDisposable = disposable;
 
@@ -47,12 +49,12 @@ suite('ArkComm', () => {
 					i: -10
 				}
 			}
-		)
+		);
 	});
 
 	test('Can send request', async () => {
 		const requestReply = await assertRequest(comm, 'test_request', { i: 11 });
-		assert.deepStrictEqual(requestReply, { i: -11 })
+		assert.deepStrictEqual(requestReply, { i: -11 });
 	});
 
 	test('Invalid method sends error', async () => {
@@ -84,7 +86,7 @@ async function assertNextMessage(comm: Comm): Promise<CommBackendMessage> {
 		whenTimeout(5000, () => assert.fail(`Timeout while expecting comm message on ${comm.id}`)),
 	]) as any;
 
-	assert.strictEqual(result.done, false)
+	assert.strictEqual(result.done, false);
 	return result.value;
 }
 

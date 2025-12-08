@@ -309,14 +309,31 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			vscode.TreeItemCollapsibleState.Expanded,
 		);
 		item.iconPath = registration.iconPath;
-		item.tooltip = getTooltipInfo(this.connName, this.connOptions);
 		item.description = this.connName;
 		item.contextValue = 'provider';
 		return item;
 	}
 
-	getDetails(_node: CatalogNode): Promise<string | undefined> {
-		return Promise.resolve(undefined);
+	async getDetails(_node: CatalogNode): Promise<string | vscode.MarkdownString | undefined> {
+		// Flesh out the tooltip with information from the connection itself,
+		// if possible.
+		try {
+			const result = await this.executeQuery<{ ACCOUNT_IDENTIFIER: string; USER: string; ROLE: string }>(
+				`SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS ACCOUNT_IDENTIFIER, CURRENT_USER() as USER, CURRENT_ROLE() AS ROLE`
+			);
+			if (result[0]) {
+				return new vscode.MarkdownString(l10n.t(
+					'Connected to https://{0}.snowflakecomputing.com as `{1}` with role `{2}`.',
+					result[0].ACCOUNT_IDENTIFIER.toLowerCase(),
+					result[0].USER.toLowerCase(),
+					result[0].ROLE
+				));
+			}
+		} catch (error) {
+			traceError('Error getting current Snowflake user and role:', error);
+		}
+		// Fall back to information from the connections.toml file.
+		return getTooltipInfo(this.connName, this.connOptions);
 	}
 
 	/**
@@ -512,20 +529,7 @@ async function generateCode(
 	const schemaName = pathSchema || connectionProfile?.schema;
 
 	// Get initial values from connection profile
-	let username = connectionProfile?.user;
 	let warehouse = connectionProfile?.warehouse;
-
-	// If we don't have a username from the connection profile, prompt for it
-	if (!username) {
-		username = await vscode.window.showInputBox({
-			prompt: l10n.t('Enter your Snowflake username'),
-			placeHolder: 'your-username@example.com'
-		});
-
-		if (!username) {
-			return; // User canceled
-		}
-	}
 
 	// If we don't have a warehouse from the connection profile, prompt for it
 	// Also make sure that we don't have a placeholder value
@@ -551,13 +555,11 @@ async function generateCode(
 			);
 		case 'r':
 			return await getRCodeForSnowflakeTable(
-				connName,
-				username,
+				connectionProfile.account,
 				warehouse,
 				databaseName,
 				schemaName,
-				tableName,
-				connectionProfile
+				tableName
 			);
 		default:
 			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
@@ -616,54 +618,34 @@ ${connOptions?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE ${warehouse}"
 /**
  * Generate R code for accessing a Snowflake table
  *
- * @param connName The Snowflake connection name in connections.toml
- * @param username The Snowflake username
- * @param warehouse The warehouse name
+ * @param account The Snowflake account identifier.
+ * @param warehouse An optional warehouse.
  * @param database Optional database name
  * @param schema Optional schema name
  * @param table Optional table name
- * @param connOptions Optional connections object from getSnowflakeConnectionOptions
  * @returns Generated code and required dependencies
  */
 async function getRCodeForSnowflakeTable(
-	connName: string,
-	username: string,
-	warehouse: string,
+	account: string,
+	warehouse?: string,
 	database?: string,
 	schema?: string,
-	table?: string,
-	connOptions?: any
+	table?: string
 ): Promise<{ code: string; dependencies: string[] }> {
-	const dependencies = ['DBI', 'odbc'];
+	const dependencies = ['odbc', 'dplyr'];
+	const absoluteTablePath = [database, schema, table].filter(part => part).join('.');
+	const varname = table?.replace('-', '_').toLowerCase();
 
-	// Determine if we should use password authentication
-	const usePassword = connOptions && connOptions[connName]?.password ? true : false;
-	const account = connOptions?.account || 'ACCOUNT_NAME';
-
-	// Build a code template with the available parameters
-	const code = `library(odbc)
-library(DBI)
-
-con <- dbConnect(
-	odbc::odbc(),
-	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
-	server = "${account}.snowflakecomputing.com",
-	uid = "${username}",${usePassword ? `
-	# Password should be stored securely in environment variables
-	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),` /* pragma: allowlist secret */ : `
-	authenticator = "${connOptions.authenticator || 'externalbrowser'}",`}
-	warehouse = "${warehouse}"${database ? `,
-	database = "${database}"` : ''}${schema ? `,
-	schema = "${schema}"` : ''}
+	const code = `conn <- DBI::dbConnect(
+	  odbc::snowflake(),
+	  account = "${account}"${warehouse ? `,
+	  warehouse = "${warehouse}"` : ''}
 )
-
-# Query data
 ${table
-			? `df <- dbGetQuery(con, "SELECT * FROM ${table} LIMIT 10")`
-			: `df <- dbGetQuery(con, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`}
-
-# Disconnect when done
-dbDisconnect(con)`;
+			? `${varname} <- dplyr::tbl(conn, I("${absoluteTablePath}"))
+${varname}`
+			: `DBI::dbGetQuery(conn, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`}
+`;
 
 	return { code, dependencies };
 }

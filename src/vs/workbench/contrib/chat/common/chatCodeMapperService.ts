@@ -86,7 +86,7 @@ export class CodeMapperService implements ICodeMapperService {
 		// when Copilot is the current chat model.
 
 		if (request.chatSessionId) {
-			const modelId = this._chatService.getSession(request.chatSessionId)?.getRequests().at(0)?.modelId;
+			const modelId = this._chatService.getSessionByLegacyId(request.chatSessionId)?.getRequests().at(0)?.modelId;
 			if (modelId) {
 				const model = this._languageModelsService.lookupLanguageModel(modelId);
 				const extension = model?.extension;

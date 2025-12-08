@@ -14,6 +14,7 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
+import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -52,7 +53,11 @@ export enum NotebookOperationType {
 	/** Cells restored via undo operation */
 	Undo = 'Undo',
 	/** Cells restored via redo operation */
-	Redo = 'Redo'
+	Redo = 'Redo',
+	/** Cells added by the AI assistant - should not auto-select or scroll */
+	AssistantAdd = 'AssistantAdd',
+	/** Cells edited by the AI assistant - should not auto-select or scroll */
+	AssistantEdit = 'AssistantEdit'
 }
 
 /**
@@ -160,6 +165,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	readonly notebookOptions: NotebookOptions;
 
+	/**
+	 * Hover manager for displaying tooltips throughout the notebook.
+	 * Used by action buttons and other interactive elements.
+	 */
+	readonly hoverManager: IHoverManager;
+
 	// ===== Methods =====
 	/**
 	 * Executes the specified cells in order.
@@ -212,25 +223,28 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	/**
 	 * Removes a cell from the notebook.
 	 *
-	 * @param cell Optional cell to delete. If not provided, deletes the currently selected cell
+	 * @param cell Optional cell to delete. If not provided, deletes the currently active cell
 	 */
 	deleteCell(cell?: IPositronNotebookCell): void;
 
 	/**
-	 * Moves a cell up by one position.
-	 * Supports multi-cell selection - moves all selected cells as a group.
+	 * Removes multiple cells from the notebook.
 	 *
-	 * @param cell The cell to move up
+	 * @param cells Optional array of cells to delete. If not provided, uses current selection.
 	 */
-	moveCellUp(cell: IPositronNotebookCell): void;
+	deleteCells(cells?: IPositronNotebookCell[]): void;
 
 	/**
-	 * Moves a cell down by one position.
+	 * Moves the selected cell(s) up by one position.
 	 * Supports multi-cell selection - moves all selected cells as a group.
-	 *
-	 * @param cell The cell to move down
 	 */
-	moveCellDown(cell: IPositronNotebookCell): void;
+	moveCellsUp(): void;
+
+	/**
+	 * Moves the selected cell(s) down by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 */
+	moveCellsDown(): void;
 
 	/**
 	 * Moves cells to a specific index.
@@ -327,6 +341,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	fireScrollEvent(): void;
 
+	/**
+	 * Handle assistant cell modification by showing notifications or auto-following
+	 * when cells are modified outside the viewport.
+	 * @param cellIndex The index of the cell that was modified
+	 */
+	handleAssistantCellModification(cellIndex: number): Promise<void>;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

@@ -42,10 +42,10 @@ class ExtHostOutputChannel extends AbstractMessageLogger implements vscode.LogOu
 
 	// --- Start Positron ---
 	public setRawLogger() {
-		let loggerUnchecked = this.logger as any;
+		const loggerUnchecked = this.logger as any;
 		if (loggerUnchecked.setRawLogger) {
 			loggerUnchecked.setRawLogger();
-		};
+		}
 	}
 	// --- End Positron ---
 
@@ -175,7 +175,7 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 		const channel = this.createOutputChannel(name, { log: true }, extension);
 
 		// Set our custom raw log
-		const channelUnchecked = channel as any
+		const channelUnchecked = channel as any;
 		if (channelUnchecked.setRawLogger) {
 			channelUnchecked.setRawLogger();
 		}
@@ -291,23 +291,23 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 			...this.createExtHostOutputChannel(name, channelPromise, channelDisposables),
 			get logLevel() { return logLevel; },
 			onDidChangeLogLevel: onDidChangeLogLevel.event,
-			trace(value: string, ...args: any[]): void {
+			trace(value: string, ...args: unknown[]): void {
 				validate();
 				channelPromise.then(channel => channel.trace(value, ...args));
 			},
-			debug(value: string, ...args: any[]): void {
+			debug(value: string, ...args: unknown[]): void {
 				validate();
 				channelPromise.then(channel => channel.debug(value, ...args));
 			},
-			info(value: string, ...args: any[]): void {
+			info(value: string, ...args: unknown[]): void {
 				validate();
 				channelPromise.then(channel => channel.info(value, ...args));
 			},
-			warn(value: string, ...args: any[]): void {
+			warn(value: string, ...args: unknown[]): void {
 				validate();
 				channelPromise.then(channel => channel.warn(value, ...args));
 			},
-			error(value: Error | string, ...args: any[]): void {
+			error(value: Error | string, ...args: unknown[]): void {
 				validate();
 				channelPromise.then(channel => channel.error(value, ...args));
 			}

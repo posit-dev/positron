@@ -146,7 +146,7 @@
 		{
 			"label": "compile positron-copilot-chat",
 			"type": "shell",
-			"command": "git submodule update --init --recursive && cd extensions/positron-copilot-chat && npm run compile",
+			"command": "git submodule update --init --recursive && cd extensions/positron-copilot-chat && npm i && npm run compile",
 			"options": {
 				"cwd": "${workspaceFolder}"
 			},

@@ -73,7 +73,7 @@ jobs:  # to input into inspect-ai-test job below
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: inspect-ai-responses
           path: /home/runner/work/positron/positron/test/assistant-inspect-ai
@@ -100,7 +100,7 @@ jobs:  # to input into inspect-ai-test job below
           python test/assistant-inspect-ai/inspect_result_parser.py "$LATEST_LOG" --threshold 0.8
 
       - name: Upload inspect-ai eval logs
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: inspect-ai-logs
@@ -118,7 +118,7 @@ jobs:  # to input into inspect-ai-test job below
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}

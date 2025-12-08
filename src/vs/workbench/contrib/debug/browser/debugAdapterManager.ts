@@ -38,7 +38,7 @@ import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/c
 const jsonRegistry = Registry.as<IJSONContributionRegistry>(JSONExtensions.JSONContribution);
 
 export interface IAdapterManagerDelegate {
-	onDidNewSession: Event<IDebugSession>;
+	readonly onDidNewSession: Event<IDebugSession>;
 	configurationManager(): IConfigurationManager;
 }
 
@@ -340,6 +340,15 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 			.filter(d => d.enabled)
 			.find(a => a.interestedInLanguage(languageId));
 	}
+
+	// --- Start Positron ---
+	someDebuggerInterestedInLanguageSupportsUiLaunch(languageId: string): boolean {
+		const interestedDebuggers = this.debuggers
+			.filter(d => d.enabled && d.interestedInLanguage(languageId));
+		// Return true if at least one interested debugger supports UI launch
+		return interestedDebuggers.some(d => d.supportsUiLaunch !== false);
+	}
+	// --- End Positron ---
 
 	async guessDebugger(gettingConfigurations: boolean): Promise<IGuessedDebugger | undefined> {
 		const activeTextEditorControl = this.editorService.activeTextEditorControl;

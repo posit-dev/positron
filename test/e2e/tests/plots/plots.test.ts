@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { fail } from 'assert';
 import { Application } from '../../infra';
 import { Locator, Page } from '@playwright/test';
+import { pythonDynamicPlot } from '../shared/plots.constants.js';
 
 test.use({
 	suiteId: __filename
@@ -26,8 +27,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test.afterEach(async function ({ app, hotKeys }) {
 			await hotKeys.fullSizeSecondarySidebar();
-			await app.workbench.plots.clearPlots();
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -36,7 +39,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
-		}, async function ({ app, logger, headless }, testInfo) {
+		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
@@ -70,10 +73,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test('Python - Verify basic plot functionality - Static Plot', {
@@ -338,9 +341,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
-			await hotKeys.fullSizeSecondarySidebar();
-			await app.workbench.plots.clearPlots();
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -349,7 +353,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verify basic plot functionality', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
-		}, async function ({ app, logger, headless }, testInfo) {
+		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
@@ -382,10 +386,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test('R - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS, tags.CRITICAL] }, async function ({ app }) {
@@ -583,26 +587,6 @@ async function compareImages({
 		}
 	});
 }
-
-const pythonDynamicPlot = `import pandas as pd
-import matplotlib.pyplot as plt
-data_dict = {'name': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
-				'age': [20, 20, 21, 20, 21, 20],
-				'math_marks': [100, 90, 91, 98, 92, 95],
-				'physics_marks': [90, 100, 91, 92, 98, 95],
-				'chem_marks': [93, 89, 99, 92, 94, 92]
-				}
-
-df = pd.DataFrame(data_dict)
-
-df.plot(kind='scatter',
-		x='math_marks',
-		y='physics_marks',
-		color='red')
-
-plt.title('ScatterPlot')
-plt.show()`;
-
 
 const pythonStaticPlot = `import graphviz as gv
 import IPython

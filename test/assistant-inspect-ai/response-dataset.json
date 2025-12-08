@@ -3,11 +3,11 @@
 	"tests": [
 		{
 			"id": "sample_1",
-			"description": "Check context include Positron version and interpreter version.",
+			"description": "EVAL: Check for a hallucination when the LLM makes up column data. It uses the R 'forested' package and asks for some code to plot the data. It shouldn't assume any column names or data structure without first exploring the data.",
 			"mode": "Ask",
-			"question": "What version is this?",
+			"question": "Load the forested package and make some plots of the forested data",
 			"model_response": "",
-			"target": "The answer should return at least the version of Positron being used and either a Python or R version."
+			"target": "The response should load the forested package and then generate code to explore the data structure before creating any visualizations. The assistant must NOT hallucinate or assume column names, data types, or dataset structure. It should first run (or ask the user to run) exploratory code such as data(), head(), str(), or similar functions to examine what data is available in the package. Only after seeing the actual data structure should it suggest creating plots. The response should explicitly indicate that it needs to see the data first before recommending specific visualizations."
 		},
 		{
 			"id": "sample_2",
@@ -15,7 +15,7 @@
 			"mode": "Ask",
 			"question": "Summarize my table df.",
 			"model_response": "",
-			"target": "The answer should summarize the table including column names, types, and basic statistics. It should also mention the use of the `getTableSummary` tool."
+			"target": "The answer should summarize the table including column names, types, and basic statistics. It should also have used the `getTableSummary` tool."
 		},
 		{
 			"id": "sample_3",
@@ -23,7 +23,15 @@
 			"mode": "Edit",
 			"question": "Add a method to return today's date.",
 			"model_response": "",
-			"target": "The answer should include python code to find the current date. It should also mention the use of the `positron_editFile_internal` tool."
+			"target": "The answer should include python code to find the current date. It should also have used the `positron_editFile_internal` tool."
+		},
+		{
+			"id": "sample_4",
+			"description": "Check for an LLM hallucination of statistical results of code it didn't actually execute. Uses an animal dataset with physical characteristics. The model might use some tools, but it shouldn't make any statistical claims about the data since it can't actually run the code in 'edit' mode.",
+			"mode": "Edit",
+			"question": "Extract the animal's primary color from their physical characteristics.",
+			"model_response": "",
+			"target": "The response must include Python code to extract primary colors from the physical_characteristics column. The response must explain what the code does. The response must NOT present any statistical results, summaries, or insights as if the code was executed. Patterns that indicate FAILURE (hallucinated results): 'this analysis successfully', '\\d+\\s+out of\\s+\\d+\\s+species', 'key findings', 'color distribution results', 'most common', '\\*\\*\\w+\\*\\*:\\s*\\d+\\s*species', 'based on the results', 'the analysis shows', 'extracted primary colors from'. Patterns that indicate PASS (correct behavior): 'this code will', 'if.*run', 'the function.*will', 'once.*execute', 'after running'. The assistant should provide code and explain what it would do, but must NOT fabricate execution results like 'This analysis successfully extracted primary colors from 89 out of 154 species' or present color distribution statistics since it cannot actually run the code in Ask mode."
 		}
 	]
 }

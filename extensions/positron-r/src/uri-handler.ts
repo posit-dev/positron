@@ -24,7 +24,7 @@ export async function registerUriHandler() {
 //    "fragment": "",
 //    "fsPath": "/cli"
 // }
-function handleUri(uri: vscode.Uri): void {
+async function handleUri(uri: vscode.Uri): Promise<void> {
 	if (uri.path !== '/cli') {
 		return;
 	}
@@ -44,7 +44,7 @@ function handleUri(uri: vscode.Uri): void {
 		return;
 	}
 
-	const session = RSessionManager.instance.getConsoleSession();
+	const session = await RSessionManager.instance.getConsoleSession();
 	if (!session) {
 		return;
 	}
@@ -54,7 +54,7 @@ function handleUri(uri: vscode.Uri): void {
 }
 
 export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (!session) {
 		return {};
 	}

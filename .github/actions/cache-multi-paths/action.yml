@@ -18,18 +18,17 @@ runs:
 
     - name: Cache npm packages
       id: cache-npm
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: .npm-cache
-        key: >
-          npm-cache-${{ runner.os }}-${{
-            hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
-          }}
+        key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
           npm-cache-${{ runner.os }}-
 
     - name: Cache ark binary
       id: cache-binaries-ark
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
@@ -43,6 +42,7 @@ runs:
 
     - name: Cache kallichore binary
       id: cache-binaries-kallichore
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
@@ -54,11 +54,13 @@ runs:
 
     - name: Cache Playwright browsers
       id: cache-playwright
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
           ~/.cache/ms-playwright
           /root/.cache/ms-playwright
+          /github/home/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
         restore-keys: |
@@ -66,11 +68,16 @@ runs:
 
     - name: Cache Electron binary
       id: cache-electron
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
           ~/.cache/electron
           ~/.cache/electron-builder
+          /root/.cache/electron
+          /root/.cache/electron-builder
+          /github/home/.cache/electron
+          /github/home/.cache/electron-builder
         # electron binaries are tied to package-lock and the electron version in package.json
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
         restore-keys: |
@@ -78,6 +85,7 @@ runs:
 
     - name: Cache built-in extensions
       id: cache-builtins
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |

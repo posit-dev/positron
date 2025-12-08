@@ -276,6 +276,16 @@
             ],
             "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
           },
+          "positron.r.interpreters.condaDiscovery": {
+            "scope": "resource",
+            "type": "boolean",
+            "default": false,
+            "tags": [
+              "interpreterSettings",
+              "experimental"
+            ],
+            "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
@@ -667,6 +677,11 @@
         "view": "testing",
         "contents": "No testthat tests found.\n[Add a test](command:r.useTest)",
         "when": "isRPackage && config.positron.r.testing && testthatIsConfigured && !testthatHasTests"
+      },
+      {
+        "view": "debug",
+        "contents": "%r.welcome.views.debugger.content%",
+        "when": "debugStartLanguage == 'r'"
       }
     ],
     "taskDefinitions": [
@@ -678,7 +693,9 @@
     "debuggers": [
       {
         "type": "ark",
-        "label": "R Debugger"
+        "label": "R Debugger",
+        "languages": ["r"],
+        "supportsUiLaunch": false
       }
     ],
     "notebookRenderer": [
@@ -928,7 +945,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.216"
+      "ark": "0.1.220"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

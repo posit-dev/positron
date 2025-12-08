@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator, Page } from '@playwright/test';
-import { Code, QuickAccess, Console, ContextMenu } from '../infra';
+import { Code, QuickAccess, Console, ContextMenu, Modals } from '../infra';
 import { QuickInput } from './quickInput';
 
 // Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
@@ -46,7 +46,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 
 	// -- Actions --
 
@@ -180,8 +180,8 @@ export class Sessions {
 	 * @param options.waitForIdle - wait for the session to display as "idle" (ready)
 	 * @param options.clearConsole - clear the console before restarting
 	 */
-	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean }): Promise<void> {
-		const { waitForIdle = true, clearConsole = true } = options || {};
+	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean, clickModalButton?: string }): Promise<void> {
+		const { waitForIdle = true, clearConsole = true, clickModalButton = '' } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
 			await this.console.focus();
@@ -196,6 +196,10 @@ export class Sessions {
 
 			await this.console.restartButton.click();
 			await this.page.mouse.move(0, 0);
+
+			if (clickModalButton) {
+				await this.modals.clickButton(clickModalButton);
+			}
 
 			if (waitForIdle) {
 				await expect(this.page.getByText('restarting.')).not.toBeVisible({ timeout: 90000 });
@@ -874,12 +878,11 @@ export class Sessions {
 	 *
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
-	async expectSessionPickerToBe(runtimeName: string) {
+	async expectSessionPickerToBe(runtimeName: string, timeout: number = 15000) {
 		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
 			const normalizedRuntimeName = runtimeName.replace(/-\s\d+$/, '').trim();
-			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName);
-		}
-		);
+			await expect(this.sessionPicker).toHaveText(normalizedRuntimeName, { timeout });
+		});
 	}
 
 	/**
@@ -945,10 +948,10 @@ export class Sessions {
 	/**
 	 * Verify: all sessions are "ready" (idle or disconnected)
 	 */
-	async expectAllSessionsToBeReady() {
+	async expectAllSessionsToBeReady({ timeout = 15000 }: { timeout?: number } = {}) {
 		await test.step('Expect all sessions to be ready', async () => {
 			await this.expectNoStartUpMessaging();
-			await expect(this.activeStatusIcon).toHaveCount(0);
+			await expect(this.activeStatusIcon).toHaveCount(0, { timeout });
 		});
 	}
 

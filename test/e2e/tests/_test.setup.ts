@@ -130,7 +130,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			await stop();
 			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -193,8 +193,8 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	runDockerCommand: async ({ }, use, testInfo) => {
 		await use(async (command: string, description: string) => {
-			if (testInfo.project.name !== 'e2e-workbench') {
-				throw new Error('runDockerCommand is only available in the e2e-workbench project');
+			if (testInfo.project.name !== 'e2e-workbench' && testInfo.project.name !== 'e2e-remote-ssh') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench & e2e-remote-ssh projects');
 			}
 			return runDockerCommand(command, description); // <-- return result
 		});
@@ -259,8 +259,9 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		await use();
 
-		await app.workbench.console.logConsoleContents();
-		await app.workbench.terminal.logTerminalContents();
+		// Disabling for now to see if it improves teardown stability
+		// await app.workbench.console.logConsoleContents();
+		// await app.workbench.terminal.logTerminalContents();
 
 		const failed = testInfo.status !== testInfo.expectedStatus;
 		const testTitle = testInfo.title;

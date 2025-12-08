@@ -6,7 +6,7 @@
 import path from 'path';
 import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
-import { copyFixtureFile, MultiLogger, Application } from '../../infra';
+import { MultiLogger, Application } from '../../infra';
 import { SPEC_NAME, ROOT_PATH } from './constants';
 
 let fixtureScreenshot: Buffer | undefined;
@@ -45,21 +45,41 @@ export async function captureScreenshotOnError(app: Application, logsPath: strin
  */
 export async function copyUserSettings(userDir: string): Promise<string> {
 	const settingsFileName = 'settings.json';
+	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
+	const settingsFile = path.join(fixturesDir, settingsFileName);
 
+	// Start from the current settings.json in fixtures
+	let mergedSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+
+	// 1. Merge Docker-specific overrides when running in Docker
 	if (fs.existsSync('/.dockerenv')) {
-		const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
-		const settingsFile = path.join(fixturesDir, 'settings.json');
-
-		const mergedSettings = {
-			...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
-			...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
-		};
-
-		// Overwrite file
-		fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
+		const dockerSettingsFile = path.join(fixturesDir, 'settingsDocker.json');
+		if (fs.existsSync(dockerSettingsFile)) {
+			const dockerSettings = JSON.parse(fs.readFileSync(dockerSettingsFile, 'utf8'));
+			mergedSettings = {
+				...mergedSettings,
+				...dockerSettings,
+			};
+		}
 	}
 
-	await copyFixtureFile(settingsFileName, userDir);
+	// 2. Merge skip-pyrefly settings if ALLOW_PYREFLY is not explicitly 'true'
+	if (process.env.ALLOW_PYREFLY !== 'true') {
+		const skipPyreflyFile = path.join(fixturesDir, 'settingsSkipPyrefly.json');
+		if (fs.existsSync(skipPyreflyFile)) {
+			const skipPyreflySettings = JSON.parse(fs.readFileSync(skipPyreflyFile, 'utf8'));
+			mergedSettings = {
+				...mergedSettings,
+				...skipPyreflySettings,
+			};
+		}
+	}
+
+	// Write merged settings directly to user data directory (avoids race condition with shared fixture file)
+	await mkdir(userDir, { recursive: true });
+	const userSettingsFile = path.join(userDir, settingsFileName);
+	fs.writeFileSync(userSettingsFile, JSON.stringify(mergedSettings, null, 2));
+
 	return userDir;
 }
 

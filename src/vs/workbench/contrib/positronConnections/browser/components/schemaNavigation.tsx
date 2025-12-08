@@ -17,6 +17,10 @@ import { localize } from '../../../../../nls.js';
 import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { KeyboardModifiers, PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+
+const DETAILS_BAR_HEIGHT = 26;
 
 export interface SchemaNavigationProps extends ViewsProps { }
 
@@ -51,7 +55,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const [selectedId, setSelectedId] = useState<string>();
 	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstanceId);
 
-	const [entries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
+	const [entries, setEntries] = useState<IPositronConnectionEntry[] | undefined>(activeInstance?.getEntries() || undefined);
+	const [entriesError, setEntriesError] = useState<Error | undefined>(undefined);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -59,8 +64,12 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		}
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(activeInstance.onDidChangeEntries((entries) => {
-			setEntries(entries);
+		disposableStore.add(activeInstance.onDidChangeEntries((event) => {
+			setEntries(event.entries);
+			if (event.error !== undefined) {
+				console.log(event.error);
+				setEntriesError(event.error);
+			}
 		}));
 
 		disposableStore.add(activeInstance.onDidChangeStatus((active) => {
@@ -99,6 +108,10 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	};
 
 	const ItemEntry = (props: ItemEntryProps) => {
+		if (!entries) {
+			return null;
+		}
+
 		const itemProps = entries[props.index];
 
 		return (
@@ -113,7 +126,6 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	};
 
 	const { name, language_id, icon } = activeInstance.metadata;
-	const DETAILS_BAR_HEIGHT = 26;
 
 	return (
 		<div className='positron-connections-schema-navigation'>
@@ -136,20 +148,63 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 							</div>
 					}
 				</div>
-				<List
-					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
-					innerRef={innerRef}
-					itemCount={entries.length}
-					itemKey={index => entries[index].id}
-					itemSize={26}
-					width={'calc(100% - 2px)'}
-				/* size if the actionbar and the secondary side bar combined) */
-				>
-					{ItemEntry}
-				</List>
+				{
+					entries !== undefined ?
+						<List
+							height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
+							innerRef={innerRef}
+							itemCount={entries.length}
+							itemKey={index => entries[index].id}
+							itemSize={26}
+							width={'calc(100% - 2px)'}
+						/* size if the actionbar and the secondary side bar combined) */
+						>
+							{ItemEntry}
+						</List> :
+						<NoEntriesMessage
+							error={entriesError}
+							height={height}
+							onTryAgain={() => activeInstance.refresh?.()}
+						/>
+
+				}
+
 			</div>
-		</div>
+		</div >
 	);
+};
+
+const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error: Error | undefined, onTryAgain: () => void }) => {
+	const [failed, setFailed] = useState<boolean>(false);
+
+	useEffect(() => {
+		if (error !== undefined) {
+			setFailed(true);
+		}
+	}, [error]);
+
+	const onPressedTryAgain = () => {
+		setFailed(false);
+		onTryAgain();
+	};
+
+	return <div className='no-entries-message' style={{ height: height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT }}>
+		<div className={failed ? 'codicon codicon-error' : 'codicon codicon-loading animate-spin'}></div>
+		<p>{
+			failed ?
+				localize('positron.schemaNavigation.noEntriesFailed', 'Failed to load entries') :
+				localize('positron.schemaNavigation.noEntriesLoading', 'Loading entries ...')
+		}
+		</p>
+		{
+			failed ?
+				<Button className='retry-button' onPressed={() => onPressedTryAgain()}>
+					<div className='codicon codicon-refresh'></div>
+					{localize('positron.schemaNavigation.tryAgain', 'Try again')}
+				</Button> :
+				null
+		}
+	</div >
 };
 
 interface ItemEntryProps {
@@ -177,9 +232,18 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 	// If the connection is not expandable, we add some more padding.
 	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
+	const [expanding, setExpanding] = useState<boolean>(false);
+
 	const handleExpand = () => {
+		setExpanding(true);
 		props.onToggleExpand(props.item.id);
 	};
+
+	useEffect(() => {
+		if (!props.item.expanded) {
+			setExpanding(false);
+		}
+	}, [props.item.expanded]);
 
 	const iconClass = (kind?: string) => {
 		if (kind) {
@@ -194,6 +258,8 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					return 'positron-schema-connection';
 				case 'catalog':
 					return 'positron-catalog-connection';
+				case 'volume':
+					return 'file-symlink-directory';
 				case 'field':
 					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
@@ -207,6 +273,8 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						case 'double':
 						case 'fixed':
 						case 'real':
+						case 'bigint':
+						case 'int':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
@@ -227,7 +295,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		return '';
 	}
 
-	const icon = (() => {
+	/*
+	Icon showing the element kind (table, view, schema, etc)
+
+	The icon can be either a base64 encoded image or a codicon class.
+	If it's a base64 encoded image, we render an img tag.
+	If it's a codicon class, we render a div with the appropriate class.
+	*/
+	const ElementIcon = (() => {
 		// icon is a base64 encoded png
 		if (props.item.icon) {
 			return <img
@@ -243,7 +318,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			)}
 		>
 		</div>
-	})();
+	});
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
@@ -266,6 +341,60 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 	};
 
+	// props.item.expanded
+	const DelayedExpandIcon = (({ expanded, expanding, delay = 200 }: { expanded: boolean | undefined; expanding: boolean; delay?: number }) => {
+		const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
+		useEffect(() => {
+			if (!expanding) {
+				setShowSpinner(false);
+				return;
+			}
+			const id = setTimeout(() => setShowSpinner(true), delay);
+			return () => clearTimeout(id);
+		}, [expanding, delay]);
+
+
+		if (expanded === undefined) {
+			return <></>;
+		}
+
+		const className = showSpinner ?
+			`codicon codicon-loading animate-spin` :
+			`codicon codicon-chevron-${expanded ? 'down' : 'right'}`;
+
+		return (
+			<div
+				className='expand-collapse-area'
+				onClick={handleExpand}
+			>
+				<div className={className} />
+			</div>
+		)
+	});
+
+	const PreviewButton = (({ onPreview }: { onPreview: (() => Promise<void>) | undefined }) => {
+		const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
+		const previewCallback = onPreview ? async (_e: KeyboardModifiers) => {
+			setShowSpinner(true);
+			try {
+				await onPreview();
+			} finally {
+				setShowSpinner(false);
+			}
+		} : undefined;
+
+		return <PositronButton
+			ariaLabel={localize('positron.schemaNavigation.previewElement', 'Preview element')}
+			className='connections-icon'
+			disabled={onPreview === undefined || showSpinner}
+			onPressed={previewCallback}
+		>
+			{showSpinner ? <div className='codicon codicon-loading animate-spin' /> : <ElementIcon />}
+		</PositronButton>
+	});
+
 	return (
 		<div
 			className={positronClassNames(
@@ -275,19 +404,10 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			style={props.style}
 		>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
-			{
-				props.item.expanded === undefined ?
-					<></> :
-					<div
-						className='expand-collapse-area'
-						onClick={handleExpand}
-					>
-						<div
-							className={`codicon codicon-chevron-${props.item.expanded ? 'down' : 'right'}`}
-						>
-						</div>
-					</div>
-			}
+			<DelayedExpandIcon
+				expanded={props.item.expanded}
+				expanding={expanding}
+			/>
 			<div
 				className='connections-details'
 				onMouseDown={rowMouseDownHandler}
@@ -296,15 +416,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{props.item.dtype && <span className='connections-dtype'>{props.item.dtype}</span>}
 				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
-			<div
-				className={positronClassNames(
-					'connections-icon',
-					{ 'disabled': props.item.preview === undefined }
-				)}
-				onClick={() => props.item.preview?.()}
-			>
-				{icon}
-			</div>
+			<PreviewButton onPreview={props.item.preview} />
 		</div>
 	);
 };

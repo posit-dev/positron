@@ -86,7 +86,9 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	thinkingProgress(thinkingDelta: vscode.ThinkingDelta): void {
 	}
-
+	externalEdit<T>(target: vscode.Uri | vscode.Uri[], callback: () => Thenable<T>): Thenable<T> {
+		return callback();
+	}
 }
 
 suite('PositronAssistantParticipant', () => {
@@ -424,7 +426,7 @@ suite('PositronAssistantPromptRenderer', () => {
 	test('Render prompt for Ask mode', async () => {
 		const request = makeChatRequest({ model, references: [] });
 		const sessions = [];
-		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, sessions });
+		const { content, metadata } = PromptRenderer.renderModePrompt({ mode: positron.PositronChatMode.Ask, request, sessions });
 		assert.ok(metadata.mode.includes(positron.PositronChatMode.Ask), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
 		assert.ok(content.includes(`You are Positron Assistant`));
 		assert.ok(content.includes(`You are running in "Ask" mode`));
@@ -436,7 +438,7 @@ suite('PositronAssistantPromptRenderer', () => {
 	test('Render prompt for Terminal', async () => {
 		const request = makeChatRequest({ model, references: [] });
 		const sessions = [];
-		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, sessions });
+		const { content, metadata } = PromptRenderer.renderModePrompt({ mode: positron.PositronChatAgentLocation.Terminal, request, sessions });
 		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Terminal), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
 		assert.ok(content.includes(`Return ONLY a single line terminal command that addresses the user's question.`));
 	});
@@ -449,12 +451,12 @@ suite('PositronAssistantPromptRenderer', () => {
 		const request = makeChatRequest({ model, references: [], location2: editorData });
 
 		const sessions = [];
-		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, sessions });
+		const { content, metadata } = PromptRenderer.renderModePrompt({ mode: positron.PositronChatAgentLocation.Editor, request, sessions });
 		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Editor), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
 		assert.ok(content.includes(`You are Positron Assistant`));
 		assert.ok(content.includes(`The user has invoked you from the text editor.`));
 		assert.ok(content.includes(`Your goal is to generate a set of edits to the document that represent the requested change.`));
-		assert.ok(content.includes(`Start with a clear warning at the beginning of the response`));
+		assert.ok(content.includes(`If the suggested edit includes destructive, dangerous, or difficult to reverse actions, you follow these guidelines:`));
 	});
 
 	test('Render prompt with non-empty selection and streaming edits', async () => {
@@ -465,7 +467,7 @@ suite('PositronAssistantPromptRenderer', () => {
 		const request = makeChatRequest({ model, references: [], location2: editorData });
 
 		const sessions = [];
-		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { streamingEdits: true, request, sessions });
+		const { content, metadata } = PromptRenderer.renderModePrompt({ mode: positron.PositronChatAgentLocation.Editor, streamingEdits: true, request, sessions });
 		assert.ok(metadata.mode.includes(positron.PositronChatAgentLocation.Editor), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
 		assert.ok(content.includes(`You are Positron Assistant`));
 		assert.ok(content.includes(`The user has invoked you from the text editor.`));
@@ -480,7 +482,7 @@ suite('PositronAssistantPromptRenderer', () => {
 			}),
 		];
 
-		const { content, metadata } = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { streamingEdits: true, request, sessions });
+		const { content, metadata } = PromptRenderer.renderModePrompt({ mode: positron.PositronChatMode.Agent, streamingEdits: true, request, sessions });
 		assert.ok(metadata.mode.includes(positron.PositronChatMode.Agent), `Unexpected mode in prompt metadata: ${JSON.stringify(metadata)}`);
 		assert.ok(content.includes(`When writing R code you generally follow tidyverse coding style and principles.`));
 	});

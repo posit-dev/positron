@@ -12,7 +12,7 @@ import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser
 import { GoFilter, IHistoryService } from '../../../services/history/common/history.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { CLOSE_EDITOR_COMMAND_ID, MOVE_ACTIVE_EDITOR_COMMAND_ID, SelectedEditorsMoveCopyArguments, SPLIT_EDITOR_LEFT, SPLIT_EDITOR_RIGHT, SPLIT_EDITOR_UP, SPLIT_EDITOR_DOWN, splitEditor, LAYOUT_EDITOR_GROUPS_COMMAND_ID, UNPIN_EDITOR_COMMAND_ID, COPY_ACTIVE_EDITOR_COMMAND_ID, SPLIT_EDITOR, TOGGLE_MAXIMIZE_EDITOR_GROUP, MOVE_EDITOR_INTO_NEW_WINDOW_COMMAND_ID, COPY_EDITOR_INTO_NEW_WINDOW_COMMAND_ID, MOVE_EDITOR_GROUP_INTO_NEW_WINDOW_COMMAND_ID, COPY_EDITOR_GROUP_INTO_NEW_WINDOW_COMMAND_ID, NEW_EMPTY_EDITOR_WINDOW_COMMAND_ID as NEW_EMPTY_EDITOR_WINDOW_COMMAND_ID, MOVE_EDITOR_INTO_RIGHT_GROUP, MOVE_EDITOR_INTO_LEFT_GROUP, MOVE_EDITOR_INTO_ABOVE_GROUP, MOVE_EDITOR_INTO_BELOW_GROUP } from './editorCommands.js';
+import { CLOSE_EDITOR_COMMAND_ID, MOVE_ACTIVE_EDITOR_COMMAND_ID, SelectedEditorsMoveCopyArguments, SPLIT_EDITOR_LEFT, SPLIT_EDITOR_RIGHT, SPLIT_EDITOR_UP, SPLIT_EDITOR_DOWN, splitEditor, LAYOUT_EDITOR_GROUPS_COMMAND_ID, UNPIN_EDITOR_COMMAND_ID, COPY_ACTIVE_EDITOR_COMMAND_ID, SPLIT_EDITOR, TOGGLE_MAXIMIZE_EDITOR_GROUP, MOVE_EDITOR_INTO_NEW_WINDOW_COMMAND_ID, COPY_EDITOR_INTO_NEW_WINDOW_COMMAND_ID, MOVE_EDITOR_GROUP_INTO_NEW_WINDOW_COMMAND_ID, COPY_EDITOR_GROUP_INTO_NEW_WINDOW_COMMAND_ID, NEW_EMPTY_EDITOR_WINDOW_COMMAND_ID, MOVE_EDITOR_INTO_RIGHT_GROUP, MOVE_EDITOR_INTO_LEFT_GROUP, MOVE_EDITOR_INTO_ABOVE_GROUP, MOVE_EDITOR_INTO_BELOW_GROUP } from './editorCommands.js';
 import { IEditorGroupsService, IEditorGroup, GroupsArrangement, GroupLocation, GroupDirection, preferredSideBySideGroupDirection, IFindGroupScope, GroupOrientation, EditorGroupLayout, GroupsOrder, MergeGroupMode } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -39,6 +39,10 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { resolveCommandsContext } from './editorCommandsContext.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 import { prepareMoveCopyEditors } from './editor.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { getAuxiliaryWindowOptionsForEditors } from './editor.js';
+// --- End Positron ---
 
 class ExecuteCommandAction extends Action2 {
 
@@ -2587,9 +2591,19 @@ abstract class BaseMoveCopyEditorToNewWindowAction extends Action2 {
 			return;
 		}
 
-		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart();
+		// --- Start Positron ---
+		// const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart();
+		// --- End Positron ---
 
 		const { group, editors } = resolvedContext.groupedEditors[0]; // only single group supported for move/copy for now
+
+		// --- Start Positron ---
+		// Use compact mode for plot editors
+		const auxiliaryEditorPart = await editorGroupsService.createAuxiliaryEditorPart(
+			getAuxiliaryWindowOptionsForEditors(editors)
+		);
+		// --- End Positron ---
+
 		const editorsWithOptions = prepareMoveCopyEditors(group, editors, resolvedContext.preserveFocus);
 		if (this.move) {
 			group.moveEditors(editorsWithOptions, auxiliaryEditorPart.activeGroup);
@@ -2650,7 +2664,14 @@ abstract class BaseMoveCopyEditorGroupToNewWindowAction extends Action2 {
 		const editorGroupService = accessor.get(IEditorGroupsService);
 		const activeGroup = editorGroupService.activeGroup;
 
-		const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart();
+		// --- Start Positron ---
+		// const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart();
+
+		// Use compact mode for plot editors
+		const auxiliaryEditorPart = await editorGroupService.createAuxiliaryEditorPart(
+			getAuxiliaryWindowOptionsForEditors(activeGroup.editors)
+		);
+		// --- End Positron ---
 
 		editorGroupService.mergeGroup(activeGroup, auxiliaryEditorPart.activeGroup, {
 			mode: this.move ? MergeGroupMode.MOVE_EDITORS : MergeGroupMode.COPY_EDITORS

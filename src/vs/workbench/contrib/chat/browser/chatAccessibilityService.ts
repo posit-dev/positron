@@ -8,7 +8,7 @@ import { Disposable, DisposableMap, DisposableStore } from '../../../../base/com
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { AccessibilityProgressSignalScheduler } from '../../../../platform/accessibilitySignal/browser/progressAccessibilitySignalScheduler.js';
-import { IChatAccessibilityService } from './chat.js';
+import { IChatAccessibilityService, showChatWidgetInViewOrEditor } from './chat.js';
 import { IChatResponseViewModel } from '../common/chatViewModel.js';
 import { renderAsPlaintext } from '../../../../base/browser/markdownRenderer.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
@@ -108,16 +108,12 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 			this.notifications.delete(ds);
 		}
 
-		const chatTitle = widget.viewModel?.model.title || localize('chat.untitledChat', "Untitled Chat");
-		const maxDetailLength = 100;
-		const truncatedResponse = responseContent.length > maxDetailLength
-			? responseContent.substring(0, maxDetailLength) + '...'
-			: responseContent;
-		const notification = await dom.triggerNotification(chatTitle, {
-			detail: truncatedResponse,
-			sticky: false,
-		});
-
+		const title = widget?.viewModel?.model.title ? localize('chatTitle', "Chat: {0}", widget.viewModel.model.title) : localize('chat.untitledChat', "Untitled Chat");
+		const notification = await dom.triggerNotification(title,
+			{
+				detail: localize('notificationDetail', "New chat response.")
+			}
+		);
 		if (!notification) {
 			return;
 		}
@@ -128,7 +124,8 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 
 		disposables.add(Event.once(notification.onClick)(async () => {
 			await this._hostService.focus(targetWindow, { mode: FocusMode.Force });
-			widget.input.focus();
+			await this._instantiationService.invokeFunction(showChatWidgetInViewOrEditor, widget);
+			widget.focusInput();
 			disposables.dispose();
 			this.notifications.delete(disposables);
 		}));

@@ -69,8 +69,24 @@ export class LanguageInputHistory extends Disposable {
 		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
+				// Record the input with the current timestamp.
+				let when = Date.now();
+
+				// If the input message has a timestamp, try to use that instead. Not all
+				// runtimes provide this, but if they do, it should be more accurate.
+				if (languageRuntimeMessageInput.when) {
+					const parsedTime = Date.parse(languageRuntimeMessageInput.when);
+					if (isNaN(parsedTime)) {
+						this._logService.warn(
+							`Invalid timestamp '${when}' on input message ${languageRuntimeMessageInput.id}; ` +
+							`Using current time instead.`);
+					} else {
+						when = parsedTime;
+					}
+				}
+
 				const entry: IInputHistoryEntry = {
-					when: Date.parse(languageRuntimeMessageInput.when),
+					when: when,
 					input: languageRuntimeMessageInput.code
 				};
 				this._pendingEntries.push(entry);
@@ -95,8 +111,8 @@ export class LanguageInputHistory extends Disposable {
 
 	/**
 	 * Gets the input history entries for this language.
-	 *
-	 * @returns The input history entries for this language.
+	/**
+	 * Gets the input history for this language.
 	 */
 	public getInputHistory(): IInputHistoryEntry[] {
 		// Read the existing entries from storage.
@@ -104,6 +120,14 @@ export class LanguageInputHistory extends Disposable {
 		let parsedEntries: IInputHistoryEntry[] = [];
 		try {
 			parsedEntries = JSON.parse(entries);
+			// Fix any entries with invalid timestamps (null or NaN from old storage)
+			parsedEntries = parsedEntries.map(entry => {
+				if (entry.when === null || entry.when === undefined || isNaN(entry.when)) {
+					// Use a timestamp of 0 for entries with unknown dates
+					return { ...entry, when: 0 };
+				}
+				return entry;
+			});
 		} catch (err) {
 			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
 		}
@@ -125,6 +149,53 @@ export class LanguageInputHistory extends Disposable {
 
 		// Clear the underlying storage
 		this._storageService.remove(this._storageKey, this._storageScope);
+	}
+
+	/**
+	 * Deletes a single input history entry for this language.
+	 * @param when The timestamp of the entry to delete
+	 * @param input The input text of the entry to delete
+	 */
+	public deleteEntry(when: number, input: string): void {
+		// Clear any running save timer
+		this.clearSaveTimer();
+
+		// Remove from pending entries if present
+		const pendingIndex = this._pendingEntries.findIndex(entry =>
+			entry.when === when && entry.input === input
+		);
+		if (pendingIndex >= 0) {
+			this._pendingEntries.splice(pendingIndex, 1);
+		}
+
+		// Read existing entries from storage
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
+		let parsedEntries: IInputHistoryEntry[] = [];
+		try {
+			parsedEntries = JSON.parse(entries);
+		} catch (err) {
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
+			return;
+		}
+
+		// Remove the matching entry. The matching criteria are:
+		// - The timestamp matches the 'when' parameter, or both are 0/undefined
+		// - The input text matches the 'input' parameter
+		const filteredEntries = parsedEntries.filter(entry =>
+			!(
+				(entry.when === when || (!when && !entry.when)) &&
+				entry.input === input
+			)
+		);
+
+		// Save the filtered entries back to storage
+		const storageState = JSON.stringify(filteredEntries);
+		this._storageService.store(this._storageKey,
+			storageState,
+			this._storageScope,
+			StorageTarget.USER);
+
+		this._logService.trace(`Deleted entry from input history in key ${this._storageKey}`);
 	}
 
 	private save(forShutdown: boolean): void {

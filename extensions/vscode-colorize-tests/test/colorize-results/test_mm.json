@@ -44,7 +44,7 @@
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp punctuation.definition.directive.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -54,7 +54,7 @@
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -104,7 +104,7 @@
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp punctuation.definition.directive.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -114,7 +114,7 @@
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1214,7 +1214,7 @@
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp keyword.control.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -1484,7 +1484,7 @@
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2724,7 +2724,7 @@
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2764,7 +2764,7 @@
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
