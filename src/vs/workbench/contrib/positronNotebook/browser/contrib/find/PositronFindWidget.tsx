@@ -73,12 +73,18 @@ export const PositronFindWidget = ({
 						onInputBlur={onInputBlur}
 						onInputFocus={onInputFocus}
 						onKeyDown={(e) => {
+							// TODO: Can/should we use actions instead of handling here?
+							//       Upstream plaintext find uses actions but notebook editor does not
 							if (e.equals(KeyCode.Enter)) {
 								onNextMatch();
 								e.preventDefault();
 								return;
 							} else if (e.equals(KeyCode.Shift | KeyCode.Enter)) {
 								onPreviousMatch();
+								e.preventDefault();
+								return;
+							} else if (e.equals(KeyCode.Escape)) {
+								onClose();
 								e.preventDefault();
 								return;
 							}
