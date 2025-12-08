@@ -21,7 +21,7 @@ import { autorun, transaction } from '../../../../../../base/common/observable.j
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
+import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
 import { getActiveCell } from '../../selectionMachine.js';
@@ -91,7 +91,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Create the find instance
 			const instance = this._register(new PositronFindInstance({
 				container: this._notebook.container.parentElement,
-				additionalToggles: [findInSelectionToggle],
+				findInputOptions: {
+					label: 'Find',
+					placeholder: 'Find',
+					showCommonFindToggles: true,
+					inputBoxStyles: defaultInputBoxStyles,
+					toggleStyles: defaultToggleStyles,
+					additionalToggles: [findInSelectionToggle],
+				},
 			}));
 
 			// Subscribe to user action events

@@ -10,7 +10,6 @@ import { Disposable, MutableDisposable } from '../../../../../../base/common/lif
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { observableValue, transaction } from '../../../../../../base/common/observable.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
-import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 
@@ -27,7 +26,7 @@ export interface IPositronFindInstanceOptions {
 	/**
 	 * Options for the find input widget.
 	 */
-	findInputOptions?: Partial<IFindInputOptions>;
+	findInputOptions: IFindInputOptions;
 
 	/**
 	 * Additional toggles to add to the find input.
@@ -98,20 +97,9 @@ export class PositronFindInstance extends Disposable {
 		// Get or create the renderer
 		const renderer = this.getOrCreateRenderer();
 
-		// Merge find input options with defaults
-		const findInputOptions: IFindInputOptions = {
-			label: 'Find',
-			placeholder: 'Find',
-			showCommonFindToggles: true,
-			inputBoxStyles: defaultInputBoxStyles,
-			toggleStyles: defaultToggleStyles,
-			additionalToggles: this._options.additionalToggles || [],
-			...this._options.findInputOptions,
-		};
-
 		// Create the find widget
 		const findWidget = React.createElement(PositronFindWidget, {
-			findInputOptions,
+			findInputOptions: this._options.findInputOptions,
 			findText: this.searchString,
 			focusInput: true,
 			matchCase: this.matchCase,
