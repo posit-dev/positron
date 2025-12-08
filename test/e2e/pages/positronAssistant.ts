@@ -105,10 +105,13 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
-	async verifyManageModelsOptionVisible() {
+	async pickModel() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
 	}
+
+	async expectManageModelsVisible() {
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
+	};
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
