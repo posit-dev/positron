@@ -129,7 +129,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			onPreviousMatch: () => this.findPrevious(),
 			onNextMatch: () => this.findNext(),
 			onClose: () => {
-				this._renderer.clear();
+				this.closeFindWidget();
 			},
 			onInputFocus: () => {
 				findInputFocused.set(true);
@@ -350,6 +350,21 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 	public closeFindWidget(): void {
 		this._renderer.clear();
+
+		// TODO: Move to find model?
+		// Clear decorations
+		for (const cell of this._notebook.cells.get()) {
+			const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
+			cell.editor?.changeDecorations(accessor => {
+				accessor.deltaDecorations(oldDecorationIds, []);
+			});
+		}
+		this._decorationIdsByCellHandle.clear();
+		this._allMatches = [];
+		transaction((tx) => {
+			this.matchCount.set(undefined, tx);
+			this.matchIndex.set(undefined, tx);
+		});
 	}
 }
 
