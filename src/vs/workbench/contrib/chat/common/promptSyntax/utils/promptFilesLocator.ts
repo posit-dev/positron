@@ -25,6 +25,7 @@ import { Disposable, DisposableStore } from '../../../../../../base/common/lifec
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 
 // --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
 import { AGENTS_POSITRON_SOURCE_FOLDER } from '../config/promptFileLocations.js';
 // --- End Positron ---
 
