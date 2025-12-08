@@ -272,10 +272,17 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				lastValue.active === cell &&
 				newValue.type === SelectionState.SingleSelection &&
 				newValue.active === cell) {
-				// Return focus to the focus trap so user can continue tabbing
-				// For markdown cells, this component unmounts so the focus is lost anyway
-				// and NotebookCellWrapper will focus the container instead
-				focusTargetRef.current?.focus();
+				// Only focus the focus trap if the cell has outputs.
+				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
+				// so focusing it would disrupt keyboard navigation. In that case, let
+				// NotebookCellWrapper handle focus by focusing the cell container instead.
+				const hasOutputs = cell.outputsViewModels.length > 0;
+				if (hasOutputs) {
+					focusTargetRef.current?.focus();
+				} else {
+					// Focus the cell container for cells without outputs
+					cell.container?.focus();
+				}
 			}
 		});
 		return () => disposable.dispose();
