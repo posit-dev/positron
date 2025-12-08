@@ -40,7 +40,6 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
 		await app.workbench.assistant.clickCloseButton();
-		await app.code.driver.page.locator('.positron-button:has-text("Yes")').click();
 	});
 
 	/**

@@ -13,7 +13,7 @@ export function SettingsFixture(app: Application) {
 			newSettings: Record<string, unknown>,
 			options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
 		) => {
-			const { reload = false, waitMs = 0, waitForReady = false, keepOpen = false } = options || {};
+			const { reload = false, waitMs = 0, waitForReady = true, keepOpen = false } = options || {};
 
 			await settings.set(newSettings, { keepOpen });
 

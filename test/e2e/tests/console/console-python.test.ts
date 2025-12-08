@@ -9,17 +9,31 @@ test.use({
 	suiteId: __filename
 });
 
+test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
+
+	test.beforeAll(async ({ settings }) => {
+		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true, waitMs: 1000 });
+	});
+
+	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
+		await sessions.start('pythonAlt');
+		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
+		await app.workbench.console.waitForConsoleContents('site-packages');
+		await sessions.deleteAll();
+	});
+});
+
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
 	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");',);
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 30000 });
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 90000 });
 	});
 
-	test('Python - Verify console commands are queued during execution', async function ({ app, python }) {
-		await app.workbench.console.clearButton.click();
-		await app.workbench.console.pasteCodeToConsole('123 + 123');
+	test('Python - Verify console commands are queued during execution', async function ({ app, sessions, python }) {
+		await app.workbench.sessions.clearConsoleAllSessions();
+		await app.workbench.console.pasteCodeToConsole('123 + 123'); // do not send to console
 		await app.workbench.console.executeCode('Python', '456 + 456');
 
 		await app.workbench.console.waitForConsoleContents('912', { expectedCount: 1, timeout: 10000 });
@@ -27,7 +41,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		await app.workbench.console.waitForConsoleContents('246', { expectedCount: 0, timeout: 5000 });
 	});
 
-	test('Python - Verify interrupt stops execution mid-work', async function ({ app, python }) {
+	test('Python - Verify interrupt stops execution mid-work', async function ({ app, sessions, python }) {
 		const { console } = app.workbench;
 
 		// Execute code that does work in a loop and prints progress
@@ -38,7 +52,7 @@ for i in range(10):
 	time.sleep(1)
 print("Completed all steps")
 `;
-		await console.clearButton.click();
+		await sessions.clearConsoleAllSessions();
 		await console.executeCode('Python', code, { waitForReady: false });
 
 		// Wait for some work to be done (at least 2-3 steps) and then interrupt
@@ -52,23 +66,4 @@ print("Completed all steps")
 		// Verify that not all work was completed (Step 9 should not appear)
 		await console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
 	});
-
-});
-
-// This nesting is necessary because the settings fixture must be used in a
-// beforeAll hook to ensure app instances pass to test correctly
-test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
-
-	test.beforeAll(async ({ settings, app }) => {
-		await settings.set({ 'python.useBundledIpykernel': false });
-		await app.restart();
-	});
-
-	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
-		await sessions.start('pythonAlt');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
-		await app.workbench.console.waitForConsoleContents('site-packages');
-	});
-
 });

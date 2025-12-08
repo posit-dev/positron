@@ -27,8 +27,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test.afterEach(async function ({ app, hotKeys }) {
 			await hotKeys.fullSizeSecondarySidebar();
-			await app.workbench.plots.clearPlots();
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await app.workbench.plots.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 5000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test.afterAll(async function ({ cleanup }) {
