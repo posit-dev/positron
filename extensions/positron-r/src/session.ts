@@ -99,6 +99,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Cache of installed packages and associated version info */
 	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
+	/** Disposables. Disposed of after main resources (LSP, kernel, etc) */
+	private _disposables: vscode.Disposable[] = [];
+
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
 
@@ -126,7 +129,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._created = Date.now();
 
 		// Register this session with the session manager
-		RSessionManager.instance.setSession(metadata.sessionId, this);
+		RSessionManager.instance.setSession(this);
 
 		this.onDidChangeRuntimeState(async (state) => {
 			await this.onStateChange(state);
@@ -408,6 +411,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (this._kernel) {
 			await this._kernel.dispose();
 		}
+
+		// LIFO clean up of external resources
+		while (this._disposables.length > 0) {
+			this._disposables.pop()?.dispose();
+		}
+	}
+
+	async register(disposable: vscode.Disposable) {
+		this._disposables.push(disposable);
 	}
 
 	/**
@@ -882,7 +894,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				LOGGER.info(`Unknown DAP message: ${message.method}`);
 
 				if (message.kind === 'request') {
-					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`) });
+					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`); });
 				}
 			}
 		}
@@ -976,7 +988,7 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 export async function checkInstalled(pkgName: string,
 	pkgVersion?: string,
 	session?: RSession): Promise<boolean> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.checkInstalled(pkgName, pkgVersion);
 	}
@@ -984,7 +996,7 @@ export async function checkInstalled(pkgName: string,
 }
 
 export async function getLocale(session?: RSession): Promise<Locale> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.getLocale();
 	}
@@ -992,9 +1004,15 @@ export async function getLocale(session?: RSession): Promise<Locale> {
 }
 
 export async function getEnvVars(envVars: string[], session?: RSession): Promise<EnvVar[]> {
-	session = session || RSessionManager.instance.getConsoleSession();
+	session = session || await RSessionManager.instance.getConsoleSession();
 	if (session) {
 		return session.getEnvVars(envVars);
 	}
 	throw new Error(`Cannot get env var information; no R session available`);
+}
+
+/** Get the active R language runtime sessions. */
+export async function getActiveRSessions(): Promise<RSession[]> {
+	const sessions = await positron.runtime.getActiveSessions();
+	return sessions.filter((session) => session instanceof RSession) as RSession[];
 }

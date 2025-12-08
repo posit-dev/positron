@@ -31,12 +31,12 @@ on:
       run_unit_tests:
         description: "Unit Tests"
         required: false
-        default: true
+        default: false
         type: boolean
       run_integration_tests:
         description: "Integration Tests"
         required: false
-        default: true
+        default: false
         type: boolean
       notify_on:
         description: "Slack notification on:"

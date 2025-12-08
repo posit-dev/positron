@@ -8,6 +8,7 @@ import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
+import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
@@ -45,7 +46,7 @@ const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Lan
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -104,10 +105,13 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
-	async verifyManageModelsOptionVisible() {
+	async pickModel() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
 	}
+
+	async expectManageModelsVisible() {
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
+	};
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
@@ -150,8 +154,17 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
 	}
 
-	async clickCloseButton() {
+	async clickCloseButton({ abandonChanges = true } = {}) {
 		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+
+		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
+		if (abandonModalisVisible) {
+			abandonChanges
+				? await this.modals.getButton('Yes').click()
+				: await this.modals.getButton('No').click();
+		}
+
+		await this.modals.expectToBeVisible(undefined, { visible: false });
 	}
 
 	async clickSignOutButton() {

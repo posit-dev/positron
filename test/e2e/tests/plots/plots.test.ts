@@ -27,8 +27,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test.afterEach(async function ({ app, hotKeys }) {
 			await hotKeys.fullSizeSecondarySidebar();
-			await app.workbench.plots.clearPlots();
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -37,7 +39,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
-		}, async function ({ app, logger, headless }, testInfo) {
+		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
@@ -71,10 +73,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test('Python - Verify basic plot functionality - Static Plot', {
@@ -339,9 +341,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
-			await hotKeys.fullSizeSecondarySidebar();
-			await app.workbench.plots.clearPlots();
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -350,7 +353,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verify basic plot functionality', {
 			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
-		}, async function ({ app, logger, headless }, testInfo) {
+		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
@@ -383,10 +386,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await expect(async () => {
+				await hotKeys.clearPlots();
+				await app.workbench.plots.waitForNoPlots({ timeout: 3000 });
+			}).toPass({ timeout: 15000 });
 		});
 
 		test('R - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS, tags.CRITICAL] }, async function ({ app }) {

@@ -32,7 +32,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 			// Disable startup behavior for all interpreters
 			await settings.set({
 				'interpreters.startupBehavior': 'disabled'
-			}, { reload: 'web', waitMs: 1000, keepOpen: true });
+			}, { reload: 'web', waitMs: 1000, keepOpen: true, waitForReady: false });
 			await hotKeys.newFolderFromTemplate();
 
 			// Only Empty Project should be available

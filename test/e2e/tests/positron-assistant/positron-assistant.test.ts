@@ -40,7 +40,6 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
 		await app.workbench.assistant.clickCloseButton();
-		await app.code.driver.page.locator('.positron-button:has-text("Yes")').click();
 	});
 
 	/**
@@ -170,7 +169,11 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
-		await app.workbench.assistant.verifyManageModelsOptionVisible();
+		// sometimes the menu closes due to language model loading (?), so retry
+		await expect(async () => {
+			await app.workbench.assistant.pickModel();
+			await app.workbench.assistant.expectManageModelsVisible();
+		}).toPass({ timeout: 30000 });
 	});
 });
 

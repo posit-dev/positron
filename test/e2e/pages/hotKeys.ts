@@ -224,7 +224,7 @@ export class HotKeys {
 		await this.code.driver.page.waitForTimeout(3000);
 		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Reactivating|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 
@@ -268,6 +268,13 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J S', 'Debugger: Clear All Breakpoints');
 	}
 
+	// -----------------------
+	// ---     Plots       ---
+	// -----------------------
+	public clearPlots() {
+		return this.pressHotKeys('Cmd+L C', 'Clear Plots');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
@@ -307,6 +314,16 @@ export class HotKeys {
 					.replace(/cmd/gi, modifierKey)
 					.replace(/option/gi, process.platform !== 'darwin' ? 'Alt' : 'Option');
 			});
+
+			// Hacky solution to get shortcut to show up as an action in the trace
+			if (!this.code.driver.page.isClosed()) {
+				try {
+					await this.code.driver.page.evaluate(msg => {
+					}, `Shortcut: ${description}`);
+				} catch (e) {
+					// Ignore - context may not be ready after navigation
+				}
+			}
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);

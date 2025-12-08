@@ -6,7 +6,7 @@
 import path from 'path';
 import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
-import { copyFixtureFile, MultiLogger, Application } from '../../infra';
+import { MultiLogger, Application } from '../../infra';
 import { SPEC_NAME, ROOT_PATH } from './constants';
 
 let fixtureScreenshot: Buffer | undefined;
@@ -75,11 +75,11 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 		}
 	}
 
-	// Overwrite fixtures/settings.json with the merged result
-	fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
+	// Write merged settings directly to user data directory (avoids race condition with shared fixture file)
+	await mkdir(userDir, { recursive: true });
+	const userSettingsFile = path.join(userDir, settingsFileName);
+	fs.writeFileSync(userSettingsFile, JSON.stringify(mergedSettings, null, 2));
 
-	// Let existing helper copy settings.json into the user dir
-	await copyFixtureFile(settingsFileName, userDir);
 	return userDir;
 }
 

@@ -76,7 +76,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			if (!isInstalled) {
 				return;
 			}
-			const session = RSessionManager.instance.getConsoleSession();
+			const session = await RSessionManager.instance.getConsoleSession();
 			if (!session) {
 				return;
 			}
@@ -169,7 +169,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.scriptPath', async () => {
-			const session = RSessionManager.instance.getConsoleSession();
+			const session = await RSessionManager.instance.getConsoleSession();
 			if (!session) {
 				throw new Error(`Cannot get Rscript path; no R session available`);
 			}
