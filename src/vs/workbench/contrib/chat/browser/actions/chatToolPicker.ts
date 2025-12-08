@@ -26,6 +26,10 @@ import { ChatContextKeys } from '../../common/chatContextKeys.js';
 import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
 import { ConfigureToolSets } from '../tools/toolSetsContribution.js';
 
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+// --- End Positron ---
+
 const enum BucketOrdinal { User, BuiltIn, Mcp, Extension }
 
 // Legacy QuickPick types (existing implementation)
@@ -56,7 +60,8 @@ interface IBucketTreeItem extends IToolTreeItem {
 	toolset?: ToolSet; // For MCP servers where the bucket represents the ToolSet - mutable
 	readonly status?: string;
 	readonly children: AnyTreeItem[];
-	checked: boolean | 'partial' | undefined;
+	checked: boolean | 'mixed' | undefined;
+	readonly sortOrder: number;
 }
 
 /**
@@ -67,7 +72,7 @@ interface IToolSetTreeItem extends IToolTreeItem {
 	readonly itemType: 'toolset';
 	readonly toolset: ToolSet;
 	children: AnyTreeItem[] | undefined;
-	checked: boolean | 'partial';
+	checked: boolean | 'mixed';
 }
 
 /**
@@ -182,6 +187,7 @@ function createToolSetTreeItem(toolset: ToolSet, checked: boolean, editorService
  * @param placeHolder - Placeholder text shown in the picker
  * @param description - Optional description text shown in the picker
  * @param toolsEntries - Optional initial selection state for tools and toolsets
+ * @param selectedLanguageModel - Optional selected language model to filter tools for
  * @param onUpdate - Optional callback fired when the selection changes
  * @returns Promise resolving to the final selection map, or undefined if cancelled
  */
@@ -189,7 +195,10 @@ export async function showToolsPicker(
 	accessor: ServicesAccessor,
 	placeHolder: string,
 	description?: string,
-	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>
+	// --- Start Positron ---
+	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>,
+	selectedLanguageModel?: ILanguageModelChatMetadataAndIdentifier
+	// --- End Positron ---
 ): Promise<ReadonlyMap<ToolSet | IToolData, boolean> | undefined> {
 
 	const quickPickService = accessor.get(IQuickInputService);
@@ -311,15 +320,16 @@ export async function showToolsPicker(
 					itemType: 'bucket',
 					ordinal: BucketOrdinal.Mcp,
 					id: key,
-					label: localize('mcplabel', "MCP Server: {0}", source.label),
+					label: source.label,
 					checked: undefined,
 					collapsed,
 					children,
 					buttons,
+					sortOrder: 2,
 				};
-				const iconURI = mcpServer.serverMetadata.get()?.icons.getUrl(22);
-				if (iconURI) {
-					bucket.iconPath = { dark: iconURI, light: iconURI };
+				const iconPath = mcpServer.serverMetadata.get()?.icons.getUrl(22);
+				if (iconPath) {
+					bucket.iconPath = iconPath;
 				} else {
 					bucket.iconClass = ThemeIcon.asClassName(Codicon.mcp);
 				}
@@ -329,12 +339,13 @@ export async function showToolsPicker(
 					itemType: 'bucket',
 					ordinal: BucketOrdinal.Extension,
 					id: key,
-					label: localize('ext', 'Extension: {0}', source.label),
+					label: source.label,
 					checked: undefined,
 					children: [],
 					buttons: [],
 					collapsed: true,
-					iconClass: ThemeIcon.asClassName(Codicon.extensions)
+					iconClass: ThemeIcon.asClassName(Codicon.extensions),
+					sortOrder: 3,
 				};
 			} else if (source.type === 'internal') {
 				return {
@@ -345,7 +356,8 @@ export async function showToolsPicker(
 					checked: undefined,
 					children: [],
 					buttons: [],
-					collapsed: false
+					collapsed: false,
+					sortOrder: 1,
 				};
 			} else {
 				return {
@@ -356,7 +368,8 @@ export async function showToolsPicker(
 					checked: undefined,
 					children: [],
 					buttons: [],
-					collapsed: true
+					collapsed: true,
+					sortOrder: 4,
 				};
 			}
 		};
@@ -373,6 +386,10 @@ export async function showToolsPicker(
 			return bucket;
 		};
 
+		// --- Start Positron ---
+		const languageModelToolsService = accessor.get(ILanguageModelToolsService);
+		// --- End Positron ---
+
 		for (const toolSet of toolsService.toolSets.get()) {
 			if (!toolsEntries.has(toolSet)) {
 				continue;
@@ -383,6 +400,15 @@ export async function showToolsPicker(
 			}
 			const toolSetChecked = toolsEntries.get(toolSet) === true;
 			if (toolSet.source.type === 'mcp') {
+				// --- Start Positron ---
+				// Check if any tools in this MCP toolset are enabled for the selected model
+				const hasEnabledTools = [...toolSet.getTools()].some(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				if (!hasEnabledTools) {
+					continue;
+				}
+				// --- End Positron ---
 				// bucket represents the toolset
 				bucket.toolset = toolSet;
 				if (toolSetChecked) {
@@ -390,6 +416,16 @@ export async function showToolsPicker(
 				}
 				// all mcp tools are part of toolsService.getTools()
 			} else {
+				// --- Start Positron ---
+				// Filter tools first to check if any are enabled for the selected model
+				const enabledTools = [...toolSet.getTools()].filter(tool =>
+					languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)
+				);
+				// Skip toolset entirely if no tools are enabled for the selected model
+				if (enabledTools.length === 0) {
+					continue;
+				}
+				// --- End Positron ---
 				const treeItem = createToolSetTreeItem(toolSet, toolSetChecked, editorService);
 				bucket.children.push(treeItem);
 				const children = [];
@@ -407,6 +443,12 @@ export async function showToolsPicker(
 			if (!tool.canBeReferencedInPrompt || !toolsEntries.has(tool)) {
 				continue;
 			}
+			// --- Start Positron ---
+			// Filter out tools not enabled for the selected model
+			if (!languageModelToolsService.isToolEnabledForModel(tool.id, selectedLanguageModel)) {
+				continue;
+			}
+			// --- End Positron ---
 			const bucket = getBucket(tool.source);
 			if (!bucket) {
 				continue;
@@ -425,9 +467,22 @@ export async function showToolsPicker(
 		}
 
 		// Convert bucket map to sorted tree items
-		const sortedBuckets = Array.from(bucketMap.values()).sort((a, b) => a.ordinal - b.ordinal);
-		treeItems.push(...sortedBuckets);
-
+		const sortedBuckets = Array.from(bucketMap.values()).sort((a, b) => {
+			if (a.sortOrder !== b.sortOrder) {
+				return a.sortOrder - b.sortOrder;
+			}
+			return a.label.localeCompare(b.label);
+		});
+		for (const bucket of sortedBuckets) {
+			treeItems.push(bucket);
+			// Sort children alphabetically
+			bucket.children.sort((a, b) => a.label.localeCompare(b.label));
+			for (const child of bucket.children) {
+				if (isToolSetTreeItem(child) && child.children) {
+					child.children.sort((a, b) => a.label.localeCompare(b.label));
+				}
+			}
+		}
 		if (treeItems.length === 0) {
 			treePicker.placeholder = localize('noTools', "Add tools to chat");
 		} else {
@@ -445,7 +500,7 @@ export async function showToolsPicker(
 	treePicker.description = description;
 	treePicker.matchOnDescription = true;
 	treePicker.matchOnLabel = true;
-
+	treePicker.sortByLabel = false;
 
 	computeItems();
 

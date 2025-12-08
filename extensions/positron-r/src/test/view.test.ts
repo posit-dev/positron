@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './mocha-setup'
+import './mocha-setup';
 
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -14,7 +14,7 @@ suite('View', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await testKit.startR();
+		const [_ses, disposable] = await testKit.startR('Suite: View');
 		sesDisposable = disposable;
 	});
 

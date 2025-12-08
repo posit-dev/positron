@@ -141,13 +141,13 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 			}));
 		}
 
-		const response = await this._commandService.executeCommand(commandName, rpc);
+		const response: DataExplorerResponse | undefined = await this._commandService.executeCommand(commandName, rpc);
 
 		if (response === undefined) {
 			return Promise.reject(
-				new Error('Sending request to positron-duckdb failed for unknown reason')
+				new Error(`Sending '${rpc}' request to positron-duckdb failed for unknown reason`)
 			);
-		} else if ('error_message' in response) {
+		} else if (response.error_message) {
 			return Promise.reject(new Error(response.error_message));
 		} else {
 			return response.result;

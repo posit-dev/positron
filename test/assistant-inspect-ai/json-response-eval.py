@@ -82,7 +82,7 @@ def json_model_graded_eval():
 		data = json.load(f)
 
 	test_data = data.get("tests", [])
-	model_name = "anthropic/claude-3-7-sonnet-20250219"
+	model_name = "anthropic/claude-haiku-4-5-20251001"
 
 	# Create samples from the loaded JSON data
 	samples = [record_to_sample(record) for record in test_data]
@@ -108,7 +108,7 @@ GRADING SCALE:
 
 Provide your evaluation in the following format:
 GRADE: [C/P/I]
-Explanation: [Brief explanation focusing ONLY on how well the specified criteria were met]
+EXPLANATION: [Brief explanation focusing ONLY on how well the specified criteria were met]
 			""",
 			grade_pattern=r"GRADE:\s*([CPI])",
 			partial_credit=True,

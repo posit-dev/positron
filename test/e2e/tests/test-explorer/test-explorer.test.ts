@@ -16,15 +16,16 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 			// don't use native file picker
 			await settings.set({
 				'files.simpleDialog.enable': true
-			}, { reload: true });
+			}, { reload: true, waitForReady: true });
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
 		}
 	});
 
-	test('R - Verify Basic Test Explorer Functionality', {
-		tag: [tags.ARK]
+	test.skip('R - Verify Basic Test Explorer Functionality', {
+		tag: [tags.ARK],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/10682' }]
 	}, async function ({ app, openFolder }) {
 
 		// Open R package embedded in qa-example-content

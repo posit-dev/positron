@@ -43,7 +43,7 @@ export class Modals {
 		try {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
-			await this.expectToBeVisible();
+			await this.expectToBeVisible(undefined, { timeout: 5000 });
 			await this.clickButton('Install');
 			this.code.logger.log('Installing ipykernel');
 			await this.toasts.expectToBeVisible();
@@ -89,11 +89,15 @@ export class Modals {
 		});
 	}
 
-	async expectToBeVisible(title?: string) {
-		await test.step(`Verify modal dialog box is visible${title ? ` : ${title}` : ''}`, async () => {
-			await expect(this.modalBox).toBeVisible({ timeout: 30000 });
-			if (title) {
-				await expect(this.modalTitle).toHaveText(title, { timeout: 30000 });
+	async expectToBeVisible(title?: string, { timeout = 30000, visible = true } = {}) {
+		await test.step(`Verify modal dialog box is ${visible ? 'visible' : 'not visible'}${title ? ` : ${title}` : ''}`, async () => {
+			if (visible) {
+				await expect(this.modalBox).toBeVisible({ timeout });
+				if (title) {
+					await expect(this.modalTitle).toHaveText(title, { timeout });
+				}
+			} else {
+				await expect(this.modalBox).not.toBeVisible({ timeout });
 			}
 		});
 	}

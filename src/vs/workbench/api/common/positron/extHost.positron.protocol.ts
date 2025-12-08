@@ -69,7 +69,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 // The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
 	$isHostForLanguageRuntime(runtimeMetadata: ILanguageRuntimeMetadata): Promise<boolean>;
-	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
+	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, sessionName: string): Promise<RuntimeInitialState>;
 	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, sessionName: string): Promise<RuntimeInitialState>;
 	$validateLanguageRuntimeMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 	$validateLanguageRuntimeSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean>;
@@ -168,6 +168,7 @@ export interface MainThreadAiFeaturesShape {
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	$getCurrentChatMode(): Thenable<string | undefined>;
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
@@ -176,6 +177,7 @@ export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
 	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	getCurrentChatMode(): Thenable<string | undefined>;
 	getProviders(): Thenable<IPositronChatProvider[]>;
 	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
@@ -299,7 +301,8 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 	$previewUrl(
 		extension: WebviewExtensionDescription,
 		handle: PreviewHandle,
-		uri: URI
+		uri: URI,
+		source?: { type: string; id: string }
 	): void;
 	$previewHtml(
 		extension: WebviewExtensionDescription,

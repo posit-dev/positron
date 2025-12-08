@@ -73,6 +73,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      max_failures:
+        required: false
+        description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
+        type: number
+        default: 10
 
 permissions:
   id-token: write
@@ -82,20 +87,20 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
-    timeout-minutes: 45
+    timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
       options: --user 0:0
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:56
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:64
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -135,7 +140,7 @@ jobs:
           submodules: recursive
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -147,6 +152,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -164,9 +170,13 @@ jobs:
           if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
             echo "Extracting zstd archive with parallel decompression"
             zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
+            echo "Cleaning up compressed archive to free disk space"
+            rm -f /tmp/artifacts/positron-build.tar.zst
           elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
             echo "Extracting gzip archive"
             tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
+            echo "Cleaning up compressed archive to free disk space"
+            rm -f /tmp/artifacts/positron-build.tar.gz
           else
             echo "No known build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
           fi
@@ -179,7 +189,8 @@ jobs:
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
             rm -rf /tmp/qa-example-content-cache || true
-            cp -R /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            # Move instead of copy to avoid duplication
+            mv /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
             if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
               echo "✓ Seeded /tmp/qa-example-content-cache"
             fi
@@ -218,7 +229,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json download
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -231,7 +242,7 @@ jobs:
           aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
 
       - name: Restore AWS S3 Access to read-only role
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -288,6 +299,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           PW_PROJECT_NAME: ${{ inputs.project }}
+          GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""
@@ -314,11 +326,11 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
 
           # Don't fail the shard on test failures - let all shards complete and upload results
           # The merge-reports job will determine pass/fail based on the complete test results
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob || true
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} || true
 
       - name: Upload Blob Report
         if: ${{ always() }}
@@ -346,19 +358,19 @@ jobs:
           retention-days: 3
 
   merge-reports:
-    name: ${{ inputs.display_name || inputs.project || 'merge-reports' }}
-    if: ${{ always() }}
+    name: ${{ inputs.display_name }}
+    if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -442,7 +454,7 @@ jobs:
 
       - name: Setup AWS S3 Access for .last-run.json upload
         if: always()
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -471,25 +483,19 @@ jobs:
             exit 1
           fi
 
-          if [[ "${{ inputs.allow_soft_fail }}" == "true" ]]; then
-            # When soft-fail is enabled, only fail if non-soft-fail tests failed
-            echo "Checking for non-soft-fail failures in $JSON_REPORT"
-            node scripts/check-soft-fail-failures.js "$JSON_REPORT"
+          EXTRA_ARGS=""
+          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
+            echo "SOFT-FAIL DISABLED: standard test failure behavior"
+            EXTRA_ARGS="--no-soft-fail"
           else
-            # When soft-fail is disabled, fail if ANY tests failed
-            echo "Checking for any test failures in $JSON_REPORT"
-            FAILED_COUNT=$(jq '[.suites[].specs[] | select(.ok == false)] | length' "$JSON_REPORT")
-            echo "Found $FAILED_COUNT failed test(s)"
-            if [ "$FAILED_COUNT" -gt 0 ]; then
-              echo "Tests failed - exiting with error"
-              exit 1
-            else
-              echo "All tests passed"
-            fi
+            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
           fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
 
       - name: Clean up blob report artifacts
         if: success()
         uses: geekyeggo/delete-artifact@v5
         with:
           name: blob-report-${{ inputs.project }}-*
+          failOnError: false

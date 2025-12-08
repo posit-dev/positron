@@ -379,7 +379,7 @@ export class EditorActionBarFactory extends Disposable {
 			}
 
 			// Add the appropriate action bar menu button for the submenu item action.
-			if (!submenuItemAction.item.rememberDefaultAction) {
+			if (!submenuItemAction.item.isSplitButton) {
 				actionBarElements.push(
 					<ActionBarMenuButton
 						actions={() => submenuActions}

@@ -19,7 +19,7 @@ suite.skip('vscode API - terminal', () => {
 	suiteSetup(async () => {
 		// Trigger extension activation and grab the context as some tests depend on it
 		await extensions.getExtension('vscode.vscode-api-tests')?.activate();
-		extensionContext = (global as any).testExtensionContext;
+		extensionContext = global.testExtensionContext;
 
 		const config = workspace.getConfiguration('terminal.integrated');
 		// Disable conpty in integration tests because of https://github.com/microsoft/vscode/issues/76548
@@ -31,7 +31,7 @@ suite.skip('vscode API - terminal', () => {
 		// Disable env var relaunch for tests to prevent terminals relaunching themselves
 		await config.update('environmentChangesRelaunch', false, ConfigurationTarget.Global);
 		// Disable local echo in case it causes any problems in remote tests
-		await config.update('localEchoEnabled', "off", ConfigurationTarget.Global);
+		await config.update('localEchoEnabled', 'off', ConfigurationTarget.Global);
 		await config.update('shellIntegration.enabled', false);
 	});
 

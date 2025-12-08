@@ -1,4 +1,8 @@
 "use strict";
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -37,10 +41,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.config = void 0;
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const vinyl_fs_1 = __importDefault(require("vinyl-fs"));
@@ -124,7 +124,7 @@ exports.config = {
     productAppName: product.nameLong,
     // --- Start Positron ---
     companyName: 'Posit Software',
-    copyright: 'Copyright (C) 2024 Posit Software, PBC. All rights reserved',
+    copyright: 'Copyright (C) 2025 Posit Software, PBC. All rights reserved',
     darwinIcon: 'resources/darwin/positron.icns',
     // --- End Positron ---
     darwinBundleIdentifier: product.darwinBundleIdentifier,

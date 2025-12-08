@@ -100,7 +100,7 @@ jobs:  # to input into inspect-ai-test job below
           python test/assistant-inspect-ai/inspect_result_parser.py "$LATEST_LOG" --threshold 0.8
 
       - name: Upload inspect-ai eval logs
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: inspect-ai-logs

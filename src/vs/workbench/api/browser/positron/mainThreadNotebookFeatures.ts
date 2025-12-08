@@ -7,7 +7,7 @@ import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensi
 import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
 import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
@@ -16,6 +16,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -29,6 +31,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		_extHostContext: IExtHostContext,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// No initialization needed
 	}
@@ -174,7 +177,12 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const lastCell = cellsToRun[cellsToRun.length - 1];
 		lastCell.select(CellSelectionType.Normal);
 
-		return instance.runCells(cellsToRun);
+		await instance.runCells(cellsToRun);
+
+		// Notify about assistant cell modification for follow mode
+		// Use the last cell that was actually run (from filtered cellsToRun),
+		// not the original cellIndices array which may contain invalid indices
+		await instance.handleAssistantCellModification(lastCell.index);
 	}
 
 	/**
@@ -193,8 +201,13 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const cellKind = type === NotebookCellType.Code ? CellKind.Code : CellKind.Markup;
 
-		// Add cell with content and enter edit mode
-		instance.addCell(cellKind, index, true, content);
+		// Mark this as an assistant operation to prevent automatic selection/scrolling.
+		// The follow mode will control reveal behavior based on user preferences.
+		instance.setCurrentOperation(NotebookOperationType.AssistantAdd);
+		instance.addCell(cellKind, index, false, content);
+
+		// Notify about assistant cell modification for follow mode
+		await instance.handleAssistantCellModification(index);
 
 		return index;
 	}
@@ -215,7 +228,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		return instance.deleteCell(cells[cellIndex]);
+		instance.deleteCell(cells[cellIndex]);
 	}
 
 	/**
@@ -249,6 +262,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
 
+		// Mark this as an assistant operation to prevent automatic selection/scrolling.
+		// The follow mode will control reveal behavior based on user preferences.
+		instance.setCurrentOperation(NotebookOperationType.AssistantEdit);
+
 		textModel.applyEdits([
 			{
 				editType: CellEditType.Replace,
@@ -270,6 +287,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 				]
 			}
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+		// Notify about assistant cell modification for follow mode
+		await instance.handleAssistantCellModification(cellIndex);
 	}
 
 	/**
@@ -303,24 +323,36 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
 			for (const item of output.outputs) {
-				// Handle different MIME types
-				if (item.mime === 'text/plain' || item.mime === 'application/vnd.code.notebook.stdout') {
-					// Plain text outputs
+				const mimeType = item.mime;
+
+				// Handle stderr outputs with prefix
+				if (mimeType === 'application/vnd.code.notebook.stderr') {
 					outputDTOs.push({
-						mimeType: item.mime,
-						data: item.data.toString()
-					});
-				} else if (item.mime === 'application/vnd.code.notebook.stderr') {
-					// Stderr outputs with prefix
-					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
 						data: `[stderr] ${item.data.toString()}`
 					});
-				} else {
-					// Binary outputs (images, etc.) - convert to base64 using VS Code's browser-compatible encoding
+				}
+				// Handle image MIME types - base64 encode
+				else if (isImageMimeType(mimeType)) {
 					const base64Data = encodeBase64(item.data);
 					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
+						data: base64Data
+					});
+				}
+				// Handle text-based MIME types - convert to string
+				else if (isTextBasedMimeType(mimeType)) {
+					outputDTOs.push({
+						mimeType: mimeType,
+						data: item.data.toString()
+					});
+				}
+				// Unknown MIME type - log warning and default to base64 encoding (safer for unknown binary data)
+				else {
+					this._logService.warn(`Unknown MIME type "${mimeType}" in notebook cell output. Defaulting to base64 encoding.`);
+					const base64Data = encodeBase64(item.data);
+					outputDTOs.push({
+						mimeType: mimeType,
 						data: base64Data
 					});
 				}

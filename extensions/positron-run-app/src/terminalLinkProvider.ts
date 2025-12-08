@@ -45,6 +45,7 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 					tooltip: vscode.l10n.t('Open App URL'),
 					url,
 					proxyUri,
+					terminal: context.terminal,
 				});
 			}
 		}
@@ -60,8 +61,8 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 		const appLinkOpenLocation = getTerminalAppUrlOpenLocationConfig();
 		switch (appLinkOpenLocation) {
 			case 'viewer':
-				// Open the URL in the Viewer pane
-				positron.window.previewUrl(uri);
+				// Open the URL in the Viewer pane with source attribution
+				await this.previewUrlWithSource(uri, link.terminal);
 				break;
 			case 'browser':
 				// Open the URL in a new browser window
@@ -69,17 +70,43 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 				break;
 			case 'ask':
 				// For ask or default, show a quick pick menu to let the user choose
-				await this.showQuickPick(uri);
+				await this.showQuickPick(uri, link.terminal);
 			default:
 				break;
 		}
 	}
 
 	/**
+	 * Opens a URL in the viewer with source attribution from the terminal.
+	 * @param uri The URI to preview
+	 * @param terminal The terminal that is the source of the URL
+	 */
+	private async previewUrlWithSource(uri: vscode.Uri, terminal: vscode.Terminal): Promise<void> {
+		// Get the terminal's process ID to attribute as the source
+		if (terminal.processId) {
+			try {
+				const processId = await terminal.processId;
+				if (processId !== undefined) {
+					positron.window.previewUrl(uri, {
+						type: positron.PreviewSourceType.Terminal,
+						id: String(processId)
+					});
+					return;
+				}
+			} catch (e) {
+				// Failed to get process ID, fall through to open without source
+			}
+		}
+		// Fallback: open without source
+		positron.window.previewUrl(uri);
+	}
+
+	/**
 	 * Shows a quick pick menu to allow the user to choose how to open the provided URI.
 	 * @param uri The URI to open
+	 * @param terminal The terminal that is the source of the URL
 	 */
-	async showQuickPick(uri: vscode.Uri): Promise<void> {
+	async showQuickPick(uri: vscode.Uri, terminal: vscode.Terminal): Promise<void> {
 		const viewerPane = vscode.l10n.t('Open in Viewer pane');
 		const browserWindow = vscode.l10n.t('Open in new browser window');
 		const configureDefault = vscode.l10n.t('Configure default app link opening location');
@@ -110,7 +137,7 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 			quickPick.onDidAccept(async () => {
 				const selected = quickPick.selectedItems[0];
 				if (selected.label === viewerPane) {
-					positron.window.previewUrl(uri);
+					await this.previewUrlWithSource(uri, terminal);
 				} else if (selected.label === browserWindow) {
 					await vscode.env.openExternal(uri);
 				}

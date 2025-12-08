@@ -1,4 +1,8 @@
 "use strict";
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -50,10 +54,6 @@ exports.translatePackageJSON = translatePackageJSON;
 exports.webpackExtensions = webpackExtensions;
 exports.buildExtensionMedia = buildExtensionMedia;
 exports.copyExtensionBinaries = copyExtensionBinaries;
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 const event_stream_1 = __importDefault(require("event-stream"));
 const fs_1 = __importDefault(require("fs"));
 const child_process_1 = __importDefault(require("child_process"));
@@ -167,12 +167,20 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     ];
     // If the extension has npm dependencies, use the Npm package manager
     // dependency strategy.
-    const packageManger = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
+    const packageManager = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
         vsce.PackageManager.Npm :
         vsce.PackageManager.None;
     // --- Start PWB: from Positron ---
     // Replace vsce.listFiles with listExtensionFiles to queue the work
-    listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
+    listExtensionFiles({ cwd: extensionPath, packageManager: packageManager, packagedDependencies }).then(fileNames => {
+        const files = fileNames
+            .map(fileName => path_1.default.join(extensionPath, fileName))
+            .map(filePath => new vinyl_1.default({
+            path: filePath,
+            stat: fs_1.default.statSync(filePath),
+            base: extensionPath,
+            contents: fs_1.default.createReadStream(filePath)
+        }));
         // check for a webpack configuration files, then invoke webpack
         // and merge its output with the files stream.
         const webpackConfigLocations = glob_1.default.sync(path_1.default.join(extensionPath, '**', webpackConfigFileName), { ignore: ['**/node_modules'] });
@@ -230,8 +238,7 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
                 }));
             });
         });
-        const localFilesStream = createSequentialFileStream(extensionPath, fileNames);
-        event_stream_1.default.merge(...webpackStreams, localFilesStream)
+        event_stream_1.default.merge(...webpackStreams, event_stream_1.default.readArray(files))
             // .pipe(es.through(function (data) {
             // 	// debug
             // 	console.log('out', data.path, data.contents.length);

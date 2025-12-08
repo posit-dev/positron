@@ -1,0 +1,72 @@
+[
+	{
+		"c": "# dev",
+		"t": "source.dotenv comment.line.dotenv",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "HELLO",
+		"t": "source.dotenv variable.key.dotenv",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "source.dotenv keyword.operator.assignment.dotenv",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "123",
+		"t": "source.dotenv property.value.dotenv",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "GOODBYE",
+		"t": "source.dotenv variable.key.dotenv",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "source.dotenv keyword.operator.assignment.dotenv",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "456",
+		"t": "source.dotenv property.value.dotenv",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	}
+]

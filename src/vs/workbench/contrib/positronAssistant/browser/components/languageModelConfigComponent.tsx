@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react'
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js'
+import { IPositronLanguageModelAutoconfigure, LanguageModelAutoconfigureType, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../common/interfaces/positronAssistantService.js'
 import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
@@ -130,9 +130,10 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
-	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
-	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
-	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
+
+	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn;
+	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasAutoconfigure;
+	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasAutoconfigure;
 	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl');
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
@@ -142,7 +143,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	return <>
-		{!hasEnvApiKey && <div className='language-model-container input'>
+		{!hasAutoconfigure && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
@@ -151,8 +152,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
+		<AutoconfiguredModel details={source.defaults.autoconfigure} displayName={source.provider.displayName} provider={source.provider.id} />
 		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
-		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
@@ -241,17 +242,23 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 	</a>;
 }
 
-const ExternalAPIKey = (props: { provider: string, envKeyName?: { key: string; signedIn: boolean } }) => {
-
-	return (
-		props.envKeyName ?
-			<div className='language-model-external-api-key'>
-				{
-					props.envKeyName && props.envKeyName.signedIn ?
-						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use.", props.envKeyName?.key)}</p>
-						:
-						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.envKeyName.key)}</p>
-				}
-			</div> : null
-	);
+const AutoconfiguredModel = (props: { provider: string, displayName: string, details?: IPositronLanguageModelAutoconfigure }) => {
+	if (props.details?.type === LanguageModelAutoconfigureType.EnvVariable) {
+		return (<div className='language-model-authentication-container'>
+			{
+				props.details.signedIn ?
+					<p>{localize('positron.languageModelConfig.externalApiInUse', "✓ {0} authenticated automatically using environment variable {1}", props.displayName, props.details.key)}</p>
+					:
+					<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.details.key)}</p>
+			}
+		</div>);
+	} else if (props.details?.type === LanguageModelAutoconfigureType.Custom && props.details.signedIn) {
+		return (<div className='language-model-authentication-container'>
+			{
+				<p>{localize('positron.languageModelConfig.autoconfiguredModelInUse', "✓ {0} authenticated automatically using {1}", props.displayName, props.details.message)}</p>
+			}
+		</div>);
+	} else {
+		return null;
+	}
 }

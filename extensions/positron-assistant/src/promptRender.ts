@@ -10,7 +10,7 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
-import { SerializedNotebookContext, serializeNotebookContext } from './tools/notebookUtils.js';
+import { SerializedNotebookContext } from './tools/notebookUtils.js';
 import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
@@ -26,10 +26,6 @@ interface AugmentedRenderData {
 	hasRSession: boolean;
 	hasPythonSession: boolean;
 	hasNotebookContext: boolean;
-	notebookKernelInfo?: string;
-	notebookSelectedCellsInfo?: string;
-	notebookAllCellsInfo?: string;
-	notebookContextNote?: string;
 }
 
 /**
@@ -37,35 +33,21 @@ interface AugmentedRenderData {
  */
 class PromptTemplateEngine {
 	/**
-	 * Augment render data with helper properties for template conditions
+	 * Augment render data with helper properties for template conditions.
 	 */
 	private static augmentRenderData(data: PromptRenderData): PromptRenderData & AugmentedRenderData {
 		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
 		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
 
-		// Notebook context augmentation
+		// Only track whether notebook context exists, not its content.
+		// Dynamic notebook content is injected as a user message for caching.
 		const hasNotebookContext = !!data.notebookContext;
-		let notebookKernelInfo: string | undefined;
-		let notebookSelectedCellsInfo: string | undefined;
-		let notebookAllCellsInfo: string | undefined;
-		let notebookContextNote: string | undefined;
-
-		if (data.notebookContext) {
-			notebookKernelInfo = data.notebookContext.kernelInfo;
-			notebookSelectedCellsInfo = data.notebookContext.selectedCellsInfo;
-			notebookAllCellsInfo = data.notebookContext.allCellsInfo;
-			notebookContextNote = data.notebookContext.contextNote;
-		}
 
 		return {
 			...data,
 			hasRSession,
 			hasPythonSession,
 			hasNotebookContext,
-			notebookKernelInfo,
-			notebookSelectedCellsInfo,
-			notebookAllCellsInfo,
-			notebookContextNote,
 		};
 	}
 
@@ -288,6 +270,7 @@ interface PromptRenderData {
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
 	notebookContext?: SerializedNotebookContext;
+	mode?: PromptMetadataMode;
 }
 
 export class PromptRenderer {
@@ -511,13 +494,13 @@ export class PromptRenderer {
 	/**
 	 * Get combined prompt for a specific command
 	 */
-	static renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		const promptData = PromptRenderer.instance._renderModePrompt(mode, data);
+	static renderModePrompt(data: PromptRenderData): PromptDocument {
+		const promptData = PromptRenderer.instance._renderModePrompt(data);
 		return promptData;
 	}
 
-	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		const matchingDocuments = this.getModePromptDocuments(mode);
+	private _renderModePrompt(data: PromptRenderData): PromptDocument {
+		const matchingDocuments = this.getModePromptDocuments(data.mode);
 		if (matchingDocuments.length === 0) {
 			return { content: '', metadata: {} };
 		}
@@ -527,7 +510,7 @@ export class PromptRenderer {
 		const mergedMetadata = this.mergeMetadata(matchingDocuments);
 
 		// Render prompt template
-		log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
+		log.trace('[PromptRender] Rendering prompt for mode:', data.mode, 'with data:', JSON.stringify(data));
 		const result = PromptTemplateEngine.render(mergedContent, data);
 
 		return {

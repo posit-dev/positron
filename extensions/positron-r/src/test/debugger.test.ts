@@ -3,15 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup';
+
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as testKit from './kit';
 
-suite.skip('Debugger', () => {
+suite('Debugger', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await testKit.startR();
+		const [_ses, disposable] = await testKit.startR('Suite: Debugger');
 		sesDisposable = disposable;
 	});
 
@@ -53,7 +55,7 @@ suite.skip('Debugger', () => {
 					new RegExp('Virtual namespace of package graphics'),
 					`Unexpected editor contents for ${ed.document.uri.fsPath}: Expected graphics namespace`
 				);
-			})
+			});
 		});
 	});
 
@@ -84,7 +86,7 @@ suite.skip('Debugger', () => {
 					new RegExp('f <- function'),
 					`Unexpected editor contents for ${ed.document.uri.fsPath}`
 				);
-			})
+			});
 		});
 	});
 });

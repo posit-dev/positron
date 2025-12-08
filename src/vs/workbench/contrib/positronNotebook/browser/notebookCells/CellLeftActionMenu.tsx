@@ -93,15 +93,13 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
-	const actionMenu = (isSelected || isHovered) && primaryLeftAction ? (
-		<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
-			<CellActionButton action={primaryLeftAction} cell={cell} />
-		</div>
-	) : null;
+	// Determine if we should show the cell execution button
+	const showActionMenu = (isSelected || isHovered) && primaryLeftAction;
+	// Determine if we should show the execution status indicator (spinner)
+	const showExecutionStatus = showActionMenu || isRunning;
 
 	return (
 		<>
-			{/* Main container for left-hand action menu */}
 			<div
 				ref={containerRef}
 				className='left-hand-action-container'
@@ -109,21 +107,32 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
+				{showExecutionStatus && (
+					<div
+						className='left-hand-action-container-top'
+					>
+						<div
+							aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
+							aria-live={isRunning ? 'polite' : 'off'}
+							className='cell-execution-status-animation'
+							role='status'
+						/>
+						{showActionMenu && (
+							<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
+								<CellActionButton action={primaryLeftAction} cell={cell} />
+							</div>
+						)}
+					</div>
+				)}
 				<div
-					aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
-					aria-live={isRunning ? 'polite' : 'off'}
-					className='cell-execution-status-animation'
-					role='status'
-				/>
-				<ExecutionStatusBadge
-					cellSelected={isSelected}
-					executionOrder={executionOrder}
-					executionStatus={dataExecutionStatus}
-					hasError={hasError}
-					isHovered={isHovered}
-					showPending={showPending}
-				/>
-				{actionMenu}
+					className='left-hand-action-container-bottom'
+				>
+					<ExecutionStatusBadge
+						executionOrder={executionOrder}
+						hasError={hasError}
+						showPending={showPending}
+					/>
+				</div>
 			</div>
 			{showPopup && containerRef.current && (
 				<Popover

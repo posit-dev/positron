@@ -115,6 +115,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getCurrentProvider();
 	}
 
+	async getCurrentChatMode(): Promise<string | undefined> {
+		return this._proxy.$getCurrentChatMode();
+	}
+
 	async getProviders(): Promise<IPositronChatProvider[]> {
 		return this._proxy.$getProviders();
 	}

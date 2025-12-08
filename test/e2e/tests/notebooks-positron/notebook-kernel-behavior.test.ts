@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Kernel Behavior', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SOFT_FAIL] // soft fail due to https://github.com/posit-dev/positron/issues/10546
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {

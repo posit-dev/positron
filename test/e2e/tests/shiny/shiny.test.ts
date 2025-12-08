@@ -27,6 +27,11 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 			: app.workbench.viewer.getViewerLocator('h1');
 
 		await expect(async () => {
+			// Check if "Keep waiting" button appears and click it if present
+			const keepWaitingButton = app.workbench.toasts.getOptionButton('Keep waiting');
+			if (await keepWaitingButton.isVisible({ timeout: 10000 }).catch(() => false)) {
+				await keepWaitingButton.click();
+			}
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
 		}).toPass({ timeout: 60000 });
 	});

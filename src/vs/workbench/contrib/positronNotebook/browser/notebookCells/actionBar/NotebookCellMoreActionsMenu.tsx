@@ -12,19 +12,24 @@ import { showCustomContextMenu } from '../../../../../../workbench/browser/posit
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
+import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
 
 interface NotebookCellMoreActionsMenuProps {
+	hoverManager?: IHoverManager;
 	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
-	onMenuStateChange: (isOpen: boolean) => void;
 }
+
+const moreCellActions = localize('moreCellActions', 'More Cell Actions');
 
 /**
  * More actions dropdown menu component for notebook cells.
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
+	hoverManager,
 	menuActions,
-	onMenuStateChange
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -38,7 +43,6 @@ export function NotebookCellMoreActionsMenu({
 			const entries = buildMoreActionsMenuItems(menuActions);
 
 			setIsMenuOpen(true);
-			onMenuStateChange(true);
 
 			showCustomContextMenu({
 				anchorElement: buttonRef.current,
@@ -48,14 +52,12 @@ export function NotebookCellMoreActionsMenu({
 				entries,
 				onClose: () => {
 					setIsMenuOpen(false);
-					onMenuStateChange(false);
 				}
 			});
 		} catch (error) {
 			// If the menu fails to show for whatever reason, make sure we don't
 			// get stuck in a bad state.
 			setIsMenuOpen(false);
-			onMenuStateChange(false);
 		}
 	};
 
@@ -64,10 +66,12 @@ export function NotebookCellMoreActionsMenu({
 			ref={buttonRef}
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
-			ariaLabel={localize('moreActions', 'More actions')}
+			ariaLabel={moreCellActions}
+			hoverManager={hoverManager}
+			tooltip={moreCellActions}
 			onPressed={showMoreActionsMenu}
 		>
-			<div className='button-icon codicon codicon-ellipsis' />
+			<Icon className='button-icon' icon={Codicon.ellipsis} />
 		</ActionButton>
 	);
 }

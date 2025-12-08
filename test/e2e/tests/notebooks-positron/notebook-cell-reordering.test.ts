@@ -39,7 +39,7 @@ test.describe('Notebook Cell Reordering', {
 		const cell2Content = await notebooksPositron.getCellContent(2);
 
 		// Select "Move cell down"
-		await notebooksPositron.selectFromMoreActionsMenu(0, 'Move cell down');
+		await notebooksPositron.triggerCellAction(0, 'Move cell down');
 
 		// Verify cell moved down by EXACTLY ONE position
 		await notebooksPositron.expectCellContentAtIndexToBe(0, cell1Content); // Former cell 1 is now at position 0
@@ -55,7 +55,7 @@ test.describe('Notebook Cell Reordering', {
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.newNotebook({ codeCells: 3 });
 
 		// Verify initial order
 		await notebooksPositron.expectCellCountToBe(3);
@@ -74,7 +74,7 @@ test.describe('Notebook Cell Reordering', {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
-		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// First cell up -> no change
@@ -95,7 +95,7 @@ test.describe('Notebook Cell Reordering', {
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 4 cells
-		await notebooksPositron.newNotebook(4);
+		await notebooksPositron.newNotebook({ codeCells: 4 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
 
 		// Move Cell 0 down three times to end
@@ -119,7 +119,7 @@ test.describe('Notebook Cell Reordering', {
 		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.newNotebook({ codeCells: 3 });
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Move cell 1 up
@@ -134,5 +134,24 @@ test.describe('Notebook Cell Reordering', {
 		// Redo the move
 		await notebooksPositron.performCellAction('redo');
 		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
+	});
+
+	test('Multiselect: move multiple cells', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create notebook with 5 cells
+		await notebooksPositron.newNotebook({ codeCells: 2, markdownCells: 3 });
+
+		// Select cells 1, 2, and 3
+		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellsToBeSelected([1, 2, 3]);
+
+		// Move selected cells down
+		await keyboard.press('Alt+ArrowDown');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '### Cell 4', '# Cell 1', '### Cell 2', '### Cell 3']);
 	});
 });

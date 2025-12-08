@@ -234,7 +234,7 @@
 		"t": "source.groovy keyword.control.new.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -2254,7 +2254,7 @@
 		"t": "source.groovy meta.method-call.groovy keyword.control.new.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -3334,7 +3334,7 @@
 		"t": "source.groovy meta.declaration.assertion.groovy keyword.control.assert.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4164,7 +4164,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4284,7 +4284,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4304,7 +4304,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4424,7 +4424,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -4814,7 +4814,7 @@
 		"t": "source.groovy meta.declaration.assertion.groovy keyword.control.assert.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5294,7 +5294,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5504,7 +5504,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -5864,7 +5864,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -6344,7 +6344,7 @@
 		"t": "source.groovy keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9014,7 +9014,7 @@
 		"t": "source.groovy meta.definition.method.groovy meta.method.body.java keyword.control.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}
@@ -9364,7 +9364,7 @@
 		"t": "source.groovy meta.declaration.assertion.groovy keyword.control.assert.groovy",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
 		}

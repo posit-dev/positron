@@ -91,7 +91,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-rocky8-amd64:57
+      image: ghcr.io/posit-dev/positron-rocky8-amd64:65
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -99,7 +99,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:57
+        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:65
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -136,14 +136,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # - name: Load secret
-      #   uses: 1password/load-secrets-action@v3
-      #   with:
-      #     # Export loaded secrets as environment variables
-      #     export-env: true
-      #   env:
-      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      #     ANTHROPIC: "op://Positron/Anthropic/credential"
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -209,6 +210,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 

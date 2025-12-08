@@ -68,7 +68,7 @@ export class Terminal {
 
 			return matches;
 
-		}).toPass({ timeout: timeout });
+		}, 'Wait for terminal text').toPass({ timeout: timeout });
 
 		return [];
 	}

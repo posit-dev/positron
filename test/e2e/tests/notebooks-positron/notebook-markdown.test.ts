@@ -38,6 +38,9 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		const markdownContent = '# Heading 1\n\n## Heading 2\n\n**Bold Text**\n\n*Italic Text*';
 		await notebooksPositron.addCodeToCell(1, markdownContent);
 
+		await notebooksPositron.viewMarkdown.click();
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+
 		// verify markdown rendered correctly
 		await notebooksPositron.expectMarkdownTagToBe('h1', 'Heading 1');
 		await notebooksPositron.expectMarkdownTagToBe('h2', 'Heading 2');
@@ -55,15 +58,14 @@ test.describe('Positron Notebooks: Markdown Cells', {
 
 		// verify markdown cell created and in edit mode
 		await notebooksPositron.expectCellCountToBe(2);
-		// ISSUE # 10255 - markdown cell is not in edit mode by default after creation
-		// await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 
 		// add markdown content to cell
 		await notebooksPositron.addCodeToCell(1, 'This is **bold** and this is *italic*');
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 
 		// switch to preview mode and verify
-		await notebooksPositron.collapseMarkdownEditor.click();
+		await notebooksPositron.viewMarkdown.click();
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
 		await notebooksPositron.expectMarkdownTagToBe('strong', 'bold');
 		await notebooksPositron.expectMarkdownTagToBe('em', 'italic');

@@ -315,8 +315,33 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}),
 	];
 
+	/** Renders the authentication method selection UI */
+	const renderAuthMethodSelection = () => {
+		const authMethod = getAuthMethod();
+		const hasAutoconfigure = !!selectedProvider.defaults.autoconfigure && selectedProvider.defaults.autoconfigure.signedIn;
+
+		// Hide the auth method selection if no auth is needed or autoconfigure is enabled
+		if (authMethod === AuthMethod.NONE || hasAutoconfigure) {
+			return null;
+		}
+
+		return (
+			<div className='language-model-authentication-method-container'>
+				<RadioGroup
+					entries={authMethodRadioButtons}
+					initialSelectionId={authMethod}
+					name='authMethod'
+					onSelectionChanged={(authMethod) => {
+						// TODO: it's not currently possible to change the auth method, as each provider only
+						// supports one auth method at a time. This is a placeholder for future support.
+					}}
+				/>
+			</div>
+		);
+	};
+
 	return <OKModalDialog
-		height={450}
+		height={500}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
 		renderer={props.renderer}
 		title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
@@ -345,20 +370,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			<label className='language-model-section'>
 				{(() => localize('positron.languageModelProviderModalDialog.authentication', "Authentication"))()}
 			</label>
-			{
-				getAuthMethod() !== AuthMethod.NONE &&
-				<div className='language-model-authentication-method-container'>
-					<RadioGroup
-						entries={authMethodRadioButtons}
-						initialSelectionId={getAuthMethod()}
-						name='authMethod'
-						onSelectionChanged={(authMethod) => {
-							// TODO: it's not currently possible to change the auth method, as each provider only
-							// supports one auth method at a time. This is a placeholder for future support.
-						}}
-					/>
-				</div>
-			}
+			{renderAuthMethodSelection()}
 			<LanguageModelConfigComponent
 				authMethod={getAuthMethod()}
 				authStatus={getAuthStatus()}

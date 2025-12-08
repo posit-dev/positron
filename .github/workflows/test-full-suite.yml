@@ -31,12 +31,12 @@ on:
       run_unit_tests:
         description: "Unit Tests"
         required: false
-        default: true
+        default: false
         type: boolean
       run_integration_tests:
         description: "Integration Tests"
         required: false
-        default: true
+        default: false
         type: boolean
       notify_on:
         description: "Slack notification on:"
@@ -55,6 +55,7 @@ concurrency:
 jobs:
   setup:
     name: setup
+    if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
@@ -76,6 +77,7 @@ jobs:
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-windows:
     name: e2e
@@ -107,6 +109,7 @@ jobs:
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-rhel:
     name: e2e
@@ -169,4 +172,5 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
+          include_job_durations: false
           notify_on: ${{ env.notify_on }}

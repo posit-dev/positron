@@ -5,12 +5,10 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { RSession } from './session';
+import { RSession, getActiveRSessions } from './session';
 
 /**
- * Manages all the R sessions. We keep our own references to each session in a
- * singleton instance of this class so that we can invoke methods/check status
- * directly, without going through Positron's API.
+ * Manages all the R sessions.
  */
 export class RSessionManager implements vscode.Disposable {
 	/// Singleton instance
@@ -20,9 +18,6 @@ export class RSessionManager implements vscode.Disposable {
 	/// Note that these aren't currently ever disposed of because this is a singleton,
 	/// but we may improve on this in the future so it is good practice to track them.
 	private readonly _disposables: vscode.Disposable[] = [];
-
-	/// Map of session IDs to RSession instances
-	private _sessions: Map<string, RSession> = new Map();
 
 	/// The most recent foreground R session (foreground implies it is a console session)
 	private _lastForegroundSessionId: string | null = null;
@@ -50,18 +45,12 @@ export class RSessionManager implements vscode.Disposable {
 	}
 
 	/**
-	 * Registers a runtime with the manager. Throws an error if a runtime with
-	 * the same ID is already registered.
+	 * Registers a runtime with the manager.
 	 *
-	 * @param id The runtime's ID
-	 * @param runtime The runtime.
+	 * @param session The session.
 	 */
-	setSession(sessionId: string, session: RSession): void {
-		if (this._sessions.has(sessionId)) {
-			throw new Error(`Session ${sessionId} already registered.`);
-		}
-		this._sessions.set(sessionId, session);
-		this._disposables.push(
+	setSession(session: RSession): void {
+		session.register(
 			session.onDidChangeRuntimeState(async (state) => {
 				await this.didChangeSessionRuntimeState(session, state);
 			})
@@ -99,11 +88,10 @@ export class RSessionManager implements vscode.Disposable {
 			return;
 		}
 
-		// TODO: Switch to `getActiveRSessions()` built on `positron.runtime.getActiveSessions()`
-		// and remove `this._sessions` entirely.
-		const session = this._sessions.get(sessionId);
+		const sessions = await getActiveRSessions();
+		const session = sessions.find(s => s.metadata.sessionId === sessionId);
 		if (!session) {
-			// The foreground session is for another language.
+			// The foreground session is for another language or was deactivated in the meantime
 			return;
 		}
 
@@ -111,6 +99,9 @@ export class RSessionManager implements vscode.Disposable {
 			throw Error(`Foreground session with ID ${sessionId} must not be a background session.`);
 		}
 
+		// Multiple `activateConsoleSession()` might run concurrently if the
+		// `didChangeForegroundSession` event fires rapidly. We might want to queue
+		// the handling.
 		this._lastForegroundSessionId = session.metadata.sessionId;
 		await this.activateConsoleSession(session, 'foreground session changed');
 	}
@@ -120,7 +111,8 @@ export class RSessionManager implements vscode.Disposable {
 	 */
 	private async activateConsoleSession(session: RSession, reason: string): Promise<void> {
 		// Deactivate other console session servers first
-		await Promise.all(Array.from(this._sessions.values())
+		const sessions = await getActiveRSessions();
+		await Promise.all(sessions
 			.filter(s => {
 				return s.metadata.sessionId !== session.metadata.sessionId &&
 					s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console;
@@ -152,9 +144,10 @@ export class RSessionManager implements vscode.Disposable {
 	 *
 	 * @returns The R console session, or undefined if there isn't one.
 	 */
-	getConsoleSession(): RSession | undefined {
+	async getConsoleSession(): Promise<RSession | undefined> {
+		const sessions = await getActiveRSessions();
+
 		// Sort the sessions by creation time (descending)
-		const sessions = Array.from(this._sessions.values());
 		sessions.sort((a, b) => b.created - a.created);
 
 		// Remove any sessions that aren't console sessions and have either
@@ -186,8 +179,9 @@ export class RSessionManager implements vscode.Disposable {
 	 * @param sessionId The session identifier
 	 * @returns The R session, or undefined if not found
 	 */
-	getSessionById(sessionId: string): RSession | undefined {
-		return this._sessions.get(sessionId);
+	async getSessionById(sessionId: string): Promise<RSession | undefined> {
+		const sessions = await getActiveRSessions();
+		return sessions.find(s => s.metadata.sessionId === sessionId);
 	}
 
 	/**

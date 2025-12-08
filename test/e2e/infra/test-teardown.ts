@@ -12,9 +12,14 @@ export class TestTeardown {
 
 	async removeTestFiles(files: string[]): Promise<void> {
 		for (const file of files) {
-			const filePath = this._workspacePathOrFolder + '/' + file;
-			if (fs.existsSync(filePath)) {
-				fs.rmSync(filePath, { recursive: true, force: true });
+			try {
+				const filePath = this._workspacePathOrFolder + '/' + file;
+				if (fs.existsSync(filePath)) {
+					fs.rmSync(filePath, { recursive: true, force: true });
+				}
+			} catch (error) {
+				// Don't let cleanup errors fail the test run
+				console.warn(`Failed to remove test file "${file}":`, error);
 			}
 		}
 	}

@@ -71,6 +71,10 @@
 	padding: 0 5px;
 }
 
+.connections-item .connections-icon:focus:not(:focus-visible) {
+	outline-width: 0;
+}
+
 .connections-item .connections-icon .disabled {
 	opacity: 0.7;
 }

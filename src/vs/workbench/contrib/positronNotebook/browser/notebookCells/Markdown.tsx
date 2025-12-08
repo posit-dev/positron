@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { DeferredImage } from './DeferredImage.js';
-import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
+import { NotebookLink } from './NotebookLink.js';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -75,7 +75,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 				nodes: renderHtml(html, {
 					componentOverrides: {
 						img: DeferredImage,
-						a: (props) => <ExternalLink {...props} />
+						a: (props) => <NotebookLink {...props} />
 					}
 				})
 			});
