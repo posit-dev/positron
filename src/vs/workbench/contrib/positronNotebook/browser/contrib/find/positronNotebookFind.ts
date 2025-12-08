@@ -3,11 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
-import React from 'react';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
-import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize2 } from '../../../../../../nls.js';
@@ -20,12 +17,11 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
-import { observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { PositronFindWidget } from './PositronFindWidget.js';
 import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
+import { defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
 import { getActiveCell } from '../../selectionMachine.js';
@@ -34,6 +30,7 @@ import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
+import { PositronFindInstance } from './PositronFindInstance.js';
 
 interface CellMatch {
 	cell: IPositronNotebookCell;
@@ -45,12 +42,11 @@ interface CellMatch {
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
-	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
+	private _findInstance: PositronFindInstance | undefined;
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
 	private _allMatches: CellMatch[] = [];
 	private _currentMatchCellHandle: number | undefined;
 	private _currentMatchIndex: number | undefined;
-	// private readonly _findInstance?: FindInstance;
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
@@ -63,116 +59,103 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		return notebook.getContribution<PositronNotebookFindController>(PositronNotebookFindController.ID);
 	}
 
-	public readonly searchString = observableValue('findStateSearchString', '');
-	public readonly isRegex = observableValue('findStateIsRegexActual', false);
-	public readonly wholeWord = observableValue('findStateWholeWordActual', false);
-	public readonly matchCase = observableValue('findStateMatchCaseActual', false);
-	public readonly preserveCase = observableValue('findStatePreserveCaseActual', false);
-	public readonly matchIndex = observableValue<number | undefined>('findStateMatchIndex', undefined);
-	public readonly matchCount = observableValue<number | undefined>('findStateMatchCount', undefined);
-
-	// TODO: Or should we always just dispose the previous and create a new one?...
-	// Case 1: Renderer exists -> widget is visible? don't rerender & just take focus?
-	// Case 2: No renderer -> create & render
-	private getOrCreateRenderer(onDisposed: () => void): PositronModalReactRenderer {
-		if (!this._renderer.value) {
+	/**
+	 * Gets the find instance, creating it if necessary.
+	 */
+	private getOrCreateFindInstance(): PositronFindInstance {
+		if (!this._findInstance) {
 			if (!this._notebook.container?.parentElement) {
 				throw new Error('Notebook container not available for Find Widget rendering');
 			}
+			if (!this._notebook.scopedContextKeyService) {
+				throw new Error('Scoped context key service not available for Find Widget');
+			}
 
-			this._renderer.value = new PositronModalReactRenderer({
-				container: this._notebook.container.parentElement,
-				disableCaptures: true, // permits the usage of the enter key where applicable
-				// TODO: Do we need to do these things here? or when find widget closes?
-				onDisposed,
-				// onDisposed: () => {
-				// disposables.dispose();
-				// findWidgetVisible.reset();
-				// findInputFocused.reset();
-				// }
+			// Bind context keys
+			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
+			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
+
+			// Create find in selection toggle for notebook-specific functionality
+			const findInSelectionToggle = new Toggle({
+				icon: Codicon.selection,
+				title: 'Find in Selection',
+				isChecked: false,
+				...defaultToggleStyles,
 			});
-		}
 
-		return this._renderer.value;
-	}
+			this._register(findInSelectionToggle.onChange(() => {
+				// TODO: Implement find in selection logic for notebooks
+				console.log('Find in selection toggled');
+			}));
 
-	public start(): void {
-		if (!this._notebook.scopedContextKeyService) {
-			return;
-		}
-
-		// TODO: Feels like this should be a class...
-		const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
-		const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
-
-		const disposables = new DisposableStore();
-
-		// Create find in selection toggle for notebook-specific functionality
-		const findInSelectionToggle = disposables.add(new Toggle({
-			icon: Codicon.selection,
-			title: 'Find in Selection',
-			isChecked: false,
-			...defaultToggleStyles,
-		}));
-
-		disposables.add(findInSelectionToggle.onChange(() => {
-			// TODO: Implement find in selection logic for notebooks
-			console.log('Find in selection toggled');
-		}));
-
-		// TODO: Better lifecycle mgmt. Bug here if there is an existing renderer. We still render a new widget and create new disposables
-		const renderer = this.getOrCreateRenderer(() => {
-			disposables.dispose();
-			findWidgetVisible.reset();
-			findInputFocused.reset();
-		});
-
-		const findWidget = React.createElement(PositronFindWidget, {
-			findInputOptions: {
-				label: 'Find', // localize?
-				placeholder: 'Find', // localize?
-				showCommonFindToggles: true,
-				inputBoxStyles: defaultInputBoxStyles,
-				toggleStyles: defaultToggleStyles,
+			// Create the find instance
+			const instance = this._register(new PositronFindInstance({
+				container: this._notebook.container.parentElement,
 				additionalToggles: [findInSelectionToggle],
-			},
-			findText: this.searchString,
-			focusInput: true,
-			matchCase: this.matchCase,
-			matchWholeWord: this.wholeWord,
-			useRegex: this.isRegex,
-			matchIndex: this.matchIndex,
-			matchCount: this.matchCount,
-			onPreviousMatch: () => this.findPrevious(),
-			onNextMatch: () => this.findNext(),
-			onClose: () => {
-				this.closeFindWidget();
-			},
-			onInputFocus: () => {
+			}));
+
+			// Subscribe to user action events
+			this._register(instance.onDidRequestFindNext(() => this.findNext()));
+			this._register(instance.onDidRequestFindPrevious(() => this.findPrevious()));
+			this._register(instance.onDidRequestClose(() => this.handleClose()));
+
+			// Subscribe to visibility events
+			this._register(instance.onDidShow(() => {
+				findWidgetVisible.set(true);
+			}));
+			this._register(instance.onDidHide(() => {
+				findWidgetVisible.reset();
+				findInputFocused.reset();
+			}));
+
+			// Subscribe to focus events
+			this._register(instance.onDidFocusInput(() => {
 				findInputFocused.set(true);
-			},
-			onInputBlur: () => {
+			}));
+			this._register(instance.onDidBlurInput(() => {
 				findInputFocused.set(false);
-			},
-		});
+			}));
 
-		// Research when the search string changes e.g. as the user types
-		// TODO: debounce & delay
-		disposables.add(runOnChange(this.searchString, (searchString) => {
-			this.research(searchString);
-		}));
+			// Subscribe to search parameter changes using autorun
+			this._register(autorun(reader => {
+				const searchString = instance.searchString.read(reader);
+				const isRegex = instance.isRegex.read(reader);
+				const matchCase = instance.matchCase.read(reader);
+				const wholeWord = instance.wholeWord.read(reader);
 
-		// Do the initial search
-		this.research(this.searchString.get());
+				this.research(searchString, isRegex, matchCase, wholeWord);
+			}));
 
-		renderer.render(findWidget);
+			this._findInstance = instance;
+		}
 
-		// TODO: onVisible?
-		findWidgetVisible.set(true);
+		return this._findInstance;
 	}
 
-	// TODO: Make option object and pass in instead of reading observables. This method will eventually live on a delegate
-	private research(searchString: string): void {
+	/**
+	 * Shows the find widget and starts the find operation.
+	 */
+	public start(): void {
+		const findInstance = this.getOrCreateFindInstance();
+		// Show the widget (autorun will trigger research)
+		findInstance.show();
+	}
+
+	/**
+	 * Closes the find widget.
+	 * This is called by actions.
+	 */
+	public closeWidget(): void {
+		if (this._findInstance) {
+			this._findInstance.hide();
+		}
+	}
+
+	/**
+	 * Performs a search across all notebook cells.
+	 */
+	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): void {
+		const findInstance = this.getOrCreateFindInstance();
 		this._allMatches = [];
 		this._currentMatchCellHandle = undefined;
 		this._currentMatchIndex = undefined;
@@ -184,10 +167,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const cellMatches = cell.model.textModel.findMatches(
 					searchString,
 					null,
-					this.isRegex.get(),
-					this.matchCase.get(),
-					this.wholeWord.get() ? wordSeparators || null : null,
-					this.isRegex.get(),
+					isRegex,
+					matchCase,
+					wholeWord ? wordSeparators || null : null,
+					isRegex,
 				);
 
 				// Store each match with its cell reference and index
@@ -224,8 +207,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// Update match count and index
 		transaction((tx) => {
-			this.matchCount.set(totalMatchCount, tx);
-			this.matchIndex.set(totalMatchCount > 0 ? 1 : undefined, tx);
+			findInstance.matchCount.set(totalMatchCount, tx);
+			findInstance.matchIndex.set(totalMatchCount > 0 ? 1 : undefined, tx);
 		});
 	}
 
@@ -423,13 +406,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		// Update the match index
-		this.matchIndex.set(matchIndex, undefined);
+		const findInstance = this.getOrCreateFindInstance();
+		findInstance.matchIndex.set(matchIndex, undefined);
 	}
 
-	public closeFindWidget(): void {
-		this._renderer.clear();
-
-		// TODO: Move to find model?
+	/**
+	 * Handles the close event from the find instance.
+	 * Cleans up notebook-specific state.
+	 */
+	private handleClose(): void {
 		// Clear decorations
 		for (const cell of this._notebook.cells.get()) {
 			const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
@@ -441,10 +426,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		this._allMatches = [];
 		this._currentMatchCellHandle = undefined;
 		this._currentMatchIndex = undefined;
-		transaction((tx) => {
-			this.matchCount.set(undefined, tx);
-			this.matchIndex.set(undefined, tx);
-		});
 	}
 }
 
@@ -506,7 +487,7 @@ registerAction2(class extends PositronNotebookFindAction {
 	}
 
 	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
-		controller.closeFindWidget();
+		controller.closeWidget();
 		// editor.focus();
 	}
 });
