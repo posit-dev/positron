@@ -27,7 +27,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		super();
 
 		const storageFilePath = join(this.environmentService.extensionsPath, '.version');
-		const currentVersion = this.productService.positronVersion;
+		const currentVersion = `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
 
 		const lastKnownVersion = existsSync(storageFilePath) ? readFileSync(storageFilePath, 'utf8').trim() : '';
 
