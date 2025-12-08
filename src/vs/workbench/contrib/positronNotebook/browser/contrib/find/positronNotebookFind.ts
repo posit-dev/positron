@@ -239,6 +239,17 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findNextMatchFromCursor(): number {
+		// If we have a current match, just go to the next one
+		if (this._currentMatchIndex !== undefined) {
+			const nextIndex = this._currentMatchIndex + 1;
+			if (nextIndex < this._allMatches.length) {
+				return nextIndex + 1; // Convert to 1-based
+			}
+			// Wrap around to first
+			return 1;
+		}
+
+		// No current match tracked, use cursor position
 		const selectionState = this._notebook.selectionStateMachine.state.get();
 		const activeCell = getActiveCell(selectionState);
 
@@ -282,6 +293,17 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findPreviousMatchFromCursor(): number {
+		// If we have a current match, just go to the previous one
+		if (this._currentMatchIndex !== undefined) {
+			const prevIndex = this._currentMatchIndex - 1;
+			if (prevIndex >= 0) {
+				return prevIndex + 1; // Convert to 1-based
+			}
+			// Wrap around to last
+			return this._allMatches.length;
+		}
+
+		// No current match tracked, use cursor position
 		const selectionState = this._notebook.selectionStateMachine.state.get();
 		const activeCell = getActiveCell(selectionState);
 
