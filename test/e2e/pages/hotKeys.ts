@@ -315,6 +315,16 @@ export class HotKeys {
 					.replace(/option/gi, process.platform !== 'darwin' ? 'Alt' : 'Option');
 			});
 
+			// Hacky solution to get shortcut to show up as an action in the trace
+			if (!this.code.driver.page.isClosed()) {
+				try {
+					await this.code.driver.page.evaluate(msg => {
+					}, `Shortcut: ${description}`);
+				} catch (e) {
+					// Ignore - context may not be ready after navigation
+				}
+			}
+
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);
 			}
