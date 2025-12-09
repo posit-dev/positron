@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import {
+	ArraySelection,
 	BackendState,
 	CodeSyntaxName,
 	ColumnDisplayType,
@@ -34,6 +35,7 @@ import {
 	DataSelectionIndices,
 	DataSelectionRange,
 	DataSelectionSingleCell,
+	DatasetImportOptions,
 	ExportDataSelectionParams,
 	ExportedData,
 	ExportFormat,
@@ -56,6 +58,8 @@ import {
 	SearchSchemaParams,
 	SearchSchemaResult,
 	SearchSchemaSortOrder,
+	SetDatasetImportOptionsParams,
+	SetDatasetImportOptionsResult,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
 	SupportStatus,
@@ -65,6 +69,13 @@ import {
 	TableSelectionKind,
 	TextSearchType
 } from './interfaces';
+
+/**
+ * Type guard to check if an ArraySelection is a DataSelectionRange (has first_index/last_index).
+ */
+function isSelectionRange(spec: ArraySelection): spec is DataSelectionRange {
+	return (spec as DataSelectionRange).first_index !== undefined;
+}
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import * as zlib from 'zlib';
@@ -778,6 +789,12 @@ export class DuckDBTableView {
 	private _sortClause: string = '';
 	private _whereClause: string = '';
 
+	/**
+	 * Import options for delimited files. Can be modified to reimport
+	 * the file with different settings.
+	 */
+	importOptions?: DatasetImportOptions;
+
 	constructor(
 		readonly uri: vscode.Uri,
 		private tableName: string,
@@ -1010,7 +1027,7 @@ export class DuckDBTableView {
 		const columnSelectors = [];
 		const selectedColumns = [];
 		for (const column of params.columns) {
-			if ('first_index' in column.spec) {
+			if (isSelectionRange(column.spec)) {
 				// Value range
 				lowerLimit = Math.min(lowerLimit, column.spec.first_index);
 				upperLimit = Math.max(upperLimit, column.spec.last_index);
@@ -1139,7 +1156,7 @@ END`;
 			const field = queryResult.getChildAt(i)!;
 
 			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
-				if ('first_index' in spec) {
+				if (isSelectionRange(spec)) {
 					// There may be fewer rows available than what was requested
 					const lastIndex = Math.min(
 						spec.last_index,
@@ -1714,7 +1731,7 @@ END`;
 
 		// Escape any quotes in the filename to prevent SQL injection
 		const escapedFilename = filename.replace(/"/g, '""');
-		const result = ["SELECT * ", `FROM "${escapedFilename}"`];
+		const result = ['SELECT * ', `FROM "${escapedFilename}"`];
 
 		if (this._whereClause) {
 			const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
@@ -1800,8 +1817,9 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 	 * Import data file into DuckDB by creating table or view
 	 * @param uri A URI, usually for a file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
+	 * @param importOptions Optional import options for delimited files.
 	 */
-	async createTableFromUri(uri: vscode.Uri, catalogName: string) {
+	async createTableFromUri(uri: vscode.Uri, catalogName: string, importOptions?: DatasetImportOptions) {
 		let fileExt = path.extname(uri.path);
 		const isGzipped = fileExt === '.gz';
 
@@ -1809,19 +1827,17 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			fileExt = path.extname(uri.path.slice(0, -3));
 		}
 
-		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
+		const getCsvImportQuery = (_filePath: string, options: Array<string>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
 			SELECT * FROM read_csv_auto('${_filePath}'${options.length ? ', ' : ''}${options.join(' ,')});`;
 		};
 
-		const importDelimited = async (filePath: string, catalogType: string = 'TABLE',
-			extraParams: string = '') => {
-			// TODO: Will need to be able to pass CSV / TSV options from the
-			// UI at some point.
+		const importDelimited = async (filePath: string) => {
 			const options: Array<string> = [];
 
-			// Always treat the first row as header to avoid inference issues
-			options.push('header=true');
+			// Use import options if provided, otherwise default to header=true
+			const hasHeader = importOptions?.has_header_row ?? true;
+			options.push(`header=${hasHeader}`);
 
 			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
@@ -1870,6 +1886,35 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		}
 	}
 
+	/**
+	 * Set import options for a dataset and reimport the file.
+	 * @param uri The URI of the dataset.
+	 * @param params The import options to apply.
+	 */
+	async setDatasetImportOptions(uri: string, params: SetDatasetImportOptionsParams): Promise<SetDatasetImportOptionsResult> {
+		const tableView = this._uriToTableView.get(uri);
+		if (!tableView) {
+			return { error_message: `No table view found for URI: ${uri}` };
+		}
+
+		// Store the import options on the table view
+		tableView.importOptions = params.options;
+
+		// Reimport the file with the new options
+		const newTableName = `positron_${this._tableIndex++}`;
+		const parsedUri = vscode.Uri.parse(uri);
+
+		try {
+			await this.createTableFromUri(parsedUri, newTableName, tableView.importOptions);
+			const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+			await tableView.onFileUpdated(newTableName, newSchema);
+			return {};
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			return { error_message: `Failed to reimport with new options: ${errorMessage}` };
+		}
+	}
+
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
 		try {
 			return { result: await this._dispatchRpc(rpc) };
@@ -1889,6 +1934,12 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
+		}
+
+		// Handle SetDatasetImportOptions at the handler level since it needs
+		// to reimport the file.
+		if (rpc.method === DataExplorerBackendRequest.SetDatasetImportOptions) {
+			return this.setDatasetImportOptions(rpc.uri, rpc.params as SetDatasetImportOptionsParams);
 		}
 
 		// Check if table view exists, and recreate it if missing (e.g., after extension host restart)

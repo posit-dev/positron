@@ -25,6 +25,7 @@ export interface DataExplorerRpc {
 	SetSortColumnsParams |
 	GetColumnProfilesParams |
 	ExportDataSelectionParams |
+	SetDatasetImportOptionsParams |
 	{};
 }
 
@@ -56,6 +57,17 @@ export interface DataExplorerResponse {
 
 // AUTO-GENERATED from data_explorer.json; do not edit. Copy from
 // positronDataExplorerComm.ts instead.
+
+/**
+ * Result of setting import options
+ */
+export interface SetDatasetImportOptionsResult {
+	/**
+	 * An error message if setting the options failed
+	 */
+	error_message?: string;
+
+}
 
 /**
  * Result in Methods
@@ -1163,6 +1175,19 @@ export interface ColumnSelection {
 
 }
 
+/**
+ * Import options for file-based data sources. Currently supports options
+ * for delimited text files (CSV, TSV).
+ */
+export interface DatasetImportOptions {
+	/**
+	 * Whether the first row contains column headers (for delimited text
+	 * files)
+	 */
+	has_header_row?: boolean;
+
+}
+
 /// ColumnValue
 export type ColumnValue = number | string;
 
@@ -1458,6 +1483,16 @@ export interface SetSortColumnsParams {
 }
 
 /**
+ * Parameters for the SetDatasetImportOptions method.
+ */
+export interface SetDatasetImportOptionsParams {
+	/**
+	 * Import options to apply
+	 */
+	options: DatasetImportOptions;
+}
+
+/**
  * Parameters for the GetColumnProfiles method.
  */
 export interface GetColumnProfilesParams {
@@ -1549,5 +1584,6 @@ export enum DataExplorerBackendRequest {
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
+	SetDatasetImportOptions = 'set_dataset_import_options',
 	GetState = 'get_state'
 }

@@ -413,6 +413,34 @@
 			"result": {}
 		},
 		{
+			"name": "set_dataset_import_options",
+			"summary": "Set import options for file-based data sources",
+			"description": "Set import options for file-based data sources (like CSV files) and reimport the data. This method is primarily used by file-based backends like DuckDB.",
+			"params": [
+				{
+					"name": "options",
+					"description": "Import options to apply",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/dataset_import_options"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "set_dataset_import_options_result",
+					"type": "object",
+					"description": "Result of setting import options",
+					"properties": {
+						"error_message": {
+							"type": "string",
+							"description": "An error message if setting the options failed"
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "get_state",
 			"summary": "Get the state",
 			"description": "Request the current backend state (table metadata, explorer state, and features)",
@@ -1775,6 +1803,16 @@
 					"unsupported",
 					"supported"
 				]
+			},
+			"dataset_import_options": {
+				"type": "object",
+				"description": "Import options for file-based data sources. Currently supports options for delimited text files (CSV, TSV).",
+				"properties": {
+					"has_header_row": {
+						"type": "boolean",
+						"description": "Whether the first row contains column headers (for delimited text files)"
+					}
+				}
 			}
 		}
 	}
