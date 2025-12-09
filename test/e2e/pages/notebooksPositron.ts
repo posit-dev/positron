@@ -45,6 +45,7 @@ export class PositronNotebooks extends Notebooks {
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
+	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
@@ -374,6 +375,14 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Hover over the execution status badge for a cell to trigger the execution info tooltip.
+	 * @param cellIndex - The index of the cell whose execution badge to hover.
+	 */
+	async hoverExecutionBadge(cellIndex: number): Promise<void> {
+		await this.executionStatusBadgeWrapperAtIndex(cellIndex).hover();
+	}
+
+	/**
 	 * Action: Enter edit mode for the cell at the specified index.
 	 * @param cellIndex - The index of the cell to enter edit mode for.
 	 */
@@ -569,22 +578,25 @@ export class PositronNotebooks extends Notebooks {
 				if (actualContent.length !== 1) {
 					throw new Error(`Expected single line content but got ${actualContent.length} lines: ${actualContent.join('\n')}`);
 				}
-				expect(actualContent[0]).toBe(expectedContent)
+				expect(actualContent[0]).toBe(expectedContent);
 			}
 		});
 	}
 
 	/**
 	 * Verify: Cell info tooltip contains expected content.
+	 * @param cellIndex - The index of the cell whose execution badge to hover for triggering the tooltip.
 	 * @param expectedContent - Object with expected content to verify.
 	 *                          Use RegExp for fields where exact match is not feasible (e.g., duration, completed time).
 	 * @param timeout - Optional timeout for the expectation.
 	 */
 	async expectToolTipToContain(
+		cellIndex: number,
 		expectedContent: { duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
 		timeout = DEFAULT_TIMEOUT
 	): Promise<void> {
 		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
+			await this.hoverExecutionBadge(cellIndex);
 			await expect(this.cellInfoToolTip).toBeVisible({ timeout });
 
 			const labelMap: Record<keyof typeof expectedContent, string> = {
