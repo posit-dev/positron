@@ -17294,6 +17294,16 @@ declare module 'vscode' {
 		 */
 		export function stopDebugging(session?: DebugSession): Thenable<void>;
 
+		// --- Start Positron ---
+		/**
+		 * Sets whether the debug toolbar should be suppressed during a running debug session.
+		 *
+		 * @param session The {@link DebugSession debug session} to modify.
+		 * @param suppress Whether to suppress the debug toolbar.
+		 */
+		export function setSuppressDebugToolbar(session: DebugSession, suppress: boolean): void;
+		// --- End Positron ---
+
 		/**
 		 * Add breakpoints.
 		 * @param breakpoints The breakpoints to add.

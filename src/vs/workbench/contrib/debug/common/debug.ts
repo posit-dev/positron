@@ -400,6 +400,10 @@ export interface IDebugSession extends ITreeElement, IDisposable {
 	readonly onDidChangeName: Event<string>;
 	getLabel(): string;
 
+	// --- Start Positron ---
+	setSuppressDebugToolbar(value: boolean): void;
+	// --- End Positron ---
+
 	getSourceForUri(modelUri: uri): Source | undefined;
 	getSource(raw?: DebugProtocol.Source): Source;
 
@@ -1325,6 +1329,13 @@ export interface IDebugService {
 	 * Stops the session. If no session is specified then all sessions are stopped.
 	 */
 	stopSession(session: IDebugSession | undefined, disconnect?: boolean, suspend?: boolean): Promise<void>;
+
+	// --- Start Positron ---
+	/**
+	 * Sets the suppressDebugToolbar option for a running debug session.
+	 */
+	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void;
+	// --- End Positron ---
 
 	/**
 	 * Makes unavailable all sources with the passed uri. Source will appear as grayed out in callstack view.

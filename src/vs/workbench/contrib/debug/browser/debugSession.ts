@@ -235,6 +235,13 @@ export class DebugSession implements IDebugSession {
 		return this._options.suppressDebugToolbar ?? false;
 	}
 
+	// --- Start Positron ---
+	setSuppressDebugToolbar(value: boolean): void {
+		this._options.suppressDebugToolbar = value;
+		this._onDidChangeState.fire();
+	}
+	// --- End Positron ---
+
 	get suppressDebugView(): boolean {
 		return this._options.suppressDebugView ?? false;
 	}
