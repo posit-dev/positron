@@ -11,15 +11,12 @@ A stripped-down LSP server that provides Positron-specific features:
 - DataFrame/Series column completions
 - Environment variable completions
 - Magic command completions
-- Help topic resolution
-- Syntax diagnostics with magic/shell command filtering
-
-For Console documents (inmemory: scheme), also provides:
 - Hover with type info, docstring, and DataFrame preview
 - Signature help
+- Help topic resolution
 
-Static analysis features (go-to-definition, references, rename, symbols)
-are delegated to third-party extensions like Pylance.
+Static analysis features (go-to-definition, references, rename, symbols, diagnostics)
+are delegated to third-party extensions like Pyrefly.
 """
 
 from __future__ import annotations
@@ -33,7 +30,6 @@ import logging
 import os
 import re
 import threading
-import warnings
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
@@ -43,7 +39,6 @@ from ._vendor.pygls.io_ import run_async
 from ._vendor.pygls.lsp.server import LanguageServer
 from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
 from .help_comm import ShowHelpTopicParams
-from .utils import debounce
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
@@ -57,13 +52,9 @@ _COMMENT_PREFIX = "#"
 _LINE_MAGIC_PREFIX = "%"
 _CELL_MAGIC_PREFIX = "%%"
 _SHELL_PREFIX = "!"
-_HELP_PREFIX_OR_SUFFIX = "?"
 
 # Custom LSP method for help topic requests
 _HELP_TOPIC = "positron/textDocument/helpTopic"
-
-# URI scheme for Console documents (in-memory)
-_INMEMORY_SCHEME = "inmemory"
 
 
 @enum.unique
@@ -97,9 +88,56 @@ class PositronInitializationOptions:
     working_directory: Optional[str] = attrs.field(default=None)  # noqa: UP045 because cattrs can't deal with | None in 3.9
 
 
-def _is_console_document(uri: str) -> bool:
-    """Check if the document is a Console document (in-memory scheme)."""
-    return uri.startswith(f"{_INMEMORY_SCHEME}:")
+def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None:
+    """
+    Safely resolve an expression to an object from the namespace.
+
+    This parses the expression as an AST and only allows safe node types:
+    - Name: variable lookup from namespace
+    - Attribute: getattr() access
+    - Subscript with string/int literal: __getitem__() access
+
+    Returns None if the expression is unsafe, invalid, or evaluation fails.
+    """
+    if not expr or not expr.strip():
+        return None
+
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return None
+
+    def resolve_node(node: ast.expr) -> Any:
+        """Recursively resolve an AST node to its value."""
+        if isinstance(node, ast.Name):
+            # Variable lookup from namespace
+            if node.id not in namespace:
+                raise KeyError(node.id)
+            return namespace[node.id]
+
+        elif isinstance(node, ast.Attribute):
+            # Attribute access: resolve base, then getattr
+            base = resolve_node(node.value)
+            return getattr(base, node.attr)
+
+        elif isinstance(node, ast.Subscript):
+            # Subscript access: only allow string/int literals
+            base = resolve_node(node.value)
+            key = node.slice
+
+            if isinstance(key, ast.Constant) and isinstance(key.value, (str, int)):
+                return base[key.value]
+            # Reject computed subscripts like df[var]
+            raise ValueError("Only string/int literal subscripts allowed")
+
+        else:
+            # Reject all other node types (Call, BinOp, etc.)
+            raise ValueError(f"Unsafe node type: {type(node).__name__}")
+
+    try:
+        return resolve_node(tree.body)
+    except Exception:
+        return None
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -412,25 +450,19 @@ def _register_features(server: PositronLanguageServer) -> None:
         """Resolve additional completion item details."""
         return _handle_completion_resolve(server, params)
 
-    # --- Hover (Console only) ---
+    # --- Hover ---
     @server.feature(types.TEXT_DOCUMENT_HOVER)
     def hover(params: types.TextDocumentPositionParams) -> types.Hover | None:
-        """Provide hover information for Console documents."""
-        # Only provide hover for Console documents
-        if not _is_console_document(params.text_document.uri):
-            return None
+        """Provide hover information."""
         return _handle_hover(server, params)
 
-    # --- Signature Help (Console only) ---
+    # --- Signature Help ---
     @server.feature(
         types.TEXT_DOCUMENT_SIGNATURE_HELP,
         types.SignatureHelpOptions(trigger_characters=["(", ","]),
     )
     def signature_help(params: types.TextDocumentPositionParams) -> types.SignatureHelp | None:
-        """Provide signature help for Console documents."""
-        # Only provide signature help for Console documents
-        if not _is_console_document(params.text_document.uri):
-            return None
+        """Provide signature help."""
         return _handle_signature_help(server, params)
 
     # --- Help Topic ---
@@ -438,29 +470,6 @@ def _register_features(server: PositronLanguageServer) -> None:
     def help_topic(params: HelpTopicParams) -> ShowHelpTopicParams | None:
         """Return the help topic for the symbol at the cursor."""
         return _handle_help_topic(server, params)
-
-    # --- Diagnostics ---
-    @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
-    def did_open(params: types.DidOpenTextDocumentParams) -> None:
-        """Handle document open - publish diagnostics."""
-        _publish_diagnostics_debounced(server, params.text_document.uri)
-
-    @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
-    def did_change(params: types.DidChangeTextDocumentParams) -> None:
-        """Handle document change - publish diagnostics."""
-        _publish_diagnostics_debounced(server, params.text_document.uri)
-
-    @server.feature(types.TEXT_DOCUMENT_DID_SAVE)
-    def did_save(params: types.DidSaveTextDocumentParams) -> None:
-        """Handle document save - publish diagnostics."""
-        _publish_diagnostics_debounced(server, params.text_document.uri)
-
-    @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
-    def did_close(params: types.DidCloseTextDocumentParams) -> None:
-        """Handle document close - clear diagnostics."""
-        server.text_document_publish_diagnostics(
-            types.PublishDiagnosticsParams(uri=params.text_document.uri, diagnostics=[])
-        )
 
 
 # --- Completion Handlers ---
@@ -553,10 +562,9 @@ def _get_dict_key_completions(
     if server.shell is None:
         return []
 
-    # Try to evaluate the expression
-    try:
-        obj = eval(expr, server.shell.user_ns)
-    except Exception:
+    # Safely resolve the expression
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
         return []
 
     items = []
@@ -623,10 +631,9 @@ def _get_attribute_completions(
 
     expr, attr_prefix = match.groups()
 
-    # Try to evaluate the expression in the namespace
-    try:
-        obj = eval(expr, server.shell.user_ns)
-    except Exception:
+    # Safely resolve the expression
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
         return []
 
     items = []
@@ -830,10 +837,9 @@ def _handle_hover(
     if not expr:
         return None
 
-    # Try to evaluate in namespace
-    try:
-        obj = eval(expr, server.shell.user_ns)
-    except Exception:
+    # Safely resolve the expression
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is None:
         return None
 
     # Build hover content
@@ -913,10 +919,9 @@ def _handle_signature_help(
 
     func_name = match.group(1)
 
-    # Try to get the callable
-    try:
-        obj = eval(func_name, server.shell.user_ns)
-    except Exception:
+    # Safely resolve the callable
+    obj = _safe_resolve_expression(server.shell.user_ns, func_name)
+    if obj is None:
         return None
 
     if not callable(obj):
@@ -995,8 +1000,8 @@ def _handle_help_topic(
         return None
 
     # Try to resolve the full name
-    try:
-        obj = eval(expr, server.shell.user_ns)
+    obj = _safe_resolve_expression(server.shell.user_ns, expr)
+    if obj is not None:
         # Get the fully qualified name based on the type of object
         if isinstance(obj, type):
             # For classes/types, use the type's module and name
@@ -1013,72 +1018,12 @@ def _handle_help_topic(
             name = getattr(obj_type, "__qualname__", getattr(obj_type, "__name__", expr))
 
         topic = f"{module}.{name}" if module else name
-    except Exception:
+    else:
         # Fall back to the expression itself
         topic = expr
 
     logger.info("Help topic found: %s", topic)
     return ShowHelpTopicParams(topic=topic)
-
-
-# --- Diagnostics ---
-
-
-@debounce(1, keyed_by="uri")
-def _publish_diagnostics_debounced(server: PositronLanguageServer, uri: str) -> None:
-    """Publish diagnostics with debouncing."""
-    try:
-        _publish_diagnostics(server, uri)
-    except Exception:
-        logger.exception(f"Failed to publish diagnostics for {uri}")
-
-
-def _publish_diagnostics(server: PositronLanguageServer, uri: str) -> None:
-    """Publish syntax diagnostics for a document."""
-    if uri not in server.workspace.text_documents:
-        return
-
-    document = server.workspace.get_text_document(uri)
-
-    # Comment out magic/shell/help command lines so they don't appear as syntax errors
-    source_lines = []
-    for line in document.lines:
-        trimmed = line.lstrip()
-        if trimmed.startswith(
-            (_LINE_MAGIC_PREFIX, _SHELL_PREFIX, _HELP_PREFIX_OR_SUFFIX)
-        ) or trimmed.rstrip().endswith(_HELP_PREFIX_OR_SUFFIX):
-            source_lines.append(f"#{line}")
-        else:
-            source_lines.append(line)
-
-    source = "".join(source_lines)
-
-    # Check for syntax errors
-    diagnostics = []
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        try:
-            ast.parse(source)
-        except SyntaxError as e:
-            if e.lineno is not None:
-                # Adjust for 0-based line numbers
-                line_no = e.lineno - 1
-                col = (e.offset or 1) - 1
-                diagnostics.append(
-                    types.Diagnostic(
-                        range=types.Range(
-                            start=types.Position(line=line_no, character=col),
-                            end=types.Position(line=line_no, character=col + 1),
-                        ),
-                        message=e.msg or "Syntax error",
-                        severity=types.DiagnosticSeverity.Error,
-                        source="positron-lsp",
-                    )
-                )
-
-    server.text_document_publish_diagnostics(
-        types.PublishDiagnosticsParams(uri=uri, diagnostics=diagnostics)
-    )
 
 
 # Create the server instance
