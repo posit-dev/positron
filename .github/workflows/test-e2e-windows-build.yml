@@ -51,12 +51,26 @@ jobs:
             test/e2e/package-lock.json
 
       - name: Cache centralized npm tarball cache
+        id: cache-npm-tarballs
         uses: actions/cache@v4
         with:
           path: C:\\tmp\\npm-cache
           key: ${{ runner.os }}-npm-tarballs-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-tarballs-
+
+      - name: Verify npm cache
+        shell: bash
+        run: |
+          echo "Cache hit: ${{ steps.cache-npm-tarballs.outputs.cache-hit }}"
+          echo "Cache directory: C:\\tmp\\npm-cache"
+          if [ -d "/c/tmp/npm-cache" ]; then
+            echo "Cache directory exists"
+            du -sh /c/tmp/npm-cache 2>/dev/null || echo "Unable to calculate cache size"
+            echo "Cache entry count: $(find /c/tmp/npm-cache -type f 2>/dev/null | wc -l)"
+          else
+            echo "Cache directory does not exist (will be created)"
+          fi
 
       - name: Cache Ark binary
         uses: actions/cache@v4
@@ -177,9 +191,9 @@ jobs:
       - name: Install python dependencies
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install trcli
+          uv pip install --system --upgrade pip
+          uv pip install --system -r requirements.txt
+          uv pip install --system trcli
 
       # Alternate python version
       - name: Install Python 3.13.0
@@ -190,8 +204,8 @@ jobs:
       - name: Install ipykernel for Python 3.13.0
         run: |
           python --version  # Verify it's 3.13.0
-          python -m pip install --upgrade pip
-          python -m pip install ipykernel
+          uv pip install --system --upgrade pip
+          uv pip install --system ipykernel
 
       # Install rig (R Installation Manager)
       - name: Install rig
@@ -257,6 +271,16 @@ jobs:
             (cd /c/tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
           fi
 
+      - name: Install pigz for parallel compression
+        shell: bash
+        run: |
+          if ! command -v pigz >/dev/null 2>&1; then
+            echo "Installing pigz for parallel compression"
+            choco install pigz -y
+          else
+            echo "pigz already installed"
+          fi
+
       - name: Create Build Artifact
         shell: bash
         run: |
@@ -272,14 +296,16 @@ jobs:
           # Create tarball of workspace
           mkdir -p /c/tmp/artifacts
 
-          # Use fast compression level with gzip
-          echo "Creating gzip archive with fast compression"
+          # Use pigz for parallel compression (4 threads, fast compression)
+          echo "Creating archive with pigz (parallel compression)"
           tar --exclude='.git' \
               --exclude='.npm-cache' \
               --exclude='.pip-cache' \
               --exclude='node_modules/.cache' \
               --exclude='.build/logs' \
-              -cf - . | gzip -1 > /c/tmp/artifacts/positron-build.tar.gz
+              --exclude='*.log' \
+              --exclude='.eslintcache' \
+              -cf - . | pigz -1 -p 4 > /c/tmp/artifacts/positron-build.tar.gz
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
