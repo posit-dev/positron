@@ -62,15 +62,27 @@ jobs:
       - name: Verify npm cache
         shell: bash
         run: |
+          echo "========================================="
+          echo "NPM CACHE DIAGNOSTICS"
+          echo "========================================="
           echo "Cache hit: ${{ steps.cache-npm-tarballs.outputs.cache-hit }}"
           echo "Cache directory: C:\\tmp\\npm-cache"
+
           if [ -d "/c/tmp/npm-cache" ]; then
-            echo "Cache directory exists"
-            du -sh /c/tmp/npm-cache 2>/dev/null || echo "Unable to calculate cache size"
-            echo "Cache entry count: $(find /c/tmp/npm-cache -type f 2>/dev/null | wc -l)"
+            echo "✓ Cache directory exists"
+            CACHE_SIZE=$(du -sh /c/tmp/npm-cache 2>/dev/null | cut -f1 || echo "unknown")
+            CACHE_FILES=$(find /c/tmp/npm-cache -type f 2>/dev/null | wc -l)
+            echo "  Size: $CACHE_SIZE"
+            echo "  Files: $CACHE_FILES"
+
+            # Sample cache contents
+            echo ""
+            echo "Sample cached packages:"
+            find /c/tmp/npm-cache -name "*.tgz" 2>/dev/null | head -5 || echo "  No tarballs found"
           else
-            echo "Cache directory does not exist (will be created)"
+            echo "✗ Cache directory does not exist (will be created)"
           fi
+          echo "========================================="
 
       - name: Cache Ark binary
         uses: actions/cache@v4
@@ -117,7 +129,41 @@ jobs:
             ~\AppData\Local\electron-builder\Cache
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
 
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            build/node_modules
+            test/e2e/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Verify node_modules cache
+        shell: bash
+        run: |
+          echo "========================================="
+          echo "NODE_MODULES CACHE STATUS"
+          echo "========================================="
+          echo "Cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
+
+          if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
+            echo "✓ Cache HIT - Skipping npm install (saves ~20 minutes!)"
+            echo ""
+            echo "Restored node_modules:"
+            [ -d "node_modules" ] && echo "  ✓ Root node_modules ($(ls node_modules 2>/dev/null | wc -l) packages)"
+            [ -d "build/node_modules" ] && echo "  ✓ build/node_modules ($(ls build/node_modules 2>/dev/null | wc -l) packages)"
+            [ -d "test/e2e/node_modules" ] && echo "  ✓ test/e2e/node_modules ($(ls test/e2e/node_modules 2>/dev/null | wc -l) packages)"
+          else
+            echo "✗ Cache MISS - Will run full npm install (~20 minutes)"
+            echo "  This is expected on first run or after dependency changes"
+          fi
+          echo "========================================="
+
       - name: Install node dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
