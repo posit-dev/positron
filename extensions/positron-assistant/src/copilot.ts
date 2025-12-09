@@ -94,12 +94,11 @@ export class CopilotService implements vscode.Disposable {
 	 * Refresh the signed-in state based on the current model registration status.
 	 * This should be called when a model is registered or deleted.
 	 */
-	public refreshSignedInState(): void {
-		vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true }).then((session) => {
-			if (session.id !== this._authSession?.id) {
-				this.setAuthSession(session);
-			}
-		});
+	public async refreshSignedInState(): Promise<void> {
+		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true });
+		if (session.id !== this._authSession?.id) {
+			this.setAuthSession(session);
+		}
 	}
 
 	dispose(): void {
@@ -126,8 +125,14 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		throw new Error('Method not implemented.');
 	}
 
-	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
-		throw new Error('Method not implemented.');
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		const service = CopilotService.instance();
+		await service.refreshSignedInState();
+		if (service.isSignedIn) {
+			return undefined;
+		} else {
+			return Promise.resolve(new Error('Not signed in to GitHub Copilot.'));
+		}
 	}
 
 	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
@@ -144,6 +149,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 			id: 'copilot',
 			displayName: 'GitHub Copilot'
 		},
+		signedIn: true, // TODO: Dynamically update based on auth state
 		supportedOptions: ['oauth'],
 		defaults: {
 			name: 'GitHub Copilot',

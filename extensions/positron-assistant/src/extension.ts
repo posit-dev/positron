@@ -12,7 +12,6 @@ import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
@@ -378,9 +377,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register Copilot service
 	registerCopilotService(context);
-
-	// Register authentication provider that delegates to CopilotService
-	registerCopilotAuthProvider(context);
 
 	// Register chat participants
 	const participantService = registerParticipants(context);

@@ -162,11 +162,17 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			// Get model data from `registeredModels` (for manually configured models; stored in persistent storage)
 			// or `autoconfiguredModels` (for auto-configured models; e.g., env var based or managed credentials)
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
+
+			// Most providers don't know if they are signed in, but but if they
+			// do, use that information; otherwise, assume signed in if
+			// registered
+			const signedIn = provider.source.signedIn || !!isRegistered;
+
 			// Update source data with actual model configuration status if found
 			// Otherwise, use defaults from provider
 			const source: positron.ai.LanguageModelSource = {
 				...provider.source,
-				signedIn: !!isRegistered,
+				signedIn,
 				defaults: isRegistered
 					? { ...provider.source.defaults, ...isRegistered }
 					: provider.source.defaults
