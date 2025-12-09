@@ -19,8 +19,6 @@ import { IPositronNotebookContribution, registerPositronNotebookContribution } f
 import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
 import { autorun, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
-import { Toggle } from '../../../../../../base/browser/ui/toggle/toggle.js';
-import { Codicon } from '../../../../../../base/common/codicons.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { Position } from '../../../../../../editor/common/core/position.js';
@@ -64,6 +62,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
+			// TODO: How to handle this state? Wait until container and scoped context key service are available?
 			if (!this._notebook.container) {
 				throw new Error('Notebook container not available for Find Widget rendering');
 			}
@@ -75,19 +74,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);
 			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
 
-			// Create find in selection toggle for notebook-specific functionality
-			const findInSelectionToggle = new Toggle({
-				icon: Codicon.selection,
-				title: 'Find in Selection',
-				isChecked: false,
-				...defaultToggleStyles,
-			});
-
-			this._register(findInSelectionToggle.onChange(() => {
-				// TODO: Implement find in selection logic for notebooks
-				console.log('Find in selection toggled');
-			}));
-
 			// Create the find instance
 			const instance = this._register(new PositronFindInstance({
 				container: this._notebook.container,
@@ -97,7 +83,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					showCommonFindToggles: true,
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
-					additionalToggles: [findInSelectionToggle],
 				},
 			}));
 
@@ -153,7 +138,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				// Update match count and index
 				transaction((tx) => {
 					instance.matchCount.set(this._allMatches.length, tx);
-					// TODO: Don't overwright previous current
+					// TODO: Don't overwrite previous current
 					instance.matchIndex.set(this._allMatches.length > 0 ? 1 : undefined, tx);
 				});
 			}));
@@ -189,7 +174,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		this._allMatches = [];
 		this._currentMatchCellHandle = undefined;
 		this._currentMatchIndex = undefined;
-		let totalMatchCount = 0;
 
 		for (const cell of this._notebook.cells.get()) {
 			if (cell.model.textModel) {
@@ -208,7 +192,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				for (const match of cellMatches) {
 					this._allMatches.push({ cell, cellIndex, match });
 				}
-				totalMatchCount += cellMatches.length;
 				// TODO: Fall back to text buffer if no text model?
 
 				// Update decorations for this cell
