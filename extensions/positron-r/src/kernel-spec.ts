@@ -184,6 +184,7 @@ interface PixiShellHookJson {
  */
 async function capturePixiEnvVars(
 	env: Record<string, string>,
+	rBinaryPath: string,
 	manifestPath: string,
 	envName?: string
 ): Promise<void> {
@@ -214,8 +215,17 @@ async function capturePixiEnvVars(
 
 			// Apply environment variables
 			for (const [key, value] of Object.entries(hookData.environment_variables)) {
-				env[key] = value;
-				LOGGER.trace(`Set ${key}=${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+				// On Windows, convert key to uppercase for consistency
+				const envKey = process.platform === 'win32' ? key.toUpperCase() : key;
+				let envValue = value;
+
+				// On Windows, add the R binary path to PATH. Pixi does not add this
+				// but it's needed for R to find its DLLs.
+				if (process.platform === 'win32' && envKey === 'PATH') {
+					envValue = path.dirname(rBinaryPath) + ';' + envValue;
+				}
+				env[envKey] = envValue;
+				LOGGER.trace(`Set ${envKey}=${envValue}`);
 			}
 		} catch (e) {
 			LOGGER.error('Failed to capture pixi environment variables:', e.message);
@@ -353,7 +363,7 @@ export async function createJupyterKernelSpec(
 	if (options?.pixiManifestPath) {
 		// For Pixi, we capture environment variables directly on all platforms
 		// since pixi shell-hook --json provides a consistent interface
-		await capturePixiEnvVars(env, options.pixiManifestPath, options.pixiEnvironmentName);
+		await capturePixiEnvVars(env, options.rBinaryPath, options.pixiManifestPath, options.pixiEnvironmentName);
 	}
 
 	// R script to run on session startup
