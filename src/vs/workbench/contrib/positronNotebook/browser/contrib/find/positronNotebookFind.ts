@@ -147,7 +147,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const matchCase = instance.matchCase.read(reader);
 				const wholeWord = instance.wholeWord.read(reader);
 
+				console.info('PositronNotebookFindController: Starting research with', { searchString, isRegex, matchCase, wholeWord });
 				this.research(searchString, isRegex, matchCase, wholeWord);
+
+				// Update match count and index
+				transaction((tx) => {
+					instance.matchCount.set(this._allMatches.length, tx);
+					// TODO: Don't overwright previous current
+					instance.matchIndex.set(this._allMatches.length > 0 ? 1 : undefined, tx);
+				});
 			}));
 
 			this._findInstance = instance;
@@ -178,7 +186,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 * Performs a search across all notebook cells.
 	 */
 	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): void {
-		const findInstance = this.getOrCreateFindInstance();
 		this._allMatches = [];
 		this._currentMatchCellHandle = undefined;
 		this._currentMatchIndex = undefined;
@@ -227,12 +234,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				// );
 			}
 		}
-
-		// Update match count and index
-		transaction((tx) => {
-			findInstance.matchCount.set(totalMatchCount, tx);
-			findInstance.matchIndex.set(totalMatchCount > 0 ? 1 : undefined, tx);
-		});
 	}
 
 	public findNext(): void {
