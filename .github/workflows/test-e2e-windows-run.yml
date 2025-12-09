@@ -132,16 +132,6 @@ jobs:
           name: "positron-build-windows"
           path: C:\tmp\artifacts
 
-      - name: Install pigz for parallel decompression
-        shell: bash
-        run: |
-          if ! command -v pigz >/dev/null 2>&1; then
-            echo "Installing pigz for parallel decompression"
-            choco install pigz -y
-          else
-            echo "pigz already installed"
-          fi
-
       - name: Extract build artifact
         shell: bash
         run: |
@@ -150,9 +140,9 @@ jobs:
           if [ -f "$BUILD_ARCHIVE" ]; then
             echo "Extracting build archive into workspace"
 
-            # Extract directly into current directory using pigz for parallel decompression
-            echo "Using pigz for parallel decompression (4 threads)"
-            tar --use-compress-program="pigz -p 4" -xf "$BUILD_ARCHIVE" || exit 1
+            # Decompress with 7z (multi-threaded), then extract tar
+            echo "Decompressing with 7z (multi-threaded)"
+            7z x -so "$BUILD_ARCHIVE" | tar -xf - || exit 1
 
             # Clean up compressed archive to free disk space
             echo "Cleaning up compressed archive"

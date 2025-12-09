@@ -271,16 +271,6 @@ jobs:
             (cd /c/tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
           fi
 
-      - name: Install pigz for parallel compression
-        shell: bash
-        run: |
-          if ! command -v pigz >/dev/null 2>&1; then
-            echo "Installing pigz for parallel compression"
-            choco install pigz -y
-          else
-            echo "pigz already installed"
-          fi
-
       - name: Create Build Artifact
         shell: bash
         run: |
@@ -296,8 +286,8 @@ jobs:
           # Create tarball of workspace
           mkdir -p /c/tmp/artifacts
 
-          # Use pigz for parallel compression (4 threads, fast compression)
-          echo "Creating archive with pigz (parallel compression)"
+          # Create tar archive first, then compress with 7z (multi-threaded)
+          echo "Creating tar archive"
           tar --exclude='.git' \
               --exclude='.npm-cache' \
               --exclude='.pip-cache' \
@@ -305,7 +295,13 @@ jobs:
               --exclude='.build/logs' \
               --exclude='*.log' \
               --exclude='.eslintcache' \
-              -cf - . | pigz -1 -p 4 > /c/tmp/artifacts/positron-build.tar.gz
+              -cf /c/tmp/artifacts/positron-build.tar .
+
+          echo "Compressing with 7z (multi-threaded, fast compression)"
+          7z a -tgzip -mx1 -mmt4 /c/tmp/artifacts/positron-build.tar.gz /c/tmp/artifacts/positron-build.tar
+
+          # Remove uncompressed tar to save space
+          rm -f /c/tmp/artifacts/positron-build.tar
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
