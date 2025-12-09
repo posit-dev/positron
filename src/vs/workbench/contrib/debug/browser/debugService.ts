@@ -973,6 +973,15 @@ export class DebugService implements IDebugService {
 		return Promise.all(sessions.map(s => disconnect ? s.disconnect(undefined, suspend) : s.terminate()));
 	}
 
+	// --- Start Positron ---
+	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void {
+		session.setSuppressDebugToolbar(suppress);
+
+		// Trigger toolbar update
+		this._onDidChangeState.fire(this.state);
+	}
+	// --- End Positron ---
+
 	private async substituteVariables(launch: ILaunch | undefined, config: IConfig): Promise<IConfig | undefined> {
 		const dbg = this.adapterManager.getDebugger(config.type);
 		if (dbg) {
