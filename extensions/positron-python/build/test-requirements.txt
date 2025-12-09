@@ -9,7 +9,7 @@ pydocstyle
 prospector
 pytest
 flask
-fastapi; python_version < '3.14'
+fastapi
 uvicorn
 django
 testresources
