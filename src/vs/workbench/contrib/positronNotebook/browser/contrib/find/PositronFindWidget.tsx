@@ -154,5 +154,5 @@ const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 	}
 
 	// Case 4: Matches found - show count
-	return <div className='find-results'>{matchIndex ?? 1} of {matchCount}</div>;
+	return <div className='find-results'>{(matchIndex ?? 0) + 1} of {matchCount}</div>;
 };
