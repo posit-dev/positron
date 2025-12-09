@@ -7,7 +7,8 @@
 import React, { useRef, useState, useCallback } from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../../base/browser/dom.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { CellExecutionInfoPopup } from './CellExecutionInfoPopup.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 
@@ -46,30 +47,24 @@ export function ExecutionStatusBadge({
 }: ExecutionStatusBadgeProps) {
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
-	const hoverTimeoutIdRef = useRef<number | null>(null);
+	const hoverTimeoutRef = useRef<IDisposable | null>(null);
 
 	// State hooks.
 	const [showPopup, setShowPopup] = useState(false);
 
 	// Hover handlers for popup
 	const handleMouseEnter = useCallback(() => {
-		if (!showPopup && containerRef.current) {
-			const targetWindow = DOM.getWindow(containerRef.current);
-			const timeoutId = targetWindow.setTimeout(() => {
+		if (!showPopup) {
+			hoverTimeoutRef.current = disposableTimeout(() => {
 				setShowPopup(true);
 			}, POPUP_DELAY);
-
-			hoverTimeoutIdRef.current = timeoutId;
 		}
 	}, [showPopup]);
 
 	const handleMouseLeave = useCallback(() => {
 		// Clear the hover timeout if we leave before the popup shows
-		if (hoverTimeoutIdRef.current !== null && containerRef.current) {
-			const targetWindow = DOM.getWindow(containerRef.current);
-			targetWindow.clearTimeout(hoverTimeoutIdRef.current);
-			hoverTimeoutIdRef.current = null;
-		}
+		hoverTimeoutRef.current?.dispose();
+		hoverTimeoutRef.current = null;
 		// Note: The popup will handle its own auto-close behavior
 	}, []);
 
