@@ -64,7 +64,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
-			if (!this._notebook.container?.parentElement) {
+			if (!this._notebook.container) {
 				throw new Error('Notebook container not available for Find Widget rendering');
 			}
 			if (!this._notebook.scopedContextKeyService) {
@@ -90,7 +90,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// Create the find instance
 			const instance = this._register(new PositronFindInstance({
-				container: this._notebook.container.parentElement,
+				container: this._notebook.container,
 				findInputOptions: {
 					label: 'Find',
 					placeholder: 'Find',

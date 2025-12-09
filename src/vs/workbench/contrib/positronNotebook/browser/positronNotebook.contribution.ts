@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Notebook editor extensions
+import './contrib/find/positronNotebookFind.js';
+
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -51,6 +54,7 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
+import { InputFocusedContext } from '../../../../platform/contextkey/common/contextkeys.js';
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -343,7 +347,10 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.selectUp',
 			title: localize2('positronNotebook.selectUp', "Move Focus Up"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.UpArrow,
 				secondary: [KeyCode.KeyK]
@@ -422,7 +429,8 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Enter
@@ -553,7 +561,10 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionGroup.Insert,
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyA
 			}
@@ -583,7 +594,10 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionGroup.Insert,
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyB
 			}
@@ -661,7 +675,10 @@ registerAction2(class extends NotebookAction2 {
 				group: 'Cell'
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Backspace,
 				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
@@ -684,6 +701,8 @@ registerAction2(class extends NotebookAction2 {
 			menu: {
 				id: MenuId.PositronNotebookCellActionLeft,
 				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
 					CELL_CONTEXT_KEYS.isPending.toNegated()
@@ -741,9 +760,12 @@ registerAction2(class extends NotebookAction2 {
 				when: CELL_CONTEXT_KEYS.isCode
 			},
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.or(
+						POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+					),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
@@ -933,9 +955,12 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeOrToggleEditor',
 			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute Cell or Toggle Editor"),
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.or(
+						POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+					),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.Enter
@@ -966,9 +991,12 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeAndSelectBelow',
 			title: localize2('positronNotebook.cell.executeAndSelectBelow', "Execute Cell and Select Below"),
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.or(
+						POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+					),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.Enter
@@ -1031,7 +1059,10 @@ registerAction2(class extends NotebookAction2 {
 				order: 20
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyC
 			}
@@ -1059,7 +1090,10 @@ registerAction2(class extends NotebookAction2 {
 				order: 10
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					InputFocusedContext.toNegated(),
+				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyX
 			}
@@ -1089,7 +1123,8 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyV
@@ -1120,7 +1155,8 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.KeyV
@@ -1149,7 +1185,8 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.or(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
@@ -1178,7 +1215,8 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.or(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+					InputFocusedContext.toNegated(),
 				),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
@@ -1452,6 +1490,3 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	),
 	order: 0
 });
-
-// Notebook editor extensions
-import './contrib/find/positronNotebookFind.js';
