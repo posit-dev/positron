@@ -55,6 +55,14 @@ export class PositronNotebooks extends Notebooks {
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
+	// Search Widget
+	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
+	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' })
+	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
+	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace' });
+	private replaceAllButton = this.searchWidget.getByRole('button', { name: 'Replace All' });
+
+
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
@@ -508,9 +516,57 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Search Notebook.
+	 * @param searchText - The text to search for.
+	 * @param options - Options to control behavior:
+	 * replaceText: Optional text to replace the search text with.
+	 * replaceAll: Whether to replace all occurrences (default: false).
+	 */
+	async search(
+		searchText: string,
+		options?: { replaceText?: string; replaceAll?: boolean }
+	): Promise<void> {
+		const { replaceText = undefined, replaceAll = false } = options ?? {};
+
+		await test.step(`Search notebook for: ${searchText}`, async () => {
+			// Open search
+			await this.hotKeys.searchInNotebook();
+			await expect(this.searchWidget).toBeVisible({ timeout: 2000 });
+
+			// Enter search text
+			await this.findInput.fill(searchText);
+
+			// If replace text is provided, perform replace
+			if (replaceText !== undefined) {
+				await this.replaceInput.fill(replaceText);
+
+				replaceAll
+					? await this.replaceAllButton.click()
+					: await this.replaceButton.click();
+			}
+		});
+	}
+
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: search count matches expected count.
+	 * @param total  - The expected number of search results.
+	 * @param current - The expected current search result index (1-based).
+	 */
+	async expectSearchCountToBe({ current, total }: { current?: number; total: number }): Promise<void> {
+		await test.step(`Expect search count to be: ${current ?? '_'} of ${total}`, async () => {
+			if (total === 0) {
+				await expect(this.searchWidget.getByText('No results')).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				const countText = current !== undefined ? `${current} of ${total}` : `of ${total}`;
+				await expect(this.searchWidget.getByText(countText)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
 
 	/**
 	 * Verify: a Positron notebook is visible on the page.
