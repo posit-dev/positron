@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from comm.base_comm import BaseComm
 
-from .positron_jedilsp import POSITRON
+from .positron_lsp import POSITRON
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
