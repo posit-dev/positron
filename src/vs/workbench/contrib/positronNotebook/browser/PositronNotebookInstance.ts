@@ -1441,11 +1441,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
+		const clipboarCells: ICellDto2[] = [];
+		let clipboardText = '';
+		cellsToCopy.forEach(cell => {
+			clipboarCells.push(cellToCellDto2(cell));
+			clipboardText += cell.getContent() + '\n\n';
+		});
 		// Store internally for full-fidelity paste
-		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
+		this._clipboardCells = clipboarCells;
 
-		// Also write to system clipboard as text
-		const clipboardText = serializeCellsToClipboard(cellsToCopy);
+		// Remove trailing newlines from clipboard text
+		clipboardText = clipboardText.trimEnd();
+		// To support pasting the contents of a cell into other cells or editors,
+		// we need to write the cell contents to the system clipboard. Multiple
+		// cells will be concatenated with double newlines.
 		this._clipboardService.writeText(clipboardText);
 
 		// Log for debugging
