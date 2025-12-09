@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
+import { ModelConfig } from './config.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -103,6 +105,63 @@ export class CopilotService implements vscode.Disposable {
 	dispose(): void {
 		this._disposables.forEach((disposable) => disposable.dispose());
 		this._onSignedInChanged.dispose();
+	}
+}
+
+/**
+ * Stub implementation of Copilot language model provider, so we can show its
+ * sign in/sign out state in the language model configuration UI.
+ */
+export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvider {
+
+	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any> {
+		throw new Error('Method not implemented.');
+	}
+
+	provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+		throw new Error('Method not implemented.');
+	}
+
+	provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number> {
+		throw new Error('Method not implemented.');
+	}
+
+	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
+		throw new Error('Method not implemented.');
+	}
+
+	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
+		throw new Error('Method not implemented.');
+	}
+
+	get providerName() {
+		return CopilotLanguageModel.source.provider.displayName;
+	}
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'copilot',
+			displayName: 'GitHub Copilot'
+		},
+		supportedOptions: ['oauth'],
+		defaults: {
+			name: 'GitHub Copilot',
+			model: 'github-copilot',
+			oauth: true,
+		},
+	};
+
+	public provider: string;
+	public id: string;
+	public name: string;
+
+	constructor(
+		private readonly _config: ModelConfig,
+	) {
+		this.name = _config.name;
+		this.provider = _config.provider;
+		this.id = _config.id;
 	}
 }
 

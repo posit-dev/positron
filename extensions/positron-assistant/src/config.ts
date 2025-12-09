@@ -219,7 +219,6 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				break;
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
-				CopilotService.instance().cancelCurrentOperation();
 				PositLanguageModel.cancelCurrentSignIn();
 				break;
 			default:

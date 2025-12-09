@@ -31,6 +31,7 @@ import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
 import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, getSnowflakeConnectionsTomlPath, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
+import { CopilotLanguageModel } from './copilot.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -1613,6 +1614,7 @@ export function getLanguageModels() {
 		...testLanguageModels,
 		anthropicClass,
 		AzureLanguageModel,
+		CopilotLanguageModel,
 		GoogleLanguageModel,
 		MistralLanguageModel,
 		OllamaLanguageModel,
