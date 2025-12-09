@@ -120,10 +120,8 @@ else
 	# Detect download tool
 	if command -v wget >/dev/null 2>&1; then
 		DOWNLOAD_TOOL="wget"
-		DOWNLOAD_CMD="wget -q -O -"
 	elif command -v curl >/dev/null 2>&1; then
 		DOWNLOAD_TOOL="curl"
-		DOWNLOAD_CMD="curl -fsSL"
 	else
 		error "Neither wget nor curl found. Please install one of them."
 	fi
