@@ -49,6 +49,21 @@ export interface RMetadataExtra {
 	 * If this R installation is from a conda environment, the path to that environment.
 	 */
 	readonly condaEnvironmentPath?: string;
+
+	/**
+	 * If this R installation is from a pixi environment, the path to that environment.
+	 */
+	readonly pixiEnvironmentPath?: string;
+
+	/**
+	 * If this R installation is from a pixi environment, the path to the manifest file.
+	 */
+	readonly pixiManifestPath?: string;
+
+	/**
+	 * If this R installation is from a pixi environment, the name of the environment.
+	 */
+	readonly pixiEnvironmentName?: string;
 }
 
 /**
@@ -61,6 +76,7 @@ export enum ReasonDiscovered {
 	PATH = "PATH",
 	HQ = "HQ",
 	CONDA = "CONDA",
+	PIXI = "PIXI",
 
 	adHoc = "adHoc",
 	userSetting = "userSetting",
@@ -90,6 +106,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in the primary location for R versions on this operating system';
 			case ReasonDiscovered.CONDA:
 				return 'Found in a Conda environment';
+			case ReasonDiscovered.PIXI:
+				return 'Found in a Pixi environment';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.userSetting:
@@ -142,6 +160,9 @@ export class RInstallation {
 	public readonly orthogonal: boolean = false;
 	public readonly default: boolean = false;
 	public readonly condaEnvironmentPath: string | undefined = undefined;
+	public readonly pixiEnvironmentPath: string | undefined = undefined;
+	public readonly pixiManifestPath: string | undefined = undefined;
+	public readonly pixiEnvironmentName: string | undefined = undefined;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -151,12 +172,18 @@ export class RInstallation {
 	 * @param reasonDiscovered How we discovered this R binary (and there could be more than one
 	 *   reason)
 	 * @param condaEnvironmentPath If this R is from a conda environment, the path to that environment
+	 * @param pixiEnvironmentPath If this R is from a pixi environment, the path to that environment
+	 * @param pixiManifestPath If this R is from a pixi environment, the path to the manifest file
+	 * @param pixiEnvironmentName If this R is from a pixi environment, the name of the environment
 	 */
 	constructor(
 		pth: string,
 		current: boolean = false,
 		reasonDiscovered: ReasonDiscovered[] | null = null,
-		condaEnvironmentPath?: string
+		condaEnvironmentPath?: string,
+		pixiEnvironmentPath?: string,
+		pixiManifestPath?: string,
+		pixiEnvironmentName?: string
 	) {
 		pth = path.normalize(pth);
 
@@ -166,6 +193,9 @@ export class RInstallation {
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
 		this.condaEnvironmentPath = condaEnvironmentPath;
+		this.pixiEnvironmentPath = pixiEnvironmentPath;
+		this.pixiManifestPath = pixiManifestPath;
+		this.pixiEnvironmentName = pixiEnvironmentName;
 
 		// Check if the installation is the default R interpreter for Positron
 		const defaultInterpreterPath = getDefaultInterpreterPath();
