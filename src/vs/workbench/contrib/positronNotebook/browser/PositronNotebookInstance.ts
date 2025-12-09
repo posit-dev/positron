@@ -40,7 +40,6 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { IPositronNotebookClipboardService } from './positronNotebookClipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
@@ -397,7 +396,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
-		@IPositronNotebookClipboardService private readonly _notebookClipboardService: IPositronNotebookClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
 	) {
 		super();
@@ -1445,8 +1443,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			clipboardText += cell.getContent() + '\n\n';
 		});
 
-		// Store in shared notebook clipboard service for full-fidelity paste
-		this._notebookClipboardService.setCells(clipboarCells);
+		// Store in shared notebook service clipboard for within-window paste (same or different notebook)
+		this._positronNotebookService.setClipboardCells(clipboarCells);
 
 		// Remove trailing newlines from clipboard text
 		clipboardText = clipboardText.trimEnd();
@@ -1490,8 +1488,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		try {
 			this._assertTextModel();
 
-			// Get cells from shared clipboard service
-			const cellsToPaste = this._notebookClipboardService.getCells();
+			// Get cells from shared notebook service clipboard
+			const cellsToPaste = this._positronNotebookService.getClipboardCells();
 
 			const textModel = this.textModel;
 			const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -1553,7 +1551,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if cells can be pasted, false otherwise
 	 */
 	canPaste(): boolean {
-		return this._notebookClipboardService.hasCells();
+		return this._positronNotebookService.hasClipboardCells();
 	}
 
 	/**
