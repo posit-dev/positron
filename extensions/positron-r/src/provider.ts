@@ -250,11 +250,16 @@ export async function makeMetadata(
 	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
 
 	// Be sure to check for pixi/conda installations first, as they can be installed via Homebrew
-	const runtimeSource =
-		isPixiInstallation ? RRuntimeSource.pixi :
-			isCondaInstallation ? RRuntimeSource.conda :
-				isHomebrewInstallation ? RRuntimeSource.homebrew :
-					isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
+	let runtimeSource = RRuntimeSource.system;
+	if (isPixiInstallation) {
+		runtimeSource = RRuntimeSource.pixi;
+	} else if (isCondaInstallation) {
+		runtimeSource = RRuntimeSource.conda;
+	} else if (isHomebrewInstallation) {
+		runtimeSource = RRuntimeSource.homebrew;
+	} else if (isUserInstallation) {
+		runtimeSource = RRuntimeSource.user;
+	}
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
