@@ -38,7 +38,7 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
+import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
