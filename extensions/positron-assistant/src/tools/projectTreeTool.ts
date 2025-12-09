@@ -109,8 +109,11 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 				workspaceTrees.push({ folder, items: directories, totalItems: directories.length });
 			} else {
 				// NOTE: this will not include empty directories :/
+				const relativePatterns = globPatterns.map(pattern =>
+					new vscode.RelativePattern(folder, pattern)
+				);
 				const matchedFileUris = await vscode.workspace.findFiles2(
-					globPatterns,
+					relativePatterns,
 					findOptions,
 					token
 				);
@@ -137,8 +140,11 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 					);
 					hasExcludedResults = dirs.length > totalItems;
 				} else {
+					const relativePatterns = globPatterns.map(pattern =>
+						new vscode.RelativePattern(folder, pattern)
+					);
 					const matchedUris = await vscode.workspace.findFiles2(
-						globPatterns,
+						relativePatterns,
 						{
 							exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
 							useIgnoreFiles: {
@@ -166,17 +172,26 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		// Return a compressed description of the project tree if there are too many items
 		const itemLimit = Math.floor(itemsLimit / workspaceTrees.length);
-		const results = workspaceTrees.map(obj => obj.items
-			.sort((a, b) => a.length - b.length) // Shortest paths first
-			.slice(0, itemLimit) // Remove deepest paths to fit within the limit
-			.sort((a, b) => a.localeCompare(b)) // Resort alphabetically
-			.join('\n'));
+		const resultParts: vscode.LanguageModelTextPart[] = [];
 
-		const resultParts = results.map(r => new vscode.LanguageModelTextPart(r));
+		for (const obj of workspaceTrees) {
+			const items = obj.items
+				.sort((a, b) => a.length - b.length) // Shortest paths first
+				.slice(0, itemLimit) // Remove deepest paths to fit within the limit
+				.sort((a, b) => a.localeCompare(b)); // Resort alphabetically
+
+			// For multi-root workspaces, include the workspace folder name as a header
+			if (workspaceTrees.length > 1) {
+				resultParts.push(new vscode.LanguageModelTextPart(`## ${obj.folder.name}\n${items.join('\n')}`));
+			} else {
+				resultParts.push(new vscode.LanguageModelTextPart(items.join('\n')));
+			}
+		}
 
 		if (totalItems > itemsLimit) {
 			const truncatedCount = Math.min(itemsLimit, totalItems);
-			const truncationMessage = `Project tree constructed with ${totalItems} items; the first ${truncatedCount} are provided above.`;
+			const workspaceFolderNames = workspaceFolders.map(folder => folder.name).join(', ');
+			const truncationMessage = `Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folder${workspaceFolders.length > 1 ? 's' : ''} (${workspaceFolderNames}); the first ${truncatedCount} are provided above.`;
 			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
 		}
 
