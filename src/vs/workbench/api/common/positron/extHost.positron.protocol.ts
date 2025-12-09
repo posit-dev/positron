@@ -242,6 +242,8 @@ export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
 	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
 	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
+	$moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void>;
+	$reorderCells(notebookUri: string, newOrder: number[]): Promise<void>;
 }
 
 /**
