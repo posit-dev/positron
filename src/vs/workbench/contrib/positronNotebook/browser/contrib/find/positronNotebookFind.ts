@@ -85,6 +85,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					toggleStyles: defaultToggleStyles,
 				},
 			}));
+			this._findInstance = instance;
 
 			// Subscribe to user action events
 			this._register(instance.onDidRequestFindNext(() => this.findNext()));
@@ -142,8 +143,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					instance.matchIndex.set(this._allMatches.length > 0 ? 1 : undefined, tx);
 				});
 			}));
-
-			this._findInstance = instance;
 		}
 
 		return this._findInstance;
@@ -220,10 +219,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	public findNext(): void {
-		if (this._allMatches.length === 0) {
-			return;
-		}
-
 		// Find the next match from the current cursor position
 		const nextMatchIndex = this.findNextMatchFromCursor();
 		if (nextMatchIndex !== -1) {
@@ -232,10 +227,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	public findPrevious(): void {
-		if (this._allMatches.length === 0) {
-			return;
-		}
-
 		// Find the previous match from the current cursor position
 		const prevMatchIndex = this.findPreviousMatchFromCursor();
 		if (prevMatchIndex !== -1) {
@@ -244,14 +235,18 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findNextMatchFromCursor(): number {
+		if (this._allMatches.length === 0) {
+			return -1;
+		}
+
 		// If we have a current match, just go to the next one
 		if (this._currentMatchIndex !== undefined) {
 			const nextIndex = this._currentMatchIndex + 1;
 			if (nextIndex < this._allMatches.length) {
-				return nextIndex + 1; // Convert to 1-based
+				return nextIndex;
 			}
 			// Wrap around to first
-			return 1;
+			return 0;
 		}
 
 		// No current match tracked, use cursor position
@@ -272,7 +267,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// If no cell is active, start from the first match
 		if (currentCellIndex === -1) {
-			return 1;
+			return 0;
 		}
 
 		// Find the next match after the current position
@@ -281,31 +276,35 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// If match is in a later cell, it's the next match
 			if (matchCellIndex > currentCellIndex) {
-				return i + 1;
+				return i;
 			}
 
 			// If match is in the same cell, check if it's after the cursor
 			if (matchCellIndex === currentCellIndex && currentPosition) {
 				if (match.range.startLineNumber > currentPosition.lineNumber ||
 					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn > currentPosition.column)) {
-					return i + 1;
+					return i;
 				}
 			}
 		}
 
 		// Wrap around to the first match
-		return 1;
+		return 0;
 	}
 
 	private findPreviousMatchFromCursor(): number {
+		if (this._allMatches.length === 0) {
+			return -1;
+		}
+
 		// If we have a current match, just go to the previous one
 		if (this._currentMatchIndex !== undefined) {
 			const prevIndex = this._currentMatchIndex - 1;
 			if (prevIndex >= 0) {
-				return prevIndex + 1; // Convert to 1-based
+				return prevIndex;
 			}
 			// Wrap around to last
-			return this._allMatches.length;
+			return this._allMatches.length - 1;
 		}
 
 		// No current match tracked, use cursor position
@@ -326,7 +325,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// If no cell is active, start from the last match
 		if (currentCellIndex === -1) {
-			return this._allMatches.length;
+			return this._allMatches.length - 1;
 		}
 
 		// Find the previous match before the current position (search backwards)
@@ -335,20 +334,20 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// If match is in an earlier cell, it's the previous match
 			if (matchCellIndex < currentCellIndex) {
-				return i + 1;
+				return i;
 			}
 
 			// If match is in the same cell, check if it's before the cursor
 			if (matchCellIndex === currentCellIndex && currentPosition) {
 				if (match.range.startLineNumber < currentPosition.lineNumber ||
 					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn < currentPosition.column)) {
-					return i + 1;
+					return i;
 				}
 			}
 		}
 
 		// Wrap around to the last match
-		return this._allMatches.length;
+		return this._allMatches.length - 1;
 	}
 
 	private updateCellDecorations(cell: IPositronNotebookCell): void {
@@ -380,11 +379,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private navigateToMatch(matchIndex: number): void {
-		if (matchIndex < 1 || matchIndex > this._allMatches.length) {
+		if (matchIndex < 0 || matchIndex >= this._allMatches.length) {
 			return;
 		}
 
-		const { cell, match } = this._allMatches[matchIndex - 1]; // Convert to 0-based index
+		const { cell, match } = this._allMatches[matchIndex];
 
 		// Clear previous current match decoration
 		if (this._currentMatchCellHandle !== undefined && this._currentMatchIndex !== undefined) {
@@ -396,7 +395,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// Update current match tracking
 		this._currentMatchCellHandle = cell.handle;
-		this._currentMatchIndex = matchIndex - 1;
+		this._currentMatchIndex = matchIndex;
 
 		// Update decorations to highlight the current match
 		this.updateCellDecorations(cell);
