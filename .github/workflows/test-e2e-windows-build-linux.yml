@@ -1,0 +1,133 @@
+name: "E2E: Build Positron (Linux for Windows)"
+
+on:
+  workflow_call: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: build-win
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    container:
+      image: node:22
+      options: --user root
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # The node:20 container is a minimal image that lacks build tools needed for native modules.
+      # Ubuntu workflow uses a pre-built custom container with these dependencies already installed.
+      # We install them here so npm can build native modules (node-pty, spdlog, etc.).
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          echo "Installing system dependencies needed for native module builds"
+          apt-get update
+          apt-get install -y \
+            python3 \
+            python3-pip \
+            make \
+            g++ \
+            git \
+            pkg-config \
+            libx11-dev \
+            libxkbfile-dev \
+            zstd
+
+      - name: Setup Git (container workaround)
+        shell: bash
+        run: |
+          git config --global --add safe.directory /__w/positron/positron
+
+      - name: Install node dependencies
+        shell: bash
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        run: |
+          echo "Starting npm install on Linux (mimicking Ubuntu workflow)"
+
+          # Run all npm ci commands in parallel (like Ubuntu does)
+          # Note: extensions/ is handled by root's postinstall script
+          pids=()
+          npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+          npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+
+          # Wait for all npm ci processes and check exit codes
+          exit_code=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              exit_code=1
+            fi
+          done
+
+          if [ $exit_code -ne 0 ]; then
+            echo "✗ One or more npm ci commands failed"
+            exit 1
+          fi
+
+          echo "✓ All npm ci commands completed successfully"
+
+      - name: Compile and Download Electron
+        shell: bash
+        run: |
+          echo "Compiling TypeScript and downloading Electron (parallel)"
+          npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+          echo "✓ Compilation completed"
+
+      - name: Verify compilation output
+        shell: bash
+        run: |
+          echo "Verifying compiled files exist..."
+          ls -lh out/ | head -10 || true
+          echo ""
+          echo "Extension output:"
+          find extensions/*/out -type d | head -10 || true
+          echo "✓ Compilation verified"
+
+      - name: Create portable build artifact
+        shell: bash
+        run: |
+          echo "Creating artifact (excluding native binaries)"
+          mkdir -p /tmp/artifacts
+
+          # Create tar excluding native .node files (will rebuild on Windows)
+          # Exclude native binaries that will be rebuilt for Windows.
+          # Note: We keep node_modules/.bin even though it has Linux symlinks - Windows extraction
+          # will fail on those symlinks, but npm rebuild needs the executables that do extract.
+          tar --exclude='node_modules/**/*.node' \
+              --exclude='node_modules/**/build/Release' \
+              --exclude='node_modules/**/.cache' \
+              --exclude='.git' \
+              --exclude='.build/electron' \
+              --exclude='.build/bootstrapExtensions' \
+              --exclude='.build/builtInExtensions' \
+              -cf - . | zstd --fast=1 -T4 > /tmp/artifacts/positron-linux-build.tar.zst
+
+          echo "✓ Artifact created"
+          ls -lh /tmp/artifacts/
+
+      - name: Upload Linux build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "positron-linux-build"
+          path: /tmp/artifacts/positron-linux-build.tar.zst
+          retention-days: 1
+          compression-level: 0

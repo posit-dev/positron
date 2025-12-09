@@ -134,6 +134,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Cache npm dependencies
+        id: cache-node-modules
         uses: actions/cache@v4
         with:
           path: |
@@ -142,11 +143,34 @@ jobs:
             build\node_modules
             extensions\node_modules
             remote\node_modules
+            test/e2e/node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
 
+      - name: Verify npm cache status
+        shell: bash
+        run: |
+          echo "========================================="
+          echo "NODE_MODULES CACHE STATUS"
+          echo "========================================="
+          echo "Cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
+
+          if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
+            echo "✓ Cache HIT - Skipping npm install (saves ~18-20 minutes!)"
+            echo ""
+            echo "Restored node_modules:"
+            [ -d "node_modules" ] && echo "  ✓ Root node_modules ($(ls node_modules 2>/dev/null | wc -l) packages)"
+            [ -d "build/node_modules" ] && echo "  ✓ build/node_modules ($(ls build/node_modules 2>/dev/null | wc -l) packages)"
+            [ -d "test/e2e/node_modules" ] && echo "  ✓ test/e2e/node_modules ($(ls test/e2e/node_modules 2>/dev/null | wc -l) packages)"
+          else
+            echo "✗ Cache MISS - Will run full npm install (~18-20 minutes)"
+            echo "  This is expected on first run or after dependency changes"
+          fi
+          echo "========================================="
+
       - name: Install node dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

@@ -1,0 +1,59 @@
+name: "Test: E2E (Windows) - Hybrid Build"
+
+# This is a TEST workflow for the hybrid Linux+Windows build approach
+# Run this manually to test before switching the main workflow
+#
+# Structure (2 jobs):
+# 1. build-linux: Compile TypeScript on fast Linux container (~12 min)
+# 2. package-and-test: Download Linux artifact, setup Windows, run tests (~28 min + test time)
+#
+# Total wall time: ~40 min + test time (vs ~39 min pure Windows, but saves expensive Windows runner time)
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      grep:
+        required: false
+        description: "Test filter (defaults to @:critical for quick test)"
+        default: "@:critical"
+        type: string
+      shards:
+        required: false
+        description: "Number of test shards (1 for quick test, 4 for full)"
+        default: 1
+        type: number
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Step 1: Build on fast Linux container
+  setup:
+    uses: ./.github/workflows/test-e2e-windows-build-linux.yml
+    secrets: inherit
+
+  # Step 2: Package on Windows + Run tests (combined in one job)
+  e2e-win:
+    needs: setup
+    name: e2e
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1]
+    uses: ./.github/workflows/test-e2e-windows-run.yml
+    secrets: inherit
+    with:
+      project: "e2e-windows"
+      grep: ${{ inputs.grep || '@:critical' }}
+      workers: 2
+      shards: ${{ inputs.shards || 1 }}
+      matrix: '{"shard":[${{ matrix.shard }}]}'
+      display_name: "windows-${{ matrix.shard }}"
+      report_currents: false
+      upload_logs: true
+      skip_extension_test: false
+      allow_soft_fail: false

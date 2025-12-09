@@ -1,0 +1,34 @@
+name: "E2E: Build Positron (Hybrid Linux+Windows)"
+
+# This is the HYBRID approach - builds on fast Linux, packages on Windows
+# Expected time savings: ~10 minutes compared to pure Windows build
+
+on:
+  workflow_call:
+    secrets:
+      OP_SERVICE_ACCOUNT_TOKEN:
+        required: true
+      E2E_CONNECT_SERVER:
+        required: false
+      E2E_CONNECT_APIKEY:
+        required: false
+      DATABRICKS_WORKSPACE:
+        required: false
+      DATABRICKS_PAT:
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-linux:
+    name: build-linux
+    uses: ./.github/workflows/test-e2e-windows-build-linux.yml
+    secrets: inherit
+
+  package-windows:
+    name: package-windows
+    needs: build-linux
+    uses: ./.github/workflows/test-e2e-windows-package.yml
+    secrets: inherit

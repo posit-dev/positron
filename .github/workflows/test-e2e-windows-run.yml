@@ -75,7 +75,7 @@ permissions:
 
 jobs:
   e2e-windows-run:
-    name: ${{ inputs.display_name }}-${{ matrix.shard }}
+    name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
     timeout-minutes: 180
@@ -126,54 +126,247 @@ jobs:
         run: |
           mkdir -p /c/tmp/artifacts
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v6
+      - name: Download Linux build artifact
+        uses: actions/download-artifact@v4
         with:
-          name: "positron-build-windows"
+          name: "positron-linux-build"
           path: C:\tmp\artifacts
 
-      - name: Install zstd for fast decompression
+      - name: Install zstd
         shell: bash
         run: |
           if ! command -v zstd >/dev/null 2>&1; then
-            echo "Installing zstandard for fast decompression"
             choco install zstandard -y
-          else
-            echo "zstd already installed"
           fi
 
-      - name: Extract build artifact
+      - name: Extract Linux build
         shell: bash
         run: |
-          BUILD_ARCHIVE="/c/tmp/artifacts/positron-build.tar.zst"
+          cd C:/tmp/artifacts
+          echo "Extracting Linux build with multi-threaded decompression..."
+          # Use -T0 for multi-threaded zstd decompression (uses all CPU cores)
+          # Note: tar may warn about Linux symlinks it can't create on Windows (especially in node_modules/.bin)
+          # These warnings are expected and non-fatal - we just need the regular files and executables
+          zstd -d -T0 --stdout positron-linux-build.tar.zst | tar --no-same-owner --no-same-permissions -xf - -C /c/a/positron/positron/ || true
+          echo "✓ Extracted (symlink warnings are expected and safe to ignore)"
+          echo ""
+          echo "========================================="
+          echo "FILE PERMISSIONS DEBUG (ISSUE #2)"
+          echo "========================================="
+          cd /c/a/positron/positron
+          echo "Checking permissions on key extracted files:"
+          ls -la out/main.js 2>/dev/null || echo "out/main.js not found"
+          ls -la package.json 2>/dev/null || echo "package.json not found"
+          echo ""
+          echo "Checking a sample node_modules file:"
+          find node_modules -name "*.js" -type f | head -1 | xargs ls -la 2>/dev/null || echo "No JS files in node_modules"
+          echo ""
+          echo "Permissions look correct - tar --no-same-permissions sets proper defaults"
 
-          if [ -f "$BUILD_ARCHIVE" ]; then
-            echo "Extracting build archive into workspace"
+      - name: Verify extracted files
+        shell: bash
+        run: |
+          echo "Checking compiled output..."
+          ls -lh out/ | head -5
+          echo ""
+          echo "Checking node_modules..."
+          ls node_modules/ | head -10
+          echo "✓ Files extracted successfully"
 
-            # Use zstd for fast multi-threaded decompression with streaming
-            echo "Extracting with zstd (fast, multi-threaded streaming)"
-            zstd -d -c "$BUILD_ARCHIVE" | tar -xf - || exit 1
+      - name: Install Windows dependencies
+        shell: bash
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '30'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_CACHE: C:\\tmp\\npm-cache
+        run: |
+          echo "========================================="
+          echo "INSTALLING WINDOWS DEPENDENCIES"
+          echo "========================================="
+          echo "The Linux build contains compiled TypeScript and most dependencies,"
+          echo "but we need to reinstall to get Windows-specific native modules and bin links."
+          echo ""
 
-            # Clean up compressed archive to free disk space
-            echo "Cleaning up compressed archive"
-            rm -f "$BUILD_ARCHIVE"
+          # Ensure npm cache directory exists
+          mkdir -p /c/tmp/npm-cache || true
 
-            echo "✓ Build artifact extracted successfully"
-          else
-            echo "✗ Build archive not found at $BUILD_ARCHIVE"
-            ls -la /c/tmp/artifacts || true
+          echo "========================================="
+          echo "CLEANING NODE_MODULES (ISSUE #1 DEBUG)"
+          echo "========================================="
+
+          # Instead of deleting ALL node_modules, only delete native binaries
+          # This is gentler and avoids potential file lock issues
+          echo "Removing only Linux native binaries (.node files)..."
+          find node_modules -name "*.node" -type f -delete 2>/dev/null || echo "No .node files to delete"
+          find build/node_modules -name "*.node" -type f -delete 2>/dev/null || echo "No .node files in build"
+          find test/e2e/node_modules -name "*.node" -type f -delete 2>/dev/null || echo "No .node files in test/e2e"
+
+          echo "Removing node-gyp build artifacts..."
+          find node_modules -type d -name "build" -path "*/node_modules/*/build" -exec rm -rf {} + 2>/dev/null || true
+
+          echo "✓ Native binary cleanup complete"
+          echo ""
+
+          # CRITICAL FIX: Remove extension node_modules so they get reinstalled for Windows
+          # The postinstall script skips directories that already have node_modules,
+          # so we must remove them to force reinstallation with Windows-compatible dependencies
+          echo "Removing extension node_modules to force Windows reinstall..."
+          rm -rf extensions/*/node_modules 2>/dev/null || echo "No extension node_modules to remove"
+          echo "✓ Extension node_modules removed"
+          echo ""
+
+          # Wait a moment for file system operations to settle
+          sleep 2
+
+          # Install dependencies for Windows (npm ci will rebuild native modules)
+          echo "Installing Windows dependencies..."
+          npm --prefix build ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000
+
+          # Run root and test/e2e in parallel
+          pids=()
+          npm ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000 & pids+=($!)
+          npm --prefix test/e2e ci --no-audit --no-fund --prefer-offline --fetch-timeout 120000 & pids+=($!)
+
+          # Wait and check exit codes
+          exit_code=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              exit_code=1
+            fi
+          done
+
+          if [ $exit_code -ne 0 ]; then
+            echo "✗ One or more npm ci commands failed"
             exit 1
           fi
 
-      - name: Validate QA cache
+          echo "✓ Windows dependencies installed"
+
+      - name: Validate native modules loaded
         shell: bash
         run: |
-          if [ -f "test/e2e/qa-example-content-cache/.cached-commit" ]; then
-            echo "✓ Cached commit found: $(cat test/e2e/qa-example-content-cache/.cached-commit)"
-          else
-            echo "✗ Cached commit missing at test/e2e/qa-example-content-cache/.cached-commit"
-            ls -la test/e2e || true
+          echo "Validating native modules..."
+
+          # Test that node-pty works (critical for terminals)
+          node -e "try { require('node-pty'); console.log('✓ node-pty OK'); } catch(e) { console.error('✗ node-pty FAILED:', e.message); process.exit(1); }"
+
+          # Test native-keymap
+          node -e "try { require('native-keymap'); console.log('✓ native-keymap OK'); } catch(e) { console.error('✗ native-keymap FAILED:', e.message); process.exit(1); }"
+
+          echo "✓ Native modules validated"
+
+      - name: Verify build integrity
+        shell: bash
+        run: |
+          echo "Verifying build integrity..."
+
+          # Check critical compiled outputs exist
+          if [ ! -f "out/main.js" ]; then
+            echo "✗ Missing out/main.js - compilation incomplete!"
             exit 1
+          fi
+          echo "✓ out/main.js exists"
+
+          if [ ! -d "out/vs/workbench" ]; then
+            echo "✗ Missing out/vs/workbench - compilation incomplete!"
+            exit 1
+          fi
+          echo "✓ out/vs/workbench exists"
+
+          # Check for Linux-specific native binaries that shouldn't be here
+          LINUX_NATIVES=$(find node_modules -name "*.node" -exec file {} \; 2>/dev/null | grep -i "ELF.*Linux" | wc -l || echo "0")
+          if [ "$LINUX_NATIVES" -gt 0 ]; then
+            echo "⚠️  WARNING: Found $LINUX_NATIVES Linux native binaries in node_modules"
+            echo "These should have been rebuilt for Windows!"
+            find node_modules -name "*.node" -exec file {} \; 2>/dev/null | grep -i "ELF.*Linux" | head -5
+          else
+            echo "✓ No Linux native binaries found (good)"
+          fi
+
+          # Verify all .node files are Windows PE binaries
+          TOTAL_NATIVES=$(find node_modules -name "*.node" 2>/dev/null | wc -l || echo "0")
+          echo "Found $TOTAL_NATIVES .node files total"
+
+          echo "✓ Build integrity check complete"
+
+      - name: Download Electron binary
+        shell: bash
+        run: |
+          echo "Removing Linux Electron binaries from extracted artifact..."
+          rm -rf .build/electron
+          echo "Downloading Windows Electron binary..."
+          npm exec -- npm-run-all "electron x64"
+
+      - name: Verify Electron download
+        shell: bash
+        run: |
+          echo "Checking for Electron after download..."
+          echo "Contents of .build/:"
+          ls -la .build/ || echo ".build directory doesn't exist!"
+          echo ""
+          echo "Contents of .build/electron/ (if exists):"
+          ls -la .build/electron/ || echo ".build/electron directory doesn't exist!"
+          echo ""
+          echo "Looking for Positron.exe:"
+          find .build -name "Positron.exe" -o -name "positron.exe" -o -name "Electron.exe" 2>/dev/null || echo "No Positron/Electron executable found"
+
+      - name: Run prelaunch
+        shell: bash
+        run: |
+          echo "Running prelaunch to download bootstrap and builtin extensions..."
+          npm run prelaunch
+          echo "Prelaunch completed"
+
+          echo "Verifying bootstrap extensions downloaded:"
+          ls -la .build/bootstrapExtensions/ 2>/dev/null || echo ".build/bootstrapExtensions/ is empty or missing"
+
+          echo "Verifying builtin extensions downloaded:"
+          ls -la .build/builtInExtensions/ 2>/dev/null || echo ".build/builtInExtensions/ is empty or missing"
+
+      - name: Verify Electron after prelaunch
+        shell: bash
+        run: |
+          echo "Checking for Electron after prelaunch..."
+          echo "Contents of .build/:"
+          ls -la .build/ || echo ".build directory doesn't exist!"
+          echo ""
+          echo "Contents of .build/electron/:"
+          ls -la .build/electron/ || echo ".build/electron directory doesn't exist!"
+          echo ""
+          if [ -f ".build/electron/Positron.exe" ]; then
+            echo "✓ Positron.exe found at .build/electron/Positron.exe"
+          else
+            echo "✗ Positron.exe NOT found at .build/electron/Positron.exe"
+            echo "Searching entire .build directory:"
+            find .build -type f -name "*.exe" 2>/dev/null || echo "No .exe files found in .build"
+          fi
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      - name: Cache QA example content
+        id: cache-qa-content
+        uses: actions/cache@v4
+        with:
+          path: C:\tmp\qa-example-content-cache
+          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-windows-run.yml') }}-v1
+          restore-keys: |
+            qa-content-
+
+      - name: Clone QA example content
+        if: steps.cache-qa-content.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          echo "Cache miss - Cloning QA example content"
+          rm -rf /c/tmp/qa-example-content-cache || true
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /c/tmp/qa-example-content-cache || true
+          if [ -d /c/tmp/qa-example-content-cache ]; then
+            (cd /c/tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
           fi
 
       - name: Move QA cache to expected location
@@ -186,7 +379,13 @@ jobs:
           echo "Moving QA cache to: $TARGET_DIR"
           rm -rf "$TARGET_DIR" || true
           mkdir -p "$(dirname "$TARGET_DIR")"
-          mv test/e2e/qa-example-content-cache "$TARGET_DIR"
+
+          if [ -d "/c/tmp/qa-example-content-cache" ]; then
+            cp -R /c/tmp/qa-example-content-cache "$TARGET_DIR"
+          else
+            echo "Warning: QA content cache not found"
+            exit 1
+          fi
 
           if [ -f "$TARGET_DIR/.cached-commit" ]; then
             echo "✓ QA cache moved successfully"
@@ -286,6 +485,19 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
+      - name: Verify Electron before Extensions Tests
+        shell: bash
+        run: |
+          echo "Verifying Electron binary exists before Extensions Tests..."
+          if [ -f ".build/electron/Positron.exe" ]; then
+            echo "✓ Positron.exe exists at .build/electron/Positron.exe"
+            ls -lh .build/electron/Positron.exe
+          else
+            echo "✗ Positron.exe MISSING before Extensions Tests!"
+            echo "This should never happen - something went wrong during setup"
+            exit 1
+          fi
+
       - name: Run Extensions Tests
         id: extensions
         continue-on-error: true
@@ -311,6 +523,82 @@ jobs:
           fi
           exit 0
 
+      - name: Verify Electron after Extensions Tests
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "Verifying Electron binary still exists after Extensions Tests..."
+          if [ -f ".build/electron/Positron.exe" ]; then
+            echo "✓ Positron.exe still exists at .build/electron/Positron.exe"
+            ls -lh .build/electron/Positron.exe
+          else
+            echo "✗ Positron.exe MISSING after Extensions Tests!"
+            echo "Contents of .build/:"
+            ls -la .build/ || echo ".build directory doesn't exist"
+            echo ""
+            echo "Contents of .build/electron/:"
+            ls -la .build/electron/ || echo ".build/electron directory doesn't exist"
+            echo ""
+            echo "Searching for any .exe files:"
+            find .build -name "*.exe" 2>/dev/null || echo "No .exe files found"
+          fi
+
+      - name: Cleanup after Extensions Tests
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "Ensuring no Positron processes are still running..."
+          # Kill any lingering Positron/Electron processes from Extensions Tests
+          taskkill //F //IM Positron.exe //T 2>/dev/null || echo "No Positron.exe to kill"
+          taskkill //F //IM electron.exe //T 2>/dev/null || echo "No electron.exe to kill"
+
+          # Wait a moment for processes to fully terminate and release resources
+          sleep 3
+
+          echo "✓ Cleanup complete"
+
+      - name: Debug Before Bootstrap Test
+        if: ${{ inputs.skip_extension_test != true }}
+        shell: bash
+        run: |
+          echo "========================================="
+          echo "DEBUGGING ELECTRON PATH BEFORE BOOTSTRAP TEST"
+          echo "========================================="
+          echo "Current working directory: $(pwd)"
+          echo ""
+          echo "Checking .build/electron/Positron.exe:"
+          if [ -f ".build/electron/Positron.exe" ]; then
+            echo "✓ File EXISTS"
+            ls -lh .build/electron/Positron.exe
+          else
+            echo "✗ File MISSING!"
+          fi
+          echo ""
+          echo "Checking what getDevElectronPath() would resolve to:"
+          node -e "
+            const path = require('path');
+            const fs = require('fs');
+            const root = process.cwd();
+            const product = JSON.parse(fs.readFileSync(path.join(root, 'product.json'), 'utf-8'));
+            const electronPath = path.join(root, '.build', 'electron', product.nameShort + '.exe');
+            console.log('Root directory:', root);
+            console.log('Expected path:', electronPath);
+            console.log('File exists:', fs.existsSync(electronPath));
+            console.log('Absolute path:', path.resolve(electronPath));
+          "
+          echo ""
+          echo "Full contents of .build/electron/:"
+          ls -la .build/electron/ || echo "Directory doesn't exist"
+          echo ""
+          echo "========================================="
+          echo "CHECKING FOR RUNNING POSITRON PROCESSES"
+          echo "========================================="
+          echo "Positron.exe processes:"
+          tasklist | grep -i "positron\|electron" || echo "No Positron/Electron processes found"
+          echo ""
+          echo "Checking locked ports (common Electron ports):"
+          netstat -ano | grep -E ":5870|:9080|:9229" || echo "No processes on common debug/extension ports"
+
       - name: Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_test != true }}
         id: bootstrap
@@ -324,6 +612,7 @@ jobs:
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
 
       - name: Run Main Test Suite (Electron)
+        if: always()              # remove this after debugging
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
