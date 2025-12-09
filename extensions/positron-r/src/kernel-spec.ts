@@ -13,6 +13,7 @@ import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { findCondaExe } from './provider-conda';
+import { PackagerMetadata, isPixiMetadata, isCondaMetadata } from './r-installation';
 import { findPixiExe } from './provider-pixi';
 import { LOGGER } from './extension';
 
@@ -295,10 +296,7 @@ export async function createJupyterKernelSpec(
 	options?: {
 		rBinaryPath?: string;
 		rArchitecture?: string;
-		condaEnvironmentPath?: string;
-		pixiEnvironmentPath?: string;
-		pixiManifestPath?: string;
-		pixiEnvironmentName?: string;
+		packagerMetadata?: PackagerMetadata;
 	}): Promise<JupyterKernelSpec> {
 
 	// Path to the kernel executable
@@ -342,11 +340,13 @@ export async function createJupyterKernelSpec(
 		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
 	}
 
-	// If this R is from a conda environment, activate the conda environment
+	// If this R is from a packager environment (conda or pixi), activate it
 	// to ensure that compilation tools and other dependencies are available
 	let startup_command: string | undefined = undefined;
-	if (options?.condaEnvironmentPath) {
-		const envPath = options.condaEnvironmentPath;
+	const packagerMetadata = options?.packagerMetadata;
+
+	if (packagerMetadata && isCondaMetadata(packagerMetadata)) {
+		const envPath = packagerMetadata.environmentPath;
 		const envName = path.basename(envPath);
 		if (process.platform === 'win32') {
 			// On Windows, capture environment variables directly instead of using a startup command;
@@ -360,10 +360,10 @@ export async function createJupyterKernelSpec(
 
 	// If this R is from a pixi environment, activate the pixi environment
 	// to ensure that compilation tools and other dependencies are available
-	if (options?.pixiManifestPath) {
+	if (packagerMetadata && isPixiMetadata(packagerMetadata)) {
 		// For Pixi, we capture environment variables directly on all platforms
 		// since pixi shell-hook --json provides a consistent interface
-		await capturePixiEnvVars(env, options.rBinaryPath, options.pixiManifestPath, options.pixiEnvironmentName);
+		await capturePixiEnvVars(env, options?.rBinaryPath, packagerMetadata.manifestPath, packagerMetadata.environmentName);
 	}
 
 	// R script to run on session startup
@@ -391,7 +391,7 @@ export async function createJupyterKernelSpec(
 	// of directories it searches for DLLs. The `--standard-dll-search-order`
 	// option tells Ark to use Windows' standard DLL search path, which includes
 	// the PATH entries.
-	if (process.platform === 'win32' && (options?.condaEnvironmentPath || options?.pixiEnvironmentPath)) {
+	if (process.platform === 'win32' && packagerMetadata) {
 		argv.push('--standard-dll-search-order');
 	}
 

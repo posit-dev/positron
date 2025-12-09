@@ -177,9 +177,11 @@ export async function discoverPixiBinaries(): Promise<RBinary[]> {
 					rBinaries.push({
 						path: rPath,
 						reasons: [ReasonDiscovered.PIXI],
-						pixiEnvironmentPath: env.prefix,
-						pixiManifestPath: env.manifestPath,
-						pixiEnvironmentName: env.envName
+						packagerMetadata: {
+							environmentPath: env.prefix,
+							manifestPath: env.manifestPath,
+							environmentName: env.envName
+						}
 					});
 					break; // Use first existing R binary for this environment
 				}

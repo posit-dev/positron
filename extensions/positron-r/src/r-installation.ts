@@ -46,24 +46,10 @@ export interface RMetadataExtra {
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
 
 	/**
-	 * If this R installation is from a conda environment, the path to that environment.
+	 * Metadata for package manager environments (Conda or Pixi).
+	 * Use ReasonDiscovered.CONDA or ReasonDiscovered.PIXI to determine the type.
 	 */
-	readonly condaEnvironmentPath?: string;
-
-	/**
-	 * If this R installation is from a pixi environment, the path to that environment.
-	 */
-	readonly pixiEnvironmentPath?: string;
-
-	/**
-	 * If this R installation is from a pixi environment, the path to the manifest file.
-	 */
-	readonly pixiManifestPath?: string;
-
-	/**
-	 * If this R installation is from a pixi environment, the name of the environment.
-	 */
-	readonly pixiEnvironmentName?: string;
+	readonly packagerMetadata?: PackagerMetadata;
 }
 
 /**
@@ -91,6 +77,46 @@ export enum ReasonRejected {
 	unsupported = "unsupported",
 	nonOrthogonal = "nonOrthogonal",
 	excluded = "excluded",
+}
+
+/**
+ * Metadata for an R installation from a Conda environment.
+ */
+export interface CondaMetadata {
+	/** Path to the conda environment */
+	readonly environmentPath: string;
+}
+
+/**
+ * Metadata for an R installation from a Pixi environment.
+ */
+export interface PixiMetadata {
+	/** Path to the pixi environment */
+	readonly environmentPath: string;
+	/** Path to the manifest file (pixi.toml or pyproject.toml) */
+	readonly manifestPath: string;
+	/** Name of the environment */
+	readonly environmentName?: string;
+}
+
+/**
+ * Packager metadata - either Conda or Pixi.
+ * Check ReasonDiscovered.CONDA or ReasonDiscovered.PIXI to determine which type.
+ */
+export type PackagerMetadata = CondaMetadata | PixiMetadata;
+
+/**
+ * Type guard to check if packager metadata is from Pixi (has manifestPath).
+ */
+export function isPixiMetadata(metadata: PackagerMetadata): metadata is PixiMetadata {
+	return 'manifestPath' in metadata;
+}
+
+/**
+ * Type guard to check if packager metadata is from Conda (no manifestPath).
+ */
+export function isCondaMetadata(metadata: PackagerMetadata): metadata is CondaMetadata {
+	return !('manifestPath' in metadata);
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
@@ -159,10 +185,7 @@ export class RInstallation {
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
 	public readonly default: boolean = false;
-	public readonly condaEnvironmentPath: string | undefined = undefined;
-	public readonly pixiEnvironmentPath: string | undefined = undefined;
-	public readonly pixiManifestPath: string | undefined = undefined;
-	public readonly pixiEnvironmentName: string | undefined = undefined;
+	public readonly packagerMetadata: PackagerMetadata | undefined = undefined;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -171,19 +194,13 @@ export class RInstallation {
 	 * @param current Whether this installation is known to be the current version of R
 	 * @param reasonDiscovered How we discovered this R binary (and there could be more than one
 	 *   reason)
-	 * @param condaEnvironmentPath If this R is from a conda environment, the path to that environment
-	 * @param pixiEnvironmentPath If this R is from a pixi environment, the path to that environment
-	 * @param pixiManifestPath If this R is from a pixi environment, the path to the manifest file
-	 * @param pixiEnvironmentName If this R is from a pixi environment, the name of the environment
+	 * @param packagerMetadata Metadata for the package manager environment (Conda or Pixi)
 	 */
 	constructor(
 		pth: string,
 		current: boolean = false,
 		reasonDiscovered: ReasonDiscovered[] | null = null,
-		condaEnvironmentPath?: string,
-		pixiEnvironmentPath?: string,
-		pixiManifestPath?: string,
-		pixiEnvironmentName?: string
+		packagerMetadata?: PackagerMetadata
 	) {
 		pth = path.normalize(pth);
 
@@ -192,10 +209,7 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
-		this.condaEnvironmentPath = condaEnvironmentPath;
-		this.pixiEnvironmentPath = pixiEnvironmentPath;
-		this.pixiManifestPath = pixiManifestPath;
-		this.pixiEnvironmentName = pixiEnvironmentName;
+		this.packagerMetadata = packagerMetadata;
 
 		// Check if the installation is the default R interpreter for Positron
 		const defaultInterpreterPath = getDefaultInterpreterPath();

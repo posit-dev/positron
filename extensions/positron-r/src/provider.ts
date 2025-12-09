@@ -12,7 +12,7 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
@@ -34,10 +34,7 @@ export const R_DOCUMENT_SELECTORS = [
 export interface RBinary {
 	path: string;
 	reasons: ReasonDiscovered[];
-	condaEnvironmentPath?: string;
-	pixiEnvironmentPath?: string;
-	pixiManifestPath?: string;
-	pixiEnvironmentName?: string;
+	packagerMetadata?: PackagerMetadata;
 }
 
 interface DiscoveredBinaries {
@@ -79,10 +76,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			rbin.path,
 			rbin.path === currentBinary,
 			rbin.reasons,
-			rbin.condaEnvironmentPath,
-			rbin.pixiEnvironmentPath,
-			rbin.pixiManifestPath,
-			rbin.pixiEnvironmentName
+			rbin.packagerMetadata
 		))
 		.filter(r => {
 			if (!r.usable) {
@@ -266,11 +260,13 @@ export async function makeMetadata(
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
-	const condaAmendment = rInst.condaEnvironmentPath ?
-		` (Conda: ${path.basename(rInst.condaEnvironmentPath)})` : '';
-	const pixiAmendment = rInst.pixiEnvironmentPath ?
-		` (Pixi: ${rInst.pixiEnvironmentName || path.basename(rInst.pixiEnvironmentPath)})` : '';
-	const runtimeName = `R ${runtimeShortName}${condaAmendment}${pixiAmendment}`;
+	let packagerAmendment = '';
+	if (isCondaInstallation && rInst.packagerMetadata) {
+		packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
+	} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
+		packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
+	}
+	const runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.
@@ -294,10 +290,7 @@ export async function makeMetadata(
 		current: rInst.current,
 		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
-		condaEnvironmentPath: rInst.condaEnvironmentPath,
-		pixiEnvironmentPath: rInst.pixiEnvironmentPath,
-		pixiManifestPath: rInst.pixiManifestPath,
-		pixiEnvironmentName: rInst.pixiEnvironmentName,
+		packagerMetadata: rInst.packagerMetadata,
 	};
 
 	// Check the kernel supervisor's configuration; if it's configured to
