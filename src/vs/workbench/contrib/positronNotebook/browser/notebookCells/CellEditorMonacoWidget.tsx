@@ -23,6 +23,7 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
+import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
@@ -40,11 +41,18 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
 
 	/**
+	 * Observe outputs reactively so hasOutputs updates when outputs are added/removed.
+	 * For code cells, cell.outputs is an observable; for markdown cells it's undefined.
+	 * When undefined, useObservedValue returns the default empty array.
+	 */
+	const outputs = useObservedValue(cell.outputs, []);
+
+	/**
 	 * Skip focus trap when cell has no outputs (avoids double-tab with same visual).
 	 * When there are no outputs, the focus trap and cell container share the same visual
 	 * styling, requiring users to tab twice to see any change.
 	 */
-	const hasOutputs = cell.outputsViewModels.length > 0;
+	const hasOutputs = outputs.length > 0;
 
 	/**
 	 * Handler for keyboard events on the focus target.
@@ -276,7 +284,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
 				// so focusing it would disrupt keyboard navigation. In that case, let
 				// NotebookCellWrapper handle focus by focusing the cell container instead.
-				const hasOutputs = cell.outputsViewModels.length > 0;
+				// Read current outputs value - undefined for markdown cells (no outputs)
+				const currentOutputs = cell.outputs?.get() ?? [];
+				const hasOutputs = currentOutputs.length > 0;
 				if (hasOutputs) {
 					focusTargetRef.current?.focus();
 				} else {
