@@ -48,7 +48,6 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionLeft, contextKeyService);
 	const leftActions = useMenuActions(leftMenu);
 	const [showPopup, setShowPopup] = useState(false);
-	const [isHovered, setIsHovered] = useState(false);
 
 	// Observed values for status display and popup
 	const selectionStatus = useObservedValue(cell.selectionStatus);
@@ -68,7 +67,6 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 
 	// Icon hover handlers for popup
 	const handleMouseEnter = useCallback(() => {
-		setIsHovered(true);
 		if (!showPopup && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
 			const timeoutId = targetWindow.setTimeout(() => {
@@ -80,7 +78,6 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 	}, [showPopup]);
 
 	const handleMouseLeave = useCallback(() => {
-		setIsHovered(false);
 		// Clear the hover timeout if we leave before the popup shows
 		if (hoverTimeoutIdRef.current !== null && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
@@ -93,10 +90,8 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
-	// Determine if we should show the cell execution button
-	const showActionMenu = (isSelected || isHovered) && primaryLeftAction;
-	// Determine if we should show the execution status indicator (spinner)
-	const showExecutionStatus = showActionMenu || isRunning;
+	// Determine visibility class - show when selected or running (CSS handles hover/focus)
+	const shouldShowTopContainer = isSelected || isRunning;
 
 	return (
 		<>
@@ -107,9 +102,9 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				{showExecutionStatus && (
+				{(primaryLeftAction || isRunning) && (
 					<div
-						className='left-hand-action-container-top'
+						className={`left-hand-action-container-top ${shouldShowTopContainer ? 'visible' : ''}`}
 					>
 						<div
 							aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
@@ -117,7 +112,7 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 							className='cell-execution-status-animation'
 							role='status'
 						/>
-						{showActionMenu && (
+						{primaryLeftAction && (
 							<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
 								<CellActionButton action={primaryLeftAction} cell={cell} />
 							</div>
