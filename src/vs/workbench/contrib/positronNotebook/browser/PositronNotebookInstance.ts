@@ -40,6 +40,7 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IPositronNotebookClipboardService } from './positronNotebookClipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
@@ -396,6 +397,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IPositronNotebookClipboardService private readonly _notebookClipboardService: IPositronNotebookClipboardService,
 		@IHoverService private readonly _hoverService: IHoverService,
 	) {
 		super();
@@ -1426,11 +1428,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Clipboard Methods
 
 	/**
-	 * Internal clipboard for storing cells with full fidelity
-	 */
-	private _clipboardCells: ICellDto2[] = [];
-
-	/**
 	 * Copies the specified cells to the clipboard.
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
@@ -1447,14 +1444,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			clipboarCells.push(cellToCellDto2(cell));
 			clipboardText += cell.getContent() + '\n\n';
 		});
-		// Store internally for full-fidelity paste
-		this._clipboardCells = clipboarCells;
+
+		// Store in shared notebook clipboard service for full-fidelity paste
+		this._notebookClipboardService.setCells(clipboarCells);
 
 		// Remove trailing newlines from clipboard text
 		clipboardText = clipboardText.trimEnd();
-		// To support pasting the contents of a cell into other cells or editors,
-		// we need to write the cell contents to the system clipboard. Multiple
-		// cells will be concatenated with double newlines.
+		// Write cell contents to system clipboard for pasting into other editors (including cell editors)
 		this._clipboardService.writeText(clipboardText);
 
 		// Log for debugging
@@ -1494,10 +1490,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		try {
 			this._assertTextModel();
 
+			// Get cells from shared clipboard service
+			const cellsToPaste = this._notebookClipboardService.getCells();
+
 			const textModel = this.textModel;
 			const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 			const pasteIndex = index ?? this.getInsertionIndex();
-			const cellCount = this._clipboardCells.length;
+			const cellCount = cellsToPaste.length;
 
 			// Use textModel.applyEdits to properly create and register cells
 			const synchronous = true;
@@ -1516,7 +1515,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					editType: CellEditType.Replace,
 					index: pasteIndex,
 					count: 0,
-					cells: this._clipboardCells
+					cells: cellsToPaste
 				}
 			],
 				synchronous,
@@ -1554,7 +1553,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if cells can be pasted, false otherwise
 	 */
 	canPaste(): boolean {
-		return this._clipboardCells.length > 0;
+		return this._notebookClipboardService.hasCells();
 	}
 
 	/**
