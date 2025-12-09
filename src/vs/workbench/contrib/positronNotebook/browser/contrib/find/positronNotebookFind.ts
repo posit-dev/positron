@@ -21,7 +21,6 @@ import { autorun, runOnChange, transaction } from '../../../../../../base/common
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { Position } from '../../../../../../editor/common/core/position.js';
 import { getActiveCell } from '../../selectionMachine.js';
 import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
@@ -249,24 +248,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return 0;
 		}
 
-		// No current match tracked, use cursor position
-		const selectionState = this._notebook.selectionStateMachine.state.get();
-		const activeCell = getActiveCell(selectionState);
-
-		// Get the currently active cell and cursor position
-		let currentCellIndex = -1;
-		let currentPosition: Position | null = null;
-
-		// Find the currently active cell
-		if (activeCell) {
-			currentCellIndex = activeCell.index;
-			if (activeCell.editor) {
-				currentPosition = activeCell.editor.getPosition();
-			}
-		}
-
-		// If no cell is active, start from the first match
-		if (currentCellIndex === -1) {
+		const currentCursor = this.getCurrentCursor();
+		if (!currentCursor) {
 			return 0;
 		}
 
@@ -275,14 +258,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
 
 			// If match is in a later cell, it's the next match
-			if (matchCellIndex > currentCellIndex) {
+			if (matchCellIndex > currentCursor.index) {
 				return i;
 			}
 
 			// If match is in the same cell, check if it's after the cursor
-			if (matchCellIndex === currentCellIndex && currentPosition) {
-				if (match.range.startLineNumber > currentPosition.lineNumber ||
-					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn > currentPosition.column)) {
+			if (matchCellIndex === currentCursor.index && currentCursor.position) {
+				if (match.range.startLineNumber > currentCursor.position.lineNumber ||
+					(match.range.startLineNumber === currentCursor.position.lineNumber && match.range.startColumn > currentCursor.position.column)) {
 					return i;
 				}
 			}
@@ -307,24 +290,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return this._allMatches.length - 1;
 		}
 
-		// No current match tracked, use cursor position
-		const selectionState = this._notebook.selectionStateMachine.state.get();
-		const activeCell = getActiveCell(selectionState);
-
-		// Get the currently active cell and cursor position
-		let currentCellIndex = -1;
-		let currentPosition: Position | null = null;
-
-		// Find the currently active cell
-		if (activeCell) {
-			currentCellIndex = activeCell.index;
-			if (activeCell.editor) {
-				currentPosition = activeCell.editor.getPosition();
-			}
-		}
-
-		// If no cell is active, start from the last match
-		if (currentCellIndex === -1) {
+		const currentCursor = this.getCurrentCursor();
+		if (!currentCursor) {
 			return this._allMatches.length - 1;
 		}
 
@@ -333,14 +300,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
 
 			// If match is in an earlier cell, it's the previous match
-			if (matchCellIndex < currentCellIndex) {
+			if (matchCellIndex < currentCursor.index) {
 				return i;
 			}
 
 			// If match is in the same cell, check if it's before the cursor
-			if (matchCellIndex === currentCellIndex && currentPosition) {
-				if (match.range.startLineNumber < currentPosition.lineNumber ||
-					(match.range.startLineNumber === currentPosition.lineNumber && match.range.startColumn < currentPosition.column)) {
+			if (matchCellIndex === currentCursor.index && currentCursor.position) {
+				if (match.range.startLineNumber < currentCursor.position.lineNumber ||
+					(match.range.startLineNumber === currentCursor.position.lineNumber && match.range.startColumn < currentCursor.position.column)) {
 					return i;
 				}
 			}
@@ -348,6 +315,26 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// Wrap around to the last match
 		return this._allMatches.length - 1;
+	}
+
+	private getCurrentCursor() {
+		// Get the currently active cell and cursor position
+
+		// No current match tracked, use cursor position
+		// Find the currently active cell
+		const selectionState = this._notebook.selectionStateMachine.state.get();
+		const activeCell = getActiveCell(selectionState);
+		if (!activeCell) {
+			// TODO: Should this be an error?
+			return undefined;
+		}
+
+		const position = activeCell.editor?.getPosition();
+
+		return {
+			index: activeCell.index,
+			position,
+		};
 	}
 
 	private updateCellDecorations(cell: IPositronNotebookCell): void {
