@@ -176,6 +176,25 @@ jobs:
             exit 1
           fi
 
+      - name: Move QA cache to expected location
+        shell: bash
+        run: |
+          # Tests expect cache at os.tmpdir()/qa-example-content-cache
+          TEMP_DIR="$(echo $TEMP | sed 's/\\/\//g')"
+          TARGET_DIR="$TEMP_DIR/qa-example-content-cache"
+
+          echo "Moving QA cache to: $TARGET_DIR"
+          rm -rf "$TARGET_DIR" || true
+          mkdir -p "$(dirname "$TARGET_DIR")"
+          mv test/e2e/qa-example-content-cache "$TARGET_DIR"
+
+          if [ -f "$TARGET_DIR/.cached-commit" ]; then
+            echo "✓ QA cache moved successfully"
+          else
+            echo "✗ Failed to move QA cache"
+            exit 1
+          fi
+
       - name: Restore Playwright browser cache
         id: cache-playwright
         uses: actions/cache@v4
