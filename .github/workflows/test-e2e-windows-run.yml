@@ -132,17 +132,27 @@ jobs:
           name: "positron-build-windows"
           path: C:\tmp\artifacts
 
+      - name: Install zstd for fast decompression
+        shell: bash
+        run: |
+          if ! command -v zstd >/dev/null 2>&1; then
+            echo "Installing zstandard for fast decompression"
+            choco install zstandard -y
+          else
+            echo "zstd already installed"
+          fi
+
       - name: Extract build artifact
         shell: bash
         run: |
-          BUILD_ARCHIVE="/c/tmp/artifacts/positron-build.tar.gz"
+          BUILD_ARCHIVE="/c/tmp/artifacts/positron-build.tar.zst"
 
           if [ -f "$BUILD_ARCHIVE" ]; then
             echo "Extracting build archive into workspace"
 
-            # Decompress with 7z (multi-threaded), then extract tar
-            echo "Decompressing with 7z (multi-threaded)"
-            7z x -so "$BUILD_ARCHIVE" | tar -xf - || exit 1
+            # Use zstd for fast multi-threaded decompression with streaming
+            echo "Extracting with zstd (fast, multi-threaded streaming)"
+            zstd -d -c "$BUILD_ARCHIVE" | tar -xf - || exit 1
 
             # Clean up compressed archive to free disk space
             echo "Cleaning up compressed archive"

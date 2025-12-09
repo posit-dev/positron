@@ -271,6 +271,16 @@ jobs:
             (cd /c/tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
           fi
 
+      - name: Install zstd for fast compression
+        shell: bash
+        run: |
+          if ! command -v zstd >/dev/null 2>&1; then
+            echo "Installing zstandard for fast compression"
+            choco install zstandard -y
+          else
+            echo "zstd already installed"
+          fi
+
       - name: Create Build Artifact
         shell: bash
         run: |
@@ -286,22 +296,21 @@ jobs:
           # Create tarball of workspace
           mkdir -p /c/tmp/artifacts
 
-          # Create tar archive first, then compress with 7z (multi-threaded)
-          echo "Creating tar archive"
+          # Use zstd for fast multi-threaded compression with streaming
+          # zstd is 2-3x faster than gzip at similar compression ratios
+          echo "Creating compressed archive with zstd (fast, multi-threaded streaming)"
           tar --exclude='.git' \
               --exclude='.npm-cache' \
               --exclude='.pip-cache' \
               --exclude='node_modules/.cache' \
+              --exclude='node_modules/.vite' \
               --exclude='.build/logs' \
               --exclude='*.log' \
               --exclude='.eslintcache' \
-              -cf /c/tmp/artifacts/positron-build.tar .
-
-          echo "Compressing with 7z (multi-threaded, fast compression)"
-          7z a -tgzip -mx1 -mmt4 /c/tmp/artifacts/positron-build.tar.gz /c/tmp/artifacts/positron-build.tar
-
-          # Remove uncompressed tar to save space
-          rm -f /c/tmp/artifacts/positron-build.tar
+              --exclude='*.tsbuildinfo' \
+              --exclude='.nyc_output' \
+              --exclude='coverage' \
+              -cf - . | zstd -1 -T4 > /c/tmp/artifacts/positron-build.tar.zst
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
