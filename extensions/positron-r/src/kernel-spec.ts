@@ -64,11 +64,12 @@ function setSpeculativeCondaEnvVars(env: Record<string, string>, envPath: string
  * variables are used instead.
  *
  * @param env The environment record to populate with conda variables
+ * @param rBinaryPath The R binary path to add to PATH
  * @param envPath The path to the conda environment
  * @param envName The name of the conda environment
  * @returns A promise that resolves when activation is complete
  */
-async function captureCondaEnvVarsWindows(env: Record<string, string>, envPath: string, envName: string): Promise<void> {
+async function captureCondaEnvVarsWindows(env: Record<string, string>, rBinaryPath: string, envPath: string, envName: string): Promise<void> {
 	const condaExe = findCondaExe(envPath);
 	if (!condaExe) {
 		LOGGER.error('Could not find conda.exe for environment:', envPath);
@@ -111,9 +112,20 @@ async function captureCondaEnvVarsWindows(env: Record<string, string>, envPath: 
 						LOGGER.trace(`Skipping line without '=': ${line}`);
 						continue;
 					}
-					const key = trimmed.substring(0, eqIndex).trim();
-					const value = trimmed.substring(eqIndex + 1).trim();
-					env[key] = value;
+					let envKey = trimmed.substring(0, eqIndex).trim();
+					let envValue = trimmed.substring(eqIndex + 1).trim();
+					if (process.platform === 'win32') {
+						// On Windows, add the R binary path to PATH, if it is not already present
+						envKey = envKey.toUpperCase();
+						if (rBinaryPath &&
+							process.platform === 'win32' &&
+							envKey === 'PATH' &&
+							!envValue.includes(path.dirname(rBinaryPath))) {
+							envValue = path.dirname(rBinaryPath) + ';' + envValue;
+						}
+					}
+					LOGGER.trace(`Set ${envKey}=${envValue}`);
+					env[envKey] = envValue;
 				}
 			} else {
 				throw new Error(`Activation script not found at ${scriptPath}`);
@@ -351,7 +363,7 @@ export async function createJupyterKernelSpec(
 		if (process.platform === 'win32') {
 			// On Windows, capture environment variables directly instead of using a startup command;
 			// the startup command approach is unreliable on Windows
-			await captureCondaEnvVarsWindows(env, envPath, envName);
+			await captureCondaEnvVarsWindows(env, options?.rBinaryPath, envPath, envName);
 		} else {
 			// On Unix-like systems, use conda activate as startup command
 			startup_command = 'conda activate ' + envPath;
