@@ -52,11 +52,9 @@ type ImageDataResults = {
  * @param props: Props for `img` element.
  * @returns Image tag that shows the image once it is loaded.
  */
-// eslint-disable-next-line react/prop-types
 export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPropsWithoutRef<'img'>) {
 	const services = usePositronReactServicesContext();
 	const notebookInstance = useNotebookInstance();
-	const baseLocation = getNotebookBaseUri(notebookInstance.uri).path;
 
 	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
@@ -65,6 +63,15 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		// Check for prefix of http or https to avoid converting remote images
 		if (src.startsWith('http://') || src.startsWith('https://')) {
 			setResults({ status: 'success', data: src });
+			return;
+		}
+
+		// Get base location for relative image paths.
+		let baseLocation: string;
+		try {
+			baseLocation = getNotebookBaseUri(notebookInstance.uri).path;
+		} catch (error) {
+			setResults({ status: 'error', message: String(error) });
 			return;
 		}
 
@@ -103,7 +110,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			clearTimeout(delayedErrorMsg);
 			conversionCancellablePromise.cancel();
 		};
-	}, [src, baseLocation, services]);
+	}, [src, notebookInstance, services]);
 
 	switch (results.status) {
 		case 'pending':
