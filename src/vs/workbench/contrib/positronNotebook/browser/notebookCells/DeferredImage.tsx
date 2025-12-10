@@ -62,25 +62,22 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	const [results, setResults] = React.useState<ImageDataResults>({ status: 'pending' });
 
 	React.useEffect(() => {
-
 		/**
-		 * Handles fetching and converting remote SVG images to base64 data URLs.
+		 * Shared helper to handle image conversion.
 		 *
-		 * @param imageUrl The SVG URL to fetch
-		 * @param commandService Service to execute extension commands
-		 * @param logService Service to log errors
-		 * @returns Cleanup function to cancel ongoing operations
+		 * @param commandName The command to execute
+		 * @param commandArgs Arguments to pass to the command
+		 * @returns A cleanup function to cancel ongoing operations
 		 */
-		const handleRemoteSvg = (
-			imageUrl: string,
-			commandService: typeof services.commandService,
-			logService: typeof services.logService
+		const handleImageConversion = (
+			commandName: string,
+			commandArgs: unknown[],
 		): (() => void) => {
 			let delayedErrorMsg: Timeout;
 
-			// Create cancelable promise to fetch and convert the SVG
+			// Create cancelable promise to execute the command with timeout
 			const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
-				commandService.executeCommand('positronNotebookHelpers.fetchRemoteImage', imageUrl),
+				services.commandService.executeCommand(commandName, ...commandArgs),
 				CONVERSION_TIMEOUT_MS
 			));
 
@@ -92,18 +89,18 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 				} else if (isConversionErrorMsg(payload)) {
 					// Known error from the command
 					delayedErrorMsg = setTimeout(() => {
-						logService.error(
-							localize('failedToFetchRemote', 'Failed to fetch remote image:'),
-							imageUrl,
+						services.logService.error(
+							localize('notebook.remoteImage.failedToConvert', "{0} - Failed to convert:", commandName),
+							commandArgs[0], // image source
 							payload.message
 						);
 					}, ERROR_TIMEOUT_MS);
 					setResults(payload);
 				} else {
 					// Unexpected response format
-					const unexpectedResponseString = localize('fetchRemoteImage.unexpectedResponse', 'Unexpected response from fetchRemoteImage');
+					const unexpectedResponseString = localize('unexpectedResponse', "Unexpected response from {0}", commandName);
 					delayedErrorMsg = setTimeout(() => {
-						logService.error(unexpectedResponseString, payload);
+						services.logService.error(unexpectedResponseString, payload);
 					}, ERROR_TIMEOUT_MS);
 					setResults({ status: 'error', message: unexpectedResponseString });
 				}
@@ -119,9 +116,37 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			};
 		};
 
+		/**
+		 * Handles fetching and converting remote SVG images to base64 data URLs.
+		 *
+		 * @param imageUrl The SVG URL to fetch
+		 * @returns Cleanup function to cancel ongoing operations
+		 */
+		const handleRemoteSvg = (imageUrl: string): (() => void) => {
+			return handleImageConversion(
+				'positronNotebookHelpers.fetchRemoteImage',
+				[imageUrl],
+			);
+		};
+
+		/**
+		 * Handles converting local/relative image paths to base64 data URLs.
+		 *
+		 * @param imagePath The relative image path
+		 * @param baseLocation The base directory to resolve relative paths from
+		 * @returns Cleanup function to cancel ongoing operations
+		 */
+		const handleLocalImage = (imagePath: string, baseLocation: string): (() => void) => {
+			return handleImageConversion(
+				'positronNotebookHelpers.convertImageToBase64',
+				[imagePath, baseLocation],
+			);
+		};
+
+		/* ---- Main useEffect logic starts here ---- */
+
 		// Check for remote images (http/https URLs)
 		if (src.startsWith('http://') || src.startsWith('https://')) {
-			const isSvg = isSvgUrl(src);
 			/**
 			 * Remote SVGs are blocked by VS Code's security policy when loaded directly
 			 * in the main window context (see `src/vs/code/electron-main/app.ts:221-303`).
@@ -130,9 +155,10 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			 *
 			 * Other formats (PNG, JPG, etc.) work natively and can be loaded directly.
 			 */
+			const isSvg = isSvgUrl(src);
 			if (isSvg) {
 				// Handle remote SVG through extension
-				return handleRemoteSvg(src, services.commandService, services.logService);
+				return handleRemoteSvg(src);
 			} else {
 				// Non-SVG remote images (PNG, JPG, etc.) work natively, use direct URL
 				setResults({ status: 'success', data: src });
@@ -140,47 +166,18 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			}
 		}
 
-		// Get base location for relative image paths.
+		// Otherwise, handle local/relative image paths
 		let baseLocation: string;
 		try {
+			// Get base location to resolve relative paths
 			baseLocation = getNotebookBaseUri(notebookInstance.uri).path;
 		} catch (error) {
 			setResults({ status: 'error', message: String(error) });
 			return;
 		}
 
-		let delayedErrorMsg: Timeout;
-
-		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
-			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
-			CONVERSION_TIMEOUT_MS
-		));
-
-		conversionCancellablePromise.then((payload) => {
-			if (typeof payload === 'string') {
-				setResults({ status: 'success', data: payload });
-			} else if (isConversionErrorMsg(payload)) {
-
-				delayedErrorMsg = setTimeout(() => {
-					services.logService.error(localize('failedToConvertImageToBase64', 'Failed to convert image to base64:'), src, payload.message);
-				}, ERROR_TIMEOUT_MS);
-
-				setResults(payload);
-			} else {
-				const unexpectedResponseString = localize('convertImageToBase64.unexpectedResponse', 'Unexpected response from convertImageToBase64');
-				delayedErrorMsg = setTimeout(() => {
-					services.logService.error(unexpectedResponseString, payload);
-				}, ERROR_TIMEOUT_MS);
-				setResults({ status: 'error', message: unexpectedResponseString });
-			}
-		}).catch((err) => {
-			setResults({ status: 'error', message: err.message });
-		});
-
-		return () => {
-			clearTimeout(delayedErrorMsg);
-			conversionCancellablePromise.cancel();
-		};
+		// Convert local image to base64 data URL
+		return handleLocalImage(src, baseLocation);
 	}, [src, notebookInstance, services]);
 
 	switch (results.status) {
