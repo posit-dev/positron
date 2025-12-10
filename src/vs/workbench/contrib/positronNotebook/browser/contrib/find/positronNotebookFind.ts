@@ -16,8 +16,8 @@ import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysMan
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
-import { autorun, IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { FindMatch } from '../../../../../../editor/common/model.js';
+import { autorun, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -26,33 +26,33 @@ import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '.
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
-import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
 import { IPosition, Position } from '../../../../../../editor/common/core/position.js';
 import { IRange, Range } from '../../../../../../editor/common/core/range.js';
+import { PositronNotebookFindDecorations } from './PositronNotebookFindDecorations.js';
 
 /** A position in a cell editor. */
-interface ICellEditorPosition {
+export interface ICellEditorPosition {
 	cellIndex: number;
 	position: IPosition;
 }
 
 /** A range in a cell editor. */
-interface ICellEditorRange {
+export interface ICellEditorRange {
 	cellIndex: number;
 	range: IRange;
 }
 
-interface ICellFindMatch {
+export interface ICellFindMatch {
 	cellRange: ICellEditorRange;
 	matches: string[] | null;
 }
 
-interface IPositronCellFindMatch extends ICellFindMatch {
+export interface IPositronCellFindMatch extends ICellFindMatch {
 	cell: IPositronNotebookCell;
 }
 
-class CellEditorPosition implements ICellEditorPosition {
+export class CellEditorPosition implements ICellEditorPosition {
 	constructor(
 		public readonly cellIndex: number,
 		public readonly position: IPosition,
@@ -92,7 +92,7 @@ class CellEditorPosition implements ICellEditorPosition {
 
 }
 
-class CellEditorRange implements ICellEditorRange {
+export class CellEditorRange implements ICellEditorRange {
 	constructor(
 		public readonly cellIndex: number,
 		public readonly range: Range,
@@ -123,7 +123,7 @@ class CellEditorRange implements ICellEditorRange {
 	}
 }
 
-class PositronCellFindMatch implements IPositronCellFindMatch {
+export class PositronCellFindMatch implements IPositronCellFindMatch {
 	constructor(
 		public readonly cell: IPositronNotebookCell,
 		public readonly cellRange: CellEditorRange,
@@ -191,11 +191,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	) {
 		super();
 
-		this._register(new CellFindDecorations(
-			this._notebook,
-			this._matches,
-			this._currentMatch,
-		));
+		this._register(new PositronNotebookFindDecorations(this._matches, this._currentMatch));
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
@@ -220,7 +216,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
 
 			// Create the find instance
-			const instance = this._register(new PositronFindInstance({
+			const findInstance = this._register(new PositronFindInstance({
 				container: this._notebook.container,
 				findInputOptions: {
 					label: localize('positronNotebook.find.label', "Find"),
@@ -230,14 +226,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					toggleStyles: defaultToggleStyles,
 				},
 			}));
-			this._findInstance = instance;
+			this._findInstance = findInstance;
 
 			// Subscribe to user action events
-			this._register(instance.onDidRequestFindNext(() => this.findNext()));
-			this._register(instance.onDidRequestFindPrevious(() => this.findPrevious()));
+			this._register(findInstance.onDidRequestFindNext(() => this.findNext()));
+			this._register(findInstance.onDidRequestFindPrevious(() => this.findPrevious()));
 
 			// Subscribe to visibility changes
-			this._register(runOnChange(instance.isVisible, (visible) => {
+			this._register(runOnChange(findInstance.isVisible, (visible) => {
 				if (visible) {
 					findWidgetVisible.set(true);
 				} else {
@@ -247,7 +243,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 					// Clear state
 					transaction((tx) => {
-						// TODO: Should we clear state, or restore on reshow?
 						this._matches.set([], tx);
 						this._currentMatch.set(undefined, tx);
 					});
@@ -255,7 +250,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			}));
 
 			// Subscribe to focus changes
-			this._register(runOnChange(instance.inputFocused, (focused) => {
+			this._register(runOnChange(findInstance.inputFocused, (focused) => {
 				if (focused) {
 					findInputFocused.set(true);
 				} else {
@@ -265,10 +260,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 			// Subscribe to search parameter changes
 			this._register(autorun(reader => {
-				const searchString = instance.searchString.read(reader);
-				const isRegex = instance.isRegex.read(reader);
-				const matchCase = instance.matchCase.read(reader);
-				const wholeWord = instance.wholeWord.read(reader);
+				const searchString = findInstance.searchString.read(reader);
+				const isRegex = findInstance.isRegex.read(reader);
+				const matchCase = findInstance.matchCase.read(reader);
+				const wholeWord = findInstance.wholeWord.read(reader);
 
 				console.info('PositronNotebookFindController: Starting research with', { searchString, isRegex, matchCase, wholeWord });
 				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
@@ -293,8 +288,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				// Update matches, match count and index
 				transaction((tx) => {
 					this._matches.set(cellMatches, tx);
-					instance.matchCount.set(cellMatches.length, tx);
-					instance.matchIndex.set(matchIndex, tx);
+					findInstance.matchCount.set(cellMatches.length, tx);
+					findInstance.matchIndex.set(matchIndex, tx);
 				});
 			}));
 		}
@@ -327,8 +322,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const cellMatches: PositronCellFindMatch[] = [];
 		// TODO: what to do with current match on research?
 		// this._currentMatchIndex = undefined;
-
-		let cellMatchIndex = 0;
 		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
 			if (cell.model.textModel) {
 				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
@@ -346,11 +339,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					const cellMatch = PositronCellFindMatch.fromFindMatch(cell, cellIndex, match);
 					cellMatches.push(cellMatch);
 				}
-
-				cellMatchIndex++;
 			}
 		}
-
 		return cellMatches;
 	}
 
@@ -482,21 +472,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const cellMatch = cellMatches[matchIndex];
 		const { cell } = cellMatch;
 
-		// Clear previous current match decoration if it was in a different cell
-		// const currentMatchIndex = this._currentMatchIndex.get();
-		// if (currentMatchIndex !== undefined) {
-		// 	const prevMatch = cellMatches[currentMatchIndex];
-		// 	if (prevMatch && prevMatch.cell.handle !== cellMatch.cell.handle) {
-		// 		this.updateCellDecorations(prevMatch.cell);
-		// 	}
-		// }
-
-		// Update current match tracking
-		this._currentMatch.set({ cellMatch, index: matchIndex }, undefined);
-
-		// Update decorations to highlight the current match
-		// this.updateCellDecorations(cell);
-
 		// Select the cell
 		this._notebook.selectionStateMachine.selectCell(cell);
 
@@ -509,9 +484,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			cell.editor.revealRangeInCenter(cellMatch.cellRange.range);
 		}
 
-		// Update the match index
 		const findInstance = this.getOrCreateFindInstance();
-		findInstance.matchIndex.set(matchIndex, undefined);
+
+		transaction((tx) => {
+			// Update the match index
+			findInstance.matchIndex.set(matchIndex, tx);
+
+			// Update current match tracking
+			this._currentMatch.set({ cellMatch, index: matchIndex }, tx);
+		});
 	}
 }
 
@@ -616,113 +597,6 @@ StartFindAction.addImplementation(100, (accessor: ServicesAccessor, _codeEditor:
 		return false;
 	}
 
-	// TODO: Seed the search with the cursor word or selection
 	controller.start();
 	return true;
 });
-
-class CellFindDecorations extends Disposable {
-	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
-	private _currentMatchDecorationId: { cell: IPositronNotebookCell; decorationId: string } | undefined;
-
-	constructor(
-		private readonly _notebook: IPositronNotebookInstance,
-		private readonly _matches: IObservable<IPositronCellFindMatch[]>,
-		private readonly _currentMatch: IObservable<{ cellMatch: PositronCellFindMatch; index: number } | undefined>,
-	) {
-		super();
-
-		this._register(autorun(reader => {
-			const allMatches = this._matches.read(reader);
-
-			// Group matches by cell
-			const cellMatchesByCell = new Map<IPositronNotebookCell, IPositronCellFindMatch[]>();
-			for (const cellMatch of allMatches) {
-				let cellMatches = cellMatchesByCell.get(cellMatch.cell);
-				if (!cellMatches) {
-					cellMatches = [];
-					cellMatchesByCell.set(cellMatch.cell, cellMatches);
-				}
-				cellMatches.push(cellMatch);
-			}
-
-			// Update all cell editor decorations
-			for (const [cell, cellMatches] of cellMatchesByCell.entries()) {
-				if (!cell.editor) {
-					continue;
-				}
-
-				const newDecorations: IModelDeltaDecoration[] = cellMatches.map(cellMatch => ({
-					range: cellMatch.cellRange.range,
-					options: FindDecorations._FIND_MATCH_DECORATION,
-				}));
-
-				cell.editor.changeDecorations(accessor => {
-					const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-					const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
-					this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
-				});
-			}
-		}));
-
-		this._register(autorun(reader => {
-			const currentMatch = this._currentMatch.read(reader);
-
-			// Reset the existing current match decoration, if one exists
-			const oldDecoration = this._currentMatchDecorationId;
-			if (oldDecoration) {
-				const { cell, decorationId } = oldDecoration;
-				if (cell.editor) {
-					cell.editor.changeDecorations(accessor => {
-						accessor.changeDecorationOptions(decorationId, FindDecorations._FIND_MATCH_DECORATION);
-					});
-				}
-				this._currentMatchDecorationId = undefined;
-			}
-
-			// Add the new current match decoration
-			if (currentMatch) {
-				const { cell, cellRange } = currentMatch.cellMatch;
-				if (!cell.editor) {
-					return;
-				}
-
-				let newCurrentDecorationId: string | null = null;
-				if (cellRange.range) {
-					const decorationIds = this._decorationIdsByCellHandle.get(cell.handle) ?? [];
-					for (const decorationId of decorationIds) {
-						const model = cell.editor.getModel();
-						if (model) {
-							const range = model.getDecorationRange(decorationId);
-							if (cellRange.range.equalsRange(range)) {
-								newCurrentDecorationId = decorationId;
-								break;
-							}
-						}
-					}
-				}
-
-				if (newCurrentDecorationId !== null) {
-					cell.editor.changeDecorations(accessor => {
-						accessor.changeDecorationOptions(newCurrentDecorationId, FindDecorations._CURRENT_FIND_MATCH_DECORATION);
-					});
-
-					this._currentMatchDecorationId = { cell, decorationId: newCurrentDecorationId };
-				}
-			}
-		}));
-	}
-
-	clear() {
-		for (const cell of this._notebook.cells.get()) {
-			if (cell.editor) {
-				const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle);
-				if (oldDecorationIds) {
-					cell.editor.changeDecorations(accessor => {
-						accessor.deltaDecorations(oldDecorationIds, []);
-					});
-				}
-			}
-		}
-	}
-}
