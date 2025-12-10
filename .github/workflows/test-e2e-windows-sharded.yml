@@ -11,36 +11,186 @@ on:
         description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
         default: "@:critical"
         type: string
+      shards:
+        required: false
+        description: "Number of shards to split tests across (1-10)"
+        default: 3
+        type: number
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  e2e-windows-1:
-    name: "e2e"
+  generate-matrix:
+    name: Generate shard matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      shards: ${{ steps.set-matrix.outputs.shards }}
+    steps:
+      - id: set-matrix
+        run: |
+          SHARDS=${{ github.event.inputs.shards || 3 }}
+          # Generate array [1, 2, 3, ..., N]
+          MATRIX=$(seq 1 $SHARDS | jq -s -c '{shard: .}')
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "shards=$SHARDS" >> $GITHUB_OUTPUT
+          echo "Generated matrix for $SHARDS shards: $MATRIX"
+
+  e2e-windows-shards:
+    needs: generate-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
-      project: "e2e-windows"
-      grep: "${{ inputs.grep }}"
-      display_name: "windows-1"
-      shards: 2
-      matrix: '{"shard":[1]}'
+      grep: ${{ github.event.inputs.grep || '@:critical' }}
+      currents_tags: "pull-request,electron/windows"
+      report_currents: false
+      upload_logs: false
+      shards: ${{ fromJson(needs.generate-matrix.outputs.shards) }}
       workers: 2
-      skip_extension_test: false
       allow_soft_fail: false
+      display_name: "e2e"
+      matrix: '{"shard":[${{ matrix.shard }}]}'
+      skip_extension_tests: ${{ matrix.shard != 1 }}  # Only shard 1 runs extension tests
     secrets: inherit
 
-  e2e-windows-2:
-    name: "Windows E2E (Shard 2/2)"
-    uses: ./.github/workflows/test-e2e-windows.yml
-    with:
-      project: "e2e-windows"
-      grep: "${{ inputs.grep }}"
-      display_name: "windows-2"
-      shards: 2
-      matrix: '{"shard":[2]}'
-      workers: 2
-      skip_extension_test: true  # Only shard 1 runs extension test
-      allow_soft_fail: false
-    secrets: inherit
+  merge-reports:
+    name: Windows E2E - Merge Reports
+    if: ${{ !cancelled() }}
+    needs: [e2e-windows-shards]
+    runs-on: ubuntu-latest-4x
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install Playwright and apply patch
+        shell: bash
+        run: |
+          # Create clean directory for merge dependencies
+          mkdir -p playwright-merge
+          cd playwright-merge
+          npm init -y
+          # Install only what we need for merging
+          # We need the patch to capture test durations in .last-run.json for better shard balancing
+          npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
+          # Copy patch from repo and apply it
+          mkdir -p patches
+          cp ../patches/playwright+1.56.1.patch patches/
+          npx patch-package
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Download all blob reports
+        uses: actions/download-artifact@v6
+        with:
+          path: all-blob-reports
+          pattern: blob-report-e2e-windows-*
+          merge-multiple: true
+
+      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          # Create output directory
+          mkdir -p playwright-report
+
+          echo "Merging blob reports from all shards..."
+          # Merge all blob reports and generate HTML report
+          env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
+            --reporter=@midleman/github-actions-reporter,html \
+            --config ../playwright.config.ts \
+            ../all-blob-reports
+
+          # Generate JSON report separately (merge-reports doesn't support multiple report types in one pass)
+          npx playwright merge-reports \
+            --reporter=json \
+            --config ../playwright.config.ts \
+            ../all-blob-reports
+
+      - name: Verify generated reports
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          # List all generated files
+          echo "Generated report files:"
+          ls -la playwright-report/ || echo "No playwright-report directory"
+
+          # Verify .last-run.json
+          LAST_RUN_FILE="playwright-report/.last-run-e2e-windows.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
+            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
+          else
+            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
+          fi
+
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
+
+      - name: Setup AWS S3 Access for .last-run.json upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Upload .last-run.json to fixed S3 location
+        if: always()
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          LAST_RUN_FILE="playwright-report/.last-run-e2e-windows.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
+            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/e2e-windows-last-run.json
+            echo "✓ Uploaded e2e-windows-last-run.json to S3 for future runs"
+          else
+            echo "⚠ No $LAST_RUN_FILE to upload"
+          fi
+
+      - name: Check test results
+        if: always()
+        shell: bash
+        run: |
+          JSON_REPORT="playwright-merge/playwright-report/results.json"
+          if [ ! -f "$JSON_REPORT" ]; then
+            echo "⚠ JSON report not found at $JSON_REPORT"
+            echo "Contents of playwright-merge/playwright-report:"
+            ls -la playwright-merge/playwright-report/ || true
+            exit 1
+          fi
+
+          EXTRA_ARGS=""
+          if [[ "${{ github.event.inputs.allow_soft_fail || 'false' }}" != "true" ]]; then
+            echo "SOFT-FAIL DISABLED: standard test failure behavior"
+            EXTRA_ARGS="--no-soft-fail"
+          else
+            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
+          fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+
+      - name: Clean up blob report artifacts
+        if: success()
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: blob-report-e2e-windows-*
+          failOnError: false

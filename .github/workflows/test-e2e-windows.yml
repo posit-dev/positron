@@ -37,9 +37,9 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: false
-      skip_extension_test:
+      skip_extension_tests:
         required: false
-        description: "Whether to skip the bootstrap extensions test."
+        description: "Whether to skip the extensions tests."
         type: boolean
         default: false
       allow_soft_fail:
@@ -158,11 +158,11 @@ jobs:
           path: |
             ~\AppData\Roaming\npm-cache
             node_modules
-            build\node_modules
-            extensions\node_modules
-            remote\node_modules
+            build/node_modules
+            extensions/*/node_modules
+            remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-v1-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
 
@@ -175,14 +175,14 @@ jobs:
           echo "Cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
 
           if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
-            echo "✓ Cache HIT - Skipping npm install (saves ~18-20 minutes!)"
+            echo "✓ Cache HIT - Skipping npm install"
             echo ""
             echo "Restored node_modules:"
             [ -d "node_modules" ] && echo "  ✓ Root node_modules ($(ls node_modules 2>/dev/null | wc -l) packages)"
             [ -d "build/node_modules" ] && echo "  ✓ build/node_modules ($(ls build/node_modules 2>/dev/null | wc -l) packages)"
             [ -d "test/e2e/node_modules" ] && echo "  ✓ test/e2e/node_modules ($(ls test/e2e/node_modules 2>/dev/null | wc -l) packages)"
           else
-            echo "✗ Cache MISS - Will run full npm install (~18-20 minutes)"
+            echo "✗ Cache MISS - Will run full npm install"
             echo "  This is expected on first run or after dependency changes"
           fi
           echo "========================================="
@@ -371,6 +371,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Run Extensions Tests
+        if: ${{ inputs.skip_extension_tests != true }}
         id: extensions
         continue-on-error: true
         shell: bash
@@ -383,7 +384,7 @@ jobs:
           exit 0
 
       - name: Save Extensions Tests Logs
-        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        if: ${{ inputs.skip_extension_tests != true && steps.extensions.outputs.exit_code != '0' }}
         shell: bash
         run: |
           # Save all VSCode integration test logs including output channels
@@ -397,7 +398,6 @@ jobs:
           exit 0
 
       - name: Run Bootstrap Extensions Test
-        if: ${{ inputs.skip_extension_test != true }}
         id: bootstrap
         shell: bash
         env:
@@ -424,9 +424,7 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
-          PW_JSON_FILE: test-results/windows.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
-          GH_SUMMARY_REPORT: true
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
@@ -447,7 +445,7 @@ jobs:
 
           export SKIP_BOOTSTRAP=true
           # Skip close on qa-example-content if we already did the bootstrap test
-          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+          if [ "${{ inputs.skip_extension_tests }}" != "true" ]; then
             export SKIP_CLONE=true
           else
             export SKIP_CLONE=false
@@ -456,93 +454,52 @@ jobs:
           CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           echo "Running: $CMD"
 
-          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-            eval $CMD || true
-            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
-          else
-            eval $CMD
-          fi
-      # - name: Run Main Test Suite (Electron)
-      #   shell: bash
-      #   env:
-      #     POSITRON_PY_VER_SEL: 3.10.10
-      #     POSITRON_R_VER_SEL: 4.4.0
-      #     POSITRON_PY_ALT_VER_SEL: 3.13.0
-      #     POSITRON_R_ALT_VER_SEL: 4.4.2
-      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
-      #     CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
-      #     ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-      #     CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
-      #     CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-      #     USE_KEY: true
-      #     PW_JSON_FILE: test-results/windows.json
-      #     ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
-      #   run: |
-      #     # Build the --grep argument only if PW_TAGS is non-empty
-      #     if [ -z "${PW_TAGS}" ]; then
-      #       GREP_ARG=""
-      #     else
-      #       GREP_ARG="--grep \"${PW_TAGS}\""
-      #     fi
+          # Always run with || true when using blob reporter (merge-reports determines pass/fail)
+          eval SKIP_BOOTSTRAP=true $CMD || true
 
-      #     # Log the arguments
-      #     echo "Final --grep argument: $GREP_ARG"
+      - name: Upload Blob Report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
 
-      #     export SKIP_BOOTSTRAP=true
-      #     # Skip close on qa-example-content if we already did the bootstrap test
-      #     if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
-      #       export SKIP_CLONE=true
-      #     else
-      #       export SKIP_CLONE=false
-      #     fi
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
-      #     echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-      #     if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-      #       eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+      - name: Upload Extensions Test Logs If Failed
+        if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensions-tests-logs
+          path: extensions-tests-logs/
+          if-no-files-found: ignore
 
-      #       node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
-      #     else
-      #       eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
-      #     fi
-
-      # - name: Upload Playwright Report to S3
-      #   if: ${{ success() || failure() }}
-      #   uses: ./.github/actions/upload-report-to-s3
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-      #     report-dir: ${{ env.REPORT_DIR }}
-
-      # - name: Upload Extensions Test Logs If Failed
-      #   if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: extensions-tests-logs
-      #     path: extensions-tests-logs/
-      #     if-no-files-found: ignore
-
-      # - name: Upload Test Logs
-      #   if: ${{ always() && inputs.upload_logs }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: e2e-win-logs
-      #     path: test-logs
-      #     if-no-files-found: ignore
-      # - name: Upload Playwright Report to S3
-      #   if: ${{ success() || failure() }}
-      #   uses: ./.github/actions/upload-report-to-s3
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-      #     report-dir: ${{ env.REPORT_DIR }}
-      # - name: Upload Test Logs
-      #   if: ${{ always() && inputs.upload_logs }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: e2e-win-logs
-      #     path: test-logs
-      #     if-no-files-found: ignore
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-win-logs
+          path: test-logs
+          if-no-files-found: ignore
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-win-logs
+          path: test-logs
+          if-no-files-found: ignore
 
       # - name: Upload Test Results File
       #   if: ${{ always() }}
