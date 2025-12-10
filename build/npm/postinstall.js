@@ -271,14 +271,19 @@ if (true) {
 		for (let dir of dirs) {
 			if (dir === '') continue;
 
+			// --- Start Positron ---
 			// Skip directories that already have node_modules installed
 			// This avoids duplicate work when build/ is pre-installed for gulp-merge-json
-			const dirPath = path.join(root, dir);
-			const nodeModulesPath = path.join(dirPath, 'node_modules');
-			if (fs.existsSync(nodeModulesPath)) {
-				console.log(`Skipping ${dir} - already installed`);
-				continue;
+			// Only in CI parallel install mode
+			if (process.env.POSITRON_PARALLEL_INSTALL === '1') {
+				const dirPath = path.join(root, dir);
+				const nodeModulesPath = path.join(dirPath, 'node_modules');
+				if (fs.existsSync(nodeModulesPath)) {
+					console.log(`Skipping ${dir} - already installed`);
+					continue;
+				}
 			}
+			// --- End Positron ---
 
 			let opts;
 			if (dir === 'build') {

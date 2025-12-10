@@ -45,25 +45,6 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 	const { logger, tracing, snapshots } = options;
 
 	if (!fs.existsSync(configuration.electronPath || '')) {
-		// Debug: log detailed path information
-		console.error('=== ELECTRON PATH DEBUG ===');
-		console.error(`Current working directory: ${process.cwd()}`);
-		console.error(`Electron path from config: ${configuration.electronPath}`);
-		console.error(`Absolute electron path: ${require('path').resolve(configuration.electronPath || '')}`);
-		console.error(`File exists check: ${fs.existsSync(configuration.electronPath || '')}`);
-		console.error(`Directory listing of .build/electron:`);
-		try {
-			const electronDir = require('path').join(process.cwd(), '.build', 'electron');
-			console.error(`Checking directory: ${electronDir}`);
-			if (fs.existsSync(electronDir)) {
-				console.error(fs.readdirSync(electronDir).join(', '));
-			} else {
-				console.error('Directory does not exist');
-			}
-		} catch (e) {
-			console.error(`Error listing directory: ${e}`);
-		}
-		console.error('=== END DEBUG ===');
 		throw new Error(`Cannot find Positron at ${configuration.electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
 	}
 
