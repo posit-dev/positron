@@ -46,6 +46,9 @@ type ImageDataResults = {
 	message: string;
 };
 
+const CONVERSION_TIMEOUT_MS = 3000;
+const ERROR_TIMEOUT_MS = 1000;
+
 /**
  * Special image component that defers loading of the image while it converts it to a data-url using
  * the `positronNotebookHelpers.convertImageToBase64` command.
@@ -60,10 +63,81 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 
 	React.useEffect(() => {
 
-		// Check for prefix of http or https to avoid converting remote images
+		/**
+		 * Handles fetching and converting remote SVG images to base64 data URLs.
+		 *
+		 * @param imageUrl The SVG URL to fetch
+		 * @param commandService Service to execute extension commands
+		 * @param logService Service to log errors
+		 * @returns Cleanup function to cancel ongoing operations
+		 */
+		const handleRemoteSvg = (
+			imageUrl: string,
+			commandService: typeof services.commandService,
+			logService: typeof services.logService
+		): (() => void) => {
+			let delayedErrorMsg: Timeout;
+
+			// Create cancelable promise to fetch and convert the SVG
+			const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
+				commandService.executeCommand('positronNotebookHelpers.fetchRemoteImage', imageUrl),
+				CONVERSION_TIMEOUT_MS
+			));
+
+			// Handle the conversion result
+			conversionCancellablePromise.then((payload) => {
+				if (typeof payload === 'string') {
+					// Success: got base64 data URL
+					setResults({ status: 'success', data: payload });
+				} else if (isConversionErrorMsg(payload)) {
+					// Known error from the command
+					delayedErrorMsg = setTimeout(() => {
+						logService.error(
+							localize('failedToFetchRemote', 'Failed to fetch remote image:'),
+							imageUrl,
+							payload.message
+						);
+					}, ERROR_TIMEOUT_MS);
+					setResults(payload);
+				} else {
+					// Unexpected response format
+					const unexpectedResponseString = localize('fetchRemoteImage.unexpectedResponse', 'Unexpected response from fetchRemoteImage');
+					delayedErrorMsg = setTimeout(() => {
+						logService.error(unexpectedResponseString, payload);
+					}, ERROR_TIMEOUT_MS);
+					setResults({ status: 'error', message: unexpectedResponseString });
+				}
+			}).catch((err) => {
+				// Promise was rejected (timeout or other error)
+				setResults({ status: 'error', message: err.message });
+			});
+
+			// Return cleanup function for React effect
+			return () => {
+				clearTimeout(delayedErrorMsg);
+				conversionCancellablePromise.cancel();
+			};
+		};
+
+		// Check for remote images (http/https URLs)
 		if (src.startsWith('http://') || src.startsWith('https://')) {
-			setResults({ status: 'success', data: src });
-			return;
+			const isSvg = isSvgUrl(src);
+			/**
+			 * Remote SVGs are blocked by VS Code's security policy when loaded directly
+			 * in the main window context (see `src/vs/code/electron-main/app.ts:221-303`).
+			 * We safely handle SVGs by fetching the svg via the extension host and
+			 * converting to base64 data URLs.
+			 *
+			 * Other formats (PNG, JPG, etc.) work natively and can be loaded directly.
+			 */
+			if (isSvg) {
+				// Handle remote SVG through extension
+				return handleRemoteSvg(src, services.commandService, services.logService);
+			} else {
+				// Non-SVG remote images (PNG, JPG, etc.) work natively, use direct URL
+				setResults({ status: 'success', data: src });
+				return;
+			}
 		}
 
 		// Get base location for relative image paths.
@@ -75,14 +149,11 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			return;
 		}
 
-		const conversionTimeoutMs = 3000;
-		const errorTimeoutMs = 1000;
-
 		let delayedErrorMsg: Timeout;
 
 		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
 			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),
-			conversionTimeoutMs
+			CONVERSION_TIMEOUT_MS
 		));
 
 		conversionCancellablePromise.then((payload) => {
@@ -91,15 +162,15 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			} else if (isConversionErrorMsg(payload)) {
 
 				delayedErrorMsg = setTimeout(() => {
-					services.logService.error(localize('failedToConvert', 'Failed to convert image to base64:'), src, payload.message);
-				}, errorTimeoutMs);
+					services.logService.error(localize('failedToConvertImageToBase64', 'Failed to convert image to base64:'), src, payload.message);
+				}, ERROR_TIMEOUT_MS);
 
 				setResults(payload);
 			} else {
-				const unexpectedResponseString = localize('unexpectedResponse', 'Unexpected response from convertImageToBase64');
+				const unexpectedResponseString = localize('convertImageToBase64.unexpectedResponse', 'Unexpected response from convertImageToBase64');
 				delayedErrorMsg = setTimeout(() => {
 					services.logService.error(unexpectedResponseString, payload);
-				}, errorTimeoutMs);
+				}, ERROR_TIMEOUT_MS);
 				setResults({ status: 'error', message: unexpectedResponseString });
 			}
 		}).catch((err) => {
@@ -126,6 +197,25 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			return <img {...props} aria-label={results.message} />;
 		case 'success':
 			return <img src={results.data} {...props} />;
+	}
+}
+
+/**
+ * Detects if a URL points to an SVG file based on its path extension.
+ *
+ * @param url The URL to check
+ * @returns true if the URL path ends with .svg extension
+ */
+function isSvgUrl(url: string): boolean {
+	try {
+		const urlObj = new URL(url);
+		// Get the pathname without query params or fragments
+		const pathname = urlObj.pathname.toLowerCase();
+		// Check if it ends with .svg
+		return pathname.endsWith('.svg');
+	} catch {
+		// If URL parsing fails, fall back to simple check
+		return url.toLowerCase().endsWith('.svg');
 	}
 }
 
