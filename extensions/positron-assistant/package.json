@@ -335,13 +335,13 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.models.include": {
+          "positron.assistant.models.visible": {
             "type": "array",
             "default": [
               "claude",
               "gpt"
             ],
-            "markdownDescription": "%configuration.models.include.description%",
+            "markdownDescription": "%configuration.models.visible.description%",
             "items": {
               "type": "string"
             },
@@ -356,9 +356,24 @@
               [
                 "**/google/gemini*"
               ]
-            ],
-            "tags": [
-              "experimental"
+            ]
+          },
+          "positron.assistant.models.required": {
+            "type": "array",
+            "default": [],
+            "markdownDescription": "%configuration.models.required.description%",
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              [
+                "claude",
+                "gpt"
+              ],
+              [
+                "Claude Sonnet 4.5",
+                "GPT-4o"
+              ]
             ]
           },
           "positron.assistant.globalPreferredModel": {

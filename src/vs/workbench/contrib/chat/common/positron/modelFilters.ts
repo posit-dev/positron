@@ -99,16 +99,44 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the include patterns from workspace configuration
-	const includePatterns = configurationService.getValue<string[]>('positron.assistant.models.include') || [];
-	logService.trace(`[LM] ${vendor} Patterns from models.include config: ${includePatterns.join(', ')}`);
-	if (includePatterns.length === 0) {
-		return models;
+	// Stage 1: Apply strict filtering (models.required)
+	const requiredPatterns = configurationService.getValue<string[]>('positron.assistant.models.required') || [];
+	logService.trace(`[LM] ${vendor} Patterns from models.required config: ${requiredPatterns.join(', ')}`);
+
+	let filteredModels = models;
+	if (requiredPatterns.length > 0) {
+		// Strict filter: remove models that don't match
+		filteredModels = models.filter(model =>
+			requiredPatterns.some(pattern =>
+				matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
+			)
+		);
+
+		const removedCount = models.length - filteredModels.length;
+		if (removedCount > 0) {
+			logService.trace(`[LM] ${vendor} Removed ${removedCount} models not in models.required`);
+		}
+		if (filteredModels.length === 0) {
+			logService.warn(`[LM] ${vendor} No models match models.required patterns.`);
+			return filteredModels;
+		}
 	}
 
-	// Set models that don't match patterns as not user selectable
-	const filteredModels = models.map(model => {
-		const matches = includePatterns.some(pattern =>
+	// Stage 2: Apply soft filtering (models.visible)
+	const visiblePatterns = configurationService.getValue<string[]>('positron.assistant.models.visible') || [];
+	logService.trace(`[LM] ${vendor} Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
+
+	if (visiblePatterns.length === 0) {
+		// No visible filter, return as-is
+		if (requiredPatterns.length === 0) {
+			logService.trace(`[LM] ${vendor} No filters configured, returning all ${filteredModels.length} models`);
+		}
+		return filteredModels;
+	}
+
+	// Soft filter: mark non-matching models as not selectable
+	filteredModels = filteredModels.map(model => {
+		const matches = visiblePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
 		);
 

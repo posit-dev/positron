@@ -50,7 +50,8 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns(['openai']);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
+			mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['claude']);
 
 			const result = applyModelFilters(models, 'openai', 'OpenAI');
 
@@ -62,7 +63,8 @@ suite('Model Filters', () => {
 			const models = [createTestModel('test-model', 'Test Model')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
+			mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['claude']);
 
 			// Should return all models for test providers
 			const testResult = applyModelFilters(models, 'test-lm-vendor', 'Test LM Vendor');
@@ -79,7 +81,8 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
 
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
@@ -87,7 +90,7 @@ suite('Model Filters', () => {
 			assert.deepStrictEqual(result, models);
 		});
 
-		test('filters models using patterns', () => {
+		test('filters models using patterns with models.visible', () => {
 			const testCases = [
 				{
 					description: 'Versioned model matching',
@@ -109,54 +112,13 @@ suite('Model Filters', () => {
 					],
 					expectedIds: ['claude-opus-4-20250514', 'claude-sonnet-3.5'],
 					vendor: 'anthropic'
-				},
-				{
-					description: 'Date-based model versions',
-					pattern: '2025',
-					models: [
-						createTestModel('claude-opus-4-20250514', 'Claude Opus 4', 'claude'),
-						createTestModel('claude-sonnet-3.5', 'Claude 3.5 Sonnet', 'claude')
-					],
-					expectedIds: ['claude-opus-4-20250514'],
-					vendor: 'anthropic'
-				},
-				{
-					description: 'Model parameter size matching',
-					pattern: 'chat',
-					models: [
-						createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama'),
-						createTestModel('llama-2-13b-chat', 'Llama 2 13B Chat', 'llama'),
-						createTestModel('llama-3-8b-instruct', 'Llama 3 8B Instruct', 'llama')
-					],
-					expectedIds: ['llama-2-7b-chat', 'llama-2-13b-chat'],
-					vendor: 'meta'
-				},
-				{
-					description: 'Case insensitive matching',
-					pattern: 'CLAUDE',
-					models: [
-						createTestModel('claude-opus-4-20250514', 'Claude Opus 4', 'claude'),
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt')
-					],
-					expectedIds: ['claude-opus-4-20250514'],
-					vendor: 'anthropic'
-				},
-				{
-					description: 'Pro model variants matching',
-					pattern: 'pro',
-					models: [
-						createTestModel('gemini-pro', 'Gemini Pro', 'gemini'),
-						createTestModel('gemini-pro-vision', 'Gemini Pro Vision', 'gemini'),
-						createTestModel('claude-opus', 'Claude Opus', 'claude')
-					],
-					expectedIds: ['gemini-pro', 'gemini-pro-vision'],
-					vendor: 'google'
 				}
 			];
 
 			testCases.forEach(testCase => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
+				mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+				mockWorkspaceConfig.withArgs('models.visible', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 
@@ -164,7 +126,7 @@ suite('Model Filters', () => {
 				assert.strictEqual(
 					result.length,
 					testCase.models.length,
-					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
+					`${testCase.description}: Expected all models to be returned`
 				);
 
 				// Check that only expected models are selectable
@@ -172,106 +134,7 @@ suite('Model Filters', () => {
 				assert.strictEqual(
 					selectableIds.length,
 					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}. Selectable: ${selectableIds}, Expected: ${testCase.expectedIds}`
-				);
-
-				testCase.expectedIds.forEach(expectedId => {
-					const model = result.find(m => m.id === expectedId);
-					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
-					assert.ok(
-						isUserSelectable(model!),
-						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
-					);
-				});
-
-				// Check that non-matching models are not selectable
-				result.forEach(model => {
-					if (!testCase.expectedIds.includes(model.id)) {
-						assert.strictEqual(
-							isUserSelectable(model),
-							false,
-							`${testCase.description}: Expected model "${model.id}" to NOT be user-selectable`
-						);
-					}
-				});
-			});
-		});
-
-		test('filters models using wildcard patterns', () => {
-			const testCases = [
-				{
-					description: 'Explicit wildcard pattern',
-					pattern: '*claude*',
-					models: [
-						createTestModel('claude-opus-4-20250514', 'Claude Opus 4', 'claude'),
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt')
-					],
-					expectedIds: ['claude-opus-4-20250514'],
-					vendor: 'anthropic'
-				},
-				{
-					description: 'Prefix wildcard pattern',
-					pattern: 'gpt*',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-						createTestModel('gpt-4o-mini', 'GPT-4o Mini', 'gpt'),
-						createTestModel('claude-opus', 'Claude Opus', 'claude')
-					],
-					expectedIds: ['gpt-4o', 'gpt-4o-mini'],
-					vendor: 'openai'
-				},
-				{
-					description: 'Suffix wildcard pattern',
-					pattern: '*chat',
-					models: [
-						createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama'),
-						createTestModel('llama-3-8b-instruct', 'Llama 3 8B Instruct', 'llama')
-					],
-					expectedIds: ['llama-2-7b-chat'],
-					vendor: 'meta'
-				},
-				{
-					description: 'Multiple wildcards',
-					pattern: '*gpt*4*',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-						createTestModel('gpt-4o-mini', 'GPT-4o Mini', 'gpt'),
-						createTestModel('gpt-3.5-turbo', 'GPT-3.5 Turbo', 'gpt')
-					],
-					expectedIds: ['gpt-4o', 'gpt-4o-mini'],
-					vendor: 'openai'
-				},
-				{
-					description: 'Hierarchical wildcard pattern',
-					pattern: '**/gpt*',
-					models: [
-						createTestModel('openai/gpt-5', 'OpenAI GPT-5', 'gpt'),
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt')
-					],
-					expectedIds: ['openai/gpt-5'],
-					vendor: 'openai-compatible'
-				}
-			];
-
-			testCases.forEach(testCase => {
-				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
-
-				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-
-				// All models should be returned
-				assert.strictEqual(
-					result.length,
-					testCase.models.length,
-					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
-				);
-
-				// Check that only expected models are selectable
-				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-				assert.strictEqual(
-					selectableIds.length,
-					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
+					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models`
 				);
 
 				testCase.expectedIds.forEach(expectedId => {
@@ -285,276 +148,114 @@ suite('Model Filters', () => {
 			});
 		});
 
-		test('filters models using regex patterns', () => {
-			const testCases = [
-				{
-					description: 'Anchored pattern (start of string)',
-					pattern: '^gpt',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-						createTestModel('openai/gpt-5', 'OpenAI GPT-5', 'gpt'),
-						createTestModel('claude-gpt', 'Claude GPT', 'claude')
-					],
-					expectedIds: ['gpt-4o'],
-					vendor: 'openai'
-				},
-				{
-					description: 'Anchored pattern (end of string)',
-					pattern: 'chat$',
-					models: [
-						createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama'),
-						createTestModel('chat-gpt-4', 'Chat GPT-4', 'gpt'),
-						createTestModel('claude-chat-model', 'Claude Chat Model', 'claude')
-					],
-					expectedIds: ['llama-2-7b-chat'],
-					vendor: 'meta'
-				},
-				{
-					description: 'Alternation pattern',
-					pattern: '(gpt|claude)',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-						createTestModel('claude-opus', 'Claude Opus', 'claude'),
-						createTestModel('llama-2-7b', 'Llama 2 7B', 'llama')
-					],
-					expectedIds: ['gpt-4o', 'claude-opus'],
-					vendor: 'mixed'
-				},
-				{
-					description: 'Character class pattern',
-					pattern: 'gpt-[0-9]',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-						createTestModel('gpt-5', 'GPT-5', 'gpt'),
-						createTestModel('gpt-mini', 'GPT Mini', 'gpt')
-					],
-					expectedIds: ['gpt-4o', 'gpt-5'],
-					vendor: 'openai'
-				},
-				{
-					description: 'Quantifier pattern',
-					pattern: 'claude.*opus',
-					models: [
-						createTestModel('claude-opus-4', 'Claude Opus 4', 'claude'),
-						createTestModel('claude-3-opus', 'Claude 3 Opus', 'claude'),
-						createTestModel('claude-sonnet', 'Claude Sonnet', 'claude')
-					],
-					expectedIds: ['claude-opus-4', 'claude-3-opus'],
-					vendor: 'anthropic'
-				},
-				{
-					description: 'Invalid regex pattern (should not crash)',
-					pattern: '[invalid',
-					models: [
-						createTestModel('test-model', 'Test Model', 'test')
-					],
-					expectedIds: [],
-					vendor: 'test'
-				}
-			];
-
-			testCases.forEach(testCase => {
-				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
-
-				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-
-				// All models should be returned
-				assert.strictEqual(
-					result.length,
-					testCase.models.length,
-					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
-				);
-
-				// Check that only expected models are selectable
-				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-				assert.strictEqual(
-					selectableIds.length,
-					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
-				);
-
-				testCase.expectedIds.forEach(expectedId => {
-					const model = result.find(m => m.id === expectedId);
-					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
-					assert.ok(
-						isUserSelectable(model!),
-						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
-					);
-				});
-			});
-		});
-
-		test('handles edge cases and empty inputs', () => {
-			const testCases = [
-				{
-					description: 'Empty pattern matches all',
-					pattern: '',
-					models: [
-						createTestModel('gpt-4o', 'GPT-4o'),
-						createTestModel('claude-opus', 'Claude Opus')
-					],
-					expectedIds: ['gpt-4o', 'claude-opus'],
-					vendor: 'custom provider'
-				},
-				{
-					description: 'Whitespace-only pattern matches all',
-					pattern: '   ',
-					models: [createTestModel('test-model', 'Test Model')],
-					expectedIds: ['test-model'],
-					vendor: 'test provider'
-				},
-				{
-					description: 'Pattern with leading/trailing whitespace',
-					pattern: '  claude  ',
-					models: [
-						createTestModel('claude-opus-4-20250514', 'Claude Opus 4', 'claude'),
-						createTestModel('gpt-4o', 'GPT-4o', 'gpt')
-					],
-					expectedIds: ['claude-opus-4-20250514'],
-					vendor: 'anthropic'
-				},
-				{
-					description: 'Non-matching pattern',
-					pattern: 'nonexistent',
-					models: [createTestModel('gpt-4o', 'GPT-4o')],
-					expectedIds: [],
-					vendor: 'any'
-				}
-			];
-
-			testCases.forEach(testCase => {
-				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
-
-				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-
-				// All models should be returned
-				assert.strictEqual(
-					result.length,
-					testCase.models.length,
-					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
-				);
-
-				// Check that only expected models are selectable
-				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-				assert.strictEqual(
-					selectableIds.length,
-					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
-				);
-
-				testCase.expectedIds.forEach(expectedId => {
-					const model = result.find(m => m.id === expectedId);
-					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
-					assert.ok(
-						isUserSelectable(model!),
-						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
-					);
-				});
-			});
-		});
-
-		test('filters models based on multiple patterns', () => {
+		test('filters models using models.required (strict filtering)', () => {
 			const models = [
 				createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
 				createTestModel('gpt-4o-mini', 'GPT-4o Mini', 'gpt'),
-				createTestModel('claude-opus-4-20250514', 'Claude Opus 4', 'claude'),
+				createTestModel('claude-opus-4', 'Claude Opus 4', 'claude'),
 				createTestModel('claude-sonnet-3.5', 'Claude 3.5 Sonnet', 'claude'),
 				createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama')
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt', 'claude']);
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['gpt']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
 
 			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
-			// All models should be returned
-			assert.strictEqual(result.length, models.length);
+			// Only GPT models should be returned (strict filtering removes others)
+			assert.strictEqual(result.length, 2);
+			assert.ok(result.find(m => m.id === 'gpt-4o'));
+			assert.ok(result.find(m => m.id === 'gpt-4o-mini'));
+			assert.ok(!result.find(m => m.id === 'claude-opus-4'));
+			assert.ok(!result.find(m => m.id === 'llama-2-7b-chat'));
 
-			// Only GPT and Claude models should be selectable
+			// All returned models should be selectable (no soft filter)
 			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-			assert.strictEqual(selectableIds.length, 4);
-
-			// GPT models should be selectable
-			assert.ok(selectableIds.includes('gpt-4o'));
-			assert.ok(selectableIds.includes('gpt-4o-mini'));
-
-			// Claude models should be selectable
-			assert.ok(selectableIds.includes('claude-opus-4-20250514'));
-			assert.ok(selectableIds.includes('claude-sonnet-3.5'));
-
-			// Llama should not be selectable
-			const llamaModel = result.find(m => m.id === 'llama-2-7b-chat');
-			assert.ok(llamaModel);
-			assert.strictEqual(isUserSelectable(llamaModel!), false);
+			assert.strictEqual(selectableIds.length, 2);
 		});
 
-		test('filters models using wildcard patterns with multiple patterns', () => {
+		test('applies both models.required and models.visible together', () => {
 			const models = [
 				createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
-				createTestModel('openai/gpt-5', 'OpenAI GPT-5', 'gpt'),
-				createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama'),
-				createTestModel('llama-2-13b-chat', 'Llama 2 13B Chat', 'llama'),
-				createTestModel('claude-opus', 'Claude Opus', 'claude')
+				createTestModel('gpt-4o-mini', 'GPT-4o Mini', 'gpt'),
+				createTestModel('claude-opus-4', 'Claude Opus 4', 'claude'),
+				createTestModel('claude-sonnet-3.5', 'Claude 3.5 Sonnet', 'claude'),
+				createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama')
+			];
+
+			// models.required includes all but llama
+			// models.visible allows only models with "4" in the name
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['gpt', 'claude']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['4']);
+
+			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
+
+			// Only gpt and claude models returned (models.required)
+			assert.strictEqual(result.length, 4);
+			assert.ok(!result.find(m => m.id === 'llama-2-7b-chat'));
+
+			// Only models with "4" should be selectable (models.visible)
+			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(selectableIds.length, 2);
+			assert.ok(selectableIds.includes('gpt-4o'));
+			assert.ok(selectableIds.includes('claude-opus-4'));
+
+			// Models not matching visible pattern should not be selectable
+			const nonSelectable = result.filter(m => !isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(nonSelectable.length, 2);
+			assert.ok(nonSelectable.includes('gpt-4o-mini'));
+			assert.ok(nonSelectable.includes('claude-sonnet-3.5'));
+		});
+
+		test('models.required removes all non-matching models', () => {
+			const models = [
+				createTestModel('gpt-4o', 'GPT-4o'),
+				createTestModel('claude-opus', 'Claude Opus'),
+				createTestModel('llama-2', 'Llama 2')
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt', '*chat*']);
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['openai']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
 
-			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
+			const result = applyModelFilters(models, 'mixed', 'Mixed');
 
-			// All models should be returned
-			assert.strictEqual(result.length, models.length);
-
-			// GPT and chat models should be selectable
-			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-			assert.strictEqual(selectableIds.length, 4);
-
-			// GPT models should be selectable
-			assert.ok(selectableIds.includes('gpt-4o'));
-			assert.ok(selectableIds.includes('openai/gpt-5'));
-
-			// Chat models should be selectable
-			assert.ok(selectableIds.includes('llama-2-7b-chat'));
-			assert.ok(selectableIds.includes('llama-2-13b-chat'));
-
-			// Claude should not be selectable (doesn't match either pattern)
-			const claudeModel = result.find(m => m.id === 'claude-opus');
-			assert.ok(claudeModel);
-			assert.strictEqual(isUserSelectable(claudeModel!), false);
-		});
-
-		test('returns empty array when no models match filters', () => {
-			const models = [createTestModel('gpt-4o', 'GPT-4o')];
-
-			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['nonexistent']);
-
-			const result = applyModelFilters(models, 'some-vendor', 'Some Vendor');
-
-			// All models should be returned
-			assert.strictEqual(result.length, models.length);
-
-			// No models should be selectable
-			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-			assert.strictEqual(selectableIds.length, 0);
-		});
-
-		test('handles empty model list', () => {
-			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
-
-			const result = applyModelFilters([], 'anthropic', 'Anthropic');
-
+			// No models match "openai" pattern, so result should be empty
 			assert.strictEqual(result.length, 0);
+		});
+
+		test('models.visible only applies when models.required is not configured', () => {
+			const models = [
+				createTestModel('gpt-4o', 'GPT-4o'),
+				createTestModel('gpt-4o-mini', 'GPT-4o Mini'),
+				createTestModel('claude-opus', 'Claude Opus')
+			];
+
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['gpt']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['claude']);
+
+			const result = applyModelFilters(models, 'mixed', 'Mixed');
+
+			// Only gpt models returned, Claude is removed entirely (not just non-selectable)
+			assert.strictEqual(result.length, 2);
+			assert.ok(result.find(m => m.id === 'gpt-4o'));
+			assert.ok(result.find(m => m.id === 'gpt-4o-mini'));
+			assert.ok(!result.find(m => m.id === 'claude-opus'));
+
+			// Both returned models should be selectable
+			const selectableCount = result.filter(m => isUserSelectable(m)).length;
+			assert.strictEqual(selectableCount, 2);
 		});
 
 		test('matches models by name when id does not match', () => {
 			const models = [createTestModel('model-id-without-filter-string', 'Claude Opus 4')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['Opus']);
+			mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['Opus']);
 
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
@@ -565,46 +266,54 @@ suite('Model Filters', () => {
 			assert.strictEqual(result[0].id, 'model-id-without-filter-string');
 		});
 
-		test('matches models across both id and name fields', () => {
+		test('handles empty model list', () => {
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.required', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns(['claude']);
+
+			const result = applyModelFilters([], 'anthropic', 'Anthropic');
+
+			assert.strictEqual(result.length, 0);
+		});
+
+		test('handles wildcard patterns in models.required', () => {
 			const models = [
-				createTestModel('gemini-pro', 'Gemini Pro', 'gemini'),
-				createTestModel('gemini-pro-vision', 'Gemini Pro Vision', 'gemini'),
-				createTestModel('claude-opus', 'Claude Opus', 'claude')
+				createTestModel('gpt-4o', 'GPT-4o'),
+				createTestModel('gpt-4o-mini', 'GPT-4o Mini'),
+				createTestModel('gpt-3.5-turbo', 'GPT-3.5 Turbo'),
+				createTestModel('claude-opus', 'Claude Opus')
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['Pro']); // Should match "Gemini Pro" and "Gemini Pro Vision" in name
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['gpt-4*']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
 
-			const result = applyModelFilters(models, 'google', 'Google');
+			const result = applyModelFilters(models, 'mixed', 'Mixed');
 
-			// All models should be returned
-			assert.strictEqual(result.length, models.length);
-
-			// Only Gemini Pro models should be selectable
-			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
-			assert.strictEqual(selectableIds.length, 2);
-			assert.ok(selectableIds.includes('gemini-pro'));
-			assert.ok(selectableIds.includes('gemini-pro-vision'));
-
-			// Claude should not be selectable
-			const claudeModel = result.find(m => m.id === 'claude-opus');
-			assert.ok(claudeModel);
-			assert.strictEqual(isUserSelectable(claudeModel!), false);
+			// Only gpt-4 models should be returned
+			assert.strictEqual(result.length, 2);
+			assert.ok(result.find(m => m.id === 'gpt-4o'));
+			assert.ok(result.find(m => m.id === 'gpt-4o-mini'));
 		});
 
-		test('handles special characters in model names and patterns', () => {
-			const models = [createTestModel('model-v2.1', 'Model Version 2.1')];
+		test('handles regex patterns in models.required', () => {
+			const models = [
+				createTestModel('claude-opus-4', 'Claude Opus 4'),
+				createTestModel('claude-3-opus', 'Claude 3 Opus'),
+				createTestModel('claude-sonnet', 'Claude Sonnet')
+			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('models.include', []).returns(['v2.1']); // Pattern with dot
+			mockWorkspaceConfig.withArgs('models.required', []).returns(['^claude.*opus']);
+			mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
 
-			const result = applyModelFilters(models, 'provider', 'Provider');
+			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
-			// Model should be returned
-			assert.strictEqual(result.length, 1);
-			// Model should be selectable (matches the pattern)
-			assert.ok(isUserSelectable(result[0]));
-			assert.strictEqual(result[0].id, 'model-v2.1');
+			// Only models matching the regex should be returned
+			assert.strictEqual(result.length, 2);
+			assert.ok(result.find(m => m.id === 'claude-opus-4'));
+			assert.ok(result.find(m => m.id === 'claude-3-opus'));
+			assert.ok(!result.find(m => m.id === 'claude-sonnet'));
 		});
 	});
 });

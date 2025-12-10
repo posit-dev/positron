@@ -73,6 +73,14 @@ function regexMatch(pattern: string, text: string): boolean {
 
 /**
  * Apply user-defined model filters to a list of models
+ * Filters are applied in two stages:
+ * 1. models.required (strict): Removes non-matching models entirely
+ * 2. models.visible (soft): Marks non-matching models as not user-selectable
+ *
+ * When models.required is configured, only those models are returned, with models.visible
+ * determining which are user-selectable. When only models.visible is configured,
+ * all models are returned but non-matching ones are marked as not user-selectable.
+ *
  * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts with adaptations.
  * Please keep in sync!
  */
@@ -103,16 +111,41 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the include patterns from workspace configuration, fall back to legacy setting if needed
-	const includePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.include', []) ?? vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels');
-	log.debug(`[${providerName}] Patterns from models.include config: ${includePatterns.join(', ')}`);
-	if (includePatterns.length === 0) {
-		return models;
+	// Stage 1: Apply strict filtering (models.required)
+	const requiredPatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.required', []);
+	log.debug(`[${providerName}] Patterns from models.required config: ${requiredPatterns.join(', ')}`);
+
+	let filteredModels = models;
+	if (requiredPatterns.length > 0) {
+		filteredModels = models.filter(model =>
+			requiredPatterns.some(pattern =>
+				matchesModelFilter(pattern, model.id, model.name)
+			)
+		);
+
+		const removedCount = models.length - filteredModels.length;
+		if (removedCount > 0) {
+			log.debug(`[${providerName}] Removed ${removedCount} models not in models.required`);
+		}
+		if (filteredModels.length === 0) {
+			log.warn(`[${providerName}] No models match models.required patterns.`);
+			return filteredModels;
+		}
 	}
 
-	// Set models that don't match patterns as not user selectable
-	const filteredModels = models.map(model => {
-		const matches = includePatterns.some(pattern =>
+	// Stage 2: Apply soft filtering (models.visible)
+	const visiblePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.visible', []);
+	log.debug(`[${providerName}] Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
+
+	if (visiblePatterns.length === 0) {
+		if (requiredPatterns.length === 0) {
+			log.debug(`[${providerName}] No filters configured, returning all ${filteredModels.length} models`);
+		}
+		return filteredModels;
+	}
+
+	filteredModels = filteredModels.map(model => {
+		const matches = visiblePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.id, model.name)
 		);
 
