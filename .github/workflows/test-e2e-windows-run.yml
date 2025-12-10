@@ -129,9 +129,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Cache npm dependencies
+      - name: Restore npm dependencies cache
         id: cache-node-modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~\AppData\Roaming\npm-cache
@@ -206,6 +206,19 @@ jobs:
           fi
 
           echo "All npm ci commands completed successfully"
+
+      - name: Save npm dependencies cache
+        if: ${{ matrix.shard == 2 && steps.cache-node-modules.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~\AppData\Roaming\npm-cache
+            node_modules
+            build/node_modules
+            extensions/*/node_modules
+            remote/node_modules
+            test/e2e/node_modules
+          key: ${{ runner.os }}-npm-v2-${{ hashFiles('**/package-lock.json') }}
 
       - name: Cache Ark binary
         uses: actions/cache@v4
@@ -345,9 +358,6 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Send Results to GH Summary
-        uses: ./.github/actions/gen-report-dir
-
       - name: Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
         id: extensions
@@ -404,6 +414,7 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
