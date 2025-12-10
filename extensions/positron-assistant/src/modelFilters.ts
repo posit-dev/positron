@@ -110,19 +110,32 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Filter models based on patterns
-	const filteredModels = models.filter(model =>
-		includePatterns.some(pattern =>
+	// Set models that don't match patterns as not user selectable
+	const filteredModels = models.map(model => {
+		const matches = includePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.id, model.name)
-		)
-	);
+		);
 
-	if (filteredModels.length === 0) {
-		log.warn(`[${providerName}] No models remain after applying user settings.`);
-	} else if (filteredModels.length === 1) {
-		log.debug(`[${providerName}] 1 model after applying user settings: ${filteredModels[0].id}`);
+		if (!matches) {
+			// Clone the model info and set isUserSelectable to false
+			return {
+				...model,
+				isUserSelectable: false
+			};
+		}
+
+		return model;
+	});
+
+	const userSelectableCount = filteredModels.filter(m => m.isUserSelectable !== false).length;
+	const nonSelectableCount = filteredModels.length - userSelectableCount;
+
+	if (userSelectableCount === 0) {
+		log.warn(`[${providerName}] No user-selectable models remain after applying user settings.`);
+	} else if (userSelectableCount === 1) {
+		log.debug(`[${providerName}] 1 user-selectable model after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.isUserSelectable !== false)?.id}`);
 	} else {
-		log.debug(`[${providerName}] ${filteredModels.length} models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+		log.debug(`[${providerName}] ${userSelectableCount} user-selectable models after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.isUserSelectable !== false).map(m => m.id).join(', ')}`);
 	}
 
 	return filteredModels;

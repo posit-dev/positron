@@ -14,9 +14,10 @@ suite('Model Filters', () => {
 	setup(() => {
 		// Mock vscode.workspace.getConfiguration
 		mockWorkspaceConfig = sinon.stub();
-		sinon.stub(vscode.workspace, 'getConfiguration').returns({
+		const mockConfig: Pick<vscode.WorkspaceConfiguration, 'get'> = {
 			get: mockWorkspaceConfig
-		} as any);
+		};
+		sinon.stub(vscode.workspace, 'getConfiguration').returns(mockConfig as vscode.WorkspaceConfiguration);
 	});
 
 	teardown(() => {
@@ -35,6 +36,11 @@ suite('Model Filters', () => {
 				maxOutputTokens: 4096,
 				capabilities: {}
 			};
+		}
+
+		// Helper to check if a model is user selectable
+		function isUserSelectable(model: vscode.LanguageModelChatInformation): boolean {
+			return model.isUserSelectable !== false;
 		}
 
 		test('returns all models when vendor is in unfiltered providers', () => {
@@ -153,19 +159,40 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-				const resultIds = result.map(m => m.id);
 
+				// All models should be returned
 				assert.strictEqual(
 					result.length,
+					testCase.models.length,
+					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
+				);
+
+				// Check that only expected models are selectable
+				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+				assert.strictEqual(
+					selectableIds.length,
 					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} models, got ${result.length}. Expected: ${testCase.expectedIds}, Got: ${resultIds}`
+					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}. Selectable: ${selectableIds}, Expected: ${testCase.expectedIds}`
 				);
 
 				testCase.expectedIds.forEach(expectedId => {
+					const model = result.find(m => m.id === expectedId);
+					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
 					assert.ok(
-						resultIds.includes(expectedId),
-						`${testCase.description}: Expected model "${expectedId}" to be included in results`
+						isUserSelectable(model!),
+						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
 					);
+				});
+
+				// Check that non-matching models are not selectable
+				result.forEach(model => {
+					if (!testCase.expectedIds.includes(model.id)) {
+						assert.strictEqual(
+							isUserSelectable(model),
+							false,
+							`${testCase.description}: Expected model "${model.id}" to NOT be user-selectable`
+						);
+					}
 				});
 			});
 		});
@@ -231,18 +258,28 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-				const resultIds = result.map(m => m.id);
 
+				// All models should be returned
 				assert.strictEqual(
 					result.length,
+					testCase.models.length,
+					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
+				);
+
+				// Check that only expected models are selectable
+				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+				assert.strictEqual(
+					selectableIds.length,
 					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} models, got ${result.length}. Expected: ${testCase.expectedIds}, Got: ${resultIds}`
+					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
 				);
 
 				testCase.expectedIds.forEach(expectedId => {
+					const model = result.find(m => m.id === expectedId);
+					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
 					assert.ok(
-						resultIds.includes(expectedId),
-						`${testCase.description}: Expected model "${expectedId}" to be included in results`
+						isUserSelectable(model!),
+						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
 					);
 				});
 			});
@@ -321,18 +358,28 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
-				const resultIds = result.map(m => m.id);
 
+				// All models should be returned
 				assert.strictEqual(
 					result.length,
+					testCase.models.length,
+					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
+				);
+
+				// Check that only expected models are selectable
+				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+				assert.strictEqual(
+					selectableIds.length,
 					testCase.expectedIds.length,
-					`${testCase.description}: Expected ${testCase.expectedIds.length} models, got ${result.length}. Expected: ${testCase.expectedIds}, Got: ${resultIds}`
+					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
 				);
 
 				testCase.expectedIds.forEach(expectedId => {
+					const model = result.find(m => m.id === expectedId);
+					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
 					assert.ok(
-						resultIds.includes(expectedId),
-						`${testCase.description}: Expected model "${expectedId}" to be included in results`
+						isUserSelectable(model!),
+						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
 					);
 				});
 			});
@@ -347,14 +394,14 @@ suite('Model Filters', () => {
 						createTestModel('gpt-4o', 'GPT-4o'),
 						createTestModel('claude-opus', 'Claude Opus')
 					],
-					expectedCount: 2,
+					expectedIds: ['gpt-4o', 'claude-opus'],
 					vendor: 'custom provider'
 				},
 				{
 					description: 'Whitespace-only pattern matches all',
 					pattern: '   ',
 					models: [createTestModel('test-model', 'Test Model')],
-					expectedCount: 1,
+					expectedIds: ['test-model'],
 					vendor: 'test provider'
 				},
 				{
@@ -371,7 +418,7 @@ suite('Model Filters', () => {
 					description: 'Non-matching pattern',
 					pattern: 'nonexistent',
 					models: [createTestModel('gpt-4o', 'GPT-4o')],
-					expectedCount: 0,
+					expectedIds: [],
 					vendor: 'any'
 				}
 			];
@@ -382,27 +429,29 @@ suite('Model Filters', () => {
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 
-				if ('expectedCount' in testCase) {
-					assert.strictEqual(
-						result.length,
-						testCase.expectedCount,
-						`${testCase.description}: Expected ${testCase.expectedCount} models, got ${result.length}`
-					);
-				} else if ('expectedIds' in testCase) {
-					assert.strictEqual(
-						result.length,
-						testCase.expectedIds.length,
-						`${testCase.description}: Expected ${testCase.expectedIds.length} models, got ${result.length}`
-					);
+				// All models should be returned
+				assert.strictEqual(
+					result.length,
+					testCase.models.length,
+					`${testCase.description}: Expected all models to be returned, got ${result.length} of ${testCase.models.length}`
+				);
 
-					const resultIds = result.map(m => m.id);
-					testCase.expectedIds.forEach(expectedId => {
-						assert.ok(
-							resultIds.includes(expectedId),
-							`${testCase.description}: Expected model "${expectedId}" to be included in results`
-						);
-					});
-				}
+				// Check that only expected models are selectable
+				const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+				assert.strictEqual(
+					selectableIds.length,
+					testCase.expectedIds.length,
+					`${testCase.description}: Expected ${testCase.expectedIds.length} selectable models, got ${selectableIds.length}`
+				);
+
+				testCase.expectedIds.forEach(expectedId => {
+					const model = result.find(m => m.id === expectedId);
+					assert.ok(model, `${testCase.description}: Expected model "${expectedId}" to exist`);
+					assert.ok(
+						isUserSelectable(model!),
+						`${testCase.description}: Expected model "${expectedId}" to be user-selectable`
+					);
+				});
 			});
 		});
 
@@ -420,19 +469,25 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
-			assert.strictEqual(result.length, 4); // All GPT and Claude models
-			const resultIds = result.map(m => m.id);
+			// All models should be returned
+			assert.strictEqual(result.length, models.length);
 
-			// GPT models
-			assert.ok(resultIds.includes('gpt-4o'));
-			assert.ok(resultIds.includes('gpt-4o-mini'));
+			// Only GPT and Claude models should be selectable
+			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(selectableIds.length, 4);
 
-			// Claude models
-			assert.ok(resultIds.includes('claude-opus-4-20250514'));
-			assert.ok(resultIds.includes('claude-sonnet-3.5'));
+			// GPT models should be selectable
+			assert.ok(selectableIds.includes('gpt-4o'));
+			assert.ok(selectableIds.includes('gpt-4o-mini'));
 
-			// Should not include Llama
-			assert.ok(!resultIds.includes('llama-2-7b-chat'));
+			// Claude models should be selectable
+			assert.ok(selectableIds.includes('claude-opus-4-20250514'));
+			assert.ok(selectableIds.includes('claude-sonnet-3.5'));
+
+			// Llama should not be selectable
+			const llamaModel = result.find(m => m.id === 'llama-2-7b-chat');
+			assert.ok(llamaModel);
+			assert.strictEqual(isUserSelectable(llamaModel!), false);
 		});
 
 		test('filters models using wildcard patterns with multiple patterns', () => {
@@ -449,19 +504,25 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
-			assert.strictEqual(result.length, 4); // All GPT models + chat models
-			const resultIds = result.map(m => m.id);
+			// All models should be returned
+			assert.strictEqual(result.length, models.length);
 
-			// GPT models
-			assert.ok(resultIds.includes('gpt-4o'));
-			assert.ok(resultIds.includes('openai/gpt-5'));
+			// GPT and chat models should be selectable
+			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(selectableIds.length, 4);
 
-			// Chat models
-			assert.ok(resultIds.includes('llama-2-7b-chat'));
-			assert.ok(resultIds.includes('llama-2-13b-chat'));
+			// GPT models should be selectable
+			assert.ok(selectableIds.includes('gpt-4o'));
+			assert.ok(selectableIds.includes('openai/gpt-5'));
 
-			// Should not include Claude (doesn't match either pattern)
-			assert.ok(!resultIds.includes('claude-opus'));
+			// Chat models should be selectable
+			assert.ok(selectableIds.includes('llama-2-7b-chat'));
+			assert.ok(selectableIds.includes('llama-2-13b-chat'));
+
+			// Claude should not be selectable (doesn't match either pattern)
+			const claudeModel = result.find(m => m.id === 'claude-opus');
+			assert.ok(claudeModel);
+			assert.strictEqual(isUserSelectable(claudeModel!), false);
 		});
 
 		test('returns empty array when no models match filters', () => {
@@ -472,7 +533,12 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'some-vendor', 'Some Vendor');
 
-			assert.strictEqual(result.length, 0);
+			// All models should be returned
+			assert.strictEqual(result.length, models.length);
+
+			// No models should be selectable
+			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(selectableIds.length, 0);
 		});
 
 		test('handles empty model list', () => {
@@ -492,7 +558,10 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
+			// Model should be returned
 			assert.strictEqual(result.length, 1);
+			// Model should be selectable (matches by name)
+			assert.ok(isUserSelectable(result[0]));
 			assert.strictEqual(result[0].id, 'model-id-without-filter-string');
 		});
 
@@ -508,10 +577,19 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'google', 'Google');
 
-			assert.strictEqual(result.length, 2);
-			const resultIds = result.map(m => m.id);
-			assert.ok(resultIds.includes('gemini-pro'));
-			assert.ok(resultIds.includes('gemini-pro-vision'));
+			// All models should be returned
+			assert.strictEqual(result.length, models.length);
+
+			// Only Gemini Pro models should be selectable
+			const selectableIds = result.filter(m => isUserSelectable(m)).map(m => m.id);
+			assert.strictEqual(selectableIds.length, 2);
+			assert.ok(selectableIds.includes('gemini-pro'));
+			assert.ok(selectableIds.includes('gemini-pro-vision'));
+
+			// Claude should not be selectable
+			const claudeModel = result.find(m => m.id === 'claude-opus');
+			assert.ok(claudeModel);
+			assert.strictEqual(isUserSelectable(claudeModel!), false);
 		});
 
 		test('handles special characters in model names and patterns', () => {
@@ -522,7 +600,10 @@ suite('Model Filters', () => {
 
 			const result = applyModelFilters(models, 'provider', 'Provider');
 
+			// Model should be returned
 			assert.strictEqual(result.length, 1);
+			// Model should be selectable (matches the pattern)
+			assert.ok(isUserSelectable(result[0]));
 			assert.strictEqual(result[0].id, 'model-v2.1');
 		});
 	});

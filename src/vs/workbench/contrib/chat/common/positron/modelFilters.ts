@@ -106,13 +106,36 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Filter models based on patterns
-	const filteredModels = models.filter(model =>
-		includePatterns.some(pattern =>
+	// Set models that don't match patterns as not user selectable
+	const filteredModels = models.map(model => {
+		const matches = includePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
-		)
-	);
+		);
 
-	logService.trace(`[LM] ${vendor} ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.metadata.id).join(', ')}`);
+		if (!matches) {
+			// Clone the model info and set isUserSelectable to false
+			return {
+				...model,
+				metadata: {
+					...model.metadata,
+					isUserSelectable: false
+				}
+			};
+		}
+
+		return model;
+	});
+
+	const userSelectableCount = filteredModels.filter(m => m.metadata.isUserSelectable !== false).length;
+	const nonSelectableCount = filteredModels.length - userSelectableCount;
+
+	if (userSelectableCount === 0) {
+		logService.warn(`[LM] ${vendor} No user-selectable models remain after applying user settings.`);
+	} else if (userSelectableCount === 1) {
+		logService.trace(`[LM] ${vendor} 1 user-selectable model after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.metadata.isUserSelectable !== false)?.metadata.id}`);
+	} else {
+		logService.trace(`[LM] ${vendor} ${userSelectableCount} user-selectable models after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.metadata.isUserSelectable !== false).map(m => m.metadata.id).join(', ')}`);
+	}
+
 	return filteredModels;
 }
