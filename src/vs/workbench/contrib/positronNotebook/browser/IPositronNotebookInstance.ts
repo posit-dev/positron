@@ -16,6 +16,7 @@ import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runti
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
+import { CellEditorPosition } from '../common/editor/position.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -344,6 +345,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param language The language to get the options for.
 	 */
 	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+
+	/**
+	 * Gets the cursor position within the active cell editor.
+	 */
+	getActiveEditorPosition(): CellEditorPosition | undefined;
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
 
