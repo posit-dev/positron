@@ -31,13 +31,19 @@ export class CurrentPositronCellMatch {
 	) { }
 }
 
-/** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
 	private _findInstance: PositronFindInstance | undefined;
-	// TODO: Note ordering
+
+	/**
+	 * Ordered list of all matches across all notebook cells.
+	 */
 	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
+
+	/**
+	 * The current match and its index in the matches array.
+	 */
 	private readonly _currentMatch = observableValue<CurrentPositronCellMatch | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
 
 	constructor(
@@ -58,7 +64,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
-			// TODO: How to handle this state? Wait until container and scoped context key service are available?
 			if (!this._notebook.container) {
 				throw new Error('Notebook container not available for Find Widget rendering');
 			}
@@ -120,7 +125,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const matchCase = findInstance.matchCase.read(reader);
 				const wholeWord = findInstance.wholeWord.read(reader);
 
-				console.info('PositronNotebookFindController: Starting research with', { searchString, isRegex, matchCase, wholeWord });
+				// Perform search
 				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
 
 				// Set the match index to the first match after the cursor
@@ -155,13 +160,10 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	/**
-	 * Closes the find widget.
-	 * This is called by actions.
+	 * Hides the find widget.
 	 */
-	public closeWidget(): void {
-		if (this._findInstance) {
-			this._findInstance.hide();
-		}
+	public hide(): void {
+		this._findInstance?.hide();
 	}
 
 	/**
@@ -209,17 +211,15 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private findNextMatchFromCursor(): number {
 		const cellMatches = this._matches.get();
 
-		// No matches
 		if (cellMatches.length === 0) {
-			// TODO: What if there's a current match?...
+			// No matches
 			return -1;
 		}
 
 		const currentMatch = this._currentMatch.get();
 
-		// Current match known
 		if (currentMatch !== undefined) {
-			// Go to the next match, wrapping around if needed
+			// Current match known. Go to the next match, wrapping if needed
 			const nextIndex = currentMatch.matchIndex + 1;
 			return nextIndex < cellMatches.length ? nextIndex : 0;
 		}
@@ -227,38 +227,31 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// If we don't have a current match yet, find first match after cursor
 		const cursorPosition = this._notebook.getActiveEditorPosition();
 		if (!cursorPosition) {
-			// TODO: When does this happen? Should we jump to the next cell?
+			// No cursor
 			return -1;
 		}
 
 		// Find the first match after the cursor
-		const matchIndex = cellMatches.findIndex(({ cellRange }) =>
+		const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
 			cellRange.containsPosition(cursorPosition) ||
 			cursorPosition.isBefore(cellRange.getStartPosition())
 		);
 
-		// TODO: How to handle this?
-		if (matchIndex === -1) {
-			return -1;
-		}
-
-		return matchIndex;
+		return nextMatchIndex;
 	}
 
 	private findPreviousMatchFromCursor(): number {
 		const cellMatches = this._matches.get();
 
-		// No matches
 		if (cellMatches.length === 0) {
-			// TODO: What if there's a current match?...
+			// No matches
 			return -1;
 		}
 
 		const currentMatch = this._currentMatch.get();
 
-		// Current match known
 		if (currentMatch !== undefined) {
-			// Go to the previous match, wrapping around if needed
+			// Current match known. Go to the previous match, wrapping if needed
 			const prevIndex = currentMatch.matchIndex - 1;
 			return prevIndex >= 0 ? prevIndex : cellMatches.length - 1;
 		}
@@ -266,22 +259,16 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// If we don't have a current match yet, find last match before cursor
 		const cursorPosition = this._notebook.getActiveEditorPosition();
 		if (!cursorPosition) {
-			// TODO: When does this happen? Should we jump to the next cell?
+			// No cursor
 			return -1;
 		}
 
 		// Find the last match before the cursor
-		const matchIndex = cellMatches.findLastIndex(({ cellRange }) =>
+		const prevMatchIndex = cellMatches.findLastIndex(({ cellRange }) =>
 			cellRange.containsPosition(cursorPosition) ||
 			cellRange.getEndPosition().isBefore(cursorPosition)
 		);
-
-		// TODO: How to handle this?
-		if (matchIndex === -1) {
-			return -1;
-		}
-
-		return matchIndex;
+		return prevMatchIndex;
 	}
 
 	private navigateToMatch(matchIndex: number): void {

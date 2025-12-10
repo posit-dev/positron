@@ -70,7 +70,7 @@ registerAction2(class extends PositronNotebookFindAction {
 	}
 
 	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
-		controller.closeWidget();
+		controller.hide();
 	}
 });
 
