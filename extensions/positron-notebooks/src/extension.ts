@@ -11,7 +11,7 @@ import * as http from 'http';
 
 // Make sure this matches the error message type defined where used
 // (src/vs/workbench/contrib/positronNotebook/browser/notebookCells/DeferredImage.tsx)
-type CoversionErrorMsg = {
+type ConversionErrorMsg = {
 	status: 'error';
 	message: string;
 };
@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.convertImageToBase64',
-			async (imageSrc: string, baseLoc: string) => new Promise<string | CoversionErrorMsg>((resolve) => {
+			async (imageSrc: string, baseLoc: string) => new Promise<string | ConversionErrorMsg>((resolve) => {
 				const fullImagePath = path.join(baseLoc, imageSrc);
 				const fileExtension = path.extname(imageSrc).slice(1);
 				const mimeType = mimeTypeMap[fileExtension.toLowerCase()];
@@ -73,12 +73,12 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.fetchRemoteImage',
-			async (imageUrl: string): Promise<string | CoversionErrorMsg> => {
+			async (imageUrl: string): Promise<string | ConversionErrorMsg> => {
 				try {
 					// Determine protocol
 					const protocol = imageUrl.startsWith('https:') ? https : http;
 
-					return new Promise<string | CoversionErrorMsg>((resolve) => {
+					return new Promise<string | ConversionErrorMsg>((resolve) => {
 						protocol.get(imageUrl, (response) => {
 							// Check for successful response
 							if (response.statusCode !== 200) {

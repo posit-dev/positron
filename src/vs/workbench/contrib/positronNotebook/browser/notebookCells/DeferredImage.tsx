@@ -22,17 +22,17 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
  * This should match the error message defined in the command definition
  * (extensions/positron-notebooks/src/extension.ts)
  */
-type CoversionErrorMsg = {
+type ConversionErrorMsg = {
 	status: 'error';
 	message: string;
 };
 
 /**
  * Predicate function to allow us to be safe with our response processing from command.
- * @param x: Variable of unknown type to check if it is a `CoversionErrorMsg`.
- * @returns Whether the object is a `CoversionErrorMsg`.
+ * @param x: Variable of unknown type to check if it is a `ConversionErrorMsg`.
+ * @returns Whether the object is a `ConversionErrorMsg`.
  */
-function isConversionErrorMsg(x: unknown): x is CoversionErrorMsg {
+function isConversionErrorMsg(x: unknown): x is ConversionErrorMsg {
 	return x !== null && typeof x === 'object' && 'status' in x && x.status === 'error' && 'message' in x;
 }
 
@@ -51,7 +51,7 @@ const ERROR_TIMEOUT_MS = 1000;
 
 /**
  * Special image component that defers loading of the image while it converts it to a data-url using
- * the `positronNotebookHelpers.convertImageToBase64` command.
+ * using a command from the `positronNotebookHelpers` extension.
  * @param props: Props for `img` element.
  * @returns Image tag that shows the image once it is loaded.
  */
