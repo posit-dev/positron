@@ -27,6 +27,102 @@ interface ProjectTreeInput {
 	directoriesOnly?: boolean;
 }
 
+export async function buildProjectTree(options: vscode.LanguageModelToolInvocationOptions<ProjectTreeInput>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult> {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	if (!workspaceFolders || workspaceFolders.length === 0) {
+		throw new Error(`Can't construct project tree because no workspace folders are open. Open a workspace folder before using this tool.`);
+	}
+
+	log.debug(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree for ${workspaceFolders.length} workspace folders...`);
+
+	const { include, exclude, skipDefaultExcludes, maxItems, directoriesOnly } = options.input;
+
+	log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
+
+	if (!include || include.length === 0) {
+		throw new Error(`The 'include' parameter is required. Specify glob patterns to target specific files (e.g., ["src/**/*.py"], ["*.ts", "tests/**"]).`);
+	}
+
+	const globPatterns = include;
+	const excludePatterns = exclude ?? [];
+	const skipExcludes = skipDefaultExcludes ?? false;
+	const itemsLimit = maxItems && maxItems < DEFAULT_MAX_ITEMS
+		? maxItems
+		: DEFAULT_MAX_ITEMS;
+
+	log.trace(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree with options: ${JSON.stringify({
+		include: globPatterns,
+		exclude: excludePatterns,
+		skipDefaultExcludes: skipExcludes,
+		maxItems: itemsLimit,
+		directoriesOnly: directoriesOnly ?? false,
+	}, null, 2)}`);
+
+	// Construct the project tree
+	const workspaceTrees = await searchWorkspace(
+		workspaceFolders,
+		globPatterns,
+		excludePatterns,
+		directoriesOnly ?? false,
+		skipExcludes,
+		undefined, // no maxResults limit for main construction
+		token
+	);
+
+	const totalItems = workspaceTrees.reduce((sum, obj) => sum + obj.totalItems, 0);
+
+	// If we applied default exclusions and results are very sparse, check if there are any excluded results.
+	const hasExcludedResults = !skipExcludes
+		? await checkIfExclusionsImpactedResults(
+			workspaceFolders,
+			globPatterns,
+			excludePatterns,
+			directoriesOnly ?? false,
+			totalItems,
+			itemsLimit,
+			token
+		)
+		: false;
+
+	log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folders.`);
+	if (totalItems > itemsLimit) {
+		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree exceeds the limit of ${itemsLimit} items. A summary will be returned for each workspace folder.`);
+	}
+
+	// Return a compressed description of the project tree if there are too many items
+	const itemLimit = Math.floor(itemsLimit / workspaceTrees.length);
+	const resultParts: vscode.LanguageModelTextPart[] = [];
+
+	for (const obj of workspaceTrees) {
+		const items = obj.items
+			.sort((a, b) => a.length - b.length) // Shortest paths first
+			.slice(0, itemLimit) // Remove deepest paths to fit within the limit
+			.sort((a, b) => a.localeCompare(b)); // Resort alphabetically
+
+		// For multi-root workspaces, include the workspace folder name as a header
+		if (workspaceTrees.length > 1) {
+			resultParts.push(new vscode.LanguageModelTextPart(`## ${obj.folder.name}\n${items.join('\n')}`));
+		} else {
+			resultParts.push(new vscode.LanguageModelTextPart(items.join('\n')));
+		}
+	}
+
+	if (totalItems > itemsLimit) {
+		const truncatedCount = Math.min(itemsLimit, totalItems);
+		const workspaceFolderNames = workspaceFolders.map(folder => folder.name).join(', ');
+		const truncationMessage = `Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folder${workspaceFolders.length > 1 ? 's' : ''} (${workspaceFolderNames}); the first ${truncatedCount} are provided above.`;
+		resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
+	}
+
+	if (hasExcludedResults) {
+		const exclusionMessage = 'Results were excluded. Set `skipDefaultExcludes` to `true` to include them.';
+		log.debug(`[${PositronAssistantToolName.ProjectTree}] ${exclusionMessage}`);
+		resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
+	}
+
+	return new vscode.LanguageModelToolResult(resultParts);
+}
+
 export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(PositronAssistantToolName.ProjectTree, {
 	prepareInvocation: async (_options, _token) => {
 		return {
@@ -43,99 +139,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 	 * @returns A vscode.LanguageModelToolResult containing the project tree.
 	 */
 	invoke: async (options, token) => {
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-		if (!workspaceFolders || workspaceFolders.length === 0) {
-			throw new Error(`Can't construct project tree because no workspace folders are open. Open a workspace folder before using this tool.`);
-		}
-
-		log.debug(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree for ${workspaceFolders.length} workspace folders...`);
-
-		const { include, exclude, skipDefaultExcludes, maxItems, directoriesOnly } = options.input;
-
-		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
-
-		if (!include || include.length === 0) {
-			throw new Error(`The 'include' parameter is required. Specify glob patterns to target specific files (e.g., ["src/**/*.py"], ["*.ts", "tests/**"]).`);
-		}
-
-		const globPatterns = include;
-		const excludePatterns = exclude ?? [];
-		const skipExcludes = skipDefaultExcludes ?? false;
-		const itemsLimit = maxItems && maxItems < DEFAULT_MAX_ITEMS
-			? maxItems
-			: DEFAULT_MAX_ITEMS;
-
-		log.trace(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree with options: ${JSON.stringify({
-			include: globPatterns,
-			exclude: excludePatterns,
-			skipDefaultExcludes: skipExcludes,
-			maxItems: itemsLimit,
-			directoriesOnly: directoriesOnly ?? false,
-		}, null, 2)}`);
-
-		// Construct the project tree
-		const workspaceTrees = await searchWorkspace(
-			workspaceFolders,
-			globPatterns,
-			excludePatterns,
-			directoriesOnly ?? false,
-			skipExcludes,
-			undefined, // no maxResults limit for main construction
-			token
-		);
-
-		const totalItems = workspaceTrees.reduce((sum, obj) => sum + obj.totalItems, 0);
-
-		// If we applied default exclusions and results are very sparse, check if there are any excluded results.
-		const hasExcludedResults = !skipExcludes
-			? await checkIfExclusionsImpactedResults(
-				workspaceFolders,
-				globPatterns,
-				excludePatterns,
-				directoriesOnly ?? false,
-				totalItems,
-				itemsLimit,
-				token
-			)
-			: false;
-
-		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folders.`);
-		if (totalItems > itemsLimit) {
-			log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree exceeds the limit of ${itemsLimit} items. A summary will be returned for each workspace folder.`);
-		}
-
-		// Return a compressed description of the project tree if there are too many items
-		const itemLimit = Math.floor(itemsLimit / workspaceTrees.length);
-		const resultParts: vscode.LanguageModelTextPart[] = [];
-
-		for (const obj of workspaceTrees) {
-			const items = obj.items
-				.sort((a, b) => a.length - b.length) // Shortest paths first
-				.slice(0, itemLimit) // Remove deepest paths to fit within the limit
-				.sort((a, b) => a.localeCompare(b)); // Resort alphabetically
-
-			// For multi-root workspaces, include the workspace folder name as a header
-			if (workspaceTrees.length > 1) {
-				resultParts.push(new vscode.LanguageModelTextPart(`## ${obj.folder.name}\n${items.join('\n')}`));
-			} else {
-				resultParts.push(new vscode.LanguageModelTextPart(items.join('\n')));
-			}
-		}
-
-		if (totalItems > itemsLimit) {
-			const truncatedCount = Math.min(itemsLimit, totalItems);
-			const workspaceFolderNames = workspaceFolders.map(folder => folder.name).join(', ');
-			const truncationMessage = `Project tree constructed with ${totalItems} items across ${workspaceFolders.length} workspace folder${workspaceFolders.length > 1 ? 's' : ''} (${workspaceFolderNames}); the first ${truncatedCount} are provided above.`;
-			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
-		}
-
-		if (hasExcludedResults) {
-			const exclusionMessage = 'Results were excluded. Set `skipDefaultExcludes` to `true` to include them.';
-			log.debug(`[${PositronAssistantToolName.ProjectTree}] ${exclusionMessage}`);
-			resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
-		}
-
-		return new vscode.LanguageModelToolResult(resultParts);
+		return buildProjectTree(options, token);
 	}
 });
 
