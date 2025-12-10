@@ -10,6 +10,7 @@ import './consoleInstance.css';
 import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
+import { getActiveWindow } from '../../../../../base/browser/dom.js';
 import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ConsoleInstanceItems } from './consoleInstanceItems.js';
@@ -135,7 +136,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			run: () => {
 				// Copy the selection to the clipboard.
 				if (selection) {
-					services.clipboardService.writeText(selection.toString());
+					getActiveWindow().document.execCommand('copy');
 				}
 			}
 		});
