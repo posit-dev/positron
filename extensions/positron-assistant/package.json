@@ -361,10 +361,10 @@
               "experimental"
             ]
           },
-          "positron.assistant.preferredModel": {
+          "positron.assistant.globalPreferredModel": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.preferredModel.description%",
+            "markdownDescription": "%configuration.globalPreferredModel.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
@@ -373,13 +373,13 @@
               "experimental"
             ]
           },
-          "positron.assistant.defaultModels": {
+          "positron.assistant.providerModelPreferences": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.defaultModels.description%",
+            "markdownDescription": "%configuration.providerModelPreferences.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
