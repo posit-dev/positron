@@ -16,6 +16,7 @@ interface DropdownEntryProps {
 	codicon?: string;
 	title: string;
 	subtitle: string;
+	hoverText?: string;
 	group?: string;
 }
 
@@ -27,7 +28,7 @@ interface DropdownEntryProps {
 export const DropdownEntry = (props: DropdownEntryProps) => {
 	// Render.
 	return (
-		<div className='dropdown-entry'>
+		<div className='dropdown-entry' title={props.hoverText}>
 			{props.codicon ? <div className={`dropdown-entry-icon codicon ${props.codicon}`} /> : null}
 			<div className='dropdown-entry-title'>
 				{props.title}
