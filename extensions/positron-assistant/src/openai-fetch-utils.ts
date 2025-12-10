@@ -4,6 +4,149 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { log } from './extension.js';
+import type { OpenAI } from 'openai';
+
+/**
+ * A "possibly broken" ChatCompletionChunk type that represents what we might receive
+ * from OpenAI-compatible providers before validation. All fields are optional or loosely typed
+ * to allow for malformed responses.
+ */
+export interface PossiblyBrokenChatCompletionChunk {
+	id?: unknown;
+	choices?: unknown;
+	created?: unknown;
+	model?: unknown;
+	object?: unknown;
+	service_tier?: unknown;
+	system_fingerprint?: unknown;
+	usage?: unknown;
+}
+
+/**
+ * Fixes a possibly broken ChatCompletionChunk by ensuring all required fields exist
+ * with valid types. This converts a PossiblyBrokenChatCompletionChunk into a proper OpenAI.ChatCompletionChunk.
+ * @param chunk The possibly broken chunk to fix
+ * @returns A properly typed OpenAI.ChatCompletionChunk with all required fields populated
+ */
+export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCompletionChunk): OpenAI.ChatCompletionChunk {
+	// Fix id - ensure it's a string
+	const id = typeof chunk.id === 'string' ? chunk.id : '';
+
+	// Fix created - ensure it's a number
+	const created = typeof chunk.created === 'number' ? chunk.created : 0;
+
+	// Fix model - ensure it's a string
+	const model = typeof chunk.model === 'string' ? chunk.model : '';
+
+	// Fix service_tier - ensure it's a valid service tier or undefined
+	const service_tier = (chunk.service_tier === 'scale' || chunk.service_tier === 'default' || chunk.service_tier === 'auto' || chunk.service_tier === 'flex')
+		? chunk.service_tier
+		: undefined;
+
+	// Fix system_fingerprint - ensure it's a string or undefined
+	const system_fingerprint = typeof chunk.system_fingerprint === 'string' ? chunk.system_fingerprint : undefined;
+
+	// Fix choices - ensure it's an array with proper structure
+	const choices: OpenAI.ChatCompletionChunk.Choice[] = [];
+	if (Array.isArray(chunk.choices)) {
+		for (const choice of chunk.choices) {
+			if (typeof choice === 'object' && choice !== null) {
+				const c = choice as Record<string, unknown>;
+				const delta = typeof c.delta === 'object' && c.delta !== null
+					? c.delta as Record<string, unknown>
+					: {};
+
+				// Fix empty role field - AI SDK expects 'assistant'
+				const fixedRole: 'assistant' | undefined = delta.role === '' ? 'assistant' : (delta.role === 'assistant' ? 'assistant' : undefined);
+
+				// Build the delta
+				const fixedDelta: OpenAI.ChatCompletionChunk.Choice.Delta = {
+					content: typeof delta.content === 'string' ? delta.content : (delta.content === null ? null : undefined),
+					refusal: typeof delta.refusal === 'string' ? delta.refusal : (delta.refusal === null ? null : undefined),
+					role: fixedRole,
+				};
+
+				// Fix tool_calls if present
+				if (Array.isArray(delta.tool_calls)) {
+					fixedDelta.tool_calls = delta.tool_calls.map((tc: unknown): OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall => {
+						if (typeof tc === 'object' && tc !== null) {
+							const toolCall = tc as Record<string, unknown>;
+							const fn = typeof toolCall.function === 'object' && toolCall.function !== null
+								? toolCall.function as Record<string, unknown>
+								: undefined;
+
+							// Fix empty type field - AI SDK expects 'function'
+							const fixedType: 'function' | undefined = toolCall.type === '' ? 'function' : (toolCall.type === 'function' ? 'function' : undefined);
+
+							// Fix empty arguments - AI SDK's isParsableJson check will fail for empty strings
+							const fixedArguments = fn && typeof fn.arguments === 'string'
+								? (fn.arguments === '' ? '{}' : fn.arguments)
+								: undefined;
+
+							return {
+								index: typeof toolCall.index === 'number' ? toolCall.index : 0,
+								id: typeof toolCall.id === 'string' ? toolCall.id : undefined,
+								type: fixedType,
+								function: fn ? {
+									name: typeof fn.name === 'string' ? fn.name : undefined,
+									arguments: fixedArguments,
+								} : undefined,
+							};
+						}
+						return { index: 0 };
+					});
+				}
+
+				// Fix finish_reason
+				const finishReason = c.finish_reason;
+				const validFinishReasons = ['stop', 'length', 'tool_calls', 'content_filter', 'function_call'];
+				const fixedFinishReason = (typeof finishReason === 'string' && validFinishReasons.includes(finishReason))
+					? finishReason as OpenAI.ChatCompletionChunk.Choice['finish_reason']
+					: null;
+
+				// Build the fixed choice
+				const fixedChoice: OpenAI.ChatCompletionChunk.Choice = {
+					index: typeof c.index === 'number' ? c.index : 0,
+					delta: fixedDelta,
+					finish_reason: fixedFinishReason,
+					logprobs: c.logprobs as OpenAI.ChatCompletionChunk.Choice['logprobs'],
+				};
+
+				choices.push(fixedChoice);
+			}
+		}
+	}
+
+	return {
+		id,
+		choices,
+		created,
+		model,
+		object: 'chat.completion.chunk',
+		service_tier,
+		system_fingerprint,
+		usage: chunk.usage as OpenAI.CompletionUsage | undefined,
+	};
+}
+
+/**
+ * Type guard to check if an object might be a ChatCompletionChunk, even if malformed.
+ * This is a permissive check that only verifies the object has the basic shape
+ * of a chat completion chunk (has 'object' field equal to 'chat.completion.chunk').
+ * @param obj The object to check
+ * @returns True if the object appears to be a ChatCompletionChunk (possibly malformed)
+ */
+export function isPossiblyBrokenChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletionChunk {
+	return (
+		typeof obj === 'object' &&
+		obj !== null &&
+		typeof (obj as OpenAI.ChatCompletionChunk).id === 'string' &&
+		Array.isArray((obj as PossiblyBrokenChatCompletionChunk).choices) &&
+		typeof (obj as PossiblyBrokenChatCompletionChunk).created === 'number' &&
+		typeof (obj as PossiblyBrokenChatCompletionChunk).model === 'string' &&
+		(obj as OpenAI.ChatCompletionChunk).object === 'chat.completion.chunk'
+	);
+}
 
 /**
  * Creates a custom fetch function for OpenAI-compatible providers that handles:
@@ -111,7 +254,7 @@ function transformStreamingResponse(response: Response, providerName: string): R
 }
 
 /**
- * Transforms Server-Sent Events text by properly parsing JSON and fixing empty role fields
+ * Transforms Server-Sent Events text by properly parsing JSON and fixing ChatCompletionChunks
  */
 function transformServerSentEvents(text: string, providerName: string): string {
 	const lines = text.split('\n');
@@ -123,51 +266,15 @@ function transformServerSentEvents(text: string, providerName: string): string {
 			try {
 				const jsonStr = line.slice(6); // Remove 'data: ' prefix
 				const data = JSON.parse(jsonStr);
-
-				// Fix empty role fields in delta objects within choices array
-				if (data.choices && Array.isArray(data.choices)) {
-					for (const choice of data.choices) {
-						if (choice.delta && typeof choice.delta === 'object') {
-							// Fix empty role field
-							if (choice.delta.role === '') {
-								choice.delta.role = 'assistant';
-							}
-
-							// Fix tool_calls with empty arguments or empty type
-							// The AI SDK's isParsableJson check will fail for empty strings,
-							// so we need to convert "" to "{}" for tools with no parameters
-							// Also, Snowflake Cortex may return empty type field instead of "function"
-							if (choice.delta.tool_calls && Array.isArray(choice.delta.tool_calls)) {
-								for (const toolCall of choice.delta.tool_calls) {
-									// Fix empty type field - AI SDK expects "function"
-									if (toolCall.type === '') {
-										log.debug(`[${providerName}] Converting empty tool type to 'function' for tool call at index: ${toolCall.index}`);
-										toolCall.type = 'function';
-									}
-
-									if (toolCall.function && toolCall.function.arguments === '') {
-										log.debug(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${toolCall.function.name || 'unknown'}`);
-										toolCall.function.arguments = '{}';
-									}
-								}
-							}
-
-							// Log tool calls for debugging with full structure
-							if (choice.delta.tool_calls) {
-								log.debug(`[${providerName}] Received tool_calls in delta: ${JSON.stringify(choice.delta.tool_calls)}`);
-								log.debug(`[${providerName}] Full delta object: ${JSON.stringify(choice.delta)}`);
-								log.debug(`[${providerName}] Full choice object: ${JSON.stringify(choice)}`);
-							}
-
-							// Log finish reason
-							if (choice.finish_reason) {
-								log.debug(`[${providerName}] Finish reason: ${choice.finish_reason}`);
-							}
-						}
-					}
+				// Check if it's a possibly broken chunk and fix it
+				// Otherwise, keep the original line
+				if (isPossiblyBrokenChatCompletionChunk(data)) {
+					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data);
+					transformedLines.push(`data: ${JSON.stringify(fixedChunk)}`);
+				} else {
+					transformedLines.push(`data: ${JSON.stringify(data)}`);
 				}
 
-				transformedLines.push(`data: ${JSON.stringify(data)}`);
 			} catch (parseError) {
 				// If we can't parse the JSON, keep the original line
 				// This handles malformed JSON or non-JSON data lines gracefully

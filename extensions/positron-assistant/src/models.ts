@@ -320,16 +320,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
-	/**
-	 * Determines if this model should use experimental content format for tool results.
-	 * Override in subclasses to customize behavior for specific providers.
-	 * @param model The model information
-	 * @returns true if experimental content format should be used
-	 */
-	protected useExperimentalToolResultContent(model: vscode.LanguageModelChatInformation): boolean {
-		return this.provider === 'anthropic-api' || model.id.includes('anthropic');
-	}
-
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		log.debug(`[${this.providerName}] Resolving connection...`);
 
@@ -414,9 +404,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		// Ensure all messages have content
 		const processedMessages = processMessages(messages);
-		// Determine if this model uses experimental content format for tool results.
-		// This is needed for Anthropic models and Snowflake Claude models.
-		const toolResultExperimentalContent = this.useExperimentalToolResultContent(model);
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -439,7 +426,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Convert all messages to the Vercel AI format.
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent,
 			bedrockCacheBreakpoint
 		);
 
@@ -995,13 +981,6 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 	get baseUrl(): string {
 		// Use the baseUrl from config or fallback to default
 		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
-	}
-
-	/**
-	 * Snowflake uses Claude models which require experimental content format for tool results.
-	 */
-	protected override useExperimentalToolResultContent(model: vscode.LanguageModelChatInformation): boolean {
-		return true;
 	}
 
 	/**

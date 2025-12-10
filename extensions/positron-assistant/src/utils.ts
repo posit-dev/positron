@@ -6,19 +6,17 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
 import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
  *
  * @param messages The messages to convert.
- * @param toolResultExperimentalContent Whether to use experimental content for tool results.
  * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
-	toolResultExperimentalContent: boolean = false,
 	bedrockCacheBreakpoint: boolean = false
 ): ai.ModelMessage[] {
 	// Gather all tool call references
@@ -77,52 +75,12 @@ export function toAIMessage(
 					if (!toolCall) {
 						log.warn(`[toAIMessage] Tool result with callId '${part.callId}' has no matching tool call in conversation history. Available tool calls: ${Object.keys(toolCalls).join(', ')}`);
 					}
-					if (toolResultExperimentalContent) {
-						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
-						if (cacheBreakpoint && bedrockCacheBreakpoint) {
-							cacheBreakpoint = false;
-							markBedrockCacheBreakpoint(toolMessage);
-						}
-						aiMessages.push(toolMessage);
-					} else {
-						// Note that we don't need to check for cache
-						// breakpoints here since Anthropic models that support
-						// caching use the experimental content format above.
-						const toolCall = toolCalls[part.callId];
-						if (toolCall.name === PositronAssistantToolName.GetPlot) {
-							aiMessages.push(getPlotToolResultToAiMessage(part));
-						} else {
-							// Convert part.content (an array of LanguageModelParts) to a string for non-experimental providers
-							// AI SDK 5 expects output in structured format: { type: 'text' | 'json', value: ... }
-							const textContent = part.content
-								.filter((c): c is vscode.LanguageModelTextPart => c instanceof vscode.LanguageModelTextPart)
-								.map(c => c.value)
-								.join('');
-
-							// Try to parse as JSON if it looks like JSON, otherwise use as text
-							let output: { type: 'json'; value: unknown } | { type: 'text'; value: string };
-							try {
-								const parsed = JSON.parse(textContent);
-								output = { type: 'json' as const, value: parsed };
-							} catch {
-								output = { type: 'text' as const, value: textContent };
-							}
-
-							const toolResultMessage = {
-								role: 'tool' as const,
-								content: [
-									{
-										type: 'tool-result' as const,
-										toolCallId: part.callId,
-										toolName: toolCall.name,
-										output,
-									},
-								],
-							};
-							aiMessages.push(toolResultMessage as ai.ToolModelMessage);
-						}
-
+					const toolMessage = convertToolResultPartToAiToolMessage(part, toolCall);
+					if (cacheBreakpoint && bedrockCacheBreakpoint) {
+						cacheBreakpoint = false;
+						markBedrockCacheBreakpoint(toolMessage);
 					}
+					aiMessages.push(toolMessage);
 				}
 			}
 
@@ -137,19 +95,6 @@ export function toAIMessage(
 						cacheBreakpoint = true;
 					}
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
-					if (
-						!toolResultExperimentalContent &&
-						part.name === PositronAssistantToolName.GetPlot
-					) {
-						// Vercel AI does not yet support image tool results,
-						// so replace getPlot tool calls with text asking for the plot.
-						// The corresponding tool result will be replaced with a user
-						// message containing the plot image.
-						content.push({
-							type: 'text',
-							text: 'Please provide the current active plot.'
-						});
-					}
 					content.push({
 						type: 'tool-call',
 						toolCallId: part.callId,
@@ -229,7 +174,7 @@ export function markBedrockCacheBreakpoint(message: ai.ModelMessage): ai.ModelMe
  * Convert a tool result into a Vercel AI message with experimental content.
  * This is useful for tool results that contain images.
  */
-function convertToolResultToAiMessageExperimentalContent(
+function convertToolResultPartToAiToolMessage(
 	part: vscode.LanguageModelToolResultPart,
 	toolCall: vscode.LanguageModelToolCallPart,
 ): ai.ToolModelMessage {
@@ -240,15 +185,7 @@ function convertToolResultToAiMessageExperimentalContent(
 		| { type: 'text'; value: string }
 		| { type: 'content'; value: Array<{ type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string }> };
 
-	const toolMessage: {
-		role: 'tool';
-		content: [{
-			type: 'tool-result';
-			toolCallId: string;
-			toolName: string;
-			output: ToolResultOutput;
-		}];
-	} = {
+	const toolMessage: ai.ToolModelMessage = {
 		role: 'tool',
 		content: [
 			{
@@ -271,7 +208,6 @@ function convertToolResultToAiMessageExperimentalContent(
 		// Convert text parts to string for output
 		// AI SDK 5 expects { type: 'text', value: string }
 		const textContent = part.content
-			.filter((c): c is vscode.LanguageModelTextPart => c instanceof vscode.LanguageModelTextPart)
 			.map(c => c.value)
 			.join('');
 		toolMessage.content[0].output = { type: 'text' as const, value: textContent };
@@ -306,67 +242,7 @@ function convertToolResultToAiMessageExperimentalContent(
 		toolMessage.content[0].output = { type: 'content' as const, value: toolResultContent };
 	}
 
-	return toolMessage as ai.ToolModelMessage;
-}
-
-/**
- * Convert a getPlot tool result into an AI SDK tool message with image content.
- * AI SDK 5 supports images in tool results via the 'content' output type with 'media' parts.
- */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.ToolModelMessage {
-	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
-		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
-	};
-	const imageParts = part.content.filter(isImageDataPart);
-
-	// If there was no image, forward the response as text.
-	if (imageParts.length === 0) {
-		return {
-			role: 'tool',
-			content: [
-				{
-					type: 'tool-result',
-					toolCallId: part.callId,
-					toolName: PositronAssistantToolName.GetPlot,
-					output: {
-						type: 'text',
-						value: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
-					},
-				},
-			],
-		};
-	}
-
-	// AI SDK 5 supports image content in tool results via the 'content' output type.
-	// The 'content' type uses 'media' parts for images, which get converted to
-	// appropriate format for each provider (e.g., function_call_output for OpenAI Responses API).
-	type MediaContentPart = { type: 'text'; text: string } | { type: 'media'; data: string; mediaType: string };
-	const contentValue: MediaContentPart[] = imageParts.flatMap((imgPart) => ([
-		{
-			type: 'text' as const,
-			text: 'Here is the current active plot:',
-		},
-		{
-			type: 'media' as const,
-			data: Buffer.from(imgPart.data).toString('base64'),
-			mediaType: imgPart.mimeType,
-		}
-	]));
-
-	return {
-		role: 'tool',
-		content: [
-			{
-				type: 'tool-result',
-				toolCallId: part.callId,
-				toolName: PositronAssistantToolName.GetPlot,
-				output: {
-					type: 'content',
-					value: contentValue,
-				},
-			},
-		],
-	};
+	return toolMessage;
 }
 
 /**
