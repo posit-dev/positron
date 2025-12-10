@@ -31,6 +31,9 @@ export class PositronAssistantApi {
 	/** An emitter for sign-in events */
 	private _signInEmitter = new vscode.EventEmitter<string>();
 
+	/** An emitter for when model registration completes */
+	private _modelsRegisteredEmitter = new vscode.EventEmitter<void>();
+
 	/** Get or create the singleton instance. */
 	public static get() {
 		if (!PositronAssistantApi._instance) {
@@ -130,6 +133,23 @@ export class PositronAssistantApi {
 	 */
 	public onProviderSignIn(callback: (s: string) => void): vscode.Disposable {
 		return this._signInEmitter.event(callback);
+	}
+
+	/**
+	 * Notifies other extensions when model registration completes
+	 *
+	 * @returns The event
+	 */
+	public onModelsRegistered(callback: () => void): vscode.Disposable {
+		return this._modelsRegisteredEmitter.event(callback);
+	}
+
+	/**
+	 * Signals that model registration has completed
+	 * @internal
+	 */
+	public notifyModelsRegistered(): void {
+		this._modelsRegisteredEmitter.fire();
 	}
 }
 

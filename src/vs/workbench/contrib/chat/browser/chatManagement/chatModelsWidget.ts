@@ -707,7 +707,7 @@ export class ChatModelsWidget extends Disposable {
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
 		@IEditorProgressService private readonly editorProgressService: IEditorProgressService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
 		super();
 
@@ -718,6 +718,7 @@ export class ChatModelsWidget extends Disposable {
 		this.create(this.element);
 
 		const loadingPromise = this.extensionService.whenInstalledExtensionsRegistered().then(async () => {
+			await this.ensurePositronAssistantActivated();
 			await this.viewModel.resolve();
 			this.refreshTable();
 		});
@@ -726,6 +727,39 @@ export class ChatModelsWidget extends Disposable {
 		this.editorProgressService.showWhile(loadingPromise, 300);
 
 		this._register(this.viewModel.onDidChangeModelEntries(() => this.refreshTable()));
+	}
+
+	private async ensurePositronAssistantActivated(): Promise<void> {
+		try {
+			const extension = this.extensionService.extensions.find(ext => ext.id === 'positron.positron-assistant');
+			if (extension) {
+				await this.extensionService.activateById(extension.identifier, { startup: false, extensionId: extension.identifier, activationEvent: 'onStartupFinished' });
+
+				await this.waitForModelsRegistered();
+			}
+		} catch (error) {
+			// If extension not available or activation fails, continue anyway
+		}
+	}
+
+	private async waitForModelsRegistered(): Promise<void> {
+		const timeoutMs = 300000; // 5 minute timeout
+		const checkInterval = 50; // Check every 50ms
+
+		const startTime = Date.now();
+		while (Date.now() - startTime < timeoutMs) {
+			try {
+				const contextKeyValue = this.contextKeyService.getContextKeyValue('positron-assistant.modelsRegistrationComplete');
+				if (contextKeyValue === true) {
+					return;
+				}
+			} catch (e) {
+				// Context key might not exist yet, continue waiting
+			}
+
+			await new Promise(resolve => setTimeout(resolve, checkInterval));
+		}
+
 	}
 
 	private create(container: HTMLElement): void {

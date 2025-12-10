@@ -205,6 +205,12 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 
 	const hasChatModels = hasPositronChatModels || hasOtherChatModels;
 	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
+
+	// Signal that model registration is complete (different from hasChatModels which can be set earlier)
+	vscode.commands.executeCommand('setContext', 'positron-assistant.modelsRegistrationComplete', true);
+
+	// Notify that model registration is complete
+	PositronAssistantApi.get().notifyModelsRegistered();
 }
 
 /**
