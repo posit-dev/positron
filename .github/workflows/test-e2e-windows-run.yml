@@ -137,12 +137,12 @@ jobs:
             ~\AppData\Roaming\npm-cache
             node_modules
             build/node_modules
-            extensions/*/node_modules
+            extensions
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v2-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-v3-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-v2-
+            ${{ runner.os }}-npm-v3-
 
       - name: Verify npm cache status
         shell: bash
@@ -167,6 +167,7 @@ jobs:
 
       - name: Install node dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -177,35 +178,60 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        with:
+          timeout_minutes: 30
+          max_attempts: 5
+          retry_wait_seconds: 5
+          shell: bash
+          # Parallel install strategy:
+          # 1. Pre-install build/ so postinstall can access gulp-merge-json
+          # 2. Run root and test/e2e npm ci in parallel as background processes
+          # 3. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
+          # 4. Postinstall skips build/ since it's already installed (avoids duplicate work)
+          # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
+          command: |
+            # Pre-install build directory (required by postinstall for gulp-merge-json)
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+
+            # Run root and test/e2e installs in parallel
+            pids=()
+            npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+            npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+
+            # Wait for all processes and check exit codes
+            exit_code=0
+            for pid in "${pids[@]}"; do
+              if ! wait "$pid"; then
+                exit_code=1
+              fi
+            done
+
+            if [ $exit_code -ne 0 ]; then
+              echo "One or more npm ci commands failed"
+              exit 1
+            fi
+
+            echo "All npm ci commands completed successfully"
+
+      - name: Verify cache contents before save
+        if: ${{ matrix.shard == 2 && steps.cache-node-modules.outputs.cache-hit != 'true' }}
         shell: bash
-        # Parallel install strategy:
-        # 1. Pre-install build/ so postinstall can access gulp-merge-json
-        # 2. Run root and test/e2e npm ci in parallel as background processes
-        # 3. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
-        # 4. Postinstall skips build/ since it's already installed (avoids duplicate work)
         run: |
-          # Pre-install build directory (required by postinstall for gulp-merge-json)
-          npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
-
-          # Run root and test/e2e installs in parallel
-          pids=()
-          npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
-          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
-
-          # Wait for all processes and check exit codes
-          exit_code=0
-          for pid in "${pids[@]}"; do
-            if ! wait "$pid"; then
-              exit_code=1
+          echo "========================================="
+          echo "CACHE CONTENTS VERIFICATION (Shard 2)"
+          echo "========================================="
+          echo "Root node_modules: $([ -d "node_modules" ] && ls node_modules 2>/dev/null | wc -l || echo 0) packages"
+          echo "Build node_modules: $([ -d "build/node_modules" ] && ls build/node_modules 2>/dev/null | wc -l || echo 0) packages"
+          echo "E2E node_modules: $([ -d "test/e2e/node_modules" ] && ls test/e2e/node_modules 2>/dev/null | wc -l || echo 0) packages"
+          echo ""
+          echo "Extension directories with node_modules:"
+          for ext_dir in extensions/*/; do
+            if [ -d "${ext_dir}node_modules" ]; then
+              pkg_count=$(ls "${ext_dir}node_modules" 2>/dev/null | wc -l || echo 0)
+              echo "  ✓ ${ext_dir}node_modules ($pkg_count packages)"
             fi
           done
-
-          if [ $exit_code -ne 0 ]; then
-            echo "One or more npm ci commands failed"
-            exit 1
-          fi
-
-          echo "All npm ci commands completed successfully"
+          echo "========================================="
 
       - name: Save npm dependencies cache
         if: ${{ matrix.shard == 2 && steps.cache-node-modules.outputs.cache-hit != 'true' }}
@@ -215,10 +241,10 @@ jobs:
             ~\AppData\Roaming\npm-cache
             node_modules
             build/node_modules
-            extensions/*/node_modules
+            extensions
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v2-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-v3-${{ hashFiles('**/package-lock.json') }}
 
       - name: Cache Ark binary
         uses: actions/cache@v4
