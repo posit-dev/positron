@@ -21,14 +21,12 @@ import { autorun, observableValue, runOnChange, transaction } from '../../../../
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { getActiveCell } from '../../selectionMachine.js';
 import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
 import { PositronNotebookFindDecorations } from './PositronNotebookFindDecorations.js';
-import { CellEditorPosition } from '../../../common/editor/position.js';
 import { CellEditorRange, ICellEditorRange } from '../../../common/editor/range.js';
 
 export interface ICellFindMatch {
@@ -185,11 +183,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				console.info('PositronNotebookFindController: Starting research with', { searchString, isRegex, matchCase, wholeWord });
 				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
 
-				// TODO: if there's no current match, find the closest one.
-				// TODO: OR always determine the current match from the cursor?
-				//       Just move the cursor when navigating to previous/next?
-				//       This should handle match count changing, cursor changing, etc.
-				const cursorPosition = this.getCursorPosition();
+				// Set the match index to the first match after the cursor
+				const cursorPosition = this._notebook.getActiveEditorPosition();
 
 				// TODO: Extract method?
 				// Determine the current match index based on cursor position
@@ -296,7 +291,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		// If we don't have a current match yet, find first match after cursor
-		const cursorPosition = this.getCursorPosition();
+		const cursorPosition = this._notebook.getActiveEditorPosition();
 		if (!cursorPosition) {
 			// TODO: When does this happen? Should we jump to the next cell?
 			return -1;
@@ -335,7 +330,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		// If we don't have a current match yet, find last match before cursor
-		const cursorPosition = this.getCursorPosition();
+		const cursorPosition = this._notebook.getActiveEditorPosition();
 		if (!cursorPosition) {
 			// TODO: When does this happen? Should we jump to the next cell?
 			return -1;
@@ -353,30 +348,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		return matchIndex;
-	}
-
-	// TODO: Move to IPositronNotebookInstance?
-	private getCursorPosition(): CellEditorPosition | undefined {
-		// Get the currently active cell and cursor position
-
-		// No current match tracked, use cursor position
-		// Find the currently active cell
-		const selectionState = this._notebook.selectionStateMachine.state.get();
-		const activeCell = getActiveCell(selectionState);
-		if (!activeCell) {
-			// TODO: Should this be an error?
-			return undefined;
-		}
-
-		const position = activeCell.editor?.getPosition();
-		if (!position) {
-			return undefined;
-		}
-
-		return new CellEditorPosition(
-			activeCell.index,
-			position,
-		);
 	}
 
 	private navigateToMatch(matchIndex: number): void {
