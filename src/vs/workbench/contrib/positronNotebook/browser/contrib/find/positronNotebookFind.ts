@@ -7,7 +7,7 @@ import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
-import { localize2 } from '../../../../../../nls.js';
+import { localize, localize2 } from '../../../../../../nls.js';
 import { registerAction2 } from '../../../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
@@ -17,7 +17,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { NotebookAction2 } from '../../NotebookAction2.js';
 import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { FindMatch, IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
-import { autorun, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -28,28 +28,174 @@ import { IEditorService } from '../../../../../services/editor/common/editorServ
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
+import { IPosition, Position } from '../../../../../../editor/common/core/position.js';
+import { IRange, Range } from '../../../../../../editor/common/core/range.js';
 
-interface CellMatch {
-	cell: IPositronNotebookCell;
+/** A position in a cell editor. */
+interface ICellEditorPosition {
 	cellIndex: number;
-	match: FindMatch;
+	position: IPosition;
 }
+
+/** A range in a cell editor. */
+interface ICellEditorRange {
+	cellIndex: number;
+	range: IRange;
+}
+
+interface ICellFindMatch {
+	cellRange: ICellEditorRange;
+	matches: string[] | null;
+}
+
+interface IPositronCellFindMatch extends ICellFindMatch {
+	cell: IPositronNotebookCell;
+}
+
+class CellEditorPosition implements ICellEditorPosition {
+	constructor(
+		public readonly cellIndex: number,
+		public readonly position: IPosition,
+	) { }
+
+	isBefore(other: ICellEditorPosition): boolean {
+		return CellEditorPosition.isBefore(this, other);
+	}
+
+	public static isBefore(a: ICellEditorPosition, b: ICellEditorPosition): boolean {
+		if (a.cellIndex < b.cellIndex) {
+			return true;
+		}
+		if (a.cellIndex > b.cellIndex) {
+			return false;
+		}
+		return Position.isBefore(a.position, b.position);
+	}
+
+	isBeforeOrEqual(other: ICellEditorPosition): boolean {
+		return CellEditorPosition.isBeforeOrEqual(this, other);
+	}
+
+	public static isBeforeOrEqual(a: ICellEditorPosition, b: ICellEditorPosition): boolean {
+		if (a.cellIndex < b.cellIndex) {
+			return true;
+		}
+		if (a.cellIndex > b.cellIndex) {
+			return false;
+		}
+		if (Position.isBeforeOrEqual(a.position, b.position)) {
+			return true;
+		}
+		return false;
+	}
+
+
+}
+
+class CellEditorRange implements ICellEditorRange {
+	constructor(
+		public readonly cellIndex: number,
+		public readonly range: Range,
+	) { }
+
+	containsPosition(cellPosition: ICellEditorPosition): boolean {
+		return CellEditorRange.containsPosition(this, cellPosition);
+	}
+
+	public static containsPosition(cellRange: ICellEditorRange, cellPosition: ICellEditorPosition): boolean {
+		return cellRange.cellIndex === cellPosition.cellIndex && Range.containsPosition(cellRange.range, cellPosition.position);
+	}
+
+	getStartPosition(): CellEditorPosition {
+		return CellEditorRange.getStartPosition(this);
+	}
+
+	public static getStartPosition(range: ICellEditorRange): CellEditorPosition {
+		return new CellEditorPosition(range.cellIndex, Range.getStartPosition(range.range));
+	}
+
+	getEndPosition(): CellEditorPosition {
+		return CellEditorRange.getEndPosition(this);
+	}
+
+	public static getEndPosition(range: ICellEditorRange): CellEditorPosition {
+		return new CellEditorPosition(range.cellIndex, Range.getEndPosition(range.range));
+	}
+}
+
+class PositronCellFindMatch implements IPositronCellFindMatch {
+	constructor(
+		public readonly cell: IPositronNotebookCell,
+		public readonly cellRange: CellEditorRange,
+		public readonly matches: string[] | null,
+	) { }
+
+	// TODO: need this?
+	public static fromFindMatch(cell: IPositronNotebookCell, cellIndex: number, match: FindMatch): PositronCellFindMatch {
+		return new PositronCellFindMatch(cell, new CellEditorRange(cellIndex, match.range), match.matches);
+	}
+}
+
+// interface CellMatchIndex {
+// 	cellMatchIndex: number;
+// 	findMatchIndex: number;
+// }
+
+// class CellMatchList {
+// 	constructor(
+// 		private _cellMatches: CellMatch[] = [],
+// 	) { }
+
+// 	get length(): number {
+// 		return this._cellMatches.reduce((length, cellMatch) => length + cellMatch.matches.length, 0);
+// 	}
+
+// 	*entries(): IterableIterator<[CellMatchIndex, FindMatch]> {
+// 		for (const [cellMatchIndex, cellMatch] of this._cellMatches.entries()) {
+// 			for (const [findMatchIndex, match] of cellMatch.matches.entries()) {
+// 				yield [{ cellMatchIndex, findMatchIndex }, match];
+// 			}
+// 		}
+// 	}
+
+// 	at(index: CellMatchIndex): FindMatch | undefined {
+// 		for (const [matchIndex, match] of this.entries()) {
+// 			if (index === matchIndex) {
+// 				return match;
+// 			}
+// 		}
+// 		return undefined;
+// 	}
+
+// 	clear(): void {
+// 		this._cellMatches = [];
+// 	}
+
+// 	push(match: CellMatch): void {
+// 		this._cellMatches.push(match);
+// 	}
+// }
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
 	public static readonly ID = 'positron.notebook.contrib.findController';
 
 	private _findInstance: PositronFindInstance | undefined;
-	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
-	private _allMatches: CellMatch[] = [];
-	private _currentMatchCellHandle: number | undefined;
-	private _currentMatchIndex: number | undefined;
+	// TODO: Note ordering
+	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
+	private readonly _currentMatch = observableValue<{ cellMatch: PositronCellFindMatch; index: number } | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
+
+		this._register(new CellFindDecorations(
+			this._notebook,
+			this._matches,
+			this._currentMatch,
+		));
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
@@ -77,8 +223,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const instance = this._register(new PositronFindInstance({
 				container: this._notebook.container,
 				findInputOptions: {
-					label: 'Find',
-					placeholder: 'Find',
+					label: localize('positronNotebook.find.label', "Find"),
+					placeholder: localize('positronNotebook.find.placeholder', "Find"),
 					showCommonFindToggles: true,
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
@@ -99,20 +245,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					findWidgetVisible.reset();
 					findInputFocused.reset();
 
-					// Clear decorations
-					for (const cell of this._notebook.cells.get()) {
-						const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-						cell.editor?.changeDecorations(accessor => {
-							accessor.deltaDecorations(oldDecorationIds, []);
-						});
-					}
-
-					// TODO: Should we clear state, or restore on reshow?
 					// Clear state
-					this._decorationIdsByCellHandle.clear();
-					this._allMatches = [];
-					this._currentMatchCellHandle = undefined;
-					this._currentMatchIndex = undefined;
+					transaction((tx) => {
+						// TODO: Should we clear state, or restore on reshow?
+						this._matches.set([], tx);
+						this._currentMatch.set(undefined, tx);
+					});
 				}
 			}));
 
@@ -133,13 +271,30 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const wholeWord = instance.wholeWord.read(reader);
 
 				console.info('PositronNotebookFindController: Starting research with', { searchString, isRegex, matchCase, wholeWord });
-				this.research(searchString, isRegex, matchCase, wholeWord);
+				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
 
-				// Update match count and index
+				// TODO: if there's no current match, find the closest one.
+				// TODO: OR always determine the current match from the cursor?
+				//       Just move the cursor when navigating to previous/next?
+				//       This should handle match count changing, cursor changing, etc.
+				const cursorPosition = this.getCursorPosition();
+
+				// TODO: Extract method?
+				// Determine the current match index based on cursor position
+				let matchIndex: number | undefined = undefined;
+				if (cursorPosition && cellMatches.length > 0) {
+					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
+						cellRange.containsPosition(cursorPosition) ||
+						cellRange.getEndPosition().isBefore(cursorPosition)
+					);
+					matchIndex = foundIndex !== -1 ? foundIndex : undefined;
+				}
+
+				// Update matches, match count and index
 				transaction((tx) => {
-					instance.matchCount.set(this._allMatches.length, tx);
-					// TODO: Don't overwrite previous current
-					instance.matchIndex.set(this._allMatches.length > 0 ? 1 : undefined, tx);
+					this._matches.set(cellMatches, tx);
+					instance.matchCount.set(cellMatches.length, tx);
+					instance.matchIndex.set(matchIndex, tx);
 				});
 			}));
 		}
@@ -168,15 +323,16 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	/**
 	 * Performs a search across all notebook cells.
 	 */
-	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): void {
-		this._allMatches = [];
-		this._currentMatchCellHandle = undefined;
-		this._currentMatchIndex = undefined;
+	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): PositronCellFindMatch[] {
+		const cellMatches: PositronCellFindMatch[] = [];
+		// TODO: what to do with current match on research?
+		// this._currentMatchIndex = undefined;
 
-		for (const cell of this._notebook.cells.get()) {
+		let cellMatchIndex = 0;
+		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
 			if (cell.model.textModel) {
 				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
-				const cellMatches = cell.model.textModel.findMatches(
+				const matches = cell.model.textModel.findMatches(
 					searchString,
 					null,
 					isRegex,
@@ -186,35 +342,16 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				);
 
 				// Store each match with its cell reference and index
-				const cellIndex = cell.index;
-				for (const match of cellMatches) {
-					this._allMatches.push({ cell, cellIndex, match });
+				for (const match of matches) {
+					const cellMatch = PositronCellFindMatch.fromFindMatch(cell, cellIndex, match);
+					cellMatches.push(cellMatch);
 				}
-				// TODO: Fall back to text buffer if no text model?
 
-				// Update decorations for this cell
-				this.updateCellDecorations(cell);
-
-				// filter based on options and editing state
-				// return matches.filter(match => {
-				// 	if (match.cell.cellKind === CellKind.Code) {
-				// 		// code cell, we only include its match if include input is enabled
-				// 		return options.includeCodeInput;
-				// 	}
-
-				// 	// markup cell, it depends on the editing state
-				// 	if (match.cell.getEditState() === CellEditState.Editing) {
-				// 		// editing, even if we includeMarkupPreview
-				// 		return options.includeMarkupInput;
-				// 	} else {
-				// 		// cell in preview mode, we should only include it if includeMarkupPreview is false but includeMarkupInput is true
-				// 		// if includeMarkupPreview is true, then we should include the webview match result other than this
-				// 		return !options.includeMarkupPreview && options.includeMarkupInput;
-				// 	}
-				// }
-				// );
+				cellMatchIndex++;
 			}
 		}
+
+		return cellMatches;
 	}
 
 	public findNext(): void {
@@ -234,90 +371,85 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	}
 
 	private findNextMatchFromCursor(): number {
-		if (this._allMatches.length === 0) {
+		const cellMatches = this._matches.get();
+
+		// No matches
+		if (cellMatches.length === 0) {
+			// TODO: What if there's a current match?...
 			return -1;
 		}
 
-		// If we have a current match, just go to the next one
-		if (this._currentMatchIndex !== undefined) {
-			const nextIndex = this._currentMatchIndex + 1;
-			if (nextIndex < this._allMatches.length) {
-				return nextIndex;
-			}
-			// Wrap around to first
-			return 0;
+		const currentMatch = this._currentMatch.get();
+
+		// Current match known
+		if (currentMatch !== undefined) {
+			// Go to the next match, wrapping around if needed
+			const nextIndex = currentMatch.index + 1;
+			return nextIndex < cellMatches.length ? nextIndex : 0;
 		}
 
-		const currentCursor = this.getCurrentCursor();
-		if (!currentCursor) {
-			return 0;
+		// If we don't have a current match yet, find first match after cursor
+		const cursorPosition = this.getCursorPosition();
+		if (!cursorPosition) {
+			// TODO: When does this happen? Should we jump to the next cell?
+			return -1;
 		}
 
-		// Find the next match after the current position
-		for (let i = 0; i < this._allMatches.length; i++) {
-			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
+		// Find the first match after the cursor
+		const matchIndex = cellMatches.findIndex(({ cellRange }) =>
+			cellRange.containsPosition(cursorPosition) ||
+			cursorPosition.isBefore(cellRange.getStartPosition())
+		);
 
-			// If match is in a later cell, it's the next match
-			if (matchCellIndex > currentCursor.index) {
-				return i;
-			}
-
-			// If match is in the same cell, check if it's after the cursor
-			if (matchCellIndex === currentCursor.index && currentCursor.position) {
-				if (match.range.startLineNumber > currentCursor.position.lineNumber ||
-					(match.range.startLineNumber === currentCursor.position.lineNumber && match.range.startColumn > currentCursor.position.column)) {
-					return i;
-				}
-			}
+		// TODO: How to handle this?
+		if (matchIndex === -1) {
+			return -1;
 		}
 
-		// Wrap around to the first match
-		return 0;
+		return matchIndex;
 	}
 
 	private findPreviousMatchFromCursor(): number {
-		if (this._allMatches.length === 0) {
+		const cellMatches = this._matches.get();
+
+		// No matches
+		if (cellMatches.length === 0) {
+			// TODO: What if there's a current match?...
 			return -1;
 		}
 
-		// If we have a current match, just go to the previous one
-		if (this._currentMatchIndex !== undefined) {
-			const prevIndex = this._currentMatchIndex - 1;
-			if (prevIndex >= 0) {
-				return prevIndex;
-			}
-			// Wrap around to last
-			return this._allMatches.length - 1;
+		const currentMatch = this._currentMatch.get();
+
+		// Current match known
+		if (currentMatch !== undefined) {
+			// Go to the previous match, wrapping around if needed
+			const prevIndex = currentMatch.index - 1;
+			return prevIndex >= 0 ? prevIndex : cellMatches.length - 1;
 		}
 
-		const currentCursor = this.getCurrentCursor();
-		if (!currentCursor) {
-			return this._allMatches.length - 1;
+		// If we don't have a current match yet, find last match before cursor
+		const cursorPosition = this.getCursorPosition();
+		if (!cursorPosition) {
+			// TODO: When does this happen? Should we jump to the next cell?
+			return -1;
 		}
 
-		// Find the previous match before the current position (search backwards)
-		for (let i = this._allMatches.length - 1; i >= 0; i--) {
-			const { cellIndex: matchCellIndex, match } = this._allMatches[i];
+		// Find the last match before the cursor
+		const matchIndex = cellMatches.findLastIndex(({ cellRange }) =>
+			cellRange.containsPosition(cursorPosition) ||
+			cellRange.getEndPosition().isBefore(cursorPosition)
+		);
 
-			// If match is in an earlier cell, it's the previous match
-			if (matchCellIndex < currentCursor.index) {
-				return i;
-			}
-
-			// If match is in the same cell, check if it's before the cursor
-			if (matchCellIndex === currentCursor.index && currentCursor.position) {
-				if (match.range.startLineNumber < currentCursor.position.lineNumber ||
-					(match.range.startLineNumber === currentCursor.position.lineNumber && match.range.startColumn < currentCursor.position.column)) {
-					return i;
-				}
-			}
+		// TODO: How to handle this?
+		if (matchIndex === -1) {
+			return -1;
 		}
 
-		// Wrap around to the last match
-		return this._allMatches.length - 1;
+		return matchIndex;
 	}
 
-	private getCurrentCursor() {
+	// TODO: Move to IPositronNotebookInstance?
+	private getCursorPosition(): CellEditorPosition | undefined {
 		// Get the currently active cell and cursor position
 
 		// No current match tracked, use cursor position
@@ -330,72 +462,51 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		const position = activeCell.editor?.getPosition();
-
-		return {
-			index: activeCell.index,
-			position,
-		};
-	}
-
-	private updateCellDecorations(cell: IPositronNotebookCell): void {
-		// Get all matches for this cell
-		const cellMatches = this._allMatches
-			.filter(m => m.cell.handle === cell.handle)
-			.map((m) => {
-				const globalIndex = this._allMatches.indexOf(m);
-				return { match: m.match, globalIndex };
-			});
-
-		const newDecorations: IModelDeltaDecoration[] = [];
-		for (const { match, globalIndex } of cellMatches) {
-			// Use current match decoration if this is the current match
-			const isCurrentMatch = globalIndex === this._currentMatchIndex;
-			newDecorations.push({
-				range: match.range,
-				options: isCurrentMatch
-					? FindDecorations._CURRENT_FIND_MATCH_DECORATION
-					: FindDecorations._FIND_MATCH_DECORATION
-			});
+		if (!position) {
+			return undefined;
 		}
 
-		const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-		cell.editor?.changeDecorations(accessor => {
-			const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
-			this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
-		});
+		return new CellEditorPosition(
+			activeCell.index,
+			position,
+		);
 	}
 
 	private navigateToMatch(matchIndex: number): void {
-		if (matchIndex < 0 || matchIndex >= this._allMatches.length) {
+		const cellMatches = this._matches.get();
+
+		if (matchIndex < 0 || matchIndex >= cellMatches.length) {
 			return;
 		}
 
-		const { cell, match } = this._allMatches[matchIndex];
+		const cellMatch = cellMatches[matchIndex];
+		const { cell } = cellMatch;
 
-		// Clear previous current match decoration
-		if (this._currentMatchCellHandle !== undefined && this._currentMatchIndex !== undefined) {
-			const prevCell = this._notebook.cells.get().find(c => c.handle === this._currentMatchCellHandle);
-			if (prevCell) {
-				this.updateCellDecorations(prevCell);
-			}
-		}
+		// Clear previous current match decoration if it was in a different cell
+		// const currentMatchIndex = this._currentMatchIndex.get();
+		// if (currentMatchIndex !== undefined) {
+		// 	const prevMatch = cellMatches[currentMatchIndex];
+		// 	if (prevMatch && prevMatch.cell.handle !== cellMatch.cell.handle) {
+		// 		this.updateCellDecorations(prevMatch.cell);
+		// 	}
+		// }
 
 		// Update current match tracking
-		this._currentMatchCellHandle = cell.handle;
-		this._currentMatchIndex = matchIndex;
+		this._currentMatch.set({ cellMatch, index: matchIndex }, undefined);
 
 		// Update decorations to highlight the current match
-		this.updateCellDecorations(cell);
+		// this.updateCellDecorations(cell);
 
 		// Select the cell
 		this._notebook.selectionStateMachine.selectCell(cell);
 
 		// Select the match in the editor
+		// TODO: Move this to IPositronNotebookInstance?
 		if (cell.editor) {
 			// Set the selection to the match range
-			cell.editor.setSelection(match.range);
+			cell.editor.setSelection(cellMatch.cellRange.range);
 			// Reveal the range in the editor
-			cell.editor.revealRangeInCenter(match.range);
+			cell.editor.revealRangeInCenter(cellMatch.cellRange.range);
 		}
 
 		// Update the match index
@@ -460,7 +571,7 @@ registerAction2(class extends PositronNotebookFindAction {
 	}
 });
 
-NextMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+NextMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
 	const editorService = accessor.get(IEditorService);
 	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
 	if (!notebook) {
@@ -476,7 +587,7 @@ NextMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEditor
 	return true;
 });
 
-PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
 	const editorService = accessor.get(IEditorService);
 	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
 	if (!notebook) {
@@ -493,7 +604,7 @@ PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, codeEd
 });
 
 // Invoked when Cmd+F is pressed while editing a notebook cell
-StartFindAction.addImplementation(100, (accessor: ServicesAccessor, codeEditor: ICodeEditor, args: unknown) => {
+StartFindAction.addImplementation(100, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
 	const editorService = accessor.get(IEditorService);
 	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
 	if (!notebook) {
@@ -509,3 +620,109 @@ StartFindAction.addImplementation(100, (accessor: ServicesAccessor, codeEditor: 
 	controller.start();
 	return true;
 });
+
+class CellFindDecorations extends Disposable {
+	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
+	private _currentMatchDecorationId: { cell: IPositronNotebookCell; decorationId: string } | undefined;
+
+	constructor(
+		private readonly _notebook: IPositronNotebookInstance,
+		private readonly _matches: IObservable<IPositronCellFindMatch[]>,
+		private readonly _currentMatch: IObservable<{ cellMatch: PositronCellFindMatch; index: number } | undefined>,
+	) {
+		super();
+
+		this._register(autorun(reader => {
+			const allMatches = this._matches.read(reader);
+
+			// Group matches by cell
+			const cellMatchesByCell = new Map<IPositronNotebookCell, IPositronCellFindMatch[]>();
+			for (const cellMatch of allMatches) {
+				let cellMatches = cellMatchesByCell.get(cellMatch.cell);
+				if (!cellMatches) {
+					cellMatches = [];
+					cellMatchesByCell.set(cellMatch.cell, cellMatches);
+				}
+				cellMatches.push(cellMatch);
+			}
+
+			// Update all cell editor decorations
+			for (const [cell, cellMatches] of cellMatchesByCell.entries()) {
+				if (!cell.editor) {
+					continue;
+				}
+
+				const newDecorations: IModelDeltaDecoration[] = cellMatches.map(cellMatch => ({
+					range: cellMatch.cellRange.range,
+					options: FindDecorations._FIND_MATCH_DECORATION,
+				}));
+
+				cell.editor.changeDecorations(accessor => {
+					const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
+					const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
+					this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
+				});
+			}
+		}));
+
+		this._register(autorun(reader => {
+			const currentMatch = this._currentMatch.read(reader);
+
+			// Reset the existing current match decoration, if one exists
+			const oldDecoration = this._currentMatchDecorationId;
+			if (oldDecoration) {
+				const { cell, decorationId } = oldDecoration;
+				if (cell.editor) {
+					cell.editor.changeDecorations(accessor => {
+						accessor.changeDecorationOptions(decorationId, FindDecorations._FIND_MATCH_DECORATION);
+					});
+				}
+				this._currentMatchDecorationId = undefined;
+			}
+
+			// Add the new current match decoration
+			if (currentMatch) {
+				const { cell, cellRange } = currentMatch.cellMatch;
+				if (!cell.editor) {
+					return;
+				}
+
+				let newCurrentDecorationId: string | null = null;
+				if (cellRange.range) {
+					const decorationIds = this._decorationIdsByCellHandle.get(cell.handle) ?? [];
+					for (const decorationId of decorationIds) {
+						const model = cell.editor.getModel();
+						if (model) {
+							const range = model.getDecorationRange(decorationId);
+							if (cellRange.range.equalsRange(range)) {
+								newCurrentDecorationId = decorationId;
+								break;
+							}
+						}
+					}
+				}
+
+				if (newCurrentDecorationId !== null) {
+					cell.editor.changeDecorations(accessor => {
+						accessor.changeDecorationOptions(newCurrentDecorationId, FindDecorations._CURRENT_FIND_MATCH_DECORATION);
+					});
+
+					this._currentMatchDecorationId = { cell, decorationId: newCurrentDecorationId };
+				}
+			}
+		}));
+	}
+
+	clear() {
+		for (const cell of this._notebook.cells.get()) {
+			if (cell.editor) {
+				const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle);
+				if (oldDecorationIds) {
+					cell.editor.changeDecorations(accessor => {
+						accessor.deltaDecorations(oldDecorationIds, []);
+					});
+				}
+			}
+		}
+	}
+}
