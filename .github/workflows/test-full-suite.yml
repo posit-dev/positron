@@ -58,12 +58,6 @@ jobs:
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
-  setup-win:
-    name: setup
-    if: ${{ inputs.run_e2e_windows }}
-    uses: ./.github/workflows/test-e2e-windows-build.yml
-    secrets: inherit
-
   e2e-electron:
     name: e2e
     needs: [setup-ubuntu]
@@ -86,7 +80,6 @@ jobs:
 
   e2e-windows:
     name: e2e
-    needs: [setup-win]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
