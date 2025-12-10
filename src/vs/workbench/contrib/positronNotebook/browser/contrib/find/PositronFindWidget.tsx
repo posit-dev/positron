@@ -18,6 +18,15 @@ import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
+import { localize } from '../../../../../../nls.js';
+
+// Localized strings
+const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
+const nextMatchLabel = localize('positronNotebook.find.nextMatch', "Next Match");
+const closeLabel = localize('positronNotebook.find.close', "Close");
+const noResultsLabel = localize('positronNotebook.find.noResults', "No results");
+const matchCountLabel = (matchIndex: number, matchCount: number) =>
+	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
@@ -102,7 +111,7 @@ export const PositronFindWidget = ({
 					/>
 					<div className='find-navigation-buttons'>
 						<ActionButton
-							ariaLabel='Previous Match'
+							ariaLabel={previousMatchLabel}
 							className='find-action-button'
 							disabled={noMatches}
 							onPressed={() => onPreviousMatch()}
@@ -110,7 +119,7 @@ export const PositronFindWidget = ({
 							<ThemeIcon icon={Codicon.arrowUp} />
 						</ActionButton>
 						<ActionButton
-							ariaLabel='Next Match'
+							ariaLabel={nextMatchLabel}
 							className='find-action-button'
 							disabled={noMatches}
 							onPressed={() => onNextMatch()}
@@ -119,7 +128,7 @@ export const PositronFindWidget = ({
 						</ActionButton>
 					</div>
 					<ActionButton
-						ariaLabel='Close'
+						ariaLabel={closeLabel}
 						className='find-action-button find-close-button'
 						onPressed={() => isVisible.set(false, undefined)}
 					>
@@ -140,7 +149,7 @@ interface FindResultProps {
 const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 	// Case 1: No find text - show "No results" in ordinary color
 	if (!findText) {
-		return <div className='find-results'>No results</div>;
+		return <div className='find-results'>{noResultsLabel}</div>;
 	}
 
 	// Case 2: Find text but matchCount not yet calculated
@@ -150,9 +159,9 @@ const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 
 	// Case 3: Find text but no matches found - different color
 	if (matchCount === 0) {
-		return <div className='find-results no-results'>No results</div>;
+		return <div className='find-results no-results'>{noResultsLabel}</div>;
 	}
 
 	// Case 4: Matches found - show count
-	return <div className='find-results'>{(matchIndex ?? 0) + 1} of {matchCount}</div>;
+	return <div className='find-results'>{matchCountLabel((matchIndex ?? 0) + 1, matchCount)}</div>;
 };
