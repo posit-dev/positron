@@ -1,0 +1,214 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import * as positron from 'positron';
+import * as ai from 'ai';
+import { ModelConfig, SecretStorage } from '../../config';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { log, recordTokenUsage, recordRequestTokenUsage } from '../../extension';
+import { toAIMessage } from '../../utils';
+import { applyModelFilters } from '../../modelFilters';
+
+/**
+ * Test provider that echoes back user input.
+ * Useful for testing chat functionality without making API calls.
+ */
+export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
+	readonly name = 'Echo Language Model';
+	readonly provider = 'echo';
+	readonly id = 'echo-language-model';
+	readonly maxInputTokens = DEFAULT_MAX_TOKEN_INPUT;
+	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+	protected modelListing?: vscode.LanguageModelChatInformation[];
+
+	constructor(
+		private readonly _config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext,
+		private readonly _storage?: SecretStorage,
+	) { }
+
+	static source = {
+		type: positron.PositronLanguageModelType.Chat,
+		signedIn: false,
+		provider: {
+			id: 'echo',
+			displayName: 'Echo',
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Echo Language Model',
+			model: 'echo',
+		},
+	};
+
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
+	};
+
+	get providerName(): string {
+		return EchoLanguageModel.source.provider.displayName;
+	}
+
+	/**
+	 * Provides language model chat information.
+	 */
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
+		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+
+		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
+		return this.filterModels(models);
+	}
+
+	/**
+	 * Provides a chat response by echoing back the user's input.
+	 * Special commands:
+	 * - 'Send Python Code' - Returns Python code snippet
+	 * - 'Send R Code' - Returns R code snippet
+	 * - 'Return model' - Returns the model ID
+	 */
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage[],
+		options: { [name: string]: any },
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	): Promise<any> {
+		const _messages = toAIMessage(messages);
+		const message = this.getUserPrompt(_messages);
+
+		if (!message) {
+			throw new Error(`[${this.providerName}] No user prompt provided to echo language model.`);
+		}
+
+		if (typeof message.content === 'string') {
+			message.content = [{ type: 'text', text: message.content }];
+		}
+
+		if (message.content[0].type !== 'text') {
+			throw new Error(`[${this.providerName}] Echo language model only supports text messages.`);
+		}
+
+		const inputText = message.content[0].text;
+		let response: string;
+
+		// Check for known test commands and respond accordingly
+		if (inputText === 'Send Python Code') {
+			response = '```python\nfoo = 100\n```';
+		}
+		else if (inputText === 'Send R Code') {
+			response = '```r\nfoo <- 200\n```';
+		}
+		else if (inputText === 'Return model') {
+			response = model.id;
+		}
+		else {
+			// Default case: echo back the input message
+			response = inputText;
+		}
+
+		let tokenUsage;
+
+		// Record token usage if context is available
+		if (this._context) {
+			const inputTokens = await this.provideTokenCount(model, inputText, token);
+			const outputTokens = await this.provideTokenCount(model, response, token);
+			tokenUsage = { inputTokens, outputTokens, cachedTokens: 0 };
+			recordTokenUsage(this._context, this.provider, tokenUsage);
+			// Also record token usage by request ID if available
+			const requestId = (options.modelOptions as any)?.requestId;
+			if (requestId) {
+				recordRequestTokenUsage(requestId, this.provider, tokenUsage);
+			}
+		}
+
+		// Output the response character by character
+		for await (const i of response.split('')) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+			progress.report(new vscode.LanguageModelTextPart(i));
+			if (token.isCancellationRequested) {
+				return;
+			}
+		}
+
+		return { tokenUsage };
+	}
+
+	/**
+	 * Provides token count for the given text.
+	 */
+	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+		if (typeof text === 'string') {
+			return text.length;
+		} else {
+			const _text = toAIMessage([text]);
+			return _text.length > 0 ? _text[0].content.length : 0;
+		}
+	}
+
+	/**
+	 * Resolves connection - always succeeds for echo model.
+	 */
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	/**
+	 * Resolves available models for the echo provider.
+	 */
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const models = [{
+			id: this.id,
+			name: this.name,
+			family: this.provider,
+			version: '1.0.0',
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isDefault: true,
+			isUserSelectable: true,
+		}, {
+			id: 'echo-language-model-v2',
+			name: 'Echo Language Model v2',
+			family: this.provider,
+			version: '1.0.0',
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isUserSelectable: true,
+		}];
+		this.modelListing = models;
+		return models;
+	}
+
+	/**
+	 * Filters models based on configured filters.
+	 */
+	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
+	}
+
+	/**
+	 * Extracts the user prompt from the messages.
+	 */
+	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+		if (messages.length === 0) {
+			return undefined;
+		}
+		if (messages.length === 1) {
+			return messages[0];
+		}
+		// If there are multiple messages, the last message is the user message.
+		// See defaultRequestHandler in extensions/positron-assistant/src/participants.ts for the message ordering.
+		const userPrompt = messages[messages.length - 1];
+		if (userPrompt.role !== 'user') {
+			return undefined;
+		}
+		return userPrompt;
+	}
+}
