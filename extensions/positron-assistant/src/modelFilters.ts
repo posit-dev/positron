@@ -103,16 +103,16 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the filter patterns from workspace configuration
-	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${providerName}] Patterns from filterModels config: ${filterModels.join(', ')}`);
-	if (filterModels.length === 0) {
+	// Get the include patterns from workspace configuration, fall back to legacy setting if needed
+	const includePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.include', []) ?? vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels');
+	log.debug(`[${providerName}] Patterns from models.include config: ${includePatterns.join(', ')}`);
+	if (includePatterns.length === 0) {
 		return models;
 	}
 
 	// Filter models based on patterns
 	const filteredModels = models.filter(model =>
-		filterModels.some(pattern =>
+		includePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.id, model.name)
 		)
 	);

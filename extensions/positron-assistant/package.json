@@ -335,13 +335,13 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.filterModels": {
+          "positron.assistant.models.include": {
             "type": "array",
             "default": [
               "claude",
               "gpt"
             ],
-            "markdownDescription": "%configuration.filterModels.description%",
+            "markdownDescription": "%configuration.models.include.description%",
             "items": {
               "type": "string"
             },
