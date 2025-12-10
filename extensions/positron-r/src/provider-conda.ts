@@ -108,7 +108,7 @@ export async function discoverCondaBinaries(): Promise<RBinary[]> {
 					rBinaries.push({
 						path: rPath,
 						reasons: [ReasonDiscovered.CONDA],
-						condaEnvironmentPath: envPath
+						packagerMetadata: { environmentPath: envPath }
 					});
 					break;
 				}
