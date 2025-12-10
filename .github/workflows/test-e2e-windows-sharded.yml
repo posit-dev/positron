@@ -1,0 +1,46 @@
+name: "Test: E2E (Windows) - Sharded"
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      grep:
+        required: false
+        description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
+        default: "@:critical"
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e-windows-1:
+    name: "e2e"
+    uses: ./.github/workflows/test-e2e-windows.yml
+    with:
+      project: "e2e-windows"
+      grep: "${{ inputs.grep }}"
+      display_name: "windows-1"
+      shards: 2
+      matrix: '{"shard":[1]}'
+      workers: 2
+      skip_extension_test: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  e2e-windows-2:
+    name: "Windows E2E (Shard 2/2)"
+    uses: ./.github/workflows/test-e2e-windows.yml
+    with:
+      project: "e2e-windows"
+      grep: "${{ inputs.grep }}"
+      display_name: "windows-2"
+      shards: 2
+      matrix: '{"shard":[2]}'
+      workers: 2
+      skip_extension_test: true  # Only shard 1 runs extension test
+      allow_soft_fail: false
+    secrets: inherit

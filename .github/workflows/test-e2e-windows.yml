@@ -47,6 +47,21 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      shards:
+        required: false
+        description: "Total number of shards (for display purposes and shard argument)"
+        default: 1
+        type: number
+      matrix:
+        required: false
+        description: "Pre-calculated matrix JSON from caller workflow"
+        default: '{"shard":[1]}'
+        type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use per shard, defaults to 2."
+        default: 2
+        type: number
     outputs:
       extensions_failed:
         description: "Whether the extensions tests failed"
@@ -85,6 +100,9 @@ jobs:
     runs-on:
       labels: [windows-latest-8x]
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.matrix) }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -390,32 +408,60 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
 
-      # - name: Run Main Test Suite (Electron)
-      #   shell: bash
-      #   env:
-      #     POSITRON_PY_VER_SEL: 3.10.10
-      #     POSITRON_R_VER_SEL: 4.4.0
-      #     POSITRON_PY_ALT_VER_SEL: 3.13.0
-      #     POSITRON_R_ALT_VER_SEL: 4.4.2
-      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
-      #     CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
-      #     ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-      #     CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
-      #     CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-      #     USE_KEY: true
-      #     PW_JSON_FILE: test-results/windows.json
-      #     ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
-      #     GH_SUMMARY_REPORT: true
-      #   run: |
-      #     # Build the --grep argument only if PW_TAGS is non-empty
-      #     if [ -z "${PW_TAGS}" ]; then
-      #       GREP_ARG=""
-      #     else
-      #       GREP_ARG="--grep \"${PW_TAGS}\""
-      #     fi
+      - name: Run Main Test Suite (Electron)
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          PW_JSON_FILE: test-results/windows.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: true
+        run: |
+          # Build the --grep argument only if PW_TAGS is non-empty
+          if [ -z "${PW_TAGS}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${PW_TAGS}\""
+          fi
+
+          # Build the --shard argument if shards > 1
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
+          else
+            SHARD_ARG=""
+          fi
+
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --shard argument: $SHARD_ARG"
+
+          export SKIP_BOOTSTRAP=true
+          # Skip close on qa-example-content if we already did the bootstrap test
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            export SKIP_CLONE=true
+          else
+            export SKIP_CLONE=false
+          fi
+
+          CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: $CMD"
+
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval $CMD || true
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval $CMD
+          fi
       # - name: Run Main Test Suite (Electron)
       #   shell: bash
       #   env:
