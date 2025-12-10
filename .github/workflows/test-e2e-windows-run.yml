@@ -150,23 +150,40 @@ jobs:
           echo "========================================="
           echo "NODE_MODULES CACHE STATUS"
           echo "========================================="
-          echo "Cache hit: ${{ steps.cache-node-modules.outputs.cache-hit }}"
+          echo "Cache exact match: ${{ steps.cache-node-modules.outputs.cache-hit }}"
+          echo "Cache matched key: ${{ steps.cache-node-modules.outputs.cache-matched-key }}"
 
-          if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
-            echo "✓ Cache HIT - Skipping npm install"
+          # Check if node_modules exists (indicates cache was restored, even via restore-keys)
+          if [ -d "node_modules" ] && [ -d "build/node_modules" ]; then
+            echo "✓ Cache RESTORED - Skipping npm install"
             echo ""
             echo "Restored node_modules:"
             [ -d "node_modules" ] && echo "  ✓ Root node_modules ($(ls node_modules 2>/dev/null | wc -l) packages)"
             [ -d "build/node_modules" ] && echo "  ✓ build/node_modules ($(ls build/node_modules 2>/dev/null | wc -l) packages)"
             [ -d "test/e2e/node_modules" ] && echo "  ✓ test/e2e/node_modules ($(ls test/e2e/node_modules 2>/dev/null | wc -l) packages)"
+            [ -d "extensions/node_modules" ] && echo "  ✓ extensions/node_modules ($(ls extensions/node_modules 2>/dev/null | wc -l) packages)"
+            echo "  ✓ Extension subdirectories: $(find extensions -maxdepth 2 -name node_modules -type d | wc -l) extensions"
           else
             echo "✗ Cache MISS - Will run full npm install"
             echo "  This is expected on first run or after dependency changes"
           fi
           echo "========================================="
 
+      - name: Check if npm install needed
+        id: check-install
+        shell: bash
+        run: |
+          # Only run npm install if cache wasn't restored (node_modules don't exist)
+          if [ -d "node_modules" ] && [ -d "build/node_modules" ] && [ -d "extensions/node_modules" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "✓ Skipping npm install - cache was restored"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✗ Running npm install - cache not restored"
+          fi
+
       - name: Install node dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        if: steps.check-install.outputs.skip != 'true'
         uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64
@@ -234,7 +251,7 @@ jobs:
           echo "========================================="
 
       - name: Save npm dependencies cache
-        if: ${{ matrix.shard == 2 && steps.cache-node-modules.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.shard == 2 && steps.check-install.outputs.skip != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: |
