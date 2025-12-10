@@ -8,7 +8,7 @@ import { autorun, IObservable } from '../../../../../../base/common/observable.j
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
 import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { PositronCellFindMatch } from './positronNotebookFind.js';
+import { CurrentPositronCellMatch, PositronCellFindMatch } from './controller.js';
 
 export class PositronNotebookFindDecorations extends Disposable {
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
@@ -16,7 +16,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 
 	constructor(
 		private readonly _matches: IObservable<PositronCellFindMatch[]>,
-		private readonly _currentMatch: IObservable<{ cellMatch: PositronCellFindMatch; index: number } | undefined>,
+		private readonly _currentMatch: IObservable<CurrentPositronCellMatch | undefined>,
 	) {
 		super();
 

@@ -3,93 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
-import { EditorContextKeys } from '../../../../../../editor/common/editorContextKeys.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
-import { localize, localize2 } from '../../../../../../nls.js';
-import { registerAction2 } from '../../../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysManager.js';
+import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { NotebookAction2 } from '../../NotebookAction2.js';
-import { IPositronNotebookContribution, registerPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { FindMatch } from '../../../../../../editor/common/model.js';
+import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
 import { autorun, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { NextMatchFindAction, PreviousMatchFindAction, StartFindAction } from '../../../../../../editor/contrib/find/browser/findController.js';
-import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
-import { IEditorService } from '../../../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
-import { PositronNotebookFindDecorations } from './PositronNotebookFindDecorations.js';
-import { CellEditorRange, ICellEditorRange } from '../../../common/editor/range.js';
+import { PositronNotebookFindDecorations } from './decorations.js';
+import { CellEditorRange } from '../../../common/editor/range.js';
 
-export interface ICellFindMatch {
-	cellRange: ICellEditorRange;
-	matches: string[] | null;
-}
-
-export interface IPositronCellFindMatch extends ICellFindMatch {
-	cell: IPositronNotebookCell;
-}
-
-export class PositronCellFindMatch implements IPositronCellFindMatch {
+export class PositronCellFindMatch {
 	constructor(
 		public readonly cell: IPositronNotebookCell,
 		public readonly cellRange: CellEditorRange,
 		public readonly matches: string[] | null,
 	) { }
-
-	// TODO: need this?
-	public static fromFindMatch(cell: IPositronNotebookCell, cellIndex: number, match: FindMatch): PositronCellFindMatch {
-		return new PositronCellFindMatch(cell, new CellEditorRange(cellIndex, match.range), match.matches);
-	}
 }
 
-// interface CellMatchIndex {
-// 	cellMatchIndex: number;
-// 	findMatchIndex: number;
-// }
-
-// class CellMatchList {
-// 	constructor(
-// 		private _cellMatches: CellMatch[] = [],
-// 	) { }
-
-// 	get length(): number {
-// 		return this._cellMatches.reduce((length, cellMatch) => length + cellMatch.matches.length, 0);
-// 	}
-
-// 	*entries(): IterableIterator<[CellMatchIndex, FindMatch]> {
-// 		for (const [cellMatchIndex, cellMatch] of this._cellMatches.entries()) {
-// 			for (const [findMatchIndex, match] of cellMatch.matches.entries()) {
-// 				yield [{ cellMatchIndex, findMatchIndex }, match];
-// 			}
-// 		}
-// 	}
-
-// 	at(index: CellMatchIndex): FindMatch | undefined {
-// 		for (const [matchIndex, match] of this.entries()) {
-// 			if (index === matchIndex) {
-// 				return match;
-// 			}
-// 		}
-// 		return undefined;
-// 	}
-
-// 	clear(): void {
-// 		this._cellMatches = [];
-// 	}
-
-// 	push(match: CellMatch): void {
-// 		this._cellMatches.push(match);
-// 	}
-// }
+export class CurrentPositronCellMatch {
+	constructor(
+		public readonly cellMatch: PositronCellFindMatch,
+		public readonly matchIndex: number,
+	) { }
+}
 
 /** TODO: Note that this is tied to one notebook instance lifecycle */
 export class PositronNotebookFindController extends Disposable implements IPositronNotebookContribution {
@@ -98,7 +38,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private _findInstance: PositronFindInstance | undefined;
 	// TODO: Note ordering
 	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
-	private readonly _currentMatch = observableValue<{ cellMatch: PositronCellFindMatch; index: number } | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
+	private readonly _currentMatch = observableValue<CurrentPositronCellMatch | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
@@ -184,11 +124,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
 
 				// Set the match index to the first match after the cursor
-				const cursorPosition = this._notebook.getActiveEditorPosition();
-
-				// TODO: Extract method?
-				// Determine the current match index based on cursor position
 				let matchIndex: number | undefined = undefined;
+				const cursorPosition = this._notebook.getActiveEditorPosition();
 				if (cursorPosition && cellMatches.length > 0) {
 					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
 						cellRange.containsPosition(cursorPosition) ||
@@ -232,8 +169,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private research(searchString: string, isRegex: boolean, matchCase: boolean, wholeWord: boolean): PositronCellFindMatch[] {
 		const cellMatches: PositronCellFindMatch[] = [];
-		// TODO: what to do with current match on research?
-		// this._currentMatchIndex = undefined;
 		for (const [cellIndex, cell] of this._notebook.cells.get().entries()) {
 			if (cell.model.textModel) {
 				const wordSeparators = this._configurationService.inspect<string>('editor.wordSeparators').value;
@@ -245,10 +180,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					wholeWord ? wordSeparators || null : null,
 					isRegex,
 				);
-
-				// Store each match with its cell reference and index
 				for (const match of matches) {
-					const cellMatch = PositronCellFindMatch.fromFindMatch(cell, cellIndex, match);
+					const cellRange = new CellEditorRange(cellIndex, match.range);
+					const cellMatch = new PositronCellFindMatch(cell, cellRange, match.matches);
 					cellMatches.push(cellMatch);
 				}
 			}
@@ -286,7 +220,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Current match known
 		if (currentMatch !== undefined) {
 			// Go to the next match, wrapping around if needed
-			const nextIndex = currentMatch.index + 1;
+			const nextIndex = currentMatch.matchIndex + 1;
 			return nextIndex < cellMatches.length ? nextIndex : 0;
 		}
 
@@ -325,7 +259,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Current match known
 		if (currentMatch !== undefined) {
 			// Go to the previous match, wrapping around if needed
-			const prevIndex = currentMatch.index - 1;
+			const prevIndex = currentMatch.matchIndex - 1;
 			return prevIndex >= 0 ? prevIndex : cellMatches.length - 1;
 		}
 
@@ -354,137 +288,30 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const cellMatches = this._matches.get();
 
 		if (matchIndex < 0 || matchIndex >= cellMatches.length) {
+			// Invalid match index
 			return;
 		}
 
 		const cellMatch = cellMatches[matchIndex];
-		const { cell } = cellMatch;
+		const { cell, cellRange } = cellMatch;
 
-		// Select the cell
+		// Select the cell (and reveal it)
 		this._notebook.selectionStateMachine.selectCell(cell);
 
 		// Select the match in the editor
-		// TODO: Move this to IPositronNotebookInstance?
 		if (cell.editor) {
 			// Set the selection to the match range
-			cell.editor.setSelection(cellMatch.cellRange.range);
+			cell.editor.setSelection(cellRange.range);
 			// Reveal the range in the editor
-			cell.editor.revealRangeInCenter(cellMatch.cellRange.range);
+			cell.editor.revealRangeInCenter(cellRange.range);
 		}
-
-		const findInstance = this.getOrCreateFindInstance();
 
 		transaction((tx) => {
 			// Update the match index
-			findInstance.matchIndex.set(matchIndex, tx);
+			this._findInstance?.matchIndex.set(matchIndex, tx);
 
 			// Update current match tracking
-			this._currentMatch.set({ cellMatch, index: matchIndex }, tx);
+			this._currentMatch.set({ cellMatch, matchIndex: matchIndex }, tx);
 		});
 	}
 }
-
-registerPositronNotebookContribution(PositronNotebookFindController.ID, PositronNotebookFindController);
-
-abstract class PositronNotebookFindAction extends NotebookAction2 {
-	override async runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor): Promise<void> {
-		const controller = PositronNotebookFindController.get(notebook);
-		if (controller) {
-			await this.runFindAction(controller);
-		}
-	}
-
-	abstract runFindAction(controller: PositronNotebookFindController): Promise<void>;
-}
-
-registerAction2(class extends PositronNotebookFindAction {
-	constructor() {
-		super({
-			id: 'positron.notebook.find',
-			title: localize2('positron.notebook.find.title', 'Find in Notebook'),
-			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					// ContextKeyExpr.or(NOTEBOOK_IS_ACTIVE_EDITOR, INTERACTIVE_WINDOW_IS_ACTIVE_EDITOR),
-					EditorContextKeys.focus.toNegated()
-				),
-				primary: KeyCode.KeyF | KeyMod.CtrlCmd,
-				weight: KeybindingWeight.WorkbenchContrib
-			}
-		});
-	}
-
-	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
-		controller.start();
-	}
-});
-
-registerAction2(class extends PositronNotebookFindAction {
-	constructor() {
-		super({
-			id: 'positron.notebook.hideFind',
-			title: localize2('positron.notebook.hideFind.title', 'Hide Find in Notebook'),
-			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					CONTEXT_FIND_WIDGET_VISIBLE,
-				),
-				primary: KeyCode.Escape,
-				weight: KeybindingWeight.EditorContrib + 5
-			}
-		});
-	}
-
-	override async runFindAction(controller: PositronNotebookFindController): Promise<void> {
-		controller.closeWidget();
-	}
-});
-
-NextMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
-	const editorService = accessor.get(IEditorService);
-	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
-	if (!notebook) {
-		return false;
-	}
-
-	const controller = PositronNotebookFindController.get(notebook);
-	if (!controller) {
-		return false;
-	}
-
-	controller.findNext();
-	return true;
-});
-
-PreviousMatchFindAction.addImplementation(0, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
-	const editorService = accessor.get(IEditorService);
-	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
-	if (!notebook) {
-		return false;
-	}
-
-	const controller = PositronNotebookFindController.get(notebook);
-	if (!controller) {
-		return false;
-	}
-
-	controller.findPrevious();
-	return true;
-});
-
-// Invoked when Cmd+F is pressed while editing a notebook cell
-StartFindAction.addImplementation(100, (accessor: ServicesAccessor, _codeEditor: ICodeEditor, _args: unknown) => {
-	const editorService = accessor.get(IEditorService);
-	const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
-	if (!notebook) {
-		return false;
-	}
-
-	const controller = PositronNotebookFindController.get(notebook);
-	if (!controller) {
-		return false;
-	}
-
-	controller.start();
-	return true;
-});

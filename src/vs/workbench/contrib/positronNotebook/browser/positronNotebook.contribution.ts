@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Notebook editor extensions
-import './contrib/find/positronNotebookFind.js';
+import './contrib/find/positronNotebookFind.contribution.js';
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
