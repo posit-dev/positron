@@ -384,6 +384,27 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Setup AWS S3 Access for .last-run.json download
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Download previous .last-run.json from S3
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p blob-report
+          # Download project-specific .last-run.json
+          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
+
+      - name: Restore AWS S3 Access to read-only role
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
       - name: Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
         id: extensions
