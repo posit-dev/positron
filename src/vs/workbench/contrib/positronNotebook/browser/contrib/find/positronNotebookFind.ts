@@ -27,21 +27,9 @@ import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
-import { IPosition, Position } from '../../../../../../editor/common/core/position.js';
-import { IRange, Range } from '../../../../../../editor/common/core/range.js';
 import { PositronNotebookFindDecorations } from './PositronNotebookFindDecorations.js';
-
-/** A position in a cell editor. */
-export interface ICellEditorPosition {
-	cellIndex: number;
-	position: IPosition;
-}
-
-/** A range in a cell editor. */
-export interface ICellEditorRange {
-	cellIndex: number;
-	range: IRange;
-}
+import { CellEditorPosition } from '../../../common/editor/position.js';
+import { CellEditorRange, ICellEditorRange } from '../../../common/editor/range.js';
 
 export interface ICellFindMatch {
 	cellRange: ICellEditorRange;
@@ -50,77 +38,6 @@ export interface ICellFindMatch {
 
 export interface IPositronCellFindMatch extends ICellFindMatch {
 	cell: IPositronNotebookCell;
-}
-
-export class CellEditorPosition implements ICellEditorPosition {
-	constructor(
-		public readonly cellIndex: number,
-		public readonly position: IPosition,
-	) { }
-
-	isBefore(other: ICellEditorPosition): boolean {
-		return CellEditorPosition.isBefore(this, other);
-	}
-
-	public static isBefore(a: ICellEditorPosition, b: ICellEditorPosition): boolean {
-		if (a.cellIndex < b.cellIndex) {
-			return true;
-		}
-		if (a.cellIndex > b.cellIndex) {
-			return false;
-		}
-		return Position.isBefore(a.position, b.position);
-	}
-
-	isBeforeOrEqual(other: ICellEditorPosition): boolean {
-		return CellEditorPosition.isBeforeOrEqual(this, other);
-	}
-
-	public static isBeforeOrEqual(a: ICellEditorPosition, b: ICellEditorPosition): boolean {
-		if (a.cellIndex < b.cellIndex) {
-			return true;
-		}
-		if (a.cellIndex > b.cellIndex) {
-			return false;
-		}
-		if (Position.isBeforeOrEqual(a.position, b.position)) {
-			return true;
-		}
-		return false;
-	}
-
-
-}
-
-export class CellEditorRange implements ICellEditorRange {
-	constructor(
-		public readonly cellIndex: number,
-		public readonly range: Range,
-	) { }
-
-	containsPosition(cellPosition: ICellEditorPosition): boolean {
-		return CellEditorRange.containsPosition(this, cellPosition);
-	}
-
-	public static containsPosition(cellRange: ICellEditorRange, cellPosition: ICellEditorPosition): boolean {
-		return cellRange.cellIndex === cellPosition.cellIndex && Range.containsPosition(cellRange.range, cellPosition.position);
-	}
-
-	getStartPosition(): CellEditorPosition {
-		return CellEditorRange.getStartPosition(this);
-	}
-
-	public static getStartPosition(range: ICellEditorRange): CellEditorPosition {
-		return new CellEditorPosition(range.cellIndex, Range.getStartPosition(range.range));
-	}
-
-	getEndPosition(): CellEditorPosition {
-		return CellEditorRange.getEndPosition(this);
-	}
-
-	public static getEndPosition(range: ICellEditorRange): CellEditorPosition {
-		return new CellEditorPosition(range.cellIndex, Range.getEndPosition(range.range));
-	}
 }
 
 export class PositronCellFindMatch implements IPositronCellFindMatch {
