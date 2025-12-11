@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -17,7 +17,7 @@ import pytest
 
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
-from positron.ui_comm import UiFrontendEvent
+from positron.ui_comm import UiFrontendEvent, ShowHtmlFileDestination
 from positron.utils import alias_home
 
 from .conftest import DummyComm

@@ -25,6 +25,7 @@ from .ui_comm import (
     ShowUrlParams,
     UiBackendMessageContent,
     UiFrontendEvent,
+    ShowHtmlFileDestination,
     WorkingDirectoryParams,
 )
 from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
@@ -271,7 +272,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         return True
         return False
 
-    def _send_show_html_event(self, url: str, destination: ShowHtmlFileDestination) -> bool:  # noqa: FBT001
+    def _send_show_html_event(self, url: str, destination: str) -> bool:  # noqa: FBT001
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False

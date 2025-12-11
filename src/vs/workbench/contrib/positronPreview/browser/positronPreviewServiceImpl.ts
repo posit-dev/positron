@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,6 +28,8 @@ import { basename } from '../../../../base/common/path.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { localize } from '../../../../nls.js';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -56,6 +58,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IEditorService private readonly _editorService: IEditorService
@@ -90,6 +93,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					const data = e.event.data as IShowHtmlUriEvent;
 					if (data.event.destination === ShowHtmlFileDestination.Viewer) {
 						this.handleShowHtmlFileEvent(session, data);
+					} else if (data.event.destination === ShowHtmlFileDestination.Editor) {
+						this.openEditor(data.uri, data.event.title).catch(err => {
+							this._notificationService.error(localize('positronPreviewFailedToOpenHtmlFileInEditor', "Failed to open {1} in editor: {0}", data.uri.toString(), err.message));
+						});
 					}
 				} else {
 					this.handleShowUrlEvent(session, e.event.data as ShowUrlEvent);
