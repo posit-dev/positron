@@ -7,65 +7,76 @@ import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable } from '../../../../../../base/common/observable.js';
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
 import { FindDecorations } from '../../../../../../editor/contrib/find/browser/findDecorations.js';
-import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch } from './controller.js';
 
 export class PositronNotebookFindDecorations extends Disposable {
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
-	private _currentMatchDecorationId: { cell: IPositronNotebookCell; decorationId: string } | undefined;
+	private _currentMatchDecoration: { cellHandle: number; decorationId: string } | undefined;
 
 	constructor(
+		private readonly _notebook: IPositronNotebookInstance,
 		private readonly _matches: IObservable<PositronCellFindMatch[]>,
 		private readonly _currentMatch: IObservable<CurrentPositronCellMatch | undefined>,
 	) {
 		super();
 
+		// Update all find match decorations when matches change
 		this._register(autorun(reader => {
-			const allMatches = this._matches.read(reader);
+			const matches = this._matches.read(reader);
+			const cells = this._notebook.cells.read(undefined);  // untracked read
 
-			// Group matches by cell
-			const cellMatchesByCell = new Map<IPositronNotebookCell, PositronCellFindMatch[]>();
-			for (const cellMatch of allMatches) {
-				let cellMatches = cellMatchesByCell.get(cellMatch.cell);
-				if (!cellMatches) {
-					cellMatches = [];
-					cellMatchesByCell.set(cellMatch.cell, cellMatches);
+			// Create new decorations for matches grouped by cell handle
+			const newDecorationsByCellHandle = new Map<number, IModelDeltaDecoration[]>();
+			for (const cellMatch of matches) {
+				const cellHandle = cellMatch.cell.handle;
+				let decorations = newDecorationsByCellHandle.get(cellHandle);
+				if (!decorations) {
+					decorations = [];
+					newDecorationsByCellHandle.set(cellHandle, decorations);
 				}
-				cellMatches.push(cellMatch);
-			}
-
-			// Update all cell editor decorations
-			for (const [cell, cellMatches] of cellMatchesByCell.entries()) {
-				if (!cell.editor) {
-					continue;
-				}
-
-				const newDecorations: IModelDeltaDecoration[] = cellMatches.map(cellMatch => ({
+				decorations.push({
 					range: cellMatch.cellRange.range,
 					options: FindDecorations._FIND_MATCH_DECORATION,
-				}));
-
-				cell.editor.changeDecorations(accessor => {
-					const oldDecorationIds = this._decorationIdsByCellHandle.get(cell.handle) || [];
-					const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, newDecorations);
-					this._decorationIdsByCellHandle.set(cell.handle, newDecorationIds);
 				});
+			}
+
+			// Create empty decorations for cells that no longer have matches
+			for (const cellHandle of this._decorationIdsByCellHandle.keys()) {
+				if (!newDecorationsByCellHandle.has(cellHandle)) {
+					newDecorationsByCellHandle.set(cellHandle, []);
+				}
+			}
+
+			// Update all decorations
+			for (const [cellHandle, decorations] of newDecorationsByCellHandle.entries()) {
+				const cell = cells.find(c => c.handle === cellHandle);
+				if (cell?.editor) {
+					cell.editor.changeDecorations(accessor => {
+						const oldDecorationIds = this._decorationIdsByCellHandle.get(cellHandle) ?? [];
+						const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, decorations);
+						this._decorationIdsByCellHandle.set(cellHandle, newDecorationIds);
+					});
+				}
 			}
 		}));
 
+		// Update current match decoration when current match changes
 		this._register(autorun(reader => {
 			const currentMatch = this._currentMatch.read(reader);
+			const cells = this._notebook.cells.read(undefined);  // untracked read
 
 			// Reset the existing current match decoration, if one exists
-			const oldDecoration = this._currentMatchDecorationId;
+			const oldDecoration = this._currentMatchDecoration;
 			if (oldDecoration) {
-				const { cell, decorationId } = oldDecoration;
-				if (cell.editor) {
+				const { cellHandle, decorationId } = oldDecoration;
+				const cell = cells.find(c => c.handle === cellHandle);
+				if (cell?.editor) {
 					cell.editor.changeDecorations(accessor => {
 						accessor.changeDecorationOptions(decorationId, FindDecorations._FIND_MATCH_DECORATION);
 					});
 				}
-				this._currentMatchDecorationId = undefined;
+				this._currentMatchDecoration = undefined;
 			}
 
 			// Add the new current match decoration
@@ -95,7 +106,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 						accessor.changeDecorationOptions(newCurrentDecorationId, FindDecorations._CURRENT_FIND_MATCH_DECORATION);
 					});
 
-					this._currentMatchDecorationId = { cell, decorationId: newCurrentDecorationId };
+					this._currentMatchDecoration = { cellHandle: cell.handle, decorationId: newCurrentDecorationId };
 				}
 			}
 		}));

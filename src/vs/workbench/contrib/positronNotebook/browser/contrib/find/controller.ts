@@ -52,7 +52,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	) {
 		super();
 
-		this._register(new PositronNotebookFindDecorations(this._matches, this._currentMatch));
+		this._register(new PositronNotebookFindDecorations(this._notebook, this._matches, this._currentMatch));
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
