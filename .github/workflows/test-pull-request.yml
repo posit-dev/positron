@@ -38,7 +38,7 @@ jobs:
     needs: pr-tags
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
@@ -55,7 +55,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (windows)"
+      display_name: "electron (win)"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       upload_logs: false
@@ -69,7 +69,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false

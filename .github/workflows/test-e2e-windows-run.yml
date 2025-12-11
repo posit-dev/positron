@@ -141,22 +141,8 @@ jobs:
         id: restore-caches
         uses: ./.github/actions/restore-build-caches-windows
 
-      - name: Check if npm install needed
-        id: check-install
-        shell: bash
-        run: |
-          # Only run npm install if cache wasn't restored (node_modules don't exist)
-          if [ -d "node_modules" ] && [ -d "build/node_modules" ] && [ -d "extensions/node_modules" ] && [ -d ".vscode/extensions" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "✓ Skipping npm install - cache was restored"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "✗ Running npm install - cache not restored"
-          fi
-          echo "Cache hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}"
-
       - name: Install node dependencies
-        if: steps.check-install.outputs.skip != 'true'
+        if: steps.restore-caches.outputs.cache-npm-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64

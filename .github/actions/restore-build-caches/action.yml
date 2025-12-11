@@ -22,16 +22,16 @@ inputs:
 outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
-    value: ${{ steps.cache-playwright.outputs.cache-hit }}
+    value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-npm-hit:
     description: "Whether npm cache was restored"
-    value: ${{ steps.cache-npm.outputs.cache-hit }}
+    value: ${{ steps.cache-npm.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-electron-hit:
     description: "Whether Electron cache was restored"
-    value: ${{ steps.cache-electron.outputs.cache-hit }}
+    value: ${{ steps.cache-electron.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
-    value: ${{ steps.cache-builtins.outputs.cache-hit }}
+    value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.extensions-hash.outputs.hash }}
