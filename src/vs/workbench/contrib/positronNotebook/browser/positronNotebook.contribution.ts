@@ -1270,7 +1270,10 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('terminal'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
-			precondition: ActiveNotebookHasRunningRuntime,
+			precondition: ContextKeyExpr.and(
+				ActiveNotebookHasRunningRuntime,
+				ContextKeyExpr.equals('config.console.showNotebookConsoles', true)
+			),
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: true
@@ -1278,6 +1281,10 @@ registerAction2(class extends NotebookAction2 {
 			menu: {
 				id: MenuId.PositronNotebookKernelSubmenu,
 				order: 100,
+				when: ContextKeyExpr.and(
+					ActiveNotebookHasRunningRuntime,
+					ContextKeyExpr.equals('config.console.showNotebookConsoles', true)
+				)
 			}
 		});
 	}

@@ -1070,7 +1070,10 @@ export function registerPositronConsoleActions() {
 						// notebook console
 						id: MenuId.NotebookToolbar,
 						group: 'notebookConsole',
-						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+						when: ContextKeyExpr.and(
+							ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+							ContextKeyExpr.equals('config.console.showNotebookConsoles', true)
+						),
 						order: 1
 					}
 				]
