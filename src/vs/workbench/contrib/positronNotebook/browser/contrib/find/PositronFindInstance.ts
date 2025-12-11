@@ -10,8 +10,7 @@ import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
-import { getWindow } from '../../../../../../base/browser/dom.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Options for configuring the PositronFindInstance.
@@ -34,7 +33,7 @@ export interface IPositronFindInstanceOptions {
  * Emits events for user actions (find next/previous, close) and exposes observable state.
  */
 export class PositronFindInstance extends Disposable {
-	private _renderer?: PositronReactRenderer;
+	private _renderer?: PositronModalReactRenderer;
 	private _container?: HTMLElement;
 
 	// Events for user actions
@@ -67,6 +66,9 @@ export class PositronFindInstance extends Disposable {
 
 		this._register(runOnChange(this._isVisible, (visible) => {
 			if (!visible) {
+				this._renderer?.dispose();
+				this._renderer = undefined;
+
 				// Clear match info when hiding
 				transaction(() => {
 					this.matchCount.set(undefined, undefined);
@@ -94,8 +96,12 @@ export class PositronFindInstance extends Disposable {
 			// Append to parent container
 			this._options.container.appendChild(this._container);
 
-			// Create React renderer
-			this._renderer = this._register(new PositronReactRenderer(this._container));
+			// Create modal React renderer
+			this._renderer = this._register(new PositronModalReactRenderer({
+				container: this._container,
+				parent: this._options.container,
+				disableCaptures: true,
+			}));
 
 			// Create the find widget
 			const findWidget = React.createElement(PositronFindWidget, {
@@ -115,17 +121,9 @@ export class PositronFindInstance extends Disposable {
 
 			// Render the widget
 			this._renderer.render(findWidget);
-
-			// Defer visibility change to allow browser to render initial state
-			// This ensures the animation plays on first show
-			const targetWindow = getWindow(this._container);
-			targetWindow.requestAnimationFrame(() => {
-				this._isVisible.set(true, undefined);
-			});
-		} else {
-			// Widget already exists, show immediately
-			this._isVisible.set(true, undefined);
 		}
+
+		this._isVisible.set(true, undefined);
 	}
 
 	/**
