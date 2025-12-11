@@ -16,15 +16,53 @@ import { applyModelFilters } from '../../modelFilters';
 
 /**
  * OpenAI model provider implementation.
- * Supports OpenAI's GPT models via the OpenAI API.
+ *
+ * This provider integrates OpenAI's GPT models (GPT-4, GPT-3.5, o1, etc.) using
+ * the Vercel AI SDK's OpenAI adapter. It supports:
+ * - All GPT model variants including GPT-4o, GPT-4 Turbo, o1, o3
+ * - Vision capabilities (GPT-4 Vision)
+ * - Tool/function calling
+ * - Streaming responses
+ * - Dynamic model discovery via OpenAI's models API
+ *
+ * **Configuration:**
+ * - Provider ID: `openai-api`
+ * - Required: API key from OpenAI Platform
+ * - Optional: Base URL (for custom deployments), model selection
+ * - Supports: Dynamic model listing from API
+ *
+ * **Model Filtering:**
+ * This provider automatically filters out models that don't support the chat
+ * completions endpoint (e.g., audio models, image models, moderation models).
+ *
+ * @example
+ * ```typescript
+ * const config: ModelConfig = {
+ *   id: 'gpt-4o',
+ *   name: 'GPT-4o',
+ *   provider: 'openai-api',
+ *   apiKey: 'sk-...',
+ *   model: 'gpt-4o',
+ *   baseUrl: 'https://api.openai.com/v1'
+ * };
+ * const provider = new OpenAILanguageModel(config, context);
+ * ```
+ *
+ * @see {@link ModelProvider} for base class documentation
+ * @see https://platform.openai.com/docs for OpenAI API documentation
  */
 export class OpenAILanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * The OpenAI provider instance from Vercel AI SDK.
+	 */
 	protected declare aiProvider: OpenAIProvider;
 
 	/**
 	 * Model name patterns to filter out (case-insensitive).
-	 * These models are typically not suitable for chat use cases,
-	 * i.e. they may not support the /chat/completions endpoint.
+	 *
+	 * These models are not suitable for chat use cases as they don't support
+	 * the `/chat/completions` endpoint. They're filtered out automatically
+	 * during model discovery.
 	 */
 	public static readonly FILTERED_MODEL_PATTERNS = [
 		'audio',
@@ -53,13 +91,25 @@ export class OpenAILanguageModel extends ModelProvider implements positron.ai.La
 		},
 	};
 
+	/**
+	 * Creates a new OpenAI provider instance.
+	 *
+	 * @param _config - Configuration including API key, base URL, and model selection
+	 * @param _context - VS Code extension context for storage and features
+	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.initializeProvider();
 	}
 
 	/**
-	 * Initializes the OpenAI provider.
+	 * Initializes the OpenAI provider using the Vercel AI SDK.
+	 *
+	 * Creates an OpenAI provider instance with:
+	 * - Configured API key
+	 * - Custom base URL (if specified)
+	 * - Custom fetch implementation for request handling
 	 */
 	protected initializeProvider(): void {
 		this.aiProvider = createOpenAI({
@@ -70,27 +120,44 @@ export class OpenAILanguageModel extends ModelProvider implements positron.ai.La
 	}
 
 	/**
-	 * Creates the AI provider instance.
-	 * @returns The OpenAI provider function.
+	 * Creates the AI provider instance for OpenAI.
+	 *
+	 * @returns The OpenAI provider instance that can create GPT model instances
 	 */
 	protected createAIProvider(): any {
 		return this.aiProvider;
 	}
 
+	/**
+	 * Gets the display name for this provider.
+	 *
+	 * @returns The string 'OpenAI'
+	 */
 	get providerName(): string {
 		return OpenAILanguageModel.source.provider.displayName;
 	}
 
 	/**
 	 * Gets the base URL for the OpenAI API.
+	 *
+	 * Uses the configured base URL or falls back to the default OpenAI API endpoint.
+	 * Trailing slashes are removed for consistency.
+	 *
+	 * @returns The base URL for API requests
 	 */
 	get baseUrl(): string | undefined {
 		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 
 	/**
-	 * Provides language model chat information.
-	 * Overrides the base implementation to ensure models are resolved first.
+	 * Provides language model chat information for available models.
+	 *
+	 * Overrides the base implementation to ensure models are always freshly
+	 * resolved (not cached) for OpenAI, allowing dynamic model discovery.
+	 *
+	 * @param options - Options for providing chat information
+	 * @param token - Cancellation token
+	 * @returns Array of available models after filtering
 	 */
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		this.logger.debug('Preparing language model chat information...');
@@ -184,7 +251,15 @@ export class OpenAILanguageModel extends ModelProvider implements positron.ai.La
 
 	/**
 	 * Filters models to remove incompatible ones.
-	 * Overrides the base implementation to add OpenAI-specific filtering.
+	 *
+	 * Extends the base filtering with OpenAI-specific logic to remove models
+	 * that don't support chat completions (e.g., audio models, image models).
+	 * Uses {@link FILTERED_MODEL_PATTERNS} to identify incompatible models.
+	 *
+	 * @param models - The list of models to filter
+	 * @returns Filtered list of models suitable for chat completions
+	 *
+	 * @see {@link FILTERED_MODEL_PATTERNS} for the list of filtered patterns
 	 */
 	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
 		const removedModels: string[] = [];

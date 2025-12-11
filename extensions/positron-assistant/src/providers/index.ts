@@ -38,5 +38,5 @@ export { MistralLanguageModel } from './mistral/mistralProvider';
 export { OllamaLanguageModel } from './ollama/ollamaProvider';
 export { OpenRouterLanguageModel } from './openrouter/openrouterProvider';
 
-// TODO: Extract AWS Bedrock provider (complex, ~500 lines)
-// export { AWSLanguageModel } from './aws/awsBedrockProvider';
+// AWS providers
+export { AWSLanguageModel } from './aws/awsBedrockProvider';

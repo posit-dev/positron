@@ -111,19 +111,21 @@ export class SnowflakeLanguageModel extends OpenAILanguageModel {
 		);
 
 		// If PWB checks pass, get credentials and return with both token and baseUrl
-		if (configureResult.signedIn) {
+		if (configureResult.configured) {
 			const credentials = await detectSnowflakeCredentials();
 			if (credentials?.token && credentials.token.trim().length > 0) {
 				return {
-					signedIn: configureResult.signedIn,
+					configured: true,
 					message: configureResult.message,
-					token: credentials.token,
-					baseUrl: credentials.baseUrl
+					configuration: {
+						apiKey: credentials.token,
+						baseUrl: credentials.baseUrl
+					}
 				};
 			}
 		}
 
-		return { signedIn: false };
+		return { configured: false };
 	}
 
 	/**

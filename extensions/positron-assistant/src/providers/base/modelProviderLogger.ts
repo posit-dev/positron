@@ -7,12 +7,32 @@ import { log } from '../../extension';
 
 /**
  * Logger utility for model providers.
- * Provides consistent logging patterns across all providers with:
- * - Provider-specific prefixes
- * - Standardized log levels
- * - Structured error logging
+ *
+ * Provides consistent logging patterns across all provider implementations with:
+ * - Provider-specific prefixes for easy identification in logs
+ * - Standardized log levels (trace, debug, info, warn, error)
+ * - Structured error logging with proper formatting
+ * - Convenience methods for common logging scenarios
+ *
+ * All log messages are automatically prefixed with the provider name to make it
+ * easy to filter and track provider-specific activity.
+ *
+ * @example
+ * ```typescript
+ * const logger = new ModelProviderLogger('OpenAI');
+ * logger.info('Fetching models from API...');
+ * logger.debug('API response received', response);
+ * logger.error('Failed to authenticate', error);
+ * ```
+ *
+ * @see {@link log} from extension module for the underlying logger
  */
 export class ModelProviderLogger {
+	/**
+	 * Creates a new logger instance for a specific provider.
+	 *
+	 * @param providerName - The name of the provider (e.g., 'OpenAI', 'Anthropic')
+	 */
 	constructor(private readonly providerName: string) { }
 
 	/**

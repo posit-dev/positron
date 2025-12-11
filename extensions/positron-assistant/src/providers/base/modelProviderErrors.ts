@@ -4,10 +4,54 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
+ * Provider error types and utilities.
+ *
+ * This module defines a hierarchy of error types for model provider operations,
+ * providing structured error handling across all providers. Each error type
+ * includes:
+ * - Provider name for context
+ * - Error code for programmatic handling
+ * - Detailed error message
+ *
+ * The error hierarchy allows callers to catch specific error types and handle
+ * them appropriately (e.g., prompting for credentials on AuthenticationError).
+ *
+ * @module modelProviderErrors
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await provider.resolveConnection(token);
+ * } catch (error) {
+ *   if (isAuthenticationError(error)) {
+ *     // Prompt user to re-enter credentials
+ *   } else if (isRateLimitError(error)) {
+ *     // Wait and retry
+ *   }
+ * }
+ * ```
+ */
+
+/**
  * Base error class for all provider-related errors.
- * Provides a common structure for error handling across providers.
+ *
+ * Provides a common structure for error handling across providers with
+ * automatic provider name prefixing and optional error codes for
+ * programmatic handling.
+ *
+ * @example
+ * ```typescript
+ * throw new ProviderError('OpenAI', 'Connection timeout', 'TIMEOUT_ERROR');
+ * ```
  */
 export class ProviderError extends Error {
+	/**
+	 * Creates a new provider error.
+	 *
+	 * @param providerName - The name of the provider where the error occurred
+	 * @param message - The error message
+	 * @param code - Optional error code for programmatic handling
+	 */
 	constructor(
 		public readonly providerName: string,
 		message: string,
@@ -21,9 +65,27 @@ export class ProviderError extends Error {
 
 /**
  * Error thrown when authentication fails.
- * Use for API key validation failures, expired tokens, etc.
+ *
+ * Use this error for scenarios such as:
+ * - Invalid or missing API keys
+ * - Expired authentication tokens
+ * - Insufficient permissions
+ * - OAuth flow failures
+ *
+ * @example
+ * ```typescript
+ * if (!apiKey || !isValidApiKey(apiKey)) {
+ *   throw new AuthenticationError('OpenAI', 'Invalid or missing API key');
+ * }
+ * ```
  */
 export class AuthenticationError extends ProviderError {
+	/**
+	 * Creates a new authentication error.
+	 *
+	 * @param providerName - The name of the provider where authentication failed
+	 * @param message - Description of the authentication failure
+	 */
 	constructor(providerName: string, message: string) {
 		super(providerName, message, 'AUTHENTICATION_ERROR');
 		this.name = 'AuthenticationError';
@@ -69,9 +131,27 @@ export class ConfigurationError extends ProviderError {
 
 /**
  * Error thrown when rate limits are exceeded.
- * Use when the provider returns rate limit errors.
+ *
+ * Use this error when the provider returns rate limit errors (typically HTTP 429).
+ * Includes an optional `retryAfter` field indicating when the client can retry
+ * the request.
+ *
+ * @example
+ * ```typescript
+ * if (response.status === 429) {
+ *   const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+ *   throw new RateLimitError('OpenAI', 'Rate limit exceeded', retryAfter);
+ * }
+ * ```
  */
 export class RateLimitError extends ProviderError {
+	/**
+	 * Creates a new rate limit error.
+	 *
+	 * @param providerName - The name of the provider where rate limit was exceeded
+	 * @param message - Description of the rate limit error
+	 * @param retryAfter - Optional number of seconds to wait before retrying
+	 */
 	constructor(
 		providerName: string,
 		message: string,

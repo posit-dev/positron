@@ -33,6 +33,7 @@ export class OpenRouterLanguageModel extends ModelProvider implements positron.a
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.initializeProvider();
 	}
 

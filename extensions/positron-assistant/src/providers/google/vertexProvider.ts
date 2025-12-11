@@ -34,6 +34,7 @@ export class VertexLanguageModel extends ModelProvider implements positron.ai.La
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.initializeProvider();
 	}
 

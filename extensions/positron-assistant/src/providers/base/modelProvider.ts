@@ -17,55 +17,142 @@ import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension'
 import { ModelProviderLogger } from './modelProviderLogger';
 import { AuthenticationError, ModelRetrievalError } from './modelProviderErrors';
 
+/**
+ * Result of provider autoconfiguration attempt.
+ *
+ * @deprecated Use {@link AutoconfigureResult} from modelProviderTypes.ts instead.
+ */
 export interface AutoconfigureResult {
+	/**
+	 * Whether the provider was successfully configured.
+	 */
 	configured: boolean;
+
+	/**
+	 * Optional message describing the configuration result or any issues encountered.
+	 */
 	message?: string;
+
+	/**
+	 * Configuration values that were set during autoconfiguration.
+	 * For example: { apiKey: string, baseUrl: string }
+	 */
+	configuration?: Record<string, any>;
 }
 
 /**
- * Abstract base class for all model providers.
- * Renamed from AILanguageModel to better reflect its purpose.
+ * Abstract base class for all model providers in the Positron Assistant extension.
  *
- * This class provides common functionality for all model providers including:
- * - Connection resolution with retry logic
- * - Model filtering and retrieval
- * - Error handling
- * - Token counting
- * - Chat response streaming
+ * This class provides a unified interface for interacting with various AI model providers
+ * (Anthropic, OpenAI, Google, Azure, etc.) through a consistent API. It implements the
+ * {@link positron.ai.LanguageModelChatProvider} interface to integrate with Positron's
+ * language model system.
+ *
+ * Key responsibilities:
+ * - Connection resolution with retry logic and timeout handling
+ * - Model discovery and filtering based on capabilities and configuration
+ * - Credential validation and authentication error handling
+ * - Token counting and usage tracking
+ * - Chat response streaming with progress reporting
+ * - Tool/function calling support
+ * - Provider-specific error parsing
+ *
+ * Providers can be implemented in two ways:
+ * 1. **Vercel AI SDK providers** (default): Use the Vercel AI SDK for model interactions
+ * 2. **Custom providers**: Implement custom logic for providers not supported by Vercel AI SDK
+ *
+ * @example
+ * ```typescript
+ * class MyProvider extends ModelProvider {
+ *   get providerName(): string {
+ *     return 'My Provider';
+ *   }
+ *
+ *   protected createAIProvider() {
+ *     return createMyProvider({ apiKey: this._config.apiKey });
+ *   }
+ * }
+ * ```
+ *
+ * @see {@link ModelProviderLogger} for logging functionality
+ * @see {@link ModelProviderErrors} for error types
  */
 export abstract class ModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * Static metadata describing the provider's configuration and capabilities.
+	 * Each provider implementation must define this to describe its requirements.
+	 */
 	public static source: positron.ai.LanguageModelSource;
 
+	/**
+	 * Display name of the model instance.
+	 */
 	public readonly name: string;
+
+	/**
+	 * Provider ID (e.g., 'anthropic-api', 'openai-api', 'ollama').
+	 */
 	public readonly provider: string;
+
+	/**
+	 * Unique identifier for this model configuration.
+	 */
 	public readonly id: string;
 
 	/**
-	 * The AI provider instance. Can be a Vercel AI SDK provider or custom implementation.
-	 * Made optional to support non-Vercel SDK providers.
+	 * The AI provider instance for Vercel AI SDK-based providers.
+	 * This function creates a language model instance given a model ID and optional configuration.
+	 * Optional to support custom (non-Vercel SDK) provider implementations.
 	 */
 	protected aiProvider?: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
 
 	/**
-	 * Custom provider for non-Vercel SDK implementations.
+	 * Custom provider implementation for non-Vercel SDK providers.
+	 * Use this when the provider doesn't have a Vercel AI SDK integration.
 	 */
 	protected customProvider?: any;
 
 	/**
-	 * Type of provider implementation.
+	 * Type of provider implementation being used.
+	 * - 'vercel': Uses Vercel AI SDK (default)
+	 * - 'custom': Uses custom implementation
 	 */
 	protected providerType: 'vercel' | 'custom' = 'vercel';
 
+	/**
+	 * Additional options passed to the AI provider when creating model instances.
+	 * Provider-specific options like temperature, top_p, etc.
+	 */
 	protected aiOptions: Record<string, any> = {};
+
+	/**
+	 * Cached list of available models for this provider.
+	 * Populated after the first successful model resolution.
+	 */
 	protected modelListing?: vscode.LanguageModelChatInformation[];
+
+	/**
+	 * Logger instance for provider-specific logging with consistent formatting.
+	 */
 	protected logger: ModelProviderLogger;
 
+	/**
+	 * Default model capabilities supported by this provider.
+	 * Subclasses can override to specify different capabilities.
+	 */
 	capabilities = {
 		vision: true,
 		toolCalling: true,
 		agentMode: true,
 	};
 
+	/**
+	 * Creates a new model provider instance.
+	 *
+	 * @param _config - Configuration for this model provider including API keys, base URLs, and model settings
+	 * @param _context - VS Code extension context for accessing storage and other extension features
+	 * @param _storage - Secret storage for managing sensitive credentials
+	 */
 	constructor(
 		protected readonly _config: ModelConfig,
 		protected readonly _context?: vscode.ExtensionContext,
@@ -74,28 +161,82 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		this.id = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+		// Logger initialization deferred to subclass since providerName is abstract
+		this.logger = null as any; // Will be initialized by subclass calling initializeLogger()
+	}
+
+	/**
+	 * Initializes the logger. Must be called by subclass constructor after providerName is available.
+	 * @protected
+	 */
+	protected initializeLogger(): void {
 		this.logger = new ModelProviderLogger(this.providerName);
 	}
 
 	/**
-	 * The display name of the provider.
-	 * This must be implemented by each provider subclass.
+	 * Gets the human-readable display name of the provider.
+	 *
+	 * This name is used in UI elements and log messages to identify the provider.
+	 * Each provider subclass must implement this to return its specific display name.
+	 *
+	 * @returns The display name of the provider (e.g., 'Anthropic', 'OpenAI', 'Ollama')
+	 *
+	 * @example
+	 * ```typescript
+	 * get providerName(): string {
+	 *   return 'My Custom Provider';
+	 * }
+	 * ```
 	 */
 	abstract get providerName(): string;
 
 	/**
-	 * Creates the AI provider instance.
-	 * Override this method to provide custom AI provider initialization.
+	 * Creates the AI provider instance for this provider.
 	 *
-	 * @returns The AI provider instance or undefined for custom providers.
+	 * This method is called during provider initialization to set up the underlying
+	 * AI SDK provider (e.g., Anthropic, OpenAI). For Vercel AI SDK-based providers,
+	 * return the provider factory function. For custom providers, return undefined
+	 * and implement {@link provideCustomResponse} instead.
+	 *
+	 * @returns The AI provider factory function, or undefined for custom providers
+	 *
+	 * @example
+	 * ```typescript
+	 * // Vercel AI SDK provider
+	 * protected createAIProvider() {
+	 *   return createAnthropic({ apiKey: this._config.apiKey });
+	 * }
+	 *
+	 * // Custom provider
+	 * protected createAIProvider() {
+	 *   this.customProvider = new MyCustomProvider();
+	 *   this.providerType = 'custom';
+	 *   return undefined;
+	 * }
+	 * ```
 	 */
 	protected abstract createAIProvider(): ((id: string, options?: Record<string, any>) => ai.LanguageModelV1) | undefined;
 
 	/**
-	 * Validates the provider's credentials.
-	 * Override this method to implement provider-specific credential validation.
+	 * Validates the provider's credentials before attempting to connect.
 	 *
-	 * @returns True if credentials are valid, false otherwise.
+	 * This method is called during {@link resolveConnection} to verify that the
+	 * provider has valid credentials before making API calls. The default
+	 * implementation always returns true. Override this method to implement
+	 * provider-specific credential validation (e.g., checking API key format,
+	 * verifying token expiration).
+	 *
+	 * @returns A promise that resolves to true if credentials are valid, false otherwise
+	 *
+	 * @example
+	 * ```typescript
+	 * protected async validateCredentials(): Promise<boolean> {
+	 *   if (!this._config.apiKey || this._config.apiKey.length < 10) {
+	 *     return false;
+	 *   }
+	 *   return true;
+	 * }
+	 * ```
 	 */
 	protected async validateCredentials(): Promise<boolean> {
 		// Default implementation - override in subclasses for specific validation
@@ -103,21 +244,52 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Filters the available models based on configuration.
+	 * Filters the available models based on user configuration and provider capabilities.
 	 *
-	 * @param models The list of models to filter.
-	 * @returns The filtered list of models.
+	 * This method applies configured filters to remove models that don't meet
+	 * certain criteria (e.g., deprecated models, unsupported capabilities,
+	 * user-defined exclusions). The filtering logic is implemented in
+	 * {@link applyModelFilters}.
+	 *
+	 * @param models - The list of models to filter
+	 * @returns The filtered list of models that meet the filter criteria
+	 *
+	 * @see {@link applyModelFilters} for filter implementation details
 	 */
 	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
 	/**
-	 * Resolves connection with retry logic.
-	 * Extracted from the original resolveConnection for reusability.
+	 * Resolves and validates the connection to the AI provider.
 	 *
-	 * @param token The cancellation token.
-	 * @returns Error if connection failed, undefined if successful.
+	 * This method performs a complete connection setup workflow:
+	 * 1. Validates credentials using {@link validateCredentials}
+	 * 2. Retrieves available models using {@link resolveModels}
+	 * 3. Applies filters to the model list
+	 * 4. Tests connectivity by sending a test message to available models
+	 *
+	 * The method respects the cancellation token and will abort if cancellation
+	 * is requested. It returns undefined on success or an Error describing the
+	 * failure reason.
+	 *
+	 * @param token - Cancellation token to abort the connection attempt
+	 * @returns A promise that resolves to undefined on success, or an Error if connection failed
+	 *
+	 * @throws {AuthenticationError} If credentials are invalid
+	 * @throws {ModelRetrievalError} If no models are available or all models fail filtering
+	 *
+	 * @example
+	 * ```typescript
+	 * const error = await provider.resolveConnection(token);
+	 * if (error) {
+	 *   console.error('Connection failed:', error.message);
+	 * } else {
+	 *   console.log('Connection successful');
+	 * }
+	 * ```
+	 *
+	 * @see {@link testModelConnectivity} for connectivity testing details
 	 */
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		this.logger.debug('Resolving connection...');
@@ -146,12 +318,23 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Tests connectivity with the available models.
-	 * Extracted for better organization and reusability.
+	 * Tests connectivity with the available models by sending test messages.
 	 *
-	 * @param models The models to test.
-	 * @param token The cancellation token.
-	 * @returns Error if all models failed, undefined if at least one succeeded.
+	 * This method attempts to verify that at least one model from the provider
+	 * is accessible and working correctly. It tests up to a configured number
+	 * of models (controlled by {@link getMaxConnectionAttempts}) and returns
+	 * success as soon as any model responds successfully.
+	 *
+	 * The method collects error messages from all failed attempts and returns
+	 * a comprehensive error if all tested models fail.
+	 *
+	 * @param models - The list of models to test connectivity for
+	 * @param token - Cancellation token to abort testing
+	 * @returns A promise that resolves to undefined if at least one model succeeds,
+	 *          or an Error containing all failure messages if all models fail
+	 *
+	 * @see {@link sendTestMessage} for the actual test implementation
+	 * @see {@link getMaxConnectionAttempts} for configuring test limits
 	 */
 	protected async testModelConnectivity(
 		models: vscode.LanguageModelChatInformation[],
@@ -191,10 +374,23 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Sends a test message to verify model connectivity.
+	 * Sends a test message to verify that a specific model is accessible and responsive.
 	 *
-	 * @param modelId The model ID to test.
-	 * @returns The test response.
+	 * For Vercel AI SDK providers, this uses {@link ai.generateText} with a simple
+	 * prompt and includes a timeout and retry logic. Custom providers must override
+	 * this method to implement their own test logic.
+	 *
+	 * The test message is kept simple ("I'm checking to see if you're there...") to
+	 * minimize token usage while still verifying end-to-end connectivity.
+	 *
+	 * @param modelId - The ID of the model to test
+	 * @returns A promise that resolves to the test response from the model
+	 *
+	 * @throws {Error} If the provider type is not configured
+	 * @throws {Error} If custom provider test is not implemented (default behavior)
+	 * @throws {ai.AISDKError} If the model request fails
+	 *
+	 * @see {@link getProviderTimeoutMs} for timeout configuration
 	 */
 	protected async sendTestMessage(modelId: string): Promise<any> {
 		if (this.providerType === 'vercel' && this.aiProvider) {
@@ -212,11 +408,20 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Provides language model chat information.
+	 * Provides the list of available language models for this provider.
 	 *
-	 * @param options The options for providing chat information.
-	 * @param token The cancellation token.
-	 * @returns The list of available models.
+	 * This method is called by VS Code's language model system to discover which
+	 * models are available from this provider. It uses cached model information
+	 * if available, otherwise resolves models using {@link resolveModels} and
+	 * applies filters.
+	 *
+	 * @param options - Options controlling the information retrieval
+	 * @param options.silent - If true, suppresses error notifications
+	 * @param token - Cancellation token for aborting the operation
+	 * @returns A promise that resolves to an array of available model descriptors
+	 *
+	 * @see {@link resolveModels} for model resolution logic
+	 * @see {@link filterModels} for model filtering
 	 */
 	async provideLanguageModelChatInformation(
 		options: { silent: boolean },
@@ -228,14 +433,26 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Provides a language model chat response.
-	 * This is the main method for handling chat interactions.
+	 * Provides a chat response from the language model.
 	 *
-	 * @param model The model to use.
-	 * @param messages The chat messages.
-	 * @param options The response options.
-	 * @param progress The progress reporter.
-	 * @param token The cancellation token.
+	 * This is the main entry point for handling chat interactions with the AI model.
+	 * The method routes to either {@link provideVercelResponse} for Vercel AI SDK
+	 * providers or {@link provideCustomResponse} for custom implementations.
+	 *
+	 * The response is streamed incrementally through the progress reporter, allowing
+	 * UI to update as tokens are received. Supports both text responses and tool calls.
+	 *
+	 * @param model - Information about the model to use for the response
+	 * @param messages - Array of chat messages representing the conversation history
+	 * @param options - Options controlling the response generation (tools, model parameters, etc.)
+	 * @param progress - Progress reporter for streaming response parts back to the caller
+	 * @param token - Cancellation token to abort the request
+	 * @returns A promise that resolves when the response is complete
+	 *
+	 * @throws {Error} If no provider is configured (neither Vercel nor custom)
+	 *
+	 * @see {@link provideVercelResponse} for Vercel AI SDK implementation
+	 * @see {@link provideCustomResponse} for custom provider implementation
 	 */
 	async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
@@ -253,8 +470,32 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Provides a response using the Vercel AI SDK.
-	 * This is the default implementation from the original AILanguageModel.
+	 * Provides a chat response using the Vercel AI SDK.
+	 *
+	 * This is the default implementation for Vercel AI SDK-based providers. It:
+	 * 1. Processes and validates messages
+	 * 2. Converts messages to Vercel AI format
+	 * 3. Sets up tools if provided
+	 * 4. Streams the response using {@link ai.streamText}
+	 * 5. Handles response parts (text, tool calls, errors)
+	 * 6. Tracks token usage
+	 *
+	 * Special handling is included for:
+	 * - Anthropic models: Support for experimental_content in tool results
+	 * - Bedrock models: Cache breakpoint support
+	 * - System prompts: Injected from modelOptions.system
+	 *
+	 * @param model - Information about the model to use
+	 * @param messages - Conversation history to send to the model
+	 * @param options - Generation options including tools and model parameters
+	 * @param progress - Progress reporter for streaming response parts
+	 * @param token - Cancellation token to abort the request
+	 * @returns A promise that resolves when streaming is complete
+	 *
+	 * @throws {Error} If AI provider is not configured
+	 *
+	 * @see {@link handleStreamResponse} for response streaming logic
+	 * @see {@link setupTools} for tool configuration
 	 */
 	protected async provideVercelResponse(
 		model: vscode.LanguageModelChatInformation,
@@ -304,7 +545,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 
 		// Set up tools if provided
 		if (options.tools && options.tools.length > 0) {
-			tools = this.setupTools(options.tools);
+			tools = this.setupTools([...options.tools]); // Convert readonly array to mutable
 		}
 
 		const modelTools = this._config.toolCalls ? tools : undefined;
@@ -327,8 +568,31 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Provides a response using a custom provider implementation.
-	 * Override this method in subclasses that use custom providers.
+	 * Provides a chat response using a custom (non-Vercel AI SDK) provider implementation.
+	 *
+	 * Override this method in subclasses that use custom provider implementations
+	 * instead of the Vercel AI SDK. This allows providers to implement their own
+	 * request/response handling logic while still benefiting from the common
+	 * ModelProvider infrastructure.
+	 *
+	 * @param model - Information about the model to use
+	 * @param messages - Conversation history to send to the model
+	 * @param options - Generation options including tools and model parameters
+	 * @param progress - Progress reporter for streaming response parts
+	 * @param token - Cancellation token to abort the request
+	 * @returns A promise that resolves when the response is complete
+	 *
+	 * @throws {Error} Default implementation throws an error prompting to override
+	 *
+	 * @example
+	 * ```typescript
+	 * protected async provideCustomResponse(model, messages, options, progress, token) {
+	 *   const response = await this.customProvider.chat(messages);
+	 *   for (const chunk of response) {
+	 *     progress.report(new vscode.LanguageModelTextPart(chunk));
+	 *   }
+	 * }
+	 * ```
 	 */
 	protected async provideCustomResponse(
 		model: vscode.LanguageModelChatInformation,
@@ -341,10 +605,16 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Sets up tools for the chat request.
+	 * Sets up tools (function calling) for the chat request.
 	 *
-	 * @param tools The tools to set up.
-	 * @returns The configured tools.
+	 * Converts VS Code language model tools to Vercel AI SDK tool format.
+	 * Ensures all tool schemas have proper type information, defaulting to
+	 * 'object' if not specified (required by some providers).
+	 *
+	 * @param tools - Array of VS Code language model chat tools to configure
+	 * @returns A record mapping tool names to Vercel AI SDK tool definitions
+	 *
+	 * @see {@link ai.tool} for Vercel AI SDK tool format
 	 */
 	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
 		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -372,11 +642,25 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Handles the streaming response from the AI model.
 	 *
-	 * @param result The streaming result.
-	 * @param model The model information.
-	 * @param progress The progress reporter.
-	 * @param token The cancellation token.
-	 * @param requestId The request ID for tracking.
+	 * This method processes the stream from {@link ai.streamText}, handling different
+	 * part types (text, reasoning, tool calls, errors) and reporting them through
+	 * the progress reporter. It also:
+	 * - Accumulates text deltas for more efficient logging
+	 * - Flushes accumulated deltas when non-text parts are received
+	 * - Handles warnings from the model
+	 * - Tracks and reports token usage
+	 * - Respects cancellation tokens
+	 *
+	 * @param result - The streaming result from {@link ai.streamText}
+	 * @param model - Information about the model being used
+	 * @param progress - Progress reporter for sending response parts to the caller
+	 * @param token - Cancellation token to abort streaming
+	 * @param requestId - Optional request ID for tracking and logging
+	 * @returns A promise that resolves when streaming is complete
+	 *
+	 * @throws {Error} If an error part is received in the stream
+	 *
+	 * @see {@link handleTokenUsage} for token usage tracking
 	 */
 	protected async handleStreamResponse(
 		result: any,
@@ -444,9 +728,19 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Handles token usage tracking and reporting.
 	 *
-	 * @param result The AI result with usage information.
-	 * @param model The model information.
-	 * @param requestId The request ID for tracking.
+	 * Extracts token usage information from the AI result and:
+	 * - Tracks input, output, and cached tokens
+	 * - Handles provider-specific usage metadata (e.g., Bedrock cache tokens)
+	 * - Records usage in request tracking and extension storage
+	 * - Logs usage information for debugging
+	 *
+	 * @param result - The AI result containing usage information
+	 * @param model - Information about the model that was used
+	 * @param requestId - Optional request ID for tracking this specific request
+	 * @returns A promise that resolves when usage tracking is complete
+	 *
+	 * @see {@link recordRequestTokenUsage} for request-specific tracking
+	 * @see {@link recordTokenUsage} for persistent storage
 	 */
 	protected async handleTokenUsage(
 		result: any,
@@ -487,12 +781,25 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Provides token count for the given text or messages.
+	 * Provides an estimated token count for the given text or messages.
 	 *
-	 * @param model The model information.
-	 * @param text The text or messages to count tokens for.
-	 * @param token The cancellation token.
-	 * @returns The estimated token count.
+	 * This is a naive approximation that assumes approximately 4 characters per token.
+	 * For more accurate token counting, subclasses should override this method to use
+	 * model-specific tokenizers (e.g., tiktoken for OpenAI models, Anthropic's tokenizer
+	 * for Claude).
+	 *
+	 * @param model - Information about the model (for model-specific tokenization)
+	 * @param text - The text or message to count tokens for
+	 * @param token - Cancellation token (currently unused)
+	 * @returns A promise that resolves to the estimated token count
+	 *
+	 * @todo Implement model-specific tokenizers for accurate token counting
+	 *
+	 * @example
+	 * ```typescript
+	 * const count = await provider.provideTokenCount(model, 'Hello world', token);
+	 * console.log(`Estimated tokens: ${count}`); // ~3 tokens
+	 * ```
 	 */
 	async provideTokenCount(
 		model: vscode.LanguageModelChatInformation,
@@ -507,8 +814,20 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Parses provider-specific errors and returns user-friendly messages.
 	 *
-	 * @param error The error object returned by the provider.
-	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 * This method handles common error types across providers:
+	 * - Authorization errors (401/403): Throws {@link AuthenticationError}
+	 * - API call errors: Extracts error messages from response bodies
+	 *
+	 * Subclasses can override this method to add provider-specific error handling.
+	 *
+	 * @param error - The error object returned by the provider
+	 * @returns A promise that resolves to a user-friendly error message, or undefined
+	 *          if the error wasn't specifically handled
+	 *
+	 * @throws {AuthenticationError} If the error is an authorization error
+	 *
+	 * @see {@link isAuthorizationError} for authorization error detection
+	 * @see {@link ai.APICallError} for Vercel AI SDK error types
 	 */
 	async parseProviderError(error: any): Promise<string | undefined> {
 		// Check for authorization errors (401/403)
@@ -547,11 +866,25 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Resolves the available language models.
-	 * Each provider can override this method for custom model retrieval.
+	 * Resolves the available language models for this provider.
 	 *
-	 * @param token The cancellation token.
-	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
+	 * This method attempts to discover available models through multiple strategies
+	 * in the following order:
+	 * 1. Configuration-based models: Uses {@link retrieveModelsFromConfig} to check for
+	 *    explicitly configured models
+	 * 2. API-based models: Uses {@link retrieveModelsFromApi} to fetch models from the
+	 *    provider's API
+	 * 3. Default model: Falls back to {@link createDefaultModel} if no other models are
+	 *    available
+	 *
+	 * The resolved models are cached in {@link modelListing} for future use.
+	 *
+	 * @param token - Cancellation token for aborting the resolution process
+	 * @returns A promise that resolves to an array of available model descriptors
+	 *
+	 * @see {@link retrieveModelsFromConfig} for configuration-based retrieval
+	 * @see {@link retrieveModelsFromApi} for API-based retrieval
+	 * @see {@link createDefaultModel} for fallback model creation
 	 */
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		this.logger.debug('Resolving models...');
@@ -576,9 +909,21 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Retrieves models from configuration.
+	 * Retrieves models from user configuration.
 	 *
-	 * @returns The configured models or undefined if none.
+	 * Checks for models defined in the extension's configuration settings
+	 * (e.g., via modelDefinitions). This allows users to explicitly specify
+	 * which models they want to use with this provider.
+	 *
+	 * If configured models are found, they are converted to
+	 * {@link vscode.LanguageModelChatInformation} format with their specified
+	 * token limits and marked with a default model if configured.
+	 *
+	 * @returns An array of configured models, or undefined if no models are configured
+	 *
+	 * @see {@link getAllModelDefinitions} for retrieving model definitions
+	 * @see {@link createModelInfo} for model information creation
+	 * @see {@link markDefaultModel} for default model selection
 	 */
 	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
 		const configuredModels = getAllModelDefinitions(this.provider);
@@ -611,10 +956,24 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 
 	/**
 	 * Retrieves models from the provider's API.
-	 * Override this method in subclasses to implement API-based model retrieval.
 	 *
-	 * @param token The cancellation token.
-	 * @returns The models retrieved from the API or undefined.
+	 * This method should be overridden by subclasses that support dynamic model
+	 * discovery via API. The default implementation returns undefined. Providers
+	 * like OpenAI that offer a models API endpoint should override this to fetch
+	 * and return available models.
+	 *
+	 * @param token - Cancellation token for aborting the API request
+	 * @returns A promise that resolves to an array of models from the API, or undefined
+	 *          if API-based model retrieval is not supported
+	 *
+	 * @example
+	 * ```typescript
+	 * protected async retrieveModelsFromApi(token: vscode.CancellationToken) {
+	 *   const response = await fetch(`${this.baseUrl}/models`);
+	 *   const data = await response.json();
+	 *   return data.models.map(m => createModelInfo({ id: m.id, name: m.name, ... }));
+	 * }
+	 * ```
 	 */
 	protected async retrieveModelsFromApi(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// Default implementation - override in subclasses
@@ -624,7 +983,17 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Creates a default model when no other models are available.
 	 *
-	 * @returns The default model information.
+	 * This method is called as a last resort when:
+	 * - No models are configured in settings
+	 * - The provider's API doesn't return any models
+	 * - API-based model retrieval is not supported
+	 *
+	 * It creates a single model using the provider's configured model ID and
+	 * marks it as the default model.
+	 *
+	 * @returns An array containing a single default model descriptor
+	 *
+	 * @see {@link createModelInfo} for model information creation
 	 */
 	protected createDefaultModel(): vscode.LanguageModelChatInformation[] {
 		this.logger.info('No models available; returning default model information.');
@@ -665,10 +1034,14 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Handles authentication errors consistently.
+	 * Handles authentication errors in a consistent way across providers.
 	 *
-	 * @param error The authentication error.
-	 * @returns A user-friendly error message.
+	 * This utility method extracts the error message and logs it, then returns
+	 * a user-friendly message with guidance to check credentials. Subclasses
+	 * can override this for provider-specific authentication error handling.
+	 *
+	 * @param error - The authentication error to handle
+	 * @returns A user-friendly error message with guidance for resolution
 	 */
 	protected handleAuthenticationError(error: any): string {
 		const message = error.message || 'Authentication failed';
@@ -677,9 +1050,30 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
-	 * Autoconfigures the language model, if supported.
-	 * May implement functionality such as checking for environment variables or assessing managed credentials.
-	 * @returns A promise that resolves to the autoconfigure result.
+	 * Autoconfigures the language model provider, if supported.
+	 *
+	 * This static method is called to attempt automatic configuration of the provider,
+	 * typically by checking for environment variables (e.g., ANTHROPIC_API_KEY) or
+	 * other system-provided credentials. Not all providers support autoconfiguration.
+	 *
+	 * Implementations should:
+	 * - Check for available credentials in environment or system
+	 * - Validate the credentials if found
+	 * - Return success status and optional configuration message
+	 *
+	 * @returns A promise that resolves to the autoconfigure result indicating success
+	 *          or failure and any relevant messages
+	 *
+	 * @example
+	 * ```typescript
+	 * static autoconfigure = async (): Promise<AutoconfigureResult> => {
+	 *   const apiKey = process.env.ANTHROPIC_API_KEY;
+	 *   if (apiKey && apiKey.startsWith('sk-ant-')) {
+	 *     return { configured: true, message: 'Found API key in environment' };
+	 *   }
+	 *   return { configured: false, message: 'No API key found' };
+	 * };
+	 * ```
 	 */
 	static autoconfigure?: () => Promise<AutoconfigureResult>;
 }

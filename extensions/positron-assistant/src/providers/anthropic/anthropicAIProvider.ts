@@ -11,15 +11,47 @@ import { ModelConfig } from '../../config';
 import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from '../../anthropic';
 
 /**
- * Anthropic model provider implementation using Vercel AI SDK.
- * This provider uses the Vercel AI SDK's Anthropic integration for Claude models.
+ * Anthropic Claude model provider implementation.
  *
- * Note: The 'anthropic' provider name is taken by Copilot Chat,
- * so we use 'anthropic-api' instead.
+ * This provider integrates Anthropic's Claude models (e.g., Claude 3.5 Sonnet,
+ * Claude 3 Opus) using the Vercel AI SDK's Anthropic adapter. It supports:
+ * - All Claude model variants
+ * - Vision capabilities (image inputs)
+ * - Tool/function calling
+ * - Streaming responses
+ * - Prompt caching for reduced costs
+ *
+ * **Configuration:**
+ * - Provider ID: `anthropic-api` (not `anthropic` which is used by Copilot Chat)
+ * - Required: API key from Anthropic Console
+ * - Optional: Model selection, tool calling toggle
+ * - Supports: Environment variable autoconfiguration (ANTHROPIC_API_KEY)
+ *
+ * @example
+ * ```typescript
+ * const config: ModelConfig = {
+ *   id: 'claude-3-5-sonnet',
+ *   name: 'Claude 3.5 Sonnet',
+ *   provider: 'anthropic-api',
+ *   apiKey: 'sk-ant-...',
+ *   model: 'claude-3-5-sonnet-20241022',
+ *   toolCalls: true
+ * };
+ * const provider = new AnthropicAILanguageModel(config, context);
+ * ```
+ *
+ * @see {@link ModelProvider} for base class documentation
+ * @see https://docs.anthropic.com/ for Anthropic API documentation
  */
 export class AnthropicAILanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * The Anthropic provider instance from Vercel AI SDK.
+	 */
 	protected declare aiProvider: AnthropicProvider;
 
+	/**
+	 * Static configuration source describing this provider's requirements and defaults.
+	 */
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -38,26 +70,42 @@ export class AnthropicAILanguageModel extends ModelProvider implements positron.
 		},
 	};
 
+	/**
+	 * Creates a new Anthropic provider instance.
+	 *
+	 * @param _config - Configuration including API key and model selection
+	 * @param _context - VS Code extension context for storage and features
+	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.initializeProvider();
 	}
 
 	/**
-	 * Initializes the Anthropic provider using Vercel AI SDK.
+	 * Initializes the Anthropic provider using the Vercel AI SDK.
+	 *
+	 * Creates an Anthropic provider instance with the configured API key.
+	 * This is called automatically during construction.
 	 */
 	protected initializeProvider(): void {
 		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
 	}
 
 	/**
-	 * Creates the AI provider instance.
-	 * @returns The Anthropic provider function.
+	 * Creates the AI provider instance for Anthropic.
+	 *
+	 * @returns The Anthropic provider instance that can create Claude model instances
 	 */
 	protected createAIProvider(): any {
 		return this.aiProvider;
 	}
 
+	/**
+	 * Gets the display name for this provider.
+	 *
+	 * @returns The string 'Anthropic'
+	 */
 	get providerName(): string {
 		return AnthropicAILanguageModel.source.provider.displayName;
 	}

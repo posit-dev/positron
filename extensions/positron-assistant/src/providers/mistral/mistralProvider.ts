@@ -34,6 +34,7 @@ export class MistralLanguageModel extends ModelProvider implements positron.ai.L
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.initializeProvider();
 	}
 

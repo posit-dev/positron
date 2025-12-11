@@ -11,9 +11,47 @@ import { ModelConfig } from '../../config';
 
 /**
  * Ollama model provider implementation.
- * Ollama allows running open-source LLMs locally.
+ *
+ * This provider enables running open-source language models locally using Ollama.
+ * Supports models like:
+ * - Llama 3.x
+ * - Qwen 2.5 Coder
+ * - Mistral
+ * - CodeGemma
+ * - And many others available through Ollama
+ *
+ * **Configuration:**
+ * - Provider ID: `ollama`
+ * - Required: Ollama running locally (default: http://localhost:11434)
+ * - Optional: Base URL for remote Ollama instances, context window size
+ * - No API key required (local deployment)
+ *
+ * **Features:**
+ * - Fully local execution (privacy-focused)
+ * - Customizable context window via `numCtx`
+ * - Support for various open-source models
+ * - Optional tool calling (model-dependent)
+ *
+ * @example
+ * ```typescript
+ * const config: ModelConfig = {
+ *   id: 'qwen-coder',
+ *   name: 'Qwen 2.5 Coder',
+ *   provider: 'ollama',
+ *   model: 'qwen2.5-coder:7b',
+ *   baseUrl: 'http://localhost:11434/api',
+ *   numCtx: 4096
+ * };
+ * const provider = new OllamaLanguageModel(config, context);
+ * ```
+ *
+ * @see {@link ModelProvider} for base class documentation
+ * @see https://ollama.com/ for Ollama documentation
  */
 export class OllamaLanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * The Ollama provider instance from ollama-ai-provider package.
+	 */
 	protected declare aiProvider: OllamaProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -34,6 +72,7 @@ export class OllamaLanguageModel extends ModelProvider implements positron.ai.La
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
+		this.initializeLogger();
 		this.aiOptions = {
 			numCtx: this._config.numCtx,
 		};

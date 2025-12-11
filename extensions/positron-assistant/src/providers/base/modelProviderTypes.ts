@@ -8,10 +8,20 @@ import * as positron from 'positron';
 
 /**
  * Common types and interfaces for model providers.
+ *
+ * This module defines shared type definitions used across all model provider
+ * implementations in the Positron Assistant extension. These types provide
+ * a consistent structure for describing model capabilities, provider metadata,
+ * token usage, and configuration options.
+ *
+ * @module modelProviderTypes
  */
 
 /**
- * Provider implementation type.
+ * Type of provider implementation.
+ *
+ * - `vercel`: Provider uses the Vercel AI SDK for model interactions
+ * - `custom`: Provider uses a custom implementation without Vercel AI SDK
  */
 export type ProviderType = 'vercel' | 'custom';
 
@@ -85,9 +95,9 @@ export interface ExtendedModelInfo extends vscode.LanguageModelChatInformation {
 	providerMetadata?: ProviderMetadata;
 
 	/**
-	 * Model-specific capabilities.
+	 * Model-specific capabilities (required by base interface).
 	 */
-	capabilities?: ModelCapabilities;
+	capabilities: ModelCapabilities;
 
 	/**
 	 * Whether this is the default model for the provider.
