@@ -234,8 +234,9 @@ jobs:
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
 
-      - name: Cache Electron binary
-        uses: actions/cache@v4
+      - name: Restore Electron binary cache
+        id: cache-electron
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~\AppData\Local\electron\Cache
@@ -244,6 +245,15 @@ jobs:
 
       - name: Compile and Download
         run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
+
+      - name: Save Electron binary cache
+        if: ${{ steps.cache-electron.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
 
       - name: Verify cache contents before save
         if: ${{ matrix.shard == 1 && steps.check-install.outputs.skip != 'true' }}
@@ -280,17 +290,18 @@ jobs:
             test/e2e/node_modules
           key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Cache built-in extensions
-        uses: actions/cache@v4
+      - name: Restore built-in extensions cache
+        id: cache-builtins
+        uses: actions/cache/restore@v4
         with:
           path: .build/builtInExtensions
           key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
           restore-keys: |
             ${{ runner.os }}-builtins-
 
-      - name: Cache Playwright browsers
+      - name: Restore Playwright browsers cache
         id: cache-playwright
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~\AppData\Local\ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -301,12 +312,27 @@ jobs:
         if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
         run: npm run playwright-install
 
+      - name: Save Playwright browsers cache
+        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
         run: npm run prelaunch
 
-      - name: Cache Python packages
-        uses: actions/cache@v4
+      - name: Save built-in extensions cache
+        if: ${{ steps.cache-builtins.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .build/builtInExtensions
+          key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
+
+      - name: Restore Python packages cache
+        id: cache-python
+        uses: actions/cache/restore@v4
         with:
           path: ~\AppData\Local\pip\Cache
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -319,6 +345,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install trcli
+
+      - name: Save Python packages cache
+        if: ${{ steps.cache-python.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
 
       # Alternate python version
       - name: Install Python 3.13.0
@@ -345,8 +378,9 @@ jobs:
           rig default 4.4.0
           rig ls
 
-      - name: Cache R packages
-        uses: actions/cache@v4
+      - name: Restore R packages cache
+        id: cache-r
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -360,6 +394,15 @@ jobs:
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      - name: Save R packages cache
+        if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-4.4.0\library
+          key: ${{ runner.os }}-r-4.4.0-${{ hashFiles('**/DESCRIPTION') }}
 
       # Install R 4.4.2 using rig
       - name: Install R 4.4.2

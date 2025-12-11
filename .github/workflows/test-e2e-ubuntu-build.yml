@@ -107,9 +107,9 @@ jobs:
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
 
-      - name: Cache QA example content
+      - name: Restore QA example content cache
         id: cache-qa-content
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: /tmp/qa-example-content-cache
           key: qa-content-${{ hashFiles('.github/workflows/test-e2e-ubuntu-build.yml') }}-v1
@@ -125,6 +125,13 @@ jobs:
           if [ -d /tmp/qa-example-content-cache ]; then
             (cd /tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
           fi
+
+      - name: Save QA example content cache
+        if: steps.cache-qa-content.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/qa-example-content-cache
+          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-ubuntu-build.yml') }}-v1
 
       - name: Create Build Artifact
         run: |

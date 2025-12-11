@@ -260,7 +260,7 @@ jobs:
 
       - name: Restore Playwright browser cache
         id: cache-playwright
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/ms-playwright
@@ -273,6 +273,14 @@ jobs:
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
+
+      - name: Save Playwright browser cache
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
