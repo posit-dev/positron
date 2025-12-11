@@ -1272,7 +1272,7 @@ registerAction2(class extends NotebookAction2 {
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			precondition: ContextKeyExpr.and(
 				ActiveNotebookHasRunningRuntime,
-				ContextKeyExpr.equals('config.console.showNotebookConsoles', true)
+				ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
 			),
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -1283,7 +1283,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 100,
 				when: ContextKeyExpr.and(
 					ActiveNotebookHasRunningRuntime,
-					ContextKeyExpr.equals('config.console.showNotebookConsoles', true)
+					ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
 				)
 			}
 		});
