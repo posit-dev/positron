@@ -96,6 +96,21 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure'  }}
         run: exit 1
 
+      - name: Save npm dependencies cache
+        if: ${{ steps.restore-caches.outputs.cache-npm-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .npm-cache
+            node_modules
+            build/node_modules
+            extensions
+            .vscode
+            remote/node_modules
+            test/e2e/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.restore-caches.outputs.extensions-hash }}
+
       - name: Move Positron License
         run: |
           mv /positron-license /__w/positron || true
@@ -106,6 +121,40 @@ jobs:
         run: |
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
+
+      - name: Save Playwright browsers cache
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            /root/.cache/ms-playwright
+            /github/home/.cache/ms-playwright
+          key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+
+      - name: Save Electron binary cache
+        if: ${{ steps.restore-caches.outputs.cache-npm-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            /root/.cache/electron
+            /root/.cache/electron-builder
+            /github/home/.cache/electron
+            /github/home/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: Save built-in extensions cache
+        if: ${{ steps.restore-caches.outputs.cache-npm-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .build/builtInExtensions
+          key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
       - name: Restore QA example content cache
         id: cache-qa-content

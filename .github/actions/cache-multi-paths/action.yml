@@ -5,6 +5,12 @@ outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
     value: ${{ steps.cache-playwright.outputs.cache-hit }}
+  cache-npm-hit:
+    description: "Whether npm cache was restored"
+    value: ${{ steps.cache-npm.outputs.cache-hit }}
+  extensions-hash:
+    description: "Generated hash of all extension package-lock.json files"
+    value: ${{ steps.extensions-hash.outputs.hash }}
 
 runs:
   using: "composite"
@@ -16,20 +22,37 @@ runs:
         echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
         mkdir -p .npm-cache .pip-cache .versions
 
-    - name: Cache npm packages
+    - name: Generate extensions cache key
+      id: extensions-hash
+      shell: bash
+      run: |
+        # Generate a hash of all extension + .vscode package-lock.json files
+        # This works around hashFiles() limitations
+        EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
+        echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
+        echo "Generated extensions hash: $EXTENSIONS_HASH"
+
+    - name: Restore npm dependencies cache
       id: cache-npm
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
-        path: .npm-cache
-        key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          npm-cache-${{ runner.os }}-
+        path: |
+          .npm-cache  # npm's internal package tarball cache (safe to restore unconditionally)
+          node_modules
+          build/node_modules
+          extensions
+          .vscode
+          remote/node_modules
+          test/e2e/node_modules
+        # Hash main package-lock files + programmatically generated extensions hash
+        # No restore-keys to avoid partial matches that could restore wrong extension versions
+        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
-    - name: Cache ark binary
+    - name: Restore ark binary cache
       id: cache-binaries-ark
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
         path: |
@@ -37,25 +60,21 @@ runs:
           ./ark
         # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
         key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
-        restore-keys: |
-          ark-bin-${{ runner.os }}-
 
-    - name: Cache kallichore binary
+    - name: Restore kallichore binary cache
       id: cache-binaries-kallichore
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           extensions/positron-supervisor/resources/kallichore
           ./kallichore
         key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
-        restore-keys: |
-          kallichore-bin-${{ runner.os }}-
 
-    - name: Cache Playwright browsers
+    - name: Restore Playwright browsers cache
       id: cache-playwright
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.cache/ms-playwright
@@ -63,13 +82,11 @@ runs:
           /github/home/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-        restore-keys: |
-          playwright-v3-${{ runner.os }}-
 
-    - name: Cache Electron binary
+    - name: Restore Electron binary cache
       id: cache-electron
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.cache/electron
@@ -80,20 +97,16 @@ runs:
           /github/home/.cache/electron-builder
         # electron binaries are tied to package-lock and the electron version in package.json
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-        restore-keys: |
-          electron-${{ runner.os }}-
 
-    - name: Cache built-in extensions
+    - name: Restore built-in extensions cache
       id: cache-builtins
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           .build/builtInExtensions
         # product.json contains the list and versions of built-in extensions
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
 
     - name: Log cache results
       if: always()
