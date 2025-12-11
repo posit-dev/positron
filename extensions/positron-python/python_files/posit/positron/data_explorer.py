@@ -611,9 +611,26 @@ class DataExplorerTableView:
         """
         Get format options based on current Python/NumPy display settings.
         Returns None if using default formatting.
+        
+        Subclasses can override this to provide backend-specific format options.
+        For example, to respect Python display settings:
+        
+        import pandas as pd
+        precision = pd.get_option('display.precision')  # Default: 6
+        
+        # Calculate max_integral_digits based on threshold for scientific notation
+        # Similar to R's scipen option
+        max_integral = 7  # Default threshold
+        
+        return FormatOptions(
+            large_num_digits=precision,
+            small_num_digits=precision,
+            max_integral_digits=max_integral,
+            max_value_length=1000,
+            thousands_sep=None  # or ',' if desired
+        )
         """
         # For now, return None to use frontend defaults
-        # Subclasses can override this to provide backend-specific format options
         return None
 
     def get_state(self, _unused):
