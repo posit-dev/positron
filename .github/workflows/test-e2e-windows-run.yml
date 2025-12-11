@@ -231,8 +231,22 @@ jobs:
 
             echo "All npm ci commands completed successfully"
 
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+
+      - name: Compile and Download
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
+
       - name: Verify cache contents before save
-        if: ${{ matrix.shard == 2 && steps.cache-node-modules.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.shard == 2 && steps.check-install.outputs.skip != 'true' }}
         shell: bash
         run: |
           echo "========================================="
@@ -266,26 +280,6 @@ jobs:
             test/e2e/node_modules
           key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
 
-      - name: Cache Ark binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            extensions/positron-r/resources/ark
-            ./ark
-          key: ${{ runner.os }}-ark-${{ hashFiles('extensions/positron-r/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-ark-
-
-      - name: Cache Kallichore binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            extensions/positron-supervisor/resources/kallichore
-            ./kallichore
-          key: ${{ runner.os }}-kallichore-${{ hashFiles('extensions/positron-supervisor/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-kallichore-
-
       - name: Cache built-in extensions
         uses: actions/cache@v4
         with:
@@ -303,17 +297,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Cache Electron binary
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~\AppData\Local\electron\Cache
-            ~\AppData\Local\electron-builder\Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
-
-      - name: Compile and Download
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
-
       - name: Install Playwright browsers
         if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
         run: npm run playwright-install
@@ -321,10 +304,6 @@ jobs:
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
         run: npm run prelaunch
-
-      - name: Compile E2E Tests
-        run: |
-          npm --prefix test/e2e run compile
 
       - name: Cache Python packages
         uses: actions/cache@v4
