@@ -48,7 +48,6 @@ import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, I
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
-import { CellEditorPosition } from '../common/editor/position.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -1099,36 +1098,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._baseCellEditorOptions.set(language, options);
 		return options;
 	}
-
-	/**
-	 * Gets the current cursor position within the active cell.
-	 */
-	getActiveEditorPosition(): CellEditorPosition | undefined {
-		// Get the active cell editor
-		const selectionState = this.selectionStateMachine.state.get();
-		const activeCell = getActiveCell(selectionState);
-		if (!activeCell) {
-			// No active cell
-			return undefined;
-		}
-		if (!activeCell.editor) {
-			// No editor for the active cell
-			return undefined;
-		}
-
-		// Get the editor position
-		const position = activeCell.editor.getPosition();
-		if (!position) {
-			// No position in the editor
-			return undefined;
-		}
-
-		return new CellEditorPosition(
-			activeCell.index,
-			position,
-		);
-	}
-
 
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
 		return this._contributions.get(id) as T;

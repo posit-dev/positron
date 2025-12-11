@@ -19,6 +19,8 @@ import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCom
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
+import { getActiveCell } from '../../selectionMachine.js';
+import { CellEditorPosition } from '../../../common/editor/position.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -216,13 +218,26 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 
 		// Set the match index to the first match after the cursor
 		let matchIndex: number | undefined = undefined;
-		const cursorPosition = this._notebook.getActiveEditorPosition();
-		if (cursorPosition && cellMatches.length > 0) {
-			const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
-				cellRange.containsPosition(cursorPosition) ||
-				cellRange.getEndPosition().isBefore(cursorPosition)
-			);
-			matchIndex = foundIndex !== -1 ? foundIndex : undefined;
+		if (cellMatches.length > 0) {
+			const activeCell = getActiveCell(this._notebook.selectionStateMachine.state.get());
+			if (activeCell?.editor) {
+				// We have an editor with a cursor position
+				const position = activeCell.editor.getPosition();
+				if (position) {
+					const cursorPosition = new CellEditorPosition(activeCell.index, position);
+					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
+						cellRange.containsPosition(cursorPosition) ||
+						cellRange.getEndPosition().isBefore(cursorPosition)
+					);
+					matchIndex = foundIndex !== -1 ? foundIndex : undefined;
+				}
+			} else if (activeCell) {
+				// No editor (e.g., rendered markdown cell), use cell index
+				const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
+					cellRange.cellIndex <= activeCell.index
+				);
+				matchIndex = foundIndex !== -1 ? foundIndex : undefined;
+			}
 		}
 
 		// Update matches, match count and index
@@ -268,18 +283,29 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		// If we don't have a current match yet, find first match after cursor
-		const cursorPosition = this._notebook.getActiveEditorPosition();
-		if (!cursorPosition) {
-			// No cursor
+		const activeCell = getActiveCell(this._notebook.selectionStateMachine.state.get());
+		if (!activeCell) {
+			// No active cell at all
 			return -1;
 		}
 
-		// Find the first match after the cursor
-		const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
-			cellRange.containsPosition(cursorPosition) ||
-			cursorPosition.isBefore(cellRange.getStartPosition())
-		);
+		if (activeCell.editor) {
+			// We have an editor with a cursor position
+			const position = activeCell.editor.getPosition();
+			if (position) {
+				const cursorPosition = new CellEditorPosition(activeCell.index, position);
+				const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
+					cellRange.containsPosition(cursorPosition) ||
+					cursorPosition.isBefore(cellRange.getStartPosition())
+				);
+				return nextMatchIndex;
+			}
+		}
 
+		// No editor (e.g., rendered markdown cell), use cell index
+		const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
+			cellRange.cellIndex >= activeCell.index
+		);
 		return nextMatchIndex;
 	}
 
@@ -300,16 +326,28 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		}
 
 		// If we don't have a current match yet, find last match before cursor
-		const cursorPosition = this._notebook.getActiveEditorPosition();
-		if (!cursorPosition) {
-			// No cursor
+		const activeCell = getActiveCell(this._notebook.selectionStateMachine.state.get());
+		if (!activeCell) {
+			// No active cell at all
 			return -1;
 		}
 
-		// Find the last match before the cursor
+		if (activeCell.editor) {
+			// We have an editor with a cursor position
+			const position = activeCell.editor.getPosition();
+			if (position) {
+				const cursorPosition = new CellEditorPosition(activeCell.index, position);
+				const prevMatchIndex = cellMatches.findLastIndex(({ cellRange }) =>
+					cellRange.containsPosition(cursorPosition) ||
+					cellRange.getEndPosition().isBefore(cursorPosition)
+				);
+				return prevMatchIndex;
+			}
+		}
+
+		// No editor (e.g., rendered markdown cell), use cell index
 		const prevMatchIndex = cellMatches.findLastIndex(({ cellRange }) =>
-			cellRange.containsPosition(cursorPosition) ||
-			cellRange.getEndPosition().isBefore(cursorPosition)
+			cellRange.cellIndex <= activeCell.index
 		);
 		return prevMatchIndex;
 	}
