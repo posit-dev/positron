@@ -73,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.fetchRemoteImage',
-			async (imageUrl: string) => new Promise<string | ConversionErrorMsg>((resolve) => {
+			(imageUrl: string) => new Promise<string | ConversionErrorMsg>((resolve) => {
 				// Determine protocol
 				const protocol = imageUrl.startsWith('https:') ? https : http;
 

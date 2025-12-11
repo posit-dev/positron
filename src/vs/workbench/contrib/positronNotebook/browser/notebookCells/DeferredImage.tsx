@@ -46,6 +46,7 @@ type ImageDataResults = {
 	message: string;
 };
 
+const REMOTE_SVG_TIMEOUT_MS = 5000;
 const CONVERSION_TIMEOUT_MS = 3000;
 const ERROR_TIMEOUT_MS = 1000;
 
@@ -67,18 +68,20 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		 *
 		 * @param commandName The command to execute
 		 * @param commandArgs Arguments to pass to the command
+		 * @param timeoutMs Timeout in milliseconds for the operation
 		 * @returns A cleanup function to cancel ongoing operations
 		 */
 		const handleImageConversion = (
 			commandName: string,
 			commandArgs: unknown[],
+			timeoutMs: number
 		): (() => void) => {
 			let delayedErrorMsg: Timeout;
 
 			// Create cancelable promise to execute the command with timeout
 			const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
 				services.commandService.executeCommand(commandName, ...commandArgs),
-				CONVERSION_TIMEOUT_MS
+				timeoutMs
 			));
 
 			// Handle the conversion result
@@ -126,6 +129,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			return handleImageConversion(
 				'positronNotebookHelpers.fetchRemoteImage',
 				[imageUrl],
+				REMOTE_SVG_TIMEOUT_MS
 			);
 		};
 
@@ -140,6 +144,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 			return handleImageConversion(
 				'positronNotebookHelpers.convertImageToBase64',
 				[imagePath, baseLocation],
+				CONVERSION_TIMEOUT_MS
 			);
 		};
 
