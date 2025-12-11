@@ -80,7 +80,7 @@ export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCo
 
 							// Fix empty arguments - AI SDK's isParsableJson check will fail for empty strings
 							const fixedArguments = fn && typeof fn.arguments === 'string'
-								? (fn.arguments === '' ? '{}' : fn.arguments)
+								? (fn.arguments === '' ? '' : fn.arguments)
 								: undefined;
 
 							return {
