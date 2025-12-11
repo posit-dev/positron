@@ -11,6 +11,7 @@ import { IObservable, observableValue, runOnChange, transaction } from '../../..
 import { PositronFindWidget } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
+import { getWindow } from '../../../../../../base/browser/dom.js';
 
 /**
  * Options for configuring the PositronFindInstance.
@@ -114,10 +115,17 @@ export class PositronFindInstance extends Disposable {
 
 			// Render the widget
 			this._renderer.render(findWidget);
-		}
 
-		// Update visibility
-		this._isVisible.set(true, undefined);
+			// Defer visibility change to allow browser to render initial state
+			// This ensures the animation plays on first show
+			const targetWindow = getWindow(this._container);
+			targetWindow.requestAnimationFrame(() => {
+				this._isVisible.set(true, undefined);
+			});
+		} else {
+			// Widget already exists, show immediately
+			this._isVisible.set(true, undefined);
+		}
 	}
 
 	/**
