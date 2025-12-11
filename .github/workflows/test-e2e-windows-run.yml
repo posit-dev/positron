@@ -129,20 +129,21 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Debug package-locks
-        shell: bash
-        run: |
-          echo "github.workspace = $GITHUB_WORKSPACE"
-          echo "Listing all package-lock.json files:"
-          find . -name 'package-lock.json' -print | sort
+      # - name: Debug package-locks
+      #   shell: bash
+      #   run: |
+      #     echo "github.workspace = $GITHUB_WORKSPACE"
+      #     echo "Listing all package-lock.json files:"
+      #     find . -name 'package-lock.json' -print | sort
+      #     echo
 
-      - name: Generate extensions cache key
+      - name: Generate extensions dir cache key
         id: extensions-hash
         shell: bash
         run: |
-          # Generate a hash of all extension package-lock.json files
-          # This works around hashFiles() limitations with many files
-          EXTENSIONS_HASH=$(find extensions -maxdepth 2 -name "package-lock.json" -type f | sort | xargs cat | sha256sum | cut -d' ' -f1)
+          # Generate a hash of all extension + .vscode package-lock.json files
+          # This works around hashFiles() limitations
+          EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
           echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
           echo "Generated extensions hash: $EXTENSIONS_HASH"
 
@@ -151,7 +152,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~\AppData\Roaming\npm-cache
+            ~\AppData\Roaming\npm-cache  # npm's internal package tarball cache (safe to restore unconditionally)
             node_modules
             build/node_modules
             extensions
@@ -159,34 +160,18 @@ jobs:
             remote/node_modules
             test/e2e/node_modules
           # Hash main package-lock files + programmatically generated extensions hash
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
-          restore-keys: |
-            ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-
+          # No restore-keys to avoid partial matches that could restore wrong extension versions
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Verify npm cache status
         shell: bash
         run: |
-          echo "========================================="
-          echo "NODE_MODULES CACHE STATUS"
-          echo "========================================="
-          echo "Cache exact match: ${{ steps.cache-node-modules.outputs.cache-hit }}"
-          echo "Cache matched key: ${{ steps.cache-node-modules.outputs.cache-matched-key }}"
-
-          # Check if node_modules exists (indicates cache was restored, even via restore-keys)
-          if [ -d "node_modules" ] && [ -d "build/node_modules" ]; then
-            echo "✓ Cache RESTORED - Skipping npm install"
-            echo ""
-            echo "Restored node_modules:"
-            [ -d "node_modules" ] && echo "  ✓ Root node_modules ($(ls node_modules 2>/dev/null | wc -l) packages)"
-            [ -d "build/node_modules" ] && echo "  ✓ build/node_modules ($(ls build/node_modules 2>/dev/null | wc -l) packages)"
-            [ -d "test/e2e/node_modules" ] && echo "  ✓ test/e2e/node_modules ($(ls test/e2e/node_modules 2>/dev/null | wc -l) packages)"
-            [ -d "extensions/node_modules" ] && echo "  ✓ extensions/node_modules ($(ls extensions/node_modules 2>/dev/null | wc -l) packages)"
-            echo "  ✓ Extension subdirectories: $(find extensions -maxdepth 2 -name node_modules -type d | wc -l) extensions"
+          if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
+            echo "✓ Cache HIT - npm install will be skipped"
           else
-            echo "✗ Cache MISS - Will run full npm install"
-            echo "  This is expected on first run or after dependency changes"
+            echo "✗ Cache MISS - npm install will run"
           fi
-          echo "========================================="
+          echo "Key: ${{ steps.cache-node-modules.outputs.cache-matched-key }}"
 
       - name: Check if npm install needed
         id: check-install
@@ -306,7 +291,7 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Restore built-in extensions cache
         id: cache-builtins
