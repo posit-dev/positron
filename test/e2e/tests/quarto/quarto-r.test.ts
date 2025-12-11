@@ -44,7 +44,7 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 	});
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+		await app.code.driver.page.getByRole('button', { name: 'Preview' }).click();
 		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays

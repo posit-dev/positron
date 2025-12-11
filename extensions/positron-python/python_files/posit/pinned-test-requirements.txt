@@ -15,14 +15,14 @@ duckdb==1.4.2
 fastcore==1.8.9; python_version == '3.9'
 fastcore==1.8.16; python_version >= '3.10'
 geopandas==1.0.1; python_version == '3.9'
-geopandas==1.1.1; python_version >= '3.10' and python_version < '3.14'
+geopandas==1.1.1; python_version >= '3.10'
 google-cloud-bigquery==3.38.0
 haystack-ai==2.20.0
 holoviews==1.20.2; python_version == '3.9'
 holoviews==1.22.0; python_version >= '3.10'
 hvplot==0.11.3; python_version == '3.9'
 hvplot==0.12.1; python_version >= '3.10'
-ibis-framework[duckdb]==11.0.0; python_version < '3.14'
+ibis-framework[duckdb]==11.0.0
 ipykernel==6.31.0; python_version == '3.9'
 ipykernel==7.1.0; python_version >= '3.10'
 ipython==8.18.1; python_version == '3.9'
@@ -55,7 +55,7 @@ torch==2.9.1; python_version >= '3.10'
 scipy==1.13.1; python_version == '3.9'
 scipy==1.15.3; python_version == '3.10'
 scipy==1.16.3; python_version >= '3.11'
-snowflake-connector-python==4.0.0; python_version < '3.14'
+snowflake-connector-python==4.0.0
 SQLAlchemy==2.0.44
 
 # putting this last like test-requirements.txt

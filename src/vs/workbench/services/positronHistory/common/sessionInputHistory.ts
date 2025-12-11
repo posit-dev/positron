@@ -32,6 +32,7 @@ export class SessionInputHistory extends Disposable {
 	constructor(
 		private readonly _sessionId: string,
 		private readonly _storageService: IStorageService,
+		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService
 	) {
 		super();
@@ -40,9 +41,9 @@ export class SessionInputHistory extends Disposable {
 		this._storageKey = `${INPUT_HISTORY_STORAGE_PREFIX}.${_sessionId}`;
 
 		// Load existing history entries
-		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		try {
-			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<any>) => {
+			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<unknown>) => {
 				this._entries.push(entry);
 			});
 		} catch (err) {
@@ -91,7 +92,7 @@ export class SessionInputHistory extends Disposable {
 		this._entries.length = 0;
 		this._storageService.store(this._storageKey,
 			null,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 	}
 
@@ -129,11 +130,11 @@ export class SessionInputHistory extends Disposable {
 			`Saving input history for session ${this._sessionId} ` +
 			`(${storageState.length} bytes)`);
 
-		// Write to machine/workspace specific storage so we can restore the
+		// Write to machine/workspace or profile specific storage so we can restore the
 		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 
 		// Successfully saved; state is no longer dirty

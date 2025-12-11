@@ -213,6 +213,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._container;
 	}
 
+	getFocusedCell(): IPositronNotebookCell | null {
+		const container = this.container;
+		if (!container) {
+			return null;
+		}
+
+		const activeElement = container.ownerDocument.activeElement;
+		if (!activeElement || !container.contains(activeElement)) {
+			return null;
+		}
+
+		// Find which cell contains the focused element
+		return this.cells.get().find(cell => cell.container?.contains(activeElement)) ?? null;
+	}
+
 	/**
 	 * Event emitter for when the text model changes.
 	 */

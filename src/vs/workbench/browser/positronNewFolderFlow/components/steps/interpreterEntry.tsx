@@ -28,7 +28,8 @@ export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => 
 		<DropdownEntry
 			codicon={interpreterInfo.preferred ? 'codicon-star-full' : undefined}
 			group={interpreterInfo.runtimeSource}
-			subtitle={`${interpreterInfo.runtimePath}`}
+			hoverText={interpreterInfo.runtimePath}
+			subtitle={interpreterInfo.runtimePath}
 			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
 		/>
 	);

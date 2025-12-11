@@ -1863,6 +1863,12 @@ export interface HoverWithId extends languages.Hover {
 	 * Id of the hover
 	 */
 	id: number;
+	// --- Start Positron ---
+	/**
+	 * Id of the extension that provided this hover
+	 */
+	extensionId?: string;
+	// --- End Positron ---
 }
 
 // -- extension host

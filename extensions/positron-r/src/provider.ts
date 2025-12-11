@@ -12,12 +12,13 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
+import { discoverPixiBinaries } from './provider-pixi.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -33,7 +34,7 @@ export const R_DOCUMENT_SELECTORS = [
 export interface RBinary {
 	path: string;
 	reasons: ReasonDiscovered[];
-	condaEnvironmentPath?: string;
+	packagerMetadata?: PackagerMetadata;
 }
 
 interface DiscoveredBinaries {
@@ -49,6 +50,7 @@ export enum RRuntimeSource {
 	user = 'User',
 	homebrew = 'Homebrew',
 	conda = 'Conda',
+	pixi = 'Pixi',
 }
 
 /**
@@ -70,7 +72,12 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Promote R binaries to R installations, filtering out any rejected R installations
 	const rejectedRInstallations: RInstallation[] = [];
 	const rInstallations: RInstallation[] = binaries
-		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons, rbin.condaEnvironmentPath))
+		.map(rbin => new RInstallation(
+			rbin.path,
+			rbin.path === currentBinary,
+			rbin.reasons,
+			rbin.packagerMetadata
+		))
 		.filter(r => {
 			if (!r.usable) {
 				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
@@ -162,6 +169,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const currentBinaries = await currentRBinaryCandidates();
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
+	const pixiBinaries = await discoverPixiBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -177,6 +185,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 		...currentBinaries,
 		...systemBinaries,
 		...condaBinaries,
+		...pixiBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -238,20 +247,31 @@ export async function makeMetadata(
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
 	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
+	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
 
-	// Be sure to check for conda installations first, as conda can be installed via Homebrew
-	const runtimeSource =
-		isCondaInstallation ? RRuntimeSource.conda :
-			isHomebrewInstallation ? RRuntimeSource.homebrew :
-				isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
+	// Be sure to check for pixi/conda installations first, as they can be installed via Homebrew
+	let runtimeSource = RRuntimeSource.system;
+	if (isPixiInstallation) {
+		runtimeSource = RRuntimeSource.pixi;
+	} else if (isCondaInstallation) {
+		runtimeSource = RRuntimeSource.conda;
+	} else if (isHomebrewInstallation) {
+		runtimeSource = RRuntimeSource.homebrew;
+	} else if (isUserInstallation) {
+		runtimeSource = RRuntimeSource.user;
+	}
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
-	const condaAmendment = rInst.condaEnvironmentPath ?
-		` (Conda: ${path.basename(rInst.condaEnvironmentPath)})` : '';
-	const runtimeName = `R ${runtimeShortName}${condaAmendment}`;
+	let packagerAmendment = '';
+	if (isCondaInstallation && rInst.packagerMetadata) {
+		packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
+	} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
+		packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
+	}
+	const runtimeName = `R ${runtimeShortName}${packagerAmendment}`;
 
 	// Get the version of this extension from package.json so we can pass it
 	// to the adapter as the implementation version.
@@ -275,7 +295,7 @@ export async function makeMetadata(
 		current: rInst.current,
 		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
-		condaEnvironmentPath: rInst.condaEnvironmentPath,
+		packagerMetadata: rInst.packagerMetadata,
 	};
 
 	// Check the kernel supervisor's configuration; if it's configured to

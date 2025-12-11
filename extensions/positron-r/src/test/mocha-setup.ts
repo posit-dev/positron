@@ -9,8 +9,10 @@ import * as testKit from './kit';
 export let currentTestName: string | undefined;
 
 suiteSetup(async () => {
-	// Set global Positron log level to trace for easier debugging
-	await vscode.commands.executeCommand('_extensionTests.setLogLevel', 'trace');
+	// Set global Positron log level to trace on CI for easier debugging
+	if (process.env.CI) {
+		await vscode.commands.executeCommand('_extensionTests.setLogLevel', 'trace');
+	}
 
 	// Set Ark kernel process log level to trace
 	await vscode.workspace.getConfiguration().update('positron.r.kernel.logLevel', 'trace', vscode.ConfigurationTarget.Global);

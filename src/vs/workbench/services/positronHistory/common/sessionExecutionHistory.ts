@@ -111,9 +111,24 @@ export class SessionExecutionHistory extends Disposable {
 			} else {
 				// This is the first time we've seen this execution; create
 				// a new entry.
+				let when = Date.now();
+
+				// If the input message has a timestamp, try to use that instead. Not all
+				// runtimes provide this, but if they do, it should be more accurate.
+				if (message.when) {
+					const parsedTime = Date.parse(message.when);
+					if (isNaN(parsedTime)) {
+						this._logService.warn(
+							`Invalid timestamp '${when}' on input message ${message.id}; ` +
+							`Using current time instead.`);
+					} else {
+						when = parsedTime;
+					}
+				}
+
 				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
-					when: Date.parse(message.when),
+					when: when,
 					prompt: session.dynState.inputPrompt,
 					input: message.code,
 					outputType: ExecutionEntryType.Execution,

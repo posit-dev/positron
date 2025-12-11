@@ -62,6 +62,7 @@ export class Notebooks {
 		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 
 			try {
 				// 1. Try finding by text
@@ -143,14 +144,14 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string | RegExp, cellIndex?: number): Promise<void> {
+	async assertCellOutput(text: string | RegExp, cellIndex?: number, { timeout = 15000 } = {}): Promise<void> {
 		if (cellIndex !== undefined) {
 			// Target specific cell output
 			const cellOutput = this.frameLocator.locator('.output_container').nth(cellIndex);
-			await expect(cellOutput.getByText(text)).toBeVisible({ timeout: 15000 });
+			await expect(cellOutput.getByText(text)).toBeVisible({ timeout });
 		} else {
 			// Use nth(0) to get the first occurrence when multiple elements exist
-			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout: 15000 });
+			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout });
 		}
 	}
 
@@ -164,18 +165,14 @@ export class Notebooks {
 		await expect(markdownLocator).toHaveText(expectedText);
 	}
 
-	async runAllCells({ timeout = 15000, throwError = false } = {}): Promise<void> {
+	async runAllCells({ timeout = 15000 } = {}): Promise<void> {
 		await test.step('Run all cells', async () => {
 			await this.code.driver.page.getByLabel('Run All').click();
 			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
-				await expect(stopExecutionLocator).toBeVisible({ timeout: 5000 });
+				await expect(stopExecutionLocator).toBeVisible({ timeout });
 				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
-			} catch {
-				if (throwError) {
-					throw new Error('Timeout waiting for all cells to finish executing');
-				}
-			} // can be normal with very fast execution
+			} catch { } // can be normal with very fast execution
 		});
 	}
 

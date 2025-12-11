@@ -30,7 +30,7 @@ test.describe('Default Interpreters - Python', {
 			: path.join(process.env.HOME || '', `.pyenv/versions/${pythonVersion}/bin/python`);
 
 		// First reload: "Apply these settings"
-		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true });
+		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true, waitForReady: true });
 	});
 
 	test.afterAll(async function ({ cleanup }) {
@@ -38,9 +38,6 @@ test.describe('Default Interpreters - Python', {
 	});
 
 	test('Python - Add a default interpreter (Conda)', async function ({ hotKeys, sessions }) {
-		// Second reload: "Now actually start the interpreter with these settings"
-		await hotKeys.reloadWindow(true);
-
 		// Get version from appropriate env var (hidden Python in CI, regular in local)
 		const pythonVersion = process.env.CI
 			? (process.env.POSITRON_HIDDEN_PY || '3.12.10').split(' ')[0] // Extract "3.12.10" from "3.12.10 (Conda)"
@@ -54,8 +51,11 @@ test.describe('Default Interpreters - Python', {
 			? /python-env\/bin\/python/
 			: new RegExp(`~?\\.pyenv/versions/${pythonVersion.replace(/\./g, '\\.')}/bin/python`);
 
-		const { name, path } = await sessions.getMetadata();
+		// Second reload: "Now actually start the interpreter with these settings"
+		await hotKeys.reloadWindow(true);
 
+		// Verify interpreter metadata
+		const { name, path } = await sessions.getMetadata();
 		expect(name).toMatch(versionRegex);
 		expect(path).toMatch(pathRegex);
 	});

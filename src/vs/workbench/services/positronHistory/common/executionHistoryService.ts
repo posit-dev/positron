@@ -112,6 +112,22 @@ export interface IExecutionHistoryService extends IDisposable {
 	clearInputEntries(languageId: string): void;
 
 	/**
+	 * Removes (clears) all the the input history entries for a given session.
+	 *
+	 * @param sessionId The ID of the session to clear input history for
+	 */
+	clearSessionInputEntries(sessionId: string): void;
+
+	/**
+	 * Removes a single input history entry for a given language.
+	 *
+	 * @param languageId The ID of the language to delete the input history entry from
+	 * @param when The timestamp of the entry to delete
+	 * @param input The input text of the entry to delete (used to uniquely identify the entry)
+	 */
+	deleteInputEntry(languageId: string, when: number, input: string): void;
+
+	/**
 	 * Gets the execution history for a given language runtime session. This is
 	 * effectively the execution history for a specific console tab, so it is
 	 * both workspace and machine scoped.
@@ -119,7 +135,7 @@ export interface IExecutionHistoryService extends IDisposable {
 	 * @param sessionId The ID of the language runtime for which to retrieve
 	 *   execution history
 	 */
-	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[];
+	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<unknown>[];
 
 	/**
 	 * Removes (clears) all the the history entries for a given
@@ -129,6 +145,13 @@ export interface IExecutionHistoryService extends IDisposable {
 	 *   history.
 	 */
 	clearExecutionEntries(sessionId: string): void;
+
+	/**
+	 * Gets the list of language IDs that have input history available.
+	 *
+	 * @returns An array of language IDs that have at least one input history entry.
+	 */
+	getAvailableLanguages(): string[];
 }
 
 export const replConfigurationBaseNode = Object.freeze<IConfigurationNode>({

@@ -24,12 +24,10 @@ test.describe('References', {
 	});
 
 	// skipping until we have pyrefly back on for tests
-	test('Python - Verify References Pane Lists All Function References Across Files', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
-	}, async function ({ app, python, openFile }) {
+	test('Python - Verify References Pane Lists All Function References Across Files', async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
 
-		await openFile(join('workspaces', 'references_tests', 'python', helper));
+		await openFile(join('workspaces', 'references_tests', 'python', 'math_stuff', helper));
 
 		await openAndCommonValidations(app, helper);
 

@@ -326,8 +326,40 @@ export async function provideSuggestionItems(
 		return Promise.reject(new CancellationError());
 	}
 
+	// --- Start Positron ---
+	// Deduplicate completion items that have the same insertText.
+	// When duplicates are found:
+	//   - If one item is from our Python extension and the other is not, prefer the one not from our Python extension.
+	//   - If both items are from our Python extension, the first-seen item is kept.
+	//   - If both items are from other extensions, the first-seen item is kept.
+	const msPythonExtensionId = 'ms-python.python';
+	const deduplicatedResult: CompletionItem[] = [];
+	const seen = new Map<string, CompletionItem>();
+
+	for (const item of result) {
+		const key = item.completion.insertText;
+		const existing = seen.get(key);
+		if (existing) {
+			// If the existing item is from ms-python.python and the new one is not,
+			// replace with the new one
+			if (existing.extensionId?.value === msPythonExtensionId &&
+				item.extensionId?.value !== msPythonExtensionId) {
+				const existingIndex = deduplicatedResult.indexOf(existing);
+				if (existingIndex !== -1) {
+					deduplicatedResult[existingIndex] = item;
+					seen.set(key, item);
+				}
+			}
+		} else {
+			// Otherwise, keep the existing item (skip the duplicate)
+			seen.set(key, item);
+			deduplicatedResult.push(item);
+		}
+	}
+
 	return new CompletionItemModel(
-		result.sort(getSuggestionComparator(options.snippetSortOrder)),
+		deduplicatedResult.sort(getSuggestionComparator(options.snippetSortOrder)),
+		// --- End Positron ---
 		needsClipboard,
 		{ entries: durations, elapsed: sw.elapsed() },
 		disposables,

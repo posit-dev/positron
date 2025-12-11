@@ -912,7 +912,7 @@ suite('ExecutionHistoryService', () => {
 		assert.strictEqual(inputEntries.length, 1);
 
 		// Clear history
-		executionHistoryService.clearInputEntries('test-session-7');
+		executionHistoryService.clearSessionInputEntries('test-session-7');
 
 		// Verify history was cleared
 		inputEntries = executionHistoryService.getSessionInputEntries('test-session-7');

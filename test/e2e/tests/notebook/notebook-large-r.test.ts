@@ -13,7 +13,7 @@ test.use({
 
 // test is too heavy for web
 test.describe('Large R Notebook', {
-	tag: [tags.NOTEBOOKS, tags.WIN]
+	tag: [tags.NOTEBOOKS]
 }, () => {
 
 	test('R - Large notebook execution', {

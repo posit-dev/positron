@@ -12,6 +12,7 @@
 	color: inherit;
 }
 
-.positron-add-cell-buttons:hover {
+.positron-add-cell-buttons:hover,
+.positron-add-cell-buttons:focus-within {
 	opacity: 1;
 }

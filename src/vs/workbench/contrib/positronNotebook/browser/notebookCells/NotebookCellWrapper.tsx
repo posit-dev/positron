@@ -35,6 +35,8 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
+	// Track previous selection status to detect edit mode exit
+	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>();
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -45,24 +47,38 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 
 	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
+		const prevStatus = prevSelectionStatusRef.current;
+		prevSelectionStatusRef.current = selectionStatus;
+
 		if (!cellRef.current) {
 			return;
 		}
 
 		/**
 		 * Focus the cell container element when this cell becomes the active cell,
-		 * except when in editing mode (the Monaco editor should have focus then).
+		 * except when:
+		 * 1. In editing mode (the Monaco editor should have focus then)
+		 * 2. Transitioning from Editing state for CODE cells only
+		 *    (markdown cells should still get container focus since their editor unmounts)
 		 */
-		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing) {
+		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing && cell.isCodeCell();
+		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing && !wasEditingCodeCell) {
 			cellRef.current.focus();
 		}
-	}, [isActiveCell, selectionStatus, cellRef]);
+	}, [isActiveCell, selectionStatus, cellRef, cell]);
 
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
+
+	/**
+	 * Check if the cell has outputs to determine aria-label.
+	 * When there are no outputs, the focus trap is skipped, so we need to include
+	 * the "Press Enter to edit" instruction in the cell container's aria-label.
+	 */
+	const hasOutputs = cell.outputsViewModels.length > 0;
 
 	// State for ARIA announcements
 	const [announcement, setAnnouncement] = React.useState<string>('');
@@ -101,7 +117,9 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 
 	return <div
 		ref={cellRef}
-		aria-label={localize('notebookCell', '{0} cell', cellType)}
+		aria-label={hasOutputs
+			? localize('notebookCell', '{0} cell', cellType)
+			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-has-error={hasError}

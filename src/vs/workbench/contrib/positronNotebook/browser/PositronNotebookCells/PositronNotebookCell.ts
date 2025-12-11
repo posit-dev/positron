@@ -11,11 +11,11 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 
 /**
  * Minimum visibility ratio required for a cell to be considered visible in the viewport.
@@ -96,6 +96,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	get outputsViewModels(): IContextKeysCellOutputViewModel[] {
 		return [];
+	}
+
+	/**
+	 * Current cell outputs as an observable.
+	 * Base implementation returns undefined; code cells override this.
+	 */
+	get outputs(): IObservable<NotebookCellOutputs[]> | undefined {
+		return undefined;
 	}
 
 	get index(): number {

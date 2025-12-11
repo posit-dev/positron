@@ -69,6 +69,8 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		defaults: {
 			name: 'Error Language Model',
 			model: 'error',
+			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -122,6 +124,8 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		defaults: {
 			name: 'Echo Language Model',
 			model: 'echo',
+			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -709,6 +713,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
+			completions: false,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
@@ -752,7 +757,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
-			completions: true,
+			completions: false,
 		},
 	};
 
@@ -1088,6 +1093,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 			model: 'anthropic/claude-3.5-sonnet',
 			baseUrl: 'https://openrouter.ai/api/v1',
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1119,6 +1125,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			model: 'qwen2.5-coder:7b',
 			baseUrl: 'http://localhost:11434/api',
 			toolCalls: false,
+			completions: false,
 			numCtx: 2048,
 		},
 	};
@@ -1151,6 +1158,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 			model: 'gpt-4o',
 			resourceName: undefined,
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1183,6 +1191,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 			project: undefined,
 			location: undefined,
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1220,6 +1229,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			name: 'Claude 4 Sonnet Bedrock',
 			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
+			completions: false,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using AWS credentials', signedIn: false },
 		},
 	};
@@ -1658,6 +1668,8 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 					name: model.source.provider.displayName,
 					model: model.source.defaults.model,
 					apiKey: apiKey,
+					toolCalls: model.source.defaults.toolCalls,
+					completions: model.source.defaults.completions,
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 						key: key,
@@ -1678,9 +1690,10 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
 						apiKey: result.token,
+						toolCalls: model.source.defaults.toolCalls,
+						completions: model.source.defaults.completions,
 						// Use baseUrl from autoconfigure result if available, otherwise fall back to defaults
 						...(result.baseUrl && { baseUrl: result.baseUrl }),
-						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
 							message: result.message,

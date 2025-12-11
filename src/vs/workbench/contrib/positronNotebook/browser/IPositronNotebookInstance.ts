@@ -138,6 +138,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly selectionStateMachine: SelectionStateMachine;
 
 	/**
+	 * Find the cell that currently has DOM focus within the notebook container.
+	 * Useful for keyboard navigation where Tab moves focus but doesn't change selection.
+	 * @returns The focused cell, or null if no cell has focus
+	 */
+	getFocusedCell(): IPositronNotebookCell | null;
+
+	/**
 	 * Indicates whether this notebook instance has been disposed.
 	 * Used to prevent operations on destroyed instances.
 	 */
