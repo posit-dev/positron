@@ -29,7 +29,7 @@ export class PositronNotebooks extends Notebooks {
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
-	markdownCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Markdown cell"]');
+	markdownCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Markdown cell - Press Enter to edit"]');
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
 	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 
@@ -74,7 +74,6 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellContent(cellIndex: number): Promise<string[]> {
 		const cellType = await this.getCellType(cellIndex);
-
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
 			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'View markdown' }).isVisible();
@@ -133,7 +132,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellType(cellIndex: number): Promise<'code' | 'markdown'> {
 		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-		return ariaLabel === 'Markdown cell' ? 'markdown' : 'code';
+		return ariaLabel === 'Markdown cell - Press Enter to edit' ? 'markdown' : 'code';
 	}
 
 	// #endregion
@@ -565,6 +564,8 @@ export class PositronNotebooks extends Notebooks {
 	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[]): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
 			const actualContent = await this.getCellContent(cellIndex);
+			console.log(`Cell ${cellIndex} actual content:`, actualContent);
+			console.log(`Cell ${cellIndex} expected content:`, expectedContent);
 
 			if (Array.isArray(expectedContent)) {
 				// Compare arrays line by line
