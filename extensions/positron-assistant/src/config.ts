@@ -247,6 +247,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Check for required fields
 	sources
 		.filter((source) => source.type === userConfig.type)
+		.filter((source) => source.defaults.autoconfigure === undefined) // Don't save autoconfigurable models
 		.find((source) => source.provider.id === userConfig.provider)?.supportedOptions
 		.forEach((option) => {
 			if (!(option in userConfig)) {

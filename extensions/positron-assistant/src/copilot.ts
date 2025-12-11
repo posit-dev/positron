@@ -8,6 +8,7 @@ import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
 import { ModelConfig } from './config.js';
+import { LanguageModel } from 'ai';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -96,8 +97,23 @@ export class CopilotService implements vscode.Disposable {
 	 */
 	public async refreshSignedInState(): Promise<void> {
 		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true });
-		if (session.id !== this._authSession?.id) {
+		if (session?.id !== this._authSession?.id) {
 			this.setAuthSession(session);
+			if (this.isSignedIn) {
+				const autoConfig: LanguageModelAutoconfigure = {
+					type: positron.ai.LanguageModelAutoconfigureType.Custom,
+					signedIn: true,
+					message: vscode.l10n.t('the Accounts menu.')
+				}
+				CopilotLanguageModel.source.defaults.autoconfigure = autoConfig;
+			} else {
+				const autoConfig: LanguageModelAutoconfigure = {
+					type: positron.ai.LanguageModelAutoconfigureType.Custom,
+					signedIn: false,
+					message: vscode.l10n.t('the Accounts menu.')
+				}
+				CopilotLanguageModel.source.defaults.autoconfigure = autoConfig;
+			}
 		}
 	}
 
@@ -126,13 +142,13 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		const service = CopilotService.instance();
-		await service.refreshSignedInState();
-		if (service.isSignedIn) {
+		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { createIfNone: true });
+		if (session) {
+			const service = CopilotService.instance();
+			await service.refreshSignedInState();
 			return undefined;
-		} else {
-			return Promise.resolve(new Error('Not signed in to GitHub Copilot.'));
 		}
+		return Promise.resolve(new Error('Not signed in to GitHub Copilot.'));
 	}
 
 	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
@@ -144,17 +160,20 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	}
 
 	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'copilot',
 			displayName: 'GitHub Copilot'
 		},
-		signedIn: true, // TODO: Dynamically update based on auth state
 		supportedOptions: ['oauth'],
 		defaults: {
 			name: 'GitHub Copilot',
 			model: 'github-copilot',
-			oauth: true,
+			autoconfigure: {
+				type: positron.ai.LanguageModelAutoconfigureType.Custom,
+				message: vscode.l10n.t('the Accounts menu.'),
+				signedIn: false
+			},
 		},
 	};
 
