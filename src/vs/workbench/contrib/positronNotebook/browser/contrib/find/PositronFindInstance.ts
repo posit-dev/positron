@@ -100,7 +100,7 @@ export class PositronFindInstance extends Disposable {
 		if (!this._root) {
 			// Create mount point div
 			this._mountPoint = document.createElement('div');
-			this._mountPoint.className = 'positron-find-widget-mount';
+			this._mountPoint.className = 'positron-find-widget-container';
 
 			// Append directly to notebook container (no modal overlay)
 			this._options.container.appendChild(this._mountPoint);
