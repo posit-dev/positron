@@ -8,7 +8,7 @@ import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../.
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { autorun, debouncedObservable, observableSignal, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, observableSignal, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -18,6 +18,7 @@ import { CellEditorRange } from '../../../common/editor/range.js';
 import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
+import { ILogService } from '../../../../../../platform/log/common/log.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -52,13 +53,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private readonly _debouncedNotebookContentChanged = observableSignal('positronNotebookContentChanged');
 	private readonly _notebookContentChangedScheduler = this._register(new RunOnceScheduler(() => {
 		this._debouncedNotebookContentChanged.trigger(undefined, undefined);
-	}, 100));
+	}, 20));
 
 	private readonly _notebookModelDisposables = this._register(new DisposableStore());
 
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -136,13 +138,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			}));
 
 			// Research when search params or content changes
-			const debouncedSearchString = debouncedObservable(findInstance.searchString, 100);
 			this._register(autorun(reader => {
-				// Read debounced inputs
-				const searchString = debouncedSearchString.read(reader);
 				this._debouncedNotebookContentChanged.read(reader);
-
-				// Read immediate inputs (toggles)
+				const searchString = findInstance.searchString.read(reader);
 				const isRegex = findInstance.isRegex.read(reader);
 				const matchCase = findInstance.matchCase.read(reader);
 				const wholeWord = findInstance.wholeWord.read(reader);
@@ -327,8 +325,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		const cellMatch = cellMatches[matchIndex];
 		const { cell, cellRange } = cellMatch;
 
-		// Select the cell (and reveal it)
+		// Select the cell and reveal it
 		this._notebook.selectionStateMachine.selectCell(cell);
+		this._notebook.revealInCenterIfOutsideViewport(cell).catch((error) => {
+			this._logService.error('Error revealing cell for find match:', error);
+		});
 
 		// Select the match in the editor
 		if (cell.editor) {
