@@ -246,7 +246,7 @@ jobs:
         run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
 
       - name: Verify cache contents before save
-        if: ${{ matrix.shard == 2 && steps.check-install.outputs.skip != 'true' }}
+        if: ${{ matrix.shard == 1 && steps.check-install.outputs.skip != 'true' }}
         shell: bash
         run: |
           echo "========================================="
@@ -266,7 +266,7 @@ jobs:
           echo "========================================="
 
       - name: Save npm dependencies cache
-        if: ${{ matrix.shard == 2 && steps.check-install.outputs.skip != 'true' }}
+        if: ${{ matrix.shard == 1 && steps.check-install.outputs.skip != 'true' }}
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
@@ -520,6 +520,7 @@ jobs:
 
   merge-reports:
     name: ${{ inputs.display_name }}
+    timeout-minutes: 10
     if: ${{ !cancelled() }}
     needs: [e2e-windows-run]
     runs-on: ubuntu-latest-4x
@@ -570,13 +571,16 @@ jobs:
 
           echo "Merging blob reports from all shards..."
           # Merge all blob reports and generate HTML report
+          # Use --config to point to repo's playwright.config.ts for proper path resolution
           env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
+            --config ../test/e2e/playwright.config.ts \
             --reporter=@midleman/github-actions-reporter,html \
             --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
           # Generate JSON report separately with explicit output path
           PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
+            --config ../test/e2e/playwright.config.ts \
             --reporter=json \
             ../all-blob-reports
 
