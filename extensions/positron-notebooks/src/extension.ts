@@ -54,7 +54,7 @@ export function activate(context: vscode.ExtensionContext) {
 					});
 				} catch (e) {
 					return {
-						type: 'error',
+						status: 'error',
 						message: e instanceof Error ? e.message : `Error occured while converting image ${fullImagePath} to base64.`,
 					};
 				}
