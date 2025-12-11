@@ -3,18 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../../../editor/contrib/find/browser/findModel.js';
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { autorun, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, debouncedObservable, observableSignal, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronFindInstance } from './PositronFindInstance.js';
 import { PositronNotebookFindDecorations } from './decorations.js';
 import { CellEditorRange } from '../../../common/editor/range.js';
+import { NotebookCellsChangeType } from '../../../../notebook/common/notebookCommon.js';
+import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
+import { RunOnceScheduler } from '../../../../../../base/common/async.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -46,6 +49,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private readonly _currentMatch = observableValue<CurrentPositronCellMatch | undefined>('positronNotebookFindControllerCurrentMatchIndex', undefined);
 
+	private readonly _debouncedNotebookContentChanged = observableSignal('positronNotebookContentChanged');
+	private readonly _notebookContentChangedScheduler = this._register(new RunOnceScheduler(() => {
+		this._debouncedNotebookContentChanged.trigger(undefined, undefined);
+	}, 100));
+
+	private readonly _notebookModelDisposables = this._register(new DisposableStore());
+
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -53,6 +63,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		super();
 
 		this._register(new PositronNotebookFindDecorations(this._notebook, this._matches, this._currentMatch));
+
+		this._register(this._notebook.onDidChangeModel((notebookModel) => {
+			this.attachNotebookModel(notebookModel);
+		}));
+		if (this._notebook.textModel) {
+			this.attachNotebookModel(this._notebook.textModel);
+		}
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {
@@ -118,9 +135,14 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 			}));
 
-			// Research when params change
+			// Research when search params or content changes
+			const debouncedSearchString = debouncedObservable(findInstance.searchString, 100);
 			this._register(autorun(reader => {
-				const searchString = findInstance.searchString.read(reader);
+				// Read debounced inputs
+				const searchString = debouncedSearchString.read(reader);
+				this._debouncedNotebookContentChanged.read(reader);
+
+				// Read immediate inputs (toggles)
 				const isRegex = findInstance.isRegex.read(reader);
 				const matchCase = findInstance.matchCase.read(reader);
 				const wholeWord = findInstance.wholeWord.read(reader);
@@ -132,25 +154,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 
 				// Perform search
-				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
-
-				// Set the match index to the first match after the cursor
-				let matchIndex: number | undefined = undefined;
-				const cursorPosition = this._notebook.getActiveEditorPosition();
-				if (cursorPosition && cellMatches.length > 0) {
-					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
-						cellRange.containsPosition(cursorPosition) ||
-						cellRange.getEndPosition().isBefore(cursorPosition)
-					);
-					matchIndex = foundIndex !== -1 ? foundIndex : undefined;
-				}
-
-				// Update matches, match count and index
-				transaction((tx) => {
-					this._matches.set(cellMatches, tx);
-					findInstance.matchCount.set(cellMatches.length, tx);
-					findInstance.matchIndex.set(matchIndex, tx);
-				});
+				this.research(searchString, isRegex, matchCase, wholeWord);
 			}));
 		}
 
@@ -170,6 +174,22 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	public hide(): void {
 		this._findInstance?.hide();
+	}
+
+	private attachNotebookModel(notebookModel: NotebookTextModel | undefined) {
+		this._notebookModelDisposables.clear();
+
+		if (!notebookModel) {
+			return;
+		}
+
+		this._notebookModelDisposables.add(notebookModel.onDidChangeContent(e => {
+			if (e.rawEvents.some(
+				event => event.kind === NotebookCellsChangeType.ChangeCellContent ||
+					event.kind === NotebookCellsChangeType.ModelChange)) {
+				this._notebookContentChangedScheduler.schedule();
+			}
+		}));
 	}
 
 	/**
@@ -195,6 +215,25 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 			}
 		}
+
+		// Set the match index to the first match after the cursor
+		let matchIndex: number | undefined = undefined;
+		const cursorPosition = this._notebook.getActiveEditorPosition();
+		if (cursorPosition && cellMatches.length > 0) {
+			const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
+				cellRange.containsPosition(cursorPosition) ||
+				cellRange.getEndPosition().isBefore(cursorPosition)
+			);
+			matchIndex = foundIndex !== -1 ? foundIndex : undefined;
+		}
+
+		// Update matches, match count and index
+		transaction((tx) => {
+			this._matches.set(cellMatches, tx);
+			this._findInstance?.matchCount.set(cellMatches.length, tx);
+			this._findInstance?.matchIndex.set(matchIndex, tx);
+		});
+
 		return cellMatches;
 	}
 
