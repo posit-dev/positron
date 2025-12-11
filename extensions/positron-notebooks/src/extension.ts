@@ -73,76 +73,74 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronNotebookHelpers.fetchRemoteImage',
-			async (imageUrl: string): Promise<string | ConversionErrorMsg> => {
-				try {
-					// Determine protocol
-					const protocol = imageUrl.startsWith('https:') ? https : http;
+			async (imageUrl: string) => new Promise<string | ConversionErrorMsg>((resolve) => {
+				// Determine protocol
+				const protocol = imageUrl.startsWith('https:') ? https : http;
 
-					return new Promise<string | ConversionErrorMsg>((resolve) => {
-						protocol.get(imageUrl, (response) => {
-							// Check for successful response
-							if (response.statusCode !== 200) {
+				try {
+					protocol.get(imageUrl, (response) => {
+						// Check for successful response
+						if (response.statusCode !== 200) {
+							resolve({
+								status: 'error',
+								message: `Failed to fetch image: HTTP ${response.statusCode}`,
+							});
+							return;
+						}
+
+						// Get MIME type from response headers or infer from URL
+						let mimeType = response.headers['content-type'];
+						if (!mimeType || !mimeType.startsWith('image/')) {
+							// Try to infer from URL extension
+							const urlExtension = path.extname(new URL(imageUrl).pathname).slice(1);
+							mimeType = mimeTypeMap[urlExtension.toLowerCase()];
+							if (!mimeType) {
 								resolve({
 									status: 'error',
-									message: `Failed to fetch image: HTTP ${response.statusCode}`,
+									message: `Unsupported or missing content type: ${response.headers['content-type']}`,
 								});
 								return;
 							}
+						}
 
-							// Get MIME type from response headers or infer from URL
-							let mimeType = response.headers['content-type'];
-							if (!mimeType || !mimeType.startsWith('image/')) {
-								// Try to infer from URL extension
-								const urlExtension = path.extname(new URL(imageUrl).pathname).slice(1);
-								mimeType = mimeTypeMap[urlExtension.toLowerCase()];
-								if (!mimeType) {
-									resolve({
-										status: 'error',
-										message: `Unsupported or missing content type: ${response.headers['content-type']}`,
-									});
-									return;
-								}
-							}
+						// Collect response data
+						const chunks: Buffer[] = [];
+						response.on('data', (chunk) => {
+							chunks.push(Buffer.from(chunk));
+						});
 
-							// Collect response data
-							const chunks: Buffer[] = [];
-							response.on('data', (chunk) => {
-								chunks.push(Buffer.from(chunk));
-							});
-
-							response.on('end', () => {
-								try {
-									const buffer = Buffer.concat(chunks);
-									const base64 = buffer.toString('base64');
-									resolve(`data:${mimeType};base64,${base64}`);
-								} catch (e) {
-									resolve({
-										status: 'error',
-										message: e instanceof Error ? e.message : 'Failed to convert image to base64',
-									});
-								}
-							});
-
-							response.on('error', (err) => {
+						response.on('end', () => {
+							try {
+								const buffer = Buffer.concat(chunks);
+								const base64 = buffer.toString('base64');
+								resolve(`data:${mimeType};base64,${base64}`);
+							} catch (e) {
 								resolve({
 									status: 'error',
-									message: err.message,
+									message: e instanceof Error ? e.message : 'Failed to convert image to base64',
 								});
-							});
-						}).on('error', (err) => {
+							}
+						});
+
+						response.on('error', (err) => {
 							resolve({
 								status: 'error',
 								message: err.message,
 							});
 						});
+					}).on('error', (err) => {
+						resolve({
+							status: 'error',
+							message: err.message,
+						});
 					});
 				} catch (e) {
-					return {
+					resolve({
 						status: 'error',
 						message: e instanceof Error ? e.message : `Error occurred while fetching image ${imageUrl}`,
-					};
+					});
 				}
-			}
+			})
 		)
 	);
 }
