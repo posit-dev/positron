@@ -137,41 +137,9 @@ jobs:
       #     find . -name 'package-lock.json' -print | sort
       #     echo
 
-      - name: Generate extensions dir cache key
-        id: extensions-hash
-        shell: bash
-        run: |
-          # Generate a hash of all extension + .vscode package-lock.json files
-          # Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
-          EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
-          echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
-          echo "Generated extensions hash: $EXTENSIONS_HASH"
-
-      - name: Restore npm dependencies cache
-        id: cache-node-modules
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~\AppData\Roaming\npm-cache  # npm's internal package tarball cache (safe to restore unconditionally)
-            node_modules
-            build/node_modules
-            extensions
-            .vscode
-            remote/node_modules
-            test/e2e/node_modules
-          # Hash Node version + main package-lock files + programmatically generated extensions hash
-          # No restore-keys to avoid partial matches that could restore wrong extension versions
-          key: ${{ runner.os }}-npm-v2-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
-
-      - name: Verify npm cache status
-        shell: bash
-        run: |
-          if [ "${{ steps.cache-node-modules.outputs.cache-hit }}" == "true" ]; then
-            echo "✓ Cache HIT - npm install will be skipped"
-          else
-            echo "✗ Cache MISS - npm install will run"
-          fi
-          echo "Key: ${{ steps.cache-node-modules.outputs.cache-matched-key }}"
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches-windows
 
       - name: Check if npm install needed
         id: check-install
@@ -185,6 +153,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "✗ Running npm install - cache not restored"
           fi
+          echo "Cache hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}"
 
       - name: Install node dependencies
         if: steps.check-install.outputs.skip != 'true'
@@ -237,81 +206,26 @@ jobs:
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
 
-      - name: Restore Electron binary cache
-        id: cache-electron
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~\AppData\Local\electron\Cache
-            ~\AppData\Local\electron-builder\Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
-
       - name: Compile and Download
         run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
 
-      - name: Save Electron binary cache
-        if: ${{ steps.cache-electron.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~\AppData\Local\electron\Cache
-            ~\AppData\Local\electron-builder\Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
-
-      - name: Save npm dependencies cache
-        if: ${{ matrix.shard == 1 && steps.check-install.outputs.skip != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~\AppData\Roaming\npm-cache
-            node_modules
-            build/node_modules
-            extensions
-            .vscode
-            remote/node_modules
-            test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v2-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
-
-      - name: Restore built-in extensions cache
-        id: cache-builtins
-        uses: actions/cache/restore@v4
-        with:
-          path: .build/builtInExtensions
-          key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
-          restore-keys: |
-            ${{ runner.os }}-builtins-
-
-      - name: Restore Playwright browsers cache
-        id: cache-playwright
-        uses: actions/cache/restore@v4
-        with:
-          path: ~\AppData\Local\ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-
       - name: Install Playwright browsers
-        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: npm run playwright-install
-
-      - name: Save Playwright browsers cache
-        if: ${{ steps.cache-playwright.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: ~\AppData\Local\ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
         run: npm run prelaunch
 
-      - name: Save built-in extensions cache
-        if: ${{ steps.cache-builtins.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+      - name: Save caches
+        if: ${{ matrix.shard == 1 }}
+        uses: ./.github/actions/save-build-caches-windows
         with:
-          path: .build/builtInExtensions
-          key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
+          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Restore Python packages cache
         id: cache-python

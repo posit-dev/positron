@@ -258,29 +258,25 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Restore Playwright browser cache
-        id: cache-playwright
-        uses: actions/cache/restore@v4
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
         with:
-          path: |
-            ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
+          restore-npm: false       # Skip - already in artifact
+          restore-electron: false  # Skip - already in artifact
+          restore-builtins: false  # Skip - already in artifact
+          restore-playwright: true # Need this for running tests
 
       - name: Install Playwright browsers
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: |
-          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
 
-      - name: Save Playwright browser cache
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+      - name: Save caches
+        uses: ./.github/actions/save-build-caches
         with:
-          path: |
-            ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}

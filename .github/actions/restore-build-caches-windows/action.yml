@@ -1,5 +1,5 @@
-name: "Restore Build Caches"
-description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions."
+name: "Restore Build Caches (Windows)"
+description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions on Windows."
 
 inputs:
   restore-npm:
@@ -39,13 +39,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Configure local caches
-      shell: bash
-      run: |
-        echo "NPM_CONFIG_CACHE=.npm-cache" >> "$GITHUB_ENV"
-        echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
-        mkdir -p .npm-cache .pip-cache .versions
-
     - name: Generate extensions cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: extensions-hash
@@ -64,7 +57,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: |
-          .npm-cache  # npm's internal package tarball cache (safe to restore unconditionally)
+          ~\AppData\Roaming\npm-cache
           node_modules
           build/node_modules
           extensions
@@ -73,7 +66,6 @@ runs:
           test/e2e/node_modules
         # Hash main package-lock files + programmatically generated extensions hash
         # Cache version v2 (bump to v3 when you need to invalidate all caches, e.g., major toolchain changes)
-        # Note: test-unit uses hashFiles('.nvmrc') for automatic Node version invalidation
         # No restore-keys to avoid partial matches that could restore wrong extension versions
         key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
@@ -84,9 +76,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: |
-          ~/.cache/ms-playwright
-          /root/.cache/ms-playwright
-          /github/home/.cache/ms-playwright
+          ~\AppData\Local\ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
 
@@ -97,12 +87,8 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: |
-          ~/.cache/electron
-          ~/.cache/electron-builder
-          /root/.cache/electron
-          /root/.cache/electron-builder
-          /github/home/.cache/electron
-          /github/home/.cache/electron-builder
+          ~\AppData\Local\electron\Cache
+          ~\AppData\Local\electron-builder\Cache
         # electron binaries are tied to package-lock and the electron version in package.json
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 

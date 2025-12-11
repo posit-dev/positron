@@ -1,21 +1,21 @@
-name: "Save Build Caches"
-description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions. Only saves caches that were restored but missed (cache-*-hit == 'false')."
+name: "Save Build Caches (Windows)"
+description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions on Windows. Only saves caches that were restored but missed (cache-*-hit == 'false')."
 
 inputs:
   cache-npm-hit:
-    description: "Whether npm cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    description: "Whether npm cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-playwright-hit:
-    description: "Whether Playwright cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    description: "Whether Playwright cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-electron-hit:
-    description: "Whether Electron cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    description: "Whether Electron cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-builtins-hit:
-    description: "Whether builtins cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    description: "Whether builtins cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   extensions-hash:
@@ -32,7 +32,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: |
-          .npm-cache
+          ~\AppData\Roaming\npm-cache
           node_modules
           build/node_modules
           extensions
@@ -47,9 +47,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: |
-          ~/.cache/ms-playwright
-          /root/.cache/ms-playwright
-          /github/home/.cache/ms-playwright
+          ~\AppData\Local\ms-playwright
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
 
     - name: Save Electron binary cache
@@ -58,12 +56,8 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: |
-          ~/.cache/electron
-          ~/.cache/electron-builder
-          /root/.cache/electron
-          /root/.cache/electron-builder
-          /github/home/.cache/electron
-          /github/home/.cache/electron-builder
+          ~\AppData\Local\electron\Cache
+          ~\AppData\Local\electron-builder\Cache
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
     - name: Save built-in extensions cache
