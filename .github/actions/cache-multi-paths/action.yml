@@ -1,5 +1,5 @@
-name: "Cache: Package Stores & Binaries"
-description: "Save and restore caches for multiple package managers and binaries."
+name: "Restore Build Caches"
+description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions."
 
 outputs:
   cache-playwright-hit:
@@ -33,7 +33,7 @@ runs:
       shell: bash
       run: |
         # Generate a hash of all extension + .vscode package-lock.json files
-        # This works around hashFiles() limitations
+        # Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
         EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
         echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
         echo "Generated extensions hash: $EXTENSIONS_HASH"
@@ -51,9 +51,11 @@ runs:
           .vscode
           remote/node_modules
           test/e2e/node_modules
-        # Hash Node version + main package-lock files + programmatically generated extensions hash
+        # Hash main package-lock files + programmatically generated extensions hash
+        # Cache version v2 (bump to v3 when you need to invalidate all caches, e.g., major toolchain changes)
+        # Note: test-unit uses hashFiles('.nvmrc') for automatic Node version invalidation
         # No restore-keys to avoid partial matches that could restore wrong extension versions
-        key: npm-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+        key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
       id: cache-playwright

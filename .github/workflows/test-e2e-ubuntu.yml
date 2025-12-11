@@ -198,54 +198,17 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
 
-      - name: Save npm dependencies cache
-        if: ${{ steps.restore-caches.outputs.cache-npm-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
+      # Skip cache saves when running in test-pull-request to avoid race conditions
+      # test-integration will handle cache saves for all PR workflows
+      - name: Save caches
+        # if: "${{ github.workflow != 'Test: Pull Request' }}"
+        uses: ./.github/actions/save-build-caches
         with:
-          path: |
-            .npm-cache
-            node_modules
-            build/node_modules
-            extensions
-            .vscode
-            remote/node_modules
-            test/e2e/node_modules
-          key: npm-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.restore-caches.outputs.extensions-hash }}
-
-      - name: Save Playwright browsers cache
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cache/ms-playwright
-            /root/.cache/ms-playwright
-            /github/home/.cache/ms-playwright
-          key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-
-      - name: Save Electron binary cache
-        if: ${{ steps.restore-caches.outputs.cache-electron-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-            /root/.cache/electron
-            /root/.cache/electron-builder
-            /github/home/.cache/electron
-            /github/home/.cache/electron-builder
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-
-      - name: Save built-in extensions cache
-        if: ${{ steps.restore-caches.outputs.cache-builtins-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .build/builtInExtensions
-          key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Move Positron License
         if: ${{ inputs.install_license }}

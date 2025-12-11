@@ -1,0 +1,141 @@
+name: "Save Build Caches"
+description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions."
+
+inputs:
+  save-npm:
+    description: "Whether to save npm cache (default: true)"
+    required: false
+    default: 'true'
+  save-playwright:
+    description: "Whether to save Playwright cache (default: true)"
+    required: false
+    default: 'true'
+  save-electron:
+    description: "Whether to save Electron cache (default: true)"
+    required: false
+    default: 'true'
+  save-builtins:
+    description: "Whether to save built-in extensions cache (default: true)"
+    required: false
+    default: 'true'
+  cache-npm-hit:
+    description: "Whether npm cache was hit (skip save if 'true')"
+    required: false
+    default: 'false'
+  cache-playwright-hit:
+    description: "Whether Playwright cache was hit (skip save if 'true')"
+    required: false
+    default: 'false'
+  cache-electron-hit:
+    description: "Whether Electron cache was hit (skip save if 'true')"
+    required: false
+    default: 'false'
+  cache-builtins-hit:
+    description: "Whether builtins cache was hit (skip save if 'true')"
+    required: false
+    default: 'false'
+  extensions-hash:
+    description: "Extensions hash from restore step (required for npm cache key)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Save npm dependencies cache
+      if: ${{ inputs.save-npm == 'true' && inputs.cache-npm-hit != 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          .npm-cache
+          node_modules
+          build/node_modules
+          extensions
+          .vscode
+          remote/node_modules
+          test/e2e/node_modules
+        key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ inputs.extensions-hash }}
+
+    - name: Save Playwright browsers cache
+      if: ${{ inputs.save-playwright == 'true' && inputs.cache-playwright-hit != 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          /root/.cache/ms-playwright
+          /github/home/.cache/ms-playwright
+        key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+
+    - name: Save Electron binary cache
+      if: ${{ inputs.save-electron == 'true' && inputs.cache-electron-hit != 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          /root/.cache/electron
+          /root/.cache/electron-builder
+          /github/home/.cache/electron
+          /github/home/.cache/electron-builder
+        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+
+    - name: Save built-in extensions cache
+      if: ${{ inputs.save-builtins == 'true' && inputs.cache-builtins-hit != 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          .build/builtInExtensions
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+
+    - name: Log cache save results
+      if: always()
+      shell: bash
+      run: |
+        echo "Cache save results:"
+
+        # npm
+        if [[ "${{ inputs.save-npm }}" == "true" ]]; then
+          if [[ "${{ inputs.cache-npm-hit }}" == "true" ]]; then
+            echo "  npm:         skipped (cache hit)"
+          else
+            echo "  npm:         saved"
+          fi
+        else
+          echo "  npm:         disabled"
+        fi
+
+        # playwright
+        if [[ "${{ inputs.save-playwright }}" == "true" ]]; then
+          if [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
+            echo "  playwright:  skipped (cache hit)"
+          else
+            echo "  playwright:  saved"
+          fi
+        else
+          echo "  playwright:  disabled"
+        fi
+
+        # electron
+        if [[ "${{ inputs.save-electron }}" == "true" ]]; then
+          if [[ "${{ inputs.cache-electron-hit }}" == "true" ]]; then
+            echo "  electron:    skipped (cache hit)"
+          else
+            echo "  electron:    saved"
+          fi
+        else
+          echo "  electron:    disabled"
+        fi
+
+        # builtins
+        if [[ "${{ inputs.save-builtins }}" == "true" ]]; then
+          if [[ "${{ inputs.cache-builtins-hit }}" == "true" ]]; then
+            echo "  builtins:    skipped (cache hit)"
+          else
+            echo "  builtins:    saved"
+          fi
+        else
+          echo "  builtins:    disabled"
+        fi

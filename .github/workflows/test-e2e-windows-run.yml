@@ -142,7 +142,7 @@ jobs:
         shell: bash
         run: |
           # Generate a hash of all extension + .vscode package-lock.json files
-          # This works around hashFiles() limitations
+          # Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
           EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
           echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
           echo "Generated extensions hash: $EXTENSIONS_HASH"
@@ -161,7 +161,7 @@ jobs:
             test/e2e/node_modules
           # Hash Node version + main package-lock files + programmatically generated extensions hash
           # No restore-keys to avoid partial matches that could restore wrong extension versions
-          key: ${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+          key: ${{ runner.os }}-npm-v2-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Verify npm cache status
         shell: bash
@@ -271,7 +271,7 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+          key: ${{ runner.os }}-npm-v2-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Restore built-in extensions cache
         id: cache-builtins

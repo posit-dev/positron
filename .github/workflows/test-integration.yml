@@ -66,6 +66,17 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
 
+      # test-integration is the designated cache saver when running in test-pull-request
+      # (to avoid race conditions with the two test-e2e-ubuntu jobs: electron + chromium)
+      - name: Save caches
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
