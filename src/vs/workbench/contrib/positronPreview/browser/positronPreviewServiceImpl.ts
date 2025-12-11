@@ -16,7 +16,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PreviewUrl } from './previewUrl.js';
-import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ShowHtmlFileDestination, ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { isLocalhost } from '../../positronHelp/browser/utils.js';
@@ -88,7 +88,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 				if (e.event.name === UiFrontendEvent.ShowHtmlFile) {
 					const data = e.event.data as IShowHtmlUriEvent;
-					if (!data.event.is_plot) {
+					if (data.event.destination === ShowHtmlFileDestination.Viewer) {
 						this.handleShowHtmlFileEvent(session, data);
 					}
 				} else {
@@ -321,7 +321,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const evt: ShowHtmlFileEvent = {
 			height: 0,
 			title: basename(htmlpath),
-			is_plot: false,
+			destination: ShowHtmlFileDestination.Viewer,
 			path: htmlpath,
 		};
 
