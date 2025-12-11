@@ -118,12 +118,18 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 				}
 			}));
 
-			// Subscribe to search parameter changes
+			// Research when params change
 			this._register(autorun(reader => {
 				const searchString = findInstance.searchString.read(reader);
 				const isRegex = findInstance.isRegex.read(reader);
 				const matchCase = findInstance.matchCase.read(reader);
 				const wholeWord = findInstance.wholeWord.read(reader);
+				const isVisible = findInstance.isVisible.read(reader);
+
+				if (!isVisible) {
+					// Not visible, do not search
+					return;
+				}
 
 				// Perform search
 				const cellMatches = this.research(searchString, isRegex, matchCase, wholeWord);
