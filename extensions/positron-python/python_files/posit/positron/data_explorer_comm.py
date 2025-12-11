@@ -351,6 +351,11 @@ class BackendState(BaseModel):
         description="Optional experimental parameter to provide an explanation when connected=false. This parameter may change.",
     )
 
+    format_options: Optional[FormatOptions] = Field(
+        default=None,
+        description="Optional formatting options provided by the backend for displaying data values",
+    )
+
 
 class ColumnSchema(BaseModel):
     """

@@ -481,10 +481,6 @@
 						"error_message": {
 							"type": "string",
 							"description": "Optional experimental parameter to provide an explanation when connected=false. This parameter may change."
-						},
-						"format_options": {
-							"description": "Optional formatting options provided by the backend for displaying data values",
-							"$ref": "#/components/schemas/format_options"
 						}
 					}
 				}

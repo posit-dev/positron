@@ -361,6 +361,23 @@ export class DataExplorerClientInstance extends Disposable {
 			this.status = DataExplorerClientStatus.Disconnected;
 		}
 
+		// Update format options from backend state if provided
+		if (this.cachedBackendState.format_options) {
+			// Merge backend format options with data format options, preserving thousands_sep
+			this._dataFormatOptions = {
+				...this._dataFormatOptions,
+				...this.cachedBackendState.format_options,
+				thousands_sep: this.cachedBackendState.format_options.thousands_sep ?? ''
+			};
+
+			// Merge backend format options with profile format options, preserving thousands_sep with comma
+			this._profileFormatOptions = {
+				...this._profileFormatOptions,
+				...this.cachedBackendState.format_options,
+				thousands_sep: this.cachedBackendState.format_options.thousands_sep ?? ','
+			};
+		}
+
 		// Notify listeners
 		this._onDidUpdateBackendStateEmitter.fire(this.cachedBackendState);
 

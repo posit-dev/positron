@@ -607,6 +607,15 @@ class DataExplorerTableView:
                 raise NotImplementedError(profile_type)
         return ColumnProfileResult(**results)
 
+    def _get_format_options(self) -> FormatOptions | None:
+        """
+        Get format options based on current Python/NumPy display settings.
+        Returns None if using default formatting.
+        """
+        # For now, return None to use frontend defaults
+        # Subclasses can override this to provide backend-specific format options
+        return None
+
     def get_state(self, _unused):
         self._recompute_if_needed()
 
@@ -635,6 +644,7 @@ class DataExplorerTableView:
             row_filters=self.state.row_filters,
             sort_keys=self.state.sort_keys,
             supported_features=self.FEATURES,
+            format_options=self._get_format_options(),
         )
 
     def _recompute(self):
