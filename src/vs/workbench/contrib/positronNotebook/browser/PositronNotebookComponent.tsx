@@ -14,7 +14,6 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
-import { localize } from '../../../../nls.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
@@ -66,15 +65,13 @@ export function PositronNotebookComponent() {
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<div ref={containerRef} className='positron-notebook-cells-container'>
-				{notebookCells.length ?
-					notebookCells.map((cell, index) =>
-						<React.Fragment key={cell.handle}>
-							<NotebookCell cell={cell as PositronNotebookCellGeneral} />
-							<AddCellButtons index={index + 1} />
-						</React.Fragment>
-					) :
-					<div>{localize('noCells', 'No cells')}</div>
-				}
+				<AddCellButtons index={0} />
+				{notebookCells.map((cell, index) =>
+					<React.Fragment key={cell.handle}>
+						<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+						<AddCellButtons index={index + 1} />
+					</React.Fragment>
+				)}
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}
