@@ -27,76 +27,27 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      - name: Get Node version for cache key
-        id: node-version
-        run: echo "version=$(cat .nvmrc)" >> $GITHUB_OUTPUT
-
-      - name: Restore npm cache
-        id: cache-npm
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.npm
-            node_modules
-            build/node_modules
-            extensions
-          key: unit-${{ runner.os }}-node-${{ steps.node-version.outputs.version }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/*/package-lock.json') }}
-
-      - name: Restore Electron binary cache
-        id: cache-electron
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: unit-${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
-        with:
-          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
-        with:
-          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-unit-test-build-env
-        with:
-          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
-
-      - name: Save npm cache
-        if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.npm
-            node_modules
-            build/node_modules
-            extensions
-          key: unit-${{ runner.os }}-node-${{ steps.node-version.outputs.version }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/*/package-lock.json') }}
-
-      - name: Save Electron binary cache
-        if: ${{ steps.cache-electron.outputs.cache-hit != 'true' }}
-        continue-on-error: true
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: unit-${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
@@ -105,15 +56,6 @@ jobs:
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one unit test needs this: Can list tables and fields from R connections
-      - name: Free up disk space before R setup
-        run: |
-          echo "Disk space before cleanup:"
-          df -h
-          # Remove large unused tools to free space for R package compilation
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
-          echo "Disk space after cleanup:"
-          df -h
-
       - name: Setup R
         uses: ./.github/actions/install-r
         with:

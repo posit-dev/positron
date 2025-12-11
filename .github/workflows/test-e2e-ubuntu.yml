@@ -175,7 +175,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
@@ -184,7 +183,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
@@ -192,23 +190,10 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
-
-      # Skip cache saves when running in test-pull-request to avoid race conditions
-      # test-integration will handle cache saves for all PR workflows
-      - name: Save caches
-        # if: "${{ github.workflow != 'Test: Pull Request' }}"
-        uses: ./.github/actions/save-build-caches
-        with:
-          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
-          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
-          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Move Positron License
         if: ${{ inputs.install_license }}
