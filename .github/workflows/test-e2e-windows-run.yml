@@ -159,9 +159,9 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          # Hash main package-lock files + programmatically generated extensions hash
+          # Hash Node version + main package-lock files + programmatically generated extensions hash
           # No restore-keys to avoid partial matches that could restore wrong extension versions
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+          key: ${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Verify npm cache status
         shell: bash
@@ -271,7 +271,7 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+          key: ${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Restore built-in extensions cache
         id: cache-builtins

@@ -211,7 +211,7 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.restore-caches.outputs.extensions-hash }}
+          key: npm-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Save Playwright browsers cache
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}

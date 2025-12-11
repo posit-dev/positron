@@ -51,9 +51,9 @@ runs:
           .vscode
           remote/node_modules
           test/e2e/node_modules
-        # Hash main package-lock files + programmatically generated extensions hash
+        # Hash Node version + main package-lock files + programmatically generated extensions hash
         # No restore-keys to avoid partial matches that could restore wrong extension versions
-        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+        key: npm-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
       id: cache-playwright
