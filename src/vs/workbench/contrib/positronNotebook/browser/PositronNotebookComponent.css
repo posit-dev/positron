@@ -70,6 +70,11 @@
 	outline: none;
 }
 
+.monaco-workbench .positron-notebook-container {
+	/* Position relative to establish positioning context for absolutely positioned children (e.g., find widget) */
+	position: relative;
+}
+
 .positron-notebook-cells-container {
 	padding-block: 1.5rem;
 	padding-inline: 1rem;

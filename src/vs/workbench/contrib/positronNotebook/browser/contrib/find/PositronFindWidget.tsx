@@ -68,72 +68,70 @@ export const PositronFindWidget = ({
 	const noMatches = !matchCount;
 
 	return (
-		<div className={`positron-find-widget-positioned${isVisible ? ' visible' : ''}`}>
-			<div className='positron-find-widget'>
-				<div className='find-widget-row'>
-					<PositronFindInput
-						findInputOptions={findInputOptions}
-						focusInput={focusInput}
-						matchCase={matchCase}
-						matchWholeWord={matchWholeWord}
-						useRegex={useRegex}
-						value={findText}
-						onInputBlur={() => inputFocused.set(false, undefined)}
-						onInputFocus={() => inputFocused.set(true, undefined)}
-						onKeyDown={(e) => {
-							if (e.equals(KeyCode.Enter)) {
-								onNextMatch();
-								e.preventDefault();
-								return;
-							} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
-								onPreviousMatch();
-								e.preventDefault();
-								return;
-							} else if (e.equals(KeyCode.Escape)) {
-								transaction((tx) => {
-									inputFocused.set(false, tx);
-									isVisibleObs.set(false, tx);
-								})
-								e.preventDefault();
-								return;
-							}
-						}}
-						onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
-						onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
-						onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
-						onValueChange={(value) => findTextObs.set(value, undefined)}
-					/>
-					<FindResult
-						findText={findText}
-						matchCount={matchCount}
-						matchIndex={matchIndex}
-					/>
-					<div className='find-navigation-buttons'>
-						<ActionButton
-							ariaLabel={previousMatchLabel}
-							className='find-action-button'
-							disabled={noMatches}
-							onPressed={() => onPreviousMatch()}
-						>
-							<ThemeIcon icon={Codicon.arrowUp} />
-						</ActionButton>
-						<ActionButton
-							ariaLabel={nextMatchLabel}
-							className='find-action-button'
-							disabled={noMatches}
-							onPressed={() => onNextMatch()}
-						>
-							<ThemeIcon icon={Codicon.arrowDown} />
-						</ActionButton>
-					</div>
+		<div className={`positron-find-widget${isVisible ? ' visible' : ''}`}>
+			<div className='row'>
+				<PositronFindInput
+					findInputOptions={findInputOptions}
+					focusInput={focusInput}
+					matchCase={matchCase}
+					matchWholeWord={matchWholeWord}
+					useRegex={useRegex}
+					value={findText}
+					onInputBlur={() => inputFocused.set(false, undefined)}
+					onInputFocus={() => inputFocused.set(true, undefined)}
+					onKeyDown={(e) => {
+						if (e.equals(KeyCode.Enter)) {
+							onNextMatch();
+							e.preventDefault();
+							return;
+						} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
+							onPreviousMatch();
+							e.preventDefault();
+							return;
+						} else if (e.equals(KeyCode.Escape)) {
+							transaction((tx) => {
+								inputFocused.set(false, tx);
+								isVisibleObs.set(false, tx);
+							})
+							e.preventDefault();
+							return;
+						}
+					}}
+					onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
+					onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
+					onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
+					onValueChange={(value) => findTextObs.set(value, undefined)}
+				/>
+				<FindResult
+					findText={findText}
+					matchCount={matchCount}
+					matchIndex={matchIndex}
+				/>
+				<div className='navigation-buttons'>
 					<ActionButton
-						ariaLabel={closeLabel}
-						className='find-action-button find-close-button'
-						onPressed={() => isVisibleObs.set(false, undefined)}
+						ariaLabel={previousMatchLabel}
+						className='action-button'
+						disabled={noMatches}
+						onPressed={() => onPreviousMatch()}
 					>
-						<div className='codicon codicon-close' />
+						<ThemeIcon icon={Codicon.arrowUp} />
+					</ActionButton>
+					<ActionButton
+						ariaLabel={nextMatchLabel}
+						className='action-button'
+						disabled={noMatches}
+						onPressed={() => onNextMatch()}
+					>
+						<ThemeIcon icon={Codicon.arrowDown} />
 					</ActionButton>
 				</div>
+				<ActionButton
+					ariaLabel={closeLabel}
+					className='action-button close-button'
+					onPressed={() => isVisibleObs.set(false, undefined)}
+				>
+					<div className='codicon codicon-close' />
+				</ActionButton>
 			</div>
 		</div>
 	);
@@ -148,19 +146,19 @@ interface FindResultProps {
 const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 	// Case 1: No find text - show "No results" in ordinary color
 	if (!findText) {
-		return <div className='find-results'>{noResultsLabel}</div>;
+		return <div className='results'>{noResultsLabel}</div>;
 	}
 
 	// Case 2: Find text but matchCount not yet calculated
 	if (matchCount === undefined) {
-		return <div className='find-results'></div>;
+		return <div className='results'></div>;
 	}
 
 	// Case 3: Find text but no matches found - different color
 	if (matchCount === 0) {
-		return <div className='find-results no-results'>{noResultsLabel}</div>;
+		return <div className='results no-results'>{noResultsLabel}</div>;
 	}
 
 	// Case 4: Matches found - show count
-	return <div className='find-results'>{matchCountLabel((matchIndex ?? 0) + 1, matchCount)}</div>;
+	return <div className='results'>{matchCountLabel((matchIndex ?? 0) + 1, matchCount)}</div>;
 };
