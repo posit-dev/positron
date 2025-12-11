@@ -192,8 +192,12 @@ jobs:
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
 
-      - name: Compile and Download
-        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64"
+      - name: Compile Positron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 compile
+
+      - name: Download Electron
+        if: ${{ steps.restore-caches.outputs.cache-electron-hit != 'true' }}
+        run: npm run electron -- x64
 
       - name: Install Playwright browsers
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
@@ -426,7 +430,6 @@ jobs:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
           retention-days: 1
-
 
       - name: Upload Extensions Test Logs If Failed
         if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}

@@ -55,7 +55,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (win)"
+      display_name: "windows"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       upload_logs: false

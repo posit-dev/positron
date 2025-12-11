@@ -53,14 +53,14 @@ on:
 #   cancel-in-progress: true
 
 jobs:
-  setup-ubuntu:
+  setup:
     name: setup
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
   e2e-electron:
     name: e2e
-    needs: [setup-ubuntu]
+    needs: [setup]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
@@ -97,7 +97,7 @@ jobs:
 
   e2e-chromium:
     name: e2e
-    needs: [setup-ubuntu]
+    needs: [setup]
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
