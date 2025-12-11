@@ -133,7 +133,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.13', '3.14']
+        python: ['3.9', '3.14']
 
     steps:
       - name: Checkout

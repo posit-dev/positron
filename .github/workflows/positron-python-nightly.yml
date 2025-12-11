@@ -89,7 +89,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: 'macos-13'
+          - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'

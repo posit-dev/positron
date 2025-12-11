@@ -16,6 +16,7 @@
 
 .dropdown-entry > .dropdown-entry-title {
 	grid-column: left / middle;
+	white-space: nowrap;
 }
 
 .dropdown-entry > .dropdown-entry-subtitle {
@@ -23,9 +24,14 @@
 	font-size: 0.9em;
 	opacity: 0.7;
 	margin-left: 0.6em;
+	margin-right: 0.6em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .dropdown-entry > .dropdown-entry-group {
 	grid-column: right / end;
 	opacity: 0.8;
+	white-space: nowrap;
 }
