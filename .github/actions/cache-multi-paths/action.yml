@@ -8,6 +8,12 @@ outputs:
   cache-npm-hit:
     description: "Whether npm cache was restored"
     value: ${{ steps.cache-npm.outputs.cache-hit }}
+  cache-electron-hit:
+    description: "Whether Electron cache was restored"
+    value: ${{ steps.cache-electron.outputs.cache-hit }}
+  cache-builtins-hit:
+    description: "Whether built-in extensions cache was restored"
+    value: ${{ steps.cache-builtins.outputs.cache-hit }}
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.extensions-hash.outputs.hash }}
@@ -48,28 +54,6 @@ runs:
         # Hash main package-lock files + programmatically generated extensions hash
         # No restore-keys to avoid partial matches that could restore wrong extension versions
         key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
-
-    - name: Restore ark binary cache
-      id: cache-binaries-ark
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
-        path: |
-          extensions/positron-r/resources/ark
-          ./ark
-        # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
-        key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
-
-    - name: Restore kallichore binary cache
-      id: cache-binaries-kallichore
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          extensions/positron-supervisor/resources/kallichore
-          ./kallichore
-        key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
 
     - name: Restore Playwright browsers cache
       id: cache-playwright
@@ -114,8 +98,6 @@ runs:
       run: |
         echo "Cache results:"
         echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }}"
-        echo "  ark:         hit=${{ steps['cache-binaries-ark'].outputs['cache-hit'] || 'false' }}"
-        echo "  kallichore:  hit=${{ steps['cache-binaries-kallichore'].outputs['cache-hit'] || 'false' }}"
         echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
         echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
         echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"

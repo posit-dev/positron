@@ -51,15 +51,39 @@ runs:
         NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
         mkdir -p "$NPM_CONFIG_CACHE"
 
-        # Run npm ci commands in parallel for faster installation
-        # Note: extensions/ is handled by root's postinstall script to avoid race conditions with native modules
+        # Only run npm ci for directories that don't have node_modules yet
+        # This avoids redundant work when cache partially restored
         pids=()
-        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-        npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-        npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 
-        # Wait for all and check exit codes
+        if [ ! -d "node_modules" ]; then
+          echo "Installing root dependencies..."
+          npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        else
+          echo "Skipping root - already installed"
+        fi
+
+        if [ ! -d "build/node_modules" ]; then
+          echo "Installing build dependencies..."
+          npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        else
+          echo "Skipping build - already installed"
+        fi
+
+        if [ ! -d "remote/node_modules" ]; then
+          echo "Installing remote dependencies..."
+          npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        else
+          echo "Skipping remote - already installed"
+        fi
+
+        if [ ! -d "test/e2e/node_modules" ]; then
+          echo "Installing test/e2e dependencies..."
+          npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        else
+          echo "Skipping test/e2e - already installed"
+        fi
+
+        # Wait for all background jobs and check exit codes
         exit_code=0
         for pid in "${pids[@]}"; do
           if ! wait "$pid"; then
@@ -72,7 +96,7 @@ runs:
           exit 1
         fi
 
-        echo "All npm ci commands completed successfully"
+        echo "All required npm ci commands completed successfully"
 
     - name: Compile and Download
       shell: bash
