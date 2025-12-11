@@ -4,15 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 /* Position the widget at the top right with transform-based show/hide animation */
-/* Match VSCode's pattern: everything on one element */
-.positron-find-widget-positioned {
+.positron-find-widget {
 	position: absolute;
 	top: 0;
-	right: 16px;
+	right: 16px; /* match Monaco editor offset */
 	z-index: 35;
 
-	/* Hidden by default - translated up and clipped from top */
-	transform: translateY(calc(-100% - 10px));
+	/*
+	Hidden by default - translated up and clipped from top to emulate sliding effect.
+	Monaco uses an `overflow: hidden` container for this.
+	*/
+	transform: translateY(calc(-100% - 10px)); /* shadow (10px) */
 	clip-path: inset(100% 0 0 0);
 	transition: transform 200ms ease-in-out, clip-path 200ms ease-in-out;
 
@@ -23,22 +25,18 @@
 }
 
 /* Visible state - slide down into view with no clipping */
-.positron-find-widget-positioned.visible {
+.positron-find-widget.visible {
 	transform: translateY(0);
 	clip-path: inset(0 0 0 0);
 }
 
-.positron-find-widget {
-	/* Inner wrapper - no styling needed, just for structure */
-}
-
-.find-widget-row {
+.positron-find-widget .row {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 }
 
-.find-action-button {
+.positron-find-widget .action-button {
 	width: 20px;
 	height: 20px;
 	padding: 0;
@@ -52,11 +50,11 @@
 	border-radius: 2px;
 }
 
-.find-action-button:hover {
+.positron-find-widget .action-button:hover {
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.find-action-button:disabled {
+.positron-find-widget .action-button:disabled {
 	cursor: default;
 
 	.codicon {
@@ -68,12 +66,12 @@
 	}
 }
 
-.find-action-button .codicon {
+.positron-find-widget .action-button .codicon {
 	font-size: 14px;
 	line-height: 20px;
 }
 
-.find-results {
+.positron-find-widget .results {
 	color: var(--vscode-editorWidget-foreground);
 	font-size: 12px;
 	white-space: nowrap;
@@ -81,15 +79,15 @@
 	text-align: left;
 }
 
-.find-results.no-results {
+.positron-find-widget .results.no-results {
 	color: var(--vscode-errorForeground);
 }
 
-.find-navigation-buttons {
+.positron-find-widget .navigation-buttons {
 	display: flex;
 	gap: 2px;
 }
 
-.find-close-button {
+.positron-find-widget .close-button {
 	margin-left: 2px;
 }
