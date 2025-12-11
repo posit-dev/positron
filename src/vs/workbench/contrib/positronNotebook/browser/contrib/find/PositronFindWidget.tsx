@@ -66,9 +66,10 @@ export const PositronFindWidget = ({
 	const isVisible = useObservedValue(isVisibleObs);
 
 	const noMatches = !matchCount;
+	const hasNoResults = findText && matchCount === 0;
 
 	return (
-		<div className={`positron-find-widget${isVisible ? ' visible' : ''}`}>
+		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
 			<div className='row'>
 				<PositronFindInput
 					findInputOptions={findInputOptions}
@@ -154,9 +155,9 @@ const FindResult = ({ findText, matchIndex, matchCount }: FindResultProps) => {
 		return <div className='results'></div>;
 	}
 
-	// Case 3: Find text but no matches found - different color
+	// Case 3: Find text but no matches found - color handled by widget.no-results class
 	if (matchCount === 0) {
-		return <div className='results no-results'>{noResultsLabel}</div>;
+		return <div className='results'>{noResultsLabel}</div>;
 	}
 
 	// Case 4: Matches found - show count
