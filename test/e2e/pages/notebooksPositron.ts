@@ -564,8 +564,6 @@ export class PositronNotebooks extends Notebooks {
 	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string | string[]): Promise<void> {
 		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
 			const actualContent = await this.getCellContent(cellIndex);
-			console.log(`Cell ${cellIndex} actual content:`, actualContent);
-			console.log(`Cell ${cellIndex} expected content:`, expectedContent);
 
 			if (Array.isArray(expectedContent)) {
 				// Compare arrays line by line
