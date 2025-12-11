@@ -38,6 +38,27 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	visibility: hidden;
+}
+
+/* Show when selected, running, or explicitly visible */
+.left-hand-action-container-top.visible {
+	visibility: visible;
+}
+
+/* Show on hover (matches existing behavior) */
+.left-hand-action-container:hover .left-hand-action-container-top {
+	visibility: visible;
+}
+
+/* Show when cell or its children are focused via tab */
+.positron-notebook-cell:focus-within .left-hand-action-container-top {
+	visibility: visible;
+}
+
+/* Always show execution status animation when running */
+.left-hand-action-container[data-execution-status='running'] .left-hand-action-container-top {
+	visibility: visible;
 }
 
 /* Positions element to the bottom of the cell */
