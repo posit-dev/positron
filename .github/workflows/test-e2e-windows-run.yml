@@ -614,16 +614,13 @@ jobs:
 
           echo "Merging blob reports from all shards..."
           # Merge all blob reports and generate HTML report
-          # Use --config to point to repo's playwright.config.ts for proper path resolution
           env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
-            --config ../test/e2e/playwright.config.ts \
             --reporter=@midleman/github-actions-reporter,html \
             --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
           # Generate JSON report separately with explicit output path
           PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
-            --config ../test/e2e/playwright.config.ts \
             --reporter=json \
             ../all-blob-reports
 
