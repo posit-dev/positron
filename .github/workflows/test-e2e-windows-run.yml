@@ -138,11 +138,12 @@ jobs:
             node_modules
             build/node_modules
             extensions
+            .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v3-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-v3-
+            ${{ runner.os }}-npm-v4-
 
       - name: Verify npm cache status
         shell: bash
@@ -174,7 +175,7 @@ jobs:
         shell: bash
         run: |
           # Only run npm install if cache wasn't restored (node_modules don't exist)
-          if [ -d "node_modules" ] && [ -d "build/node_modules" ] && [ -d "extensions/node_modules" ]; then
+          if [ -d "node_modules" ] && [ -d "build/node_modules" ] && [ -d "extensions/node_modules" ] && [ -d ".vscode/extensions" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "✓ Skipping npm install - cache was restored"
           else
@@ -252,6 +253,7 @@ jobs:
 
       - name: Save npm dependencies cache
         if: ${{ matrix.shard == 2 && steps.check-install.outputs.skip != 'true' }}
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: |
@@ -259,9 +261,10 @@ jobs:
             node_modules
             build/node_modules
             extensions
+            .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v3-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
 
       - name: Cache Ark binary
         uses: actions/cache@v4
