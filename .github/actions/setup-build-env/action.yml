@@ -5,10 +5,15 @@ inputs:
     description: "If 'true', skip running Playwright installer (use cache-hit output from cache-multi-paths)."
     required: false
     default: 'false'
+  skip-npm-if-cached:
+    description: "If 'true', skip npm install (node_modules already restored from cache)."
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
     - name: Install Node packages
+      if: ${{ inputs.skip-npm-if-cached != 'true' }}
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

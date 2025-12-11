@@ -1,5 +1,10 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
+inputs:
+  skip-npm-if-cached:
+    description: "If 'true', skip npm install (node_modules already restored from cache)."
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -27,6 +32,7 @@ runs:
           libsdl-pango-dev libjpeg-dev libgif-dev pandoc libgtk-4-1
 
     - name: Install Node packages
+      if: ${{ inputs.skip-npm-if-cached != 'true' }}
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

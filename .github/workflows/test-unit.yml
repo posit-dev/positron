@@ -35,7 +35,8 @@ jobs:
             ~/.npm
             node_modules
             build/node_modules
-          key: unit-${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json') }}
+            extensions
+          key: unit-${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/*/package-lock.json') }}
 
       - name: Restore Electron binary cache
         id: cache-electron
@@ -50,16 +51,22 @@ jobs:
         id: attempt1
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
+        with:
+          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
+        with:
+          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-unit-test-build-env
+        with:
+          skip-npm-if-cached: ${{ steps.cache-npm.outputs.cache-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
@@ -74,7 +81,8 @@ jobs:
             ~/.npm
             node_modules
             build/node_modules
-          key: unit-${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json') }}
+            extensions
+          key: unit-${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/*/package-lock.json') }}
 
       - name: Save Electron binary cache
         if: ${{ steps.cache-electron.outputs.cache-hit != 'true' }}

@@ -38,22 +38,29 @@ jobs:
           package-manager-cache: false
 
       - name: Cache node_modules, build, extensions, and remote
+        id: restore-caches
         uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
+        with:
+          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
         uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
+        with:
+          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-unit-test-build-env
+        with:
+          skip-npm-if-cached: ${{ steps.restore-caches.outputs.cache-npm-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
