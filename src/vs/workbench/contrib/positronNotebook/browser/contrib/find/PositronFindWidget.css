@@ -3,15 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* Container to clip overflows from the widget e.g. box shadows */
 .positron-find-widget-container {
-	/* Position relative to establish positioning context for the find widget */
-	/* position: relative; */
 	position: absolute;
 	top: 0;
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
-	pointer-events: none; /* Allow clicks to pass through */
+
+	/* Don't capture pointer events; they'll get captured in the widget itself */
+	pointer-events: none;
 }
 
 /* Position the widget at the top right with transform-based show/hide animation */
@@ -24,10 +25,6 @@
 	box-sizing: border-box;
 	line-height: 19px;
 
-	/* Hidden by default - translated up (matches Monaco pattern) */
-	transform: translateY(calc(-100% - 10px)); /* shadow (10px) */
-	transition: transform 200ms linear;
-
 	/* Styling */
 	background-color: var(--vscode-editorWidget-background);
 	color: var(--vscode-editorWidget-foreground);
@@ -38,16 +35,14 @@
 	border-bottom-right-radius: 4px;
 	box-shadow: 0 0 8px 2px var(--vscode-widget-shadow);
 	padding: 0 4px;
+
+	/* Capture pointer events */
+	pointer-events: auto;
 }
 
 /* Reduce motion support for accessibility */
 .monaco-reduce-motion .positron-find-widget {
 	transition: transform 0ms linear;
-}
-
-/* Visible state - slide down into view */
-.positron-find-widget.visible {
-	transform: translateY(0);
 }
 
 .positron-find-widget .row {
