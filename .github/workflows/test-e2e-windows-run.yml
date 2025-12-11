@@ -129,6 +129,23 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Debug package-locks
+        shell: bash
+        run: |
+          echo "github.workspace = $GITHUB_WORKSPACE"
+          echo "Listing all package-lock.json files:"
+          find . -name 'package-lock.json' -print | sort
+
+      - name: Generate extensions cache key
+        id: extensions-hash
+        shell: bash
+        run: |
+          # Generate a hash of all extension package-lock.json files
+          # This works around hashFiles() limitations with many files
+          EXTENSIONS_HASH=$(find extensions -maxdepth 2 -name "package-lock.json" -type f | sort | xargs cat | sha256sum | cut -d' ' -f1)
+          echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
+          echo "Generated extensions hash: $EXTENSIONS_HASH"
+
       - name: Restore npm dependencies cache
         id: cache-node-modules
         uses: actions/cache/restore@v4
@@ -141,9 +158,10 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
+          # Hash main package-lock files + programmatically generated extensions hash
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
           restore-keys: |
-            ${{ runner.os }}-npm-v4-
+            ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-
 
       - name: Verify npm cache status
         shell: bash
@@ -288,7 +306,7 @@ jobs:
             .vscode
             remote/node_modules
             test/e2e/node_modules
-          key: ${{ runner.os }}-npm-v4-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
       - name: Restore built-in extensions cache
         id: cache-builtins
