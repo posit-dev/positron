@@ -3,27 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Allow pointer events to pass through the overlay */
-.positron-modal-overlay:has(.positron-find-widget) {
-	pointer-events: none;
-}
-
-/* Position the widget at the top right */
+/* Position the widget at the top right with transform-based show/hide animation */
+/* Match VSCode's pattern: everything on one element */
 .positron-find-widget-positioned {
 	position: absolute;
 	top: 0;
-	right: 0;
-	pointer-events: none;
-	z-index: 1;
-}
+	right: 16px;
+	z-index: 35;
 
-/* But capture pointer events on the find widget itself */
-.positron-find-widget {
+	/* Hidden by default - translated up and clipped from top */
+	transform: translateY(calc(-100% - 10px));
+	clip-path: inset(100% 0 0 0);
+	transition: transform 200ms ease-in-out, clip-path 200ms ease-in-out;
+
 	background: var(--vscode-editorWidget-background);
 	border: 1px solid var(--vscode-editorWidget-border);
 	box-shadow: 0 0 8px 2px var(--vscode-widget-shadow);
 	padding: 4px;
-	pointer-events: auto;
+}
+
+/* Visible state - slide down into view with no clipping */
+.positron-find-widget-positioned.visible {
+	transform: translateY(0);
+	clip-path: inset(0 0 0 0);
+}
+
+.positron-find-widget {
+	/* Inner wrapper - no styling needed, just for structure */
 }
 
 .find-widget-row {

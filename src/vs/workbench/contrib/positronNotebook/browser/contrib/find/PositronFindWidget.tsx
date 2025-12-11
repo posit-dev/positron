@@ -51,7 +51,7 @@ export const PositronFindWidget = ({
 	focusInput = true,
 	matchIndex: matchIndexObs,
 	matchCount: matchCountObs,
-	isVisible,
+	isVisible: isVisibleObs,
 	inputFocused,
 	findInputOptions,
 	onPreviousMatch,
@@ -63,11 +63,12 @@ export const PositronFindWidget = ({
 	const useRegex = useObservedValue(useRegexObs);
 	const matchIndex = useObservedValue(matchIndexObs);
 	const matchCount = useObservedValue(matchCountObs);
+	const isVisible = useObservedValue(isVisibleObs);
 
 	const noMatches = !matchCount;
 
 	return (
-		<div className='positron-find-widget-positioned'>
+		<div className={`positron-find-widget-positioned${isVisible ? ' visible' : ''}`}>
 			<div className='positron-find-widget'>
 				<div className='find-widget-row'>
 					<PositronFindInput
@@ -91,7 +92,7 @@ export const PositronFindWidget = ({
 							} else if (e.equals(KeyCode.Escape)) {
 								transaction((tx) => {
 									inputFocused.set(false, tx);
-									isVisible.set(false, tx);
+									isVisibleObs.set(false, tx);
 								})
 								e.preventDefault();
 								return;
@@ -128,7 +129,7 @@ export const PositronFindWidget = ({
 					<ActionButton
 						ariaLabel={closeLabel}
 						className='find-action-button find-close-button'
-						onPressed={() => isVisible.set(false, undefined)}
+						onPressed={() => isVisibleObs.set(false, undefined)}
 					>
 						<div className='codicon codicon-close' />
 					</ActionButton>

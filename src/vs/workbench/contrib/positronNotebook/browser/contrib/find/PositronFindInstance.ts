@@ -5,8 +5,11 @@
 
 // eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
 import React from 'react';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
-import { Disposable, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+// eslint-disable-next-line local/code-import-patterns
+import { createRoot, Root } from 'react-dom/client';
+import { PositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
+import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
 import { PositronFindWidget } from './PositronFindWidget.js';
@@ -33,7 +36,8 @@ export interface IPositronFindInstanceOptions {
  * Emits events for user actions (find next/previous, close) and exposes observable state.
  */
 export class PositronFindInstance extends Disposable {
-	private readonly _renderer = this._register(new MutableDisposable<PositronModalReactRenderer>());
+	private _root?: Root;
+	private _mountPoint?: HTMLElement;
 
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
@@ -65,9 +69,6 @@ export class PositronFindInstance extends Disposable {
 
 		this._register(runOnChange(this._isVisible, (visible) => {
 			if (!visible) {
-				// Clear the renderer
-				this._renderer.clear();
-
 				// Clear match info when hiding
 				transaction(() => {
 					this.matchCount.set(undefined, undefined);
@@ -78,17 +79,37 @@ export class PositronFindInstance extends Disposable {
 	}
 
 	/**
-	 * Gets or creates the renderer for the find widget.
+	 * Dispose method - clean up React root and mount point
 	 */
-	private getOrCreateRenderer(): PositronModalReactRenderer {
-		if (!this._renderer.value) {
-			this._renderer.value = new PositronModalReactRenderer({
-				container: this._options.container,
-				disableCaptures: true, // permits the usage of the enter key where applicable
-			});
+	public override dispose(): void {
+		// Unmount React root
+		this._root?.unmount();
+		this._root = undefined;
+
+		// Remove mount point from DOM
+		this._mountPoint?.remove();
+		this._mountPoint = undefined;
+
+		super.dispose();
+	}
+
+	/**
+	 * Gets or creates the React root for the find widget.
+	 */
+	private getOrCreateRenderer(): Root {
+		if (!this._root) {
+			// Create mount point div
+			this._mountPoint = document.createElement('div');
+			this._mountPoint.className = 'positron-find-widget-mount';
+
+			// Append directly to notebook container (no modal overlay)
+			this._options.container.appendChild(this._mountPoint);
+
+			// Create React root
+			this._root = createRoot(this._mountPoint);
 		}
 
-		return this._renderer.value;
+		return this._root;
 	}
 
 	/**
@@ -96,7 +117,7 @@ export class PositronFindInstance extends Disposable {
 	 */
 	public show(): void {
 		// Get or create the renderer
-		const renderer = this.getOrCreateRenderer();
+		const root = this.getOrCreateRenderer();
 
 		// Create the find widget
 		const findWidget = React.createElement(PositronFindWidget, {
@@ -114,8 +135,14 @@ export class PositronFindInstance extends Disposable {
 			onNextMatch: () => this._onDidRequestFindNext.fire(),
 		});
 
-		// Render the widget
-		renderer.render(findWidget);
+		// Render the widget with services context
+		root.render(
+			React.createElement(
+				PositronReactServicesContext.Provider,
+				{ value: PositronReactServices.services },
+				findWidget
+			)
+		);
 
 		// Update visibility
 		this._isVisible.set(true, undefined);
