@@ -16,7 +16,6 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ModelConfig, SecretStorage } from './config';
-import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider';
 import { PositLanguageModel } from './posit.js';
 
 // Import re-exported provider classes for use in utility functions
@@ -26,6 +25,7 @@ import {
 	EchoLanguageModel,
 	OpenAILanguageModel,
 	OpenAICompatibleLanguageModel,
+	AnthropicLanguageModel,
 	AnthropicAILanguageModel,
 	AzureLanguageModel,
 	GoogleLanguageModel,
@@ -71,7 +71,6 @@ export {
 	ModelFilter,
 	ProviderInitOptions,
 	ExtendedTokenUsage,
-	ProviderType,
 
 	// Test providers
 	ErrorLanguageModel,

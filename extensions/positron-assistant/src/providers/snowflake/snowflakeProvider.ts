@@ -16,7 +16,7 @@ import {
 	checkForUpdatedSnowflakeCredentials
 } from '../../snowflakeAuth';
 import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
-import { AutoconfigureResult } from '../base/modelProvider';
+import { AutoconfigureResult } from '../base/modelProviderTypes';
 
 /**
  * Snowflake Cortex model provider implementation.

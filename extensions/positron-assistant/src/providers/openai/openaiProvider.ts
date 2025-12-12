@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
-import { ModelProvider } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
+import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -51,7 +52,7 @@ import { applyModelFilters } from '../../modelFilters';
  * @see {@link ModelProvider} for base class documentation
  * @see https://platform.openai.com/docs for OpenAI API documentation
  */
-export class OpenAILanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class OpenAILanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The OpenAI provider instance from Vercel AI SDK.
 	 */
@@ -99,8 +100,6 @@ export class OpenAILanguageModel extends ModelProvider implements positron.ai.La
 	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.initializeLogger();
-		this.initializeProvider();
 	}
 
 	/**
@@ -124,7 +123,7 @@ export class OpenAILanguageModel extends ModelProvider implements positron.ai.La
 	 *
 	 * @returns The OpenAI provider instance that can create GPT model instances
 	 */
-	protected createAIProvider(): any {
+	protected override createAIProvider(): AIProviderFactory {
 		return this.aiProvider;
 	}
 

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAzure, AzureOpenAIProvider } from '@ai-sdk/azure';
-import { ModelProvider } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../config';
 
 /**
@@ -41,7 +41,7 @@ import { ModelConfig } from '../../config';
  * @see {@link ModelProvider} for base class documentation
  * @see https://azure.microsoft.com/en-us/products/ai-services/openai-service for Azure OpenAI documentation
  */
-export class AzureLanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AzureLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Azure OpenAI provider instance from Vercel AI SDK.
 	 */
@@ -64,8 +64,6 @@ export class AzureLanguageModel extends ModelProvider implements positron.ai.Lan
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.initializeLogger();
-		this.initializeProvider();
 	}
 
 	/**
@@ -82,7 +80,7 @@ export class AzureLanguageModel extends ModelProvider implements positron.ai.Lan
 	 * Creates the AI provider instance.
 	 * @returns The Azure OpenAI provider function.
 	 */
-	protected createAIProvider(): any {
+	protected createAIProvider() {
 		return this.aiProvider;
 	}
 

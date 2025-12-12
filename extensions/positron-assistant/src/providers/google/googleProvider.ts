@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
-import { ModelProvider } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
+import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig, SecretStorage } from '../../config';
 
 /**
@@ -44,7 +45,7 @@ import { ModelConfig, SecretStorage } from '../../config';
  * @see {@link ModelProvider} for base class documentation
  * @see https://ai.google.dev/ for Google Generative AI documentation
  */
-export class GoogleLanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class GoogleLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Google Generative AI provider instance from Vercel AI SDK.
 	 */
@@ -69,8 +70,6 @@ export class GoogleLanguageModel extends ModelProvider implements positron.ai.La
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		super(_config, _context, _storage);
-		this.initializeLogger();
-		this.initializeProvider();
 	}
 
 	/**
@@ -87,7 +86,7 @@ export class GoogleLanguageModel extends ModelProvider implements positron.ai.La
 	 * Creates the AI provider instance.
 	 * @returns The Google Generative AI provider function.
 	 */
-	protected createAIProvider(): any {
+	protected override createAIProvider(): AIProviderFactory {
 		return this.aiProvider;
 	}
 

@@ -6,9 +6,10 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
-import { ModelProvider } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
+import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
-import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from '../../anthropic';
+import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from './anthropicProvider.js';
 
 /**
  * Anthropic Claude model provider implementation.
@@ -43,7 +44,7 @@ import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from '../
  * @see {@link ModelProvider} for base class documentation
  * @see https://docs.anthropic.com/ for Anthropic API documentation
  */
-export class AnthropicAILanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AnthropicAILanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Anthropic provider instance from Vercel AI SDK.
 	 */
@@ -78,8 +79,6 @@ export class AnthropicAILanguageModel extends ModelProvider implements positron.
 	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.initializeLogger();
-		this.initializeProvider();
 	}
 
 	/**
@@ -97,7 +96,7 @@ export class AnthropicAILanguageModel extends ModelProvider implements positron.
 	 *
 	 * @returns The Anthropic provider instance that can create Claude model instances
 	 */
-	protected createAIProvider(): any {
+	protected createAIProvider(): AIProviderFactory | undefined {
 		return this.aiProvider;
 	}
 

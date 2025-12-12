@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
+import { AIProviderFactory } from '../base/modelProviderTypes';
 import { getProviderTimeoutMs, ModelConfig, SecretStorage } from '../../config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
@@ -85,10 +86,13 @@ export class AnthropicLanguageModel extends ModelProvider implements positron.ai
 		client?: Anthropic, // For testing only - production uses constructor initialization
 	) {
 		super(_config, _context, _storage);
-		this.providerType = 'custom';
 		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
-		this.customProvider = this._client;
-		this.initializeLogger();
+	}
+
+	/**
+	 * Initializes provider-specific capabilities.
+	 */
+	protected override initializeProvider(): void {
 		this.capabilities = {
 			vision: true,
 			toolCalling: true,
@@ -96,7 +100,7 @@ export class AnthropicLanguageModel extends ModelProvider implements positron.ai
 		};
 	}
 
-	protected createAIProvider(): any {
+	protected createAIProvider(): AIProviderFactory | undefined {
 		return undefined; // Not using Vercel AI SDK
 	}
 
@@ -109,7 +113,7 @@ export class AnthropicLanguageModel extends ModelProvider implements positron.ai
 		return !!this._config.apiKey && this._config.apiKey.startsWith('sk-ant-');
 	}
 
-	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		// Keep custom implementation for API-specific connection testing
 		const timeoutMs = getProviderTimeoutMs();
 		try {
@@ -119,7 +123,19 @@ export class AnthropicLanguageModel extends ModelProvider implements positron.ai
 		}
 	}
 
-	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+	/**
+	 * Sends a test message to verify model connectivity.
+	 * Uses the native Anthropic SDK to test the connection.
+	 */
+	protected override async sendTestMessage(modelId: string): Promise<any> {
+		return this._client.messages.create({
+			model: modelId,
+			max_tokens: 10,
+			messages: [{ role: 'user', content: 'Hello' }]
+		});
+	}
+
+	protected override retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
 		const configuredModels = getAllModelDefinitions(this.provider);
 		if (configuredModels.length === 0) {
 			return undefined;
@@ -189,7 +205,7 @@ export class AnthropicLanguageModel extends ModelProvider implements positron.ai
 		}
 	}
 
-	protected async provideCustomResponse(
+	override async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.ProvideLanguageModelChatResponseOptions,

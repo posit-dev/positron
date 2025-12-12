@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AnthropicLanguageModel } from './anthropic.js';
+import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider.js';
 
 export type TokenUsage = {
 	/** The number of input tokens, not including tokens read from cache. */

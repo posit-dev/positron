@@ -6,14 +6,15 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
-import { ModelProvider } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
+import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 
 /**
  * Google Vertex AI model provider implementation.
  * Supports Google's Gemini models via Vertex AI.
  */
-export class VertexLanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class VertexLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: GoogleVertexProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -34,8 +35,6 @@ export class VertexLanguageModel extends ModelProvider implements positron.ai.La
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.initializeLogger();
-		this.initializeProvider();
 	}
 
 	/**
@@ -50,9 +49,9 @@ export class VertexLanguageModel extends ModelProvider implements positron.ai.La
 
 	/**
 	 * Creates the AI provider instance.
-	 * @returns The Google Vertex AI provider function.
+	 * @returns The Vertex AI provider function.
 	 */
-	protected createAIProvider(): any {
+	protected override createAIProvider(): AIProviderFactory {
 		return this.aiProvider;
 	}
 

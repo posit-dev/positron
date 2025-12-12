@@ -10,7 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration, ModelConfig, SecretStorage } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
-import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from './anthropic.js';
+import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from './providers/anthropic/anthropicProvider.js';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from './modelResolutionHelpers.js';
 import { applyModelFilters } from './modelFilters.js';

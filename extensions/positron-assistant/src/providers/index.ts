@@ -10,7 +10,8 @@
  */
 
 // Base classes and utilities
-export { ModelProvider, AutoconfigureResult } from './base/modelProvider';
+export { ModelProvider } from './base/modelProvider';
+export { VercelModelProvider } from './base/vercelModelProvider';
 export { ModelProviderLogger } from './base/modelProviderLogger';
 export * from './base/modelProviderErrors';
 export * from './base/modelProviderTypes';
@@ -24,7 +25,7 @@ export { OpenAILanguageModel } from './openai/openaiProvider';
 export { OpenAICompatibleLanguageModel } from './openai/openaiCompatibleProvider';
 
 // Anthropic providers
-export { AnthropicAILanguageModel } from './anthropic/anthropicAIProvider';
+export { AnthropicAILanguageModel } from './anthropic/anthropicVercelProvider';
 export { AnthropicLanguageModel } from './anthropic/anthropicProvider';
 
 // Cloud providers

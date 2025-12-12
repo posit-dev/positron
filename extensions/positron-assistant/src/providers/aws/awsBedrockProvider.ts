@@ -15,7 +15,8 @@ import {
 	ListFoundationModelsCommand,
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
-import { ModelProvider, AutoconfigureResult } from '../base/modelProvider';
+import { VercelModelProvider } from '../base/vercelModelProvider';
+import { AutoconfigureResult, AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig, SecretStorage, getStoredModels } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { log, registerModelWithAPI, AssistantError } from '../../extension';
@@ -46,7 +47,7 @@ export interface BedrockProviderVariables {
  * Note: This provider uses custom AWS SDK integration rather than Vercel AI SDK,
  * so providerType is set to 'custom'.
  */
-export class AWSLanguageModel extends ModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AWSLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: AmazonBedrockProvider;
 
 	/**
@@ -114,18 +115,12 @@ export class AWSLanguageModel extends ModelProvider implements positron.ai.Langu
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext, _storage?: SecretStorage) {
 		super(_config, _context, _storage);
-		this.initializeLogger();
-
-		// Set provider type to custom since we're using AWS SDK directly
-		this.providerType = 'custom';
-
-		this.initializeProvider();
 	}
 
 	/**
 	 * Initializes the AWS Bedrock provider with credentials and region settings.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider(): void {
 		// Get environment settings from VS Code configuration
 		const environmentSettings = vscode.workspace
 			.getConfiguration('positron.assistant.providerVariables')
@@ -165,7 +160,7 @@ export class AWSLanguageModel extends ModelProvider implements positron.ai.Langu
 	 * Creates the AI provider instance.
 	 * @returns The Amazon Bedrock provider function.
 	 */
-	protected createAIProvider(): any {
+	protected override createAIProvider(): AIProviderFactory {
 		return this.aiProvider;
 	}
 
@@ -553,21 +548,6 @@ export class AWSLanguageModel extends ModelProvider implements positron.ai.Langu
 			this._lastError = undefined;
 			throw error;
 		}
-	}
-
-	/**
-	 * Provides a custom chat response using the Vercel AI SDK with Bedrock.
-	 * Overrides the base implementation to use the Vercel provider.
-	 */
-	protected override async provideCustomResponse(
-		model: vscode.LanguageModelChatInformation,
-		messages: vscode.LanguageModelChatMessage2[],
-		options: vscode.ProvideLanguageModelChatResponseOptions,
-		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
-		token: vscode.CancellationToken
-	): Promise<void> {
-		// AWS Bedrock actually uses Vercel AI SDK, so delegate to the Vercel implementation
-		return this.provideVercelResponse(model, messages, options, progress, token);
 	}
 
 	/**
