@@ -68,11 +68,14 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
     }
 
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
-        if (!this.hasMultipleLanguageServers()) {
+        const detectedExtensions = this.getDetectedLanguageServers();
+        if (detectedExtensions.length < 2) {
             return [];
         }
 
-        return [new MultipleLanguageServersDiagnostic(LanguageService.multipleLanguageServersWarning, resource)];
+        const extensionList = JSON.stringify(detectedExtensions, null, 1);
+        const message = LanguageService.multipleLanguageServersWarning.format(extensionList);
+        return [new MultipleLanguageServersDiagnostic(message, resource)];
     }
 
     protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
@@ -98,21 +101,18 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
         });
     }
 
-    private hasMultipleLanguageServers(): boolean {
-        let enabledCount = 0;
+    private getDetectedLanguageServers(): string[] {
+        const detected: string[] = [];
 
         for (const extensionId of LANGUAGE_SERVER_EXTENSION_IDS) {
             // VS Code's getExtension is case-insensitive by default
             const extension = this.extensions.getExtension(extensionId);
             if (extension !== undefined) {
-                enabledCount++;
-                if (enabledCount >= 2) {
-                    return true;
-                }
+                detected.push(extensionId);
             }
         }
 
-        return false;
+        return detected;
     }
 
     protected addExtensionChangeHandler(): void {

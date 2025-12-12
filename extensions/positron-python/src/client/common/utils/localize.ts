@@ -189,7 +189,7 @@ export namespace LanguageService {
     );
     // --- Start Positron ---
     export const multipleLanguageServersWarning = l10n.t(
-        "More than one Python language server extension is enabled. You may experience duplicated static analysis behavior. It's recommended to uninstall or disable all but one.",
+        "More than one Python language server extension is enabled: {0}. You may experience duplicated static analysis behavior. Positron comes with Pyrefly by default; other extensions should work but are untested. It's recommended to uninstall or disable all but one.",
     );
     // --- End Positron ---
 }
