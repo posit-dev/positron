@@ -184,12 +184,8 @@ jobs:
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
 
-      - name: Compile Positron
-        run: npm exec -- npm-run-all --max-old-space-size=8192 compile
-
-      - name: Download Electron
-        if: ${{ steps.restore-caches.outputs.cache-electron-hit != 'true' }}
-        run: npm run electron -- x64
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
