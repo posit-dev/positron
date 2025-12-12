@@ -97,7 +97,12 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	readonly container: HTMLElement | undefined;
 
-	readonly containerObs: IObservable<HTMLElement | undefined>;
+	/**
+	 * The DOM element that contributions (such as the find widget) can render into.
+	 * This container is a sibling to the main notebook content and inherits the notebook's
+	 * scoped context keys, allowing contributions to access notebook-specific context.
+	 */
+	readonly contributionsContainer: HTMLElement | undefined;
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.

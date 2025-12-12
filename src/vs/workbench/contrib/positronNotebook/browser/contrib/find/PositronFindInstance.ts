@@ -5,6 +5,7 @@
 
 // eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
 import React from 'react';
+import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
@@ -90,8 +91,7 @@ export class PositronFindInstance extends Disposable {
 	public show(): void {
 		if (!this._renderer) {
 			// Create widget container
-			this._container = document.createElement('div');
-			this._container.className = 'positron-find-widget-container';
+			this._container = DOM.$('.positron-find-widget-container');
 
 			// Append to parent container
 			this._options.container.appendChild(this._container);
