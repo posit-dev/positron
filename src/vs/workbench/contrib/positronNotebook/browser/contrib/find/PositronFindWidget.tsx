@@ -7,7 +7,7 @@
 import './PositronFindWidget.css';
 
 // React.
-import React from 'react';
+import React, { useEffect } from 'react';
 
 // Other dependencies.
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
@@ -67,6 +67,16 @@ export const PositronFindWidget = ({
 
 	const noMatches = !matchCount;
 	const hasNoResults = findText && matchCount === 0;
+
+	useEffect(() => {
+		return () => {
+			// On unmount, reset visibility and focus
+			transaction((tx) => {
+				inputFocused.set(false, tx);
+				isVisibleObs.set(false, tx);
+			});
+		}
+	}, [isVisibleObs, inputFocused]);
 
 	return (
 		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
