@@ -1508,8 +1508,15 @@ declare module 'positron' {
 		languageId: string;
 		/**
 		 * A human-readable name for the driver.
+		 * The name is also used to group drivers for the same database provider. For instance,
+		 * if there are multiple different ways to connect to the same database.
 		 */
 		name: string;
+		/**
+		 * A human-readable description for the driver.
+		 * Used specially when disambiguating drivers with the same name.
+		 */
+		description?: string;
 		/**
 		 * The base64-encoded SVG icon for the driver.
 		 */
