@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { normalize } from '../../utils/textUtils.js';
+import { wait } from '../../infra/playwrightDriver.js';
 
 test.use({
 	suiteId: __filename
@@ -21,7 +21,7 @@ test.describe('Output to Editor Copy', { tag: [tags.WIN, tags.OUTPUT, tags.EDITO
 		await output.openOutputPane('Window');
 
 		// Step 3: Scroll to the top of the Window output pane and select the first 15 lines
-		await page.waitForTimeout(500); // wait for output to render
+		wait(500); // wait for output to render
 		await output.scrollToTop();
 		await output.selectFirstNLines(15);
 
@@ -38,10 +38,8 @@ test.describe('Output to Editor Copy', { tag: [tags.WIN, tags.OUTPUT, tags.EDITO
 		const isMac = process.platform === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 		await page.keyboard.press(`${modifier}+V`);
-		await page.waitForTimeout(100); // wait for paste to complete
 
 		// Step 8: Check if the editor contains the copied text
-		const normalizedCopiedText = normalize(copiedText);
-		await editors.expectEditorToContain(normalizedCopiedText);
+		await editors.expectEditorToContain(copiedText);
 	});
 });
