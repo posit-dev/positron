@@ -188,7 +188,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			const history = new SessionInputHistory(sessionId,
 				this._storageService,
 				this.getInputHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			this._sessionHistories.set(sessionId, history);
 			this._register(history);
 			return history.getInputHistory();
@@ -277,7 +278,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				session.sessionId,
 				this._storageService,
 				this.getInputHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			input.attachSession(session);
 			this._sessionHistories.set(session.sessionId, input);
 			this._register(input);
