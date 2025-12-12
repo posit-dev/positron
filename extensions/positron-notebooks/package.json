@@ -12,15 +12,49 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onLanguage:python",
+    "onCommand:positron.marimo.openInViewer",
+    "onCommand:positron.marimo.run",
+    "onCommand:positron.marimo.stop"
   ],
   "contributes": {
     "commands": [
       {
         "command": "positronNotebookHelpers.convertImageToBase64",
         "title": "Convert Image to Base64"
+      },
+      {
+        "command": "positron.marimo.openInViewer",
+        "title": "Open in Marimo Viewer"
+      },
+      {
+        "command": "positron.marimo.run",
+        "title": "Run with Marimo"
+      },
+      {
+        "command": "positron.marimo.stop",
+        "title": "Stop Marimo Session"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Marimo",
+      "properties": {
+        "positron.marimo.viewerArgs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra args passed to 'marimo edit'"
+        },
+        "positron.marimo.runArgs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra args passed to 'marimo run'"
+        }
+      }
+    }
   },
   "main": "./out/extension.js",
   "scripts": {

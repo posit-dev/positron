@@ -61,6 +61,14 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             // Streamlit url string: https://github.com/streamlit/streamlit/blob/3e6248461cce366b1f54c273e787adf84a66148d/lib/streamlit/web/bootstrap.py#L197
             ['Local URL: {{APP_URL}}'],
         ),
+        registerExecCommand(
+            Commands.Exec_Marimo_In_Terminal,
+            'Marimo',
+            (_runtime, document, _urlPrefix) => getMarimoDebugConfig(document),
+            undefined,
+            undefined,
+            ['Local URL: {{APP_URL}}']
+        ),
         registerDebugCommand(
             Commands.Debug_Dash_In_Terminal,
             'Dash',
@@ -106,6 +114,14 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             // Streamlit url string: https://github.com/streamlit/streamlit/blob/3e6248461cce366b1f54c273e787adf84a66148d/lib/streamlit/web/bootstrap.py#L197
             ['Local URL: {{APP_URL}}'],
         ),
+        registerDebugCommand(
+            Commands.Debug_Marimo_In_Terminal,
+            'Marimo',
+            (_runtime, document, _urlPrefix) => getMarimoDebugConfig(document),
+            undefined,
+            undefined,
+            ['Local URL: {{APP_URL}}']
+        )
     );
 }
 
@@ -266,6 +282,11 @@ function getGradioDebugConfig(document: vscode.TextDocument): DebugConfiguration
 function getStreamlitDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const args = ['run', document.uri.fsPath, '--server.headless', 'true'];
     return { module: 'streamlit', args };
+}
+
+function getMarimoDebugConfig(document: vscode.TextDocument): DebugConfiguration {
+    const args = ['edit', document.uri.fsPath];
+    return { module: 'marimo', args };
 }
 
 /**

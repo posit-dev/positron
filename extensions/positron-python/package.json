@@ -430,6 +430,13 @@
             },
             {
                 "category": "Python",
+                "command": "python.execMarimoInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execMarimoInTerminal.title%",
+                "enablement": "pythonAppFramework == marimo"
+            },
+            {
+                "category": "Python",
                 "command": "python.execInConsole",
                 "icon": "$(play)",
                 "title": "%python.command.python.execInConsole.title%"
