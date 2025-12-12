@@ -42,6 +42,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+BUILTIN_FUNCTIONS = ["input"]
+
 
 def _compact_signature(obj: Any, name="", max_chars=45) -> str | None:
     """
@@ -761,6 +763,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 def _pydoc_getdoc(object_: Any) -> str:
     """Get the doc string or comments for an object."""
     result = inspect.getdoc(object_) or inspect.getcomments(object_)
+    try:
+        if object_.__qualname__ == "Kernel.raw_input" and result is not None:
+            result += _ipykernel_input_info()
+    except AttributeError:
+        pass
     return (result and re.sub("^ *\n", "", result.rstrip())) or ""
 
 
@@ -872,6 +879,8 @@ def _linkify_match(match: re.Match, object_: Any) -> str:
 
     # Try to resolve `target` and replace it with a link.
     key = _resolve(name, object_)
+    if name in BUILTIN_FUNCTIONS:
+        key = name
     if key is None:
         logger.debug("Could not resolve")
         return match.group(0)
@@ -972,6 +981,16 @@ def _url_handler(url: str, content_type="text/html"):
         return html.get_html_page(url)
     # Errors outside the url handler are caught by the server.
     raise TypeError(f"unknown content type {content_type!r} for url {url}")
+
+
+def _ipykernel_input_info() -> str:
+    """Adjust docstring for ipykernel.kernelbase.Kernel.raw_input."""
+    return """
+.. note::
+   When running in an IPython kernel, calls to the builtin function `input` are intercepted
+   and forwarded to the kernel's `raw_input` method, which communicates with
+   the frontend to request user input.
+"""
 
 
 def start_server(port: int = 0):
