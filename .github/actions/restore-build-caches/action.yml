@@ -108,6 +108,7 @@ runs:
         # Cache version v2 (bump to v3 when you need to invalidate all caches, e.g., major toolchain changes)
         # Note: test-unit uses hashFiles('.nvmrc') for automatic Node version invalidation
         # No restore-keys to avoid partial matches that could restore wrong extension versions
+        # IMPORTANT: If bumping npm-v2 -> npm-v3, also update save-build-caches/action.yml
         key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
@@ -121,6 +122,7 @@ runs:
           /root/.cache/ms-playwright
           /github/home/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
+        # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update save-build-caches/action.yml
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
 
     - name: Restore Electron binary cache
@@ -137,6 +139,7 @@ runs:
           /github/home/.cache/electron
           /github/home/.cache/electron-builder
         # electron binaries are tied to package-lock and the electron version in package.json
+        # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches/action.yml
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
     - name: Restore built-in extensions cache
@@ -148,6 +151,7 @@ runs:
         path: |
           .build/builtInExtensions
         # product.json contains the list and versions of built-in extensions
+        # IMPORTANT: If bumping builtins -> builtins-v2, also update save-build-caches/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
     - name: Log cache results

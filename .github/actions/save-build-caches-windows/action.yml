@@ -39,6 +39,7 @@ runs:
           .vscode
           remote/node_modules
           test/e2e/node_modules
+        # IMPORTANT: If bumping npm-v2 -> npm-v3, also update restore-build-caches-windows/action.yml
         key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ inputs.extensions-hash }}
 
     - name: Save Playwright browsers cache
@@ -48,6 +49,7 @@ runs:
       with:
         path: |
           ~\AppData\Local\ms-playwright
+        # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update restore-build-caches-windows/action.yml
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
 
     - name: Save Electron binary cache
@@ -58,6 +60,7 @@ runs:
         path: |
           ~\AppData\Local\electron\Cache
           ~\AppData\Local\electron-builder\Cache
+        # IMPORTANT: If bumping electron -> electron-v2, also update restore-build-caches-windows/action.yml
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
     - name: Save built-in extensions cache
@@ -67,6 +70,7 @@ runs:
       with:
         path: |
           .build/builtInExtensions
+        # IMPORTANT: If bumping builtins -> builtins-v2, also update restore-build-caches-windows/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
     - name: Log cache save results
