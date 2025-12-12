@@ -21,11 +21,11 @@ from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     OpenEditorParams,
+    ShowHtmlFileDestination,
     ShowHtmlFileParams,
     ShowUrlParams,
     UiBackendMessageContent,
     UiFrontendEvent,
-    ShowHtmlFileDestination,
     WorkingDirectoryParams,
 )
 from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
@@ -239,7 +239,11 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             # Send bokeh plots to the plots pane.
             # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
             # This is not great but currently the only information we have.
-            destination = ShowHtmlFileDestination.Plot if self._is_module_function("bokeh.io.showing", "show") else ShowHtmlFileDestination.Viewer
+            destination = (
+                ShowHtmlFileDestination.Plot
+                if self._is_module_function("bokeh.io.showing", "show")
+                else ShowHtmlFileDestination.Viewer
+            )
 
             return self._send_show_html_event(url, destination)
 

@@ -17,7 +17,7 @@ import pytest
 
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
-from positron.ui_comm import UiFrontendEvent, ShowHtmlFileDestination
+from positron.ui_comm import ShowHtmlFileDestination, UiFrontendEvent
 from positron.utils import alias_home
 
 from .conftest import DummyComm
@@ -66,7 +66,7 @@ def show_url_event(url: str) -> Dict[str, Any]:
     return json_rpc_notification(UiFrontendEvent.ShowUrl, {"url": url, "source": None})
 
 
-def show_html_file_event(path: str, *, destination: bool) -> Dict[str, Any]:
+def show_html_file_event(path: str, *, destination: str) -> Dict[str, Any]:
     return json_rpc_notification(
         "show_html_file", {"path": path, "destination": destination, "height": 0, "title": ""}
     )
@@ -178,12 +178,21 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
         # Unix path
         (
             "file://hello/my/friend.html",
-            [show_html_file_event("file://hello/my/friend.html", destination=ShowHtmlFileDestination.Viewer)],
+            [
+                show_html_file_event(
+                    "file://hello/my/friend.html", destination=ShowHtmlFileDestination.Viewer
+                )
+            ],
         ),
         # Windows path
         (
             "file:///C:/Users/username/Documents/index.htm",
-            [show_html_file_event("file:///C:/Users/username/Documents/index.htm", destination=ShowHtmlFileDestination.Viewer)],
+            [
+                show_html_file_event(
+                    "file:///C:/Users/username/Documents/index.htm",
+                    destination=ShowHtmlFileDestination.Viewer,
+                )
+            ],
         ),
         # Not a local html file
         ("http://example.com/page.html", []),
@@ -315,5 +324,4 @@ webbrowser.open("file://file.html")
 
     params = ui_comm.messages[1]["data"]["params"]
     assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
-    assert params["destination"] is not "plot"
-
+    assert params["destination"] != "plot"
