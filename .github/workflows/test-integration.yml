@@ -37,27 +37,70 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-unit-test-build-env
-        continue-on-error: true
+      - name: Install system dependencies
+        uses: ./.github/actions/install-system-deps
 
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-unit-test-build-env
-        continue-on-error: true
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-hit != 'true'
+        uses: nick-fields/retry@v3
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            # Install node-gyp (required by some packages)
+            npm i --global node-gyp
 
-      - name: Attempt 3 - Setup Build and Compile
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-unit-test-build-env
+            # Run parallel npm install
+            bash scripts/install-npm-parallel.sh
 
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        run: npm run playwright-install
+
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Configure xvfb Service
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      - name: Save caches
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
