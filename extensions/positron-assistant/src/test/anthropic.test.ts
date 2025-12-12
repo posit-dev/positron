@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { AnthropicLanguageModel, CacheControlOptions } from '../anthropic';
+import { AnthropicLanguageModel, CacheControlOptions } from '../providers/anthropic/anthropicProvider';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
 import Anthropic from '@anthropic-ai/sdk';

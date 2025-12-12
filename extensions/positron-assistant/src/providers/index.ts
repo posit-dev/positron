@@ -25,7 +25,7 @@ export { OpenAICompatibleLanguageModel } from './openai/openaiCompatibleProvider
 
 // Anthropic providers
 export { AnthropicAILanguageModel } from './anthropic/anthropicAIProvider';
-// Note: AnthropicLanguageModel (native SDK version) remains in anthropic.ts
+export { AnthropicLanguageModel } from './anthropic/anthropicProvider';
 
 // Cloud providers
 export { AzureLanguageModel } from './azure/azureProvider';

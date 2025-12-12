@@ -16,7 +16,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ModelConfig, SecretStorage } from './config';
-import { AnthropicLanguageModel } from './anthropic';
+import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider';
 import { PositLanguageModel } from './posit.js';
 
 // Import re-exported provider classes for use in utility functions

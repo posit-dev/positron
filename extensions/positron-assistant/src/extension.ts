@@ -19,7 +19,7 @@ import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookActionSuggestion, type NotebookSuggestionsResult } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
-import { AnthropicLanguageModel } from './anthropic.js';
+import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
