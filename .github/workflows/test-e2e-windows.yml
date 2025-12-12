@@ -96,7 +96,7 @@ jobs:
     outputs:
       extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
