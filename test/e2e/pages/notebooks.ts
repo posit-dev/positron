@@ -194,12 +194,10 @@ export class Notebooks {
 
 			await this.code.driver.page.locator(editor).isVisible();
 
-			const textarea = `${editor} textarea`;
-			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+			const editContext = `${editor} .native-edit-context`;
+			await expect(this.code.driver.page.locator(editContext)).toBeFocused();
 
-			delay
-				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
-				: await this.code.driver.page.locator(textarea).fill(text);
+			await this.code.driver.page.locator(editContext).pressSequentially(text, { delay });
 		});
 	}
 
