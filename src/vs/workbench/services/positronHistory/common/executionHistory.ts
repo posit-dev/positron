@@ -11,6 +11,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { SessionExecutionHistory } from './sessionExecutionHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
 import { SessionInputHistory } from './sessionInputHistory.js';
@@ -51,6 +52,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) {
 		super();
@@ -227,7 +229,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				this._storageService,
 				this.getInputHistoryStorageScope(),
 				this._logService,
-				this._configurationService);
+				this._configurationService,
+				this._contextKeyService);
 
 			// Store the history and return it
 			this._languageHistories.set(languageId, history);

@@ -5,8 +5,10 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
 import { IInputHistoryEntry, inputHistorySizeSettingId } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
@@ -36,7 +38,8 @@ export class LanguageInputHistory extends Disposable {
 		private readonly _storageService: IStorageService,
 		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService,
-		private readonly _configurationService: IConfigurationService) {
+		private readonly _configurationService: IConfigurationService,
+		private readonly _contextKeyService: IContextKeyService) {
 		super();
 
 		// The storage key is unique to the language ID.
@@ -67,6 +70,12 @@ export class LanguageInputHistory extends Disposable {
 
 		// When a runtime records an input, emit it to the history.
 		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+			// Do not record history when in a debug session.
+			const debugState = CONTEXT_DEBUG_STATE.getValue(this._contextKeyService);
+			if (debugState && debugState !== 'inactive') {
+				return;
+			}
+
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
 				// Record the input with the current timestamp.
