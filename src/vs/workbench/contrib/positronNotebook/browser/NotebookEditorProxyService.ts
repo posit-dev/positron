@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
-import { getNotebookEditorFromEditorPane as getVscodeNotebookEditorFromEditorPane } from '../../notebook/browser/notebookBrowser.js';
+import { INotebookEditor, getNotebookEditorFromEditorPane as getVscodeNotebookEditorFromEditorPane } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -59,10 +59,20 @@ export class NotebookEditorProxyService extends Disposable implements INotebookE
 
 registerSingleton(INotebookEditorProxyService, NotebookEditorProxyService, InstantiationType.Delayed);
 
-export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): IPositronNotebookEditor | undefined {
+/**
+ * Gets a notebook editor from an editor pane, returning it as INotebookEditor.
+ * This allows upstream code to work with both VS Code and Positron notebooks transparently.
+ * Positron notebooks implement the subset of INotebookEditor needed by chat editing integration.
+ * @param editorPane - The editor pane to extract a notebook editor from.
+ * @returns The notebook editor as INotebookEditor, or undefined if not found.
+ */
+export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): INotebookEditor | undefined {
+	// Check for Positron notebook instance first
 	const notebookInstance = getNotebookInstanceFromEditorPane(editorPane);
 	if (notebookInstance) {
-		return notebookInstance;
+		// Cast to INotebookEditor - Positron notebooks implement the necessary subset of the interface
+		return notebookInstance as unknown as INotebookEditor;
 	}
+	// Fall back to VS Code notebook editor
 	return getVscodeNotebookEditorFromEditorPane(editorPane);
 }
