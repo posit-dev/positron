@@ -263,7 +263,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				startMode,
 				this._storageService,
 				this.getExecutionHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			history.attachSession(session);
 			this._executionHistories.set(session.sessionId, history);
 			this._register(history);
@@ -343,7 +344,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			RuntimeStartMode.Reconnecting,
 			this._storageService,
 			this.getExecutionHistoryStorageScope(),
-			this._logService);
+			this._logService,
+			this._contextKeyService);
 		this._executionHistories.set(sessionId, history);
 		this._register(history);
 		return history.entries;

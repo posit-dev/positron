@@ -70,12 +70,6 @@ export class LanguageInputHistory extends Disposable {
 
 		// When a runtime records an input, emit it to the history.
 		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			// Do not record history when in a debug session.
-			const debugState = CONTEXT_DEBUG_STATE.getValue(this._contextKeyService);
-			if (debugState && debugState !== 'inactive') {
-				return;
-			}
-
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
 				// Record the input with the current timestamp.
@@ -96,7 +90,8 @@ export class LanguageInputHistory extends Disposable {
 
 				const entry: IInputHistoryEntry = {
 					when: when,
-					input: languageRuntimeMessageInput.code
+					input: languageRuntimeMessageInput.code,
+					debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService)
 				};
 				this._pendingEntries.push(entry);
 				this.delayedSave();

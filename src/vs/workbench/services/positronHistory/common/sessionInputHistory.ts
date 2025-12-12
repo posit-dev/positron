@@ -67,15 +67,10 @@ export class SessionInputHistory extends Disposable {
 	attachSession(session: ILanguageRuntimeSession) {
 		this._sessionDisposables.clear();
 		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
-			// Do not record history when in a debug session.
-			const debugState = CONTEXT_DEBUG_STATE.getValue(this._contextKeyService);
-			if (debugState && debugState !== 'inactive') {
-				return;
-			}
-
 			this._entries.push({
 				when: Date.now(),
-				input: message.code
+				input: message.code,
+				debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService)
 			});
 			this._dirty = true;
 			this.delayedSave();
