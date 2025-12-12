@@ -37,8 +37,19 @@ export function PositronNotebookComponent() {
 	const [globalAnnouncement, setGlobalAnnouncement] = React.useState<string>('');
 	const previousCellCount = React.useRef<number>(notebookCells.length);
 
+	// Track scroll position for scroll decoration
+	const [isScrolled, setIsScrolled] = React.useState(false);
+
+	// TODO: Track find widget visibility for scroll decoration
+	// When the find widget is implemented, add state here to track visibility
+	// and include it in the showDecoration condition below.
+
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
+		// Initial scroll check
+		if (containerRef.current) {
+			setIsScrolled(containerRef.current.scrollTop > 0);
+		}
 	}, [notebookInstance]);
 
 	// Track cell count changes and announce to screen readers
@@ -57,13 +68,27 @@ export function PositronNotebookComponent() {
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
 
-	// Observe scroll events and fire to notebook instance
+	// Observe scroll events and fire to notebook instance, also track scroll position
 	useScrollObserver(containerRef, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
+		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));
+
+	// TODO: Observe find widget visibility from context key service
+	// When the find widget is implemented, add an effect here to observe
+
+	// Determine if scroll decoration should be shown
+	const showDecoration = isScrolled;
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
+			{showDecoration && (
+				<div
+					aria-hidden='true'
+					className='scroll-decoration'
+					role='presentation'
+				/>
+			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				<AddCellButtons index={0} />
 				{notebookCells.map((cell, index) =>

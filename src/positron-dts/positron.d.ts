@@ -2575,5 +2575,22 @@ declare module 'positron' {
 		 * @returns Array of output objects with MIME type and data
 		 */
 		export function getCellOutputs(notebookUri: string, cellIndex: number): Thenable<NotebookCellOutput[]>;
+
+		/**
+		 * Move a cell from one index to another in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param fromIndex The current index of the cell to move
+		 * @param toIndex The target index where the cell should be moved to
+		 */
+		export function moveCell(notebookUri: string, fromIndex: number, toIndex: number): Thenable<void>;
+
+		/**
+		 * Reorder all cells in a notebook according to a new order
+		 * @param notebookUri URI of the notebook
+		 * @param newOrder Array representing the new order - newOrder[i] is the index of the cell
+		 *                 that should be at position i in the reordered notebook.
+		 *                 Must be a valid permutation containing each index from 0 to cellCount-1 exactly once.
+		 */
+		export function reorderCells(notebookUri: string, newOrder: number[]): Thenable<void>;
 	}
 }

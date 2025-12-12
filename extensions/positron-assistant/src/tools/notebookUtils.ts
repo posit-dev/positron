@@ -71,6 +71,76 @@ export function validateCellIndices(
 }
 
 /**
+ * Validation result for permutation arrays
+ */
+export interface PermutationValidation {
+	valid: boolean;
+	error?: string;
+	isIdentity?: boolean;
+}
+
+/**
+ * Validates a permutation array for reordering cells.
+ * A valid permutation must contain each index from 0 to cellCount-1 exactly once.
+ *
+ * @param newOrder The proposed new order array
+ * @param cellCount The total number of cells in the notebook
+ * @returns Validation result with error message if invalid, and whether it's an identity permutation
+ */
+export function validatePermutation(
+	newOrder: number[],
+	cellCount: number
+): PermutationValidation {
+	// Check length matches
+	if (newOrder.length !== cellCount) {
+		return {
+			valid: false,
+			error: `Permutation length (${newOrder.length}) must match cell count (${cellCount})`
+		};
+	}
+
+	// Handle empty notebook case
+	if (cellCount === 0) {
+		return { valid: true, isIdentity: true };
+	}
+
+	// An identity permutation is just one where each index maps to itself. Aka a no-op.
+	let isIdentity = true;
+
+	// Check if any indices are outside of the valid range
+	for (const [i, index] of newOrder.entries()) {
+		if (!Number.isInteger(index) || index < 0 || index >= cellCount) {
+			return {
+				valid: false,
+				error: `Invalid index in permutation: ${index} (must be integer between 0 and ${cellCount - 1})`
+			};
+		}
+
+		// Check for identity at the same time
+		if (index !== i) {
+			isIdentity = false;
+		}
+	}
+
+	// If identity permutation, no need to check further
+	if (isIdentity) {
+		return { valid: true, isIdentity: true };
+	}
+
+	// Make sure there are no duplicates and all indices are present
+	const uniqueIndices = new Set(newOrder);
+
+	if (uniqueIndices.size !== cellCount) {
+		return {
+			valid: false,
+			error: 'Invalid permutation: must contain each index from 0 to cellCount-1 exactly once'
+		};
+	}
+
+	return { valid: true, isIdentity: false };
+}
+
+/**
  * Fetches and formats cell content for preview in confirmation dialogs.
  * Truncates long content with ellipsis.
  *
