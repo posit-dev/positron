@@ -412,26 +412,12 @@ end
 - Help system works
 - Basic UI interactions (clear console, open editor)
 
-### Phase 3: Data Science Features (Weeks 7-10)
+### Phase 3: Language Intelligence + Plots
 
-**Goal:** Full data science workflow support
+**Goal:** LSP integration and plotting support
 
-**Tasks:**
-1. Implement Data Explorer comm
-2. Add Tables.jl support for Data Explorer
-3. Implement Plots comm
-4. Add Plots.jl backend
-5. Add Makie.jl backend
-6. Extend Variables comm for complex types
-
-**Deliverables:**
-- Can view DataFrames in Data Explorer
-- Plots display in Plots pane
-- Full variable inspection
-
-### Phase 4: Language Intelligence (Weeks 11-13)
-
-**Goal:** Full LSP integration
+**Priority Note:** LSP and Plots are prioritized before Data Explorer to establish
+the core interactive development experience first.
 
 **Tasks:**
 1. Integrate LanguageServer.jl
@@ -439,13 +425,32 @@ end
 3. Tab completion in console
 4. Code completion in editor
 5. Diagnostics, hover, go-to-definition
+6. Implement Plots comm with Plots.jl backend
+7. Add Makie.jl backend support
 
 **Deliverables:**
 - Full code intelligence in editor
 - Tab completion in console
 - Error diagnostics
+- Plots display in Plots pane
 
-### Phase 5: Advanced Features (Weeks 14-16)
+### Phase 4: Data Explorer
+
+**Goal:** Table/DataFrame viewing and exploration
+
+**Tasks:**
+1. Implement Data Explorer comm
+2. Add Tables.jl support for generic table interface
+3. DataFrames.jl integration
+4. Extend Variables comm for complex types
+5. Type inspectors for nested data structures
+
+**Deliverables:**
+- Can view DataFrames in Data Explorer
+- Full variable inspection for complex types
+- Schema browsing and data filtering
+
+### Phase 5: Advanced Features
 
 **Goal:** Polish and advanced features
 
