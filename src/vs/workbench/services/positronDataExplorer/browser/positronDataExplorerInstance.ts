@@ -421,6 +421,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Sets the visibility state of the data explorer.
+	 * When not visible, expensive operations are deferred until visible again.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	setVisible(visible: boolean): void {
+		// Propagate visibility to both data grid instances.
+		this._tableSchemaDataGridInstance.setVisible(visible);
+		this._tableDataDataGridInstance.setVisible(visible);
+	}
+
+	/**
 	 * onDidClose event.
 	 */
 	readonly onDidClose = this._onDidCloseEmitter.event;

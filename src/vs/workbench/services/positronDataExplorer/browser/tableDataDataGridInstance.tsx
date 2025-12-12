@@ -65,6 +65,27 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
+	/**
+	 * Whether the data explorer is currently visible.
+	 * When not visible, expensive operations are deferred.
+	 */
+	private _visible = true;
+
+	/**
+	 * Whether a schema update is pending because we were not visible when it occurred.
+	 */
+	private _pendingSchemaUpdate = false;
+
+	/**
+	 * Whether a data update is pending because we were not visible when it occurred.
+	 */
+	private _pendingDataUpdate = false;
+
+	/**
+	 * Reference to the updateLayoutEntries function for use in setVisible().
+	 */
+	private _updateLayoutEntries!: (state?: BackendState) => Promise<void>;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -114,7 +135,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		 * Updates the layout entries.
 		 * @param state The backend state, if known; otherwise, undefined.
 		 */
-		const updateLayoutEntries = async (state?: BackendState) => {
+		this._updateLayoutEntries = async (state?: BackendState) => {
 			// Get the backend state, if was not provided.
 			if (!state) {
 				state = await this._dataExplorerClientInstance.getBackendState();
@@ -178,43 +199,42 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Perform a soft reset.
-			this.softReset();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.All);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingSchemaUpdate = true;
+				return;
+			}
+			// Clear pending flags since we're doing the work now.
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.handleSchemaUpdate();
 		}));
 
 		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Clear pending flag since we're doing the work now.
+			this._pendingDataUpdate = false;
+			await this.handleDataUpdate();
 		}));
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await updateLayoutEntries(state);
-
-			// Clear column sort keys.
-			this._columnSortKeys.clear();
-
-			// Update the column sort keys from the state.
-			state.sort_keys.forEach((key, sortIndex) => {
-				this._columnSortKeys.set(
-					key.column_index,
-					new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
-				);
-			});
-
-			// Fetch data.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// If not visible, defer the update until we become visible.
+			// We mark both flags since backend state changes can affect both schema and data.
+			if (!this._visible) {
+				this._pendingSchemaUpdate = true;
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Clear pending flags since we're doing the work now.
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.handleBackendStateUpdate(state);
 		}));
 
 		// Add the table data cache onDidUpdate event handler.
@@ -860,6 +880,67 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
 		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Sets the visibility state.
+	 * When becoming visible with pending updates, triggers deferred refresh operations.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	async setVisible(visible: boolean): Promise<void> {
+		const wasHidden = !this._visible;
+		this._visible = visible;
+
+		// If we're becoming visible and have pending updates, process them now.
+		if (visible && wasHidden) {
+			if (this._pendingSchemaUpdate) {
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+				await this.handleSchemaUpdate();
+			} else if (this._pendingDataUpdate) {
+				this._pendingDataUpdate = false;
+				await this.handleDataUpdate();
+			}
+		}
+	}
+
+	/**
+	 * Handles a schema update from the backend.
+	 */
+	private async handleSchemaUpdate(): Promise<void> {
+		await this._updateLayoutEntries();
+		this.softReset();
+		await this.fetchData(InvalidateCacheFlags.All);
+	}
+
+	/**
+	 * Handles a data update from the backend.
+	 */
+	private async handleDataUpdate(): Promise<void> {
+		await this._updateLayoutEntries();
+		await this.fetchData(InvalidateCacheFlags.Data);
+	}
+
+	/**
+	 * Handles a backend state update.
+	 * @param state The new backend state.
+	 */
+	private async handleBackendStateUpdate(state: BackendState): Promise<void> {
+		await this._updateLayoutEntries(state);
+
+		// Clear column sort keys.
+		this._columnSortKeys.clear();
+
+		// Update the column sort keys from the state.
+		state.sort_keys.forEach((key, sortIndex) => {
+			this._columnSortKeys.set(
+				key.column_index,
+				new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+			);
+		});
+
+		// Fetch data.
+		await this.fetchData(InvalidateCacheFlags.Data);
 	}
 
 	/**
