@@ -61,9 +61,8 @@ jobs:
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
-      - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        run: npm run playwright-install
+      - name: Install Playwright browsers and system dependencies
+        run: npx playwright install --with-deps
 
       - name: Set permissions on SUID sandbox helper
         run: |
