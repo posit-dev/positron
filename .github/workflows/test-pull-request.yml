@@ -46,6 +46,7 @@ jobs:
       upload_logs: false
       workers: 2
       allow_soft_fail: false
+      save_cache: true  # Only this job saves cache to avoid race conditions
     secrets: inherit
 
   e2e-windows-electron:

@@ -3,6 +3,11 @@ name: "Test: E2E (RHEL)"
 on:
   workflow_call:
     inputs:
+      save_cache:
+        required: false
+        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
+        type: boolean
+        default: false
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -187,6 +192,7 @@ jobs:
         run: npm run prelaunch
 
       - name: Save caches
+        if: ${{ inputs.save_cache }}
         uses: ./.github/actions/save-build-caches
         with:
           cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}

@@ -274,6 +274,7 @@ jobs:
           npx playwright install --with-deps
 
       - name: Save caches
+        if: ${{ matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches
         with:
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
