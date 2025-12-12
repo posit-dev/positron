@@ -585,30 +585,30 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		const wasHidden = !this._visible;
 		this._visible = visible;
 
-		// If becoming visible, check if we need to do initial load or process pending updates.
-		if (visible) {
-			// Initial load: first time becoming visible, no data loaded yet.
-			if (!this._initialLoadComplete) {
-				this._initialLoadComplete = true;
+		if (!visible) {
+			return;
+		}
+
+		// Initial load: first time becoming visible, no data loaded yet.
+		if (!this._initialLoadComplete) {
+			this._initialLoadComplete = true;
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.updateLayoutEntries();
+			await this.fetchData(true);
+			return;
+		}
+
+		// Deferred updates: becoming visible after being hidden with pending updates.
+		// Schema updates take precedence since they're more comprehensive.
+		if (wasHidden) {
+			if (this._pendingSchemaUpdate) {
 				this._pendingSchemaUpdate = false;
 				this._pendingDataUpdate = false;
-				await this.updateLayoutEntries();
-				await this.fetchData(true);
-				return;
-			}
-
-			// Deferred updates: becoming visible after being hidden with pending updates.
-			if (wasHidden && (this._pendingSchemaUpdate || this._pendingDataUpdate)) {
-				const hadSchemaUpdate = this._pendingSchemaUpdate;
-				this._pendingSchemaUpdate = false;
+				await this.handleSchemaUpdate();
+			} else if (this._pendingDataUpdate) {
 				this._pendingDataUpdate = false;
-
-				await this.updateLayoutEntries();
-				if (hadSchemaUpdate) {
-					this.softReset();
-				}
-				await this._tableSummaryCache.refreshColumnProfiles();
-				await this.fetchData(true);
+				await this.handleDataUpdate();
 			}
 		}
 	}

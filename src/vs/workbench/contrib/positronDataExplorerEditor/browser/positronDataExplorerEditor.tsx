@@ -434,9 +434,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	protected override setEditorVisible(visible: boolean): void {
 		// Call the base class's method.
 		super.setEditorVisible(visible);
-
-		// Fire the visibility changed event.
-		this._onVisibilityChangedEmitter.fire(visible);
 	}
 
 	//#endregion EditorPane Overrides
