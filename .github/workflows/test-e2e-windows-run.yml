@@ -204,7 +204,8 @@ jobs:
         if: ${{ matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches-windows
         with:
-          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+          cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}

@@ -23,9 +23,12 @@ outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
     value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-npm-hit:
-    description: "Whether npm cache was restored"
-    value: ${{ steps.cache-npm.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-core-hit:
+    description: "Whether npm core dependencies cache was restored"
+    value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-hit:
+    description: "Whether npm extensions cache was restored"
+    value: ${{ steps.cache-npm-extensions.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-electron-hit:
     description: "Whether Electron cache was restored"
     value: ${{ steps.cache-electron.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -64,26 +67,39 @@ runs:
       # This is the single source of truth for which package-lock files to include in npm cache keys
       run: .github/scripts/generate-package-locks-hash.sh "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}"
 
-    - name: Restore npm dependencies cache
+    - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
-      id: cache-npm
+      id: cache-npm-core
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
         path: |
-          .npm-cache  # npm's internal package tarball cache (safe to restore unconditionally)
+          .npm-cache
           node_modules
           build/node_modules
+          remote/node_modules
+          remote/web/node_modules
+          remote/reh-web/node_modules
+          test/e2e/node_modules
+          test/integration/browser/node_modules
+          test/monaco/node_modules
+          test/mcp/node_modules
+        # Core dependencies invalidate only when package-lock files change
+        # IMPORTANT: If bumping npm-core-v1 -> npm-core-v2, also update save-build-caches/action.yml
+        key: npm-core-v1-${{ runner.os }}-${{ steps.package-locks-hash.outputs.hash }}
+
+    - name: Restore npm extensions cache
+      if: ${{ inputs.restore-npm == 'true' }}
+      id: cache-npm-extensions
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: |
           extensions
           .vscode
-          remote/node_modules
-          test/e2e/node_modules
-        # Hash main package-lock files + programmatically generated extensions hash
-        # Note: test-unit uses hashFiles('.nvmrc') for automatic Node version invalidation
-        # No restore-keys to avoid partial matches that could restore wrong extension versions
-        # Package-locks hash is calculated once in the "Generate package-locks cache key" step above (DRY)
-        # IMPORTANT: If bumping npm-v3 -> npm-v4, also update save-build-caches/action.yml
-        key: npm-v3-${{ runner.os }}-${{ steps.package-locks-hash.outputs.hash }}-${{ steps.extensions-hash.outputs.hash }}
+        # Extensions invalidate when extension package.json files or git submodules change
+        # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update save-build-caches/action.yml
+        key: npm-extensions-v1-${{ runner.os }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
       if: ${{ inputs.restore-playwright == 'true' }}
@@ -134,30 +150,37 @@ runs:
       run: |
         echo "Cache results:"
 
-        # npm
+        # npm-core
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
-          echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }}"
+          echo "  npm-core:       hit=${{ steps['cache-npm-core'].outputs['cache-hit'] || 'false' }}"
         else
-          echo "  npm:         skipped (disabled)"
+          echo "  npm-core:       skipped (disabled)"
+        fi
+
+        # npm-extensions
+        if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
+          echo "  npm-extensions: hit=${{ steps['cache-npm-extensions'].outputs['cache-hit'] || 'false' }}"
+        else
+          echo "  npm-extensions: skipped (disabled)"
         fi
 
         # playwright
         if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
-          echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
+          echo "  playwright:     hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
         else
-          echo "  playwright:  skipped (disabled)"
+          echo "  playwright:     skipped (disabled)"
         fi
 
         # electron
         if [[ "${{ inputs.restore-electron }}" == "true" ]]; then
-          echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
+          echo "  electron:       hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
         else
-          echo "  electron:    skipped (disabled)"
+          echo "  electron:       skipped (disabled)"
         fi
 
         # builtins
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
-          echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
+          echo "  builtins:       hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
         else
-          echo "  builtins:    skipped (disabled)"
+          echo "  builtins:       skipped (disabled)"
         fi

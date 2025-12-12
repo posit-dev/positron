@@ -2,8 +2,12 @@ name: "Save Build Caches"
 description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions. Only saves caches that were restored but missed (cache-*-hit == 'false')."
 
 inputs:
-  cache-npm-hit:
-    description: "Whether npm cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+  cache-npm-core-hit:
+    description: "Whether npm core cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  cache-npm-extensions-hit:
+    description: "Whether npm extensions cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-playwright-hit:
@@ -19,19 +23,19 @@ inputs:
     required: false
     default: ''
   extensions-hash:
-    description: "Extensions hash from restore step (required only if saving npm cache)"
+    description: "Extensions hash from restore step (required only if saving npm extensions cache)"
     required: false
     default: ''
   package-locks-hash:
-    description: "Package-locks hash from restore step (required only if saving npm cache)"
+    description: "Package-locks hash from restore step (required only if saving npm core cache)"
     required: false
     default: ''
 
 runs:
   using: "composite"
   steps:
-    - name: Save npm dependencies cache
-      if: ${{ inputs.cache-npm-hit == 'false' }}
+    - name: Save npm core dependencies cache
+      if: ${{ inputs.cache-npm-core-hit == 'false' }}
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
@@ -39,13 +43,28 @@ runs:
           .npm-cache
           node_modules
           build/node_modules
+          remote/node_modules
+          remote/web/node_modules
+          remote/reh-web/node_modules
+          test/e2e/node_modules
+          test/integration/browser/node_modules
+          test/monaco/node_modules
+          test/mcp/node_modules
+        # Package-locks hash comes from restore step (DRY - single source of truth)
+        # IMPORTANT: If bumping npm-core-v1 -> npm-core-v2, also update restore-build-caches/action.yml
+        key: npm-core-v1-${{ runner.os }}-${{ inputs.package-locks-hash }}
+
+    - name: Save npm extensions cache
+      if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
           extensions
           .vscode
-          remote/node_modules
-          test/e2e/node_modules
-        # Package-locks hash comes from restore step (DRY - single source of truth)
-        # IMPORTANT: If bumping npm-v3 -> npm-v4, also update restore-build-caches/action.yml
-        key: npm-v3-${{ runner.os }}-${{ inputs.package-locks-hash }}-${{ inputs.extensions-hash }}
+        # Extensions hash comes from restore step (DRY - single source of truth)
+        # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update restore-build-caches/action.yml
+        key: npm-extensions-v1-${{ runner.os }}-${{ inputs.extensions-hash }}
 
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}
@@ -90,38 +109,47 @@ runs:
       run: |
         echo "Cache save results:"
 
-        # npm
-        if [[ "${{ inputs.cache-npm-hit }}" == "false" ]]; then
-          echo "  npm:         saved"
-        elif [[ "${{ inputs.cache-npm-hit }}" == "true" ]]; then
-          echo "  npm:         skipped (cache hit)"
+        # npm-core
+        if [[ "${{ inputs.cache-npm-core-hit }}" == "false" ]]; then
+          echo "  npm-core:       saved"
+        elif [[ "${{ inputs.cache-npm-core-hit }}" == "true" ]]; then
+          echo "  npm-core:       skipped (cache hit)"
         else
-          echo "  npm:         skipped (not restored)"
+          echo "  npm-core:       skipped (not restored)"
+        fi
+
+        # npm-extensions
+        if [[ "${{ inputs.cache-npm-extensions-hit }}" == "false" ]]; then
+          echo "  npm-extensions: saved"
+        elif [[ "${{ inputs.cache-npm-extensions-hit }}" == "true" ]]; then
+          echo "  npm-extensions: skipped (cache hit)"
+        else
+          echo "  npm-extensions: skipped (not restored)"
         fi
 
         # playwright
         if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
-          echo "  playwright:  saved"
+          echo "  playwright:     saved"
         elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
-          echo "  playwright:  skipped (cache hit)"
+          echo "  playwright:     skipped (cache hit)"
         else
-          echo "  playwright:  skipped (not restored)"
+          echo "  playwright:     skipped (not restored)"
         fi
 
         # electron
         if [[ "${{ inputs.cache-electron-hit }}" == "false" ]]; then
-          echo "  electron:    saved"
+          echo "  electron:       saved"
         elif [[ "${{ inputs.cache-electron-hit }}" == "true" ]]; then
-          echo "  electron:    skipped (cache hit)"
+          echo "  electron:       skipped (cache hit)"
         else
-          echo "  electron:    skipped (not restored)"
+          echo "  electron:       skipped (not restored)"
         fi
 
         # builtins
         if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then
-          echo "  builtins:    saved"
+          echo "  builtins:       saved"
         elif [[ "${{ inputs.cache-builtins-hit }}" == "true" ]]; then
-          echo "  builtins:    skipped (cache hit)"
+          echo "  builtins:       skipped (cache hit)"
         else
-          echo "  builtins:    skipped (not restored)"
+          echo "  builtins:       skipped (not restored)"
         fi
