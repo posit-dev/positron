@@ -46,57 +46,14 @@ runs:
       if: ${{ inputs.restore-npm == 'true' }}
       id: extensions-hash
       shell: bash
-      run: |
-        # Generate a hash of all extension + .vscode package.json files
-        # Use package.json instead of package-lock.json because lock files get modified during npm install
-        # Exclude git submodules from file hash as they can cause non-deterministic hashes
-        # For submodules, include the commit SHAs directly in the hash for deterministic cache invalidation
-        # Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
-
-        # Get list of all submodule paths in extensions/ and .vscode/
-        SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp path | grep -E '(extensions/|\.vscode/)' | awk '{print $2}' || echo "")
-
-        # Build find exclusion arguments for all submodules
-        FIND_EXCLUDES=""
-        if [ -n "$SUBMODULE_PATHS" ]; then
-          while IFS= read -r submodule_path; do
-            if [ -n "$submodule_path" ]; then
-              FIND_EXCLUDES="$FIND_EXCLUDES ! -path \"*/${submodule_path#*/}/*\""
-            fi
-          done <<< "$SUBMODULE_PATHS"
-        fi
-
-        # Hash regular extension package.json files (excluding submodules)
-        FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f $FIND_EXCLUDES 2>/dev/null" | sort | xargs cat | sha256sum | cut -d' ' -f1)
-
-        # Get all submodule commit SHAs (sorted for determinism)
-        SUBMODULE_SHAS=""
-        if [ -n "$SUBMODULE_PATHS" ]; then
-          while IFS= read -r submodule_path; do
-            if [ -n "$submodule_path" ]; then
-              SHA=$(git ls-tree HEAD "$submodule_path" 2>/dev/null | awk '{print $3}' || echo "none")
-              SUBMODULE_SHAS="${SUBMODULE_SHAS}${submodule_path}:${SHA},"
-            fi
-          done <<< "$SUBMODULE_PATHS"
-        fi
-
-        # Combine both into final hash
-        EXTENSIONS_HASH=$(echo "${FILES_HASH}-${SUBMODULE_SHAS}" | sha256sum | cut -d' ' -f1)
-
-        echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
-        echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, submodules: ${SUBMODULE_SHAS:-none})"
+      # Generate a hash of all extension + .vscode package.json files
+      run: .github/scripts/generate-extensions-hash.sh
 
     - name: Generate package-locks cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: package-locks-hash
       shell: bash
-      run: |
-        # Calculate hash of all package-lock.json files that get modified during postinstall
-        # This is the single source of truth for which package-lock files to include in npm cache keys
-        # See build/npm/dirs.js for the list of directories that get npm install during postinstall
-        PACKAGE_LOCKS_HASH=$(echo "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}")
-        echo "hash=$PACKAGE_LOCKS_HASH" >> $GITHUB_OUTPUT
-        echo "Generated package-locks hash: $PACKAGE_LOCKS_HASH"
+      run: .github/scripts/generate-package-locks-hash.sh "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}"
 
     - name: Restore npm dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
