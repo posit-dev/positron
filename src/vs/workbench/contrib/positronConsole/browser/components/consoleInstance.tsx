@@ -411,7 +411,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					const selection = getSelection();
 					if (selection) {
 						// Copy the selection to the clipboard.
-						services.clipboardService.writeText(selection.toString());
+						getActiveWindow().document.execCommand('copy');
 					}
 					return;
 				}
@@ -485,7 +485,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
-				services.clipboardService.writeText(selection.toString());
+				getActiveWindow().document.execCommand('copy');
 				props.positronConsoleInstance.focusInput();
 				return;
 			}
