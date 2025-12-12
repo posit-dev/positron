@@ -305,12 +305,26 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 				entry.seen = part.edits.length;
 
 				if (newEdits.length > 0 || isFirst) {
+					// --- Start Positron ---
+					// Check if the part URI is a cell URI - if so, we need to route text edits
+					// through pushNotebookCellText to preserve the cell URI for the notebook entry
+					const partCellUri = part.uri.scheme === Schemas.vscodeNotebookCell ? part.uri : undefined;
+					// --- End Positron ---
 					for (let i = 0; i < newEdits.length; i++) {
 						const edit = newEdits[i];
 						const done = part.done ? i === newEdits.length - 1 : false;
 
 						if (isTextEditOperationArray(edit)) {
-							entry.streaming.pushText(edit, done);
+							// --- Start Positron ---
+							// If this is a cell URI, route through pushNotebookCellText to preserve the cell URI
+							if (partCellUri) {
+								entry.streaming.pushNotebookCellText(partCellUri, edit, done);
+							} else {
+								// --- End Positron ---
+								entry.streaming.pushText(edit, done);
+								// --- Start Positron ---
+							}
+							// --- End Positron ---
 						} else if (isCellTextEditOperationArray(edit)) {
 							for (const edits of Object.values(groupBy(edit, e => e.uri.toString()))) {
 								if (edits) {

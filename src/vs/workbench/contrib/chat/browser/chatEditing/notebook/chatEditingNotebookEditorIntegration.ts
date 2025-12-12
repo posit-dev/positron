@@ -22,7 +22,11 @@ import { NotebookDeletedCellDecorator } from '../../../../notebook/browser/diff/
 import { NotebookInsertedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookInsertedCellDecorator.js';
 import { NotebookModifiedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookModifiedCellDecorator.js';
 import { INotebookTextDiffEditor } from '../../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
-import { CellEditState, getNotebookEditorFromEditorPane, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
+import { CellEditState, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
+// --- Start Positron ---
+// Use proxy to get editors from both VS Code and Positron notebook sources
+import { getNotebookEditorFromEditorPane } from '../../../../positronNotebook/browser/NotebookEditorProxyService.js';
+// --- End Positron ---
 import { INotebookEditorService } from '../../../../notebook/browser/services/notebookEditorService.js';
 import { NotebookCellTextModel } from '../../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
@@ -132,7 +136,13 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 		const shouldBeReadonly = _entry.isCurrentlyBeingModifiedBy.map(value => !!value);
 		this._register(autorun(r => {
 			const isReadOnly = shouldBeReadonly.read(r);
-			const notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
+			// --- Start Positron ---
+			// Use the notebook editor we already have, or try to retrieve from service
+			let notebookEditor: INotebookEditor | undefined = this.notebookEditor;
+			if (!notebookEditor || notebookEditor.textModel !== this.notebookModel) {
+				notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
+			}
+			// --- End Positron ---
 			if (!notebookEditor) {
 				return;
 			}
@@ -231,7 +241,8 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 					return;
 				}
 				if (cell.cellKind === CellKind.Markup && !this.markupCellListeners.has(cell.handle)) {
-					const cellModel = this.notebookEditor.getViewModel()?.viewCells.find(c => c.handle === cell.handle);
+					// Get cell view model by handle - returns undefined for Positron notebooks (no cell view models)
+					const cellModel = this.notebookEditor.getViewModel()?.viewCells?.find((c: ICellViewModel) => c.handle === cell.handle);
 					if (cellModel) {
 						const listener = cellModel.onDidChangeState((e) => {
 							if (e.editStateChanged) {
@@ -415,6 +426,31 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 							.catch(err => { this.logService.warn(`Error revealing change in view: ${err}`); });
 						return true;
 					}
+					// --- Start Positron ---
+					// For Positron notebooks, cellViewModel may be undefined
+					// Still update the index and try to reveal via cell editor integration
+					// TODO: Make adapter positron notebook cell classes to ICellViewModel so we don't need custom logic here.
+					this.updateCurrentIndex(change, indexInCell);
+					// Find the cell editor integration if available
+					const cell = this.notebookModel.cells[change.modifiedCellIndex!];
+					if (cell) {
+						const integration = this.cellEditorIntegrations.get(cell)?.integration;
+						if (integration && textChange) {
+							// Try to reveal in the editor directly
+							const editor = this.notebookEditor.codeEditors.find(([vm]: [ICellViewModel, unknown]) => {
+								return vm.handle === cell.handle;
+							})?.[1];
+							if (editor && editor.hasModel()) {
+								const range = textChange.modified.toInclusiveRange();
+								if (range) {
+									editor.revealRangeInCenter(range);
+									editor.setPosition(range.getStartPosition());
+								}
+							}
+						}
+						return true;
+					}
+					// --- End Positron ---
 					break;
 				}
 			case 'delete':

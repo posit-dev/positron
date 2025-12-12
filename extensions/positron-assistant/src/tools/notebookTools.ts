@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PositronAssistantToolName } from '../types.js';
+import { PositronAssistantToolName, NotebookCellEditProposal, NotebookCellEditType, NotebookCellEditOperation } from '../types.js';
 import { log } from '../extension.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 
@@ -421,14 +421,27 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
-					await positron.notebooks.updateCellContent(
-						context.uri,
+					// Get the cell to retrieve its URI
+					const cell: positron.notebooks.NotebookCell | undefined = await positron.notebooks.getCell(context.uri, cellIndex);
+					if (!cell) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(`Cell not found at index ${cellIndex}`)
+						]);
+					}
+
+					// Return an edit proposal instead of applying the edit directly
+					// The participant will convert this to response.textEdit()
+					const editProposal: NotebookCellEditProposal = {
+						type: NotebookCellEditType,
+						operation: NotebookCellEditOperation,
+						notebookUri: context.uri,
 						cellIndex,
-						content
-					);
+						cellUri: cell.cellUri,
+						newContent: content
+					};
 
 					return new vscode.LanguageModelToolResult([
-						new vscode.LanguageModelTextPart(`Successfully updated cell ${cellIndex}`)
+						new vscode.LanguageModelTextPart(JSON.stringify(editProposal))
 					]);
 				}
 

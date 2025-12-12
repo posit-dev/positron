@@ -205,3 +205,35 @@ export enum VariableKind {
 	Lazy = 'lazy',
 	Connection = 'connection'
 }
+
+/**
+ * The type of notebook cell edit operation.
+ */
+export const NotebookCellEditType = 'notebookCellEdit' as const;
+
+/**
+ * The operation type for notebook cell edits.
+ */
+export const NotebookCellEditOperation = 'update' as const;
+
+/**
+ * Represents a proposal to edit a notebook cell.
+ * Used to communicate edit proposals from tools to the participant,
+ * which then routes them through the chat editing system for diff views.
+ */
+export interface NotebookCellEditProposal {
+	/** Discriminator for the proposal type */
+	type: typeof NotebookCellEditType;
+	/** The operation to perform on the cell */
+	operation: typeof NotebookCellEditOperation;
+	/** The URI of the notebook document */
+	notebookUri: string;
+	/** The index of the cell to edit
+	 * TODO: Does it make sense to have both cellIndex and cellUri? This may just waste context.
+	*/
+	cellIndex: number;
+	/** The URI of the cell document (preferred over cellIndex when available) */
+	cellUri?: string;
+	/** The new content to replace the cell's content */
+	newContent: string;
+}

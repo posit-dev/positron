@@ -10,7 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -191,23 +191,6 @@ export interface ExtHostPlotsServiceShape {
 }
 
 /**
- * Data transfer object for notebook cell information.
- */
-export interface INotebookCellDTO {
-	id: string;
-	index: number;
-	type: NotebookCellType;
-	content: string;
-	hasOutput: boolean;
-	selectionStatus: string;
-	executionStatus?: string;
-	executionOrder?: number;
-	lastRunSuccess?: boolean;
-	lastExecutionDuration?: number;
-	lastRunEndTime?: number;
-}
-
-/**
  * Data transfer object for notebook context information.
  */
 export interface INotebookContextDTO {
@@ -215,8 +198,8 @@ export interface INotebookContextDTO {
 	kernelId?: string;
 	kernelLanguage?: string;
 	cellCount: number;
-	selectedCells: INotebookCellDTO[];
-	allCells?: INotebookCellDTO[];
+	selectedCells: notebooks.NotebookCell[];
+	allCells?: notebooks.NotebookCell[];
 }
 
 /**
@@ -235,8 +218,8 @@ export interface INotebookCellOutputDTO {
  */
 export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$getActiveNotebookContext(): Promise<INotebookContextDTO | undefined>;
-	$getCells(notebookUri: string): Promise<INotebookCellDTO[]>;
-	$getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined>;
+	$getCells(notebookUri: string): Promise<notebooks.NotebookCell[]>;
+	$getCell(notebookUri: string, cellIndex: number): Promise<notebooks.NotebookCell | undefined>;
 	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
 	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
 	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;

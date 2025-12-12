@@ -234,7 +234,7 @@ export function formatCells(options: FormatCellsOptions): string {
 		return prefix === 'Selected Cell' ? 'No cells currently selected' : '';
 	}
 
-	return cells.map((cell, idx) => {
+	return cells.map((cell: positron.notebooks.NotebookCell, idx) => {
 		const statusInfo = formatCellStatus(cell);
 		const cellLabel = cells.length === 1
 			? prefix
@@ -245,7 +245,7 @@ export function formatCells(options: FormatCellsOptions): string {
 		const wasTruncated = originalLength !== undefined && originalLength > cell.content.length;
 
 		const parts = [
-			`<cell index="${cell.index}" type="${cell.type}">`,
+			`<cell index="${cell.index}" type="${cell.type}" uri="${cell.cellUri}">`,
 			`  <label>${cellLabel}</label>`,
 			`  <status>${statusInfo}</status>`,
 			includeContent ? `<content>${cell.content}</content>` : '',

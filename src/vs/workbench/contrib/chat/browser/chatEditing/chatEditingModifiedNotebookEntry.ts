@@ -33,7 +33,9 @@ import { SnapshotContext } from '../../../../services/workingCopy/common/fileWor
 import { NotebookTextDiffEditor } from '../../../notebook/browser/diff/notebookDiffEditor.js';
 import { INotebookTextDiffEditor } from '../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
 import { CellDiffInfo } from '../../../notebook/browser/diff/notebookDiffViewModel.js';
-import { getNotebookEditorFromEditorPane } from '../../../notebook/browser/notebookBrowser.js';
+// --- Start Positron ---
+import { getNotebookEditorFromEditorPane } from '../../../positronNotebook/browser/NotebookEditorProxyService.js';
+// --- End Positron ---
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, ICellDto2, ICellEditOperation, ICellReplaceEdit, IResolvedNotebookEditorModel, NotebookCellsChangeType, NotebookSetting, NotebookTextModelChangedEvent, TransientOptions } from '../../../notebook/common/notebookCommon.js';

@@ -11,7 +11,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { CellRevealType, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { CellRevealType, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewZoneChangeAccessor } from '../../notebook/browser/notebookBrowser.js';
+import { NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
@@ -44,7 +45,8 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
-import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor } from './IPositronNotebookEditor.js';
+import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor, IChatEditingNotebookViewModel, IChatEditingCellViewModel } from './IPositronNotebookEditor.js';
+import { Range } from '../../../../editor/common/core/range.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
@@ -363,6 +365,25 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Set the notebook's read-only state.
+	 * Currently a no-op for Positron notebooks - readonly state is managed via creation options.
+	 * @param _value - The read-only state to set (ignored).
+	 */
+	setReadOnly(_value: boolean): void {
+		// No-op for Positron notebooks - readonly state managed differently
+	}
+
+	/**
+	 * Find a cell view model by its handle.
+	 * Returns undefined for Positron notebooks since they don't have cell view models.
+	 * @param _handle - The handle of the cell to find (ignored).
+	 * @returns Always undefined for Positron notebooks.
+	 */
+	getCellViewModelByHandle(_handle: number): ICellViewModel | undefined {
+		return undefined;
+	}
+
+	/**
 	 * Gets the notebook options for the editor.
 	 * Exposes the private internal notebook options as a get only property.
 	 */
@@ -584,11 +605,169 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.textModel !== undefined;
 	}
 
-	getViewModel(): IExtensionApiNotebookViewModel {
+	/**
+	 * Get view model for this notebook editor.
+	 * Returns a minimal view model for extension API compatibility.
+	 * Does not include viewCells since Positron notebooks manage cells differently.
+	 */
+	getViewModel(): IChatEditingNotebookViewModel {
 		return {
 			viewType: 'jupyter-notebook',
 		};
 	}
+
+	/**
+	 * Get the currently active cell, if any.
+	 * Positron notebooks don't have this concept, so always returns undefined.
+	 */
+	getActiveCell(): ICellViewModel | undefined {
+		return undefined;
+	}
+
+	/**
+	 * Get the currently selected cell view models.
+	 * Positron notebooks don't have this concept, so always returns empty array.
+	 */
+	getSelectionViewModels(): ICellViewModel[] {
+		return [];
+	}
+
+	/**
+	 * Focus a notebook cell with the specified focus target.
+	 * No-op for Positron notebooks.
+	 */
+	async focusNotebookCell(
+		_cell: ICellViewModel,
+		_focus: 'editor' | 'container' | 'output',
+		_options?: { focusEditorLine?: number }
+	): Promise<void> {
+		// No-op for Positron notebooks
+	}
+
+	/**
+	 * Reveal a range in the center of the cell editor.
+	 * No-op for Positron notebooks.
+	 */
+	async revealRangeInCenterAsync(_cell: ICellViewModel, _range: Range): Promise<void> {
+		// No-op for Positron notebooks
+	}
+
+	// ===== Decorator Compatibility Methods =====
+	// These methods are needed by notebook decorators (NotebookDeletedCellDecorator,
+	// NotebookInsertedCellDecorator, NotebookModifiedCellDecorator, OverlayToolbarDecorator).
+	// For Positron notebooks, most return stub/no-op values since we have different UI architecture.
+	// #region Decorator Compatibility
+
+	/**
+	 * Apply cell decorations to the notebook.
+	 * For Positron notebooks, returns empty array (no-op).
+	 * @param _oldDecorations - Decoration IDs to remove (unused)
+	 * @param _newDecorations - New decorations to add (unused)
+	 * @returns Empty array since Positron notebooks don't support cell decorations
+	 */
+	deltaCellDecorations(_oldDecorations: string[], _newDecorations: INotebookDeltaDecoration[]): string[] {
+		// Positron notebooks don't support cell decorations the same way
+		return [];
+	}
+
+	/**
+	 * Get cells in a given range.
+	 * For Positron notebooks, returns empty array (no ICellViewModel instances).
+	 * @param _range - The cell range to query (unused)
+	 * @returns Empty array since Positron doesn't have ICellViewModel instances
+	 */
+	getCellsInRange(_range?: ICellRange): ReadonlyArray<ICellViewModel> {
+		// Positron notebooks don't have ICellViewModel instances
+		return [];
+	}
+
+	/**
+	 * Get layout information for the notebook editor.
+	 * For Positron notebooks, returns stub layout info.
+	 * Note: fontInfo is cast since decorators don't use it for Positron notebooks.
+	 */
+	getLayoutInfo(): NotebookLayoutInfo {
+		// Return stub layout info - dimensions don't matter for decorator purposes
+		// fontInfo is stubbed since decorators only check dimensions
+		return {
+			width: this._container?.clientWidth ?? 0,
+			height: this._container?.clientHeight ?? 0,
+			scrollHeight: this._cellsContainer?.scrollHeight ?? 0,
+			fontInfo: undefined as unknown as NotebookLayoutInfo['fontInfo'],
+			stickyHeight: 0,
+			listViewOffsetTop: 0,
+		};
+	}
+
+	/**
+	 * Get the height of a cell element.
+	 * For Positron notebooks, returns 0 (stub).
+	 * @param _cell - The cell view model (unused)
+	 * @returns 0 as stub value
+	 */
+	getHeightOfElement(_cell: ICellViewModel): number {
+		// Positron notebooks handle cell rendering differently
+		return 0;
+	}
+
+	/**
+	 * Get the absolute top position of a cell element.
+	 * For Positron notebooks, returns 0 (stub).
+	 * @param _cell - The cell view model (unused)
+	 * @returns 0 as stub value
+	 */
+	getAbsoluteTopOfElement(_cell: ICellViewModel): number {
+		// Positron notebooks handle cell rendering differently
+		return 0;
+	}
+
+	/**
+	 * Focus the notebook container element.
+	 * For Positron notebooks, attempts to focus container if available.
+	 * @param _clearSelection - Whether to clear selection (unused)
+	 */
+	focusContainer(_clearSelection?: boolean): void {
+		// Try to focus the container if available
+		this._container?.focus();
+	}
+
+	/**
+	 * Reveal an offset position in the center of the viewport.
+	 * For Positron notebooks, no-op.
+	 * @param _offset - The offset to reveal (unused)
+	 */
+	revealOffsetInCenterIfOutsideViewport(_offset: number): void {
+		// No-op for Positron notebooks
+	}
+
+	/**
+	 * Set the focus range in the notebook.
+	 * For Positron notebooks, no-op.
+	 * @param _focus - The cell range to focus (unused)
+	 */
+	setFocus(_focus: ICellRange): void {
+		// No-op for Positron notebooks - we handle focus differently
+	}
+
+	/**
+	 * Modify view zones in the notebook.
+	 * For Positron notebooks, no-op.
+	 * @param _callback - Callback to modify view zones (unused)
+	 */
+	changeViewZones(_callback: (accessor: INotebookViewZoneChangeAccessor) => void): void {
+		// No-op for Positron notebooks
+	}
+
+	/**
+	 * Modify cell overlays in the notebook.
+	 * For Positron notebooks, no-op.
+	 * @param _callback - Callback to modify overlays (unused)
+	 */
+	changeCellOverlays(_callback: (accessor: INotebookCellOverlayChangeAccessor) => void): void {
+		// No-op for Positron notebooks
+	}
+
+	// #endregion Decorator Compatibility
 
 	setSelections(selections: ICellRange[]): void {
 		// TODO: Implement this to be able to set selections via extension API vscode.NotebookEditor.selections
@@ -717,9 +896,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Sets editor options for the notebook or a specific cell.
 	 * If cellOptions.resource is provided, applies options to that cell.
+	 * Also handles isReadOnly option for decorator compatibility.
 	 * @param options Editor options to set
 	 */
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		// Handle readonly state for decorator compatibility
+		if (options?.isReadOnly !== undefined) {
+			this.setReadOnly(options.isReadOnly);
+		}
+
 		// Apply cell options if provided
 		const cellUri = options?.cellOptions?.resource;
 		const cell = cellUri && this.cells.get().find(cell => isEqual(cell.uri, cellUri));
@@ -1049,6 +1234,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Returns an array of [cell view model, code editor] tuples for cells with attached editors.
+	 * Used by chat editing integration to attach diff views to cell editors.
+	 * @returns Array of tuples containing cell view model adapters and their Monaco editors
+	 */
+	get codeEditors(): [IChatEditingCellViewModel, ICodeEditor][] {
+		return this.cells.get()
+			.filter(cell => cell.editor !== undefined)
+			.map(cell => {
+				const viewModel: IChatEditingCellViewModel = { handle: cell.handle };
+				return [viewModel, cell.editor!] as [IChatEditingCellViewModel, ICodeEditor];
+			});
 	}
 
 	/**
