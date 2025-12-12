@@ -155,8 +155,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _container: HTMLElement | undefined = undefined;
 
-	public readonly containerObs = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
-
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	/**
@@ -168,6 +166,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * The DOM element that contains the cells for the notebook.
 	 */
 	private _cellsContainer: HTMLElement | undefined = undefined;
+
+	/**
+	 * The DOM element for contributions (like find widget) to render into.
+	 */
+	private _contributionsContainer: HTMLElement | undefined = undefined;
 
 	/**
 	 * Disposables for the current cells container event listeners
@@ -214,6 +217,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get container(): HTMLElement | undefined {
 		return this._container;
+	}
+
+	get contributionsContainer(): HTMLElement | undefined {
+		return this._contributionsContainer;
 	}
 
 	getFocusedCell(): IPositronNotebookCell | null {
@@ -1066,12 +1073,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Attaches the notebook view to a DOM container.
 	 * @param container The DOM element to render the notebook into
 	 */
-	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
+	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService, contributionsContainer?: HTMLElement) {
 		this.detachView();
 		this._container = container;
-		// TODO: Refactor _container to an observable?
-		this.containerObs.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
+		this._contributionsContainer = contributionsContainer;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		this._logService.debug(this._id, 'attachView');
@@ -1131,6 +1137,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	detachView(): void {
 		this._container = undefined;
+		this._contributionsContainer = undefined;
 		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;

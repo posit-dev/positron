@@ -62,7 +62,25 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 	private _identifier = `Positron Notebook | Editor(${PositronNotebookEditor.count++}) |`;
 
-	_parentDiv: HTMLElement | undefined;
+	/**
+	 * Top-level container for the entire notebook editor.
+	 * Contains both the notebook content and contributions.
+	 */
+	private _editorContainer: HTMLElement | undefined;
+
+	/**
+	 * Container for the notebook content - also a React root.
+	 * Child of _editorContainer.
+	 */
+	private _notebookContainer: HTMLElement | undefined;
+
+	/**
+	 * Container for contributions (like find widget) to render into,
+	 * allowing them to maintain their own separate React roots.
+	 * Sibling to _notebookContainer, child of _editorContainer.
+	 * Inherits scoped context keys from _editorContainer.
+	 */
+	private _contributionsContainer: HTMLElement | undefined;
 
 	/**
 	 * A disposable store for disposables attached to the editor instance.
@@ -198,21 +216,30 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	protected override createEditor(parent: HTMLElement): void {
 
 		this._logService.debug(this._identifier, 'createEditor');
-		this._parentDiv = DOM.$('.positron-notebook-container');
+
+		// Create the top-level editor container
+		this._editorContainer = DOM.$('.positron-notebook-editor');
 		// Make container focusable so it can maintain focus when empty
-		this._parentDiv.tabIndex = -1;
-		parent.appendChild(this._parentDiv);
-		this._parentDiv.style.display = 'relative';
+		this._editorContainer.tabIndex = -1;
+		parent.appendChild(this._editorContainer);
+
+		// Create the notebook container
+		this._notebookContainer = DOM.$('.positron-notebook-container');
+		this._editorContainer.appendChild(this._notebookContainer);
+
+		// Create the contributions container for widgets (find, etc)
+		this._contributionsContainer = DOM.$('.positron-notebook-contributions');
+		this._editorContainer.appendChild(this._contributionsContainer);
 	}
 
 	override layout(
 		dimension: DOM.Dimension,
 		position?: DOM.IDomPosition | undefined
 	): void {
-		if (!this._parentDiv) {
+		if (!this._editorContainer) {
 			return;
 		}
-		DOM.size(this._parentDiv, dimension.width, dimension.height);
+		DOM.size(this._editorContainer, dimension.width, dimension.height);
 
 		this._size.set(dimension, undefined);
 	}
@@ -231,9 +258,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// Eventually this will probably need to be implemented like the vs notebooks
 		// which uses a notebookWidgetService to manage the instances. For now, we'll
 		// just create the instance directly.
-		if (this._parentDiv === undefined) {
+		if (this._editorContainer === undefined) {
 			throw new Error(
-				'Parent div is undefined. This should have been created in createEditor.'
+				'Editor container is undefined. This should have been created in createEditor.'
 			);
 		}
 
@@ -279,7 +306,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		const scopedContextKeyService = this._renderReact();
 
-		notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
+		notebookInstance.attachView(this._notebookContainer!, scopedContextKeyService, this._contributionsContainer!);
 	}
 
 	/**
@@ -301,7 +328,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			this.notebookInstance.detachView();
 		}
 
-		// Clear the input observable.
+		// Clear the input.
 		this._input = undefined;
 
 		// Clear the editor control.
@@ -358,19 +385,27 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Notebook instance is not set.');
 		}
 
-		if (!this._parentDiv) {
-			throw new Error('Base element is not set.');
+		if (!this._editorContainer) {
+			throw new Error('Editor container is not set.');
+		}
+
+		if (!this._notebookContainer) {
+			throw new Error('Notebook container is not set.');
+		}
+
+		if (!this._contributionsContainer) {
+			throw new Error('Contributions container is not set.');
 		}
 
 		// Set the editor container for focus tracking
-		this.notebookInstance.setEditorContainer(this._parentDiv);
+		this.notebookInstance.setEditorContainer(this._editorContainer);
 
-		// Create a scoped context key service rooted at the notebook container so cell scopes inherit it.
-		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
+		// Create a scoped context key service rooted at the editor container so contributions inherit it.
+		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._editorContainer);
 
 		// Create renderer if it doesn't exist, otherwise reuse existing renderer
 		if (!this._positronReactRenderer) {
-			this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
+			this._positronReactRenderer = new PositronReactRenderer(this._notebookContainer);
 		}
 		const reactRenderer = this._positronReactRenderer;
 
