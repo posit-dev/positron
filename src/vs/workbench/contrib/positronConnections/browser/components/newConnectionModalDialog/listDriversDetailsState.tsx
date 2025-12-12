@@ -47,7 +47,7 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 			<h1 className='title'>
 				{localize(
 					'positron.connections.newConnectionModalDialog.listDriversDetails.title',
-					'Multiple drivers found for {0}',
+					'Select a driver for {0}',
 					name
 				)}
 			</h1>
@@ -62,10 +62,12 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 				<div key={driver.driverId} className='driver-list-item'>
 					<div className='driver-info' onMouseDown={() => props.onDriverSelected(driver)}>
 						<div className='driver-description'>
-							{driver.metadata.description ?? localize(
-								'positron.connections.newConnectionModalDialog.listDriversDetails.noDescription',
-								'No description available'
-							)}
+							<strong>
+								{driver.metadata.description ?? localize(
+									'positron.connections.newConnectionModalDialog.listDriversDetails.noDescription',
+									'No description available'
+								)}
+							</strong>
 							{':'}
 						</div>
 						<div className='driver-inputs'>
