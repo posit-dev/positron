@@ -39,7 +39,7 @@ runs:
           .vscode
           remote/node_modules
           test/e2e/node_modules
-        key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ inputs.extensions-hash }}
+        key: npm-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ inputs.extensions-hash }}
 
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}
