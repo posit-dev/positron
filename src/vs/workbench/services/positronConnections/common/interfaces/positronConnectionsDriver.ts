@@ -22,6 +22,8 @@ export interface IDriverMetadata {
 	languageId: string;
 	// A human-readable name for the driver.
 	name: string;
+	// A human-readable description for the driver.
+	description?: string;
 	// The base64-encoded SVG icon for the driver.
 	base64EncodedIconSvg?: string;
 	// The inputs required to create a connection.
