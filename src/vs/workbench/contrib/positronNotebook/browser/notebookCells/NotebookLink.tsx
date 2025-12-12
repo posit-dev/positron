@@ -17,6 +17,9 @@ interface NotebookLinkProps extends React.ComponentPropsWithoutRef<'a'> {
  * the browser handle them with default behavior. For other links, it delegates to
  * the opener service like ExternalLink does.
  *
+ * This component also handles keyboard activation (Enter/Space) to ensure links
+ * are accessible when tabbing through rendered markdown content.
+ *
  * @param props The props for the link component.
  * @returns The rendered link component.
  */
@@ -26,27 +29,56 @@ export function NotebookLink(props: NotebookLinkProps) {
 
 	const { href, ...otherProps } = props;
 
-	const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+	/**
+	 * Activates the link, either by letting the browser handle anchor links
+	 * or by using the opener service for other links.
+	 * @returns true if the link was handled by the opener service, false if handled by browser
+	 */
+	const activateLink = (): boolean => {
 		if (!href) {
-			return;
+			return false;
 		}
 
 		const isAnchorLink = href.trim().startsWith('#');
 
 		// For anchor links, let browser handle with default behavior
 		if (isAnchorLink) {
-			return;
+			return false;
 		}
 
 		// For other links, use opener service
-		e.preventDefault();
 		services.openerService.open(href);
+		return true;
+	};
+
+	const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+		const linkHandled = activateLink();
+		// If the link was handled by the opener service, prevent default browser navigation
+		if (linkHandled) {
+			e.preventDefault();
+		}
+	};
+
+	/**
+	 * Handle keyboard activation for accessibility.
+	 * Enter and Space should activate the link, similar to a click.
+	 * We stop propagation to prevent the notebook's Enter keybinding from
+	 * triggering edit mode when the user intends to follow a link.
+	 */
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.stopPropagation();
+			if (activateLink()) {
+				e.preventDefault();
+			}
+		}
 	};
 
 	return <a
 		{...otherProps}
 		href={href}
 		onClick={handleClick}
+		onKeyDown={handleKeyDown}
 	>
 		{props.children}
 	</a>;
