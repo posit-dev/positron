@@ -1064,6 +1064,7 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				precondition: ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true),
 				menu: [
 					{
 						// Add an entry to the notebook toolbar to show the
