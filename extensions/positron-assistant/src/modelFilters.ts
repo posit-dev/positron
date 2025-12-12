@@ -134,7 +134,8 @@ export function applyModelFilters(
 	}
 
 	// Stage 2: Apply soft filtering (models.visible)
-	const visiblePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.visible', []);
+	const visiblePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.visible', []) ??
+		vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
 	log.debug(`[${providerName}] Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
 
 	if (visiblePatterns.length === 0) {

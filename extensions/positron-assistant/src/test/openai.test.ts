@@ -38,7 +38,8 @@ suite('OpenAILanguageModel', () => {
 
 		// Mock the applyModelFilters import
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-		mockWorkspaceConfig.withArgs('models.include', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.visible', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.required', []).returns([]);
 
 		openAIModel = new OpenAILanguageModel(mockConfig);
 	});

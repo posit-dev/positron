@@ -383,9 +383,6 @@
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.providerModelPreferences": {
@@ -399,9 +396,6 @@
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.configuredModels": {

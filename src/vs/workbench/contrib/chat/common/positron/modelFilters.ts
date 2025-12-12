@@ -105,7 +105,6 @@ export function applyModelFilters(
 
 	let filteredModels = models;
 	if (requiredPatterns.length > 0) {
-		// Strict filter: remove models that don't match
 		filteredModels = models.filter(model =>
 			requiredPatterns.some(pattern =>
 				matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
@@ -127,14 +126,12 @@ export function applyModelFilters(
 	logService.trace(`[LM] ${vendor} Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
 
 	if (visiblePatterns.length === 0) {
-		// No visible filter, return as-is
 		if (requiredPatterns.length === 0) {
 			logService.trace(`[LM] ${vendor} No filters configured, returning all ${filteredModels.length} models`);
 		}
 		return filteredModels;
 	}
 
-	// Soft filter: mark non-matching models as not selectable
 	filteredModels = filteredModels.map(model => {
 		const matches = visiblePatterns.some(pattern =>
 			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
