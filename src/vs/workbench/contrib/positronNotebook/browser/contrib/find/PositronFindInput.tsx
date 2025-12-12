@@ -4,11 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { FindInput, IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
+
+export interface PositronFindInputHandle {
+	/**
+	 * Focuses the find input box.
+	 */
+	focus(): void;
+}
 
 export interface PositronFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
@@ -26,7 +33,7 @@ export interface PositronFindInputProps {
 	readonly onInputBlur?: () => void;
 }
 
-export const PositronFindInput = ({
+export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFindInputProps>(({
 	value,
 	matchCase = false,
 	matchWholeWord = false,
@@ -40,12 +47,13 @@ export const PositronFindInput = ({
 	onUseRegexChange,
 	onInputFocus,
 	onInputBlur,
-}: PositronFindInputProps) => {
+}, ref) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
 
 	// Capture initial options to avoid recreating FindInput on prop changes
 	const initialOptionsRef = useRef(findInputOptions);
+	const initialValueRef = useRef(value);
 
 	// Initialize FindInput widget once on mount
 	useEffect(() => {
@@ -62,6 +70,11 @@ export const PositronFindInput = ({
 			options,
 		);
 
+		// Set the initial value immediately to avoid a flicker waiting for the value effect
+		if (initialValueRef.current !== undefined) {
+			input.setValue(initialValueRef.current);
+		}
+
 		setFindInput(input);
 
 		return () => {
@@ -69,6 +82,11 @@ export const PositronFindInput = ({
 			setFindInput(null);
 		};
 	}, []);
+
+	// Set up imperative handle
+	useImperativeHandle(ref, () => ({
+		focus: () => findInput?.focus(),
+	}), [findInput]);
 
 	// Set up onInput listener
 	useEffect(() => {
@@ -165,4 +183,4 @@ export const PositronFindInput = ({
 	}, [findInput, focusInput]);
 
 	return <div ref={containerRef} />;
-};
+});

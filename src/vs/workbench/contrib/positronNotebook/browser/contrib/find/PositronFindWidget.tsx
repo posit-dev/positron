@@ -7,11 +7,11 @@
 import './PositronFindWidget.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 
 // Other dependencies.
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
-import { PositronFindInput } from './PositronFindInput.js';
+import { PositronFindInput, PositronFindInputHandle } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IObservable, ISettableObservable, transaction } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
@@ -28,6 +28,13 @@ const noResultsLabel = localize('positronNotebook.find.noResults', "No results")
 const matchCountLabel = (matchIndex: number, matchCount: number) =>
 	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
 
+export interface PositronFindWidgetHandle {
+	/**
+	 * Focuses the find input box.
+	 */
+	focusInput(): void;
+}
+
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
 	readonly matchCase: ISettableObservable<boolean>;
@@ -43,7 +50,7 @@ export interface PositronFindWidgetProps {
 	readonly onNextMatch: () => void;
 }
 
-export const PositronFindWidget = ({
+export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronFindWidgetProps>(({
 	findText: findTextObs,
 	matchCase: matchCaseObs,
 	matchWholeWord: matchWholeWordObs,
@@ -56,7 +63,7 @@ export const PositronFindWidget = ({
 	findInputOptions,
 	onPreviousMatch,
 	onNextMatch,
-}: PositronFindWidgetProps) => {
+}, ref) => {
 	const findText = useObservedValue(findTextObs);
 	const matchCase = useObservedValue(matchCaseObs);
 	const matchWholeWord = useObservedValue(matchWholeWordObs);
@@ -65,23 +72,20 @@ export const PositronFindWidget = ({
 	const matchCount = useObservedValue(matchCountObs);
 	const isVisible = useObservedValue(isVisibleObs);
 
+	const inputRef = React.useRef<PositronFindInputHandle>(null);
+
 	const noMatches = !matchCount;
 	const hasNoResults = findText && matchCount === 0;
 
-	useEffect(() => {
-		return () => {
-			// On unmount, reset visibility and focus
-			transaction((tx) => {
-				inputFocused.set(false, tx);
-				isVisibleObs.set(false, tx);
-			});
-		}
-	}, [isVisibleObs, inputFocused]);
+	useImperativeHandle(ref, () => ({
+		focusInput: () => inputRef.current?.focus(),
+	}), []);
 
 	return (
 		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
 			<div className='row'>
 				<PositronFindInput
+					ref={inputRef}
 					findInputOptions={findInputOptions}
 					focusInput={focusInput}
 					matchCase={matchCase}
@@ -146,7 +150,7 @@ export const PositronFindWidget = ({
 			</div>
 		</div>
 	);
-}
+});
 
 interface FindResultProps {
 	findText: string;
