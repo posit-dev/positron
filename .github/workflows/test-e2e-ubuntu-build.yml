@@ -115,8 +115,8 @@ jobs:
         with:
           cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
-          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Restore QA example content cache
