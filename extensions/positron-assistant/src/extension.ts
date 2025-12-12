@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './models';
+import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -19,7 +19,7 @@ import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookActionSuggestion, type NotebookSuggestionsResult } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
-import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider.js';
+import { AnthropicModelProvider } from './providers/anthropic/anthropicProvider.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
@@ -228,7 +228,7 @@ export async function registerModelWithAPI(modelConfig: ModelConfig, context: vs
 				throw new Error(error.message);
 			}
 		} catch (error) {
-			// Handle both patterns: models that throw errors directly (like ErrorLanguageModel and OpenAILanguageModel)
+			// Handle both patterns: models that throw errors directly (like ErrorModelProvider and OpenAIModelProvider)
 			// and models that return errors (like the base AILanguageModel)
 			throw error;
 		}
@@ -440,7 +440,7 @@ const requestTokenUsage = new Map<string, { tokens: TokenUsage; provider: string
 export function recordRequestTokenUsage(requestId: string, provider: string, tokens: TokenUsage) {
 	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
 
-	enabledProviders.push(AnthropicLanguageModel.source.provider.id); // ensure anthropicId is always included
+	enabledProviders.push(AnthropicModelProvider.source.provider.id); // ensure anthropicId is always included
 
 	if (!enabledProviders.includes(provider)) {
 		return; // Skip if token counting is disabled for this provider

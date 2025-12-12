@@ -7,14 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createMistral, MistralProvider } from '@ai-sdk/mistral';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 
 /**
  * Mistral AI model provider implementation.
  * Supports Mistral's models via the Mistral API.
  */
-export class MistralLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class MistralModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: MistralProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -40,22 +39,10 @@ export class MistralLanguageModel extends VercelModelProvider implements positro
 	/**
 	 * Initializes the Mistral provider.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createMistral({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		});
-	}
-
-	/**
-	 * Creates the AI provider instance.
-	 * @returns The Mistral provider function.
-	 */
-	protected createAIProvider(): AIProviderFactory | undefined {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return MistralLanguageModel.source.provider.displayName;
 	}
 }

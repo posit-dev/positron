@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { getEnabledProviders } from './config';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
-import { AutoconfigureResult } from './models.js';
+import { AutoconfigureResult } from './providers/index.js';
 
 /**
  * Configuration for managed credentials on Posit Workbench.

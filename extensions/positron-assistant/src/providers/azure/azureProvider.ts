@@ -35,13 +35,13 @@ import { ModelConfig } from '../../config';
  *   resourceName: 'your-resource-name',
  *   model: 'gpt-4o'
  * };
- * const provider = new AzureLanguageModel(config, context);
+ * const provider = new AzureModelProvider(config, context);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://azure.microsoft.com/en-us/products/ai-services/openai-service for Azure OpenAI documentation
  */
-export class AzureLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AzureModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Azure OpenAI provider instance from Vercel AI SDK.
 	 */
@@ -69,22 +69,10 @@ export class AzureLanguageModel extends VercelModelProvider implements positron.
 	/**
 	 * Initializes the Azure OpenAI provider.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createAzure({
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
 		});
-	}
-
-	/**
-	 * Creates the AI provider instance.
-	 * @returns The Azure OpenAI provider function.
-	 */
-	protected createAIProvider() {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return AzureLanguageModel.source.provider.displayName;
 	}
 }

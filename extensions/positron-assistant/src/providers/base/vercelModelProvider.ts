@@ -4,16 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { AIProviderFactory } from './modelProviderTypes';
 import { processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../config';
 import { TokenUsage } from '../../tokens';
-import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension';
-import { getMaxTokens } from '../../modelResolutionHelpers';
-import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
+import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 
@@ -32,7 +29,7 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constan
  * - Connection testing via `ai.generateText()`
  *
  * Subclasses must implement:
- * - {@link createAIProvider} - Returns the Vercel AI SDK provider factory
+ * - {@link initializeProvider} - Sets up the Vercel AI SDK provider
  * - {@link providerName} - Returns the display name
  *
  * @example
@@ -40,10 +37,6 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constan
  * class MyVercelProvider extends VercelModelProvider {
  *   protected initializeProvider(): void {
  *     this.aiProvider = createMyProvider({ apiKey: this._config.apiKey });
- *   }
- *
- *   protected createAIProvider(): AIProviderFactory {
- *     return this.aiProvider;
  *   }
  *
  *   get providerName(): string {
@@ -61,31 +54,13 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * This function creates a language model instance given a model ID and optional configuration.
 	 * Subclasses must set this in their {@link initializeProvider} method.
 	 */
-	protected aiProvider!: AIProviderFactory;
+	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
 
 	/**
 	 * Additional options passed to the AI provider when creating model instances.
 	 * Provider-specific options like temperature, top_p, etc.
 	 */
 	protected aiOptions: Record<string, any> = {};
-
-	/**
-	 * Creates the AI provider instance for this Vercel-based provider.
-	 *
-	 * Subclasses must implement this method to return the Vercel AI SDK provider
-	 * factory. Unlike the base class, this method should never return undefined
-	 * for Vercel providers.
-	 *
-	 * @returns The AI provider factory function
-	 *
-	 * @example
-	 * ```typescript
-	 * protected createAIProvider(): AIProviderFactory {
-	 *   return this.aiProvider;
-	 * }
-	 * ```
-	 */
-	protected abstract override createAIProvider(): AIProviderFactory;
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -96,7 +71,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * @param modelId - The ID of the model to test
 	 * @returns A promise that resolves to the test response
 	 */
-	protected override async sendTestMessage(modelId: string): Promise<any> {
+	protected override async sendTestMessage(modelId: string) {
 		return ai.generateText({
 			model: this.aiProvider(modelId, this.aiOptions),
 			prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
@@ -129,7 +104,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		options: vscode.ProvideLanguageModelChatResponseOptions,
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
-	): Promise<void> {
+	) {
 		return this.provideVercelResponse(model, messages, options, progress, token);
 	}
 
@@ -199,7 +174,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		const modelTools = this._config.toolCalls ? tools : undefined;
-		const requestId = (options.modelOptions as any)?.requestId;
+		const requestId = options.modelOptions?.requestId;
 
 		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
@@ -370,7 +345,9 @@ export abstract class VercelModelProvider extends ModelProvider {
 
 			// Report token usage information
 			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
-			(part as any).report && (part as any).report(part);
+			if (part.report) {
+				part.report(part);
+			}
 
 			this.logger.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
@@ -394,23 +371,13 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 *
 	 * @returns An array of configured models, or undefined if no models are configured
 	 */
-	protected override retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+	protected override retrieveModelsFromConfig() {
 		const configuredModels = getAllModelDefinitions(this.provider);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
 
 		this.logger.info(`Using ${configuredModels.length} configured models.`);
-
-		// Ensure aiProvider is initialized
-		if (!this.aiProvider) {
-			try {
-				this.aiProvider = this.createAIProvider();
-			} catch (error) {
-				this.logger.error('Failed to create AI provider:', error);
-				// Continue without aiProvider - version will default to '1.0'
-			}
-		}
 
 		const models: vscode.LanguageModelChatInformation[] = configuredModels.map(model =>
 			createModelInfo({
@@ -437,30 +404,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 *
 	 * @returns An array containing a single default model descriptor
 	 */
-	protected override createDefaultModel(): vscode.LanguageModelChatInformation[] {
+	protected override createDefaultModel() {
 		this.logger.info('No models available; returning default model information.');
-
-		// Ensure aiProvider is initialized
-		if (!this.aiProvider) {
-			try {
-				this.aiProvider = this.createAIProvider();
-			} catch (error) {
-				this.logger.error('Failed to create AI provider:', error);
-				// Fall back to basic model info without Vercel-specific details
-				const modelInfo = createModelInfo({
-					id: this._config.model,
-					name: this.name,
-					family: this.provider,
-					version: '1.0',
-					provider: this._config.provider,
-					providerName: this.providerName,
-					capabilities: this.capabilities,
-					defaultMaxInput: this._config.maxInputTokens,
-					defaultMaxOutput: this._config.maxOutputTokens
-				});
-				return [{ ...modelInfo, isDefault: true }];
-			}
-		}
 
 		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
 		const modelInfo = createModelInfo({

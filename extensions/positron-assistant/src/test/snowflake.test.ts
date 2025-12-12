@@ -11,7 +11,7 @@ import {
 	detectSnowflakeCredentials,
 	extractSnowflakeError,
 	getSnowflakeDefaultBaseUrl
-} from '../snowflakeAuth.js';
+} from '../providers/snowflake/snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from '../openai-fetch-utils.js';
 
 suite('Snowflake Provider', () => {

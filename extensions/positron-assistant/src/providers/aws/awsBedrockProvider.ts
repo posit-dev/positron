@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as ai from 'ai';
 import { createAmazonBedrock, AmazonBedrockProvider } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import {
@@ -16,15 +15,13 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AutoconfigureResult, AIProviderFactory } from '../base/modelProviderTypes';
-import { ModelConfig, SecretStorage, getStoredModels } from '../../config';
+import { ModelConfig, SecretStorage, getStoredModels, expandConfigToSource } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
-import { log, registerModelWithAPI, AssistantError } from '../../extension';
+import { registerModelWithAPI, AssistantError } from '../../extension';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
-import { expandConfigToSource } from '../../config';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -44,10 +41,10 @@ export interface BedrockProviderVariables {
  * - Inference profile support for automatic region routing
  * - Dynamic model listing from Bedrock API
  *
- * Note: This provider uses custom AWS SDK integration rather than Vercel AI SDK,
- * so providerType is set to 'custom'.
+ * Note: AWS Bedrock extends VercelModelProvider to use the Vercel AI SDK for chat operations
+ * while maintaining custom AWS SDK integration for authentication and model discovery.
  */
-export class AWSLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AWSModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: AmazonBedrockProvider;
 
 	/**
@@ -120,7 +117,7 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	/**
 	 * Initializes the AWS Bedrock provider with credentials and region settings.
 	 */
-	protected override initializeProvider(): void {
+	protected override initializeProvider() {
 		// Get environment settings from VS Code configuration
 		const environmentSettings = vscode.workspace
 			.getConfiguration('positron.assistant.providerVariables')
@@ -157,25 +154,13 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	}
 
 	/**
-	 * Creates the AI provider instance.
-	 * @returns The Amazon Bedrock provider function.
-	 */
-	protected override createAIProvider(): AIProviderFactory {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return AWSLanguageModel.source.provider.displayName;
-	}
-
-	/**
 	 * Parses Bedrock-specific errors and returns user-friendly messages.
 	 * Handles SSO authentication errors with automatic login prompts.
 	 *
 	 * @param error The error object returned by Bedrock.
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	override async parseProviderError(error: any): Promise<string | undefined> {
+	override async parseProviderError(error: any) {
 		// First try the base class error parsing
 		const aiSdkError = await super.parseProviderError(error);
 		if (aiSdkError) {
@@ -309,7 +294,7 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	 * @param token The cancellation token.
 	 * @returns Error if connection failed, undefined if successful.
 	 */
-	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+	override async resolveConnection(token: vscode.CancellationToken) {
 		this.logger.debug('Resolving connection by fetching available models...');
 		this._resolvingConnection = true;
 
@@ -361,7 +346,7 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	 *
 	 * @returns The configured models or undefined if none.
 	 */
-	protected override retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+	protected override retrieveModelsFromConfig() {
 		const configuredModels = getAllModelDefinitions(this.provider);
 		if (configuredModels.length === 0) {
 			return undefined;
@@ -378,8 +363,8 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 				provider: this.provider,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
-				defaultMaxInput: modelDef.maxInputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
-				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
+				defaultMaxInput: modelDef.maxInputTokens ?? AWSModelProvider.DEFAULT_MAX_TOKENS_INPUT,
+				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSModelProvider.DEFAULT_MAX_TOKENS_OUTPUT
 			})
 		);
 
@@ -395,12 +380,12 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	 */
 	protected override async retrieveModelsFromApi(
 		token: vscode.CancellationToken
-	): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+	) {
 		try {
 			const command = new ListFoundationModelsCommand();
 
 			this.logger.info(
-				`Fetching available Amazon Bedrock models for these providers: ${AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', ')}`
+				`Fetching available Amazon Bedrock models for these providers: ${AWSModelProvider.SUPPORTED_BEDROCK_PROVIDERS.join(', ')}`
 			);
 
 			const response = await this.bedrockClient.send(command);
@@ -440,8 +425,8 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 					provider: this.provider,
 					providerName: this.providerName,
 					capabilities: this.capabilities,
-					defaultMaxInput: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
-					defaultMaxOutput: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
+					defaultMaxInput: AWSModelProvider.DEFAULT_MAX_TOKENS_INPUT,
+					defaultMaxOutput: AWSModelProvider.DEFAULT_MAX_TOKENS_OUTPUT
 				});
 				return modelInfo;
 			}).filter(m => {
@@ -478,7 +463,7 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 			}
 
 			// Filter for supported Bedrock providers
-			if (!AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.includes(m.providerName as string)) {
+			if (!AWSModelProvider.SUPPORTED_BEDROCK_PROVIDERS.includes(m.providerName as string)) {
 				this.logger.debug(
 					`Filtering out unsupported provider model: ${m.modelName} (provider: ${m.providerName})`
 				);
@@ -494,7 +479,7 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 			}
 
 			// Filter out legacy models based on regex patterns using the original modelId
-			if (AWSLanguageModel.LEGACY_MODELS_REGEX.some(regex => {
+			if (AWSModelProvider.LEGACY_MODELS_REGEX.some(regex => {
 				const re = new RegExp(`${regex}`);
 				return re.test(m.modelId);
 			})) {
@@ -556,11 +541,11 @@ export class AWSLanguageModel extends VercelModelProvider implements positron.ai
 	 *
 	 * @returns A promise that resolves to the autoconfigure result.
 	 */
-	static override async autoconfigure(): Promise<AutoconfigureResult> {
+	static override async autoconfigure() {
 		return await autoconfigureWithManagedCredentials(
 			AWS_MANAGED_CREDENTIALS,
-			AWSLanguageModel.source.provider.id,
-			AWSLanguageModel.source.provider.displayName
+			AWSModelProvider.source.provider.id,
+			AWSModelProvider.source.provider.displayName
 		);
 	}
 }

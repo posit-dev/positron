@@ -5,12 +5,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { getLanguageModels } from './models';
+import { getLanguageModels } from './providers';
 import { completionModels } from './completion';
 import { clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
-import { PositLanguageModel } from './posit.js';
+import { PositModelProvider } from './providers/posit/positProvider.js';
 import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
@@ -220,7 +220,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
 				CopilotService.instance().cancelCurrentOperation();
-				PositLanguageModel.cancelCurrentSignIn();
+				PositModelProvider.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
@@ -322,7 +322,7 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 				await CopilotService.instance().signIn();
 				break;
 			case 'posit-ai':
-				await PositLanguageModel.signIn(storage);
+				await PositModelProvider.signIn(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
@@ -350,7 +350,7 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			case 'posit-ai':
-				oauthCompleted = await PositLanguageModel.signOut(storage);
+				oauthCompleted = await PositModelProvider.signOut(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));

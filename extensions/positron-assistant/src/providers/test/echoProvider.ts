@@ -8,27 +8,25 @@ import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig, SecretStorage } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
-import { log, recordTokenUsage, recordRequestTokenUsage } from '../../extension';
+import { recordTokenUsage, recordRequestTokenUsage } from '../../extension';
 import { toAIMessage } from '../../utils';
-import { applyModelFilters } from '../../modelFilters';
+import { ModelProvider } from '../base/modelProvider';
 
 /**
  * Test provider that echoes back user input.
  * Useful for testing chat functionality without making API calls.
  */
-export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
-	readonly name = 'Echo Language Model';
-	readonly provider = 'echo';
-	readonly id = 'echo-language-model';
+export class EchoModelProvider extends ModelProvider {
 	readonly maxInputTokens = DEFAULT_MAX_TOKEN_INPUT;
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
-	protected modelListing?: vscode.LanguageModelChatInformation[];
 
 	constructor(
-		private readonly _config: ModelConfig,
-		private readonly _context?: vscode.ExtensionContext,
-		private readonly _storage?: SecretStorage,
-	) { }
+		_config: ModelConfig,
+		_context?: vscode.ExtensionContext,
+		_storage?: SecretStorage,
+	) {
+		super(_config, _context, _storage);
+	}
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -50,19 +48,12 @@ export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider 
 		agentMode: true,
 	};
 
-	get providerName(): string {
-		return EchoLanguageModel.source.provider.displayName;
-	}
-
 	/**
-	 * Provides language model chat information.
+	 * Sends a test message to verify connectivity.
+	 * For the echo provider, this always succeeds.
 	 */
-	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
-		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
-
-		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
-		return this.filterModels(models);
+	protected async sendTestMessage(modelId: string): Promise<any> {
+		return Promise.resolve({ text: 'echo' });
 	}
 
 	/**
@@ -74,11 +65,11 @@ export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider 
 	 */
 	async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
-		messages: vscode.LanguageModelChatMessage[],
-		options: { [name: string]: any },
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
-	): Promise<any> {
+	): Promise<void> {
 		const _messages = toAIMessage(messages);
 		const message = this.getUserPrompt(_messages);
 
@@ -135,8 +126,6 @@ export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider 
 				return;
 			}
 		}
-
-		return { tokenUsage };
 	}
 
 	/**
@@ -149,13 +138,6 @@ export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider 
 			const _text = toAIMessage([text]);
 			return _text.length > 0 ? _text[0].content.length : 0;
 		}
-	}
-
-	/**
-	 * Resolves connection - always succeeds for echo model.
-	 */
-	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		return Promise.resolve(undefined);
 	}
 
 	/**
@@ -184,13 +166,6 @@ export class EchoLanguageModel implements positron.ai.LanguageModelChatProvider 
 		}];
 		this.modelListing = models;
 		return models;
-	}
-
-	/**
-	 * Filters models based on configured filters.
-	 */
-	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
-		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
 	/**

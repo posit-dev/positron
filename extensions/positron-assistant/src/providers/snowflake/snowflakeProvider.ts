@@ -6,24 +6,22 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
-import { OpenAILanguageModel } from '../openai/openaiProvider';
-import { ModelConfig } from '../../config';
+import { OpenAIModelProvider } from '../openai/openaiProvider';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import {
 	detectSnowflakeCredentials,
 	extractSnowflakeError,
 	getSnowflakeDefaultBaseUrl,
 	checkForUpdatedSnowflakeCredentials
-} from '../../snowflakeAuth';
+} from './snowflakeAuth';
 import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
-import { AutoconfigureResult } from '../base/modelProviderTypes';
 
 /**
  * Snowflake Cortex model provider implementation.
  * Extends OpenAI provider to use Snowflake's OpenAI-compatible API.
  * Includes automatic credential refresh from connections.toml.
  */
-export class SnowflakeLanguageModel extends OpenAILanguageModel {
+export class SnowflakeModelProvider extends OpenAIModelProvider {
 	protected declare aiProvider: OpenAIProvider;
 	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
 
@@ -44,17 +42,13 @@ export class SnowflakeLanguageModel extends OpenAILanguageModel {
 		}
 	};
 
-	get providerName(): string {
-		return SnowflakeLanguageModel.source.provider.displayName;
-	}
-
 	/**
 	 * Gets the base URL for the Snowflake Cortex API.
 	 * Overrides the parent implementation to use Snowflake-specific defaults.
 	 */
-	get baseUrl(): string {
+	override get baseUrl() {
 		// Use the baseUrl from config or fallback to default
-		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
+		return this._config.baseUrl || SnowflakeModelProvider.source.defaults.baseUrl!;
 	}
 
 	/**
@@ -102,12 +96,12 @@ export class SnowflakeLanguageModel extends OpenAILanguageModel {
 	 * Autoconfigures the Snowflake provider using managed credentials.
 	 * @returns The autoconfiguration result.
 	 */
-	static override async autoconfigure(): Promise<AutoconfigureResult> {
+	static override async autoconfigure() {
 		// Use the standard PWB flow for environment and settings validation
 		const configureResult = await autoconfigureWithManagedCredentials(
 			SNOWFLAKE_MANAGED_CREDENTIALS,
-			SnowflakeLanguageModel.source.provider.id,
-			SnowflakeLanguageModel.source.provider.displayName
+			SnowflakeModelProvider.source.provider.id,
+			SnowflakeModelProvider.source.provider.displayName
 		);
 
 		// If PWB checks pass, get credentials and return with both token and baseUrl
@@ -133,9 +127,9 @@ export class SnowflakeLanguageModel extends OpenAILanguageModel {
 	 * @param error The error object.
 	 * @returns A user-friendly error message or undefined.
 	 */
-	override async parseProviderError(error: any): Promise<string | undefined> {
+	override async parseProviderError(error: any) {
 		// Check for Snowflake-specific errors before generic authorization errors
-		if (this.providerName === SnowflakeLanguageModel.source.provider.displayName) {
+		if (this.providerName === SnowflakeModelProvider.source.provider.displayName) {
 			const snowflakeError = extractSnowflakeError(error);
 			if (snowflakeError) {
 				throw new Error(`Failed to register model configuration. Error: ${snowflakeError}`);

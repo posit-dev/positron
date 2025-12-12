@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { AnthropicLanguageModel } from './providers/anthropic/anthropicProvider.js';
+import { AnthropicModelProvider } from './providers/anthropic/anthropicProvider.js';
 
 export type TokenUsage = {
 	/** The number of input tokens, not including tokens read from cache. */
@@ -22,7 +22,7 @@ export function isTokenUsage(obj: any): obj is TokenUsage {
 }
 
 export class TokenTracker {
-	private static DEFAULT_PROVIDERS = [AnthropicLanguageModel.source.provider.id];
+	private static DEFAULT_PROVIDERS = [AnthropicModelProvider.source.provider.id];
 	private _tokenUsage: Map<string, TokenUsage> = new Map();
 	private _enabledProviders: Set<string> = new Set([...TokenTracker.DEFAULT_PROVIDERS]);
 
@@ -71,7 +71,7 @@ export class TokenTracker {
 			if (event.affectsConfiguration('positron.assistant.approximateTokenCount')) {
 				const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
 
-				const anthropicId = AnthropicLanguageModel.source.provider.id;
+				const anthropicId = AnthropicModelProvider.source.provider.id;
 				this._enabledProviders = new Set([...enabledProviders, anthropicId]); // ensure anthropicId is always included
 
 				// clear token counts for providers that are no longer enabled

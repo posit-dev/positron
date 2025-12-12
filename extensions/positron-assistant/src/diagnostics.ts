@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
-import { getLanguageModels } from './models.js';
+import { getLanguageModels } from './providers';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

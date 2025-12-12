@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 
 /**
@@ -43,13 +42,13 @@ import { ModelConfig } from '../../config';
  *   baseUrl: 'http://localhost:11434/api',
  *   numCtx: 4096
  * };
- * const provider = new OllamaLanguageModel(config, context);
+ * const provider = new OllamaModelProvider(config, context);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://ollama.com/ for Ollama documentation
  */
-export class OllamaLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class OllamaModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Ollama provider instance from ollama-ai-provider package.
 	 */
@@ -78,22 +77,10 @@ export class OllamaLanguageModel extends VercelModelProvider implements positron
 	/**
 	 * Initializes the Ollama provider.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiOptions = {
 			numCtx: this._config.numCtx,
 		};
 		this.aiProvider = createOllama({ baseURL: this._config.baseUrl });
-	}
-
-	/**
-	 * Creates the AI provider instance.
-	 * @returns The Ollama provider function.
-	 */
-	protected createAIProvider(): AIProviderFactory | undefined {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return OllamaLanguageModel.source.provider.displayName;
 	}
 }

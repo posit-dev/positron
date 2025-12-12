@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import { getAllModelDefinitions } from '../../modelDefinitions';
@@ -46,13 +45,13 @@ import { applyModelFilters } from '../../modelFilters';
  *   model: 'gpt-4o',
  *   baseUrl: 'https://api.openai.com/v1'
  * };
- * const provider = new OpenAILanguageModel(config, context);
+ * const provider = new OpenAIModelProvider(config, context);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://platform.openai.com/docs for OpenAI API documentation
  */
-export class OpenAILanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class OpenAIModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The OpenAI provider instance from Vercel AI SDK.
 	 */
@@ -110,30 +109,12 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	 * - Custom base URL (if specified)
 	 * - Custom fetch implementation for request handling
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this.baseUrl,
 			fetch: createOpenAICompatibleFetch(this.providerName)
 		});
-	}
-
-	/**
-	 * Creates the AI provider instance for OpenAI.
-	 *
-	 * @returns The OpenAI provider instance that can create GPT model instances
-	 */
-	protected override createAIProvider(): AIProviderFactory {
-		return this.aiProvider;
-	}
-
-	/**
-	 * Gets the display name for this provider.
-	 *
-	 * @returns The string 'OpenAI'
-	 */
-	get providerName(): string {
-		return OpenAILanguageModel.source.provider.displayName;
 	}
 
 	/**
@@ -144,8 +125,8 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	 *
 	 * @returns The base URL for API requests
 	 */
-	get baseUrl(): string | undefined {
-		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	get baseUrl() {
+		return (this._config.baseUrl ?? OpenAIModelProvider.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 
 	/**
@@ -158,7 +139,7 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	 * @param token - Cancellation token
 	 * @returns Array of available models after filtering
 	 */
-	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	override async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken) {
 		this.logger.debug('Preparing language model chat information...');
 		const models = await this.resolveModels(token) ?? [];
 
@@ -169,7 +150,7 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	/**
 	 * Resolves available models from configuration or API.
 	 */
-	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+	override async resolveModels(token: vscode.CancellationToken) {
 		this.logger.debug('Resolving models...');
 
 		const configuredModels = this.retrieveModelsFromConfig();
@@ -190,7 +171,7 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	/**
 	 * Retrieves models from configuration.
 	 */
-	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
+	protected override retrieveModelsFromConfig() {
 		const configuredModels = getAllModelDefinitions(this.provider);
 		if (configuredModels.length === 0) {
 			return undefined;
@@ -218,7 +199,7 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	/**
 	 * Retrieves models from the OpenAI API.
 	 */
-	protected async retrieveModelsFromApi(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+	protected override async retrieveModelsFromApi(token: vscode.CancellationToken) {
 		try {
 			const data = await this.fetchModelsFromAPI();
 			if (!data?.data || !Array.isArray(data.data)) {
@@ -260,12 +241,12 @@ export class OpenAILanguageModel extends VercelModelProvider implements positron
 	 *
 	 * @see {@link FILTERED_MODEL_PATTERNS} for the list of filtered patterns
 	 */
-	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+	override filterModels(models: vscode.LanguageModelChatInformation[]) {
 		const removedModels: string[] = [];
 		const filteredModels = applyModelFilters(models, this.provider, this.providerName)
 			.filter((model: any) => {
 				const modelName = model.id.toLowerCase();
-				const shouldRemove = OpenAILanguageModel.FILTERED_MODEL_PATTERNS.some(pattern => {
+				const shouldRemove = OpenAIModelProvider.FILTERED_MODEL_PATTERNS.some(pattern => {
 					const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
 					return regex.test(modelName);
 				});

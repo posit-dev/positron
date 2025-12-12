@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from './anthropicProvider.js';
 
@@ -37,14 +36,13 @@ import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from './a
  *   apiKey: 'sk-ant-...',
  *   model: 'claude-3-5-sonnet-20241022',
  *   toolCalls: true
- * };
- * const provider = new AnthropicAILanguageModel(config, context);
+ * };  * const provider = new AnthropicAIModelProvider(config, context);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://docs.anthropic.com/ for Anthropic API documentation
  */
-export class AnthropicAILanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class AnthropicAIModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Anthropic provider instance from Vercel AI SDK.
 	 */
@@ -87,25 +85,7 @@ export class AnthropicAILanguageModel extends VercelModelProvider implements pos
 	 * Creates an Anthropic provider instance with the configured API key.
 	 * This is called automatically during construction.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
-	}
-
-	/**
-	 * Creates the AI provider instance for Anthropic.
-	 *
-	 * @returns The Anthropic provider instance that can create Claude model instances
-	 */
-	protected createAIProvider(): AIProviderFactory | undefined {
-		return this.aiProvider;
-	}
-
-	/**
-	 * Gets the display name for this provider.
-	 *
-	 * @returns The string 'Anthropic'
-	 */
-	get providerName(): string {
-		return AnthropicAILanguageModel.source.provider.displayName;
 	}
 }

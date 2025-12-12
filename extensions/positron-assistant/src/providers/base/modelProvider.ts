@@ -14,7 +14,7 @@ import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers'
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { ModelProviderLogger } from './modelProviderLogger';
 import { AuthenticationError, ModelRetrievalError } from './modelProviderErrors';
-import { AutoconfigureResult, AIProviderFactory } from './modelProviderTypes';
+import { AutoconfigureResult } from './modelProviderTypes';
 
 /**
  * Abstract base class for all model providers in the Positron Assistant extension.
@@ -39,7 +39,7 @@ import { AutoconfigureResult, AIProviderFactory } from './modelProviderTypes';
  * Subclasses must implement:
  * - {@link provideLanguageModelChatResponse} - Chat response generation
  * - {@link sendTestMessage} - Connection testing
- * - {@link createAIProvider} - Provider initialization
+ * - {@link initializeProvider} - Provider initialization (optional)
  *
  * @example
  * ```typescript
@@ -48,9 +48,8 @@ import { AutoconfigureResult, AIProviderFactory } from './modelProviderTypes';
  *     return 'My Provider';
  *   }
  *
- *   protected createAIProvider() {
+ *   protected initializeProvider() {
  *     // Initialize your custom SDK
- *     return undefined;
  *   }
  *
  *   async provideLanguageModelChatResponse(...) {
@@ -125,29 +124,8 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		this.id = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
-		// Logger will be initialized by subclass
-		this.logger = null as any;
-		// Call initialization template method to set up logger and provider
-		this.initialize();
-	}
-
-	/**
-	 * Template method for provider initialization.
-	 * Calls initializeLogger() and initializeProvider() in the correct order.
-	 * This is called automatically during construction.
-	 * @private
-	 */
-	private initialize(): void {
-		this.initializeLogger();
-		this.initializeProvider();
-	}
-
-	/**
-	 * Initializes the logger. Called automatically during construction.
-	 * @protected
-	 */
-	protected initializeLogger(): void {
 		this.logger = new ModelProviderLogger(this.providerName);
+		this.initializeProvider();
 	}
 
 	/**
@@ -164,44 +142,14 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * Gets the human-readable display name of the provider.
 	 *
 	 * This name is used in UI elements and log messages to identify the provider.
-	 * Each provider subclass must implement this to return its specific display name.
+	 * The default implementation returns the displayName from the static source property.
+	 * Subclasses can override this if they need custom logic.
 	 *
 	 * @returns The display name of the provider (e.g., 'Anthropic', 'OpenAI', 'Ollama')
-	 *
-	 * @example
-	 * ```typescript
-	 * get providerName(): string {
-	 *   return 'My Custom Provider';
-	 * }
-	 * ```
 	 */
-	abstract get providerName(): string;
-
-	/**
-	 * Creates the AI provider instance for this provider.
-	 *
-	 * This method is called during provider initialization to set up the underlying
-	 * AI SDK provider. The return value depends on the provider type:
-	 * - Vercel AI SDK providers: Return the provider factory function
-	 * - Custom providers: Return undefined and initialize custom SDK in this method
-	 *
-	 * @returns The AI provider factory function, or undefined for custom providers
-	 *
-	 * @example
-	 * ```typescript
-	 * // Vercel AI SDK provider (use VercelModelProvider instead)
-	 * protected createAIProvider() {
-	 *   return createAnthropic({ apiKey: this._config.apiKey });
-	 * }
-	 *
-	 * // Custom provider
-	 * protected createAIProvider() {
-	 *   this._customClient = new MyCustomProvider();
-	 *   return undefined;
-	 * }
-	 * ```
-	 */
-	protected abstract createAIProvider(): AIProviderFactory | undefined;
+	get providerName() {
+		return (this.constructor as typeof ModelProvider).source.provider.displayName;
+	}
 
 	/**
 	 * Validates the provider's credentials before attempting to connect.
@@ -373,16 +321,16 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @example
 	 * ```typescript
-	 * // Vercel AI SDK provider
+	 * // Vercel AI SDK provider (implemented in VercelModelProvider subclass)
 	 * protected async sendTestMessage(modelId: string) {
 	 *   return ai.generateText({
-	 *     model: this.aiProvider(modelId),
+	 *     model: this.createAIProvider()(modelId),
 	 *     prompt: "Hello",
 	 *     maxRetries: 1,
 	 *   });
 	 * }
 	 *
-	 * // Custom provider
+	 * // Custom provider using native SDK
 	 * protected async sendTestMessage(modelId: string) {
 	 *   return this._client.chat({ model: modelId, messages: [{ role: 'user', content: 'Hello' }] });
 	 * }
@@ -684,22 +632,6 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 			defaultMaxOutput: this._config.maxOutputTokens
 		});
 		return [{ ...modelInfo, isDefault: true }];
-	}
-
-	/**
-	 * Handles authentication errors in a consistent way across providers.
-	 *
-	 * This utility method extracts the error message and logs it, then returns
-	 * a user-friendly message with guidance to check credentials. Subclasses
-	 * can override this for provider-specific authentication error handling.
-	 *
-	 * @param error - The authentication error to handle
-	 * @returns A user-friendly error message with guidance for resolution
-	 */
-	protected handleAuthenticationError(error: any): string {
-		const message = error.message || 'Authentication failed';
-		this.logger.error(`Authentication error: ${message}`);
-		return `${message}. Please check your credentials and try signing in again.`;
 	}
 
 	/**

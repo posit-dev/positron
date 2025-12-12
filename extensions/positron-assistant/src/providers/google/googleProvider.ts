@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig, SecretStorage } from '../../config';
 
 /**
@@ -39,13 +38,13 @@ import { ModelConfig, SecretStorage } from '../../config';
  *   model: 'gemini-2.0-flash-exp',
  *   baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
  * };
- * const provider = new GoogleLanguageModel(config, context, storage);
+ * const provider = new GoogleModelProvider(config, context, storage);
  * ```
  *
  * @see {@link ModelProvider} for base class documentation
  * @see https://ai.google.dev/ for Google Generative AI documentation
  */
-export class GoogleLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class GoogleModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	/**
 	 * The Google Generative AI provider instance from Vercel AI SDK.
 	 */
@@ -75,22 +74,10 @@ export class GoogleLanguageModel extends VercelModelProvider implements positron
 	/**
 	 * Initializes the Google Generative AI provider.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createGoogleGenerativeAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		});
-	}
-
-	/**
-	 * Creates the AI provider instance.
-	 * @returns The Google Generative AI provider function.
-	 */
-	protected override createAIProvider(): AIProviderFactory {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return GoogleLanguageModel.source.provider.displayName;
 	}
 }

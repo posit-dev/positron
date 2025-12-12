@@ -7,24 +7,22 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ModelConfig, SecretStorage } from '../../config';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { ModelProvider } from '../base/modelProvider';
 
 /**
  * Test provider that always throws errors.
  * Useful for testing error handling in the application.
  */
-export class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
-	readonly name = 'Error Language Model';
-	readonly provider = 'error';
-	readonly id = 'error-language-model';
+export class ErrorModelProvider extends ModelProvider {
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
-	private readonly _message = '[ErrorLanguageModel] This language model always throws an error message.';
+	private readonly _message = '[ErrorModelProvider] This language model always throws an error message.';
 
 	constructor(
 		_config: ModelConfig,
-		private readonly _context?: vscode.ExtensionContext,
-		private readonly _storage?: SecretStorage,
+		_context?: vscode.ExtensionContext,
+		_storage?: SecretStorage,
 	) {
-		// No additional setup needed for error model
+		super(_config, _context, _storage);
 	}
 
 	static source = {
@@ -41,27 +39,30 @@ export class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider
 		},
 	};
 
-	get providerName(): string {
-		return ErrorLanguageModel.source.provider.displayName;
-	}
-
-	provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+	/**
+	 * Sends a test message - always throws an error.
+	 */
+	protected async sendTestMessage(modelId: string): Promise<any> {
 		throw new Error(this._message);
 	}
 
-	provideLanguageModelChatResponse(): Promise<any> {
+	/**
+	 * Provides a chat response - always throws an error.
+	 */
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	): Promise<void> {
 		throw new Error(this._message);
 	}
 
-	provideTokenCount(): Promise<number> {
-		throw new Error(this._message);
-	}
-
-	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
-		throw new Error(this._message);
-	}
-
-	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
+	/**
+	 * Resolves models - always throws an error.
+	 */
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		throw new Error(this._message);
 	}
 }

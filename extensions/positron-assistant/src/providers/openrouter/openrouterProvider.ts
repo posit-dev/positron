@@ -7,14 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { AIProviderFactory } from '../base/modelProviderTypes';
 import { ModelConfig } from '../../config';
 
 /**
  * OpenRouter model provider implementation.
  * OpenRouter provides access to multiple AI models through a single API.
  */
-export class OpenRouterLanguageModel extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
+export class OpenRouterModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
 	protected declare aiProvider: OpenRouterProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -39,22 +38,10 @@ export class OpenRouterLanguageModel extends VercelModelProvider implements posi
 	/**
 	 * Initializes the OpenRouter provider.
 	 */
-	protected initializeProvider(): void {
+	protected override initializeProvider() {
 		this.aiProvider = createOpenRouter({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		});
-	}
-
-	/**
-	 * Creates the AI provider instance.
-	 * @returns The OpenRouter provider function.
-	 */
-	protected createAIProvider(): AIProviderFactory | undefined {
-		return this.aiProvider;
-	}
-
-	get providerName(): string {
-		return OpenRouterLanguageModel.source.provider.displayName;
 	}
 }

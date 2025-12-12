@@ -4,14 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import * as ai from 'ai';
-
-/**
- * Type for Vercel AI SDK provider factory functions.
- * Creates a language model instance given a model ID and optional configuration.
- */
-export type AIProviderFactory = (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
 
 /**
  * Common types and interfaces for model providers.

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { OpenAILanguageModel } from './openaiProvider';
+import { OpenAIModelProvider } from './openaiProvider';
 
 /**
  * OpenAI-compatible model provider implementation.
@@ -16,7 +16,7 @@ import { OpenAILanguageModel } from './openaiProvider';
  * - Alternative AI providers with OpenAI-compatible APIs
  * - Self-hosted inference servers
  *
- * This class extends {@link OpenAILanguageModel} and inherits all its functionality,
+ * This class extends {@link OpenAIModelProvider} and inherits all its functionality,
  * only changing the provider ID and display name to differentiate it from the
  * official OpenAI provider.
  *
@@ -36,13 +36,13 @@ import { OpenAILanguageModel } from './openaiProvider';
  *   baseUrl: 'http://localhost:1234/v1',
  *   model: 'local-model'
  * };
- * const provider = new OpenAICompatibleLanguageModel(config, context);
+ * const provider = new OpenAICompatibleModelProvider(config, context);
  * ```
  *
- * @see {@link OpenAILanguageModel} for inherited functionality
+ * @see {@link OpenAIModelProvider} for inherited functionality
  * @see {@link ModelProvider} for base class documentation
  */
-export class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider {
+export class OpenAICompatibleModelProvider extends OpenAIModelProvider implements positron.ai.LanguageModelChatProvider {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -60,15 +60,6 @@ export class OpenAICompatibleLanguageModel extends OpenAILanguageModel implement
 	};
 
 	/**
-	 * Gets the display name for this provider.
-	 *
-	 * @returns The string 'Custom Provider'
-	 */
-	get providerName(): string {
-		return OpenAICompatibleLanguageModel.source.provider.displayName;
-	}
-
-	/**
 	 * Gets the base URL for the OpenAI-compatible API.
 	 *
 	 * Overrides the parent implementation to use the custom provider's defaults
@@ -76,7 +67,7 @@ export class OpenAICompatibleLanguageModel extends OpenAILanguageModel implement
 	 *
 	 * @returns The base URL for API requests
 	 */
-	get baseUrl(): string | undefined {
-		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	override get baseUrl() {
+		return (this._config.baseUrl ?? OpenAICompatibleModelProvider.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 }
