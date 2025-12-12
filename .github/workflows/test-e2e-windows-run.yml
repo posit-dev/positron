@@ -143,9 +143,9 @@ jobs:
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
           POSITRON_PARALLEL_INSTALL: '1'
           POSITRON_NPM_CONCURRENCY: '30'
-          NPM_CONFIG_AUDIT: 'false'
-          NPM_CONFIG_FUND: 'false'
-          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
         with:
           timeout_minutes: 30
           max_attempts: 5
