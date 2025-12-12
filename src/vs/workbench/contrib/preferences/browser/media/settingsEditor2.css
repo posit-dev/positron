@@ -602,6 +602,7 @@
 
 .settings-editor > .settings-body .settings-tree-container .setting-item-contents .setting-item-markdown code {
 	line-height: 15px;
+	background-color: var(--vscode-textPreformat-background);
 	/** For some reason, this is needed, otherwise <code> will take up 20px height */
 	font-family: var(--monaco-monospace-font);
 	font-size: 11px;
