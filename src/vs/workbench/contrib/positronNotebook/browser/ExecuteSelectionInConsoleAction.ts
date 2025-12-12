@@ -38,9 +38,11 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 			icon: executeIcon,
 			f1: true,
 			// Only enable if the active editor is a notebook (Positron or built-in) and the notebook console actions setting is enabled
-			precondition: ContextKeyExpr.or(
-				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-				ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.or(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+				),
 				ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
 			),
 			// Show in the cell context menu, but only for code cells and when there's a selection
