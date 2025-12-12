@@ -44,9 +44,10 @@ runs:
       id: extensions-hash
       shell: bash
       run: |
-        # Generate a hash of all extension + .vscode package-lock.json files
+        # Generate a hash of all extension + .vscode package.json files
+        # Use package.json instead of package-lock.json because lock files get modified during npm install
         # Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
-        EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package-lock.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
+        EXTENSIONS_HASH=$(find extensions .vscode -maxdepth 3 -name "package.json" -type f 2>/dev/null | sort | xargs cat | sha256sum | cut -d' ' -f1)
         echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
         echo "Generated extensions hash: $EXTENSIONS_HASH"
 
