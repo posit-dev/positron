@@ -187,6 +187,11 @@ export namespace LanguageService {
     export const reloadVSCodeIfSeachPathHasChanged = l10n.t(
         'Search paths have changed for this Python interpreter. Reload the extension to ensure that the IntelliSense works correctly.',
     );
+    // --- Start Positron ---
+    export const multipleLanguageServersWarning = l10n.t(
+        "More than one Python language server extension is enabled. You may experience duplicated static analysis behavior. It's recommended to uninstall or disable all but one.",
+    );
+    // --- End Positron ---
 }
 export namespace Interpreters {
     export const requireJupyter = l10n.t(
