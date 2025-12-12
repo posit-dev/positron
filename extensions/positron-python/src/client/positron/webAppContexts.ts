@@ -23,6 +23,24 @@ export function detectWebApp(document: vscode.TextDocument): void {
 
 export function getFramework(text: string): string | undefined {
     const libraries = getSupportedLibraries();
+
+    // Define patterns for app creation for each framework
+    const appCreationPatterns: Record<string, RegExp> = {
+        'dash': /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
+        'flask': /\w+\s*=\s*(?:Flask|flask\.Flask)\(/i,
+        'streamlit': /st\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
+        'gradio': /\w+\s*=\s*(?:gr\.|gradio\.)/i,
+        'fastapi': /\w+\s*=\s*(?:FastAPI|fastapi\.FastAPI)\(/i,
+    };
+
+    // Check for app creation first (more reliable)
+    for (const lib of libraries) {
+        if (libraries.includes(lib) && lib in appCreationPatterns && appCreationPatterns[lib].test(text)) {
+            return lib;
+        }
+    }
+
+    // Fall back to import detection
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
     const importMatch = importPattern.exec(text);
