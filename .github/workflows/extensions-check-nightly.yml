@@ -30,25 +30,50 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
 
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-hit != 'true'
+        uses: nick-fields/retry@v3
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
 
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+      - name: Install Playwright browsers
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        run: |
+          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
+          npx playwright install --with-deps
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      - name: Save caches
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
 
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
