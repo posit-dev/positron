@@ -61,7 +61,7 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
     }
 
     public dispose(): void {
-        if (this.timeOut && typeof this.timeOut !== 'number') {
+        if (this.timeOut) {
             clearTimeout(this.timeOut);
             this.timeOut = undefined;
         }
@@ -121,7 +121,7 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
     }
 
     protected async onDidChangeExtensions(): Promise<void> {
-        if (this.timeOut && typeof this.timeOut !== 'number') {
+        if (this.timeOut) {
             clearTimeout(this.timeOut);
             this.timeOut = undefined;
         }
