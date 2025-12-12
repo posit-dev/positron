@@ -26,11 +26,11 @@ export function getFramework(text: string): string | undefined {
 
     // Define patterns for app creation for each framework
     const appCreationPatterns: Record<string, RegExp> = {
-        'dash': /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
-        'flask': /\w+\s*=\s*(?:Flask|flask\.Flask)\(/i,
-        'streamlit': /st\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
-        'gradio': /\w+\s*=\s*(?:gr\.|gradio\.)/i,
-        'fastapi': /\w+\s*=\s*(?:FastAPI|fastapi\.FastAPI)\(/i,
+        dash: /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
+        flask: /\w+\s*=\s*(?:Flask|flask\.Flask)\(/i,
+        streamlit: /st\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
+        gradio: /\w+\s*=\s*(?:gr\.|gradio\.)/i,
+        fastapi: /\w+\s*=\s*(?:FastAPI|fastapi\.FastAPI)\(/i,
     };
 
     // Check for app creation first (more reliable)
