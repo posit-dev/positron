@@ -230,6 +230,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// Create the contributions container for widgets (find, etc)
 		this._contributionsContainer = DOM.$('.positron-notebook-contributions');
 		this._editorContainer.appendChild(this._contributionsContainer);
+
+		// Create a scoped context key service rooted at the editor container so contributions inherit it.
+		this._containerScopedContextKeyService = this._register(this.contextKeyService.createScoped(this._editorContainer));
 	}
 
 	override layout(
@@ -372,10 +375,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			this._positronReactRenderer.dispose();
 			this._positronReactRenderer = undefined;
 		}
-
-		// Dispose of the scoped context key service
-		this._containerScopedContextKeyService?.dispose();
-		this._containerScopedContextKeyService = undefined;
 	}
 
 	private _renderReact(): IScopedContextKeyService {
@@ -397,11 +396,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Contributions container is not set.');
 		}
 
+		const scopedContextKeyService = this._containerScopedContextKeyService;
+		if (!scopedContextKeyService) {
+			throw new Error('Scoped context key service is not set.');
+		}
+
 		// Set the editor container for focus tracking
 		this.notebookInstance.setEditorContainer(this._editorContainer);
-
-		// Create a scoped context key service rooted at the editor container so contributions inherit it.
-		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._editorContainer);
 
 		// Create renderer if it doesn't exist, otherwise reuse existing renderer
 		if (!this._positronReactRenderer) {
