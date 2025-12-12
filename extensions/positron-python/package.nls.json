@@ -18,6 +18,7 @@
     "python.command.python.execFlaskInTerminal.title": "Run Flask App in Terminal",
     "python.command.python.execGradioInTerminal.title": "Run Gradio App in Terminal",
     "python.command.python.execStreamlitInTerminal.title": "Run Streamlit App in Terminal",
+    "python.command.python.execMarimoInTerminal.title": "Run Marimo App in Terminal",
     "python.command.python.debugDashInTerminal.title": "Debug Dash App in Terminal",
     "python.command.python.debugFastAPIInTerminal.title": "Debug FastAPI App in Terminal",
     "python.command.python.debugFlaskInTerminal.title": "Debug Flask App in Terminal",

@@ -38,7 +38,8 @@ export enum CommandSource {
     ui = 'ui',
     commandPalette = 'commandpalette',
 }
-
+//add marimo command here as well, jsut like streamlit
+// search codebase for where streamlit in terminal is used -- follow the path where it's being used and copy exact implementation
 export namespace Commands {
     export const ClearStorage = 'python.clearCacheAndReload';
     export const CreateNewFile = 'python.createNewFile';
@@ -58,6 +59,7 @@ export namespace Commands {
     export const Exec_Flask_In_Terminal = 'python.execFlaskInTerminal';
     export const Exec_Gradio_In_Terminal = 'python.execGradioInTerminal';
     export const Exec_Streamlit_In_Terminal = 'python.execStreamlitInTerminal';
+    export const Exec_Marimo_In_Terminal = 'python.execMarimoInTerminal'
     export const Exec_In_Console = 'python.execInConsole';
     export const Exec_Selection_In_Console = 'python.execSelectionInConsole';
     export const Debug_Dash_In_Terminal = 'python.debugDashInTerminal';
@@ -65,6 +67,7 @@ export namespace Commands {
     export const Debug_Flask_In_Terminal = 'python.debugFlaskInTerminal';
     export const Debug_Gradio_In_Terminal = 'python.debugGradioInTerminal';
     export const Debug_Streamlit_In_Terminal = 'python.debugStreamlitInTerminal';
+    export const Debug_Marimo_In_Terminal = 'python.debugMarimoInTerminal';
     // --- End Positron ---
     export const Exec_In_REPL = 'python.execInREPL';
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';

@@ -64,10 +64,10 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
         Uri | string,
         (
             | {
-                  installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
-                  installPreReleaseVersion?: boolean;
-                  donotSync?: boolean;
-              }
+                installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
+                installPreReleaseVersion?: boolean;
+                donotSync?: boolean;
+            }
             | undefined
         ),
     ];
@@ -109,6 +109,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_Gradio_In_Terminal]: [];
     [Commands.Exec_Streamlit_In_Terminal]: [];
     [Commands.Exec_In_Console]: [];
+    [Commands.Exec_Marimo_In_Terminal]: [];
     [Commands.Focus_Positron_Console]: [];
     [Commands.Create_Pyproject_Toml]: [string | undefined];
     [Commands.InstallPackages]: [string[]];
