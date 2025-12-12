@@ -209,6 +209,7 @@ jobs:
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
       - name: Restore Python packages cache
         id: cache-python

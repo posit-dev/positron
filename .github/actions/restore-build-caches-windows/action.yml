@@ -35,6 +35,9 @@ outputs:
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.extensions-hash.outputs.hash }}
+  package-locks-hash:
+    description: "Computed hash of all package-lock.json files (for DRY cache key generation)"
+    value: ${{ steps.package-locks-hash.outputs.hash }}
 
 runs:
   using: "composite"
@@ -83,6 +86,18 @@ runs:
         echo "hash=$EXTENSIONS_HASH" >> $GITHUB_OUTPUT
         echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, submodules: ${SUBMODULE_SHAS:-none})"
 
+    - name: Generate package-locks cache key
+      if: ${{ inputs.restore-npm == 'true' }}
+      id: package-locks-hash
+      shell: bash
+      run: |
+        # Calculate hash of all package-lock.json files that get modified during postinstall
+        # This is the single source of truth for which package-lock files to include in npm cache keys
+        # See build/npm/dirs.js for the list of directories that get npm install during postinstall
+        PACKAGE_LOCKS_HASH=$(echo "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}")
+        echo "hash=$PACKAGE_LOCKS_HASH" >> $GITHUB_OUTPUT
+        echo "Generated package-locks hash: $PACKAGE_LOCKS_HASH"
+
     - name: Restore npm dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
       id: cache-npm
@@ -98,10 +113,10 @@ runs:
           remote/node_modules
           test/e2e/node_modules
         # Hash main package-lock files + programmatically generated extensions hash
-        # Cache version v2 (bump to v3 when you need to invalidate all caches, e.g., major toolchain changes)
         # No restore-keys to avoid partial matches that could restore wrong extension versions
-        # IMPORTANT: If bumping npm-v2 -> npm-v3, also update save-build-caches-windows/action.yml
-        key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ steps.extensions-hash.outputs.hash }}
+        # Package-locks hash is calculated once in the "Generate package-locks cache key" step above (DRY)
+        # IMPORTANT: If bumping npm-v3 -> npm-v4, also update save-build-caches-windows/action.yml
+        key: npm-v3-${{ runner.os }}-${{ steps.package-locks-hash.outputs.hash }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
       if: ${{ inputs.restore-playwright == 'true' }}

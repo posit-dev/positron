@@ -22,6 +22,10 @@ inputs:
     description: "Extensions hash from restore step (required only if saving npm cache)"
     required: false
     default: ''
+  package-locks-hash:
+    description: "Package-locks hash from restore step (required only if saving npm cache)"
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -39,8 +43,9 @@ runs:
           .vscode
           remote/node_modules
           test/e2e/node_modules
-        # IMPORTANT: If bumping npm-v2 -> npm-v3, also update restore-build-caches/action.yml
-        key: npm-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'test/e2e/package-lock.json') }}-${{ inputs.extensions-hash }}
+        # Package-locks hash comes from restore step (DRY - single source of truth)
+        # IMPORTANT: If bumping npm-v3 -> npm-v4, also update restore-build-caches/action.yml
+        key: npm-v3-${{ runner.os }}-${{ inputs.package-locks-hash }}-${{ inputs.extensions-hash }}
 
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}

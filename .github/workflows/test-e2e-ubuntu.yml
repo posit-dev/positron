@@ -229,6 +229,7 @@ jobs:
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
       - name: Move Positron License
         if: ${{ inputs.install_license }}
