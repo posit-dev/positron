@@ -1,5 +1,10 @@
 name: "Test: E2E (Windows) — Run-only"
 
+# Cache Save Strategy:
+# This workflow runs with multiple shards in parallel (e.g., shards 1-4). To prevent race
+# conditions when multiple shards try to save the same cache key simultaneously, only
+# shard 1 saves caches (see "Save caches" step with if: ${{ matrix.shard == 1 }}).
+
 on:
   workflow_call:
     inputs:

@@ -1,7 +1,21 @@
 name: "Test: Unit"
 
+# Cache Save Strategy:
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true. Examples:
+# - test-pull-request.yml: unit-tests saves, integration-tests and e2e do not
+# - test-merge.yml: unit-tests saves, setup/integration/e2e do not
+# - test-full-suite.yml: setup job saves via test-e2e-ubuntu-build.yml, all others do not
+
 on:
   workflow_call:
+    inputs:
+      save_cache:
+        required: false
+        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
@@ -83,6 +97,7 @@ jobs:
         run: npm run prelaunch
 
       - name: Save caches
+        if: ${{ inputs.save_cache }}
         uses: ./.github/actions/save-build-caches
         with:
           cache-npm-hit: ${{ steps.restore-caches.outputs.cache-npm-hit }}

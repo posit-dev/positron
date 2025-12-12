@@ -1,5 +1,12 @@
 name: "Test: E2E (RHEL)"
 
+# Cache Save Strategy:
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true. In practice:
+# - test-pull-request.yml: Does NOT set save_cache (unit-tests saves instead)
+# - test-full-suite.yml: Does NOT set save_cache (setup job via test-e2e-ubuntu-build.yml saves)
+
 on:
   workflow_call:
     inputs:

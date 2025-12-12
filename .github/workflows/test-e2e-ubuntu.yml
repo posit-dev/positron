@@ -1,5 +1,12 @@
 name: "Test: E2E (Ubuntu)"
 
+# Cache Save Strategy:
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true. Example:
+# - test-assistant-llm.yml: e2e-electron saves (only job calling this workflow)
+# - Most workflows: do NOT set save_cache (they use test-e2e-ubuntu-build.yml setup job to save)
+
 on:
   workflow_call:
     inputs:
