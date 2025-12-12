@@ -276,7 +276,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         return True
         return False
 
-    def _send_show_html_event(self, url: str, destination: str) -> bool:  # noqa: FBT001
+    def _send_show_html_event(self, url: str, destination: str) -> bool:
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False
