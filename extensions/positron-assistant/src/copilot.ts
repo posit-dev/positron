@@ -125,20 +125,25 @@ export class CopilotService implements vscode.Disposable {
 
 /**
  * Stub implementation of Copilot language model provider, so we can show its
- * sign in/sign out state in the language model configuration UI.
+ * sign in/sign out state in the language model configuration UI. Once signed
+ * in/out, all the actual chat features are handled by the Copilot Chat
+ * extension, so this is just a placeholder.
  */
 export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvider {
 
+	/** Stub for chat response. Always resolves immediately. */
 	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any> {
-		throw new Error('Method not implemented.');
+		return Promise.resolve();
 	}
 
+	/** Stub for chat information. Always returns an empty array. */
 	provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		throw new Error('Method not implemented.');
+		return Promise.resolve([]);
 	}
 
-	provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number> {
-		throw new Error('Method not implemented.');
+	/** Stub for token counting. Always returns 0. */
+	provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
+		return Promise.resolve(0);
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -152,8 +157,9 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		return undefined;
 	}
 
-	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
-		throw new Error('Method not implemented.');
+	/** Stub for model resolution. This placeholder fixture doesn't return any models. */
+	resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		return Promise.resolve([]);
 	}
 
 	get providerName() {
