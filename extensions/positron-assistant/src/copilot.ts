@@ -100,14 +100,14 @@ export class CopilotService implements vscode.Disposable {
 		if (session?.id !== this._authSession?.id) {
 			this.setAuthSession(session);
 			if (this.isSignedIn) {
-				const autoConfig: LanguageModelAutoconfigure = {
+				const autoConfig: positron.ai.LanguageModelAutoconfigure = {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
 					signedIn: true,
 					message: vscode.l10n.t('the Accounts menu.')
 				}
 				CopilotLanguageModel.source.defaults.autoconfigure = autoConfig;
 			} else {
-				const autoConfig: LanguageModelAutoconfigure = {
+				const autoConfig: positron.ai.LanguageModelAutoconfigure = {
 					type: positron.ai.LanguageModelAutoconfigureType.Custom,
 					signedIn: false,
 					message: vscode.l10n.t('the Accounts menu.')
@@ -142,13 +142,14 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { createIfNone: true });
-		if (session) {
-			const service = CopilotService.instance();
+		const service = CopilotService.instance();
+		if (!service.isSignedIn) {
 			await service.refreshSignedInState();
-			return undefined;
+			if (!service.isSignedIn) {
+				return new Error(vscode.l10n.t('You must sign in to GitHub Copilot to use this language model.'));
+			}
 		}
-		return Promise.resolve(new Error('Not signed in to GitHub Copilot.'));
+		return undefined;
 	}
 
 	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {

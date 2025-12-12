@@ -132,6 +132,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	const { apiKey } = config;
 
 	const hasAutoconfigure = !!source.defaults.autoconfigure && source.defaults.autoconfigure.signedIn;
+	const autoSignedIn = !!source.defaults.autoconfigure && authStatus === AuthStatus.SIGNED_IN;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasAutoconfigure;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasAutoconfigure;
 	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl');
@@ -145,7 +146,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	return <>
 		{!hasAutoconfigure && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
-			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
+			<SignInButton authMethod={authMethod} authStatus={authStatus} isAutoconfigured={autoSignedIn} onSignIn={props.onSignIn} />
 			{showCancelButton &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
 					{localize('positron.languageModelConfig.cancel', "Cancel")}
@@ -189,13 +190,15 @@ const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void 
 	</>)
 }
 
-const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, onSignIn: () => void }) => {
+const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, isAutoconfigured: boolean, onSignIn: () => void }) => {
 	// Use the default button style when the auth method is 'apiKey' and authentication is in progress (user
 	// is entering an API key). This allows the Enter key to submit the API key input field.
 	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.authStatus === AuthStatus.SIGN_IN_PENDING;
+	// Disable the button when signing in, or when autoconfigured and signed in (can't sign out of autoconfigured provider)
+	const isDisabled = props.authStatus === AuthStatus.SIGNING_IN || props.isAutoconfigured;
 	return <Button
 		className={`language-model button sign-in ${useDefaultButtonStyle ? 'default' : ''}`}
-		disabled={props.authStatus === AuthStatus.SIGNING_IN}
+		disabled={isDisabled}
 		onPressed={props.onSignIn}
 	>
 		{props.authStatus === AuthStatus.SIGNED_IN ? signOutButtonLabel : signInButtonLabel}
