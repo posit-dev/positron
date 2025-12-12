@@ -1,0 +1,12 @@
+{
+	"displayName": "Positron Julia",
+	"description": "Julia language support for Positron",
+	"julia.capabilities.untrustedWorkspaces.description": "Julia code execution is disabled in untrusted workspaces.",
+	"julia.command.createNewFile.title": "Create New Julia File",
+	"julia.menu.createNewFile.title": "Julia File",
+	"julia.command.selectInterpreter.title": "Select Julia Interpreter",
+	"julia.command.sourceCurrentFile.title": "Source Current File",
+	"julia.configuration.interpreters.include.markdownDescription": "Additional paths to search for Julia installations.",
+	"julia.configuration.interpreters.exclude.markdownDescription": "Paths to exclude when searching for Julia installations.",
+	"julia.configuration.kernel.logLevel.markdownDescription": "Log level for the Julia kernel."
+}
