@@ -9,7 +9,7 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget } from './PositronFindWidget.js';
+import { PositronFindWidget, PositronFindWidgetHandle } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
@@ -34,8 +34,9 @@ export interface IPositronFindInstanceOptions {
  * Emits events for user actions (find next/previous, close) and exposes observable state.
  */
 export class PositronFindInstance extends Disposable {
-	private _renderer?: PositronModalReactRenderer;
 	private _container?: HTMLElement;
+	private _renderer?: PositronModalReactRenderer;
+	private _handle: PositronFindWidgetHandle | null = null;
 
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
@@ -102,28 +103,38 @@ export class PositronFindInstance extends Disposable {
 				parent: this._options.container,
 				disableCaptures: true,
 			}));
-
-			// Create the find widget
-			const findWidget = React.createElement(PositronFindWidget, {
-				findInputOptions: this._options.findInputOptions,
-				findText: this.searchString,
-				focusInput: true,
-				inputFocused: this._inputFocused,
-				isVisible: this._isVisible,
-				matchCase: this.matchCase,
-				matchWholeWord: this.wholeWord,
-				useRegex: this.isRegex,
-				matchIndex: this.matchIndex,
-				matchCount: this.matchCount,
-				onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
-				onNextMatch: () => this._onDidRequestFindNext.fire(),
-			});
-
-			// Render the widget
-			this._renderer.render(findWidget);
 		}
 
-		this._isVisible.set(true, undefined);
+		// Create the find widget
+		const findWidget = React.createElement(PositronFindWidget, {
+			ref: (handle) => {
+				// Update the handle
+				this._handle = handle;
+
+				if (handle) {
+					// On mount, enable visibility
+					this._isVisible.set(true, undefined);
+				}
+			},
+			findInputOptions: this._options.findInputOptions,
+			findText: this.searchString,
+			focusInput: true,
+			inputFocused: this._inputFocused,
+			isVisible: this._isVisible,
+			matchCase: this.matchCase,
+			matchWholeWord: this.wholeWord,
+			useRegex: this.isRegex,
+			matchIndex: this.matchIndex,
+			matchCount: this.matchCount,
+			onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
+			onNextMatch: () => this._onDidRequestFindNext.fire(),
+		});
+
+		// Render the widget
+		this._renderer.render(findWidget);
+
+		// Focus the input
+		this._handle?.focusInput();
 	}
 
 	/**
