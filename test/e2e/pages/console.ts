@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,6 @@ import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
-import { normalize } from '../utils/textUtils.js';
 
 const CONSOLE_INPUT = '.console-input';
 export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -315,6 +314,15 @@ export class Console {
 
 			// Allow time for paste to register
 			await locator.page().waitForTimeout(100);
+
+			function normalize(text: string): string {
+				return text
+					.normalize('NFKC') // Normalize Unicode (optional but good when working with special chars)
+					.replace(/\s+/g, '') // Remove all whitespace
+					.replace(/\u00a0/g, '') // Remove non-breaking spaces
+					.replace(/[^\x20-\x7E]/g, '') // Remove not printable ASCII
+					.trim();
+			}
 
 			const visibleText = await locator.evaluate(el => el.textContent || '');
 
