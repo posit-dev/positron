@@ -1436,15 +1436,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		const clipboarCells: ICellDto2[] = [];
+		const clipboardCells: ICellDto2[] = [];
 		let clipboardText = '';
 		cellsToCopy.forEach(cell => {
-			clipboarCells.push(cellToCellDto2(cell));
+			clipboardCells.push(cellToCellDto2(cell));
 			clipboardText += cell.getContent() + '\n\n';
 		});
 
 		// Store in shared notebook service clipboard for within-window paste (same or different notebook)
-		this._positronNotebookService.setClipboardCells(clipboarCells);
+		this._positronNotebookService.setClipboardCells(clipboardCells);
 
 		// Remove trailing newlines from clipboard text
 		clipboardText = clipboardText.trimEnd();
