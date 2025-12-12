@@ -1,0 +1,128 @@
+{
+	"name": "positron-julia",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Data Science"
+	],
+	"main": "./out/extension.js",
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"description": "%julia.capabilities.untrustedWorkspaces.description%"
+		}
+	},
+	"icon": "icon.png",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"extensionDependencies": [
+		"positron.positron-supervisor"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "julia.createNewFile",
+				"category": "Julia",
+				"title": "%julia.command.createNewFile.title%",
+				"shortTitle": "%julia.menu.createNewFile.title%"
+			},
+			{
+				"command": "julia.selectInterpreter",
+				"category": "Julia",
+				"title": "%julia.command.selectInterpreter.title%"
+			},
+			{
+				"command": "julia.sourceCurrentFile",
+				"category": "Julia",
+				"title": "%julia.command.sourceCurrentFile.title%",
+				"icon": "$(play)"
+			}
+		],
+		"configuration": [
+			{
+				"title": "Julia",
+				"properties": {
+					"positron.julia.interpreters.include": {
+						"scope": "machine-overridable",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "%julia.configuration.interpreters.include.markdownDescription%"
+					},
+					"positron.julia.interpreters.exclude": {
+						"scope": "machine-overridable",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "%julia.configuration.interpreters.exclude.markdownDescription%"
+					},
+					"positron.julia.kernel.logLevel": {
+						"scope": "window",
+						"type": "string",
+						"enum": [
+							"trace",
+							"debug",
+							"info",
+							"warn",
+							"error"
+						],
+						"default": "warn",
+						"markdownDescription": "%julia.configuration.kernel.logLevel.markdownDescription%"
+					}
+				}
+			}
+		],
+		"menus": {
+			"file/newFile": [
+				{
+					"command": "julia.createNewFile",
+					"group": "file",
+					"when": "!virtualWorkspace"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "julia.sourceCurrentFile",
+					"when": "editorLangId == julia"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "julia.sourceCurrentFile",
+				"key": "ctrl+shift+s",
+				"mac": "cmd+shift+s",
+				"when": "editorLangId == julia"
+			}
+		]
+	},
+	"extensionPack": [
+		"vscode.julia"
+	],
+	"scripts": {
+		"compile": "gulp compile-extension:positron-julia",
+		"watch": "gulp watch-extension:positron-julia",
+		"vscode:prepublish": "npm run compile",
+		"test": "node ./out/test/index.js"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@anthropic-ai/claude-code-agent-tools": "file:../../src/vscode-dts",
+		"@types/node": "^20.11.24",
+		"@types/vscode": "^1.94.0"
+	}
+}
