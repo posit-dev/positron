@@ -83,7 +83,7 @@ export class Editors {
 	}
 
 	async waitForActiveEditor(fileName: string): Promise<any> {
-		const selector = `.editor-instance .monaco-editor[data-uri$="${fileName}"] textarea`;
+		const selector = `.editor-instance .monaco-editor[data-uri$="${fileName}"] .native-edit-context`;
 		await expect(this.code.driver.page.locator(selector)).toBeFocused();
 	}
 
