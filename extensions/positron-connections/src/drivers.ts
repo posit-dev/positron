@@ -13,8 +13,12 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 	const drivers = [
 		new RSQLiteDriver(context),
 		new RPostgreSQLDriver(context),
+		new RSparkShellDriver(context),
+		new RSparkLivyDriver(context),
+		new RSparkDatabricksDriver(context),
+		new RSparkQuboleDriver(context),
+		new RSparkSynapseDriver(context),
 		new PythonSQLiteDriver(context),
-		new RSparkDriver(context),
 		new PythonPostgreSQLDriver(context),
 		new PythonDuckDBDriver(context),
 	];
@@ -248,49 +252,200 @@ connections::connection_view(con)
 	}
 }
 
-class RSparkDriver extends RDriver implements positron.ConnectionsDriver {
-	constructor(context: vscode.ExtensionContext) {
+class RSparkDriverBase extends RDriver implements positron.ConnectionsDriver {
+
+	constructor(
+		context: vscode.ExtensionContext,
+		driverId: string,
+		description: string,
+		private readonly method: string,
+		inputs: positron.ConnectionsDriverMetadata['inputs']
+	) {
 		super(['sparklyr']);
+		this.driverId = driverId;
+		this.metadata = {
+			languageId: 'r',
+			name: 'Spark',
+			description,
+			inputs,
+		};
 		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'spark.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
 	}
 
-	driverId: string = 'spark';
-	metadata: positron.ConnectionsDriverMetadata = {
-		languageId: 'r',
-		name: 'Spark',
-		inputs: [
-			{
-				'id': 'master',
-				'label': 'Master',
-				'type': 'string',
-				'value': 'local'
-			},
-			{
-				'id': 'method',
-				'label': 'Method',
-				'type': 'option',
-				'options': [
-					{ 'identifier': 'shell', 'title': 'Shell' },
-					{ 'identifier': 'livy', 'title': 'Livy' },
-					{ 'identifier': 'databricks', 'title': 'Databricks' },
-					{ 'identifier': 'qubole', 'title': 'Qubole' },
-					{ 'identifier': 'synapse', 'title': 'Synapse' }
-				],
-				'value': 'shell'
-			},
-		]
-	};
+	driverId: string;
+	metadata: positron.ConnectionsDriverMetadata;
+
+	protected buildArguments(inputs: positron.ConnectionsInput[]) {
+		const args: string[] = [];
+
+		for (const input of this.metadata.inputs) {
+			const value = inputs.find(i => i.id === input.id)?.value ?? input.value ?? '';
+			if (value === '') {
+				continue;
+			}
+			args.push(`${input.id} = ${JSON.stringify(value)}`);
+		}
+
+		args.push(`method = ${JSON.stringify(this.method)}`);
+
+		return args;
+	}
 
 	generateCode(inputs: positron.ConnectionsInput[]) {
+		const args = this.buildArguments(inputs);
+		const joinedArgs = args.join(',\n\t');
+
 		return `library(sparklyr)
 sc <- spark_connect(
-	master = ${JSON.stringify(inputs.find(input => input.id === 'master')?.value)},
-	method = ${JSON.stringify(inputs.find(input => input.id === 'method')?.value)}
+\t${joinedArgs}
 )
 `;
+	}
+}
+
+class RSparkShellDriver extends RSparkDriverBase implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(
+			context,
+			'spark-shell',
+			'Local shell or standalone master',
+			'shell',
+			[
+				{
+					'id': 'master',
+					'label': 'Master',
+					'type': 'string',
+					'value': 'local'
+				},
+			]
+		);
+	}
+}
+
+class RSparkLivyDriver extends RSparkDriverBase implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(
+			context,
+			'spark-livy',
+			'Connect through a Livy server',
+			'livy',
+			[
+				{
+					'id': 'master',
+					'label': 'Livy URL',
+					'type': 'string',
+					'value': 'http://localhost:8998'
+				},
+				{
+					'id': 'username',
+					'label': 'Username',
+					'type': 'string',
+					'value': '<username>'
+				},
+				{
+					'id': 'password',
+					'label': 'Password',
+					'type': 'string',
+					'value': '<password>'
+				},
+			]
+		);
+	}
+}
+
+class RSparkDatabricksDriver extends RSparkDriverBase implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(
+			context,
+			'spark-databricks',
+			'Databricks cluster',
+			'databricks',
+			[
+				{
+					'id': 'host',
+					'label': 'Workspace URL',
+					'type': 'string',
+					'value': 'https://<workspace>.cloud.databricks.com'
+				},
+				{
+					'id': 'token',
+					'label': 'Access Token',
+					'type': 'string',
+					'value': '<access-token>'
+				},
+				{
+					'id': 'cluster',
+					'label': 'Cluster ID',
+					'type': 'string',
+					'value': '<cluster-id>'
+				},
+			]
+		);
+	}
+}
+
+class RSparkQuboleDriver extends RSparkDriverBase implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(
+			context,
+			'spark-qubole',
+			'Qubole managed cluster',
+			'qubole',
+			[
+				{
+					'id': 'host',
+					'label': 'QDS Host',
+					'type': 'string',
+					'value': 'https://api.qubole.com'
+				},
+				{
+					'id': 'token',
+					'label': 'API Token',
+					'type': 'string',
+					'value': '<api-token>'
+				},
+				{
+					'id': 'cluster',
+					'label': 'Cluster Label',
+					'type': 'string',
+					'value': '<cluster-label>'
+				},
+			]
+		);
+	}
+}
+
+class RSparkSynapseDriver extends RSparkDriverBase implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(
+			context,
+			'spark-synapse',
+			'Azure Synapse Spark pool',
+			'synapse',
+			[
+				{
+					'id': 'master',
+					'label': 'Synapse Endpoint',
+					'type': 'string',
+					'value': 'https://<workspace>.dev.azuresynapse.net'
+				},
+				{
+					'id': 'pool',
+					'label': 'Spark Pool',
+					'type': 'string',
+					'value': '<spark-pool>'
+				},
+				{
+					'id': 'access_token',
+					'label': 'Access Token',
+					'type': 'string',
+					'value': '<access-token>'
+				},
+			]
+		);
 	}
 }
 
@@ -473,4 +628,3 @@ conn = duckdb.connect(${JSON.stringify(database)}, read_only=${read_only})
 `;
 	}
 }
-
