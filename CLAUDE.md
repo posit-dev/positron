@@ -198,6 +198,12 @@ gh issue list
 
 This ensures consistent, scriptable access to GitHub data and integrates well with Claude Code workflows.
 
+### Git Commit Guidelines
+
+- **Never use `git commit --amend`**: This rewrites history and makes it difficult to roll back changes. Always create new commits instead, even for small fixes. The user can squash commits later if desired.
+- Create atomic commits with clear messages
+- Each commit should represent a logical unit of work
+
 ## Architecture Notes
 
 - Built on VS Code architecture with Positron-specific enhancements
