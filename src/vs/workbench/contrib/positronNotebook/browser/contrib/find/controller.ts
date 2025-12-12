@@ -8,7 +8,7 @@ import { CONTEXT_FIND_INPUT_FOCUSED, CONTEXT_FIND_WIDGET_VISIBLE } from '../../.
 import { localize } from '../../../../../../nls.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { autorun, observableSignal, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
+import { autorun, observableSignal, observableValue, transaction } from '../../../../../../base/common/observable.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../../../platform/theme/browser/defaultStyles.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
@@ -114,7 +114,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			this._register(findInstance.onDidRequestFindPrevious(() => this.findPrevious()));
 
 			// Subscribe to visibility changes
-			this._register(runOnChange(findInstance.isVisible, (visible) => {
+			this._register(autorun((reader) => {
+				const visible = findInstance.isVisible.read(reader);
 				if (visible) {
 					findWidgetVisible.set(true);
 				} else {
@@ -131,7 +132,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			}));
 
 			// Subscribe to focus changes
-			this._register(runOnChange(findInstance.inputFocused, (focused) => {
+			this._register(autorun((reader) => {
+				const focused = findInstance.inputFocused.read(reader);
 				if (focused) {
 					findInputFocused.set(true);
 				} else {
