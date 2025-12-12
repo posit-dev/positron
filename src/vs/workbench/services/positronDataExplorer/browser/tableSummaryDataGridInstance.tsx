@@ -80,6 +80,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private _pendingDataUpdate = false;
 
+	/**
+	 * Whether the initial data load has been completed.
+	 * Used to trigger initial load when first becoming visible.
+	 */
+	private _initialLoadComplete = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -149,20 +155,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			await this.handleDataUpdate();
 		}));
 
-		// Add the onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// If not visible, defer the update until we become visible.
-			// We mark both flags since backend state changes can affect both schema and data.
-			if (!this._visible) {
-				this._pendingSchemaUpdate = true;
-				this._pendingDataUpdate = true;
-				return;
-			}
-			// Clear pending flags since we're doing the work now.
-			this._pendingSchemaUpdate = false;
-			this._pendingDataUpdate = false;
-			await this.handleBackendStateUpdate(state);
-		}));
+		// Note: We intentionally do NOT handle onDidUpdateBackendState here.
+		// The DataExplorerClientInstance fires onDidUpdateBackendState BEFORE
+		// onDidSchemaUpdate/onDidDataUpdate for the same backend event. If we
+		// responded to both, we would do duplicate expensive work (fetching data,
+		// computing profiles). Instead, we only respond to the specific schema/data
+		// events which provide the complete refresh we need.
 
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() =>
@@ -587,23 +585,31 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		const wasHidden = !this._visible;
 		this._visible = visible;
 
-		// If we're becoming visible and have pending updates, process them now.
-		// We perform a comprehensive refresh that covers all update types:
-		// - updateLayoutEntries: handles shape changes from schema/backend state updates
-		// - softReset: resets scroll positions for schema changes
-		// - refreshColumnProfiles: refreshes statistics for data changes
-		// - fetchData: fetches fresh data
-		if (visible && wasHidden && (this._pendingSchemaUpdate || this._pendingDataUpdate)) {
-			const hadSchemaUpdate = this._pendingSchemaUpdate;
-			this._pendingSchemaUpdate = false;
-			this._pendingDataUpdate = false;
-
-			await this.updateLayoutEntries();
-			if (hadSchemaUpdate) {
-				this.softReset();
+		// If becoming visible, check if we need to do initial load or process pending updates.
+		if (visible) {
+			// Initial load: first time becoming visible, no data loaded yet.
+			if (!this._initialLoadComplete) {
+				this._initialLoadComplete = true;
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+				await this.updateLayoutEntries();
+				await this.fetchData(true);
+				return;
 			}
-			await this._tableSummaryCache.refreshColumnProfiles();
-			await this.fetchData(true);
+
+			// Deferred updates: becoming visible after being hidden with pending updates.
+			if (wasHidden && (this._pendingSchemaUpdate || this._pendingDataUpdate)) {
+				const hadSchemaUpdate = this._pendingSchemaUpdate;
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+
+				await this.updateLayoutEntries();
+				if (hadSchemaUpdate) {
+					this.softReset();
+				}
+				await this._tableSummaryCache.refreshColumnProfiles();
+				await this.fetchData(true);
+			}
 		}
 	}
 
@@ -635,18 +641,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private async handleDataUpdate(): Promise<void> {
 		await this.updateLayoutEntries();
 		await this._tableSummaryCache.refreshColumnProfiles();
-		await this.fetchData(true);
-	}
-
-	/**
-	 * Handles a backend state update.
-	 * @param state The new backend state.
-	 */
-	private async handleBackendStateUpdate(state: BackendState): Promise<void> {
-		// Always update layout entries and invalidate cache when backend state changes.
-		// Backend state changes represent changes to the underlying data (like row filters)
-		// so column profiles need to be recalculated regardless of search/sort state.
-		await this.updateLayoutEntries(state);
 		await this.fetchData(true);
 	}
 

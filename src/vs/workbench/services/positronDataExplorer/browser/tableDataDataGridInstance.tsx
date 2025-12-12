@@ -82,6 +82,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private _pendingDataUpdate = false;
 
 	/**
+	 * Whether the initial data load has been completed.
+	 * Used to trigger initial load when first becoming visible.
+	 */
+	private _initialLoadComplete = false;
+
+	/**
 	 * Reference to the updateLayoutEntries function for use in setVisible().
 	 */
 	private _updateLayoutEntries!: (state?: BackendState) => Promise<void>;
@@ -222,20 +228,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			await this.handleDataUpdate();
 		}));
 
-		// Add the data explorer client onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// If not visible, defer the update until we become visible.
-			// We mark both flags since backend state changes can affect both schema and data.
-			if (!this._visible) {
-				this._pendingSchemaUpdate = true;
-				this._pendingDataUpdate = true;
-				return;
-			}
-			// Clear pending flags since we're doing the work now.
-			this._pendingSchemaUpdate = false;
-			this._pendingDataUpdate = false;
-			await this.handleBackendStateUpdate(state);
-		}));
+		// Note: We intentionally do NOT handle onDidUpdateBackendState here.
+		// The DataExplorerClientInstance fires onDidUpdateBackendState BEFORE
+		// onDidSchemaUpdate/onDidDataUpdate for the same backend event. If we
+		// responded to both, we would do duplicate expensive work (fetching data).
+		// Instead, we only respond to the specific schema/data events which
+		// provide the complete refresh we need. Sort keys are rebuilt in those
+		// handlers by fetching the (already updated) cached backend state.
 
 		// Add the table data cache onDidUpdate event handler.
 		this._register(this._tableDataCache.onDidUpdate(() =>
@@ -891,15 +890,29 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const wasHidden = !this._visible;
 		this._visible = visible;
 
-		// If we're becoming visible and have pending updates, process them now.
-		if (visible && wasHidden) {
-			if (this._pendingSchemaUpdate) {
+		// If becoming visible, check if we need to do initial load or process pending updates.
+		if (visible) {
+			// Initial load: first time becoming visible, no data loaded yet.
+			if (!this._initialLoadComplete) {
+				this._initialLoadComplete = true;
 				this._pendingSchemaUpdate = false;
 				this._pendingDataUpdate = false;
-				await this.handleSchemaUpdate();
-			} else if (this._pendingDataUpdate) {
-				this._pendingDataUpdate = false;
-				await this.handleDataUpdate();
+				await this._updateLayoutEntries();
+				this.rebuildSortKeysFromCache();
+				await this.fetchData(InvalidateCacheFlags.All);
+				return;
+			}
+
+			// Deferred updates: becoming visible after being hidden with pending updates.
+			if (wasHidden) {
+				if (this._pendingSchemaUpdate) {
+					this._pendingSchemaUpdate = false;
+					this._pendingDataUpdate = false;
+					await this.handleSchemaUpdate();
+				} else if (this._pendingDataUpdate) {
+					this._pendingDataUpdate = false;
+					await this.handleDataUpdate();
+				}
 			}
 		}
 	}
@@ -909,6 +922,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private async handleSchemaUpdate(): Promise<void> {
 		await this._updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
 		this.softReset();
 		await this.fetchData(InvalidateCacheFlags.All);
 	}
@@ -918,29 +932,28 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private async handleDataUpdate(): Promise<void> {
 		await this._updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
 		await this.fetchData(InvalidateCacheFlags.Data);
 	}
 
 	/**
-	 * Handles a backend state update.
-	 * @param state The new backend state.
+	 * Rebuilds the column sort keys from the cached backend state.
+	 * Called after schema/data updates to sync sort keys with backend state.
 	 */
-	private async handleBackendStateUpdate(state: BackendState): Promise<void> {
-		await this._updateLayoutEntries(state);
+	private rebuildSortKeysFromCache(): void {
+		const state = this._dataExplorerClientInstance.cachedBackendState;
+		if (!state) {
+			return;
+		}
 
-		// Clear column sort keys.
+		// Clear and rebuild column sort keys from the cached state.
 		this._columnSortKeys.clear();
-
-		// Update the column sort keys from the state.
 		state.sort_keys.forEach((key, sortIndex) => {
 			this._columnSortKeys.set(
 				key.column_index,
 				new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
 			);
 		});
-
-		// Fetch data.
-		await this.fetchData(InvalidateCacheFlags.Data);
 	}
 
 	/**
