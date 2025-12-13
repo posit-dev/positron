@@ -79,8 +79,8 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 function getKernelStartupCode(): string {
 	// Note: This is a single-line expression that's passed to Julia with -e
 	// The connection_file is passed as ARGS[1] which IJulia.run_kernel() reads automatically
+	// IMPORTANT: No # comments in the Julia code below - they break when condensed to one line!
 	return `
-		# Ensure IJulia is available
 		import Pkg;
 		if Base.find_package("IJulia") === nothing;
 			@info "Installing IJulia...";
