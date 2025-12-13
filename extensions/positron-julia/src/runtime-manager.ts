@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as semver from 'semver';
 
-import { LOGGER, supervisorApi } from './extension';
+import { LOGGER, supervisorApi, ensureLanguageServerForVersion } from './extension';
 import { juliaRuntimeDiscoverer } from './provider';
 import { JuliaSession } from './session';
 import { JuliaInstallation, ReasonDiscovered } from './julia-installation';
@@ -103,6 +103,10 @@ export class JuliaRuntimeManager implements positron.LanguageRuntimeManager {
 		sessionMetadata: positron.RuntimeSessionMetadata
 	): Promise<positron.LanguageRuntimeSession> {
 		const installation = this.getOrReconstructInstallation(runtimeMetadata);
+
+		// Ensure Language Server is running with the correct Julia version
+		// This handles switching between Julia versions gracefully
+		await ensureLanguageServerForVersion(installation, this._context);
 
 		// Create the kernel spec for a new session
 		const kernelSpec = createJuliaKernelSpec(installation);
