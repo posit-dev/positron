@@ -16,7 +16,7 @@ using Markdown
 The Help service manages the Help pane in Positron.
 """
 mutable struct HelpService
-	comm::Union{PositronComm, Nothing}
+	comm::Any  # PositronComm or test mock - using Any for testability
 
 	function HelpService()
 		new(nothing)
@@ -52,10 +52,14 @@ function handle_help_close(service::HelpService)
 end
 
 """
-Handle show_help_topic request.
+Handle show_help_topic request - look up documentation and show it in Help pane.
 """
 function handle_show_help_topic(service::HelpService, topic::String)
-	# Parse the topic to find the symbol
+	if service.comm === nothing
+		return
+	end
+
+	# Get help content for the topic
 	content = get_help_content(topic)
 
 	if content === nothing
@@ -63,7 +67,12 @@ function handle_show_help_topic(service::HelpService, topic::String)
 		return
 	end
 
-	send_result(service.comm, nothing)
+	# Send success result first
+	send_result(service.comm, true)
+
+	# Then send the ShowHelp event to display in Help pane
+	params = ShowHelpParams(content, ShowHelpKind_Html, true)
+	send_event(service.comm, "show_help", params)
 end
 
 """
