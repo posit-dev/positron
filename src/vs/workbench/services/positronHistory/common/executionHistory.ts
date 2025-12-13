@@ -11,6 +11,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { SessionExecutionHistory } from './sessionExecutionHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
 import { SessionInputHistory } from './sessionInputHistory.js';
@@ -51,6 +52,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) {
 		super();
@@ -186,7 +188,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			const history = new SessionInputHistory(sessionId,
 				this._storageService,
 				this.getInputHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			this._sessionHistories.set(sessionId, history);
 			this._register(history);
 			return history.getInputHistory();
@@ -227,7 +230,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				this._storageService,
 				this.getInputHistoryStorageScope(),
 				this._logService,
-				this._configurationService);
+				this._configurationService,
+				this._contextKeyService);
 
 			// Store the history and return it
 			this._languageHistories.set(languageId, history);
@@ -259,7 +263,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				startMode,
 				this._storageService,
 				this.getExecutionHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			history.attachSession(session);
 			this._executionHistories.set(session.sessionId, history);
 			this._register(history);
@@ -274,7 +279,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				session.sessionId,
 				this._storageService,
 				this.getInputHistoryStorageScope(),
-				this._logService);
+				this._logService,
+				this._contextKeyService);
 			input.attachSession(session);
 			this._sessionHistories.set(session.sessionId, input);
 			this._register(input);
@@ -338,7 +344,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			RuntimeStartMode.Reconnecting,
 			this._storageService,
 			this.getExecutionHistoryStorageScope(),
-			this._logService);
+			this._logService,
+			this._contextKeyService);
 		this._executionHistories.set(sessionId, history);
 		this._register(history);
 		return history.entries;

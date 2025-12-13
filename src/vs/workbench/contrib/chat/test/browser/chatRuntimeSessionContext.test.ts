@@ -316,6 +316,7 @@ suite('ChatRuntimeSessionContext', () => {
 				prompt: '>>> ',
 				input: 'print("hello")',
 				output: 'hello',
+				debug: 'inactive',
 				outputType: ExecutionEntryType.Execution,
 				when: Date.now(),
 				durationMs: 50
@@ -385,6 +386,7 @@ suite('ChatRuntimeSessionContext', () => {
 				prompt: '>>> ',
 				input: 'undefined_variable',
 				output: '',
+				debug: 'inactive',
 				error: { name: 'NameError', message: 'name "undefined_variable" is not defined', traceback: ['Traceback: ...'] },
 				outputType: ExecutionEntryType.Execution,
 				when: Date.now(),

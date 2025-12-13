@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
 import { IExecutionHistoryEntry, IInputHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -33,7 +35,8 @@ export class SessionInputHistory extends Disposable {
 		private readonly _sessionId: string,
 		private readonly _storageService: IStorageService,
 		private readonly _storageScope: StorageScope,
-		private readonly _logService: ILogService
+		private readonly _logService: ILogService,
+		private readonly _contextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -66,7 +69,8 @@ export class SessionInputHistory extends Disposable {
 		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
 			this._entries.push({
 				when: Date.now(),
-				input: message.code
+				input: message.code,
+				debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService)
 			});
 			this._dirty = true;
 			this.delayedSave();
