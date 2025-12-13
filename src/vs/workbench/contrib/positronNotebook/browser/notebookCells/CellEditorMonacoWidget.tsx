@@ -9,6 +9,9 @@ import './CellEditorMonacoWidget.css';
 // React.
 import React from 'react';
 
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
@@ -20,8 +23,9 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
+import { useObservedValue } from '../useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { autorun } from '../../../../../base/common/observable.js';
+import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
@@ -34,11 +38,52 @@ import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/i
  * @returns An editor widget for the cell
  */
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
-	const { editorPartRef } = useCellEditorWidget(cell);
-	return <div
-		ref={editorPartRef}
-		className='positron-cell-editor-monaco-widget'
-	/>;
+	const { editorPartRef, focusTargetRef } = useCellEditorWidget(cell);
+
+	/**
+	 * Observe outputs reactively so hasOutputs updates when outputs are added/removed.
+	 * For code cells, cell.outputs is an observable; for markdown cells it's undefined.
+	 * When undefined, useObservedValue returns the default empty array.
+	 */
+	const outputs = useObservedValue(cell.outputs, []);
+
+	/**
+	 * Skip focus trap when cell has no outputs (avoids double-tab with same visual).
+	 * When there are no outputs, the focus trap and cell container share the same visual
+	 * styling, requiring users to tab twice to see any change.
+	 */
+	const hasOutputs = outputs.length > 0;
+
+	/**
+	 * Handler for keyboard events on the focus target.
+	 * When Enter is pressed, focuses the Monaco editor to enter edit mode.
+	 *
+	 * @param e Keyboard event from the focus target element
+	 */
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			// Focus the Monaco editor to enter edit mode
+			cell.editor?.focus();
+		}
+	};
+
+	return <>
+		<div
+			ref={editorPartRef}
+			className='positron-cell-editor-monaco-widget'
+			tabIndex={-1}
+		/>
+		<div
+			ref={focusTargetRef}
+			aria-label={localize('editCell', 'Edit cell - Press Enter to edit')}
+			className='positron-cell-editor-focus-target'
+			role='button'
+			// Skip focus trap when no outputs - see hasOutputs comment above for details
+			tabIndex={hasOutputs ? 0 : -1}
+			onKeyDown={handleKeyDown}
+		/>
+	</>;
 }
 
 /**
@@ -93,6 +138,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
 			...editorOptions.getDefaultValue(),
+			tabIndex: -1, // Remove editor from tab order - use Enter to focus
 			dimension: {
 				width: 0,
 				height: 0,
@@ -223,7 +269,36 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		return () => disposable.dispose();
 	}, [cell, instance.selectionStateMachine]);
 
-	return { editorPartRef };
+	// Create a ref for the focus target element
+	const focusTargetRef = React.useRef<HTMLDivElement>(null);
+
+	// Watch for exit-editor transitions to return focus to the focus trap
+	React.useEffect(() => {
+		const disposable = autorunDelta(instance.selectionStateMachine.state, ({ lastValue, newValue }) => {
+			// Check if we transitioned from editing THIS cell to single selection of THIS cell
+			if (lastValue?.type === SelectionState.EditingSelection &&
+				lastValue.active === cell &&
+				newValue.type === SelectionState.SingleSelection &&
+				newValue.active === cell) {
+				// Only focus the focus trap if the cell has outputs.
+				// When there are no outputs, the focus trap has tabIndex=-1 (not in tab order),
+				// so focusing it would disrupt keyboard navigation. In that case, let
+				// NotebookCellWrapper handle focus by focusing the cell container instead.
+				// Read current outputs value - undefined for markdown cells (no outputs)
+				const currentOutputs = cell.outputs?.get() ?? [];
+				const hasOutputs = currentOutputs.length > 0;
+				if (hasOutputs) {
+					focusTargetRef.current?.focus();
+				} else {
+					// Focus the cell container for cells without outputs
+					cell.container?.focus();
+				}
+			}
+		});
+		return () => disposable.dispose();
+	}, [cell, instance.selectionStateMachine]);
+
+	return { editorPartRef, focusTargetRef };
 }
 
 

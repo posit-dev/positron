@@ -43,7 +43,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooksPositron.addCodeToCell(0, 'print("hello world")', { run: true });
 
 			await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
-			await notebooksPositron.expectToolTipToContain({
+			await notebooksPositron.expectToolTipToContain(0, {
 				duration: /\d+(ms|s)/,
 				status: 'Success'
 			}, 30000);
@@ -62,7 +62,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 				run: true,
 			});
 			await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
-			await notebooksPositron.expectToolTipToContain({
+			await notebooksPositron.expectToolTipToContain(1, {
 				duration: /\d+(ms|s)/,
 				status: 'Failed'
 			});
@@ -80,7 +80,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooksPositron.addCodeToCell(2, 'import time; time.sleep(3)', { run: true });
 			await notebooksPositron.expectSpinnerAtIndex(2);
 			await notebooksPositron.expectExecutionStatusToBe(2, 'running');
-			await notebooksPositron.expectToolTipToContain({
+			await notebooksPositron.expectToolTipToContain(2, {
 				status: 'Currently running...'
 			});
 
@@ -94,7 +94,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		// ========================================
 		await test.step('Cell 3 - Relative time display', async () => {
 			await notebooksPositron.addCodeToCell(3, 'print("relative time test")', { run: true });
-			await notebooksPositron.expectToolTipToContain({
+			await notebooksPositron.expectToolTipToContain(3, {
 				completed: /Just now|seconds ago/,
 			});
 
@@ -111,8 +111,8 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooksPositron.moveMouseAway();
 			await notebooksPositron.expectToolTipVisible(false);
 
-			// Test that hovering again after closing still works
-			await notebooksPositron.runCellButtonAtIndex(4).hover();
+			// Test that hovering over execution badge shows popup again
+			await notebooksPositron.hoverExecutionBadge(4);
 			await notebooksPositron.expectToolTipVisible(true);
 		});
 	});

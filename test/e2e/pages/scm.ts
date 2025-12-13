@@ -12,7 +12,7 @@ import { Layouts } from './layouts';
  */
 
 const VIEWLET = 'div[id="workbench.view.scm"]';
-const SCM_INPUT_TEXTAREA = `${VIEWLET} .scm-editor textarea`;
+const SCM_INPUT_EDIT_CONTEXT = `${VIEWLET} .scm-editor .native-edit-context`;
 const SCM_RESOURCE_CLICK = (name: string) => `${VIEWLET} .monaco-list-row .resource .monaco-icon-label[aria-label*="${name}"] .label-name`;
 const SCM_RESOURCE_ACTION_CLICK = (name: string, actionName: string) => `.monaco-list-row .resource .monaco-icon-label[aria-label*="${name}"] .actions .action-label[aria-label="${actionName}"]`;
 const COMMIT_COMMAND = `div[id="workbench.parts.sidebar"] .actions-container a.action-label[aria-label="Commit"]`;
@@ -24,7 +24,7 @@ export class SCM {
 
 	async openSCMViewlet(): Promise<any> {
 		await this.code.driver.page.keyboard.press('Control+Shift+G');
-		await expect(this.code.driver.page.locator(SCM_INPUT_TEXTAREA)).toBeVisible();
+		await expect(this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT)).toBeVisible();
 	}
 
 	async waitForChange(name: string, type: 'Staged' | 'Modified'): Promise<void> {
@@ -57,9 +57,9 @@ export class SCM {
 
 	async commit(message: string): Promise<void> {
 		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
-		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).click({ force: true });
-		await expect(this.code.driver.page.locator(SCM_INPUT_TEXTAREA)).toBeFocused();
-		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).fill(message);
+		await this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT).click({ force: true });
+		await expect(this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT)).toBeFocused();
+		await this.code.driver.page.locator(SCM_INPUT_EDIT_CONTEXT).pressSequentially(message);
 		await this.code.driver.page.locator(COMMIT_COMMAND).click();
 	}
 

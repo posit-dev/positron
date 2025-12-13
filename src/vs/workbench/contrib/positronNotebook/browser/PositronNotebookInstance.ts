@@ -38,7 +38,7 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
+import { cellToCellDto2 } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
@@ -211,6 +211,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get container(): HTMLElement | undefined {
 		return this._container;
+	}
+
+	getFocusedCell(): IPositronNotebookCell | null {
+		const container = this.container;
+		if (!container) {
+			return null;
+		}
+
+		const activeElement = container.ownerDocument.activeElement;
+		if (!activeElement || !container.contains(activeElement)) {
+			return null;
+		}
+
+		// Find which cell contains the focused element
+		return this.cells.get().find(cell => cell.container?.contains(activeElement)) ?? null;
 	}
 
 	/**
@@ -1426,11 +1441,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Clipboard Methods
 
 	/**
-	 * Internal clipboard for storing cells with full fidelity
-	 */
-	private _clipboardCells: ICellDto2[] = [];
-
-	/**
 	 * Copies the specified cells to the clipboard.
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
@@ -1441,11 +1451,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Store internally for full-fidelity paste
-		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
+		const clipboardCells: ICellDto2[] = [];
+		let clipboardText = '';
+		cellsToCopy.forEach(cell => {
+			clipboardCells.push(cellToCellDto2(cell));
+			clipboardText += cell.getContent() + '\n\n';
+		});
 
-		// Also write to system clipboard as text
-		const clipboardText = serializeCellsToClipboard(cellsToCopy);
+		// Store in shared notebook service clipboard for within-window paste (same or different notebook)
+		this._positronNotebookService.setClipboardCells(clipboardCells);
+
+		// Remove trailing newlines from clipboard text
+		clipboardText = clipboardText.trimEnd();
+		// Write cell contents to system clipboard for pasting into other editors (including cell editors)
 		this._clipboardService.writeText(clipboardText);
 
 		// Log for debugging
@@ -1485,10 +1503,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		try {
 			this._assertTextModel();
 
+			// Get cells from shared notebook service clipboard
+			const cellsToPaste = this._positronNotebookService.getClipboardCells();
+
 			const textModel = this.textModel;
 			const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 			const pasteIndex = index ?? this.getInsertionIndex();
-			const cellCount = this._clipboardCells.length;
+			const cellCount = cellsToPaste.length;
 
 			// Use textModel.applyEdits to properly create and register cells
 			const synchronous = true;
@@ -1507,7 +1528,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					editType: CellEditType.Replace,
 					index: pasteIndex,
 					count: 0,
-					cells: this._clipboardCells
+					cells: cellsToPaste
 				}
 			],
 				synchronous,
@@ -1545,7 +1566,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if cells can be pasted, false otherwise
 	 */
 	canPaste(): boolean {
-		return this._clipboardCells.length > 0;
+		return this._positronNotebookService.hasClipboardCells();
 	}
 
 	/**
