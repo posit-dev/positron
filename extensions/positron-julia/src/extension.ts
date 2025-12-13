@@ -36,18 +36,32 @@ export async function activate(context: vscode.ExtensionContext) {
 	// support in positron-supervisor. See TODO-LATER.md.
 	// registerCompletionProvider(context);
 
-	// Start the language server in the background
-	startLanguageServer(context).catch(error => {
-		LOGGER.warn(`Language server not started: ${error.message}`);
-	});
+	// Start language server lazily when a Julia file is opened (not on startup)
+	// This avoids burdening users who have Julia installed but don't use it
+	context.subscriptions.push(
+		vscode.workspace.onDidOpenTextDocument(async (document) => {
+			if (document.languageId === 'julia' && !languageClient) {
+				await startLanguageServer(context).catch(error => {
+					LOGGER.warn(`Language server not started: ${error.message}`);
+				});
+			}
+		})
+	);
 
 	LOGGER.info('Positron Julia extension activated');
 }
 
 /**
- * Starts the Julia Language Server using the first available Julia installation.
+ * Starts the Julia Language Server with a specific Julia installation.
+ * If no installation is provided, uses the first available one.
+ *
+ * @param context Extension context
+ * @param installation Optional specific Julia installation to use
  */
-async function startLanguageServer(context: vscode.ExtensionContext): Promise<void> {
+async function startLanguageServer(
+	context: vscode.ExtensionContext,
+	installation?: any
+): Promise<void> {
 	// Check if language server is enabled
 	const config = vscode.workspace.getConfiguration('positron.julia');
 	if (!config.get<boolean>('languageServer.enabled', true)) {
@@ -55,11 +69,12 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
 		return;
 	}
 
-	// Find the first available Julia installation
-	let installation = null;
-	for await (const inst of juliaRuntimeDiscoverer()) {
-		installation = inst;
-		break;
+	// If no installation provided, find the first available one
+	if (!installation) {
+		for await (const inst of juliaRuntimeDiscoverer()) {
+			installation = inst;
+			break;
+		}
 	}
 
 	if (!installation) {
@@ -94,4 +109,31 @@ export async function supervisorApi(): Promise<PositronSupervisorApi> {
 	}
 
 	return ext?.exports as PositronSupervisorApi;
+}
+
+/**
+ * Ensures the Language Server is running with the specified Julia version.
+ * Restarts the LS if it's running with a different version.
+ * Called when creating a new session to ensure version compatibility.
+ */
+export async function ensureLanguageServerForVersion(
+	installation: any,
+	context: vscode.ExtensionContext
+): Promise<void> {
+	// If no LS is running, start it with this version
+	if (!languageClient) {
+		await startLanguageServer(context, installation);
+		return;
+	}
+
+	// If LS is running with a different Julia version, restart it
+	// Access private _installation field (TypeScript limitation)
+	const currentInstallation = (languageClient as unknown as { _installation?: { version: string } })._installation;
+	const currentVersion = currentInstallation?.version;
+	if (currentVersion && currentVersion !== installation.version) {
+		LOGGER.info(`Restarting Language Server: switching from Julia ${currentVersion} to ${installation.version}`);
+		await languageClient.stop();
+		languageClient = undefined;
+		await startLanguageServer(context, installation);
+	}
 }
