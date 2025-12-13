@@ -48,8 +48,8 @@ suite('Model Resolution Helpers', () => {
 
 	suite('isDefaultUserModel', () => {
 		test('returns true when model ID matches user-configured default', () => {
-			const defaultModels = { 'anthropic-api': 'sonnet-4' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'sonnet-4' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
 
@@ -57,8 +57,8 @@ suite('Model Resolution Helpers', () => {
 		});
 
 		test('returns true when model name matches user-configured default', () => {
-			const defaultModels = { 'anthropic-api': 'Sonnet' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'Sonnet' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
 
@@ -66,8 +66,8 @@ suite('Model Resolution Helpers', () => {
 		});
 
 		test('returns false when no match and no defaultMatch provided', () => {
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
 
@@ -75,7 +75,7 @@ suite('Model Resolution Helpers', () => {
 		});
 
 		test('returns true when ID matches defaultMatch pattern', () => {
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+			mockGetConfiguration.withArgs('providerModelPreferences').returns({});
 
 			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5', 'sonnet-4');
 
@@ -83,8 +83,8 @@ suite('Model Resolution Helpers', () => {
 		});
 
 		test('prioritizes user config over defaultMatch', () => {
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			// User wants opus, but defaultMatch suggests sonnet - user config should win
 			const result = isDefaultUserModel('anthropic-api', 'claude-opus-4-1', 'Claude Opus 4.1', 'sonnet-4');
@@ -92,13 +92,24 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(result, true);
 		});
 
-		test('handles provider not in defaultModels config', () => {
-			const defaultModels = { 'anthropic-api': 'sonnet' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+		test('handles provider not in providerModelPreferences config', () => {
+			const providerModelPreferences = { 'anthropic-api': 'sonnet' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = isDefaultUserModel('openai-api', 'gpt-4', 'GPT-4');
 
 			assert.strictEqual(result, false);
+		});
+
+		test('falls back to legacy defaultModels when providerModelPreferences not set', () => {
+			// Mock providerModelPreferences to return undefined, forcing fallback to legacy option
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(undefined);
+			const legacyDefaultModels = { 'anthropic-api': 'sonnet-4' };
+			mockGetConfiguration.withArgs('defaultModels').returns(legacyDefaultModels);
+
+			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+
+			assert.strictEqual(result, true);
 		});
 	});
 
@@ -203,8 +214,8 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// Mock workspace configuration to simulate user preference for opus
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -242,8 +253,8 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// Mock workspace configuration with no matching preference
-			const defaultModels = { 'anthropic-api': 'nonexistent' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'nonexistent' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -278,11 +289,9 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+			mockGetConfiguration.withArgs('providerModelPreferences').returns({});
 
-			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4');
-
-			const defaultModel = result.find((m: any) => m.isDefault);
+			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
 			assert.strictEqual(defaultModel.id, 'claude-sonnet-4-5');
 			const nonDefaultModels = result.filter((m: any) => !m.isDefault);
 			assert.strictEqual(nonDefaultModels.length, 1);
@@ -327,8 +336,8 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// Mock workspace configuration that would match multiple models
-			const defaultModels = { 'anthropic-api': 'claude' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'claude' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -359,11 +368,9 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+			mockGetConfiguration.withArgs('providerModelPreferences').returns({});
 
-			const result = markDefaultModel(models as any, 'test-provider');
-
-			assert.strictEqual(result.length, 1);
+			const result = markDefaultModel(models as any, 'test-provider'); assert.strictEqual(result.length, 1);
 			const model = result[0];
 			assert.strictEqual(model.id, 'test-model');
 			assert.strictEqual(model.name, 'Test Model');
@@ -403,12 +410,10 @@ suite('Model Resolution Helpers', () => {
 			];
 
 			// User wants opus, but defaultMatch suggests sonnet - user config should win
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerModelPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('providerModelPreferences').returns(providerModelPreferences);
 
-			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4');
-
-			const defaultModel = result.find((m: any) => m.isDefault);
+			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
 			assert.strictEqual(defaultModel.id, 'claude-opus-4-1');
 		});
 	});

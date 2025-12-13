@@ -73,6 +73,14 @@ function regexMatch(pattern: string, text: string): boolean {
 
 /**
  * Apply user-defined model filters to a list of models
+ * Filters are applied in two stages:
+ * 1. models.required (strict): Removes non-matching models entirely
+ * 2. models.visible (soft): Marks non-matching models as not user-selectable
+ *
+ * When models.required is configured, only those models are returned, with models.visible
+ * determining which are user-selectable. When only models.visible is configured,
+ * all models are returned but non-matching ones are marked as not user-selectable.
+ *
  * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts with adaptations.
  * Please keep in sync!
  */
@@ -103,26 +111,65 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the filter patterns from workspace configuration
-	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${providerName}] Patterns from filterModels config: ${filterModels.join(', ')}`);
-	if (filterModels.length === 0) {
-		return models;
+	// Stage 1: Apply strict filtering (models.required)
+	const requiredPatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.required', []);
+	log.debug(`[${providerName}] Patterns from models.required config: ${requiredPatterns.join(', ')}`);
+
+	let filteredModels = models;
+	if (requiredPatterns.length > 0) {
+		filteredModels = models.filter(model =>
+			requiredPatterns.some(pattern =>
+				matchesModelFilter(pattern, model.id, model.name)
+			)
+		);
+
+		const removedCount = models.length - filteredModels.length;
+		if (removedCount > 0) {
+			log.debug(`[${providerName}] Removed ${removedCount} models not in models.required`);
+		}
+		if (filteredModels.length === 0) {
+			log.warn(`[${providerName}] No models match models.required patterns.`);
+			return filteredModels;
+		}
 	}
 
-	// Filter models based on patterns
-	const filteredModels = models.filter(model =>
-		filterModels.some(pattern =>
-			matchesModelFilter(pattern, model.id, model.name)
-		)
-	);
+	// Stage 2: Apply soft filtering (models.visible)
+	const visiblePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.visible', []) ??
+		vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
+	log.debug(`[${providerName}] Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
 
-	if (filteredModels.length === 0) {
-		log.warn(`[${providerName}] No models remain after applying user settings.`);
-	} else if (filteredModels.length === 1) {
-		log.debug(`[${providerName}] 1 model after applying user settings: ${filteredModels[0].id}`);
+	if (visiblePatterns.length === 0) {
+		if (requiredPatterns.length === 0) {
+			log.debug(`[${providerName}] No filters configured, returning all ${filteredModels.length} models`);
+		}
+		return filteredModels;
+	}
+
+	filteredModels = filteredModels.map(model => {
+		const matches = visiblePatterns.some(pattern =>
+			matchesModelFilter(pattern, model.id, model.name)
+		);
+
+		if (!matches) {
+			// Clone the model info and set isUserSelectable to false
+			return {
+				...model,
+				isUserSelectable: false
+			};
+		}
+
+		return model;
+	});
+
+	const userSelectableCount = filteredModels.filter(m => m.isUserSelectable !== false).length;
+	const nonSelectableCount = filteredModels.length - userSelectableCount;
+
+	if (userSelectableCount === 0) {
+		log.warn(`[${providerName}] No user-selectable models remain after applying user settings.`);
+	} else if (userSelectableCount === 1) {
+		log.debug(`[${providerName}] 1 user-selectable model after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.isUserSelectable !== false)?.id}`);
 	} else {
-		log.debug(`[${providerName}] ${filteredModels.length} models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+		log.debug(`[${providerName}] ${userSelectableCount} user-selectable models after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.isUserSelectable !== false).map(m => m.id).join(', ')}`);
 	}
 
 	return filteredModels;

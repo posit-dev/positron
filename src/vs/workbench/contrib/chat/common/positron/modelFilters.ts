@@ -99,20 +99,68 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the filter patterns from workspace configuration
-	const filterModels = configurationService.getValue<string[]>('positron.assistant.filterModels') || [];
-	logService.trace(`[LM] ${vendor} Patterns from filterModels config: ${filterModels.join(', ')}`);
-	if (filterModels.length === 0) {
-		return models;
+	// Stage 1: Apply strict filtering (models.required)
+	const requiredPatterns = configurationService.getValue<string[]>('positron.assistant.models.required') || [];
+	logService.trace(`[LM] ${vendor} Patterns from models.required config: ${requiredPatterns.join(', ')}`);
+
+	let filteredModels = models;
+	if (requiredPatterns.length > 0) {
+		filteredModels = models.filter(model =>
+			requiredPatterns.some(pattern =>
+				matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
+			)
+		);
+
+		const removedCount = models.length - filteredModels.length;
+		if (removedCount > 0) {
+			logService.trace(`[LM] ${vendor} Removed ${removedCount} models not in models.required`);
+		}
+		if (filteredModels.length === 0) {
+			logService.warn(`[LM] ${vendor} No models match models.required patterns.`);
+			return filteredModels;
+		}
 	}
 
-	// Filter models based on patterns
-	const filteredModels = models.filter(model =>
-		filterModels.some(pattern =>
-			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
-		)
-	);
+	// Stage 2: Apply soft filtering (models.visible)
+	const visiblePatterns = configurationService.getValue<string[]>('positron.assistant.models.visible') || [];
+	logService.trace(`[LM] ${vendor} Patterns from models.visible config: ${visiblePatterns.join(', ')}`);
 
-	logService.trace(`[LM] ${vendor} ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.metadata.id).join(', ')}`);
+	if (visiblePatterns.length === 0) {
+		if (requiredPatterns.length === 0) {
+			logService.trace(`[LM] ${vendor} No filters configured, returning all ${filteredModels.length} models`);
+		}
+		return filteredModels;
+	}
+
+	filteredModels = filteredModels.map(model => {
+		const matches = visiblePatterns.some(pattern =>
+			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
+		);
+
+		if (!matches) {
+			// Clone the model info and set isUserSelectable to false
+			return {
+				...model,
+				metadata: {
+					...model.metadata,
+					isUserSelectable: false
+				}
+			};
+		}
+
+		return model;
+	});
+
+	const userSelectableCount = filteredModels.filter(m => m.metadata.isUserSelectable !== false).length;
+	const nonSelectableCount = filteredModels.length - userSelectableCount;
+
+	if (userSelectableCount === 0) {
+		logService.warn(`[LM] ${vendor} No user-selectable models remain after applying user settings.`);
+	} else if (userSelectableCount === 1) {
+		logService.trace(`[LM] ${vendor} 1 user-selectable model after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.metadata.isUserSelectable !== false)?.metadata.id}`);
+	} else {
+		logService.trace(`[LM] ${vendor} ${userSelectableCount} user-selectable models after applying user settings (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.metadata.isUserSelectable !== false).map(m => m.metadata.id).join(', ')}`);
+	}
+
 	return filteredModels;
 }
