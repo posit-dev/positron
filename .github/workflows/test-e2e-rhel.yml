@@ -165,6 +165,8 @@ jobs:
       - name: Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
+        with:
+          distro: 'rhel'
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
@@ -202,6 +204,7 @@ jobs:
         if: ${{ inputs.save_cache }}
         uses: ./.github/actions/save-build-caches
         with:
+          distro: 'rhel'
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}

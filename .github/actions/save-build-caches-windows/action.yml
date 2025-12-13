@@ -2,6 +2,10 @@ name: "Save Build Caches (Windows)"
 description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions on Windows. Only saves caches that were restored but missed (cache-*-hit == 'false')."
 
 inputs:
+  distro:
+    description: "Distribution identifier for cache key (default: windows). Not typically changed for Windows."
+    required: false
+    default: 'windows'
   cache-npm-core-hit:
     description: "Whether npm core cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
@@ -52,7 +56,7 @@ runs:
           test/mcp/node_modules
         # Package-locks hash comes from restore step (DRY - single source of truth)
         # IMPORTANT: If bumping npm-core-v1 -> npm-core-v2, also update restore-build-caches-windows/action.yml
-        key: npm-core-v1-${{ runner.os }}-${{ inputs.package-locks-hash }}
+        key: npm-core-v1-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
       if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
@@ -64,7 +68,7 @@ runs:
           .vscode
         # Extensions hash comes from restore step (DRY - single source of truth)
         # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update restore-build-caches-windows/action.yml
-        key: npm-extensions-v1-${{ runner.os }}-${{ inputs.extensions-hash }}
+        key: npm-extensions-v1-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}

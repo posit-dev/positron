@@ -2,6 +2,10 @@ name: "Restore Build Caches (Windows)"
 description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions on Windows."
 
 inputs:
+  distro:
+    description: "Distribution identifier for cache key (default: windows). Not typically changed for Windows."
+    required: false
+    default: 'windows'
   restore-npm:
     description: "Whether to restore npm cache (default: true)"
     required: false
@@ -77,7 +81,7 @@ runs:
           test/mcp/node_modules
         # Core dependencies invalidate only when package-lock files change
         # IMPORTANT: If bumping npm-core-v1 -> npm-core-v2, also update save-build-caches-windows/action.yml
-        key: npm-core-v1-${{ runner.os }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: npm-core-v1-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
       if: ${{ inputs.restore-npm == 'true' }}
@@ -90,7 +94,7 @@ runs:
           .vscode
         # Extensions invalidate when extension package.json files or git submodules change
         # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update save-build-caches-windows/action.yml
-        key: npm-extensions-v1-${{ runner.os }}-${{ steps.extensions-hash.outputs.hash }}
+        key: npm-extensions-v1-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore Playwright browsers cache
       if: ${{ inputs.restore-playwright == 'true' }}
