@@ -70,6 +70,11 @@ export const debuggersExtPoint = extensionsRegistry.ExtensionsRegistry.registerE
 					type: 'boolean',
 					default: true
 				},
+				sendBreakpointsOnAllSaves: {
+					description: nls.localize('positron.extension.contributes.debuggers.sendBreakpointsOnAllSaves', "Whether this debugger should receive SetBreakpoints DAP events on every file save, even when breakpoint positions haven't changed. Defaults to false."),
+					type: 'boolean',
+					default: false
+				},
 				// --- End Positron ---
 				configurationSnippets: {
 					description: nls.localize('vscode.extension.contributes.debuggers.configurationSnippets', "Snippets for adding new configurations in \'launch.json\'."),
@@ -318,4 +323,3 @@ Registry.as<IExtensionFeaturesRegistry>(Extensions.ExtensionFeaturesRegistry).re
 	},
 	renderer: new SyncDescriptor(DebuggersDataRenderer),
 });
-

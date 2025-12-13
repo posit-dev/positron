@@ -348,6 +348,13 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 		// Return true if at least one interested debugger supports UI launch
 		return interestedDebuggers.some(d => d.supportsUiLaunch !== false);
 	}
+
+	shouldSendBreakpointsOnAllSaves(languageId: string): boolean {
+		const interestedDebuggers = this.debuggers
+			.filter(d => d.enabled && d.interestedInLanguage(languageId));
+		// Return true if at least one interested debugger wants breakpoints on all saves
+		return interestedDebuggers.some(d => d.sendBreakpointsOnAllSaves === true);
+	}
 	// --- End Positron ---
 
 	async guessDebugger(gettingConfigurations: boolean): Promise<IGuessedDebugger | undefined> {

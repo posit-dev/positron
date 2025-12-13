@@ -616,7 +616,14 @@ export class BreakpointEditorContribution implements IBreakpointEditorContributi
 				breakpointDecoration.range = newBreakpointRange;
 			}
 		});
-		if (!somethingChanged) {
+		// --- Start Positron ---
+		// Check if the debugger wants breakpoints sent on all saves
+		const languageId = model.getLanguageId();
+		const shouldSendAnyway = this.debugService.getAdapterManager()
+			.shouldSendBreakpointsOnAllSaves(languageId);
+
+		if (!somethingChanged && !shouldSendAnyway) {
+			// --- End Positron ---
 			// nothing to do, my decorations did not change.
 			return;
 		}

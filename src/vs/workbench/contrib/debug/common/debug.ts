@@ -961,6 +961,9 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 	// --- Start Positron ---
 	// Whether this debugger supports launching from the Run and Debug UI
 	supportsUiLaunch?: boolean;
+
+	// Whether this debugger wants SetBreakpoints on every save (not just when positions change)
+	sendBreakpointsOnAllSaves?: boolean;
 	// --- End Positron ---
 
 	// debug configuration support
@@ -1065,6 +1068,7 @@ export interface IAdapterManager {
 	someDebuggerInterestedInLanguage(language: string): boolean;
 	// --- Start Positron ---
 	someDebuggerInterestedInLanguageSupportsUiLaunch(language: string): boolean;
+	shouldSendBreakpointsOnAllSaves(languageId: string): boolean;
 	// --- End Positron ---
 	getDebugger(type: string): IDebuggerMetadata | undefined;
 
