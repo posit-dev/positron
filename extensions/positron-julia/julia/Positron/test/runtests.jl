@@ -3,29 +3,41 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
+"""
+Main test runner for Positron.jl
+
+This file is executed by `Pkg.test()` and runs all test suites.
+Individual test files can also be run directly for faster iteration during development.
+
+Usage:
+    # Run all tests
+    julia> using Pkg; Pkg.test("Positron")
+
+    # Or from shell
+    \$ julia --project=. -e 'using Pkg; Pkg.test()'
+
+    # Run specific test file during development
+    julia> include("test/test_variables.jl")
+"""
+
 using Test
 using Positron
 
-# Include test files
-include("test_jsonrpc.jl")
-include("test_variables.jl")
-include("test_data_explorer.jl")
-include("test_help.jl")
-
-@testset "Positron.jl" begin
-	@testset "JSON-RPC" begin
-		test_jsonrpc()
+@testset verbose = true "Positron.jl Test Suite" begin
+	@testset "JSON-RPC Communication" begin
+		include("test_jsonrpc.jl")
 	end
 
-	@testset "Variables" begin
-		test_variables()
+	@testset "Variables and Inspection" begin
+		include("test_variables.jl")
+		include("test_inspectors.jl")
 	end
 
 	@testset "Data Explorer" begin
-		test_data_explorer()
+		include("test_data_explorer.jl")
 	end
 
-	@testset "Help" begin
-		test_help()
+	@testset "Help System" begin
+		include("test_help.jl")
 	end
 end

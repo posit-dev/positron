@@ -97,9 +97,48 @@ This generates:
 
 #### Testing the Julia Library
 
+The Positron.jl library includes a comprehensive test suite covering variable inspection,
+comm protocols, and type handling.
+
+**Run all tests:**
 ```bash
 cd extensions/positron-julia/julia/Positron
-julia --project=. -e 'using Pkg; Pkg.instantiate(); using Positron'
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+**Run specific test file during development:**
+```julia
+# From Julia REPL in the Positron project directory
+julia> include("test/test_variables.jl")  # Variables and comm handling
+julia> include("test/test_inspectors.jl")  # Type inspection tests
+julia> include("test/test_jsonrpc.jl")     # JSON-RPC protocol tests
+```
+
+**Test with Revise.jl for rapid iteration:**
+```julia
+using Pkg
+Pkg.add("Revise")
+
+using Revise
+includet("src/Positron.jl")  # Auto-reload on changes
+include("test/test_variables.jl")
+```
+
+**Test coverage:**
+- 315+ unit tests covering all major Julia types
+- Variable kind detection (booleans, numbers, strings, collections, etc.)
+- Display value and type formatting
+- Child inspection (dicts, arrays, structs)
+- Path resolution and nested access
+- Clipboard formatting
+- Comm message parsing and handling
+
+**Interactive testing:**
+A comprehensive interactive testing file is available at `~/code/positron-testingstuff/testing.jl`
+with examples of all supported variable types. Load it in Positron to test the Variables pane:
+
+```julia
+include("$(homedir())/code/positron-testingstuff/testing.jl")
 ```
 
 ### Required Julia Packages

@@ -227,7 +227,9 @@ function parse_variables_request(data::Dict)
     elseif method == "inspect"
         return InspectParams(get(params, "path", []))
     elseif method == "clipboard_format"
-        return ClipboardFormatParams(get(params, "path", []), get(params, "format", ""))
+        format_str = get(params, "format", "text/plain")
+        format_enum = StructTypes.construct(ClipboardFormatFormat, format_str)
+        return ClipboardFormatParams(get(params, "path", []), format_enum)
     elseif method == "view"
         return ViewParams(get(params, "path", []))
     elseif method == "query_table_summary"
