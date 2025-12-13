@@ -17,6 +17,137 @@ Julia language support for Positron IDE.
 - IJulia package for Jupyter kernel support
 - LanguageServer.jl for code intelligence
 
-## Development
+## Julia Installation
 
-See the main Positron CONTRIBUTING.md for development setup instructions.
+We recommend using [juliaup](https://github.com/JuliaLang/juliaup), the official Julia version manager. It's similar to rustup for Rust or nvm for Node.js.
+
+### Installing juliaup
+
+**macOS/Linux:**
+```bash
+curl -fsSL https://install.julialang.org | sh
+```
+
+**Windows:**
+```powershell
+winget install julia -s msstore
+```
+
+The installer will:
+1. Install juliaup to `~/.juliaup/`
+2. Install the latest stable Julia version
+3. Add `~/.juliaup/bin` to your PATH
+
+### juliaup Commands
+
+```bash
+# Check installed versions
+juliaup status
+
+# Install a specific version
+juliaup add 1.10
+
+# Install LTS version
+juliaup add lts
+
+# Set default version
+juliaup default 1.10
+
+# Update all installed versions
+juliaup update
+```
+
+### Julia Environments
+
+Julia uses project-specific environments (similar to Python's venv). Key files:
+- `Project.toml` - Project dependencies
+- `Manifest.toml` - Locked dependency versions
+
+```bash
+# Activate a project environment
+julia --project=/path/to/project
+
+# Or from the Julia REPL
+julia> ]activate /path/to/project
+```
+
+## Development Setup
+
+### Building the Extension
+
+```bash
+cd extensions/positron-julia
+npm install
+npm run compile
+```
+
+### Positron.jl Library
+
+The `julia/Positron/` directory contains the Julia-side implementation of Positron's comm-based services. The comm types are auto-generated from OpenRPC schemas.
+
+#### Regenerating Comm Types
+
+```bash
+cd /path/to/positron
+npx ts-node positron/comms/generate-comms.ts
+```
+
+This generates:
+- `julia/Positron/src/*_comm.jl` - Julia comm type definitions
+
+#### Testing the Julia Library
+
+```bash
+cd extensions/positron-julia/julia/Positron
+julia --project=. -e 'using Pkg; Pkg.instantiate(); using Positron'
+```
+
+### Required Julia Packages
+
+For development, install these packages in your Julia environment:
+
+```julia
+using Pkg
+Pkg.add(["IJulia", "LanguageServer", "JSON3", "StructTypes"])
+```
+
+## Architecture
+
+The extension consists of:
+
+1. **TypeScript Extension** (`src/`) - VS Code extension that:
+   - Discovers Julia installations via juliaup
+   - Manages Julia runtime sessions
+   - Handles LSP client for code intelligence
+
+2. **Positron.jl Library** (`julia/Positron/`) - Julia package that:
+   - Implements Positron comm protocols (Variables, Help, Plots, Data Explorer)
+   - Integrates with IJulia for Jupyter kernel support
+   - Provides the bridge between Julia and Positron's UI
+
+## Troubleshooting
+
+### Julia not found
+
+Ensure juliaup is installed and `~/.juliaup/bin` is in your PATH:
+```bash
+echo $PATH | grep juliaup
+julia --version
+```
+
+### Reinstalling juliaup
+
+If you have a broken installation:
+```bash
+# Remove old installation
+rm -rf ~/.juliaup ~/.julia/juliaup
+
+# Reinstall
+curl -fsSL https://install.julialang.org | sh
+```
+
+## Resources
+
+- [Julia Documentation](https://docs.julialang.org/)
+- [juliaup GitHub](https://github.com/JuliaLang/juliaup)
+- [IJulia Documentation](https://julialang.github.io/IJulia.jl/stable/)

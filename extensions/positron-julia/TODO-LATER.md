@@ -4,33 +4,66 @@ This document tracks improvements and features that are out of scope for the ini
 
 ## Console Completions via Jupyter Protocol (BLOCKED)
 
-**Current State**: Runtime completions are **disabled** because:
-- `RuntimeCodeExecutionMode.Silent` doesn't return expression results (returns `{}`)
-- `RuntimeCodeExecutionMode.Transient` returns results but pollutes the console with output
-- There's no way to silently execute code and get the result back
+**Current State**: Runtime completions are **disabled** because there's no way to silently execute code and get the result back via the Positron API.
 
-**Attempted Workaround**: A completion provider (`src/completions.ts`) was implemented that:
-1. Registers for Julia documents including `inmemory` scheme (console)
-2. Executes `REPLCompletions.completions()` via `positron.runtime.executeCode`
-3. Parses the result to provide completions
+### Problem Details
 
-This works technically but shows the completion code output in the console, which is unacceptable UX.
+We tried to implement a VS Code `CompletionItemProvider` that supplements the LSP completions with runtime variables defined in the Julia session. The approach:
 
-**Ideal Solution**: Implement proper Jupyter `complete_request` / `complete_reply` message handling in positron-supervisor. This would:
-- Be efficient (no code execution overhead)
-- Be silent (no console pollution)
-- Follow the standard Jupyter protocol
-- Enable richer completion metadata (types, documentation)
+1. Register completion provider for Julia documents (including `inmemory` scheme for console)
+2. On completion request, execute Julia code via `positron.runtime.executeCode()`:
+   ```julia
+   let
+       import REPL.REPLCompletions
+       code = "user_input_here"
+       completions, range, should_complete = REPLCompletions.completions(code, cursor_pos)
+       join([REPLCompletions.completion_text(c) for c in completions], "\n")
+   end
+   ```
+3. Parse the result and return as VS Code completion items
 
-**Required Changes**:
+### API Behavior Observed
+
+**`RuntimeCodeExecutionMode.Silent`**:
+- The code executes (we could see output if using `println`)
+- BUT the return value from `executeCode()` is `{}` (empty object)
+- No `text/plain` MIME type in the result
+- The `onOutput` observer callback is NOT called for stdout
+
+**`RuntimeCodeExecutionMode.Transient`**:
+- The code executes
+- Return value contains `{"text/plain": "\"result\\nhere\""}` ✓
+- BUT the output is displayed in the console (pollutes user's view)
+- Every tab completion would spam the console with Julia code results
+
+### What We Need
+
+**Option A: Fix Silent mode to return results**
+- `RuntimeCodeExecutionMode.Silent` should still return the expression result
+- It should just not display to user / not store in history
+- This seems like it might be a bug or oversight in the current implementation
+
+**Option B: Implement Jupyter `complete_request`**
+- Standard Jupyter protocol has `complete_request` / `complete_reply` message types
+- IJulia already handles this in `handlers.jl`
+- positron-supervisor currently only has `is_complete_request`, not `complete_request`
+
+**Required Changes for Option B**:
 1. Add `CompleteRequest` and `CompleteReply` message types to `positron-supervisor/src/jupyter/JupyterMessageType.ts`
-2. Implement the request/reply handling in `KallichoreSession.ts`
-3. Expose a `getCompletions()` method on the Positron runtime API
-4. Update positron-julia to use the new API
+2. Add a `JupyterCompleteRequest` class similar to `IsCompleteRequest`
+3. Implement request handling in `KallichoreSession.ts`
+4. Expose a `getCompletions(code: string, cursorPos: number)` method on `positron.runtime` API
+5. Update positron-julia to use the new API
 
-**Alternative**: Add a silent execution mode that returns results without console output.
+### Files Involved
+- `src/completions.ts` - The disabled completion provider (code retained for future use)
+- `positron-supervisor/src/jupyter/JupyterMessageType.ts` - Missing `complete_request`
+- `positron-supervisor/src/KallichoreSession.ts` - Where request handling would be added
 
-**Reference**: IJulia handles `complete_request` in `handlers.jl` using `Base.REPL.REPLCompletions.completions()`.
+### Reference
+- IJulia handles `complete_request` in `handlers.jl` using `Base.REPL.REPLCompletions.completions()`
+- Python in Positron uses Pylance (LSP) exclusively for completions, so doesn't hit this issue
+- julia-vscode uses a custom RPC mechanism (`repl/getcompletions`) separate from Jupyter
 
 ## Language Server Improvements
 
