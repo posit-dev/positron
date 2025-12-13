@@ -187,6 +187,7 @@ export class JuliaLanguageClient implements vscode.Disposable {
 				{ scheme: 'file', language: 'julia' },
 				{ scheme: 'untitled', language: 'julia' },
 				{ scheme: 'vscode-notebook-cell', language: 'julia' },
+				{ scheme: 'inmemory', language: 'julia' },  // Console
 			],
 			synchronize: {
 				fileEvents: [
