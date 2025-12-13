@@ -83,17 +83,20 @@ let
 end
 `;
 
+		LOGGER.debug(`Getting runtime completions for: "${code}" at position ${cursorPos}`);
+
 		return new Promise<vscode.CompletionItem[]>((resolve) => {
 			let output = '';
-			const timeoutMs = 500; // 500ms timeout for completions
+			const timeoutMs = 1000; // 1s timeout for completions
 
 			// Create a timeout
 			const timeout = setTimeout(() => {
-				LOGGER.debug('Runtime completion timed out');
+				LOGGER.debug(`Runtime completion timed out. Output so far: "${output}"`);
 				resolve([]);
 			}, timeoutMs);
 
 			// Execute the completion query silently
+			LOGGER.debug(`Executing Julia completion code`);
 			positron.runtime.executeCode(
 				'julia',
 				juliaCode,
@@ -103,11 +106,19 @@ end
 				positron.RuntimeErrorBehavior.Continue,
 				{
 					token,
+					onStarted: () => {
+						LOGGER.debug('Completion execution started');
+					},
 					onOutput: (message: string) => {
+						LOGGER.debug(`Completion output: "${message}"`);
 						output += message;
+					},
+					onError: (message: string) => {
+						LOGGER.debug(`Completion error output: "${message}"`);
 					},
 					onCompleted: () => {
 						clearTimeout(timeout);
+						LOGGER.debug(`Completion finished. Full output: "${output}"`);
 						// Parse the output - each line starting with "COMPLETION:" is a completion
 						const lines = output.split('\n');
 						const items: vscode.CompletionItem[] = [];
@@ -128,6 +139,7 @@ end
 								}
 							}
 						}
+						LOGGER.debug(`Returning ${items.length} runtime completions`);
 						resolve(items);
 					},
 					onFailed: (error: Error) => {
@@ -136,7 +148,11 @@ end
 						resolve([]);
 					}
 				}
-			);
+			).catch((err: Error) => {
+				clearTimeout(timeout);
+				LOGGER.debug(`executeCode rejected: ${err.message}`);
+				resolve([]);
+			});
 		});
 	}
 
