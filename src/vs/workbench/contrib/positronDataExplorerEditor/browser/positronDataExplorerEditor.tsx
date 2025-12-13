@@ -29,6 +29,7 @@ import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInp
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -78,6 +79,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets or sets the identifier.
 	 */
 	private _identifier?: string;
+
+	/**
+	 * Gets the is focused context key.
+	 */
+	private readonly _isFocusedContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the layout context key.
@@ -208,6 +214,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 */
 	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
 
+	private readonly _focusoutListener = () => {
+		this._isFocusedContextKey.set(false)
+	};
+
+	private readonly _focusinListener = () => {
+		this._isFocusedContextKey.set(true)
+	}
+
 	//#endregion IReactComponentContainer
 
 	//#region Constructor & Dispose
@@ -236,6 +250,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
 
 		// Create the context keys.
+		this._isFocusedContextKey = PositronDataExplorerFocused.bindTo(
+			this._group.scopedContextKeyService
+		);
 		this._layoutContextKey = POSITRON_DATA_EXPLORER_LAYOUT.bindTo(
 			this._group.scopedContextKeyService
 		);
@@ -254,6 +271,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isRowFilteringContextKey = POSITRON_DATA_EXPLORER_IS_ROW_FILTERING.bindTo(
 			this._group.scopedContextKeyService
 		);
+
+		// Create listeners
+		this._positronDataExplorerContainer?.addEventListener('focusin', this._focusinListener);
+		this._positronDataExplorerContainer?.addEventListener('focusout', this._focusoutListener);
 	}
 
 	/**
@@ -262,6 +283,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	public override dispose(): void {
 		// Dispose the PositronReactRenderer for the PositronDataExplorer.
 		this.disposePositronReactRenderer();
+
+		// Dispose of listeners
+		this._positronDataExplorerContainer.removeEventListener('focusin', this._focusinListener);
+		this._positronDataExplorerContainer.removeEventListener('focusout', this._focusoutListener)
 
 		// Call the base class's dispose method.
 		super.dispose();
