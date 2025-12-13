@@ -71,89 +71,62 @@ export class JuliaRuntimeCompletionProvider implements vscode.CompletionItemProv
 
 		// Build Julia code to get completions
 		// We use REPLCompletions which is what IJulia uses internally
-		// Output format: one completion per line, prefixed with "COMPLETION:"
-		const juliaCode = `
-let
+		// Return completions as a string that we can parse from the result
+		const juliaCode = `let
 	import REPL.REPLCompletions
 	code = "${escapedCode}"
 	completions, range, should_complete = REPLCompletions.completions(code, ${cursorPos})
-	for c in completions
-		println("COMPLETION:", REPLCompletions.completion_text(c))
-	end
-end
-`;
+	join([REPLCompletions.completion_text(c) for c in completions], "\\n")
+end`;
 
 		LOGGER.debug(`Getting runtime completions for: "${code}" at position ${cursorPos}`);
 
-		return new Promise<vscode.CompletionItem[]>((resolve) => {
-			let output = '';
-			const timeoutMs = 1000; // 1s timeout for completions
-
-			// Create a timeout
-			const timeout = setTimeout(() => {
-				LOGGER.debug(`Runtime completion timed out. Output so far: "${output}"`);
-				resolve([]);
-			}, timeoutMs);
-
-			// Execute the completion query silently
-			LOGGER.debug(`Executing Julia completion code`);
-			positron.runtime.executeCode(
+		try {
+			// Execute the completion query silently and get the result
+			const result = await positron.runtime.executeCode(
 				'julia',
 				juliaCode,
 				false, // don't focus
 				true,  // allow incomplete
 				positron.RuntimeCodeExecutionMode.Silent,
 				positron.RuntimeErrorBehavior.Continue,
-				{
-					token,
-					onStarted: () => {
-						LOGGER.debug('Completion execution started');
-					},
-					onOutput: (message: string) => {
-						LOGGER.debug(`Completion output: "${message}"`);
-						output += message;
-					},
-					onError: (message: string) => {
-						LOGGER.debug(`Completion error output: "${message}"`);
-					},
-					onCompleted: () => {
-						clearTimeout(timeout);
-						LOGGER.debug(`Completion finished. Full output: "${output}"`);
-						// Parse the output - each line starting with "COMPLETION:" is a completion
-						const lines = output.split('\n');
-						const items: vscode.CompletionItem[] = [];
-						for (const line of lines) {
-							if (line.startsWith('COMPLETION:')) {
-								const text = line.substring('COMPLETION:'.length);
-								if (text) {
-									const item = new vscode.CompletionItem(
-										text,
-										vscode.CompletionItemKind.Variable
-									);
-									// Sort runtime completions first (space sorts before letters/numbers)
-									item.sortText = ` ${text}`;
-									item.detail = '(runtime)';
-									// Boost priority so runtime variables appear at top
-									item.preselect = true;
-									items.push(item);
-								}
-							}
-						}
-						LOGGER.debug(`Returning ${items.length} runtime completions`);
-						resolve(items);
-					},
-					onFailed: (error: Error) => {
-						clearTimeout(timeout);
-						LOGGER.debug(`Completion execution failed: ${error.message}`);
-						resolve([]);
-					}
-				}
-			).catch((err: Error) => {
-				clearTimeout(timeout);
-				LOGGER.debug(`executeCode rejected: ${err.message}`);
-				resolve([]);
-			});
-		});
+				{ token }
+			);
+
+			LOGGER.debug(`Completion result: ${JSON.stringify(result)}`);
+
+			// The result should contain the completion text as text/plain
+			const completionText = result['text/plain'] as string | undefined;
+			if (!completionText) {
+				LOGGER.debug('No text/plain in result');
+				return [];
+			}
+
+			// Parse the newline-separated completions (remove quotes if present)
+			const cleanText = completionText.replace(/^"|"$/g, '');
+			const completionStrings = cleanText.split('\\n').filter(s => s.length > 0);
+
+			LOGGER.debug(`Parsed ${completionStrings.length} completions: ${completionStrings.join(', ')}`);
+
+			const items: vscode.CompletionItem[] = [];
+			for (const text of completionStrings) {
+				const item = new vscode.CompletionItem(
+					text,
+					vscode.CompletionItemKind.Variable
+				);
+				// Sort runtime completions first (space sorts before letters/numbers)
+				item.sortText = ` ${text}`;
+				item.detail = '(runtime)';
+				// Boost priority so runtime variables appear at top
+				item.preselect = true;
+				items.push(item);
+			}
+
+			return items;
+		} catch (err) {
+			LOGGER.debug(`executeCode failed: ${err}`);
+			return [];
+		}
 	}
 
 	dispose(): void {
