@@ -22,8 +22,19 @@ export class JuliaRuntimeCompletionProvider implements vscode.CompletionItemProv
 		_context: vscode.CompletionContext
 	): Promise<vscode.CompletionItem[] | undefined> {
 
+		LOGGER.info(`provideCompletionItems called for ${document.uri.scheme}:${document.languageId}`);
+
 		// Only provide completions for Julia documents
 		if (document.languageId !== 'julia') {
+			LOGGER.debug('Not a Julia document, skipping');
+			return undefined;
+		}
+
+		// Check if there's an active Julia session
+		const sessions = await positron.runtime.getActiveSessions();
+		const juliaSession = sessions.find(s => s.runtimeMetadata.languageId === 'julia');
+		if (!juliaSession) {
+			LOGGER.debug('No active Julia session, skipping runtime completions');
 			return undefined;
 		}
 
@@ -31,8 +42,11 @@ export class JuliaRuntimeCompletionProvider implements vscode.CompletionItemProv
 		const lineText = document.lineAt(position.line).text;
 		const textBeforeCursor = lineText.substring(0, position.character);
 
+		LOGGER.info(`Completion request for: "${textBeforeCursor}"`);
+
 		// Don't provide completions for empty input or just whitespace
 		if (!textBeforeCursor.trim()) {
+			LOGGER.debug('Empty input, skipping');
 			return undefined;
 		}
 
@@ -50,9 +64,10 @@ export class JuliaRuntimeCompletionProvider implements vscode.CompletionItemProv
 				token
 			);
 
+			LOGGER.info(`Returning ${completions.length} completions`);
 			return completions;
 		} catch (error) {
-			LOGGER.debug(`Runtime completion error: ${error}`);
+			LOGGER.error(`Runtime completion error: ${error}`);
 			return undefined;
 		}
 	}
@@ -71,7 +86,6 @@ export class JuliaRuntimeCompletionProvider implements vscode.CompletionItemProv
 
 		// Build Julia code to get completions
 		// We use REPLCompletions which is what IJulia uses internally
-		// Return completions as a string that we can parse from the result
 		const juliaCode = `let
 	import REPL.REPLCompletions
 	code = "${escapedCode}"
@@ -82,31 +96,33 @@ end`;
 		LOGGER.debug(`Getting runtime completions for: "${code}" at position ${cursorPos}`);
 
 		try {
-			// Execute the completion query silently and get the result
+			// Execute with Transient mode to get result (Silent doesn't return values)
+			// This will briefly show in console but is the only way to get results
 			const result = await positron.runtime.executeCode(
 				'julia',
 				juliaCode,
 				false, // don't focus
 				true,  // allow incomplete
-				positron.RuntimeCodeExecutionMode.Silent,
+				positron.RuntimeCodeExecutionMode.Transient,
 				positron.RuntimeErrorBehavior.Continue,
 				{ token }
 			);
 
 			LOGGER.debug(`Completion result: ${JSON.stringify(result)}`);
 
-			// The result should contain the completion text as text/plain
+			// The result contains the completion text as text/plain (quoted string)
 			const completionText = result['text/plain'] as string | undefined;
 			if (!completionText) {
 				LOGGER.debug('No text/plain in result');
 				return [];
 			}
 
-			// Parse the newline-separated completions (remove quotes if present)
+			// Parse the newline-separated completions
+			// Result is like "\"print\\nprintln\\nprintstyled\""
 			const cleanText = completionText.replace(/^"|"$/g, '');
 			const completionStrings = cleanText.split('\\n').filter(s => s.length > 0);
 
-			LOGGER.debug(`Parsed ${completionStrings.length} completions: ${completionStrings.join(', ')}`);
+			LOGGER.debug(`Parsed ${completionStrings.length} completions`);
 
 			const items: vscode.CompletionItem[] = [];
 			for (const text of completionStrings) {
@@ -143,15 +159,17 @@ end`;
 export function registerCompletionProvider(context: vscode.ExtensionContext): vscode.Disposable {
 	const provider = new JuliaRuntimeCompletionProvider();
 
+	LOGGER.info('Registering Julia runtime completion provider');
+
 	// Register for Julia files and console (inmemory scheme)
+	// No trigger characters - we want to be called for all completion requests
 	const disposable = vscode.languages.registerCompletionItemProvider(
 		[
 			{ language: 'julia', scheme: 'file' },
 			{ language: 'julia', scheme: 'untitled' },
 			{ language: 'julia', scheme: 'inmemory' },
 		],
-		provider,
-		'.' // Trigger on dot for field/property access
+		provider
 	);
 
 	context.subscriptions.push(disposable);

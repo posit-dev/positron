@@ -44,6 +44,11 @@
 				"category": "Julia",
 				"title": "%julia.command.sourceCurrentFile.title%",
 				"icon": "$(play)"
+			},
+			{
+				"command": "julia.testCompletions",
+				"category": "Julia",
+				"title": "Test Runtime Completions"
 			}
 		],
 		"configuration": [
