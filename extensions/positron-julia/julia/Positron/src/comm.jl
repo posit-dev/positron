@@ -91,16 +91,7 @@ function send_error(comm::PositronComm, code::Int, message::String)
 	_send_msg(comm, error_msg, nothing)
 end
 
-"""
-Internal function to send a message over the comm.
-"""
-function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict, Nothing})
-	# Convert to JSON and send via IJulia comm
-	json_data = JSON3.write(data)
-	# TODO: Integrate with IJulia's comm_send
-	# For now, we'll need to hook this into IJulia's comm infrastructure
-	@debug "Sending comm message" comm_id=comm.comm_id data=json_data
-end
+# Note: _send_msg is implemented in kernel.jl to integrate with IJulia
 
 """
 Open the comm (send comm_open to frontend).

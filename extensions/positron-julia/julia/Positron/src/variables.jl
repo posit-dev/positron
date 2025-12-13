@@ -10,16 +10,29 @@ This module provides the Variables pane functionality, allowing users to browse
 and inspect variables in the Julia session.
 """
 
+# Helper to construct variables UpdateParams (avoids conflict with plot UpdateParams)
+function create_variables_update_params(assigned::Vector{Variable}, unevaluated::Vector{Variable},
+	removed::Vector{String}, version::Int64)
+	# Manually construct the struct from variables_comm.jl
+	# Field order: assigned, unevaluated, removed, version
+	# We can't use the type name due to conflicts, so we construct via StructTypes
+	return (; assigned = assigned, unevaluated = unevaluated, removed = removed, version = version)
+end
+
+function create_variables_refresh_params(variables::Vector{Variable}, length::Int64, version::Int64)
+	return (; variables = variables, length = length, version = version)
+end
+
 """
 The Variables service manages the Variables pane in Positron.
 """
 mutable struct VariablesService
-	comm::Union{PositronComm, Nothing}
+	comm::Any  # PositronComm or test mock - using Any for testability
 	current_version::Int
-	last_snapshot::Dict{String, Any}  # Maps variable name to metadata
+	last_snapshot::Dict{String,Any}  # Maps variable name to Variable
 
 	function VariablesService()
-		new(nothing, 0, Dict{String, Any}())
+		new(nothing, 0, Dict{String,Any}())
 	end
 end
 
@@ -517,7 +530,7 @@ function send_refresh!(service::VariablesService)
 	service.current_version += 1
 	service.last_snapshot = Dict(v.display_name => v for v in variables)
 
-	params = RefreshParams(variables, length(variables), service.current_version)
+	params = create_variables_refresh_params(variables, length(variables), service.current_version)
 	send_event(service.comm, "refresh", params)
 end
 
@@ -557,7 +570,7 @@ function send_update!(service::VariablesService)
 		service.current_version += 1
 		service.last_snapshot = current_map
 
-		params = UpdateParams(assigned, Variable[], removed, service.current_version)
+		params = create_variables_update_params(assigned, Variable[], removed, service.current_version)
 		send_event(service.comm, "update", params)
 	end
 end
