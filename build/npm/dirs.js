@@ -22,6 +22,7 @@ const dirs = [
 	'extensions/positron-environment',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
+	'extensions/positron-julia',
 	'extensions/positron-notebooks',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
