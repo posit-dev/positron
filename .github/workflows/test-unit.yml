@@ -115,10 +115,46 @@ jobs:
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one unit test needs this: Can list tables and fields from R connections
+      - name: Download R DESCRIPTION file
+        id: download-r-desc
+        run: |
+          curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          HASH=$(sha256sum DESCRIPTION | awk '{print $1}')
+          echo "description-hash=$HASH" >> $GITHUB_OUTPUT
+          echo "R DESCRIPTION hash: $HASH"
+
+      - name: Restore R installation and packages cache
+        id: cache-r
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.local/share/rig
+            ~/.cache/R
+            /usr/local/lib/R/site-library
+            /opt/R
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.4.0-
+
       - name: Setup R
+        if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/install-r
         with:
           version: "4.4.0"
+
+      # Note: R cache is saved by unit tests (not integration tests) to avoid race conditions
+      # when both workflows run in parallel (see test-pull-request.yml and test-merge.yml)
+      - name: Save R installation and packages cache
+        if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.local/share/rig
+            ~/.cache/R
+            /usr/local/lib/R/site-library
+            /opt/R
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
