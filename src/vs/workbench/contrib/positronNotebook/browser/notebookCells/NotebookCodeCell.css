@@ -10,6 +10,11 @@
 
 	.positron-notebook-cell-outputs {
 		overflow: hidden;
+
+		&.no-outputs {
+			/* Dont show empty outputs at all */
+			display: none;
+		}
 	}
 
 	.positron-notebook-code-cell-outputs-inner {

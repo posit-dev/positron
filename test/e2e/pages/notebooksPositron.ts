@@ -27,7 +27,7 @@ export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
@@ -427,11 +427,7 @@ export class PositronNotebooks extends Notebooks {
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
-			if (delay) {
-				await editor.pressSequentially(code, { delay });
-			} else {
-				await editor.fill(code);
-			}
+			await editor.pressSequentially(code, { delay });
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();

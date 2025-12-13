@@ -845,7 +845,7 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndex), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -860,9 +860,10 @@
               "enum": [
                 "add",
                 "update",
-                "delete"
+                "delete",
+                "reorder"
               ],
-              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell."
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions."
             },
             "cellType": {
               "type": "string",
@@ -887,6 +888,21 @@
             "run": {
               "type": "boolean",
               "description": "Whether to execute the cell after adding it. Defaults to true for code cells. Ignored for markdown cells."
+            },
+            "fromIndex": {
+              "type": "number",
+              "description": "Current index of the cell to move (0-based). Required when operation is 'reorder' and not using newOrder."
+            },
+            "toIndex": {
+              "type": "number",
+              "description": "Target index to move the cell to (0-based). Required when operation is 'reorder' and not using newOrder."
+            },
+            "newOrder": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Array specifying new cell order. newOrder[i] is the original index of the cell that should be at position i. Must be a valid permutation containing each index 0 to cellCount-1 exactly once. Use this for full notebook reordering. Alternative to fromIndex/toIndex for operation='reorder'."
             }
           },
           "required": [
