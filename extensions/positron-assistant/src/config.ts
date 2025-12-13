@@ -244,10 +244,12 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Create unique ID for the configuration
 	const id = randomUUID();
 
+	// Filter out sources that use autoconfiguration
+	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
+
 	// Check for required fields
 	sources
 		.filter((source) => source.type === userConfig.type)
-		.filter((source) => source.defaults.autoconfigure === undefined) // Don't save autoconfigurable models
 		.find((source) => source.provider.id === userConfig.provider)?.supportedOptions
 		.forEach((option) => {
 			if (!(option in userConfig)) {

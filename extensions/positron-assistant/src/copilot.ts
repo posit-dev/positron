@@ -9,6 +9,7 @@ import * as positron from 'positron';
 import { ExtensionContext } from 'vscode';
 import { ModelConfig } from './config.js';
 import { LanguageModel } from 'ai';
+import { AutoconfigureResult } from './models.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -91,6 +92,24 @@ export class CopilotService implements vscode.Disposable {
 		return !!this._authSession;
 	}
 
+	static async autoconfigure(): Promise<AutoconfigureResult> {
+		// Refresh the signed-in state if needed
+		if (!CopilotService.instance().isSignedIn) {
+			CopilotService.instance().refreshSignedInState();
+		}
+
+		if (CopilotService.instance().isSignedIn) {
+			return {
+				signedIn: true,
+				message: vscode.l10n.t('the Accounts menu.')
+			};
+		} else {
+			return {
+				signedIn: false,
+			}
+		}
+	}
+
 	/**
 	 * Refresh the signed-in state based on the current model registration status.
 	 * This should be called when a model is registered or deleted.
@@ -99,21 +118,6 @@ export class CopilotService implements vscode.Disposable {
 		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true });
 		if (session?.id !== this._authSession?.id) {
 			this.setAuthSession(session);
-			if (this.isSignedIn) {
-				const autoConfig: positron.ai.LanguageModelAutoconfigure = {
-					type: positron.ai.LanguageModelAutoconfigureType.Custom,
-					signedIn: true,
-					message: vscode.l10n.t('the Accounts menu.')
-				}
-				CopilotLanguageModel.source.defaults.autoconfigure = autoConfig;
-			} else {
-				const autoConfig: positron.ai.LanguageModelAutoconfigure = {
-					type: positron.ai.LanguageModelAutoconfigureType.Custom,
-					signedIn: false,
-					message: vscode.l10n.t('the Accounts menu.')
-				}
-				CopilotLanguageModel.source.defaults.autoconfigure = autoConfig;
-			}
 		}
 	}
 
@@ -148,10 +152,6 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 
 	/** Stub for connection resolution; refreshes sign-in state */
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		const service = CopilotService.instance();
-		if (!service.isSignedIn) {
-			await service.refreshSignedInState();
-		}
 		return undefined;
 	}
 
