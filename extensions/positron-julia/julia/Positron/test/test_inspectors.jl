@@ -12,6 +12,7 @@ and child enumeration for all major Julia types.
 
 using Test
 using Dates
+using DataFrames
 
 @testset "Type Inspectors" begin
 	@testset "Inspect Boolean" begin
@@ -441,5 +442,75 @@ using Dates
 		alice = Positron.get_value_at_path(["test_people", "1"])
 		@test alice.name == "Alice"
 		@test alice.age == 30
+	end
+
+	@testset "Inspect DataFrame - Basic" begin
+		df = DataFrame(
+			id = 1:5,
+			name = ["Alice", "Bob", "Charlie", "Diana", "Eve"],
+			age = [30, 25, 35, 28, 32]
+		)
+
+		# DataFrames should be detected as tables
+		@test Positron.is_table_like(df) == true
+		@test Positron.get_variable_kind(df) == Positron.VariableKind_Table
+
+		# DataFrames should be viewable in data explorer
+		@test Positron.value_has_viewer(df) == true
+
+		# Should report number of rows
+		@test Positron.get_variable_length(df) == 5
+
+		# Should have some size
+		@test Positron.get_variable_size(df) > 0
+	end
+
+	@testset "Inspect DataFrame - Empty" begin
+		df_empty = DataFrame()
+
+		@test Positron.is_table_like(df_empty) == true
+		@test Positron.get_variable_kind(df_empty) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df_empty) == 0
+	end
+
+	@testset "Inspect DataFrame - Large" begin
+		df_large = DataFrame(
+			id = 1:1000,
+			value = rand(1000),
+			category = rand(["A", "B", "C"], 1000)
+		)
+
+		@test Positron.get_variable_kind(df_large) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df_large) == 1000
+		@test Positron.value_has_viewer(df_large) == true
+	end
+
+	@testset "Inspect DataFrame - With Missing" begin
+		df = DataFrame(
+			x = [1, 2, missing, 4],
+			y = [missing, "b", "c", "d"]
+		)
+
+		@test Positron.get_variable_kind(df) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df) == 4
+		@test Positron.value_has_viewer(df) == true
+	end
+
+	@testset "Inspect DataFrame - Wide" begin
+		# DataFrame with many columns
+		df_wide = DataFrame([Symbol("col$i") => rand(5) for i in 1:50])
+
+		@test Positron.get_variable_kind(df_wide) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df_wide) == 5
+	end
+
+	@testset "Inspect DataFrame - Single Row/Column" begin
+		df_single_row = DataFrame(a = [1], b = ["one"])
+		@test Positron.get_variable_kind(df_single_row) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df_single_row) == 1
+
+		df_single_col = DataFrame(values = 1:10)
+		@test Positron.get_variable_kind(df_single_col) == Positron.VariableKind_Table
+		@test Positron.get_variable_length(df_single_col) == 10
 	end
 end
