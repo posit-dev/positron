@@ -8,8 +8,7 @@ import * as positron from 'positron';
 
 import { LOGGER, supervisorApi } from './extension';
 import { JuliaInstallation } from './julia-installation';
-import { createJuliaKernelSpec } from './kernel-spec';
-import { JupyterLanguageRuntimeSession } from './positron-supervisor';
+import { JupyterLanguageRuntimeSession, JupyterKernelSpec } from './positron-supervisor';
 
 /**
  * Represents a Julia runtime session.
@@ -42,12 +41,14 @@ export class JuliaSession implements positron.LanguageRuntimeSession, vscode.Dis
 	constructor(
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly metadata: positron.RuntimeSessionMetadata,
-		private readonly _installation: JuliaInstallation
+		private readonly _installation: JuliaInstallation,
+		readonly kernelSpec?: JupyterKernelSpec,
+		sessionName?: string
 	) {
 		this.dynState = {
 			inputPrompt: 'julia> ',
 			continuationPrompt: '       ',
-			sessionName: runtimeMetadata.runtimeName,
+			sessionName: sessionName || runtimeMetadata.runtimeName,
 		};
 
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
@@ -70,16 +71,25 @@ export class JuliaSession implements positron.LanguageRuntimeSession, vscode.Dis
 		// Get the supervisor API
 		const supervisor = await supervisorApi();
 
-		// Create the kernel spec
-		const kernelSpec = createJuliaKernelSpec(this._installation);
-
-		// Create the session via the supervisor
-		this._kernel = await supervisor.createSession(
-			this.runtimeMetadata,
-			this.metadata,
-			kernelSpec,
-			this.dynState
-		);
+		// Create or restore the session via the supervisor
+		if (this.kernelSpec) {
+			// We have a kernel spec, so create a new session
+			LOGGER.info(`Creating new Julia session with kernel spec`);
+			this._kernel = await supervisor.createSession(
+				this.runtimeMetadata,
+				this.metadata,
+				this.kernelSpec,
+				this.dynState
+			);
+		} else {
+			// We don't have a kernel spec, so restore (reconnect) an existing session
+			LOGGER.info(`Restoring existing Julia session`);
+			this._kernel = await supervisor.restoreSession(
+				this.runtimeMetadata,
+				this.metadata,
+				this.dynState
+			);
+		}
 
 		// Forward events from the Jupyter session
 		this._kernel.onDidReceiveRuntimeMessage((msg: positron.LanguageRuntimeMessage) => {

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as crypto from 'crypto';
+import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { JuliaInstallation, ReasonDiscovered } from './julia-installation';
@@ -52,6 +53,20 @@ function getStartupBehavior(installation: JuliaInstallation): positron.LanguageR
 }
 
 /**
+ * Determines the session location based on kernel supervisor configuration.
+ * If the kernel supervisor is configured to persist sessions (shutdownTimeout
+ * not 'immediately'), sessions will be stored at machine level for
+ * reconnection after Positron restart.
+ */
+function getSessionLocation(): positron.LanguageRuntimeSessionLocation {
+	const config = vscode.workspace.getConfiguration('kernelSupervisor');
+	const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+	return shutdownTimeout !== 'immediately'
+		? positron.LanguageRuntimeSessionLocation.Machine
+		: positron.LanguageRuntimeSessionLocation.Workspace;
+}
+
+/**
  * Creates Positron runtime metadata from a Julia installation.
  */
 export function createJuliaRuntimeMetadata(
@@ -68,7 +83,7 @@ export function createJuliaRuntimeMetadata(
 		languageName: 'Julia',
 		languageVersion: installation.version,
 		base64EncodedIconSvg: JULIA_ICON_SVG,
-		sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
+		sessionLocation: getSessionLocation(),
 		startupBehavior: getStartupBehavior(installation),
 		extraRuntimeData: {
 			homepath: installation.homepath,
