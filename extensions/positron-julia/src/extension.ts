@@ -31,8 +31,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register commands
 	registerCommands(context, juliaRuntimeManager);
 
-	// Register runtime completion provider (supplements LSP with runtime variables)
-	registerCompletionProvider(context);
+	// NOTE: Runtime completion provider disabled - Silent execution mode doesn't return
+	// results, and Transient mode pollutes the console. Need proper silent execution
+	// support in positron-supervisor. See TODO-LATER.md.
+	// registerCompletionProvider(context);
 
 	// Start the language server in the background
 	startLanguageServer(context).catch(error => {

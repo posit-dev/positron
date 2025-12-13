@@ -2,12 +2,23 @@
 
 This document tracks improvements and features that are out of scope for the initial implementation but should be addressed in future work.
 
-## Console Completions via Jupyter Protocol
+## Console Completions via Jupyter Protocol (BLOCKED)
 
-**Current State**: Runtime completions in the console are implemented using a workaround that executes Julia code via `execute_request` to call `REPLCompletions.completions()` and parses the output.
+**Current State**: Runtime completions are **disabled** because:
+- `RuntimeCodeExecutionMode.Silent` doesn't return expression results (returns `{}`)
+- `RuntimeCodeExecutionMode.Transient` returns results but pollutes the console with output
+- There's no way to silently execute code and get the result back
+
+**Attempted Workaround**: A completion provider (`src/completions.ts`) was implemented that:
+1. Registers for Julia documents including `inmemory` scheme (console)
+2. Executes `REPLCompletions.completions()` via `positron.runtime.executeCode`
+3. Parses the result to provide completions
+
+This works technically but shows the completion code output in the console, which is unacceptable UX.
 
 **Ideal Solution**: Implement proper Jupyter `complete_request` / `complete_reply` message handling in positron-supervisor. This would:
-- Be more efficient (no code execution overhead)
+- Be efficient (no code execution overhead)
+- Be silent (no console pollution)
 - Follow the standard Jupyter protocol
 - Enable richer completion metadata (types, documentation)
 
@@ -15,7 +26,9 @@ This document tracks improvements and features that are out of scope for the ini
 1. Add `CompleteRequest` and `CompleteReply` message types to `positron-supervisor/src/jupyter/JupyterMessageType.ts`
 2. Implement the request/reply handling in `KallichoreSession.ts`
 3. Expose a `getCompletions()` method on the Positron runtime API
-4. Update positron-julia to use the new API instead of the execute_request workaround
+4. Update positron-julia to use the new API
+
+**Alternative**: Add a silent execution mode that returns results without console output.
 
 **Reference**: IJulia handles `complete_request` in `handlers.jl` using `Base.REPL.REPLCompletions.completions()`.
 
