@@ -124,14 +124,27 @@ includet("src/Positron.jl")  # Auto-reload on changes
 include("test/test_variables.jl")
 ```
 
-**Test coverage:**
-- 315+ unit tests covering all major Julia types
-- Variable kind detection (booleans, numbers, strings, collections, etc.)
-- Display value and type formatting
-- Child inspection (dicts, arrays, structs)
+**Test dependencies:**
+The test suite requires DataFrames.jl (automatically handled by Project.toml extras):
+```julia
+# Test dependencies are installed automatically by Pkg.test()
+# Manual installation if needed:
+julia -e 'using Pkg; Pkg.add("DataFrames")'
+```
+
+**Test coverage (335+ tests):**
+- Variable kind detection for all Julia types (primitives, collections, composites)
+- Display value and type formatting with dimension information
+- Child inspection (dicts, arrays, structs, DataFrames)
 - Path resolution and nested access
 - Clipboard formatting
 - Comm message parsing and handling
+- **DataFrame support:**
+  - Basic, empty, large, and wide DataFrames
+  - DataFrames with missing values
+  - Single row/column DataFrames
+  - Proper dimension display (rows x columns)
+  - Table detection via type name matching
 
 **Interactive testing:**
 A comprehensive interactive testing file is available at `~/code/positron-testingstuff/testing.jl`

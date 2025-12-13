@@ -311,8 +311,21 @@ end
 
 """
 Get the display value for a variable.
+
+For DataFrames, shows dimensions like "[5 rows x 3 columns] DataFrame".
 """
 function get_display_value(value::Any)::String
+	# Special handling for DataFrames
+	if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+		try
+			rows = Main.DataFrames.nrow(value)
+			cols = Main.DataFrames.ncol(value)
+			return "[$rows rows x $cols columns] DataFrame"
+		catch
+		end
+	end
+
+	# Default display
 	try
 		io = IOBuffer()
 		show(IOContext(io, :compact => true, :limit => true), value)
@@ -329,8 +342,20 @@ end
 
 """
 Get the display type for a variable.
+
+For DataFrames, shows dimensions like "DataFrame [5x3]".
 """
 function get_display_type(value::Any)::String
+	# Special handling for DataFrames
+	if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+		try
+			rows = Main.DataFrames.nrow(value)
+			cols = Main.DataFrames.ncol(value)
+			return "DataFrame [$rows x $cols]"
+		catch
+		end
+	end
+
 	T = typeof(value)
 
 	# Simplify common type names
@@ -354,8 +379,26 @@ end
 
 """
 Get the length of a variable (for collections).
+
+For DataFrames, returns the number of rows (nrow).
+For other collections, returns length().
 """
 function get_variable_length(value::Any)::Int
+	# Handle DataFrames specially - use nrow()
+	if is_table_like(value)
+		try
+			# Try to get row count via Tables.jl interface or nrow
+			if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+				return Main.DataFrames.nrow(value)
+			elseif isdefined(Main, :Tables) && isdefined(Main.Tables, :rowcount)
+				rc = Main.Tables.rowcount(value)
+				return rc === nothing ? 0 : rc
+			end
+		catch
+		end
+	end
+
+	# For other types, use length()
 	try
 		return length(value)
 	catch
