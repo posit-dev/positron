@@ -66,16 +66,7 @@ jobs:
       - name: Prelaunch
         run: npm run prelaunch
 
-      - name: Save caches
-        uses: ./.github/actions/save-build-caches
-        with:
-          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
-          cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
-          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
-          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
-          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+      # Note: Nightly workflow only restores caches - PRs and merges handle cache saving
 
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb

@@ -58,6 +58,8 @@ jobs:
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
+    with:
+      save_cache: false  # Only restore - PRs and merges handle cache saving
   e2e-electron:
     name: e2e
     needs: [setup]
