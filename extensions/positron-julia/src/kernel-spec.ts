@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 import { JuliaInstallation } from './julia-installation';
 import { JupyterKernelSpec } from './positron-supervisor';
