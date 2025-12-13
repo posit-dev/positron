@@ -297,15 +297,20 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 			case StateType.Ready: {
 				console.log('[Positron Update] State: Ready - explicitCheck:', this.explicitCheck);
-				const productVersion = state.update.productVersion;
+				console.log('[Positron Update] State Ready - update.productVersion:', state.update.productVersion, 'update.version:', state.update.version);
+				// --- Start Positron ---
+				// const productVersion = state.update.productVersion;
+				// Use version fallback like we do elsewhere
+				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
+					console.log('[Positron Update] Ready - calling onUpdateReady with version:', productVersion);
 					const currentVersion = parseVersion(this.productService.version);
 					const nextVersion = parseVersion(productVersion);
 					this.majorMinorUpdateAvailableContextKey.set(Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion)));
 					this.onUpdateReady(state.update);
-					// --- Start Positron ---
 				} else {
-					console.log('[Positron Update] State Ready but no productVersion, calling onUpdateReady anyway');
+					console.log('[Positron Update] State Ready but no version at all!');
+					// Still try to show notification without version
 					this.onUpdateReady(state.update);
 				}
 
