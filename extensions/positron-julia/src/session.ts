@@ -161,17 +161,18 @@ export class JuliaSession implements positron.LanguageRuntimeSession, vscode.Dis
 		return this._kernel.interrupt();
 	}
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
+		LOGGER.info(`Restarting Julia session ${this.metadata.sessionId}`);
 		if (!this._kernel) {
-			return;
+			throw new Error('Cannot restart; kernel not started');
 		}
-		return this._kernel.restart();
+		return this._kernel.restart(workingDirectory);
 	}
 
-	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
+	async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
 		LOGGER.info(`Shutting down Julia session ${this.metadata.sessionId}`);
 		if (!this._kernel) {
-			return;
+			throw new Error('Cannot shutdown; kernel not started');
 		}
 		return this._kernel.shutdown(exitReason);
 	}
@@ -179,7 +180,7 @@ export class JuliaSession implements positron.LanguageRuntimeSession, vscode.Dis
 	async forceQuit(): Promise<void> {
 		LOGGER.info(`Force quitting Julia session ${this.metadata.sessionId}`);
 		if (!this._kernel) {
-			return;
+			throw new Error('Cannot force quit; kernel not started');
 		}
 		return this._kernel.forceQuit();
 	}
