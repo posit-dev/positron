@@ -8,5 +8,6 @@
 	"julia.command.sourceCurrentFile.title": "Source Current File",
 	"julia.configuration.interpreters.include.markdownDescription": "Additional paths to search for Julia installations.",
 	"julia.configuration.interpreters.exclude.markdownDescription": "Paths to exclude when searching for Julia installations.",
-	"julia.configuration.kernel.logLevel.markdownDescription": "Log level for the Julia kernel."
+	"julia.configuration.kernel.logLevel.markdownDescription": "Log level for the Julia kernel.",
+	"julia.configuration.languageServer.enabled.markdownDescription": "Enable the Julia Language Server for code completion, hover, and diagnostics. Requires LanguageServer.jl to be installed."
 }
