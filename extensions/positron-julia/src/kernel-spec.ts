@@ -68,30 +68,25 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
  *
  * This code:
  * 1. Loads IJulia (installing it if necessary)
- * 2. Starts the kernel with the connection file
+ * 2. Starts the kernel with IJulia.run_kernel()
+ *
+ * The connection file is passed as a command line argument and is
+ * automatically read by IJulia.run_kernel().
  *
  * TODO: In the future, this will also load PositronJulia.jl for
  * custom comms support (variables, plots, data explorer, etc.)
  */
 function getKernelStartupCode(): string {
+	// Note: This is a single-line expression that's passed to Julia with -e
+	// The connection_file is passed as ARGS[1] which IJulia.run_kernel() reads automatically
 	return `
-		# Positron Julia Kernel Startup
-		connection_file = ARGS[1]
-
 		# Ensure IJulia is available
-		import Pkg
-		if Base.find_package("IJulia") === nothing
-			@info "Installing IJulia..."
-			Pkg.add("IJulia")
-		end
-
-		using IJulia
-
-		# Start the kernel
-		IJulia.installkernel("Julia")
-
-		# Connect to the Jupyter frontend
-		@info "Starting IJulia kernel with connection file: " * connection_file
-		IJulia.main(connection_file)
-	`;
+		import Pkg;
+		if Base.find_package("IJulia") === nothing;
+			@info "Installing IJulia...";
+			Pkg.add("IJulia");
+		end;
+		import IJulia;
+		IJulia.run_kernel()
+	`.replace(/\n\s*/g, ' ').trim();
 }
