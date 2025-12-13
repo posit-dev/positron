@@ -119,9 +119,11 @@ end
 										text,
 										vscode.CompletionItemKind.Variable
 									);
-									// Mark as runtime completion for sorting
-									item.sortText = `1_${text}`;
+									// Sort runtime completions first (space sorts before letters/numbers)
+									item.sortText = ` ${text}`;
 									item.detail = '(runtime)';
+									// Boost priority so runtime variables appear at top
+									item.preselect = true;
 									items.push(item);
 								}
 							}
