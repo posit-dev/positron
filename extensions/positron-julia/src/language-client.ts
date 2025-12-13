@@ -33,26 +33,34 @@ export class JuliaLanguageClient implements vscode.Disposable {
 	}
 
 	/**
-	 * Returns the path to the language server depot.
+	 * Returns the path to the language server depot for a specific Julia version.
+	 * Each Julia minor version gets its own depot to avoid compatibility issues.
+	 *
+	 * @param installation The Julia installation to get the depot path for
 	 */
-	private getLsDepotPath(): string {
-		return path.join(this._extensionPath, 'lsdepot', 'v1');
+	private getLsDepotPath(installation: JuliaInstallation): string {
+		// Use minor version (1.10, 1.12, etc.) for depot isolation
+		const versionMatch = installation.version.match(/^(\d+\.\d+)/);
+		const minorVersion = versionMatch ? versionMatch[1] : '1.x';
+		return path.join(this._extensionPath, 'lsdepot', `v${minorVersion}`);
 	}
 
 	/**
-	 * Checks if LanguageServer.jl is installed in the depot.
+	 * Checks if LanguageServer.jl is installed in the depot for this Julia version.
 	 */
-	private isLanguageServerInstalled(): boolean {
-		const depotPath = this.getLsDepotPath();
-		const packagesDir = path.join(depotPath, 'packages', 'LanguageServer');
-		return fs.existsSync(packagesDir);
+	private isLanguageServerInstalled(installation: JuliaInstallation): boolean {
+		const depotPath = this.getLsDepotPath(installation);
+		// Check if the environment directory exists with a Manifest.toml
+		const envPath = path.join(depotPath, 'environments', `v${installation.version.match(/^(\d+\.\d+)/)?.[1] || '1.x'}`);
+		const manifestPath = path.join(envPath, 'Manifest.toml');
+		return fs.existsSync(manifestPath);
 	}
 
 	/**
 	 * Installs LanguageServer.jl into the extension's depot.
 	 */
 	private async installLanguageServer(installation: JuliaInstallation): Promise<void> {
-		const depotPath = this.getLsDepotPath();
+		const depotPath = this.getLsDepotPath(installation);
 
 		// Ensure depot directory exists
 		fs.mkdirSync(depotPath, { recursive: true });
@@ -130,8 +138,8 @@ export class JuliaLanguageClient implements vscode.Disposable {
 
 		this._installation = installation;
 
-		// Check if LanguageServer.jl is installed, install if not
-		if (!this.isLanguageServerInstalled()) {
+		// Check if LanguageServer.jl is installed for this Julia version, install if not
+		if (!this.isLanguageServerInstalled(installation)) {
 			try {
 				await this.installLanguageServer(installation);
 			} catch (error) {
@@ -156,8 +164,8 @@ export class JuliaLanguageClient implements vscode.Disposable {
 		// Get the workspace folder for the environment path
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
 
-		// Language server depot path - keep LS packages separate
-		const lsDepot = this.getLsDepotPath();
+		// Language server depot path - version-specific to support multiple Julia versions
+		const lsDepot = this.getLsDepotPath(installation);
 
 		// Server options - spawn Julia process
 		const serverOptions: ServerOptions = {
