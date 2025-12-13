@@ -22,6 +22,7 @@ export class DapComm {
 	private _comm?: Comm;
 	private _port?: number;
 	private _debugSession?: vscode.DebugSession | undefined;
+	private attach?: () => Promise<void>;
 
 	// Message counter used for creating unique message IDs
 	private messageCounter = 0;
@@ -64,23 +65,11 @@ export class DapComm {
 			suppressDebugToolbar: true,
 		};
 
-		const attach = async () => {
-			// Reconnect immediately when session terminates. This happens typically
-			// when the user runs the `workbench.action.debug.disconnect` command
-			// (e.g. from the debug toolbar).
-			const disp = vscode.debug.onDidTerminateDebugSession((session) => {
-				if (session.id !== this._debugSession?.id) {
-					return;
-				}
-				disp.dispose();
-				this._debugSession = undefined;
-				attach();
-			});
-
+		this.attach = async () => {
 			this._debugSession = await this.startDebugSession(config, debugOptions);
 		};
 
-		await attach();
+		await this.attach();
 	}
 
 	private debugSession(): vscode.DebugSession {
@@ -108,6 +97,10 @@ export class DapComm {
 			case 'stop_debug': {
 				vscode.debug.setSuppressDebugToolbar(this.debugSession(), true);
 				return true;
+			}
+
+			case 'attach': {
+				await this.attach!();
 			}
 
 			// If the DAP has commands to execute, such as "n", "f", or "Q",
