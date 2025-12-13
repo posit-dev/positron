@@ -1,0 +1,155 @@
+# ---------------------------------------------------------------------------------------------
+# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+# ---------------------------------------------------------------------------------------------
+
+"""
+UI service for Positron.
+
+This module provides UI-related functionality like handling plot render settings
+and calling methods in the interpreter.
+"""
+
+"""
+The UI service handles general UI-related communication with Positron.
+"""
+mutable struct UIService
+	comm::Union{PositronComm, Nothing}
+	plot_render_settings::PlotRenderSettings
+
+	function UIService()
+		# Default plot render settings
+		default_size = PlotSize(600, 800)
+		new(nothing, PlotRenderSettings(default_size, 1.0, PlotRenderFormat_Png))
+	end
+end
+
+"""
+Initialize the UI service with a comm.
+"""
+function init!(service::UIService, comm::PositronComm)
+	service.comm = comm
+
+	on_msg!(comm, msg -> handle_ui_msg(service, msg))
+	on_close!(comm, () -> handle_ui_close(service))
+end
+
+"""
+Handle incoming messages on the UI comm.
+"""
+function handle_ui_msg(service::UIService, msg::Dict)
+	request = parse_ui_request(msg)
+
+	if request isa DidChangePlotsRenderSettingsParams
+		handle_did_change_plots_render_settings(service, request)
+	elseif request isa CallMethodParams
+		handle_call_method(service, request)
+	end
+end
+
+"""
+Handle UI comm close.
+"""
+function handle_ui_close(service::UIService)
+	service.comm = nothing
+end
+
+"""
+Handle did_change_plots_render_settings notification.
+"""
+function handle_did_change_plots_render_settings(service::UIService, request::DidChangePlotsRenderSettingsParams)
+	service.plot_render_settings = request.settings
+	# Notify plots service if needed
+	send_result(service.comm, nothing)
+end
+
+"""
+Handle call_method request.
+"""
+function handle_call_method(service::UIService, request::CallMethodParams)
+	# Execute the method in the interpreter
+	try
+		result = call_interpreter_method(request.method, request.params)
+		send_result(service.comm, result)
+	catch e
+		@error "Failed to call method" method=request.method exception=(e, catch_backtrace())
+		send_error(service.comm, JsonRpcErrorCode.INTERNAL_ERROR, "Method call failed: $(sprint(showerror, e))")
+	end
+end
+
+"""
+Call a method in the interpreter.
+"""
+function call_interpreter_method(method::String, params::Vector)::Any
+	# Map method names to implementations
+	if method == "getVariables"
+		return get_variables_for_ui()
+	elseif method == "evaluateExpression"
+		if length(params) >= 1
+			expr_str = string(params[1])
+			return evaluate_expression(expr_str)
+		end
+		error("Missing expression parameter")
+	else
+		error("Unknown method: $method")
+	end
+end
+
+"""
+Get variables for UI display.
+"""
+function get_variables_for_ui()::Dict
+	variables = Dict{String, Any}()
+
+	for name in names(Main; all=false)
+		name_str = string(name)
+
+		# Skip internal names
+		if startswith(name_str, "#") || startswith(name_str, "_")
+			continue
+		end
+		if name in (:Base, :Core, :Main, :ans, :include, :eval)
+			continue
+		end
+
+		try
+			val = getfield(Main, name)
+			if !(val isa Module)
+				variables[name_str] = Dict(
+					"type" => string(typeof(val)),
+					"value" => repr(val; context=:limit => true)
+				)
+			end
+		catch
+		end
+	end
+
+	return variables
+end
+
+"""
+Evaluate an expression and return the result.
+"""
+function evaluate_expression(expr_str::String)::Any
+	try
+		expr = Meta.parse(expr_str)
+		result = Core.eval(Main, expr)
+		return Dict(
+			"success" => true,
+			"result" => repr(result; context=:limit => true),
+			"type" => string(typeof(result))
+		)
+	catch e
+		return Dict(
+			"success" => false,
+			"error" => sprint(showerror, e)
+		)
+	end
+end
+
+"""
+Get the current plot render settings.
+"""
+function get_plot_render_settings(service::UIService)::PlotRenderSettings
+	return service.plot_render_settings
+end

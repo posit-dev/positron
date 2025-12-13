@@ -1,0 +1,25 @@
+name = "Positron"
+uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+authors = ["Posit Software, PBC"]
+version = "0.1.0"
+
+[deps]
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
+StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[compat]
+julia = "1.6"
+IJulia = "1"
+JSON3 = "1"
+StructTypes = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
