@@ -22,11 +22,11 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 
 	// Build the kernel arguments
 	// The {connection_file} placeholder is replaced by the supervisor with the actual connection file path
+	// Note: We match the standard IJulia kernel.json format closely for compatibility
 	const argv = [
 		installation.binpath,
 		'-i',  // Interactive mode
 		'--color=yes',  // Enable colored output
-		'--project=@.',  // Use the current project if available
 		'-e',
 		getKernelStartupCode(),
 		'{connection_file}',
@@ -77,16 +77,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
  * custom comms support (variables, plots, data explorer, etc.)
  */
 function getKernelStartupCode(): string {
-	// Note: This is a single-line expression that's passed to Julia with -e
-	// The connection_file is passed as ARGS[1] which IJulia.run_kernel() reads automatically
-	// IMPORTANT: No # comments in the Julia code below - they break when condensed to one line!
-	return `
-		import Pkg;
-		if Base.find_package("IJulia") === nothing;
-			@info "Installing IJulia...";
-			Pkg.add("IJulia");
-		end;
-		import IJulia;
-		IJulia.run_kernel()
-	`.replace(/\n\s*/g, ' ').trim();
+	// Match the standard IJulia kernel startup command exactly
+	// The connection file is passed as the first argument after -e code
+	return 'import IJulia; IJulia.run_kernel()';
 }
