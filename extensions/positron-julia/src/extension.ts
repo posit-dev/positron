@@ -11,6 +11,7 @@ import { registerCommands } from './commands';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { JuliaLanguageClient } from './language-client';
 import { juliaRuntimeDiscoverer } from './provider';
+import { registerCompletionProvider } from './completions';
 
 export const LOGGER = vscode.window.createOutputChannel('Julia Language Pack', { log: true });
 
@@ -29,6 +30,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register commands
 	registerCommands(context, juliaRuntimeManager);
+
+	// Register runtime completion provider (supplements LSP with runtime variables)
+	registerCompletionProvider(context);
 
 	// Start the language server in the background
 	startLanguageServer(context).catch(error => {
