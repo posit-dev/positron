@@ -32,6 +32,8 @@ import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKe
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IDebugService } from '../../debug/common/debug.js';
+import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
@@ -87,6 +89,8 @@ async function executeCodeInConsole(
 		languageService: ILanguageService;
 		notificationService: INotificationService;
 		positronConsoleService: IPositronConsoleService;
+		debugService: IDebugService;
+		textFileService: ITextFileService;
 	},
 	opts: {
 		allowIncomplete?: boolean;
@@ -95,7 +99,7 @@ async function executeCodeInConsole(
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
 ): Promise<boolean> {
-	const { editorService, languageService, notificationService, positronConsoleService } = services;
+	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
 
 	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
@@ -119,6 +123,12 @@ async function executeCodeInConsole(
 			codeLocation,
 		}
 	};
+
+	// If the document is dirty, send breakpoints to the debug adapter before executing code
+	const documentUri = cursorLocation.uri;
+	if (textFileService.isDirty(documentUri)) {
+		await debugService.sendBreakpoints(documentUri, true);
+	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
 	// this will rip focus away from the editor.
@@ -339,6 +349,8 @@ export function registerPositronConsoleActions() {
 			const modelService = accessor.get(IModelService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const debugService = accessor.get(IDebugService);
+			const textFileService = accessor.get(ITextFileService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -503,7 +515,9 @@ export function registerPositronConsoleActions() {
 					editorService,
 					languageService,
 					notificationService,
-					positronConsoleService
+					positronConsoleService,
+					debugService,
+					textFileService
 				},
 				{
 					allowIncomplete: opts.allowIncomplete,
@@ -726,6 +740,8 @@ export function registerPositronConsoleActions() {
 		const languageService = accessor.get(ILanguageService);
 		const notificationService = accessor.get(INotificationService);
 		const positronConsoleService = accessor.get(IPositronConsoleService);
+		const debugService = accessor.get(IDebugService);
+		const textFileService = accessor.get(ITextFileService);
 
 		// If there is no active editor, there is nothing to execute.
 		const editor = editorService.activeTextEditorControl as IEditor;
@@ -792,7 +808,9 @@ export function registerPositronConsoleActions() {
 				editorService,
 				languageService,
 				notificationService,
-				positronConsoleService
+				positronConsoleService,
+				debugService,
+				textFileService
 			},
 			{
 				allowIncomplete: opts.allowIncomplete,
