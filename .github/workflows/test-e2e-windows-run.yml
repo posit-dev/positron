@@ -152,8 +152,8 @@ jobs:
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
         with:
-          timeout_minutes: 30
-          max_attempts: 5
+          timeout_minutes: 35
+          max_attempts: 3
           retry_wait_seconds: 5
           shell: bash
           # Parallel install strategy:

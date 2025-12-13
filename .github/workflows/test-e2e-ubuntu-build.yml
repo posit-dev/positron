@@ -126,6 +126,11 @@ jobs:
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
+      - name: Move Positron License
+        run: |
+          mv /positron-license /__w/positron || true
+          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+
       - name: Restore QA example content cache
         id: cache-qa-content
         uses: actions/cache/restore@v4
@@ -166,12 +171,6 @@ jobs:
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
-          # Write the Positron license into the workspace
-            echo "Installing Positron license into workspace for artifact inclusion"
-            mkdir -p /__w/positron/positron-license/pdol/target/debug
-            # Write the secret file. Use printf to avoid trailing newline issues.
-            printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
-
           mkdir -p /tmp/artifacts
           # Install zstd and pigz if apt is available so we can produce fast zstd archives.
           if command -v apt-get >/dev/null 2>&1; then
