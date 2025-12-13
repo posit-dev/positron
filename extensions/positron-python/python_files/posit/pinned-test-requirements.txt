@@ -43,6 +43,8 @@ polars==1.35.2
 polars[timezone]==1.35.2; sys_platform == 'win32'
 pyarrow==21.0.0; python_version == '3.9'
 pyarrow==22.0.0; python_version > '3.10'
+pymssql==2.3.10; python_version < '3.14'
+pyodbc==5.3.0; python_version < '3.14'
 pytest==8.4.2; python_version == '3.9'
 pytest==9.0.1; python_version >= '3.10'
 pytest-asyncio==1.2.0; python_version == '3.9'
