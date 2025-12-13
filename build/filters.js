@@ -167,7 +167,6 @@ module.exports.indentationFilter = [
 	// --- Start Positron ---
 	'!src/react.js',
 	'!src/react-dom.js',
-	'!build/detect-secrets.js',
 	// --- End Positron ---
 
 	// --- Start Positron ---
@@ -221,7 +220,6 @@ module.exports.copyrightFilter = [
 	// --- Start Positron ---
 	'!extensions/positron-r/resources/testing/**',
 	`!**/*.jsonl`,
-	'!build/detect-secrets.js',
 	// --- End Positron ---
 ];
 
