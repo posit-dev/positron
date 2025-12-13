@@ -10,6 +10,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IDebugModel, IEvaluate, IExpression } from './debug.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IDebugService } from './debug.js';
+// --- End Positron ---
 import { Breakpoint, DataBreakpoint, ExceptionBreakpoint, Expression, FunctionBreakpoint } from './debugModel.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { mapValues } from '../../../../base/common/objects.js';
@@ -38,7 +42,10 @@ export class DebugStorage extends Disposable {
 		@IStorageService private readonly storageService: IStorageService,
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		// --- Start Positron ---
+		@IDebugService private readonly debugService: IDebugService
+		// --- End Positron ---
 	) {
 		super();
 		this.breakpoints = observableValue(this, this.loadBreakpoints());
@@ -78,7 +85,9 @@ export class DebugStorage extends Disposable {
 		try {
 			result = JSON.parse(this.storageService.get(DEBUG_BREAKPOINTS_KEY, StorageScope.WORKSPACE, '[]')).map((breakpoint: ReturnType<Breakpoint['toJSON']>) => {
 				breakpoint.uri = URI.revive(breakpoint.uri);
-				return new Breakpoint(breakpoint, this.textFileService, this.uriIdentityService, this.logService, breakpoint.id);
+				// --- Start Positron ---
+				return new Breakpoint(breakpoint, this.textFileService, this.uriIdentityService, this.logService, this.debugService, breakpoint.id);
+				// --- End Positron ---
 			});
 		} catch (e) { }
 

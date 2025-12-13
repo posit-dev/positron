@@ -711,7 +711,8 @@
         "label": "R Debugger",
         "languages": ["r"],
         "supportsUiLaunch": false,
-        "sendBreakpointsOnAllSaves": true
+        "sendBreakpointsOnAllSaves": true,
+        "verifyBreakpointsInDirtyDocuments": true
       }
     ],
     "notebookRenderer": [

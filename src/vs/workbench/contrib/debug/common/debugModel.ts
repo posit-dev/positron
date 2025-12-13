@@ -23,6 +23,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IEditorPane } from '../../../common/editor.js';
 import { DEBUG_MEMORY_SCHEME, DataBreakpointSetType, DataBreakpointSource, DebugTreeItemCollapsibleState, IBaseBreakpoint, IBreakpoint, IBreakpointData, IBreakpointUpdateData, IBreakpointsChangeEvent, IDataBreakpoint, IDebugEvaluatePosition, IDebugModel, IDebugSession, IDebugVisualizationTreeItem, IEnablement, IExceptionBreakpoint, IExceptionInfo, IExpression, IExpressionContainer, IFunctionBreakpoint, IInstructionBreakpoint, IMemoryInvalidationEvent, IMemoryRegion, IRawModelUpdate, IRawStoppedDetails, IScope, IStackFrame, IThread, ITreeElement, MemoryRange, MemoryRangeType, State, isFrameDeemphasized } from './debug.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IDebugService } from './debug.js';
+// --- End Positron ---
 import { Source, UNKNOWN_SOURCE_LABEL, getUriFromSource } from './debugSource.js';
 import { DebugStorage } from './debugStorage.js';
 import { IDebugVisualizerService } from './debugVisualizers.js';
@@ -857,6 +861,9 @@ interface IBreakpointSessionData extends DebugProtocol.Breakpoint {
 	supportsDataBreakpoints: boolean;
 	supportsInstructionBreakpoints: boolean;
 	sessionId: string;
+	// --- Start Positron ---
+	debuggerType?: string;
+	// --- End Positron ---
 }
 
 function toBreakpointSessionData(data: DebugProtocol.Breakpoint, capabilities: DebugProtocol.Capabilities): IBreakpointSessionData {
@@ -1004,6 +1011,9 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 		private readonly textFileService: ITextFileService,
 		private readonly uriIdentityService: IUriIdentityService,
 		private readonly logService: ILogService,
+		// --- Start Positron ---
+		private readonly debugService: IDebugService,
+		// --- End Positron ---
 		id = generateUuid(),
 	) {
 		super(id, opts);
@@ -1035,6 +1045,18 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 
 	override get verified(): boolean {
 		if (this.data) {
+			// --- Start Positron ---
+			// If the session that provided the verification indicates the debugger supports
+			// verifying breakpoints in dirty documents, trust the adapter's verification.
+			const dbgType = this.data.debuggerType;
+			if (dbgType) {
+				const dbgMeta = this.debugService.getAdapterManager().getDebugger(dbgType);
+				if (dbgMeta?.verifyBreakpointsInDirtyDocuments) {
+					return this.data.verified;
+				}
+			}
+			// --- End Positron ---
+
 			return this.data.verified && !this.textFileService.isDirty(this._uri);
 		}
 
@@ -1057,6 +1079,20 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 	}
 
 	override get message(): string | undefined {
+		// --- Start Positron ---
+		// If the adapter that provided verification supports verification in dirty documents,
+		// do not show the "file is modified" hint; otherwise preserve the existing behavior.
+		if (this.data) {
+			const dbgType = this.data.debuggerType;
+			if (dbgType) {
+				const dbgMeta = this.debugService.getAdapterManager().getDebugger(dbgType);
+				if (dbgMeta?.verifyBreakpointsInDirtyDocuments) {
+					return super.message;
+				}
+			}
+		}
+		// --- End Positron ---
+
 		if (this.textFileService.isDirty(this.uri)) {
 			return nls.localize('breakpointDirtydHover', "Unverified breakpoint. File is modified, please restart debug session.");
 		}
@@ -1468,7 +1504,10 @@ export class DebugModel extends Disposable implements IDebugModel {
 		debugStorage: DebugStorage,
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		// --- Start Positron ---
+		@IDebugService private readonly debugService: IDebugService
+		// --- End Positron ---
 	) {
 		super();
 
@@ -1776,7 +1815,9 @@ export class DebugModel extends Disposable implements IDebugModel {
 				adapterData: undefined,
 				mode: rawBp.mode,
 				modeLabel: rawBp.modeLabel,
-			}, this.textFileService, this.uriIdentityService, this.logService, rawBp.id);
+				// --- Start Positron ---
+			}, this.textFileService, this.uriIdentityService, this.logService, this.debugService, rawBp.id);
+			// --- End Positron ---
 		});
 		this.breakpoints = this.breakpoints.concat(newBreakpoints);
 		this.breakpointsActivated = true;
@@ -1807,14 +1848,22 @@ export class DebugModel extends Disposable implements IDebugModel {
 		this._onDidChangeBreakpoints.fire({ changed: updated, sessionOnly: false });
 	}
 
-	setBreakpointSessionData(sessionId: string, capabilites: DebugProtocol.Capabilities, data: Map<string, DebugProtocol.Breakpoint> | undefined): void {
+	// --- Start Positron ---
+	// Added `debuggerType` param to track which debugger verified each breakpoint,
+	// allowing lookup of capabilities like `verifyBreakpointsInDirtyDocuments`.
+	setBreakpointSessionData(sessionId: string, capabilites: DebugProtocol.Capabilities, data: Map<string, DebugProtocol.Breakpoint> | undefined, debuggerType?: string): void {
+		// --- End Positron ---
 		this.breakpoints.forEach(bp => {
 			if (!data) {
 				bp.setSessionData(sessionId, undefined);
 			} else {
 				const bpData = data.get(bp.getId());
 				if (bpData) {
-					bp.setSessionData(sessionId, toBreakpointSessionData(bpData, capabilites));
+					// --- Start Positron ---
+					const sessionData = toBreakpointSessionData(bpData, capabilites);
+					if (debuggerType) { sessionData.debuggerType = debuggerType; }
+					bp.setSessionData(sessionId, sessionData);
+					// --- End Positron ---
 				}
 			}
 		});
@@ -1824,7 +1873,11 @@ export class DebugModel extends Disposable implements IDebugModel {
 			} else {
 				const fbpData = data.get(fbp.getId());
 				if (fbpData) {
-					fbp.setSessionData(sessionId, toBreakpointSessionData(fbpData, capabilites));
+					// --- Start Positron ---
+					const sessionData = toBreakpointSessionData(fbpData, capabilites);
+					if (debuggerType) { sessionData.debuggerType = debuggerType; }
+					fbp.setSessionData(sessionId, sessionData);
+					// --- End Positron ---
 				}
 			}
 		});
@@ -1834,7 +1887,11 @@ export class DebugModel extends Disposable implements IDebugModel {
 			} else {
 				const dbpData = data.get(dbp.getId());
 				if (dbpData) {
-					dbp.setSessionData(sessionId, toBreakpointSessionData(dbpData, capabilites));
+					// --- Start Positron ---
+					const sessionData = toBreakpointSessionData(dbpData, capabilites);
+					if (debuggerType) { sessionData.debuggerType = debuggerType; }
+					dbp.setSessionData(sessionId, sessionData);
+					// --- End Positron ---
 				}
 			}
 		});
@@ -1844,7 +1901,11 @@ export class DebugModel extends Disposable implements IDebugModel {
 			} else {
 				const ebpData = data.get(ebp.getId());
 				if (ebpData) {
-					ebp.setSessionData(sessionId, toBreakpointSessionData(ebpData, capabilites));
+					// --- Start Positron ---
+					const sessionData = toBreakpointSessionData(ebpData, capabilites);
+					if (debuggerType) { sessionData.debuggerType = debuggerType; }
+					ebp.setSessionData(sessionId, sessionData);
+					// --- End Positron ---
 				}
 			}
 		});
@@ -1854,7 +1915,11 @@ export class DebugModel extends Disposable implements IDebugModel {
 			} else {
 				const ibpData = data.get(ibp.getId());
 				if (ibpData) {
-					ibp.setSessionData(sessionId, toBreakpointSessionData(ibpData, capabilites));
+					// --- Start Positron ---
+					const sessionData = toBreakpointSessionData(ibpData, capabilites);
+					if (debuggerType) { sessionData.debuggerType = debuggerType; }
+					ibp.setSessionData(sessionId, sessionData);
+					// --- End Positron ---
 				}
 			}
 		});

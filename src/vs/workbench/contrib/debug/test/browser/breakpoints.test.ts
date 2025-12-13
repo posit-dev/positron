@@ -448,7 +448,10 @@ suite('Debug - Breakpoints', () => {
 		const storage1 = disposables.add(new TestStorageService());
 		const debugStorage1 = disposables.add(new MockDebugStorage(storage1));
 		// eslint-disable-next-line local/code-no-any-casts
-		const model1 = disposables.add(new DebugModel(debugStorage1, <any>{ isDirty: (e: any) => false }, mockUriIdentityService, new NullLogService()));
+		// --- Start Positron ---
+		// Added mock IDebugService for verifyBreakpointsInDirtyDocuments capability lookup
+		const model1 = disposables.add(new DebugModel(debugStorage1, <any>{ isDirty: (e: any) => false }, mockUriIdentityService, new NullLogService(), <any>{ getAdapterManager: () => ({ getDebugger: () => undefined, someDebuggerInterestedInLanguage: () => false, someDebuggerInterestedInLanguageSupportsUiLaunch: () => false, shouldSendBreakpointsOnAllSaves: () => false }) }));
+		// --- End Positron ---
 
 		// 1. create breakpoints in the first model
 		const modelUri = uri.file('/myfolder/my file first.js');
@@ -464,7 +467,10 @@ suite('Debug - Breakpoints', () => {
 		// 2. hydrate a new model and ensure external breakpoints get applied
 		const storage2 = disposables.add(new TestStorageService());
 		// eslint-disable-next-line local/code-no-any-casts
-		const model2 = disposables.add(new DebugModel(disposables.add(new MockDebugStorage(storage2)), <any>{ isDirty: (e: any) => false }, mockUriIdentityService, new NullLogService()));
+		// --- Start Positron ---
+		// Added mock IDebugService for verifyBreakpointsInDirtyDocuments capability lookup
+		const model2 = disposables.add(new DebugModel(disposables.add(new MockDebugStorage(storage2)), <any>{ isDirty: (e: any) => false }, mockUriIdentityService, new NullLogService(), <any>{ getAdapterManager: () => ({ getDebugger: () => undefined, someDebuggerInterestedInLanguage: () => false, someDebuggerInterestedInLanguageSupportsUiLaunch: () => false, shouldSendBreakpointsOnAllSaves: () => false }) }));
+		// --- End Positron ---
 		storage2.store('debug.breakpoint', stored, StorageScope.WORKSPACE, StorageTarget.USER, /* external= */ true);
 		assert.deepStrictEqual(model2.getBreakpoints().map(b => b.getId()), model1.getBreakpoints().map(b => b.getId()));
 
