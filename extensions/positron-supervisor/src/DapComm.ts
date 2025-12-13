@@ -64,7 +64,23 @@ export class DapComm {
 			suppressDebugToolbar: true,
 		};
 
-		this._debugSession = await this.startDebugSession(config, debugOptions);
+		const attach = async () => {
+			// Reconnect immediately when session terminates. This happens typically
+			// when the user runs the `workbench.action.debug.disconnect` command
+			// (e.g. from the debug toolbar).
+			const disp = vscode.debug.onDidTerminateDebugSession((session) => {
+				if (session.id !== this._debugSession?.id) {
+					return;
+				}
+				disp.dispose();
+				this._debugSession = undefined;
+				attach();
+			});
+
+			this._debugSession = await this.startDebugSession(config, debugOptions);
+		};
+
+		await attach();
 	}
 
 	private debugSession(): vscode.DebugSession {
@@ -85,7 +101,7 @@ export class DapComm {
 			// When this happens, we attach automatically to the runtime
 			// with a synthetic configuration.
 			case 'start_debug': {
-			  vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
+				vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
 				return true;
 			}
 
