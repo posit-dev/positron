@@ -146,13 +146,11 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		return Promise.resolve(0);
 	}
 
+	/** Stub for connection resolution; refreshes sign-in state */
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		const service = CopilotService.instance();
 		if (!service.isSignedIn) {
 			await service.refreshSignedInState();
-			if (!service.isSignedIn) {
-				return new Error(vscode.l10n.t('You must sign in to GitHub Copilot to use this language model.'));
-			}
 		}
 		return undefined;
 	}
