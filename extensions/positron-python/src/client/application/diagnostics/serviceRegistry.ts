@@ -25,6 +25,10 @@ import {
 } from './checks/macPythonInterpreter';
 // --- Start Positron ---
 import { UnsupportedPythonVersionService, UnsupportedPythonVersionServiceId } from './checks/unsupportedPythonVersion';
+import {
+    MultipleLanguageServersDiagnosticService,
+    MultipleLanguageServersDiagnosticServiceId,
+} from './checks/multipleLanguageServers';
 // --- End Positron ---
 import {
     PowerShellActivationHackDiagnosticsService,
@@ -88,6 +92,13 @@ export function registerTypes(serviceManager: IServiceManager): void {
         IDiagnosticsService,
         UnsupportedPythonVersionService,
         UnsupportedPythonVersionServiceId,
+    );
+
+    // and another for multiple language servers
+    serviceManager.addSingleton<IDiagnosticsService>(
+        IDiagnosticsService,
+        MultipleLanguageServersDiagnosticService,
+        MultipleLanguageServersDiagnosticServiceId,
     );
     // --- End Positron ---
 
