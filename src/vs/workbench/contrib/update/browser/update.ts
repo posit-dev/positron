@@ -453,17 +453,20 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 	// windows and mac
 	private onUpdateReady(update: IUpdate): void {
+		console.log('========== [Positron Update] onUpdateReady ENTRY POINT ==========');
 		console.log('[Positron Update] onUpdateReady called - explicitCheck:', this.explicitCheck);
+		console.log('[Positron Update] onUpdateReady - isMacintosh:', isMacintosh, 'isWindows:', isWindows);
 		// --- Start Positron ---
-		// if (!(isWindows && this.productService.target !== 'user') && !this.shouldShowNotification()) {
 		// Always show for: Windows system-wide installs OR manual checks
 		// Otherwise respect the throttle
 		const isWindowsSystemWide = isWindows && this.productService.target !== 'user';
+		console.log('[Positron Update] onUpdateReady - isWindowsSystemWide:', isWindowsSystemWide, 'shouldShowNotification:', this.shouldShowNotification());
 		if (!isWindowsSystemWide && !this.explicitCheck && !this.shouldShowNotification()) {
 			console.log('[Positron Update] Skipping onUpdateReady - not explicit and throttled');
-			// --- End Positron ---
 			return;
 		}
+		console.log('[Positron Update] onUpdateReady - PASSED throttle check, will show notification');
+		// --- End Positron ---
 
 		const actions = [{
 			label: nls.localize('updateNow', "Update Now"),
