@@ -77,7 +77,9 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
  * custom comms support (variables, plots, data explorer, etc.)
  */
 function getKernelStartupCode(): string {
-	// Match the standard IJulia kernel startup command exactly
-	// The connection file is passed as the first argument after -e code
-	return 'import IJulia; IJulia.run_kernel()';
+	// Start the IJulia kernel and exit when it finishes.
+	// We need the explicit exit() because Julia -i (interactive mode) keeps
+	// the process alive after run_kernel() returns, which causes shutdown
+	// to hang while Kallichore waits for the process to exit.
+	return 'import IJulia; IJulia.run_kernel(); exit()';
 }
