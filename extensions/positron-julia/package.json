@@ -118,9 +118,11 @@
 		"test": "node ./out/test/index.js"
 	},
 	"dependencies": {
+		"semver": "^7.6.3",
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
+		"@types/semver": "^7.5.8",
 		"@anthropic-ai/claude-code-agent-tools": "file:../../src/vscode-dts",
 		"@types/mocha": "^9.1.1",
 		"@types/node": "^20.11.24",

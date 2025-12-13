@@ -72,56 +72,119 @@ async function discoverFromPath(): Promise<JuliaInstallation | undefined> {
  * Discovers Julia installations managed by juliaup.
  */
 async function* discoverFromJuliaup(): AsyncGenerator<JuliaInstallation> {
+	// Try command-line juliaup first
+	let foundViaCommand = false;
 	try {
 		// Check if juliaup is available
 		const juliaupResult = spawnSync('which', ['juliaup'], { encoding: 'utf-8' });
-		if (juliaupResult.status !== 0) {
-			return;
-		}
+		if (juliaupResult.status === 0) {
+			foundViaCommand = true;
 
-		// Get juliaup status
-		const statusResult = spawnSync('juliaup', ['status'], { encoding: 'utf-8' });
-		if (statusResult.status !== 0) {
-			return;
-		}
+			// Get juliaup status
+			const statusResult = spawnSync('juliaup', ['status'], { encoding: 'utf-8' });
+			if (statusResult.status === 0) {
+				// Parse juliaup status output
+				// Format: " Default  Channel  Version  Update"
+				//         "       *  1.10     1.10.10+0.aarch64.apple.darwin14"
+				const lines = statusResult.stdout.split('\n');
+				for (const line of lines) {
+					const match = line.match(/^\s*(\*)?\s+(\S+)\s+(\S+)/);
+					if (match) {
+						const isDefault = match[1] === '*';
+						const channel = match[2];
 
-		// Parse juliaup status output
-		// Format: " Default  Channel  Version  Update"
-		//         "       *  1.10     1.10.10+0.aarch64.apple.darwin14"
-		const lines = statusResult.stdout.split('\n');
-		for (const line of lines) {
-			const match = line.match(/^\s*(\*)?\s+(\S+)\s+(\S+)/);
-			if (match) {
-				const isDefault = match[1] === '*';
-				const channel = match[2];
-				// const versionStr = match[3]; // Available if needed
+						// Skip header line
+						if (channel === 'Channel' || channel === '---') {
+							continue;
+						}
 
-				// Skip header line
-				if (channel === 'Channel' || channel === '---') {
-					continue;
-				}
-
-				// Get the actual binary path for this channel
-				try {
-					const pathResult = spawnSync('juliaup', ['which', channel], { encoding: 'utf-8' });
-					if (pathResult.status === 0 && pathResult.stdout) {
-						const binpath = pathResult.stdout.trim();
-						const installation = await createJuliaInstallation(
-							binpath,
-							ReasonDiscovered.JULIAUP,
-							isDefault
-						);
-						if (installation) {
-							yield installation;
+						// Get the actual binary path for this channel
+						try {
+							const pathResult = spawnSync('juliaup', ['which', channel], { encoding: 'utf-8' });
+							if (pathResult.status === 0 && pathResult.stdout) {
+								const binpath = pathResult.stdout.trim();
+								const installation = await createJuliaInstallation(
+									binpath,
+									ReasonDiscovered.JULIAUP,
+									isDefault
+								);
+								if (installation) {
+									yield installation;
+								}
+							}
+						} catch (error) {
+							LOGGER.debug(`Failed to get path for Julia channel ${channel}: ${error}`);
 						}
 					}
-				} catch (error) {
-					LOGGER.debug(`Failed to get path for Julia channel ${channel}: ${error}`);
 				}
 			}
 		}
 	} catch (error) {
-		LOGGER.debug(`Failed to discover Julia via juliaup: ${error}`);
+		LOGGER.debug(`Failed to discover Julia via juliaup command: ${error}`);
+	}
+
+	// If juliaup command wasn't available, try reading juliaup.json directly
+	if (!foundViaCommand) {
+		yield* discoverFromJuliaupDirectory();
+	}
+}
+
+/**
+ * Discovers Julia installations by reading the juliaup.json file directly.
+ * This is used when the juliaup command isn't available in PATH.
+ */
+async function* discoverFromJuliaupDirectory(): AsyncGenerator<JuliaInstallation> {
+	const juliaupDir = path.join(os.homedir(), '.julia', 'juliaup');
+	const juliaupConfigPath = path.join(juliaupDir, 'juliaup.json');
+
+	if (!fs.existsSync(juliaupConfigPath)) {
+		return;
+	}
+
+	try {
+		const configContent = fs.readFileSync(juliaupConfigPath, 'utf-8');
+		const config = JSON.parse(configContent) as {
+			Default?: string;
+			InstalledVersions?: Record<string, { Path: string }>;
+			InstalledChannels?: Record<string, { Version: string }>;
+		};
+
+		const defaultChannel = config.Default;
+		const installedVersions = config.InstalledVersions || {};
+		const installedChannels = config.InstalledChannels || {};
+
+		// Find the default version
+		let defaultVersion: string | undefined;
+		if (defaultChannel && installedChannels[defaultChannel]) {
+			defaultVersion = installedChannels[defaultChannel].Version;
+		}
+
+		// Iterate through installed versions
+		for (const [versionKey, versionInfo] of Object.entries(installedVersions)) {
+			let versionPath = versionInfo.Path;
+
+			// Handle relative paths
+			if (versionPath.startsWith('./')) {
+				versionPath = path.join(juliaupDir, versionPath.slice(2));
+			} else if (!path.isAbsolute(versionPath)) {
+				versionPath = path.join(juliaupDir, versionPath);
+			}
+
+			const binpath = path.join(versionPath, 'bin', 'julia');
+			if (fs.existsSync(binpath)) {
+				const isDefault = versionKey === defaultVersion;
+				const installation = await createJuliaInstallation(
+					binpath,
+					ReasonDiscovered.JULIAUP,
+					isDefault
+				);
+				if (installation) {
+					yield installation;
+				}
+			}
+		}
+	} catch (error) {
+		LOGGER.debug(`Failed to read juliaup.json: ${error}`);
 	}
 }
 
