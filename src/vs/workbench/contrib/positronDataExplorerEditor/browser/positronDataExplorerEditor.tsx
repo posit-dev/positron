@@ -389,6 +389,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 						this._isRowFilteringContextKey.set(state.row_filters.length > 0);
 					})
 				);
+
+				// Mark the instance as visible now that the editor is active.
+				// This will trigger any deferred refresh operations.
+				positronDataExplorerInstance.setVisible(true);
 			} else {
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
@@ -407,6 +411,15 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Clears the input.
 	 */
 	override clearInput(): void {
+		// Mark the instance as not visible before disposing.
+		// This ensures that expensive operations are deferred while the tab is hidden.
+		if (this._identifier) {
+			const instance = this._positronDataExplorerService.getInstance(this._identifier);
+			if (instance) {
+				instance.setVisible(false);
+			}
+		}
+
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
 
