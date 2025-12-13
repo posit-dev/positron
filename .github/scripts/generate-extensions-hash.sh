@@ -28,7 +28,12 @@ SUBMODULE_SHAS=""
 if [ -n "$SUBMODULE_PATHS" ]; then
 	while IFS= read -r submodule_path; do
 		if [ -n "$submodule_path" ]; then
-			SHA=$(git ls-tree HEAD "$submodule_path" 2>/dev/null | awk '{print $3}' || echo "none")
+			# Get the commit SHA that the submodule is pinned to in the main repo
+			SHA=$(git ls-tree HEAD "$submodule_path" 2>/dev/null | awk '{print $3}')
+			if [ -z "$SHA" ]; then
+				echo "::warning::Could not read submodule commit SHA for $submodule_path - may not be initialized"
+				SHA="uninitialized"
+			fi
 			SUBMODULE_SHAS="${SUBMODULE_SHAS}${submodule_path}:${SHA},"
 		fi
 	done <<< "$SUBMODULE_PATHS"
@@ -36,6 +41,12 @@ fi
 
 # Combine both into final hash
 EXTENSIONS_HASH=$(echo "${FILES_HASH}-${SUBMODULE_SHAS}" | sha256sum | cut -d' ' -f1)
+
+# Validate hash is not empty
+if [ -z "$EXTENSIONS_HASH" ]; then
+	echo "::warning::extensions hash generation failed. Cache will be disabled for this run."
+	exit 1
+fi
 
 echo "hash=$EXTENSIONS_HASH" >> "$GITHUB_OUTPUT"
 echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, submodules: ${SUBMODULE_SHAS:-none})"

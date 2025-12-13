@@ -212,18 +212,25 @@ jobs:
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
+      - name: Download Python requirements file
+        id: download-python-reqs
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          $hash = (Get-FileHash requirements.txt -Algorithm SHA256).Hash
+          echo "requirements-hash=$hash" >> $env:GITHUB_OUTPUT
+          echo "Python requirements hash: $hash"
+
       - name: Restore Python packages cache
         id: cache-python
         uses: actions/cache/restore@v4
         with:
           path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install python dependencies
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install trcli
@@ -234,7 +241,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
 
       # Alternate python version
       - name: Install Python 3.13.0
@@ -261,6 +268,14 @@ jobs:
           rig default 4.4.0
           rig ls
 
+      - name: Download R DESCRIPTION file
+        id: download-r-desc
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
+          echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
+          echo "R DESCRIPTION hash: $hash"
+
       - name: Restore R packages cache
         id: cache-r
         uses: actions/cache/restore@v4
@@ -268,13 +283,12 @@ jobs:
           path: |
             ~\AppData\Local\R\cache
             C:\Program Files\R\R-4.4.0\library
-          key: ${{ runner.os }}-r-4.4.0-${{ hashFiles('**/DESCRIPTION') }}
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
           restore-keys: |
             ${{ runner.os }}-r-4.4.0-
 
       - name: Install R packages for 4.4.0
         run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
@@ -286,7 +300,7 @@ jobs:
           path: |
             ~\AppData\Local\R\cache
             C:\Program Files\R\R-4.4.0\library
-          key: ${{ runner.os }}-r-4.4.0-${{ hashFiles('**/DESCRIPTION') }}
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
 
       # Install R 4.4.2 using rig
       - name: Install R 4.4.2

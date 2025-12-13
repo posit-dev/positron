@@ -49,18 +49,38 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate distro input
+      shell: bash
+      run: |
+        if [[ "${{ runner.os }}" != "Windows" ]]; then
+          echo "Error: restore-build-caches-windows action is for Windows only. Use restore-build-caches for Linux." >&2
+          exit 1
+        fi
+
+    - name: Configure npm cache location
+      shell: pwsh
+      run: |
+        # Configure npm to use a specific cache directory for consistent caching
+        # This must match the path in the cache restore/save steps: ~\AppData\Roaming\npm-cache
+        # Use PowerShell to ensure proper Windows path handling
+        $npmCachePath = "$env:USERPROFILE\AppData\Roaming\npm-cache"
+        "npm_config_cache=$npmCachePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Host "Configured npm cache: $npmCachePath"
+
     - name: Generate extensions cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: extensions-hash
+      continue-on-error: true
       shell: bash
       # Generate a hash of all extension + .vscode package.json files
-      run: .github/scripts/generate-extensions-hash.sh
+      run: .github/scripts/generate-extensions-hash.sh || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
 
     - name: Generate package-locks cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: package-locks-hash
+      continue-on-error: true
       shell: bash
-      run: .github/scripts/generate-package-locks-hash.sh "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}"
+      run: .github/scripts/generate-package-locks-hash.sh "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}" || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
 
     - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
@@ -107,6 +127,8 @@ runs:
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
         # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update save-build-caches-windows/action.yml
         key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        restore-keys: |
+          playwright-v3-${{ runner.os }}-
 
     - name: Restore Electron binary cache
       if: ${{ inputs.restore-electron == 'true' }}
@@ -120,6 +142,8 @@ runs:
         # electron binaries are tied to package-lock and the electron version in package.json
         # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches-windows/action.yml
         key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+        restore-keys: |
+          electron-${{ runner.os }}-
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -132,6 +156,8 @@ runs:
         # product.json contains the list and versions of built-in extensions
         # IMPORTANT: If bumping builtins -> builtins-v2, also update save-build-caches-windows/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+        restore-keys: |
+          builtins-${{ runner.os }}-
 
     - name: Log cache results
       if: always()

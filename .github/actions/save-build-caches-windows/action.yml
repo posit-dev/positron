@@ -38,6 +38,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate distro input
+      shell: bash
+      run: |
+        if [[ "${{ runner.os }}" != "Windows" ]]; then
+          echo "Error: save-build-caches-windows action is for Windows only. Use save-build-caches for Linux." >&2
+          exit 1
+        fi
+
     - name: Save npm core dependencies cache
       if: ${{ inputs.cache-npm-core-hit == 'false' }}
       continue-on-error: true
