@@ -1,5 +1,12 @@
 name: "Test: E2E (Ubuntu) — Run-only"
 
+# Cache Save Strategy:
+# This workflow runs with multiple shards in parallel (e.g., shards 1-4). To prevent race
+# conditions when multiple shards try to save the same cache key simultaneously, only
+# shard 1 saves caches (see "Save caches" step with if: ${{ matrix.shard == 1 }}).
+# The cache save step only saves Playwright browsers since npm/electron/builtins come
+# from the build artifact created by test-e2e-ubuntu-build.yml.
+
 on:
   workflow_call:
     inputs:
@@ -258,27 +265,40 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Restore Playwright browser cache
-        id: cache-playwright
-        uses: actions/cache@v4
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
         with:
-          path: |
-            ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
+          restore-npm: false       # Skip - already in artifact
+          restore-electron: false  # Skip - already in artifact
+          restore-builtins: false  # Skip - already in artifact
+          restore-playwright: true # Need this for running tests
 
       - name: Install Playwright browsers
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: |
-          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
+
+      - name: Save caches
+        if: ${{ matrix.shard == 1 }}
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
         run: |
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge
+
+      # Ensure chromium browser is installed for chromium project tests
+      # The Playwright cache might only contain electron browser from previous runs
+      - name: Install chromium browser for e2e-chromium
+        if: ${{ inputs.project == 'e2e-chromium' }}
+        run: |
+          echo "Installing chromium browser for e2e-chromium project"
+          npx playwright install chromium
 
       - name: Run Playwright Tests
         shell: bash

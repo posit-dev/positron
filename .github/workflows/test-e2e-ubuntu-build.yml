@@ -1,7 +1,21 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
+# Cache Save Strategy:
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true. Examples:
+# - test-merge.yml: unit-tests saves, setup does not
+# - test-full-suite.yml: setup saves (default true), all others do not
+# - test-cross-browser.yml: setup saves (default true), all others do not
+
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      save_cache:
+        required: false
+        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
+        type: boolean
+        default: true  # Default to true for backwards compatibility (test-full-suite.yml, test-cross-browser.yml)
 
 permissions:
   id-token: write
@@ -10,7 +24,7 @@ permissions:
 
 jobs:
   build:
-    name: build
+    name: build-ubuntu
     timeout-minutes: 25
     runs-on: ubuntu-latest-8x
     container:
@@ -66,40 +80,29 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/cache-multi-paths
+        uses: ./.github/actions/restore-build-caches
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-        with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        uses: nick-fields/retry@v3
         env:
-          NODE_ENV: ${{ env.NODE_ENV }}
-
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
         with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
 
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
-        with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure'  }}
-        run: exit 1
-
-      - name: Move Positron License
-        run: |
-          mv /positron-license /__w/positron || true
-          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
@@ -107,24 +110,92 @@ jobs:
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
 
-      - name: Cache QA example content
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Prelaunch
+        run: npm run prelaunch
+
+      - name: Save caches
+        if: ${{ inputs.save_cache }}
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+          cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+
+      - name: Move Positron License
+        run: |
+          mv /positron-license /__w/positron || true
+          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+
+      - name: Check remote QA content version
+        id: qa-remote-check
+        continue-on-error: true
+        run: |
+          echo "Checking latest commit in qa-example-content..."
+          REMOTE_SHA=$(git ls-remote https://github.com/posit-dev/qa-example-content.git HEAD | awk '{print $1}')
+          echo "remote-sha=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Latest qa-example-content commit: $REMOTE_SHA"
+
+      - name: Restore QA example content cache
         id: cache-qa-content
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: /tmp/qa-example-content-cache
-          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-ubuntu-build.yml') }}-v1
+          # Cache key based on remote commit SHA for accurate freshness
+          # Falls back to any previous cache if remote check failed
+          key: qa-content-${{ steps.qa-remote-check.outputs.remote-sha }}-v1
           restore-keys: |
             qa-content-
 
-      - name: Clone QA example content
-        if: steps.cache-qa-content.outputs.cache-hit != 'true'
+      - name: Verify cached content freshness
+        id: verify-cache
+        if: steps.cache-qa-content.outputs.cache-hit == 'true'
+        continue-on-error: true
         run: |
-          echo "Cache miss - Cloning QA example content"
+          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+            CACHED_SHA=$(cat /tmp/qa-example-content-cache/.cached-commit)
+            REMOTE_SHA="${{ steps.qa-remote-check.outputs.remote-sha }}"
+            echo "Cached commit: $CACHED_SHA"
+            echo "Remote commit: $REMOTE_SHA"
+            if [ "$CACHED_SHA" != "$REMOTE_SHA" ]; then
+              echo "Cache is stale - will re-clone"
+              echo "cache-is-fresh=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              echo "Cache is fresh"
+              echo "cache-is-fresh=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "No .cached-commit file found - will re-clone"
+            echo "cache-is-fresh=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clone QA example content
+        if: |
+          steps.cache-qa-content.outputs.cache-hit != 'true' ||
+          steps.verify-cache.outputs.cache-is-fresh == 'false'
+        run: |
+          echo "Cloning fresh QA example content..."
           rm -rf /tmp/qa-example-content-cache || true
           git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache || true
           if [ -d /tmp/qa-example-content-cache ]; then
-            (cd /tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+            COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
+            echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
+            echo "Cloned QA content at commit: $COMMIT_SHA"
           fi
+
+      - name: Save QA example content cache
+        if: |
+          steps.cache-qa-content.outputs.cache-hit != 'true' ||
+          steps.verify-cache.outputs.cache-is-fresh == 'false'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/qa-example-content-cache
+          key: qa-content-${{ steps.qa-remote-check.outputs.remote-sha }}-v1
 
       - name: Create Build Artifact
         run: |
@@ -140,12 +211,6 @@ jobs:
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
-          # Write the Positron license into the workspace
-            echo "Installing Positron license into workspace for artifact inclusion"
-            mkdir -p /__w/positron/positron-license/pdol/target/debug
-            # Write the secret file. Use printf to avoid trailing newline issues.
-            printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
-
           mkdir -p /tmp/artifacts
           # Install zstd and pigz if apt is available so we can produce fast zstd archives.
           if command -v apt-get >/dev/null 2>&1; then
