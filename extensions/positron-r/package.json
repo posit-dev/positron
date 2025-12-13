@@ -710,7 +710,8 @@
         "type": "ark",
         "label": "R Debugger",
         "languages": ["r"],
-        "supportsUiLaunch": false
+        "supportsUiLaunch": false,
+        "sendBreakpointsOnAllSaves": true
       }
     ],
     "notebookRenderer": [
