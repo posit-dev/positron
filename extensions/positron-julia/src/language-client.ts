@@ -180,8 +180,12 @@ export class JuliaLanguageClient implements vscode.Disposable {
 			options: {
 				env: {
 					...process.env,
-					JULIA_DEPOT_PATH: lsDepot,
-					JULIA_LOAD_PATH: path.delimiter,  // Empty load path, only use depot
+					// Prepend LS depot to existing depot path (don't replace!)
+					// This ensures access to Julia's stdlib while using our depot for LS packages
+					JULIA_DEPOT_PATH: process.env.JULIA_DEPOT_PATH
+						? `${lsDepot}${path.delimiter}${process.env.JULIA_DEPOT_PATH}`
+						: lsDepot,
+					JULIA_LOAD_PATH: '@:@v#.#:@stdlib',  // Standard load path with stdlib
 					JULIA_LANGUAGESERVER: '1',
 					POSITRON_JULIA_LS: '1',
 				}
