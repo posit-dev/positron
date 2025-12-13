@@ -75,6 +75,11 @@ export const debuggersExtPoint = extensionsRegistry.ExtensionsRegistry.registerE
 					type: 'boolean',
 					default: false
 				},
+				verifyBreakpointsInDirtyDocuments: {
+					description: nls.localize('positron.extension.contributes.debuggers.verifyBreakpointsInDirtyDocuments', "Whether this debugger can verify breakpoints in dirty (unsaved) documents. Set to true for debuggers that track source modifications internally and update breakpoint locations accordingly. Defaults to false."),
+					type: 'boolean',
+					default: false
+				},
 				// --- End Positron ---
 				configurationSnippets: {
 					description: nls.localize('vscode.extension.contributes.debuggers.configurationSnippets', "Snippets for adding new configurations in \'launch.json\'."),

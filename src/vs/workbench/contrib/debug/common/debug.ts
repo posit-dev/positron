@@ -201,6 +201,10 @@ export interface IDebuggerMetadata {
 	type: string;
 	strings?: { [key in DebuggerString]: string };
 	interestedInLanguage(languageId: string): boolean;
+	// --- Start Positron ---
+	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
+	verifyBreakpointsInDirtyDocuments?: boolean;
+	// --- End Positron ---
 }
 
 export const enum State {
@@ -964,6 +968,9 @@ export interface IDebuggerContribution extends IPlatformSpecificAdapterContribut
 
 	// Whether this debugger wants SetBreakpoints on every save (not just when positions change)
 	sendBreakpointsOnAllSaves?: boolean;
+
+	// Whether this debugger can verify breakpoints in dirty (unsaved) documents
+	verifyBreakpointsInDirtyDocuments?: boolean;
 	// --- End Positron ---
 
 	// debug configuration support

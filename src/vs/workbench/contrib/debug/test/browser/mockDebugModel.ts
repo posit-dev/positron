@@ -11,6 +11,7 @@ import { ITextFileService } from '../../../../services/textfile/common/textfiles
 import { TestFileService, TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { DebugModel } from '../../common/debugModel.js';
 import { MockDebugStorage } from '../common/mockDebug.js';
+import { IDebugService, IAdapterManager } from '../../common/debug.js';
 
 const fileService = new TestFileService();
 export const mockUriIdentityService = new UriIdentityService(fileService);
@@ -18,5 +19,13 @@ export const mockUriIdentityService = new UriIdentityService(fileService);
 export function createMockDebugModel(disposable: Pick<DisposableStore, 'add'>): DebugModel {
 	const storage = disposable.add(new TestStorageService());
 	const debugStorage = disposable.add(new MockDebugStorage(storage));
-	return disposable.add(new DebugModel(debugStorage, upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), mockUriIdentityService, new NullLogService()));
+	const mockDebugService = upcastPartial<IDebugService>({
+		getAdapterManager: () => upcastPartial<IAdapterManager>({
+			getDebugger: () => undefined,
+			someDebuggerInterestedInLanguage: () => false,
+			someDebuggerInterestedInLanguageSupportsUiLaunch: () => false,
+			shouldSendBreakpointsOnAllSaves: () => false
+		})
+	});
+	return disposable.add(new DebugModel(debugStorage, upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), mockUriIdentityService, new NullLogService(), mockDebugService));
 }

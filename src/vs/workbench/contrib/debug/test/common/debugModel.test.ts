@@ -62,7 +62,7 @@ suite('DebugModel', () => {
 
 				const disposable = new DisposableStore();
 				const storage = disposable.add(new TestStorageService());
-				const model = new DebugModel(disposable.add(new MockDebugStorage(storage)), upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), undefined!, new NullLogService());
+				const model = new DebugModel(disposable.add(new MockDebugStorage(storage)), upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), undefined!, new NullLogService(), <any>{ getAdapterManager: () => ({ getDebugger: () => undefined, someDebuggerInterestedInLanguage: () => false, someDebuggerInterestedInLanguageSupportsUiLaunch: () => false, shouldSendBreakpointsOnAllSaves: () => false }) });
 				disposable.add(model);
 
 				let top1Resolved = false;
