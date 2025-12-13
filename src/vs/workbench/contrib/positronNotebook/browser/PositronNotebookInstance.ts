@@ -47,6 +47,7 @@ import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { IPositronNotebookContribution, PositronNotebookExtensionsRegistry } from './positronNotebookExtensions.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -167,6 +168,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _cellsContainer: HTMLElement | undefined = undefined;
 
 	/**
+	 * The DOM element for contributions (like find widget) to render into.
+	 */
+	private _contributionsContainer: HTMLElement | undefined = undefined;
+
+	/**
 	 * Disposables for the current cells container event listeners
 	 */
 	private readonly _cellsContainerListeners = this._register(new DisposableStore());
@@ -213,6 +219,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._container;
 	}
 
+	get contributionsContainer(): HTMLElement | undefined {
+		return this._contributionsContainer;
+	}
+
 	getFocusedCell(): IPositronNotebookCell | null {
 		const container = this.container;
 		if (!container) {
@@ -245,6 +255,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * context for automatic behaviors like entering edit mode on cell addition.
 	 */
 	private _currentOperation: NotebookOperationType | undefined = undefined;
+
+	private _contributions = new Map<string, IPositronNotebookContribution>();
 
 	// =============================================================================================
 	// #region Public Properties
@@ -533,6 +545,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._onDidChangeViewCells.fire({ splices });
 			}
 		}));
+
+		const contributions = PositronNotebookExtensionsRegistry.getNotebookContributions();
+		for (const desc of contributions) {
+			const contribution = this._instantiationService.createInstance(desc.ctor, this);
+			this._contributions.set(desc.id, contribution);
+		}
 
 		this._positronNotebookService.registerInstance(this);
 	}
@@ -1055,10 +1073,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Attaches the notebook view to a DOM container.
 	 * @param container The DOM element to render the notebook into
 	 */
-	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
+	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService, contributionsContainer?: HTMLElement) {
 		this.detachView();
 		this._container = container;
 		this._scopedContextKeyService = scopedContextKeyService;
+		this._contributionsContainer = contributionsContainer;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		this._logService.debug(this._id, 'attachView');
@@ -1084,6 +1103,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}, this.notebookOptions, this.configurationService, language);
 		this._baseCellEditorOptions.set(language, options);
 		return options;
+	}
+
+	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined {
+		return this._contributions.get(id) as T;
 	}
 
 	/**
@@ -1114,6 +1137,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	detachView(): void {
 		this._container = undefined;
+		this._contributionsContainer = undefined;
 		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;

@@ -15,6 +15,7 @@ import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
+import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -95,6 +96,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * This is the top-level container for the notebook UI.
 	 */
 	readonly container: HTMLElement | undefined;
+
+	/**
+	 * The DOM element that contributions (such as the find widget) can render into.
+	 * This container is a sibling to the main notebook content and inherits the notebook's
+	 * scoped context keys, allowing contributions to access notebook-specific context.
+	 */
+	readonly contributionsContainer: HTMLElement | undefined;
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.
@@ -341,6 +349,8 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * @param language The language to get the options for.
 	 */
 	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+
+	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
 
 	/**
 	 * Fire the scroll event for the cells container.
