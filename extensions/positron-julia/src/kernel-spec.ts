@@ -79,13 +79,26 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
  * custom comms support (variables, plots, data explorer, etc.)
  */
 function getKernelStartupCode(): string {
-	// This code automatically installs IJulia if it's not already installed.
-	// We check if IJulia is in the current environment, and if not, add it.
-	// Then we import and run the kernel.
+	// This code automatically installs IJulia if it's not already installed,
+	// then loads Positron.jl (with its dependencies from Project.toml),
+	// and starts the kernel.
+	//
+	// Positron.jl's dependencies (JSON3, StructTypes) are installed automatically
+	// when the package is loaded via its Project.toml.
+	//
+	// Optional packages (DataFrames, Tables.jl, etc.) are detected at runtime
+	// and used if available - no forced installation.
 	//
 	// We need the explicit exit() because Julia -i (interactive mode) keeps
 	// the process alive after run_kernel() returns, which causes shutdown
 	// to hang while Kallichore waits for the process to exit.
+	const positronPath = path.join(
+		__dirname,
+		'..',
+		'julia',
+		'Positron'
+	).replace(/\\/g, '/');  // Use forward slashes for Julia
+
 	return `
 		using Pkg;
 		if !haskey(Pkg.project().dependencies, "IJulia") &&
@@ -94,6 +107,13 @@ function getKernelStartupCode(): string {
 			Pkg.add("IJulia");
 		end;
 		import IJulia;
+		push!(LOAD_PATH, "${positronPath}");
+		try
+			using Positron;
+			Positron.start_services!();
+		catch e
+			@warn "Failed to load Positron.jl services" exception=e;
+		end;
 		IJulia.run_kernel();
 		exit()
 	`.replace(/\n\t\t/g, ' ').trim();
