@@ -24,6 +24,7 @@ pytest
 pytest-asyncio
 pytest-mock
 syrupy
+redshift_connector
 torch
 scipy
 snowflake-connector-python
