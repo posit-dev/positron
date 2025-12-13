@@ -292,6 +292,14 @@ jobs:
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge
 
+      # Ensure chromium browser is installed for chromium project tests
+      # The Playwright cache might only contain electron browser from previous runs
+      - name: Install chromium browser for e2e-chromium
+        if: ${{ inputs.project == 'e2e-chromium' }}
+        run: |
+          echo "Installing chromium browser for e2e-chromium project"
+          npx playwright install chromium
+
       - name: Run Playwright Tests
         shell: bash
         env:
