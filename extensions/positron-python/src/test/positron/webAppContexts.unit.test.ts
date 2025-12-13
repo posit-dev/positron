@@ -65,4 +65,77 @@ suite('Discover Web app frameworks', () => {
             assert.strictEqual(actual, expected);
         });
     });
+
+    // Tests for app creation patterns
+    suite('App Creation Pattern Detection', () => {
+        test('should detect Dash app when Flask is also imported', () => {
+            const code = `
+import flask
+import plotly.express as px
+from dash import Dash, Input, Output, callback, dcc, html
+
+app = Dash()
+`;
+            assert.strictEqual(getFramework(code), 'dash');
+        });
+
+        test('should detect Dash app with custom variable name', () => {
+            const code = `
+import flask
+from dash import Dash
+
+my_dashboard = Dash(__name__)
+`;
+            assert.strictEqual(getFramework(code), 'dash');
+        });
+
+        test('should detect Flask app with custom variable name', () => {
+            const code = `
+from flask import Flask
+
+web_service = Flask(__name__)
+
+@web_service.route('/')
+def hello_world():
+    return 'Hello, World!'
+`;
+            assert.strictEqual(getFramework(code), 'flask');
+        });
+
+        test('should detect FastAPI app with custom variable name', () => {
+            const code = `
+from fastapi import FastAPI
+
+api_service = FastAPI()
+
+@api_service.get("/")
+def read_root():
+    return {"Hello": "World"}
+`;
+            assert.strictEqual(getFramework(code), 'fastapi');
+        });
+
+        test('should detect Gradio app with custom variable name', () => {
+            const code = `
+import gradio as gr
+
+def greet(name):
+    return "Hello " + name + "!"
+
+interface = gr.Interface(fn=greet, inputs="text", outputs="text")
+`;
+            assert.strictEqual(getFramework(code), 'gradio');
+        });
+
+        test('should prioritize app creation over imports', () => {
+            const code = `
+import streamlit
+import flask
+import dash
+
+app = Dash(__name__)
+`;
+            assert.strictEqual(getFramework(code), 'dash');
+        });
+    });
 });
