@@ -422,33 +422,6 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "detect-secrets - only update baseline",
-			"type": "shell",
-			"command": "node ./build/detect-secrets.js update-baseline",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-		},
-		{
-			"label": "detect-secrets - only audit baseline",
-			"type": "shell",
-			"command": "node ./build/detect-secrets.js audit-baseline",
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [],
-		},
-		{
-			"label": "detect-secrets - update and audit baseline",
-			"dependsOn": [
-				"detect-secrets - only update baseline",
-				"detect-secrets - only audit baseline"
-			],
-			"dependsOrder": "sequence",
-			"problemMatcher": [],
-		},
-		{
 			"label": "Launch MCP Server",
 			"type": "shell",
 			"command": "cd test/mcp && npm run compile && npm run start-http",

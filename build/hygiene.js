@@ -44,15 +44,13 @@ const positCopyrightHeaderLinesHash = [
 /**
  * @param {string[] | NodeJS.ReadWriteStream} some
  * @param {boolean} runEslint
- * @param {boolean} secrets - should we scan for secrets?
  */
-function hygiene(some, runEslint = true, secrets = false) {
+function hygiene(some, runEslint = true) {
 	// --- End Positron ---
 	const eslint = require('./gulp-eslint');
 	const gulpstylelint = require('./stylelint');
 	const formatter = require('./lib/formatter');
 	// --- Start Positron ---
-	const detectSecretsHook = require('./detect-secrets-hook');
 	const detectDotOnlyHook = require('./detect-dot-only-hook');
 	// --- End Positron ---
 
@@ -264,21 +262,6 @@ function hygiene(some, runEslint = true, secrets = false) {
 		);
 		// --- End Positron ---
 	}
-
-	// --- Start Positron ---
-	if (secrets) {
-		streams.push(
-			detectSecretsHook(((message, isError) => {
-				if (isError) {
-					console.error(message);
-					errorCount++;
-				} else {
-					console.warn(message);
-				}
-			}))
-		);
-	}
-	// --- End Positron ---
 
 	streams.push(
 		result.pipe(filter(stylelintFilter)).pipe(gulpstylelint(((message, isError) => {
