@@ -35,6 +35,19 @@ class OpenEditorKind(str, enum.Enum):
 
 
 @enum.unique
+class ShowHtmlFileDestination(str, enum.Enum):
+    """
+    Possible values for Destination in ShowHtmlFile
+    """
+
+    Plot = "plot"
+
+    Viewer = "viewer"
+
+    Editor = "editor"
+
+
+@enum.unique
 class PreviewSourceType(str, enum.Enum):
     """
     Possible values for Type in PreviewSource
@@ -569,8 +582,8 @@ class ShowHtmlFileParams(BaseModel):
         description="A title to be displayed in the viewer. May be empty, and can be superseded by the title in the HTML file.",
     )
 
-    is_plot: StrictBool = Field(
-        description="Whether the HTML file is a plot-like object",
+    destination: ShowHtmlFileDestination = Field(
+        description="Where the file should be shown in Positron: as an interactive plot, in the viewer pane, or in a new editor tab.",
     )
 
     height: StrictInt = Field(

@@ -30,7 +30,7 @@ import { decodeBase64 } from '../../../../base/common/buffer.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
-import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ShowHtmlFileDestination, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
 import { NotebookOutputPlotClient } from './notebookOutputPlotClient.js';
@@ -241,7 +241,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			// If we have a new HTML file to show, turn it into a webview plot.
 			if (event.event.name === UiFrontendEvent.ShowHtmlFile) {
 				const data = event.event.data as IShowHtmlUriEvent;
-				if (data.event.is_plot) {
+				if (data.event.destination === ShowHtmlFileDestination.Plot) {
 					await this.createWebviewPlot(event.session_id, data);
 				}
 			}

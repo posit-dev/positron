@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent } from './positronUiComm.js';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent, ShowHtmlFileDestination } from './positronUiComm.js';
 import { PositronUiCommInstance } from './positronUiCommInstance.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -175,17 +175,17 @@ export class UiClientInstance extends Disposable {
 				// Start an HTML proxy server for the file
 				const uri = await this.startHtmlProxyServer(e.path);
 
-				if (isWeb) {
+				if (isWeb && e.destination === ShowHtmlFileDestination.Plot) {
 					// In Web mode, we can't show interactive plots in the Plots
-					// pane.
-					e.is_plot = false;
-				} else if (e.is_plot) {
+					// pane, so show them in the Viewer tab instead.
+					e.destination = ShowHtmlFileDestination.Viewer;
+				} else if (e.destination === ShowHtmlFileDestination.Plot) {
 					// Check the configuration to see if we should open the plot
-					// in the Viewer tab. If so, clear the `is_plot` flag so that
+					// in the Viewer tab. If so, update the destination so that
 					// we open the file in the Viewer.
 					const openInViewer = this._configurationService.getValue<boolean>(POSITRON_PREVIEW_PLOTS_IN_VIEWER);
 					if (openInViewer) {
-						e.is_plot = false;
+						e.destination = ShowHtmlFileDestination.Viewer;
 					}
 				}
 
