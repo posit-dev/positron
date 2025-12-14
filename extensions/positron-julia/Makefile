@@ -90,29 +90,6 @@ clean:  ## Clean build artifacts and coverage files
 	find $(JULIA_PROJECT) -name "*.cov" -delete
 	find $(JULIA_PROJECT) -name "*.mem" -delete
 
-# Quality Assurance
-qa:  ## List QA items needing manual testing
-	@echo "QA Items (Manual Testing Required):"
-	@echo "===================================="
-	bd list --labels qa --status open
-
-# Beads Project Management
-beads:  ## Show beads project status
-	@echo "Julia Support - Beads Status"
-	@echo "============================="
-	bd ready | head -15
-	@echo ""
-	@echo "Total beads:"
-	bd count
-	@echo ""
-	@echo "Use 'bd list' for full list, 'bd show <id>' for details"
-
-beads-ready:  ## Show ready-to-work beads
-	bd ready
-
-beads-qa:  ## Show QA items
-	bd list --labels qa
-
 # Interactive Development
 repl:  ## Start Julia REPL with Positron loaded
 	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Positron'
@@ -133,10 +110,5 @@ status:  ## Show project status summary
 	@echo ""
 	@echo "Test Suite:"
 	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) test/runtests.jl 2>&1 | grep "Test Summary" -A3 || echo "Run 'make test' to see results"
-	@echo ""
-	@echo "Beads:"
-	@echo "  Ready: $$(bd count --status open) open"
-	@echo "  In Progress: $$(bd count --status in_progress)"
-	@echo "  QA Queue: $$(bd count --labels qa)"
 	@echo ""
 	@echo "Use 'make help' for available commands"
