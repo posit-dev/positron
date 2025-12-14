@@ -88,27 +88,8 @@ end
 Start all Positron services.
 """
 function start_services!(kernel::PositronKernel = get_kernel())
-    # Configure kernel diagnostic logging
-    # Check for POSITRON_KERNEL_LOG environment variable (file path)
-    # If provided, write to file (Positron will stream to Kernel output channel)
-    # Otherwise, use IJulia's original stderr (before REPL redirection)
-    log_file = get(ENV, "POSITRON_KERNEL_LOG", nothing)
-
-    if log_file !== nothing
-        # File-based logging (Positron streams this to Kernel channel)
-        log_io = open(log_file, "a")
-        # Ensure file is closed on exit
-        atexit(() -> close(log_io))
-    else
-        # Fall back to original stderr (before IJulia redirection)
-        log_io = isdefined(IJulia, :orig_stderr) ? IJulia.orig_stderr[] : stderr
-    end
-
-    # Configure logger - use :default with NO_COLOR env var to disable ANSI
-    global_logger(ConsoleLogger(log_io, Logging.Info;
-        show_limited=false,
-        right_justify=0
-    ))
+    # Kernel logging uses direct writes to IJulia.orig_stderr (via kernel_log_* functions)
+    # No need for ConsoleLogger configuration
 
     if kernel.started
         kernel_log_warn("Positron services already started")
