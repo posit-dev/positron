@@ -306,3 +306,23 @@ julia --project=. -e 'using Pkg; Pkg.update()'
 # Check package status
 julia --project=. -e 'using Pkg; Pkg.status()'
 ```
+
+## Code Formatting
+
+All Julia code must be formatted before committing:
+
+```bash
+cd extensions/positron-julia
+make format
+```
+
+This runs JuliaFormatter on all .jl files in src/ and test/.
+
+**Workflow:**
+1. Make code changes
+2. Run `make format`
+3. Run `make test` to verify
+4. Commit
+
+Formatting is not automatic (no pre-commit hook) but should be done manually before every commit to avoid formatting noise in diffs.
+
