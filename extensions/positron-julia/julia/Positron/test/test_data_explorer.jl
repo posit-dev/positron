@@ -1085,3 +1085,72 @@ end
 		@test view_values == [1, 2, 3, 4, 5]
 	end
 end
+
+@testset "Data Explorer - Schema Operations Tests" begin
+	@testset "get_column_name - DataFrame" begin
+		df = DataFrame(my_column = 1:3, another_col = 4:6)
+		@test Positron.get_column_name(df, 1) == "my_column"
+		@test Positron.get_column_name(df, 2) == "another_col"
+	end
+
+	@testset "get_column_type - DataFrame" begin
+		df = DataFrame(
+			int_col = [1, 2, 3],
+			float_col = [1.1, 2.2, 3.3],
+			string_col = ["a", "b", "c"],
+			bool_col = [true, false, true]
+		)
+		
+		@test Positron.get_column_type(df, 1) == Int64
+		@test Positron.get_column_type(df, 2) == Float64
+		@test Positron.get_column_type(df, 3) == String
+		@test Positron.get_column_type(df, 4) == Bool
+	end
+
+	@testset "julia_type_to_display_type - All Types" begin
+		@test Positron.julia_type_to_display_type(Bool) == Positron.ColumnDisplayType_Boolean
+		@test Positron.julia_type_to_display_type(Int8) == Positron.ColumnDisplayType_Integer
+		@test Positron.julia_type_to_display_type(Int32) == Positron.ColumnDisplayType_Integer
+		@test Positron.julia_type_to_display_type(Int64) == Positron.ColumnDisplayType_Integer
+		@test Positron.julia_type_to_display_type(Float32) == Positron.ColumnDisplayType_Floating
+		@test Positron.julia_type_to_display_type(Float64) == Positron.ColumnDisplayType_Floating
+		@test Positron.julia_type_to_display_type(String) == Positron.ColumnDisplayType_String
+	end
+
+	@testset "get_column_schema - Basic" begin
+		df = DataFrame(x = 1:5)
+		schema = Positron.get_column_schema(df, 1)
+		
+		@test schema.column_name == "x"
+		@test schema.column_index == 0  # 0-based for frontend
+		@test schema.type_display == Positron.ColumnDisplayType_Integer
+	end
+end
+
+@testset "Data Explorer - Cell and Row Operations" begin
+	@testset "get_cell_value - DataFrame" begin
+		df = DataFrame(a = [10, 20, 30], b = ["x", "y", "z"])
+		
+		@test Positron.get_cell_value(df, 1, 1) == 10
+		@test Positron.get_cell_value(df, 2, 1) == 20
+		@test Positron.get_cell_value(df, 3, 2) == "z"
+	end
+
+	@testset "get_cell_value - Matrix" begin
+		mat = [1 2 3; 4 5 6]
+		
+		@test Positron.get_cell_value(mat, 1, 1) == 1
+		@test Positron.get_cell_value(mat, 2, 3) == 6
+	end
+
+	@testset "format_value - Various Types" begin
+		opts = Positron.FormatOptions(2, 2, 10, 1000, nothing)
+		
+		@test Positron.format_value(42, opts) !== nothing
+		@test Positron.format_value(3.14, opts) !== nothing
+		@test Positron.format_value("text", opts) !== nothing
+		@test Positron.format_value(true, opts) !== nothing
+		@test Positron.format_value(missing, opts) == 0
+		@test Positron.format_value(nothing, opts) == 0
+	end
+end
