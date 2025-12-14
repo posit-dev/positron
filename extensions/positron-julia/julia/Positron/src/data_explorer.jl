@@ -510,9 +510,9 @@ function julia_type_to_display_type(T::Type)::ColumnDisplayType
 	elseif T <: AbstractString
 		return ColumnDisplayType_String
 	elseif T <: Integer
-		return ColumnDisplayType_Number
+		return ColumnDisplayType_Integer
 	elseif T <: AbstractFloat
-		return ColumnDisplayType_Number
+		return ColumnDisplayType_Floating
 	elseif T <: Dates.Date
 		return ColumnDisplayType_Date
 	elseif T <: Dates.DateTime
@@ -1089,7 +1089,7 @@ function compute_summary_stats(data::Any, col_idx::Int)::ColumnSummaryStats
 		return ColumnSummaryStats(display_type, nothing, nothing, nothing, nothing, nothing, nothing)
 	end
 
-	if display_type in (ColumnDisplayType_Number, ColumnDisplayType_Number)
+	if display_type in (ColumnDisplayType_Integer, ColumnDisplayType_Floating)
 		number_stats = compute_number_stats(values)
 	elseif display_type == ColumnDisplayType_String
 		string_stats = compute_string_stats(values)
