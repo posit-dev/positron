@@ -16,6 +16,7 @@ Tests cover:
 using Test
 using DataFrames
 using Statistics
+using Random
 
 include("test_helpers.jl")
 
@@ -934,9 +935,112 @@ end
 	end
 end
 
+@testset "Data Explorer - Frequency Tables" begin
+	@testset "Frequency Table - Basic" begin
+		df = DataFrame(category = ["A", "B", "A", "C", "A", "B", "D"])
+		params = Positron.ColumnFrequencyTableParams(5)  # Top 5
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		# A appears 3 times, B appears 2 times, C and D appear 1 time each
+		@test length(freq.values) == 4  # Only 4 unique values total
+		@test freq.values[1] == "A"  # Most frequent
+		@test freq.counts[1] == 3
+		@test freq.other_count === nothing  # All values shown
+	end
+
+	@testset "Frequency Table - With Other Count" begin
+		df = DataFrame(x = ["A", "A", "A", "B", "B", "C", "D", "E", "F"])
+		params = Positron.ColumnFrequencyTableParams(2)  # Top 2 only
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		@test length(freq.values) == 2
+		@test freq.values == ["A", "B"]  # Top 2
+		@test freq.counts == [3, 2]
+		@test freq.other_count == 4  # C, D, E, F (4 values)
+	end
+
+	@testset "Frequency Table - Numeric Values" begin
+		df = DataFrame(num = [1, 2, 1, 3, 1, 2, 4, 5])
+		params = Positron.ColumnFrequencyTableParams(10)
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		# 1 appears 3 times, 2 appears 2 times, others 1 time
+		@test freq.values[1] == "1"
+		@test freq.counts[1] == 3
+		@test freq.values[2] == "2"
+		@test freq.counts[2] == 2
+	end
+
+	@testset "Frequency Table - With Missing" begin
+		df = DataFrame(x = ["A", missing, "A", "B", missing, "A"])
+		params = Positron.ColumnFrequencyTableParams(10)
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		# Missing values excluded from frequency table
+		@test length(freq.values) == 2
+		@test freq.values == ["A", "B"]
+		@test freq.counts == [3, 1]
+	end
+
+	@testset "Frequency Table - All Same Value" begin
+		df = DataFrame(x = ["Same", "Same", "Same", "Same"])
+		params = Positron.ColumnFrequencyTableParams(5)
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		@test length(freq.values) == 1
+		@test freq.values == ["Same"]
+		@test freq.counts == [4]
+		@test freq.other_count === nothing
+	end
+
+	@testset "Frequency Table - Empty Data" begin
+		df = DataFrame(x = String[])
+		params = Positron.ColumnFrequencyTableParams(5)
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		@test isempty(freq.values)
+		@test isempty(freq.counts)
+	end
+
+	@testset "Frequency Table - All Missing" begin
+		df = DataFrame(x = [missing, missing, missing])
+		params = Positron.ColumnFrequencyTableParams(5)
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		# All missing, no values to show
+		@test isempty(freq.values)
+		@test isempty(freq.counts)
+	end
+
+	@testset "Frequency Table - Large Dataset" begin
+		# Create dataset with known distribution
+		values = vcat(
+			fill("A", 1000),
+			fill("B", 500),
+			fill("C", 250),
+			["D$i" for i in 1:100]  # 100 unique rare values
+		)
+		df = DataFrame(category = shuffle(values))
+		params = Positron.ColumnFrequencyTableParams(3)  # Top 3
+
+		freq = Positron.compute_frequency_table(df, 1, params)
+
+		@test length(freq.values) == 3
+		@test freq.values == ["A", "B", "C"]
+		@test freq.counts == [1000, 500, 250]
+		@test freq.other_count == 100  # The D values
+	end
+end
+
 # TODO: Add more comprehensive tests
 # Priority test areas (from Python test_data_explorer.py):
-# - Frequency tables - NEXT
 # - Categorical columns (requires CategoricalArrays.jl)
 # - Schema operations (get_schema, search_schema, sort schema results)
 # - Filter evaluation for all filter types
