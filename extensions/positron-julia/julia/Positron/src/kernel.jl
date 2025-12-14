@@ -22,24 +22,22 @@ Includes timestamp and log level for clarity.
 function kernel_log_info(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        write(IJulia.orig_stderr[], "$timestamp [info] $msg\n")
-        flush(IJulia.orig_stderr[])
+        # Use print instead of write to avoid blank lines
+        print(IJulia.orig_stderr[], "$timestamp [info] $msg\n")
     end
 end
 
 function kernel_log_warn(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        write(IJulia.orig_stderr[], "$timestamp [warn] $msg\n")
-        flush(IJulia.orig_stderr[])
+        print(IJulia.orig_stderr[], "$timestamp [warn] $msg\n")
     end
 end
 
 function kernel_log_error(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        write(IJulia.orig_stderr[], "$timestamp [error] $msg\n")
-        flush(IJulia.orig_stderr[])
+        print(IJulia.orig_stderr[], "$timestamp [error] $msg\n")
     end
 end
 
