@@ -219,6 +219,16 @@ end
 
 """
 Handle get_data_values request.
+
+CRITICAL PERFORMANCE FUNCTION: Uses view_indices to efficiently retrieve data
+after filtering/sorting without modifying the original data.
+
+Follows the Python/R pattern:
+1. Frontend requests rows 0-99 of the VIEW
+2. Backend maps view[0:100] → view_indices[0:100] → original data indices
+3. Fetches from original data using fancy indexing
+
+This keeps get_data_values performant even with complex filters/sorts.
 """
 function handle_get_data_values(instance::DataExplorerInstance, request::DataExplorerGetDataValuesParams)
 	columns = Vector{Vector{Any}}()
@@ -226,8 +236,49 @@ function handle_get_data_values(instance::DataExplorerInstance, request::DataExp
 	for col_sel in request.columns
 		# Adjust for 0-based indexing
 		julia_col_idx = col_sel.column_index + 1
-		col_data = get_column_values(instance.data, julia_col_idx, col_sel.spec, request.format_options)
-		push!(columns, col_data)
+
+		# Get the column vector (full column from original data)
+		col = get_column_vector(instance.data, julia_col_idx)
+
+		# Apply virtual view indexing based on spec
+		if col_sel.spec isa DataSelectionRange
+			# Get indices from the view
+			first_idx = col_sel.spec.first_index + 1  # Convert to 1-based
+			last_idx = col_sel.spec.last_index + 1
+
+			if instance.view_indices !== nothing
+				# Map view indices to original data indices
+				view_slice = instance.view_indices[first_idx:min(last_idx, length(instance.view_indices))]
+				values = col[view_slice]
+			else
+				# No view, direct slicing
+				values = col[first_idx:min(last_idx, length(col))]
+			end
+
+		elseif col_sel.spec isa DataSelectionIndices
+			# Specific indices from the view
+			indices = [i + 1 for i in col_sel.spec.indices]  # Convert to 1-based
+
+			if instance.view_indices !== nothing
+				# Map view indices to original data indices
+				original_indices = instance.view_indices[indices]
+				values = col[original_indices]
+			else
+				# No view, direct indexing
+				values = col[indices]
+			end
+		else
+			# All cells - apply view if exists
+			if instance.view_indices !== nothing
+				values = col[instance.view_indices]
+			else
+				values = col
+			end
+		end
+
+		# Format the values
+		formatted = [format_value(v, request.format_options) for v in values]
+		push!(columns, formatted)
 	end
 
 	result = TableData(columns)
