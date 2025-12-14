@@ -189,6 +189,11 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     comm = create_comm("positron.variables")
     kernel.comms["variables"] = comm
 
+    # Store comm_open message to use as parent for initial messages
+    # This is critical: during comm_open, kernel.execute_msg is stale/invalid
+    # Using the comm_open message as parent ensures valid parent_header
+    comm.comm_open_msg = msg
+
     # Hook up to IJulia comm FIRST (sets comm.kernel)
     setup_comm_bridge!(comm, ijulia_comm)
 
@@ -301,6 +306,11 @@ end
 
 """
 Override _send_msg to actually send via IJulia.
+
+This function handles the critical parent_header issue:
+- During comm_open, kernel.execute_msg is stale/invalid
+- We use the stored comm_open_msg as parent for initial messages
+- After first send, we clear comm_open_msg and fall back to execute_msg
 """
 function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     if comm.kernel === nothing
@@ -315,14 +325,30 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     kernel_log_info("Message JSON: $json_str")
     data_dict = JSON3.read(json_str, Dict{String,Any})
 
-    # Send via IJulia comm
-    # Use send_comm with explicit kernel parameter
+    # Get the IJulia kernel
+    ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
+
     try
-        kernel_log_info("Calling IJulia.send_comm with kernel parameter")
-        # Get the IJulia kernel
-        ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
-        IJulia.send_comm(comm.kernel, data_dict; kernel=ijulia_kernel)
-        kernel_log_info("IJulia.send_comm completed successfully")
+        # Check if we have a stored comm_open message to use as parent
+        # This is critical for initial messages sent during comm_open
+        if comm.comm_open_msg !== nothing
+            kernel_log_info("Using comm_open message as parent (initial send)")
+
+            # Build message manually with comm_open as parent
+            # This ensures valid parent_header that passes Supervisor validation
+            content = Dict("comm_id" => comm.kernel.id, "data" => data_dict)
+            msg = IJulia.msg_pub(comm.comm_open_msg, "comm_msg", content)
+            IJulia.send_ipython(ijulia_kernel.publish[], ijulia_kernel, msg)
+
+            # Clear comm_open_msg after first use - subsequent messages use execute_msg
+            comm.comm_open_msg = nothing
+            kernel_log_info("Initial message sent successfully, cleared comm_open_msg")
+        else
+            # Normal path: use IJulia.send_comm which uses kernel.execute_msg as parent
+            kernel_log_info("Using execute_msg as parent (normal send)")
+            IJulia.send_comm(comm.kernel, data_dict; kernel=ijulia_kernel)
+            kernel_log_info("IJulia.send_comm completed successfully")
+        end
     catch e
         kernel_log_error("Failed to send comm message: $e")
         # Log full error for debugging
@@ -350,8 +376,15 @@ Called after each code execution.
 """
 function on_post_execute(kernel::PositronKernel)
     try
-        # Update variables pane
-        send_update!(kernel.variables)
+        # On first execution, send full refresh (initial population)
+        # After that, send updates (changes only)
+        if kernel.variables.current_version == 0
+            kernel_log("First execution - sending initial refresh")
+            send_refresh!(kernel.variables)
+        else
+            # Normal update (changes only)
+            send_update!(kernel.variables)
+        end
     catch e
         kernel_log_error("Error in post-execute hook: $e")
     end
