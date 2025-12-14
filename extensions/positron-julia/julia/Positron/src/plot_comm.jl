@@ -96,22 +96,22 @@ StructTypes.StructType(::Type{PlotResult}) = StructTypes.Struct()
 Requests a plot to be rendered. The plot data is returned in a
 base64-encoded string.
 """
-struct RenderParams
+struct PlotRenderParams
     size::Union{PlotSize,Nothing}
     pixel_ratio::Float64
     format::PlotRenderFormat
 end
 
-StructTypes.StructType(::Type{RenderParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{PlotRenderParams}) = StructTypes.Struct()
 
 """
 Event: Notification that a plot has been updated on the backend.
 """
-struct UpdateParams
+struct PlotUpdateParams
     pre_render::Union{PlotResult,Nothing}
 end
 
-StructTypes.StructType(::Type{UpdateParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{PlotUpdateParams}) = StructTypes.Struct()
 
 """
 Parse a backend request for the Plot comm.
@@ -123,7 +123,7 @@ function parse_plot_request(data::Dict)
     if method == "get_intrinsic_size"
         return nothing
     elseif method == "render"
-        return RenderParams(
+        return PlotRenderParams(
             get(params, "size", nothing),
             get(params, "pixel_ratio", 0.0),
             get(params, "format", Dict()),

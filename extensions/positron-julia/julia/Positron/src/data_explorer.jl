@@ -60,23 +60,23 @@ function handle_data_explorer_msg(instance::DataExplorerInstance, msg::Dict)
 
 	if method == "get_state"
 		handle_get_state(instance)
-	elseif request isa GetSchemaParams
+	elseif request isa DataExplorerGetSchemaParams
 		handle_get_schema(instance, request)
-	elseif request isa SearchSchemaParams
+	elseif request isa DataExplorerSearchSchemaParams
 		handle_search_schema(instance, request)
-	elseif request isa GetDataValuesParams
+	elseif request isa DataExplorerGetDataValuesParams
 		handle_get_data_values(instance, request)
-	elseif request isa GetRowLabelsParams
+	elseif request isa DataExplorerGetRowLabelsParams
 		handle_get_row_labels(instance, request)
-	elseif request isa SetColumnFiltersParams
+	elseif request isa DataExplorerSetColumnFiltersParams
 		handle_set_column_filters(instance, request)
-	elseif request isa SetRowFiltersParams
+	elseif request isa DataExplorerSetRowFiltersParams
 		handle_set_row_filters(instance, request)
-	elseif request isa SetSortColumnsParams
+	elseif request isa DataExplorerSetSortColumnsParams
 		handle_set_sort_columns(instance, request)
-	elseif request isa GetColumnProfilesParams
+	elseif request isa DataExplorerGetColumnProfilesParams
 		handle_get_column_profiles(instance, request)
-	elseif request isa ExportDataSelectionParams
+	elseif request isa DataExplorerExportDataSelectionParams
 		handle_export_data_selection(instance, request)
 	end
 end
@@ -117,7 +117,7 @@ end
 """
 Handle get_schema request.
 """
-function handle_get_schema(instance::DataExplorerInstance, request::GetSchemaParams)
+function handle_get_schema(instance::DataExplorerInstance, request::DataExplorerGetSchemaParams)
 	columns = ColumnSchema[]
 
 	for idx in request.column_indices
@@ -138,7 +138,7 @@ end
 """
 Handle search_schema request.
 """
-function handle_search_schema(instance::DataExplorerInstance, request::SearchSchemaParams)
+function handle_search_schema(instance::DataExplorerInstance, request::DataExplorerSearchSchemaParams)
 	# Get all column indices
 	ncols = get_num_columns(instance.data)
 	matches = Int[]
@@ -165,7 +165,7 @@ end
 """
 Handle get_data_values request.
 """
-function handle_get_data_values(instance::DataExplorerInstance, request::GetDataValuesParams)
+function handle_get_data_values(instance::DataExplorerInstance, request::DataExplorerGetDataValuesParams)
 	columns = Vector{Vector{Any}}()
 
 	for col_sel in request.columns
@@ -182,7 +182,7 @@ end
 """
 Handle get_row_labels request.
 """
-function handle_get_row_labels(instance::DataExplorerInstance, request::GetRowLabelsParams)
+function handle_get_row_labels(instance::DataExplorerInstance, request::DataExplorerGetRowLabelsParams)
 	labels = get_row_label_values(instance.data, request.selection, request.format_options)
 	result = TableRowLabels(labels)
 	send_result(instance.comm, result)
@@ -191,7 +191,7 @@ end
 """
 Handle set_column_filters request.
 """
-function handle_set_column_filters(instance::DataExplorerInstance, request::SetColumnFiltersParams)
+function handle_set_column_filters(instance::DataExplorerInstance, request::DataExplorerSetColumnFiltersParams)
 	instance.column_filters = request.filters
 	# Invalidate cached indices
 	instance.filtered_column_indices = nothing
@@ -201,7 +201,7 @@ end
 """
 Handle set_row_filters request.
 """
-function handle_set_row_filters(instance::DataExplorerInstance, request::SetRowFiltersParams)
+function handle_set_row_filters(instance::DataExplorerInstance, request::DataExplorerSetRowFiltersParams)
 	instance.row_filters = request.filters
 	# Apply filters and get result
 	instance.filtered_row_indices = apply_row_filters(instance.data, request.filters)
@@ -217,7 +217,7 @@ end
 """
 Handle set_sort_columns request.
 """
-function handle_set_sort_columns(instance::DataExplorerInstance, request::SetSortColumnsParams)
+function handle_set_sort_columns(instance::DataExplorerInstance, request::DataExplorerSetSortColumnsParams)
 	instance.sort_keys = request.sort_keys
 	# Re-sort filtered indices if needed
 	if !isempty(request.sort_keys)
@@ -229,7 +229,7 @@ end
 """
 Handle get_column_profiles request.
 """
-function handle_get_column_profiles(instance::DataExplorerInstance, request::GetColumnProfilesParams)
+function handle_get_column_profiles(instance::DataExplorerInstance, request::DataExplorerGetColumnProfilesParams)
 	# Process profiles asynchronously and send results via events
 	# For now, we'll process synchronously
 	for profile_request in request.profiles
@@ -255,7 +255,7 @@ end
 """
 Handle export_data_selection request.
 """
-function handle_export_data_selection(instance::DataExplorerInstance, request::ExportDataSelectionParams)
+function handle_export_data_selection(instance::DataExplorerInstance, request::DataExplorerExportDataSelectionParams)
 	data_str = export_selection(instance.data, request.selection, request.format)
 	result = ExportedData(data_str, request.format)
 	send_result(instance.comm, result)

@@ -940,125 +940,126 @@ StructTypes.StructType(::Type{ColumnSelection}) = StructTypes.Struct()
 """
 Request to open a dataset given a URI
 """
-struct OpenDatasetParams
+struct DataExplorerOpenDatasetParams
     uri::String
 end
 
-StructTypes.StructType(::Type{OpenDatasetParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerOpenDatasetParams}) = StructTypes.Struct()
 
 """
 Request subset of column schemas for a table-like object
 """
-struct GetSchemaParams
+struct DataExplorerGetSchemaParams
     column_indices::Vector{Int64}
 end
 
-StructTypes.StructType(::Type{GetSchemaParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerGetSchemaParams}) = StructTypes.Struct()
 
 """
 Search table schema with column filters, optionally sort results
 """
-struct SearchSchemaParams
+struct DataExplorerSearchSchemaParams
     filters::Vector{ColumnFilter}
     sort_order::SearchSchemaSortOrder
 end
 
-StructTypes.StructType(::Type{SearchSchemaParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerSearchSchemaParams}) = StructTypes.Struct()
 
 """
 Request data from table columns with values formatted as strings
 """
-struct GetDataValuesParams
+struct DataExplorerGetDataValuesParams
     columns::Vector{ColumnSelection}
     format_options::FormatOptions
 end
 
-StructTypes.StructType(::Type{GetDataValuesParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerGetDataValuesParams}) = StructTypes.Struct()
 
 """
 Request formatted row labels from table
 """
-struct GetRowLabelsParams
+struct DataExplorerGetRowLabelsParams
     selection::ArraySelection
     format_options::FormatOptions
 end
 
-StructTypes.StructType(::Type{GetRowLabelsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerGetRowLabelsParams}) = StructTypes.Struct()
 
 """
 Export data selection as a string in different formats like CSV, TSV,
 HTML
 """
-struct ExportDataSelectionParams
+struct DataExplorerExportDataSelectionParams
     selection::TableSelection
     format::ExportFormat
 end
 
-StructTypes.StructType(::Type{ExportDataSelectionParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerExportDataSelectionParams}) = StructTypes.Struct()
 
 """
 Converts filters and sort keys as code in different syntaxes like
 pandas, polars, data.table, dplyr
 """
-struct ConvertToCodeParams
+struct DataExplorerConvertToCodeParams
     column_filters::Vector{ColumnFilter}
     row_filters::Vector{RowFilter}
     sort_keys::Vector{ColumnSortKey}
     code_syntax_name::CodeSyntaxName
 end
 
-StructTypes.StructType(::Type{ConvertToCodeParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerConvertToCodeParams}) = StructTypes.Struct()
 
 """
 Set or clear column filters on table, replacing any previous filters
 """
-struct SetColumnFiltersParams
+struct DataExplorerSetColumnFiltersParams
     filters::Vector{ColumnFilter}
 end
 
-StructTypes.StructType(::Type{SetColumnFiltersParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerSetColumnFiltersParams}) = StructTypes.Struct()
 
 """
 Row filters to apply (or pass empty array to clear row filters)
 """
-struct SetRowFiltersParams
+struct DataExplorerSetRowFiltersParams
     filters::Vector{RowFilter}
 end
 
-StructTypes.StructType(::Type{SetRowFiltersParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerSetRowFiltersParams}) = StructTypes.Struct()
 
 """
 Set or clear the columns(s) to sort by, replacing any previous sort
 columns
 """
-struct SetSortColumnsParams
+struct DataExplorerSetSortColumnsParams
     sort_keys::Vector{ColumnSortKey}
 end
 
-StructTypes.StructType(::Type{SetSortColumnsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerSetSortColumnsParams}) = StructTypes.Struct()
 
 """
 Async request for a statistical summary or data profile for batch of
 columns
 """
-struct GetColumnProfilesParams
+struct DataExplorerGetColumnProfilesParams
     callback_id::String
     profiles::Vector{ColumnProfileRequest}
     format_options::FormatOptions
 end
 
-StructTypes.StructType(::Type{GetColumnProfilesParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerGetColumnProfilesParams}) = StructTypes.Struct()
 
 """
 Event: Return async result of get_column_profiles request
 """
-struct ReturnColumnProfilesParams
+struct DataExplorerReturnColumnProfilesParams
     callback_id::String
     profiles::Vector{ColumnProfileResult}
     error_message::Union{String,Nothing}
 end
 
-StructTypes.StructType(::Type{ReturnColumnProfilesParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DataExplorerReturnColumnProfilesParams}) =
+    StructTypes.Struct()
 
 """
 Parse a backend request for the DataExplorer comm.
@@ -1068,28 +1069,31 @@ function parse_data_explorer_request(data::Dict)
     params = get(data, "params", Dict())
 
     if method == "open_dataset"
-        return OpenDatasetParams(get(params, "uri", ""))
+        return DataExplorerOpenDatasetParams(get(params, "uri", ""))
     elseif method == "get_schema"
-        return GetSchemaParams(get(params, "column_indices", []))
+        return DataExplorerGetSchemaParams(get(params, "column_indices", []))
     elseif method == "search_schema"
-        return SearchSchemaParams(get(params, "filters", []), get(params, "sort_order", ""))
+        return DataExplorerSearchSchemaParams(
+            get(params, "filters", []),
+            get(params, "sort_order", ""),
+        )
     elseif method == "get_data_values"
-        return GetDataValuesParams(
+        return DataExplorerGetDataValuesParams(
             get(params, "columns", []),
             get(params, "format_options", Dict()),
         )
     elseif method == "get_row_labels"
-        return GetRowLabelsParams(
+        return DataExplorerGetRowLabelsParams(
             get(params, "selection", Dict()),
             get(params, "format_options", Dict()),
         )
     elseif method == "export_data_selection"
-        return ExportDataSelectionParams(
+        return DataExplorerExportDataSelectionParams(
             get(params, "selection", Dict()),
             get(params, "format", Dict()),
         )
     elseif method == "convert_to_code"
-        return ConvertToCodeParams(
+        return DataExplorerConvertToCodeParams(
             get(params, "column_filters", []),
             get(params, "row_filters", []),
             get(params, "sort_keys", []),
@@ -1098,13 +1102,13 @@ function parse_data_explorer_request(data::Dict)
     elseif method == "suggest_code_syntax"
         return nothing
     elseif method == "set_column_filters"
-        return SetColumnFiltersParams(get(params, "filters", []))
+        return DataExplorerSetColumnFiltersParams(get(params, "filters", []))
     elseif method == "set_row_filters"
-        return SetRowFiltersParams(get(params, "filters", []))
+        return DataExplorerSetRowFiltersParams(get(params, "filters", []))
     elseif method == "set_sort_columns"
-        return SetSortColumnsParams(get(params, "sort_keys", []))
+        return DataExplorerSetSortColumnsParams(get(params, "sort_keys", []))
     elseif method == "get_column_profiles"
-        return GetColumnProfilesParams(
+        return DataExplorerGetColumnProfilesParams(
             get(params, "callback_id", ""),
             get(params, "profiles", []),
             get(params, "format_options", Dict()),

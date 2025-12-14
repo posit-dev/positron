@@ -34,22 +34,22 @@ show it. If the topic is found, it will be shown via a Show Help
 notification. If the topic is not found, no notification will be
 delivered.
 """
-struct ShowHelpTopicParams
+struct HelpShowHelpTopicParams
     topic::String
 end
 
-StructTypes.StructType(::Type{ShowHelpTopicParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{HelpShowHelpTopicParams}) = StructTypes.Struct()
 
 """
 Event: Request to show help in the frontend
 """
-struct ShowHelpParams
+struct HelpShowHelpParams
     content::String
     kind::ShowHelpKind
     focus::Bool
 end
 
-StructTypes.StructType(::Type{ShowHelpParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{HelpShowHelpParams}) = StructTypes.Struct()
 
 """
 Parse a backend request for the Help comm.
@@ -59,7 +59,7 @@ function parse_help_request(data::Dict)
     params = get(data, "params", Dict())
 
     if method == "show_help_topic"
-        return ShowHelpTopicParams(get(params, "topic", ""))
+        return HelpShowHelpTopicParams(get(params, "topic", ""))
     else
         error("Unknown help method: $method")
     end

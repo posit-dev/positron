@@ -39,7 +39,7 @@ Handle incoming messages on the help comm.
 function handle_help_msg(service::HelpService, msg::Dict)
 	request = parse_help_request(msg)
 
-	if request isa ShowHelpTopicParams
+	if request isa HelpShowHelpTopicParams
 		handle_show_help_topic(service, request.topic)
 	end
 end
@@ -71,7 +71,7 @@ function handle_show_help_topic(service::HelpService, topic::String)
 	send_result(service.comm, true)
 
 	# Then send the ShowHelp event to display in Help pane
-	params = ShowHelpParams(content, ShowHelpKind_Html, true)
+	params = HelpShowHelpParams(content, ShowHelpKind_Html, true)
 	send_event(service.comm, "show_help", params)
 end
 
@@ -205,7 +205,7 @@ function show_help!(service::HelpService, topic::String; focus::Bool=true)
 		return
 	end
 
-	params = ShowHelpParams(content, ShowHelpKind_Html, focus)
+	params = HelpShowHelpParams(content, ShowHelpKind_Html, focus)
 	send_event(service.comm, "show_help", params)
 end
 
@@ -217,6 +217,6 @@ function show_help_url!(service::HelpService, url::String; focus::Bool=true)
 		return
 	end
 
-	params = ShowHelpParams(url, ShowHelpKind_Url, focus)
+	params = HelpShowHelpParams(url, ShowHelpKind_Url, focus)
 	send_event(service.comm, "show_help", params)
 end

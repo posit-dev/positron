@@ -10,18 +10,8 @@ This module provides the Variables pane functionality, allowing users to browse
 and inspect variables in the Julia session.
 """
 
-# Helper to construct variables UpdateParams (avoids conflict with plot UpdateParams)
-function create_variables_update_params(assigned::Vector{Variable}, unevaluated::Vector{Variable},
-	removed::Vector{String}, version::Int64)
-	# Manually construct the struct from variables_comm.jl
-	# Field order: assigned, unevaluated, removed, version
-	# We can't use the type name due to conflicts, so we construct via StructTypes
-	return (; assigned = assigned, unevaluated = unevaluated, removed = removed, version = version)
-end
-
-function create_variables_refresh_params(variables::Vector{Variable}, length::Int64, version::Int64)
-	return (; variables = variables, length = length, version = version)
-end
+# Note: Param types are now properly prefixed (VariablesUpdateParams, VariablesRefreshParams)
+# to avoid naming conflicts with other comm files
 
 """
 The Variables service manages the Variables pane in Positron.
@@ -55,15 +45,15 @@ function handle_variables_msg(service::VariablesService, msg::Dict)
 	if request === nothing
 		# list request
 		handle_list(service)
-	elseif request isa ClearParams
+	elseif request isa VariablesClearParams
 		handle_clear(service, request.include_hidden_objects)
-	elseif request isa DeleteParams
+	elseif request isa VariablesDeleteParams
 		handle_delete(service, request.names)
-	elseif request isa InspectParams
+	elseif request isa VariablesInspectParams
 		handle_inspect(service, request.path)
-	elseif request isa ClipboardFormatParams
+	elseif request isa VariablesClipboardFormatParams
 		handle_clipboard_format(service, request.path, request.format)
-	elseif request isa ViewParams
+	elseif request isa VariablesViewParams
 		handle_view(service, request.path)
 	end
 end
@@ -573,7 +563,7 @@ function send_refresh!(service::VariablesService)
 	service.current_version += 1
 	service.last_snapshot = Dict(v.display_name => v for v in variables)
 
-	params = create_variables_refresh_params(variables, length(variables), service.current_version)
+	params = VariablesRefreshParams(variables, length(variables), service.current_version)
 	send_event(service.comm, "refresh", params)
 end
 
@@ -613,7 +603,7 @@ function send_update!(service::VariablesService)
 		service.current_version += 1
 		service.last_snapshot = current_map
 
-		params = create_variables_update_params(assigned, Variable[], removed, service.current_version)
+		params = VariablesUpdateParams(assigned, Variable[], removed, service.current_version)
 		send_event(service.comm, "update", params)
 	end
 end

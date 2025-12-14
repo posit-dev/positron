@@ -58,7 +58,7 @@ Handle incoming messages on the plots comm.
 function handle_plots_msg(service::PlotsService, msg::Dict)
 	request = parse_plot_request(msg)
 
-	if request isa RenderParams
+	if request isa PlotRenderParams
 		handle_render(service, request)
 	elseif request === nothing
 		# get_intrinsic_size request
@@ -76,7 +76,7 @@ end
 """
 Handle render request.
 """
-function handle_render(service::PlotsService, request::RenderParams)
+function handle_render(service::PlotsService, request::PlotRenderParams)
 	if service.current_plot_id === nothing
 		send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "No current plot")
 		return
@@ -212,7 +212,7 @@ function show_plot!(service::PlotsService, plot_obj::Any; id::String=string(uuid
 	end
 
 	# Notify frontend about updated plot
-	params = UpdateParams(pre_render)
+	params = PlotUpdateParams(pre_render)
 	send_event(service.comm, "update", params)
 end
 
