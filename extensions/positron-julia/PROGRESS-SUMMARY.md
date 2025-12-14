@@ -89,37 +89,49 @@
 
 ## 🚧 In Progress
 
-### Data Explorer Service (julia-69m) - 40% Complete
+### Data Explorer Service (julia-69m) - 60% Complete
 
 **Completed:**
 ✅ Virtual index architecture (Python/R pattern)
 - `filtered_indices`: Rows passing filters
 - `sorted_indices`: All rows in sorted order
 - `view_indices`: Combined filter+sort view
-- `update_view_indices!()`: Core composition function
+- `update_view_indices!()`: Core composition function with all 4 cases
 
 ✅ Efficient sorting (apply_sorting!)
 - Multi-column lexicographic sorting
 - Uses Julia's sortperm with MergeSort (stable)
 - Sorts ALL rows, not just filtered
+- Tested with multi-column, missing values, stability
 
 ✅ Critical get_data_values implementation
 - Uses view_indices for O(1) mapping
 - Handles Range, Indices, All selections
 - Performant with filters/sorts applied
+- Properly maps view coordinates → original data
 
-✅ Helper functions
-- `get_column_vector()`: Efficient column extraction
-- DataFrame-aware, Matrix-aware, Tables.jl compatible
+✅ Type-specific optimizations
+- Multiple dispatch for DataFrame, Matrix, Tables.jl
+- DataFrame: Zero-copy column access with df[!, col]
+- Matrix: Direct slicing
+- Generic fallback for other types
+
+✅ Comprehensive test suite (59 tests)
+- Virtual index correctness (6 tests)
+- Sorting correctness (6 tests including stability)
+- get_data_values with views (4 tests)
+- Edge cases (13 tests): empty, single row/col, missing, large (10K)
+- Performance benchmarks (4 tests): 1M row sort, 100K filter+sort
 
 **Still Needed:**
-🔲 Vectorize row filter evaluation (currently iterates rows)
+🔲 Vectorize row filter evaluation (currently row-by-row)
 🔲 Implement histogram computation (Sturges, FD, Scott methods)
-🔲 Implement summary statistics
+🔲 Implement summary statistics (min, max, mean, median, stdev)
 🔲 Implement frequency tables
-🔲 Comprehensive test suite (targeting 150+ tests)
+🔲 Test all DataFrame column types (see user's request)
 🔲 Schema caching optimization
 🔲 Handle get_row_labels with view_indices
+🔲 Expand tests to 150+ (match Python's 4358 line test suite)
 
 ---
 
