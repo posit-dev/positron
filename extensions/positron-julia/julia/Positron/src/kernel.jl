@@ -115,7 +115,7 @@ function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, m
     try
         kernel = get_kernel()
         if kernel !== nothing
-            handle_variables_comm_open(kernel, comm, data)
+            handle_variables_comm_open(kernel, comm, msg)
         end
     catch e
         @error "Error in Variables comm registration" exception=(e, catch_backtrace())
@@ -126,28 +126,28 @@ end
 function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.help")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
-        handle_help_comm_open(kernel, comm, data)
+        handle_help_comm_open(kernel, comm, msg)
     end
 end
 
 function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.plot")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
-        handle_plot_comm_open(kernel, comm, data)
+        handle_plot_comm_open(kernel, comm, msg)
     end
 end
 
 function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.dataExplorer")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
-        handle_data_explorer_comm_open(kernel, comm, data)
+        handle_data_explorer_comm_open(kernel, comm, msg)
     end
 end
 
 function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.ui")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
-        handle_ui_comm_open(kernel, comm, data)
+        handle_ui_comm_open(kernel, comm, msg)
     end
 end
 
