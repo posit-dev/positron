@@ -15,6 +15,7 @@ Tests cover:
 
 using Test
 using DataFrames
+using Statistics
 
 include("test_helpers.jl")
 
@@ -622,9 +623,105 @@ end
 	end
 end
 
+@testset "Data Explorer - Summary Statistics" begin
+	@testset "Number Stats - Basic" begin
+		values = [1.0, 2.0, 3.0, 4.0, 5.0]
+		stats = Positron.compute_number_stats(values)
+
+		@test parse(Float64, stats.min_value) == 1.0
+		@test parse(Float64, stats.max_value) == 5.0
+		@test parse(Float64, stats.mean) == 3.0
+		@test parse(Float64, stats.median) == 3.0
+		@test parse(Float64, stats.stdev) ≈ std([1, 2, 3, 4, 5])
+	end
+
+	@testset "Number Stats - With Missing" begin
+		values = [1.0, 2.0, missing, 3.0, missing, 4.0]
+		# Filter out missing first (like compute_summary_stats does)
+		filtered = filter(x -> x !== nothing && x !== missing, values)
+		stats = Positron.compute_number_stats(filtered)
+
+		@test parse(Float64, stats.min_value) == 1.0
+		@test parse(Float64, stats.max_value) == 4.0
+		@test parse(Float64, stats.mean) == 2.5
+	end
+
+	@testset "Number Stats - Empty" begin
+		values = Float64[]
+		stats = Positron.compute_number_stats(values)
+
+		@test stats.min_value === nothing
+		@test stats.max_value === nothing
+		@test stats.mean === nothing
+		@test stats.median === nothing
+		@test stats.stdev === nothing
+	end
+
+	@testset "Number Stats - Large Dataset" begin
+		values = randn(10_000)
+		stats = Positron.compute_number_stats(values)
+
+		@test stats.min_value !== nothing
+		@test stats.max_value !== nothing
+		@test stats.mean !== nothing
+		@test stats.median !== nothing
+		@test stats.stdev !== nothing
+
+		# Mean should be close to 0 for normal distribution
+		@test abs(parse(Float64, stats.mean)) < 0.1
+	end
+
+	@testset "String Stats - Basic" begin
+		values = ["apple", "banana", "cherry", "apple", ""]
+		stats = Positron.compute_string_stats(values)
+
+		@test stats.num_empty == 1
+		@test stats.num_unique == 4  # "apple", "banana", "cherry", ""
+	end
+
+	@testset "String Stats - All Empty" begin
+		values = ["", "", ""]
+		stats = Positron.compute_string_stats(values)
+
+		@test stats.num_empty == 3
+		@test stats.num_unique == 1
+	end
+
+	@testset "String Stats - No Duplicates" begin
+		values = ["a", "b", "c", "d", "e"]
+		stats = Positron.compute_string_stats(values)
+
+		@test stats.num_empty == 0
+		@test stats.num_unique == 5
+	end
+
+	@testset "Boolean Stats - Mixed" begin
+		values = [true, false, true, true, false]
+		stats = Positron.compute_boolean_stats(values)
+
+		@test stats.true_count == 3
+		@test stats.false_count == 2
+	end
+
+	@testset "Boolean Stats - All True" begin
+		values = [true, true, true]
+		stats = Positron.compute_boolean_stats(values)
+
+		@test stats.true_count == 3
+		@test stats.false_count == 0
+	end
+
+	@testset "Boolean Stats - All False" begin
+		values = [false, false]
+		stats = Positron.compute_boolean_stats(values)
+
+		@test stats.true_count == 0
+		@test stats.false_count == 2
+	end
+end
+
 # TODO: Add more comprehensive tests
 # Priority test areas (from Python test_data_explorer.py):
-# - Summary statistics (min, max, mean, median, stdev) - NEXT
 # - Frequency tables
 # - Schema operations (get_schema, search_schema, sort schema results)
 # - Column type inference and display types
