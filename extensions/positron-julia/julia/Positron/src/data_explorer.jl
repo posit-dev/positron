@@ -1082,49 +1082,120 @@ function compute_boolean_stats(values::Vector)::SummaryStatsBoolean
 end
 
 """
-Compute histogram for a column.
+Compute histogram for a column following Python/R patterns.
+
+Supports multiple binning methods:
+- "sturges": ceil(log2(n)) + 1 bins
+- "fd" (Freedman-Diaconis): bin_width = 2 * IQR * n^(-1/3)
+- "scott": bin_width = 3.5 * σ * n^(-1/3)
+- "fixed": Use params.num_bins exactly
+
+Handles edge cases:
+- Removes NaN/Inf values before binning
+- Single unique value
+- Integer columns (limit bins to value range)
+- Empty data
 """
 function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParams)::ColumnHistogram
-	nrows = get_num_rows(data)
+	# Get column vector (uses view_indices if data is from instance with filters!)
+	# TODO: Pass instance to get filtered column
+	col = get_column_vector(data, col_idx)
 
-	# Collect numeric values
+	# Remove missing and non-finite values
 	values = Float64[]
-	for row_idx in 1:nrows
-		val = get_cell_value(data, row_idx, col_idx)
-		if val isa Number
+	for val in col
+		if val isa Number && isfinite(val)
 			push!(values, Float64(val))
 		end
 	end
 
+	# Handle empty data
 	if isempty(values)
 		return ColumnHistogram(String[], Int[], ColumnQuantileValue[])
 	end
 
-	# Compute bin edges
-	min_val, max_val = extrema(values)
-	num_bins = params.num_bins
-
-	if min_val == max_val
-		# All same value
-		return ColumnHistogram([string(min_val), string(min_val)], [length(values)], ColumnQuantileValue[])
+	# Handle single unique value
+	unique_vals = unique(values)
+	if length(unique_vals) == 1
+		val = unique_vals[1]
+		return ColumnHistogram(
+			[string(val), string(val)],
+			[length(values)],
+			ColumnQuantileValue[]
+		)
 	end
 
+	# Determine number of bins based on method
+	method = lowercase(string(params.method))
+	num_bins = if method == "sturges"
+		max(1, ceil(Int, log2(length(values))) + 1)
+	elseif method == "fd"  # Freedman-Diaconis
+		q75, q25 = quantile(values, [0.75, 0.25])
+		iqr = q75 - q25
+		if iqr > 0
+			bin_width = 2 * iqr * length(values)^(-1/3)
+			max(1, ceil(Int, (maximum(values) - minimum(values)) / bin_width))
+		else
+			params.num_bins
+		end
+	elseif method == "scott"
+		σ = std(values)
+		if σ > 0
+			bin_width = 3.5 * σ * length(values)^(-1/3)
+			max(1, ceil(Int, (maximum(values) - minimum(values)) / bin_width))
+		else
+			params.num_bins
+		end
+	else  # "fixed" or unknown
+		params.num_bins
+	end
+
+	# For integer data, limit bins to value range
+	is_integer = all(v -> isinteger(v), values)
+	if is_integer
+		value_range = Int(maximum(values) - minimum(values))
+		num_bins = min(num_bins, value_range + 1)
+	end
+
+	# Cap at requested num_bins
+	num_bins = min(num_bins, params.num_bins)
+	num_bins = max(1, num_bins)  # At least 1 bin
+
+	# Compute histogram
+	min_val, max_val = extrema(values)
 	bin_width = (max_val - min_val) / num_bins
 	bin_edges = [min_val + i * bin_width for i in 0:num_bins]
-	bin_counts = zeros(Int, num_bins)
 
+	# Count values in each bin
+	bin_counts = zeros(Int, num_bins)
 	for val in values
-		bin_idx = min(num_bins, max(1, ceil(Int, (val - min_val) / bin_width)))
-		bin_counts[bin_idx] += 1
+		if val == max_val
+			# Last value goes in last bin
+			bin_counts[end] += 1
+		else
+			bin_idx = min(num_bins, max(1, floor(Int, (val - min_val) / bin_width) + 1))
+			bin_counts[bin_idx] += 1
+		end
 	end
 
 	# Compute quantiles if requested
 	quantiles = ColumnQuantileValue[]
-	if params.quantiles !== nothing
+	if params.quantiles !== nothing && !isempty(params.quantiles)
 		sorted_values = sort(values)
 		for q in params.quantiles
-			idx = max(1, ceil(Int, q * length(sorted_values)))
-			push!(quantiles, ColumnQuantileValue(q, string(sorted_values[idx]), true))
+			# Use linear interpolation for quantiles
+			pos = 1 + (length(sorted_values) - 1) * q
+			idx = floor(Int, pos)
+			frac = pos - idx
+			if idx >= length(sorted_values)
+				qval = sorted_values[end]
+			elseif frac == 0 || idx == 0
+				qval = sorted_values[max(1, idx)]
+			else
+				# Linear interpolation
+				qval = sorted_values[idx] * (1 - frac) + sorted_values[idx + 1] * frac
+			end
+			push!(quantiles, ColumnQuantileValue(q, string(qval), true))
 		end
 	end
 
@@ -1282,12 +1353,4 @@ function close_data_explorer!(service::DataExplorerService, id::String)
 	end
 end
 
-# Import std function if available
-function std(values::Vector)
-	n = length(values)
-	if n <= 1
-		return 0.0
-	end
-	m = sum(values) / n
-	return sqrt(sum((v - m)^2 for v in values) / (n - 1))
-end
+# Note: std, mean, quantile provided by Statistics stdlib (imported in Positron.jl)

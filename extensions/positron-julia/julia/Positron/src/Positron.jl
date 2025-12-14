@@ -22,6 +22,7 @@ using UUIDs
 using Dates
 using Base64
 using Markdown
+using Statistics  # For mean, std, quantile in Data Explorer
 
 # Core comm infrastructure
 include("jsonrpc.jl")
