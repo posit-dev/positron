@@ -141,7 +141,7 @@ end
 """
 Handle opening of variables comm.
 """
-function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
+function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     @debug "Variables comm opened"
 
     # Create our comm wrapper
@@ -158,7 +158,7 @@ end
 """
 Handle opening of help comm.
 """
-function handle_help_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
+function handle_help_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     @debug "Help comm opened"
 
     comm = create_comm("positron.help")
@@ -171,7 +171,7 @@ end
 """
 Handle opening of plot comm.
 """
-function handle_plot_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
+function handle_plot_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     @debug "Plot comm opened"
 
     comm = create_comm("positron.plot")
@@ -184,7 +184,7 @@ end
 """
 Handle opening of data explorer comm.
 """
-function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
+function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     @debug "Data explorer comm opened"
 
     # Data explorer comms are per-dataset
@@ -218,7 +218,7 @@ end
 """
 Handle opening of UI comm.
 """
-function handle_ui_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
+function handle_ui_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     @debug "UI comm opened"
 
     comm = create_comm("positron.ui")
