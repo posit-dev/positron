@@ -89,6 +89,17 @@ export interface FilterResult {
 }
 
 /**
+ * Result of setting import options
+ */
+export interface SetDatasetImportOptionsResult {
+	/**
+	 * An error message if setting the options failed
+	 */
+	error_message?: string;
+
+}
+
+/**
  * The current backend state for the data explorer
  */
 export interface BackendState {
@@ -1117,6 +1128,19 @@ export interface ColumnSelection {
 
 }
 
+/**
+ * Import options for file-based data sources. Currently supports options
+ * for delimited text files (CSV, TSV).
+ */
+export interface DatasetImportOptions {
+	/**
+	 * Whether the first row contains column headers (for delimited text
+	 * files)
+	 */
+	has_header_row?: boolean;
+
+}
+
 /// ColumnValue
 export type ColumnValue = number | string;
 
@@ -1431,6 +1455,16 @@ export interface GetColumnProfilesParams {
 }
 
 /**
+ * Parameters for the SetDatasetImportOptions method.
+ */
+export interface SetDatasetImportOptionsParams {
+	/**
+	 * Import options to apply
+	 */
+	options: DatasetImportOptions;
+}
+
+/**
  * Parameters for the ReturnColumnProfiles method.
  */
 export interface ReturnColumnProfilesParams {
@@ -1502,6 +1536,7 @@ export enum DataExplorerBackendRequest {
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
+	SetDatasetImportOptions = 'set_dataset_import_options',
 	GetState = 'get_state'
 }
 
@@ -1687,6 +1722,21 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void> {
 		return super.performRpc('get_column_profiles', ['callback_id', 'profiles', 'format_options'], [callbackId, profiles, formatOptions]);
+	}
+
+	/**
+	 * Set import options for file-based data sources
+	 *
+	 * Set import options for file-based data sources (like CSV files) and
+	 * reimport the data. This method is primarily used by file-based
+	 * backends like DuckDB.
+	 *
+	 * @param options Import options to apply
+	 *
+	 * @returns Result of setting import options
+	 */
+	setDatasetImportOptions(options: DatasetImportOptions): Promise<SetDatasetImportOptionsResult> {
+		return super.performRpc('set_dataset_import_options', ['options'], [options]);
 	}
 
 	/**

@@ -17,6 +17,7 @@ import {
 	ConvertedCode,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
+	DatasetImportOptions,
 	DataUpdateEvent,
 	ExportDataSelectionParams,
 	ExportedData,
@@ -36,6 +37,8 @@ import {
 	SearchSchemaResult,
 	SearchSchemaSortOrder,
 	SetColumnFiltersParams,
+	SetDatasetImportOptionsParams,
+	SetDatasetImportOptionsResult,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
 	TableData,
@@ -43,6 +46,7 @@ import {
 	TableSchema,
 	TableSelection,
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
+
 import { ICommandService, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { URI } from '../../../../base/common/uri.js';
 
@@ -69,6 +73,7 @@ export interface DataExplorerRpc {
 	SetSortColumnsParams |
 	GetColumnProfilesParams |
 	ExportDataSelectionParams |
+	SetDatasetImportOptionsParams |
 	{};
 }
 
@@ -77,7 +82,7 @@ export interface DataExplorerRpc {
  * or an error message in the case of failure.
  */
 export interface DataExplorerResponse {
-	result?: any;
+	result?: unknown;
 	error_message?: string;
 }
 
@@ -96,7 +101,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	readonly onDidDataUpdate = this._onDidDataUpdateEmitter.event;
 	readonly onDidReturnColumnProfiles = this._onDidReturnColumnProfilesEmitter.event;
 
-	private readonly initialSetup: Promise<any>;
+	private readonly initialSetup: Promise<unknown>;
 
 	constructor(
 		private readonly _commandService: ICommandService,
@@ -150,7 +155,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		} else if (response.error_message) {
 			return Promise.reject(new Error(response.error_message));
 		} else {
-			return response.result;
+			return response.result as Type;
 		}
 	}
 
@@ -283,6 +288,20 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 				profiles: profiles,
 				format_options: formatOptions
 			}
+		});
+	}
+
+	/**
+	 * Set import options for file-based data sources and reimport the data.
+	 *
+	 * @param options The import options to apply
+	 * @returns Result indicating success or failure
+	 */
+	async setDatasetImportOptions(options: DatasetImportOptions): Promise<SetDatasetImportOptionsResult> {
+		return this._execRpc<SetDatasetImportOptionsResult>({
+			method: DataExplorerBackendRequest.SetDatasetImportOptions,
+			uri: this.uri.toString(),
+			params: { options } satisfies SetDatasetImportOptionsParams
 		});
 	}
 }

@@ -16,6 +16,7 @@ import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPri
 import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
+import { registerCsvOptionsWidget } from './csvOptionsWidget.js';
 import { extname } from '../../../../base/common/resources.js';
 import { posix } from '../../../../base/common/path.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
@@ -131,3 +132,6 @@ registerWorkbenchContribution2(
 
 // Register actions.
 registerPositronDataExplorerActions();
+
+// Register the CSV Options widget for the Editor Action Bar.
+registerCsvOptionsWidget();

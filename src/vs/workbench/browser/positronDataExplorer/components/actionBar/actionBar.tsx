@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { LayoutMenuButton } from './components/layoutMenuButton.js';
+import { CsvOptionsMenuButton } from './components/csvOptionsMenuButton.js';
 import { isAuxiliaryWindow } from '../../../../../base/browser/window.js';
 import { usePositronDataExplorerContext } from '../../positronDataExplorerContext.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
@@ -80,6 +81,7 @@ export const ActionBar = () => {
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<CsvOptionsMenuButton />
 						<LayoutMenuButton />
 						<ActionBarButton
 							ariaLabel={moveIntoNewWindowButtonDescription}

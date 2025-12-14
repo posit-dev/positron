@@ -139,9 +139,17 @@ export class DataExplorerClientInstance extends Disposable {
 	private _backendPromise: Promise<BackendState> | undefined = undefined;
 
 	/**
-	 * Gets the IDataExplorerBackendClient.
+	 * The IDataExplorerBackendClient.
 	 */
 	private readonly _backendClient: IDataExplorerBackendClient;
+
+	/**
+	 * Gets the IDataExplorerBackendClient. Exposed for extension-specific
+	 * functionality like CSV import options.
+	 */
+	get backendClient(): IDataExplorerBackendClient {
+		return this._backendClient;
+	}
 
 	/**
 	 * The onDidClose event emitter.
@@ -189,6 +197,7 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * Promises for asynchronous tasks requested of the backend, keyed by callback ID.
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private readonly _asyncTasks = new Map<string, DeferredPromise<any>>();
 
 	//#endregion Private Properties
