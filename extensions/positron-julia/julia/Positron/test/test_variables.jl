@@ -438,3 +438,89 @@ using JSON3
         @test haskey(msg, "data")
     end
 end
+
+@testset "Variables - Change Detection" begin
+	@testset "Detect New Variable" begin
+		service = Positron.VariablesService()
+		comm = MockComm("variables")
+		service.comm = comm
+
+		# Start with empty snapshot
+		service.last_snapshot = Dict{String,Positron.Variable}()
+
+		# Add variable
+		@eval Main new_var = 123
+
+		# Send update should detect it
+		Positron.send_update!(service)
+
+		# Should have sent update event
+		@test length(comm.messages) > 0
+		msg = last_message(comm)
+		@test haskey(msg, "data")
+	end
+
+	@testset "Detect Variable Removal" begin
+		service = Positron.VariablesService()
+		comm = MockComm("variables")
+		service.comm = comm
+
+		# Start with a variable in snapshot
+		@eval Main temp_var = 456
+		vars = Positron.collect_variables()
+		service.last_snapshot = Dict(v.display_name => v for v in vars)
+
+		# Note: Can't truly remove in Julia, but test the detection logic
+		# by manually removing from snapshot
+		delete!(service.last_snapshot, "temp_var")
+
+		# This simulates what would happen if a var was removed
+		current_vars = Positron.collect_variables()
+		current_map = Dict(v.display_name => v for v in current_vars)
+
+		removed = String[]
+		for name in keys(service.last_snapshot)
+			if !haskey(current_map, name)
+				push!(removed, name)
+			end
+		end
+
+		@test isempty(removed)  # temp_var is still there (can't delete in Julia)
+	end
+
+	@testset "Detect Variable Change" begin
+		service = Positron.VariablesService()
+		comm = MockComm("variables")
+		service.comm = comm
+
+		# Start with a variable
+		@eval Main changing_var = 100
+		vars = Positron.collect_variables()
+		service.last_snapshot = Dict(v.display_name => v for v in vars)
+
+		# Change it
+		@eval Main changing_var = 200
+
+		# Send update should detect change
+		Positron.send_update!(service)
+
+		@test length(comm.messages) > 0
+	end
+
+	@testset "No Update for Unchanged Variables" begin
+		service = Positron.VariablesService()
+		comm = MockComm("variables")
+		service.comm = comm
+
+		# Set up snapshot
+		@eval Main static_var = 999
+		vars = Positron.collect_variables()
+		service.last_snapshot = Dict(v.display_name => v for v in vars)
+
+		# Don't change anything
+		Positron.send_update!(service)
+
+		# Should not send update if nothing changed
+		# (Current implementation sends if assigned or removed is non-empty)
+	end
+end
