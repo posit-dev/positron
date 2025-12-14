@@ -319,16 +319,11 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     data_dict = JSON3.read(json_str, Dict{String,Any})
 
     # Send via IJulia comm
+    # Always use IJulia.send_comm (Comm struct doesn't have .send method)
     try
-        if hasproperty(comm.kernel, :send)
-            kernel_log_info("Sending via IJulia.Comm.send")
-            comm.kernel.send(data_dict)
-        elseif isdefined(IJulia, :send_comm)
-            kernel_log_info("Sending via IJulia.send_comm")
-            IJulia.send_comm(comm.kernel, data_dict)
-        else
-            kernel_log_info("Warning: Cannot find method to send comm message")
-        end
+        kernel_log_info("Calling IJulia.send_comm")
+        IJulia.send_comm(comm.kernel, data_dict)
+        kernel_log_info("IJulia.send_comm completed successfully")
     catch e
         kernel_log_error("Failed to send comm message: $e")
     end
