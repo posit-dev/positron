@@ -67,13 +67,13 @@ end
 """
 Update view_indices by combining filtered_indices and sorted_indices.
 
-This is the CORE of the Data Explorer performance pattern (matches Python/R):
+Matches Python/R pattern for efficient filter+sort:
 1. No filters, no sorts → view_indices = nothing (use full data)
 2. Only filters → view_indices = filtered_indices
 3. Only sorts → view_indices = sorted_indices
 4. Both → view_indices = sorted_indices filtered by filtered_indices
 
-This function is called after any filter or sort operation.
+Called after any filter or sort operation.
 """
 function update_view_indices!(instance::DataExplorerInstance)
     # Case 1: No filtering or sorting
@@ -225,8 +225,8 @@ end
 """
 Handle get_data_values request.
 
-CRITICAL PERFORMANCE FUNCTION: Uses view_indices to efficiently retrieve data
-after filtering/sorting without modifying the original data.
+Uses view_indices to retrieve data after filtering/sorting without modifying
+the original data.
 
 Follows the Python/R pattern:
 1. Frontend requests rows 0-99 of the VIEW
@@ -1041,8 +1041,8 @@ end
 """
 Compute sorted_indices for ALL rows based on sort_keys.
 
-Critical: Sorts ALL rows, not just filtered ones. This is combined with
-filtered_indices in update_view_indices! for the final view.
+Sorts ALL rows, not just filtered ones. Combined with filtered_indices
+in update_view_indices! for the final view.
 
 Matches Python's _sort_data and R's r_sort_rows pattern.
 """
