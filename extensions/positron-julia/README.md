@@ -151,8 +151,8 @@ The test suite requires DataFrames.jl (automatically handled by Project.toml ext
 julia -e 'using Pkg; Pkg.add("DataFrames")'
 ```
 
-**Test coverage (462+ tests):**
-- **Variables (335 tests):**
+**Test coverage (700+ tests):**
+- **Variables:**
   - All Julia types (primitives, collections, composites, DataFrames)
   - Display formatting with dimensions and truncation
   - Child inspection and nested path resolution
@@ -170,14 +170,6 @@ julia -e 'using Pkg; Pkg.add("DataFrames")'
   - Multi-column sorting with stability
   - DataFrame edge cases (empty, single row/col, missing, large)
   - Performance benchmarks (1M row sorts)
-
-**Interactive testing:**
-A comprehensive interactive testing file is available at `~/code/positron-testingstuff/testing.jl`
-with examples of all supported variable types. Load it in Positron to test the Variables pane:
-
-```julia
-include("$(homedir())/code/positron-testingstuff/testing.jl")
-```
 
 ### Required Julia Packages
 
