@@ -195,10 +195,14 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     # Hook up to IJulia comm for message passing
     setup_comm_bridge!(comm, ijulia_comm)
 
-    # Send initial refresh to populate Variables pane
-    kernel_log("Sending initial variables refresh")
-    send_refresh!(kernel.variables)
-    kernel_log("Initial refresh sent")
+    # Send initial refresh AFTER register_comm callback completes
+    # Use @async with yield to exit callback first
+    @async begin
+        yield()  # Let register_comm callback complete
+        kernel_log("Sending initial variables refresh (after yield)")
+        send_refresh!(kernel.variables)
+        kernel_log("Initial refresh sent")
+    end
 end
 
 """
