@@ -450,8 +450,182 @@ end
 	end
 end
 
+@testset "Data Explorer - Histogram Computation" begin
+	@testset "Histogram - Fixed Method" begin
+		data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			5,  # num_bins
+			nothing  # quantiles
+		)
+
+		# Create a simple DataFrame for testing
+		df = DataFrame(x = data)
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.bin_edges) == 6  # num_bins + 1
+		@test length(hist.bin_counts) == 5
+		@test sum(hist.bin_counts) == 10  # All values accounted for
+	end
+
+	@testset "Histogram - Sturges Method" begin
+		data = rand(100)
+		df = DataFrame(x = data)
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Sturges,
+			100,  # max bins
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		# Sturges: ceil(log2(100)) + 1 = ceil(6.64) + 1 = 8
+		expected_bins = ceil(Int, log2(100)) + 1
+		@test length(hist.bin_counts) == expected_bins
+		@test sum(hist.bin_counts) == 100
+	end
+
+	@testset "Histogram - Freedman-Diaconis Method" begin
+		data = randn(1000)  # Normal distribution
+		df = DataFrame(x = data)
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_FreedmanDiaconis,
+			100,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.bin_counts) > 0
+		@test length(hist.bin_counts) <= 100  # Capped at max
+		@test sum(hist.bin_counts) == 1000
+	end
+
+	@testset "Histogram - Scott Method" begin
+		data = randn(500)
+		df = DataFrame(x = data)
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Scott,
+			100,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.bin_counts) > 0
+		@test sum(hist.bin_counts) == 500
+	end
+
+	@testset "Histogram - Empty Data" begin
+		df = DataFrame(x = Float64[])
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			10,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test isempty(hist.bin_edges)
+		@test isempty(hist.bin_counts)
+	end
+
+	@testset "Histogram - Single Unique Value" begin
+		df = DataFrame(x = [42.0, 42.0, 42.0, 42.0])
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			10,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.bin_edges) == 2
+		@test hist.bin_edges == ["42.0", "42.0"]
+		@test hist.bin_counts == [4]
+	end
+
+	@testset "Histogram - Integer Column Bin Limiting" begin
+		# Integer column with small range
+		df = DataFrame(x = [1, 2, 3, 4, 5])
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			100,  # Request 100 bins
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		# Should limit to value range: 5-1 = 4, so max 5 bins
+		@test length(hist.bin_counts) <= 5
+		@test sum(hist.bin_counts) == 5
+	end
+
+	@testset "Histogram - NaN and Inf Handling" begin
+		df = DataFrame(x = [1.0, 2.0, NaN, 3.0, Inf, 4.0, -Inf, 5.0])
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			5,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		# Should exclude NaN and Inf, leaving [1,2,3,4,5]
+		@test sum(hist.bin_counts) == 5
+	end
+
+	@testset "Histogram - Missing Values" begin
+		df = DataFrame(x = [1.0, 2.0, missing, 3.0, missing, 4.0])
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			4,
+			nothing
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		# Should exclude missing, leaving [1,2,3,4]
+		@test sum(hist.bin_counts) == 4
+	end
+
+	@testset "Histogram - Quantiles" begin
+		df = DataFrame(x = 1.0:100.0)
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			10,
+			[0.0, 0.25, 0.5, 0.75, 1.0]  # Min, Q1, median, Q3, max
+		)
+
+		hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.quantiles) == 5
+		# Check approximate values (allowing for interpolation)
+		@test parse(Float64, hist.quantiles[1].value) ≈ 1.0 atol = 1.0   # min
+		@test parse(Float64, hist.quantiles[3].value) ≈ 50.5 atol = 1.0  # median
+		@test parse(Float64, hist.quantiles[5].value) ≈ 100.0 atol = 1.0 # max
+	end
+
+	@testset "Histogram - Large Dataset" begin
+		df = DataFrame(x = randn(100_000))
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Sturges,
+			1000,
+			nothing
+		)
+
+		# Should be fast even with 100K rows
+		@time hist = Positron.compute_histogram(df, 1, params)
+
+		@test length(hist.bin_counts) > 0
+		@test sum(hist.bin_counts) == 100_000
+	end
+end
+
 # TODO: Add more comprehensive tests
 # Priority test areas (from Python test_data_explorer.py):
+# - Summary statistics (min, max, mean, median, stdev) - NEXT
+# - Frequency tables
 # - Schema operations (get_schema, search_schema, sort schema results)
 # - Column type inference and display types
 # - Filter evaluation for all filter types

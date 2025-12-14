@@ -1129,7 +1129,7 @@ function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParam
 	method = lowercase(string(params.method))
 	num_bins = if method == "sturges"
 		max(1, ceil(Int, log2(length(values))) + 1)
-	elseif method == "fd"  # Freedman-Diaconis
+	elseif method == "freedman_diaconis" || method == "fd"  # Freedman-Diaconis
 		q75, q25 = quantile(values, [0.75, 0.25])
 		iqr = q75 - q25
 		if iqr > 0
