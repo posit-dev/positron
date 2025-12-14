@@ -45,3 +45,6 @@ pwb-version
 vsix-cache/
 product.json.backup
 # --- End Positron ---
+
+# Beads project tracking (local only)
+.beads/
