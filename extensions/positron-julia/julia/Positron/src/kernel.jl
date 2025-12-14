@@ -11,6 +11,7 @@ This module provides integration with IJulia to start and manage Positron servic
 
 using IJulia
 using Logging
+using Dates
 
 """
 Kernel logging functions - write to kernel log (not console).
