@@ -1098,18 +1098,30 @@ Handles edge cases:
 - Single unique value
 - Integer columns (limit bins to value range)
 - Empty data
+
+Performance: Like Python's polars implementation, this uses efficient
+column extraction to avoid unnecessary conversions. For DataFrames,
+uses native column access; for other types, delegates appropriately.
 """
 function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParams)::ColumnHistogram
-	# Get column vector (uses view_indices if data is from instance with filters!)
-	# TODO: Pass instance to get filtered column
+	# Get column vector efficiently (DataFrame-optimized via multiple dispatch)
+	# TODO: Pass instance to get filtered column for even better performance
 	col = get_column_vector(data, col_idx)
 
-	# Remove missing and non-finite values
-	values = Float64[]
-	for val in col
-		if val isa Number && isfinite(val)
-			push!(values, Float64(val))
+	# Remove missing and non-finite values efficiently
+	# For DataFrames with numeric columns, use vectorized operations
+	values = if isdefined(Main, :DataFrames) && data isa Main.DataFrames.DataFrame
+		# DataFrame-specific optimization: vectorized filtering
+		if eltype(col) <: Union{Missing,Number}
+			# Remove missing first, then filter non-finite
+			non_missing = skipmissing(col)
+			Float64[v for v in non_missing if isfinite(v)]
+		else
+			Float64[v for v in col if v isa Number && isfinite(v)]
 		end
+	else
+		# Generic fallback
+		Float64[v for v in col if v isa Number && isfinite(v)]
 	end
 
 	# Handle empty data
@@ -1117,12 +1129,12 @@ function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParam
 		return ColumnHistogram(String[], Int[], ColumnQuantileValue[])
 	end
 
-	# Handle single unique value
-	unique_vals = unique(values)
-	if length(unique_vals) == 1
-		val = unique_vals[1]
+	# Quick check for single unique value (avoid expensive unique() on large arrays)
+	min_val, max_val = extrema(values)
+	if min_val == max_val
+		# All values are the same
 		return ColumnHistogram(
-			[string(val), string(val)],
+			[string(min_val), string(min_val)],
 			[length(values)],
 			ColumnQuantileValue[]
 		)
@@ -1164,21 +1176,22 @@ function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParam
 	num_bins = min(num_bins, params.num_bins)
 	num_bins = max(1, num_bins)  # At least 1 bin
 
-	# Compute histogram
-	min_val, max_val = extrema(values)
+	# Compute histogram (min_val, max_val already computed above)
 	bin_width = (max_val - min_val) / num_bins
 	bin_edges = [min_val + i * bin_width for i in 0:num_bins]
 
-	# Count values in each bin
+	# Count values in each bin (vectorized for performance - matches NumPy approach)
+	# Compute bin indices for all values at once
+	bin_indices = floor.(Int, (values .- min_val) ./ bin_width) .+ 1
+
+	# Clamp to valid range and handle edge case where val == max_val
+	bin_indices = min.(bin_indices, num_bins)
+	bin_indices = max.(bin_indices, 1)
+
+	# Count occurrences of each bin index (vectorized)
 	bin_counts = zeros(Int, num_bins)
-	for val in values
-		if val == max_val
-			# Last value goes in last bin
-			bin_counts[end] += 1
-		else
-			bin_idx = min(num_bins, max(1, floor(Int, (val - min_val) / bin_width) + 1))
-			bin_counts[bin_idx] += 1
-		end
+	for idx in bin_indices
+		@inbounds bin_counts[idx] += 1
 	end
 
 	# Compute quantiles if requested
