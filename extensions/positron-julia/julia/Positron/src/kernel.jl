@@ -43,6 +43,9 @@ function kernel_log_error(msg::String)
     end
 end
 
+# Alias for convenience
+kernel_log(msg::String) = kernel_log_info(msg)
+
 """
 Main Positron kernel that manages all services.
 """

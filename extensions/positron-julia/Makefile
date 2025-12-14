@@ -113,3 +113,27 @@ status:  ## Show project status summary
 	cd $(JULIA_PROJECT) && $(JULIA) --project=. test/runtests.jl 2>&1 | grep "Test Summary" -A3 || echo "Run 'make test' to see results"
 	@echo ""
 	@echo "Use 'make help' for available commands"
+
+# Linting
+lint:  ## Check Julia code for syntax errors
+	@echo "Checking Julia syntax..."
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e '\
+		using Pkg; \
+		for file in readdir("src", join=true); \
+			if endswith(file, ".jl"); \
+				try; \
+					include_string(Main, read(file, String), file); \
+					println("✓ ", basename(file)); \
+				catch e; \
+					println("✗ ", basename(file), ": ", e); \
+				end; \
+			end; \
+		end'
+
+lint-full:  ## Full static analysis with JET.jl (install first)
+	@echo "Running static analysis..."
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e '\
+		using Pkg; \
+		haskey(Pkg.dependencies(), Base.UUID("c3a54625-cd67-489e-a8e7-0a5a0ff4e31b")) || Pkg.add("JET"); \
+		using JET; \
+		report_package("Positron")'
