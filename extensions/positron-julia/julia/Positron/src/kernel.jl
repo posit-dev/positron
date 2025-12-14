@@ -318,6 +318,7 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
 
     # Convert to Dict (IJulia expects Dict, not JSON3.Object)
     json_str = JSON3.write(data)
+    kernel_log_info("Message JSON: $json_str")
     data_dict = JSON3.read(json_str, Dict{String,Any})
 
     # Send via IJulia comm
