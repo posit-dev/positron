@@ -1219,17 +1219,25 @@ function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParam
 end
 
 """
-Compute frequency table for a column.
+Compute frequency table (top N most frequent values).
+
+Following Python/R pattern:
+- Count all unique values
+- Sort by frequency (descending)
+- Return top N
+- Calculate other_count for remaining values
+
+Performance: Uses Dict for O(1) counting, sorts only unique values.
 """
 function compute_frequency_table(data::Any, col_idx::Int, params::ColumnFrequencyTableParams)::ColumnFrequencyTable
-	nrows = get_num_rows(data)
+	# Get column efficiently
+	col = get_column_vector(data, col_idx)
 
-	# Count occurrences
-	counts = Dict{Any, Int}()
+	# Count occurrences (vectorized for DataFrame)
+	counts = Dict{Any,Int}()
 	null_count = 0
 
-	for row_idx in 1:nrows
-		val = get_cell_value(data, row_idx, col_idx)
+	for val in col
 		if val === nothing || val === missing
 			null_count += 1
 		else
@@ -1237,15 +1245,22 @@ function compute_frequency_table(data::Any, col_idx::Int, params::ColumnFrequenc
 		end
 	end
 
-	# Get top K
-	sorted_pairs = sort(collect(counts), by=x -> -x[2])
+	# Sort by count (descending) and take top K
+	sorted_pairs = sort(collect(counts), by=x -> x[2], rev=true)
 	top_k = sorted_pairs[1:min(params.limit, length(sorted_pairs))]
 
+	# Format results
 	values = [string(p[1]) for p in top_k]
 	freq_counts = [p[2] for p in top_k]
-	other_count = sum(p[2] for p in sorted_pairs[min(params.limit + 1, end):end]; init=0)
 
-	ColumnFrequencyTable(values, freq_counts, other_count > 0 ? other_count : nothing)
+	# Calculate other_count (values beyond top K)
+	other_count = if length(sorted_pairs) > params.limit
+		sum(p[2] for p in sorted_pairs[(params.limit + 1):end])
+	else
+		nothing
+	end
+
+	ColumnFrequencyTable(values, freq_counts, other_count)
 end
 
 """
