@@ -1041,6 +1041,9 @@ end
 
 """
 Compute numeric statistics.
+
+Returns min, max, mean, median, stdev for numeric columns.
+Handles missing values and uses Statistics stdlib for accuracy.
 """
 function compute_number_stats(values::Vector)::SummaryStatsNumber
 	if isempty(values)
@@ -1055,8 +1058,8 @@ function compute_number_stats(values::Vector)::SummaryStatsNumber
 	SummaryStatsNumber(
 		string(minimum(nums)),
 		string(maximum(nums)),
-		string(sum(nums) / length(nums)),
-		string(sort(nums)[div(length(nums), 2) + 1]),  # Simple median
+		string(mean(nums)),
+		string(median(nums)),  # Uses Statistics.median (proper interpolation)
 		string(std(nums))
 	)
 end
