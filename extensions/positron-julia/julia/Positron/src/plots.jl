@@ -26,15 +26,17 @@ end
 
 """
 The Plots service manages the Plots pane in Positron.
+
+Automatically captures plots when they're displayed via Julia's display system.
 """
 mutable struct PlotsService
-	comm::Union{PositronComm, Nothing}
-	plots::Dict{String, Any}  # plot_id => plot object (for re-rendering)
-	current_plot_id::Union{String, Nothing}
-	render_settings::Dict{String, Any}
+	comm::Any  # PositronComm or test mock
+	plots::Dict{String,Any}  # plot_id => plot object (for re-rendering)
+	current_plot_id::Union{String,Nothing}
+	render_settings::Dict{String,Any}
 
 	function PlotsService()
-		new(nothing, Dict{String, Any}(), nothing, Dict{String, Any}(
+		new(nothing, Dict{String,Any}(), nothing, Dict{String,Any}(
 			"width" => 800,
 			"height" => 600,
 			"pixel_ratio" => 1.0
@@ -43,13 +45,54 @@ mutable struct PlotsService
 end
 
 """
+Positron display backend for automatic plot capture.
+
+Hooks into Julia's display system to automatically capture and display plots
+in Positron's plot pane. Similar to julia-vscode's InlineDisplay.
+"""
+struct PositronDisplay <: AbstractDisplay
+	service::PlotsService
+end
+
+"""
+Display method for PositronDisplay - captures plots automatically.
+
+Called by Julia's display system when a plot is shown.
+"""
+function Base.display(d::PositronDisplay, mime::MIME, plot_obj)
+	# Check if this is a displayable plot type
+	if showable(mime, plot_obj) && startswith(string(mime), "image/")
+		show_plot!(d.service, plot_obj)
+	else
+		# Fall through to next display in stack
+		throw(MethodError(display, (d, mime, plot_obj)))
+	end
+end
+
+function Base.display(d::PositronDisplay, plot_obj)
+	# Try common image MIME types in order of preference
+	for mime in [MIME("image/png"), MIME("image/svg+xml")]
+		if showable(mime, plot_obj)
+			return display(d, mime, plot_obj)
+		end
+	end
+	# Not a displayable plot
+	throw(MethodError(display, (d, plot_obj)))
+end
+
+"""
 Initialize the plots service with a comm.
+
+Sets up the display backend to automatically capture plots.
 """
 function init!(service::PlotsService, comm::PositronComm)
 	service.comm = comm
 
 	on_msg!(comm, msg -> handle_plots_msg(service, msg))
 	on_close!(comm, () -> handle_plots_close(service))
+
+	# Install display backend for automatic plot capture
+	pushdisplay(PositronDisplay(service))
 end
 
 """
