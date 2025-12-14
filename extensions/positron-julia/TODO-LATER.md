@@ -93,3 +93,42 @@ Julia has a debug adapter (`Debugger.jl` / `DebugAdapter.jl`) that could be inte
 
 - Integration with Julia's `Test` stdlib
 - Test discovery and execution in the Test Explorer
+
+## Data Explorer - Code Generation
+
+### convert_to_code Implementation
+
+**Status**: Not implemented
+
+**Description**: Generate Julia code (or dplyr/pandas-style code) from current Data Explorer state (filters, sorts). Allows users to generate reproducible code from interactive exploration.
+
+**Requirements**:
+- Generate Julia DataFrames.jl code for filters
+- Generate code for sorting operations
+- Handle multiple filters with AND/OR conditions
+- Generate code for column selections
+- Support different code syntax preferences
+
+**Reference**: See Python implementation in `data_explorer.py` for pattern.
+
+**Priority**: Medium (nice-to-have feature, not core functionality)
+
+
+## Data Explorer - Code Generation
+
+### convert_to_code Implementation
+
+**Status**: Not implemented
+
+**Description**: Generate Julia code from Data Explorer state (filters, sorts). Allows users to generate reproducible code from interactive exploration.
+
+**Requirements**:
+- Generate Julia DataFrames.jl code for filters
+- Generate code for sorting operations  
+- Handle multiple filters with AND/OR
+- Support column selections
+
+**Reference**: Python implementation in data_explorer.py
+
+**Priority**: Medium (nice-to-have, not core)
+
