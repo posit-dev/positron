@@ -1227,3 +1227,247 @@ end
 		@test count_filtered == 2  # Only 2 missing in filtered data!
 	end
 end
+
+@testset "Data Explorer - Histogram Edge Cases" begin
+	@testset "Histogram - All Inf Values" begin
+		df = DataFrame(x = [Inf, -Inf, Inf, -Inf])
+		instance = Positron.DataExplorerInstance(df, "inf")
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			5,
+			nothing
+		)
+		
+		hist = Positron.compute_histogram(instance, 1, params)
+		@test isempty(hist.bin_counts)  # All Inf excluded
+	end
+
+	@testset "Histogram - Mixed Inf and Normal" begin
+		df = DataFrame(x = [1.0, 2.0, Inf, 3.0, -Inf, 4.0])
+		instance = Positron.DataExplorerInstance(df, "mixed_inf")
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			3,
+			nothing
+		)
+		
+		hist = Positron.compute_histogram(instance, 1, params)
+		@test sum(hist.bin_counts) == 4  # Only finite values
+	end
+
+	@testset "Histogram - Very Small Range" begin
+		df = DataFrame(x = [1.0, 1.0001, 1.0002])
+		instance = Positron.DataExplorerInstance(df, "small_range")
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			10,
+			nothing
+		)
+		
+		hist = Positron.compute_histogram(instance, 1, params)
+		@test sum(hist.bin_counts) == 3
+		@test length(hist.bin_edges) > 0
+	end
+
+	@testset "Histogram - All Zeros" begin
+		df = DataFrame(x = zeros(100))
+		instance = Positron.DataExplorerInstance(df, "zeros")
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Sturges,
+			50,
+			nothing
+		)
+		
+		hist = Positron.compute_histogram(instance, 1, params)
+		# All same value - should have 1 bin
+		@test hist.bin_counts == [100]
+	end
+end
+
+@testset "Data Explorer - Summary Stats Edge Cases" begin
+	@testset "Stats - All Same Value" begin
+		df = DataFrame(x = fill(42.0, 100))
+		instance = Positron.DataExplorerInstance(df, "same")
+		
+		stats = Positron.compute_summary_stats(instance, 1)
+		@test parse(Float64, stats.number_stats.min_value) == 42.0
+		@test parse(Float64, stats.number_stats.max_value) == 42.0
+		@test parse(Float64, stats.number_stats.mean) == 42.0
+		@test parse(Float64, stats.number_stats.median) == 42.0
+		@test parse(Float64, stats.number_stats.stdev) == 0.0
+	end
+
+	@testset "Stats - Two Values" begin
+		df = DataFrame(x = [1.0, 2.0])
+		instance = Positron.DataExplorerInstance(df, "two")
+		
+		stats = Positron.compute_summary_stats(instance, 1)
+		@test parse(Float64, stats.number_stats.mean) == 1.5
+		@test parse(Float64, stats.number_stats.median) == 1.5
+	end
+
+	@testset "Stats - Negative Numbers" begin
+		df = DataFrame(x = [-10.0, -5.0, 0.0, 5.0, 10.0])
+		instance = Positron.DataExplorerInstance(df, "negative")
+		
+		stats = Positron.compute_summary_stats(instance, 1)
+		@test parse(Float64, stats.number_stats.min_value) == -10.0
+		@test parse(Float64, stats.number_stats.max_value) == 10.0
+		@test parse(Float64, stats.number_stats.mean) == 0.0
+	end
+end
+
+@testset "Data Explorer - Frequency Table Edge Cases" begin
+	@testset "Frequency - Single Value Repeated" begin
+		df = DataFrame(x = fill("Same", 1000))
+		instance = Positron.DataExplorerInstance(df, "single_freq")
+		params = Positron.ColumnFrequencyTableParams(10)
+		
+		freq = Positron.compute_frequency_table(instance, 1, params)
+		@test length(freq.values) == 1
+		@test freq.counts == [1000]
+		@test freq.other_count === nothing
+	end
+
+	@testset "Frequency - High Cardinality" begin
+		# 1000 unique values
+		df = DataFrame(id = string.(1:1000))
+		instance = Positron.DataExplorerInstance(df, "high_card")
+		params = Positron.ColumnFrequencyTableParams(10)  # Top 10
+		
+		freq = Positron.compute_frequency_table(instance, 1, params)
+		@test length(freq.values) == 10
+		@test sum(freq.counts) == 10  # Top 10 each appear once
+		@test freq.other_count == 990  # Remaining 990 values
+	end
+
+	@testset "Frequency - Ties in Count" begin
+		# All values appear twice
+		df = DataFrame(x = vcat(fill("A", 2), fill("B", 2), fill("C", 2)))
+		instance = Positron.DataExplorerInstance(df, "ties")
+		params = Positron.ColumnFrequencyTableParams(2)
+		
+		freq = Positron.compute_frequency_table(instance, 1, params)
+		@test length(freq.values) == 2  # Top 2
+		@test all(c == 2 for c in freq.counts)  # All have count 2
+	end
+end
+
+@testset "Data Explorer - Filter and Sort Interactions" begin
+	@testset "Filter Then Sort - Ascending" begin
+		df = DataFrame(value = [50, 20, 80, 10, 90, 30, 70, 40, 60])
+		instance = Positron.DataExplorerInstance(df, "filter_sort_asc")
+
+		# Filter: keep values >= 40 (rows with 50,80,90,70,40,60)
+		instance.filtered_indices = [1, 3, 5, 7, 8, 9]
+		
+		# Sort ascending
+		instance.sort_keys = [Positron.ColumnSortKey(0, true)]
+		Positron.apply_sorting!(instance)
+		Positron.update_view_indices!(instance)
+
+		# Result: filtered values in ascending order
+		col = Positron.get_column_vector(df, 1)
+		result = col[instance.view_indices]
+		@test result == [40, 50, 60, 70, 80, 90]
+	end
+
+	@testset "Filter Then Sort - Descending" begin
+		df = DataFrame(value = 1:20)
+		instance = Positron.DataExplorerInstance(df, "filter_sort_desc")
+
+		# Filter: keep even numbers
+		instance.filtered_indices = [i for i in 1:20 if i % 2 == 0]
+		
+		# Sort descending
+		instance.sort_keys = [Positron.ColumnSortKey(0, false)]
+		Positron.apply_sorting!(instance)
+		Positron.update_view_indices!(instance)
+
+		col = Positron.get_column_vector(df, 1)
+		result = col[instance.view_indices]
+		@test result == [20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+	end
+
+	@testset "Sort Then Filter" begin
+		df = DataFrame(value = [5, 2, 8, 1, 9, 3])
+		instance = Positron.DataExplorerInstance(df, "sort_filter")
+
+		# Sort ascending first
+		instance.sort_keys = [Positron.ColumnSortKey(0, true)]
+		Positron.apply_sorting!(instance)
+		
+		# Then filter: keep values > 3
+		instance.filtered_indices = [i for i in 1:6 if df.value[i] > 3]
+		Positron.update_view_indices!(instance)
+
+		# Result: values > 3 in sorted order
+		col = Positron.get_column_vector(df, 1)
+		result = col[instance.view_indices]
+		@test result == [5, 8, 9]
+	end
+
+	@testset "Multi-Column Sort with Filter" begin
+		df = DataFrame(
+			category = ["B", "A", "B", "A", "C", "A", "B", "C"],
+			value = [3, 1, 4, 2, 5, 3, 1, 6]
+		)
+		instance = Positron.DataExplorerInstance(df, "multi_sort_filter")
+
+		# Filter: category in ["A", "B"]
+		instance.filtered_indices = [i for i in 1:8 if df.category[i] in ["A", "B"]]
+		
+		# Sort by category then value
+		instance.sort_keys = [
+			Positron.ColumnSortKey(0, true),  # category asc
+			Positron.ColumnSortKey(1, true)   # value asc
+		]
+		Positron.apply_sorting!(instance)
+		Positron.update_view_indices!(instance)
+
+		# Result: A's then B's, each sorted by value
+		cats = df.category[instance.view_indices]
+		vals = df.value[instance.view_indices]
+		@test cats == ["A", "A", "A", "B", "B", "B"]
+		@test vals == [1, 2, 3, 1, 3, 4]
+	end
+
+	@testset "Clear Filters After Sort" begin
+		df = DataFrame(x = [3, 1, 4, 1, 5])
+		instance = Positron.DataExplorerInstance(df, "clear_filters")
+
+		# Set filter and sort
+		instance.filtered_indices = [1, 3, 5]
+		instance.sort_keys = [Positron.ColumnSortKey(0, true)]
+		Positron.apply_sorting!(instance)
+		Positron.update_view_indices!(instance)
+		
+		@test length(instance.view_indices) == 3
+
+		# Clear filter
+		instance.filtered_indices = nothing
+		Positron.update_view_indices!(instance)
+		
+		# Should now have all rows, still sorted
+		@test instance.view_indices == instance.sorted_indices
+	end
+
+	@testset "Clear Sort After Filter" begin
+		df = DataFrame(x = 1:10)
+		instance = Positron.DataExplorerInstance(df, "clear_sort")
+
+		# Set filter and sort
+		instance.filtered_indices = [2, 4, 6, 8]
+		instance.sort_keys = [Positron.ColumnSortKey(0, false)]
+		Positron.apply_sorting!(instance)
+		Positron.update_view_indices!(instance)
+
+		# Clear sort
+		instance.sort_keys = Positron.ColumnSortKey[]
+		instance.sorted_indices = nothing
+		Positron.update_view_indices!(instance)
+		
+		# Should just have filtered rows, no sorting
+		@test instance.view_indices == instance.filtered_indices
+	end
+end
