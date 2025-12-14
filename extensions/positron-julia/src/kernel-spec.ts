@@ -37,6 +37,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 	const env: NodeJS.ProcessEnv = {
 		// Julia-specific environment variables
 		JULIA_NUM_THREADS: process.env.JULIA_NUM_THREADS || 'auto',
+		JULIA_DEBUG_COLOR: 'no',  // Disable ANSI codes in Julia's logging (@info, @warn, etc.)
 
 		// Positron-specific environment variables
 		POSITRON: '1',
