@@ -444,17 +444,17 @@ function get_column_schema(data::Any, col_idx::Int)::ColumnSchema
 	display_type = julia_type_to_display_type(col_type)
 
 	ColumnSchema(
-		col_name,
-		col_idx - 1,  # 0-based for frontend
-		string(col_type),
-		display_type,
-		nothing,  # column_label
-		nothing,  # description
-		nothing,  # children
-		nothing,  # precision
-		nothing,  # scale
-		nothing,  # timezone
-		nothing   # type_size
+		col_name,           # column_name
+		nothing,            # column_label
+		col_idx - 1,        # column_index (0-based for frontend)
+		string(col_type),   # type_name
+		display_type,       # type_display
+		nothing,            # description
+		nothing,            # children
+		nothing,            # precision
+		nothing,            # scale
+		nothing,            # timezone
+		nothing             # type_size
 	)
 end
 
