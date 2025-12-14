@@ -286,7 +286,8 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
     if hasproperty(ijulia_comm, :on_msg)
         ijulia_comm.on_msg = function (msg)
             kernel_log_info("Received comm message: $(our_comm.comm_id)")
-            content = get(msg, "content", Dict())
+            # msg is IJulia.Msg struct with .content field
+            content = msg.content
             data = get(content, "data", Dict())
             kernel_log_info("Message data keys: $(keys(data))")
             handle_msg(our_comm, data)
