@@ -12,20 +12,30 @@ explore tabular data (DataFrames, matrices, etc.) in a spreadsheet-like view.
 
 """
 Represents a single data explorer instance for a table.
+
+Maintains virtual views through index arrays (never modifies original data):
+- filtered_indices: Rows passing all row filters
+- sorted_indices: All rows in sorted order
+- view_indices: Combined filtered + sorted view (final view shown to user)
 """
 mutable struct DataExplorerInstance
-	comm::Union{PositronComm, Nothing}
-	data::Any  # The actual data (DataFrame, Matrix, etc.)
+	comm::Any  # PositronComm or test mock
+	data::Any  # The actual data (DataFrame, Matrix, etc.) - NEVER MODIFIED
 	display_name::String
 
-	# Filters and sorting
+	# Filters and sorting configuration
 	column_filters::Vector{ColumnFilter}
 	row_filters::Vector{RowFilter}
 	sort_keys::Vector{ColumnSortKey}
 
-	# Cached filtered indices
-	filtered_row_indices::Union{Vector{Int}, Nothing}
-	filtered_column_indices::Union{Vector{Int}, Nothing}
+	# Virtual view indices (the core of efficient filtering/sorting)
+	filtered_indices::Union{Vector{Int},Nothing}  # Rows passing filters
+	sorted_indices::Union{Vector{Int},Nothing}    # Rows in sort order
+	view_indices::Union{Vector{Int},Nothing}      # Combined filter+sort view
+
+	# Schema caching
+	schema_cache::Union{Vector{ColumnSchema},Nothing}
+	inferred_types::Dict{Int,Type}  # Column index -> inferred type
 
 	function DataExplorerInstance(data::Any, display_name::String)
 		new(
@@ -35,8 +45,11 @@ mutable struct DataExplorerInstance
 			ColumnFilter[],
 			RowFilter[],
 			ColumnSortKey[],
-			nothing,
-			nothing
+			nothing,  # filtered_indices
+			nothing,  # sorted_indices
+			nothing,  # view_indices
+			nothing,  # schema_cache
+			Dict{Int,Type}()  # inferred_types
 		)
 	end
 end
@@ -49,6 +62,48 @@ function init!(instance::DataExplorerInstance, comm::PositronComm)
 
 	on_msg!(comm, msg -> handle_data_explorer_msg(instance, msg))
 	on_close!(comm, () -> handle_data_explorer_close(instance))
+end
+
+"""
+Update view_indices by combining filtered_indices and sorted_indices.
+
+This is the CORE of the Data Explorer performance pattern (matches Python/R):
+1. No filters, no sorts → view_indices = nothing (use full data)
+2. Only filters → view_indices = filtered_indices
+3. Only sorts → view_indices = sorted_indices
+4. Both → view_indices = sorted_indices filtered by filtered_indices
+
+This function is called after any filter or sort operation.
+"""
+function update_view_indices!(instance::DataExplorerInstance)
+	# Case 1: No filtering or sorting
+	if isnothing(instance.filtered_indices) && isnothing(instance.sorted_indices)
+		instance.view_indices = nothing
+		return
+	end
+
+	# Case 2: Only filtering
+	if isnothing(instance.sorted_indices)
+		instance.view_indices = instance.filtered_indices
+		return
+	end
+
+	# Case 3: Only sorting
+	if isnothing(instance.filtered_indices)
+		instance.view_indices = instance.sorted_indices
+		return
+	end
+
+	# Case 4: Both filtering and sorting
+	# sorted_indices contains ALL rows in sort order
+	# filtered_indices contains subset passing filters (in ascending order)
+	# Result: sorted indices that also pass filters
+	# Use binary search since filtered_indices is sorted
+	filtered_set = Set(instance.filtered_indices)
+	instance.view_indices = filter(
+		idx -> idx in filtered_set,
+		instance.sorted_indices
+	)
 end
 
 """
@@ -200,14 +255,21 @@ end
 
 """
 Handle set_row_filters request.
+
+Applies row filters and updates virtual view indices following the Python/R pattern.
 """
 function handle_set_row_filters(instance::DataExplorerInstance, request::DataExplorerSetRowFiltersParams)
 	instance.row_filters = request.filters
-	# Apply filters and get result
-	instance.filtered_row_indices = apply_row_filters(instance.data, request.filters)
 
-	selected_num_rows = instance.filtered_row_indices !== nothing ?
-						length(instance.filtered_row_indices) :
+	# Apply filters to get filtered_indices
+	instance.filtered_indices = apply_row_filters(instance.data, request.filters)
+
+	# Update combined view_indices (filter + sort)
+	update_view_indices!(instance)
+
+	# Report how many rows pass the filters
+	selected_num_rows = instance.filtered_indices !== nothing ?
+						length(instance.filtered_indices) :
 						get_num_rows(instance.data)
 
 	result = FilterResult(selected_num_rows, nothing)
@@ -216,13 +278,22 @@ end
 
 """
 Handle set_sort_columns request.
+
+Applies sorting and updates virtual view indices following the Python/R pattern.
 """
 function handle_set_sort_columns(instance::DataExplorerInstance, request::DataExplorerSetSortColumnsParams)
 	instance.sort_keys = request.sort_keys
-	# Re-sort filtered indices if needed
+
+	# Compute sorted_indices for all rows
 	if !isempty(request.sort_keys)
 		apply_sorting!(instance)
+	else
+		instance.sorted_indices = nothing
 	end
+
+	# Update combined view_indices (filter + sort)
+	update_view_indices!(instance)
+
 	send_result(instance.comm, nothing)
 end
 
@@ -449,6 +520,37 @@ function get_cell_value(data::Any, row_idx::Int, col_idx::Int)::Any
 		end
 		return nothing
 	end
+end
+
+"""
+Get an entire column as a vector for efficient operations.
+
+Used for sorting, filtering, and statistics. Returns a vector that can be
+used with Julia's vectorized operations.
+"""
+function get_column_vector(data::Any, col_idx::Int)::Vector
+	if data isa AbstractMatrix
+		return data[:, col_idx]
+	elseif data isa AbstractVector
+		return data
+	else
+		# Try Tables.jl interface (DataFrames, etc.)
+		try
+			if isdefined(Main, :Tables) && Main.Tables.istable(data)
+				cols = Main.Tables.columns(data)
+				col = cols[col_idx]
+				return collect(col)  # Ensure it's a vector
+			elseif isdefined(Main, :DataFrames) && data isa Main.DataFrames.DataFrame
+				return data[!, col_idx]  # Get column without copying
+			end
+		catch e
+			@debug "Failed to get column vector" col_idx exception=e
+		end
+	end
+
+	# Fallback: iterate and collect
+	nrows = get_num_rows(data)
+	return [get_cell_value(data, i, col_idx) for i in 1:nrows]
 end
 
 """
@@ -738,33 +840,42 @@ function apply_set_membership(val::Any, params::FilterSetMembership)::Bool
 end
 
 """
-Apply sorting to filtered indices.
+Compute sorted_indices for ALL rows based on sort_keys.
+
+Critical: Sorts ALL rows, not just filtered ones. This is combined with
+filtered_indices in update_view_indices! for the final view.
+
+Matches Python's _sort_data and R's r_sort_rows pattern.
 """
 function apply_sorting!(instance::DataExplorerInstance)
 	if isempty(instance.sort_keys)
+		instance.sorted_indices = nothing
 		return
 	end
 
 	nrows = get_num_rows(instance.data)
-	indices = instance.filtered_row_indices !== nothing ?
-			  copy(instance.filtered_row_indices) :
-			  collect(1:nrows)
 
-	# Sort by keys in reverse order (last key is primary)
-	for key in reverse(instance.sort_keys)
+	# Build list of columns to sort by
+	sort_cols = []
+	sort_orders = []
+	for key in instance.sort_keys
 		col_idx = key.column_index + 1  # Convert to 1-based
-
-		sort!(indices, by=row_idx -> begin
-			val = get_cell_value(instance.data, row_idx, col_idx)
-			# Handle missing values
-			if val === nothing || val === missing
-				return key.ascending ? typemax(Int) : typemin(Int)
-			end
-			return val
-		end, rev=!key.ascending)
+		push!(sort_cols, get_column_vector(instance.data, col_idx))
+		push!(sort_orders, !key.ascending)  # Julia's rev flag (true = descending)
 	end
 
-	instance.filtered_row_indices = indices
+	# Use Julia's sortperm with multi-column sorting (lexicographic)
+	# This is equivalent to Python's lexsort_indexer and R's order()
+	if length(sort_cols) == 1
+		instance.sorted_indices = sortperm(sort_cols[1], rev=sort_orders[1], alg=MergeSort)
+	else
+		# Multi-column sort: create tuple of values for each row
+		instance.sorted_indices = sortperm(
+			collect(zip(sort_cols...)),
+			rev=sort_orders[1],  # Primary sort order
+			alg=MergeSort  # Stable sort
+		)
+	end
 end
 
 """
