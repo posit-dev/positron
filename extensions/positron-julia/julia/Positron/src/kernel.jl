@@ -10,6 +10,7 @@ This module provides integration with IJulia to start and manage Positron servic
 """
 
 using IJulia
+using Logging
 
 """
 Main Positron kernel that manages all services.
@@ -58,7 +59,6 @@ Start all Positron services.
 """
 function start_services!(kernel::PositronKernel = get_kernel())
     # Configure logger for kernel log output (stderr, no colors)
-    using Logging
     global_logger(ConsoleLogger(stderr, Logging.Info;
         show_limited=false,
         right_justify=0,
