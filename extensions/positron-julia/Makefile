@@ -1,7 +1,7 @@
 # Makefile for positron-julia development
 # Simplifies common workflows for Julia extension and Positron.jl library
 
-JULIA := julia
+JULIA := ~/.juliaup/bin/julia
 JULIA_PROJECT := julia/Positron
 JULIA_FLAGS := --project=$(JULIA_PROJECT)
 NPX := npx
@@ -22,21 +22,21 @@ test: test-julia  ## Run all tests (Julia + TypeScript)
 
 test-julia:  ## Run Julia test suite
 	@echo "Running Julia tests..."
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Pkg; Pkg.test()'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Pkg; Pkg.test()'
 
 test-ts:  ## Run TypeScript tests
 	@echo "Running TypeScript tests..."
 	npm test
 
 test-watch:  ## Run Julia tests in watch mode (requires Revise)
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Revise; include("test/runtests.jl")'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Revise; include("test/runtests.jl")'
 
 # Code Coverage
 coverage:  ## Run tests with coverage and show report
 	@echo "Running tests with coverage..."
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) --code-coverage=user test/runtests.jl
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. --code-coverage=user test/runtests.jl
 	@echo "\nGenerating coverage report..."
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e '\
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e '\
 		using Coverage; \
 		cov = process_folder("src"); \
 		covered, total = get_summary(cov); \
@@ -50,7 +50,7 @@ coverage-clean:  ## Clean coverage files
 # Performance
 benchmark:  ## Run performance benchmarks
 	@echo "Running Data Explorer benchmarks..."
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) test/benchmark_data_explorer.jl
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. test/benchmark_data_explorer.jl
 
 # Code Generation
 generate-comms:  ## Regenerate comm types from JSON schemas
@@ -64,14 +64,14 @@ generate-comms-julia:  ## Regenerate only Julia comm types
 # Installation & Setup
 install:  ## Install all dependencies (Julia packages + npm)
 	@echo "Installing Julia dependencies..."
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Pkg; Pkg.instantiate()'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Pkg; Pkg.instantiate()'
 	@echo "Installing npm dependencies..."
 	npm install
 	@echo "Installing Julia formatter..."
 	$(JULIA) -e 'using Pkg; Pkg.add("JuliaFormatter")'
 
 install-julia-deps:  ## Install only Julia package dependencies
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Pkg; Pkg.instantiate()'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Pkg; Pkg.instantiate()'
 
 # Formatting
 format-julia:  ## Format Julia code with JuliaFormatter
@@ -92,16 +92,16 @@ clean:  ## Clean build artifacts and coverage files
 
 # Interactive Development
 repl:  ## Start Julia REPL with Positron loaded
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Positron'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Positron'
 
 repl-revise:  ## Start Julia REPL with Revise for auto-reload
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'using Revise; using Positron'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Revise; using Positron'
 
 # Quick Checks
 check: test coverage  ## Run tests and coverage
 
 quick-test:  ## Run just Data Explorer tests (fast iteration)
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) -e 'include("test/test_data_explorer_comprehensive.jl")'
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'include("test/test_data_explorer_comprehensive.jl")'
 
 # Status
 status:  ## Show project status summary
@@ -109,6 +109,6 @@ status:  ## Show project status summary
 	@echo "=================================="
 	@echo ""
 	@echo "Test Suite:"
-	cd $(JULIA_PROJECT) && $(JULIA) $(JULIA_FLAGS) test/runtests.jl 2>&1 | grep "Test Summary" -A3 || echo "Run 'make test' to see results"
+	cd $(JULIA_PROJECT) && $(JULIA) --project=. test/runtests.jl 2>&1 | grep "Test Summary" -A3 || echo "Run 'make test' to see results"
 	@echo ""
 	@echo "Use 'make help' for available commands"
