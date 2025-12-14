@@ -155,7 +155,6 @@ end
 Handle opening of variables comm.
 """
 function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    @info "Variables comm opened"
 
     # Create our comm wrapper
     comm = create_comm("positron.variables")
@@ -168,7 +167,6 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     setup_comm_bridge!(comm, ijulia_comm)
 
     # Send initial refresh to populate Variables pane (like Python does)
-    @info "Sending initial variables refresh"
     send_refresh!(kernel.variables)
 end
 
@@ -252,10 +250,8 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
     # Forward messages from IJulia to our comm
     if hasproperty(ijulia_comm, :on_msg)
         ijulia_comm.on_msg = function (msg)
-            @info "Received comm message: $(our_comm.comm_id)"
             content = get(msg, "content", Dict())
             data = get(content, "data", Dict())
-            @info "Message data keys: $(keys(data))"
             handle_msg(our_comm, data)
         end
     end
@@ -277,11 +273,9 @@ Override _send_msg to actually send via IJulia.
 """
 function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     if comm.kernel === nothing
-        @info "Warning: No IJulia comm attached"
         return
     end
 
-    @info "Sending comm message: $(comm.comm_id), type=$(typeof(data))"
 
     # Convert to Dict (IJulia expects Dict, not JSON3.Object)
     json_str = JSON3.write(data)
@@ -290,13 +284,10 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     # Send via IJulia comm
     try
         if hasproperty(comm.kernel, :send)
-            @info "Sending via IJulia.Comm.send"
             comm.kernel.send(data_dict)
         elseif isdefined(IJulia, :send_comm)
-            @info "Sending via IJulia.send_comm"
             IJulia.send_comm(comm.kernel, data_dict)
         else
-            @info "Warning: Cannot find method to send comm message"
         end
     catch e
         @error "Failed to send comm message" exception=(e, catch_backtrace())
@@ -366,7 +357,6 @@ function view(data::Any, title::String = "Data")
 
     # In Positron, the frontend would open a comm for this
     # For now, we just create the instance and wait for the comm
-    @info "Data viewer opened for: $title"
 end
 
 """
