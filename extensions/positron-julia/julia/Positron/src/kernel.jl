@@ -58,10 +58,24 @@ end
 Start all Positron services.
 """
 function start_services!(kernel::PositronKernel = get_kernel())
-    # Configure logger for kernel log output
-    # Use `nothing` for color to completely disable ANSI codes
-    # stderr routes to kernel log (not console) via Jupyter protocol
-    global_logger(ConsoleLogger(stderr, Logging.Info;
+    # Configure kernel diagnostic logging
+    # Check for POSITRON_KERNEL_LOG environment variable (file path)
+    # If provided, write to file (Positron will stream to Kernel output channel)
+    # Otherwise, use IJulia's original stderr (before REPL redirection)
+    log_file = get(ENV, "POSITRON_KERNEL_LOG", nothing)
+
+    if log_file !== nothing
+        # File-based logging (Positron streams this to Kernel channel)
+        log_io = open(log_file, "a")
+        # Ensure file is closed on exit
+        atexit(() -> close(log_io))
+    else
+        # Fall back to original stderr (before IJulia redirection)
+        log_io = isdefined(IJulia, :orig_stderr) ? IJulia.orig_stderr[] : stderr
+    end
+
+    # Configure logger with no ANSI codes (nothing = no colors)
+    global_logger(ConsoleLogger(log_io, Logging.Info;
         show_limited=false,
         right_justify=0,
         meta_formatter=(level, _module, group, id, file, line) -> (nothing, "", "")
