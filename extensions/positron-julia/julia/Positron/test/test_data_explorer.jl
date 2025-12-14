@@ -463,7 +463,7 @@ end
 
 		# Create a simple DataFrame for testing
 		df = DataFrame(x = data)
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_edges) == 6  # num_bins + 1
 		@test length(hist.bin_counts) == 5
@@ -479,7 +479,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# Sturges: ceil(log2(100)) + 1 = ceil(6.64) + 1 = 8
 		expected_bins = ceil(Int, log2(100)) + 1
@@ -496,7 +496,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_counts) > 0
 		@test length(hist.bin_counts) <= 100  # Capped at max
@@ -512,7 +512,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_counts) > 0
 		@test sum(hist.bin_counts) == 500
@@ -526,7 +526,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test isempty(hist.bin_edges)
 		@test isempty(hist.bin_counts)
@@ -540,7 +540,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_edges) == 2
 		@test hist.bin_edges == ["42.0", "42.0"]
@@ -556,7 +556,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# Should limit to value range: 5-1 = 4, so max 5 bins
 		@test length(hist.bin_counts) <= 5
@@ -571,7 +571,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# Should exclude NaN and Inf, leaving [1,2,3,4,5]
 		@test sum(hist.bin_counts) == 5
@@ -585,7 +585,7 @@ end
 			nothing
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# Should exclude missing, leaving [1,2,3,4]
 		@test sum(hist.bin_counts) == 4
@@ -599,7 +599,7 @@ end
 			[0.0, 0.25, 0.5, 0.75, 1.0]  # Min, Q1, median, Q3, max
 		)
 
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.quantiles) == 5
 		# Check approximate values (allowing for interpolation)
@@ -617,7 +617,7 @@ end
 		)
 
 		# Should be fast even with 100K rows
-		@time hist = Positron.compute_histogram(df, 1, params)
+		@time hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_counts) > 0
 		@test sum(hist.bin_counts) == 100_000
@@ -769,7 +769,7 @@ end
 			5,
 			nothing
 		)
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 		@test sum(hist.bin_counts) == 3
 	end
 
@@ -850,7 +850,7 @@ end
 			3,
 			nothing
 		)
-		hist = Positron.compute_histogram(df, 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 		@test sum(hist.bin_counts) == 3  # Only non-missing values
 	end
 
@@ -940,7 +940,7 @@ end
 		df = DataFrame(category = ["A", "B", "A", "C", "A", "B", "D"])
 		params = Positron.ColumnFrequencyTableParams(5)  # Top 5
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# A appears 3 times, B appears 2 times, C and D appear 1 time each
 		@test length(freq.values) == 4  # Only 4 unique values total
@@ -953,7 +953,7 @@ end
 		df = DataFrame(x = ["A", "A", "A", "B", "B", "C", "D", "E", "F"])
 		params = Positron.ColumnFrequencyTableParams(2)  # Top 2 only
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(freq.values) == 2
 		@test freq.values == ["A", "B"]  # Top 2
@@ -965,7 +965,7 @@ end
 		df = DataFrame(num = [1, 2, 1, 3, 1, 2, 4, 5])
 		params = Positron.ColumnFrequencyTableParams(10)
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# 1 appears 3 times, 2 appears 2 times, others 1 time
 		@test freq.values[1] == "1"
@@ -978,7 +978,7 @@ end
 		df = DataFrame(x = ["A", missing, "A", "B", missing, "A"])
 		params = Positron.ColumnFrequencyTableParams(10)
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# Missing values excluded from frequency table
 		@test length(freq.values) == 2
@@ -990,7 +990,7 @@ end
 		df = DataFrame(x = ["Same", "Same", "Same", "Same"])
 		params = Positron.ColumnFrequencyTableParams(5)
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(freq.values) == 1
 		@test freq.values == ["Same"]
@@ -1002,7 +1002,7 @@ end
 		df = DataFrame(x = String[])
 		params = Positron.ColumnFrequencyTableParams(5)
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test isempty(freq.values)
 		@test isempty(freq.counts)
@@ -1012,7 +1012,7 @@ end
 		df = DataFrame(x = [missing, missing, missing])
 		params = Positron.ColumnFrequencyTableParams(5)
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		# All missing, no values to show
 		@test isempty(freq.values)
@@ -1030,7 +1030,7 @@ end
 		df = DataFrame(category = shuffle(values))
 		params = Positron.ColumnFrequencyTableParams(3)  # Top 3
 
-		freq = Positron.compute_frequency_table(df, 1, params)
+		freq = Positron.compute_frequency_table(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(freq.values) == 3
 		@test freq.values == ["A", "B", "C"]
@@ -1152,5 +1152,78 @@ end
 		@test Positron.format_value(true, opts) !== nothing
 		@test Positron.format_value(missing, opts) == 0
 		@test Positron.format_value(nothing, opts) == 0
+	end
+end
+
+@testset "Data Explorer - Profiles Respect Filters" begin
+	@testset "Histogram on Filtered Data" begin
+		df = DataFrame(value = 1:100)
+		instance = Positron.DataExplorerInstance(df, "hist_filtered")
+
+		# NO filter - histogram should include all 100 values
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			10,
+			nothing
+		)
+		hist_full = Positron.compute_histogram(instance, 1, params)
+		@test sum(hist_full.bin_counts) == 100
+
+		# WITH filter: keep only values > 50
+		instance.filtered_indices = [i for i = 51:100]
+		hist_filtered = Positron.compute_histogram(instance, 1, params)
+		@test sum(hist_filtered.bin_counts) == 50  # Only filtered rows!
+	end
+
+	@testset "Summary Stats on Filtered Data" begin
+		df = DataFrame(x = 1:100)
+		instance = Positron.DataExplorerInstance(df, "stats_filtered")
+
+		# No filter - stats on all data
+		stats_full = Positron.compute_summary_stats(instance, 1)
+		@test parse(Float64, stats_full.number_stats.min_value) == 1.0
+		@test parse(Float64, stats_full.number_stats.max_value) == 100.0
+
+		# With filter: keep only 10-20
+		instance.filtered_indices = [i for i = 10:20]
+		stats_filtered = Positron.compute_summary_stats(instance, 1)
+		@test parse(Float64, stats_filtered.number_stats.min_value) == 10.0
+		@test parse(Float64, stats_filtered.number_stats.max_value) == 20.0
+		@test parse(Float64, stats_filtered.number_stats.mean) == 15.0
+	end
+
+	@testset "Frequency Table on Filtered Data" begin
+		df = DataFrame(category = vcat(
+			fill("A", 50),
+			fill("B", 30),
+			fill("C", 20)
+		))
+		instance = Positron.DataExplorerInstance(df, "freq_filtered")
+		params = Positron.ColumnFrequencyTableParams(10)
+
+		# No filter - all values
+		freq_full = Positron.compute_frequency_table(instance, 1, params)
+		@test freq_full.values == ["A", "B", "C"]
+		@test freq_full.counts == [50, 30, 20]
+
+		# Filter: keep only first 60 rows (all A's and 10 B's)
+		instance.filtered_indices = [i for i = 1:60]
+		freq_filtered = Positron.compute_frequency_table(instance, 1, params)
+		@test freq_filtered.values == ["A", "B"]
+		@test freq_filtered.counts == [50, 10]  # Only filtered rows counted!
+	end
+
+	@testset "Null Count on Filtered Data" begin
+		df = DataFrame(x = [1, missing, 3, missing, 5, missing, 7, missing])
+		instance = Positron.DataExplorerInstance(df, "null_filtered")
+
+		# No filter - 4 missing values
+		count_full = Positron.count_nulls(instance, 1)
+		@test count_full == 4
+
+		# Filter: keep only first 5 rows (has 2 missing)
+		instance.filtered_indices = [1, 2, 3, 4, 5]
+		count_filtered = Positron.count_nulls(instance, 1)
+		@test count_filtered == 2  # Only 2 missing in filtered data!
 	end
 end
