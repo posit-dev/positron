@@ -74,7 +74,8 @@ install-julia-deps:  ## Install only Julia package dependencies
 	cd $(JULIA_PROJECT) && $(JULIA) --project=. -e 'using Pkg; Pkg.instantiate()'
 
 # Formatting
-format-julia:  ## Format Julia code with JuliaFormatter
+format:  ## Format all Julia code with JuliaFormatter
+	@echo "Formatting Julia code..."
 	cd $(JULIA_PROJECT) && $(JULIA) -e 'using JuliaFormatter; format("src"); format("test")'
 
 # Building

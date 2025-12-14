@@ -228,3 +228,20 @@ curl -fsSL https://install.julialang.org | sh
 - [Julia Documentation](https://docs.julialang.org/)
 - [juliaup GitHub](https://github.com/JuliaLang/juliaup)
 - [IJulia Documentation](https://julialang.github.io/IJulia.jl/stable/)
+
+## Code Formatting
+
+All Julia code must be formatted with JuliaFormatter before committing.
+
+```bash
+# Format all Julia code
+make format
+```
+
+This ensures:
+- Consistent 4-space indentation (Julia standard)
+- No formatting-related diff noise
+- Clean git history
+
+**Run `make format` before every commit.**
+

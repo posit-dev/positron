@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------------------------
-# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
@@ -15,312 +15,316 @@ using IJulia
 Main Positron kernel that manages all services.
 """
 mutable struct PositronKernel
-	variables::VariablesService
-	help::HelpService
-	plots::PlotsService
-	data_explorer::DataExplorerService
-	ui::UIService
+    variables::VariablesService
+    help::HelpService
+    plots::PlotsService
+    data_explorer::DataExplorerService
+    ui::UIService
 
-	# Registered comms by target name
-	comms::Dict{String, PositronComm}
+    # Registered comms by target name
+    comms::Dict{String,PositronComm}
 
-	# Flag to track if services are started
-	started::Bool
+    # Flag to track if services are started
+    started::Bool
 
-	function PositronKernel()
-		new(
-			VariablesService(),
-			HelpService(),
-			PlotsService(),
-			DataExplorerService(),
-			UIService(),
-			Dict{String, PositronComm}(),
-			false
-		)
-	end
+    function PositronKernel()
+        new(
+            VariablesService(),
+            HelpService(),
+            PlotsService(),
+            DataExplorerService(),
+            UIService(),
+            Dict{String,PositronComm}(),
+            false,
+        )
+    end
 end
 
 # Global kernel instance
-const _kernel = Ref{Union{PositronKernel, Nothing}}(nothing)
+const _kernel = Ref{Union{PositronKernel,Nothing}}(nothing)
 
 """
 Get the global kernel instance, creating it if necessary.
 """
 function get_kernel()::PositronKernel
-	if _kernel[] === nothing
-		_kernel[] = PositronKernel()
-	end
-	return _kernel[]
+    if _kernel[] === nothing
+        _kernel[] = PositronKernel()
+    end
+    return _kernel[]
 end
 
 """
 Start all Positron services.
 """
-function start_services!(kernel::PositronKernel=get_kernel())
-	if kernel.started
-		@warn "Positron services already started"
-		return
-	end
+function start_services!(kernel::PositronKernel = get_kernel())
+    if kernel.started
+        @warn "Positron services already started"
+        return
+    end
 
-	@info "Starting Positron services for Julia..."
+    @info "Starting Positron services for Julia..."
 
-	# Register comm targets with IJulia
-	register_comm_targets!(kernel)
+    # Register comm targets with IJulia
+    register_comm_targets!(kernel)
 
-	# Set up execution hooks
-	setup_execution_hooks!(kernel)
+    # Set up execution hooks
+    setup_execution_hooks!(kernel)
 
-	kernel.started = true
-	@info "Positron services started"
+    kernel.started = true
+    @info "Positron services started"
 end
 
 """
 Stop all Positron services.
 """
-function stop_services!(kernel::PositronKernel=get_kernel())
-	if !kernel.started
-		return
-	end
+function stop_services!(kernel::PositronKernel = get_kernel())
+    if !kernel.started
+        return
+    end
 
-	@info "Stopping Positron services..."
+    @info "Stopping Positron services..."
 
-	# Close all comms
-	for (_, comm) in kernel.comms
-		try
-			close!(comm)
-		catch e
-			@warn "Error closing comm" exception=e
-		end
-	end
-	empty!(kernel.comms)
+    # Close all comms
+    for (_, comm) in kernel.comms
+        try
+            close!(comm)
+        catch e
+            @warn "Error closing comm" exception=e
+        end
+    end
+    empty!(kernel.comms)
 
-	kernel.started = false
-	@info "Positron services stopped"
+    kernel.started = false
+    @info "Positron services stopped"
 end
 
 """
 Register Jupyter comm targets for Positron services.
 """
 function register_comm_targets!(kernel::PositronKernel)
-	# Register comm target handlers
-	# These get called when the frontend opens a comm of a specific target
+    # Register comm target handlers
+    # These get called when the frontend opens a comm of a specific target
 
-	register_comm_target("positron.variables", kernel) do comm, msg
-		handle_variables_comm_open(kernel, comm, msg)
-	end
+    register_comm_target("positron.variables", kernel) do comm, msg
+        handle_variables_comm_open(kernel, comm, msg)
+    end
 
-	register_comm_target("positron.help", kernel) do comm, msg
-		handle_help_comm_open(kernel, comm, msg)
-	end
+    register_comm_target("positron.help", kernel) do comm, msg
+        handle_help_comm_open(kernel, comm, msg)
+    end
 
-	register_comm_target("positron.plot", kernel) do comm, msg
-		handle_plot_comm_open(kernel, comm, msg)
-	end
+    register_comm_target("positron.plot", kernel) do comm, msg
+        handle_plot_comm_open(kernel, comm, msg)
+    end
 
-	register_comm_target("positron.dataExplorer", kernel) do comm, msg
-		handle_data_explorer_comm_open(kernel, comm, msg)
-	end
+    register_comm_target("positron.dataExplorer", kernel) do comm, msg
+        handle_data_explorer_comm_open(kernel, comm, msg)
+    end
 
-	register_comm_target("positron.ui", kernel) do comm, msg
-		handle_ui_comm_open(kernel, comm, msg)
-	end
+    register_comm_target("positron.ui", kernel) do comm, msg
+        handle_ui_comm_open(kernel, comm, msg)
+    end
 end
 
 """
 Register a comm target with IJulia.
 """
-function register_comm_target(target_name::String, kernel::PositronKernel, handler::Function)
-	# Hook into IJulia's comm infrastructure
-	# IJulia uses Comm.jl for comm handling
+function register_comm_target(
+    target_name::String,
+    kernel::PositronKernel,
+    handler::Function,
+)
+    # Hook into IJulia's comm infrastructure
+    # IJulia uses Comm.jl for comm handling
 
-	if isdefined(IJulia, :register_comm)
-		# Direct registration if available
-		IJulia.register_comm(target_name) do comm, msg
-			handler(comm, msg)
-		end
-	else
-		# Store handler for manual dispatch
-		# This is a fallback if IJulia doesn't expose register_comm
-		@debug "Storing comm handler" target=target_name
-	end
+    if isdefined(IJulia, :register_comm)
+        # Direct registration if available
+        IJulia.register_comm(target_name) do comm, msg
+            handler(comm, msg)
+        end
+    else
+        # Store handler for manual dispatch
+        # This is a fallback if IJulia doesn't expose register_comm
+        @debug "Storing comm handler" target=target_name
+    end
 end
 
 """
 Handle opening of variables comm.
 """
 function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
-	@debug "Variables comm opened"
+    @debug "Variables comm opened"
 
-	# Create our comm wrapper
-	comm = create_comm("positron.variables")
-	kernel.comms["variables"] = comm
+    # Create our comm wrapper
+    comm = create_comm("positron.variables")
+    kernel.comms["variables"] = comm
 
-	# Initialize the service with this comm
-	init!(kernel.variables, comm)
+    # Initialize the service with this comm
+    init!(kernel.variables, comm)
 
-	# Hook up to IJulia comm for message passing
-	setup_comm_bridge!(comm, ijulia_comm)
+    # Hook up to IJulia comm for message passing
+    setup_comm_bridge!(comm, ijulia_comm)
 end
 
 """
 Handle opening of help comm.
 """
 function handle_help_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
-	@debug "Help comm opened"
+    @debug "Help comm opened"
 
-	comm = create_comm("positron.help")
-	kernel.comms["help"] = comm
+    comm = create_comm("positron.help")
+    kernel.comms["help"] = comm
 
-	init!(kernel.help, comm)
-	setup_comm_bridge!(comm, ijulia_comm)
+    init!(kernel.help, comm)
+    setup_comm_bridge!(comm, ijulia_comm)
 end
 
 """
 Handle opening of plot comm.
 """
 function handle_plot_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
-	@debug "Plot comm opened"
+    @debug "Plot comm opened"
 
-	comm = create_comm("positron.plot")
-	kernel.comms["plot"] = comm
+    comm = create_comm("positron.plot")
+    kernel.comms["plot"] = comm
 
-	init!(kernel.plots, comm)
-	setup_comm_bridge!(comm, ijulia_comm)
+    init!(kernel.plots, comm)
+    setup_comm_bridge!(comm, ijulia_comm)
 end
 
 """
 Handle opening of data explorer comm.
 """
 function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
-	@debug "Data explorer comm opened"
+    @debug "Data explorer comm opened"
 
-	# Data explorer comms are per-dataset
-	# Extract the variable info from the message
-	data = get(msg, "content", Dict())
-	content_data = get(data, "data", Dict())
-	variable_path = get(content_data, "variable_path", String[])
-	title = get(content_data, "title", "Data")
+    # Data explorer comms are per-dataset
+    # Extract the variable info from the message
+    data = get(msg, "content", Dict())
+    content_data = get(data, "data", Dict())
+    variable_path = get(content_data, "variable_path", String[])
+    title = get(content_data, "title", "Data")
 
-	if isempty(variable_path)
-		@warn "Data explorer opened without variable path"
-		return
-	end
+    if isempty(variable_path)
+        @warn "Data explorer opened without variable path"
+        return
+    end
 
-	# Get the data object
-	data_obj = get_value_at_path(variable_path)
-	if data_obj === nothing
-		@warn "Variable not found" path=variable_path
-		return
-	end
+    # Get the data object
+    data_obj = get_value_at_path(variable_path)
+    if data_obj === nothing
+        @warn "Variable not found" path=variable_path
+        return
+    end
 
-	# Create instance
-	instance = open_data_explorer!(kernel.data_explorer, data_obj, title)
+    # Create instance
+    instance = open_data_explorer!(kernel.data_explorer, data_obj, title)
 
-	# Create comm for this instance
-	comm = create_comm("positron.dataExplorer")
-	init!(instance, comm)
-	setup_comm_bridge!(comm, ijulia_comm)
+    # Create comm for this instance
+    comm = create_comm("positron.dataExplorer")
+    init!(instance, comm)
+    setup_comm_bridge!(comm, ijulia_comm)
 end
 
 """
 Handle opening of UI comm.
 """
 function handle_ui_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Dict)
-	@debug "UI comm opened"
+    @debug "UI comm opened"
 
-	comm = create_comm("positron.ui")
-	kernel.comms["ui"] = comm
+    comm = create_comm("positron.ui")
+    kernel.comms["ui"] = comm
 
-	init!(kernel.ui, comm)
-	setup_comm_bridge!(comm, ijulia_comm)
+    init!(kernel.ui, comm)
+    setup_comm_bridge!(comm, ijulia_comm)
 end
 
 """
 Set up bidirectional message passing between our comm and IJulia comm.
 """
 function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
-	# Forward messages from IJulia to our comm
-	if hasproperty(ijulia_comm, :on_msg)
-		ijulia_comm.on_msg = function(msg)
-			content = get(msg, "content", Dict())
-			data = get(content, "data", Dict())
-			handle_msg(our_comm, data)
-		end
-	end
+    # Forward messages from IJulia to our comm
+    if hasproperty(ijulia_comm, :on_msg)
+        ijulia_comm.on_msg = function (msg)
+            content = get(msg, "content", Dict())
+            data = get(content, "data", Dict())
+            handle_msg(our_comm, data)
+        end
+    end
 
-	if hasproperty(ijulia_comm, :on_close)
-		ijulia_comm.on_close = function()
-			if our_comm.close_handler !== nothing
-				our_comm.close_handler()
-			end
-		end
-	end
+    if hasproperty(ijulia_comm, :on_close)
+        ijulia_comm.on_close = function ()
+            if our_comm.close_handler !== nothing
+                our_comm.close_handler()
+            end
+        end
+    end
 
-	# Override our comm's send to use IJulia
-	our_comm.kernel = ijulia_comm
+    # Override our comm's send to use IJulia
+    our_comm.kernel = ijulia_comm
 end
 
 """
 Override _send_msg to actually send via IJulia.
 """
-function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict, Nothing})
-	if comm.kernel === nothing
-		@warn "No IJulia comm attached"
-		return
-	end
+function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
+    if comm.kernel === nothing
+        @warn "No IJulia comm attached"
+        return
+    end
 
-	# Convert to JSON
-	json_data = JSON3.write(data)
-	parsed_data = JSON3.read(json_data)
+    # Convert to JSON
+    json_data = JSON3.write(data)
+    parsed_data = JSON3.read(json_data)
 
-	# Send via IJulia comm
-	try
-		if hasproperty(comm.kernel, :send)
-			comm.kernel.send(parsed_data)
-		elseif isdefined(IJulia, :send_comm)
-			IJulia.send_comm(comm.kernel, parsed_data)
-		else
-			@warn "Cannot find method to send comm message"
-		end
-	catch e
-		@error "Failed to send comm message" exception=(e, catch_backtrace())
-	end
+    # Send via IJulia comm
+    try
+        if hasproperty(comm.kernel, :send)
+            comm.kernel.send(parsed_data)
+        elseif isdefined(IJulia, :send_comm)
+            IJulia.send_comm(comm.kernel, parsed_data)
+        else
+            @warn "Cannot find method to send comm message"
+        end
+    catch e
+        @error "Failed to send comm message" exception=(e, catch_backtrace())
+    end
 end
 
 """
 Set up hooks for code execution to update variables, handle plots, etc.
 """
 function setup_execution_hooks!(kernel::PositronKernel)
-	# Hook into IJulia's post-execute callback
-	if isdefined(IJulia, :postexecute_hooks)
-		push!(IJulia.postexecute_hooks, () -> on_post_execute(kernel))
-	end
+    # Hook into IJulia's post-execute callback
+    if isdefined(IJulia, :postexecute_hooks)
+        push!(IJulia.postexecute_hooks, () -> on_post_execute(kernel))
+    end
 
-	# Hook into display system for plots
-	setup_display_hooks!(kernel)
+    # Hook into display system for plots
+    setup_display_hooks!(kernel)
 end
 
 """
 Called after each code execution.
 """
 function on_post_execute(kernel::PositronKernel)
-	try
-		# Update variables pane
-		send_update!(kernel.variables)
-	catch e
-		@error "Error in post-execute hook" exception=(e, catch_backtrace())
-	end
+    try
+        # Update variables pane
+        send_update!(kernel.variables)
+    catch e
+        @error "Error in post-execute hook" exception=(e, catch_backtrace())
+    end
 end
 
 """
 Set up display hooks for capturing plots.
 """
 function setup_display_hooks!(kernel::PositronKernel)
-	# Create a custom display for plots
-	# This intercepts plot objects before they go to the default display
+    # Create a custom display for plots
+    # This intercepts plot objects before they go to the default display
 
-	# Note: This is a simplified approach. A more robust implementation would
-	# involve creating a proper AbstractDisplay subtype.
+    # Note: This is a simplified approach. A more robust implementation would
+    # involve creating a proper AbstractDisplay subtype.
 end
 
 # -------------------------------------------------------------------------
@@ -336,32 +340,32 @@ Re-exported from variables service.
 """
 Open a data explorer for a value.
 """
-function view(data::Any, title::String="Data")
-	kernel = get_kernel()
-	if !kernel.started
-		@warn "Positron services not started"
-		return
-	end
+function view(data::Any, title::String = "Data")
+    kernel = get_kernel()
+    if !kernel.started
+        @warn "Positron services not started"
+        return
+    end
 
-	# Create the data explorer instance
-	instance = open_data_explorer!(kernel.data_explorer, data, title)
+    # Create the data explorer instance
+    instance = open_data_explorer!(kernel.data_explorer, data, title)
 
-	# In Positron, the frontend would open a comm for this
-	# For now, we just create the instance and wait for the comm
-	@info "Data viewer opened for: $title"
+    # In Positron, the frontend would open a comm for this
+    # For now, we just create the instance and wait for the comm
+    @info "Data viewer opened for: $title"
 end
 
 """
 Show help for a symbol.
 """
 function showhelp(topic::String)
-	kernel = get_kernel()
-	if !kernel.started
-		@warn "Positron services not started"
-		return
-	end
+    kernel = get_kernel()
+    if !kernel.started
+        @warn "Positron services not started"
+        return
+    end
 
-	show_help!(kernel.help, topic)
+    show_help!(kernel.help, topic)
 end
 
 # -------------------------------------------------------------------------
@@ -373,22 +377,22 @@ Initialize Positron when IJulia starts.
 This should be called from the IJulia startup script.
 """
 function __init__()
-	# Check if we're running in Positron
-	if get(ENV, "POSITRON", "") == "1" || get(ENV, "POSITRON_MODE", "") != ""
-		@info "Positron environment detected, starting services..."
+    # Check if we're running in Positron
+    if get(ENV, "POSITRON", "") == "1" || get(ENV, "POSITRON_MODE", "") != ""
+        @info "Positron environment detected, starting services..."
 
-		# Delay initialization until IJulia is ready
-		if isdefined(Main, :IJulia) && IJulia.inited
-			start_services!()
-		else
-			# Queue initialization for when IJulia is ready
-			@async begin
-				# Wait for IJulia to be ready
-				while !isdefined(Main, :IJulia) || !IJulia.inited
-					sleep(0.1)
-				end
-				start_services!()
-			end
-		end
-	end
+        # Delay initialization until IJulia is ready
+        if isdefined(Main, :IJulia) && IJulia.inited
+            start_services!()
+        else
+            # Queue initialization for when IJulia is ready
+            @async begin
+                # Wait for IJulia to be ready
+                while !isdefined(Main, :IJulia) || !IJulia.inited
+                    sleep(0.1)
+                end
+                start_services!()
+            end
+        end
+    end
 end

@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------------------------
-# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
@@ -27,24 +27,24 @@ using Positron
 include("test_helpers.jl")
 
 @testset verbose = true "Positron.jl Test Suite" begin
-	@testset "JSON-RPC Communication" begin
-		include("test_jsonrpc.jl")
-	end
+    @testset "JSON-RPC Communication" begin
+        include("test_jsonrpc.jl")
+    end
 
-	@testset "Variables and Inspection" begin
-		include("test_variables.jl")
-		include("test_inspectors.jl")
-	end
+    @testset "Variables and Inspection" begin
+        include("test_variables.jl")
+        include("test_inspectors.jl")
+    end
 
-	@testset "Data Explorer" begin
-		include("test_data_explorer.jl")
-	end
+    @testset "Data Explorer" begin
+        include("test_data_explorer.jl")
+    end
 
-	@testset "Help System" begin
-		include("test_help.jl")
-	end
+    @testset "Help System" begin
+        include("test_help.jl")
+    end
 
-	@testset "Plots System" begin
-		include("test_plots.jl")
-	end
+    @testset "Plots System" begin
+        include("test_plots.jl")
+    end
 end
