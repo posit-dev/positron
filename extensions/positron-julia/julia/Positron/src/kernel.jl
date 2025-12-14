@@ -247,7 +247,7 @@ function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any
     # Get the data object
     data_obj = get_value_at_path(variable_path)
     if data_obj === nothing
-        kernel_log_warn("Variable not found") path=variable_path
+        kernel_log_warn("Variable not found: $variable_path")
         return
     end
 
