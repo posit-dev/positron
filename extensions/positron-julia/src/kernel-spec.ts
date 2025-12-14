@@ -23,21 +23,21 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 	const config = vscode.workspace.getConfiguration('positron.julia.kernel');
 	const logLevel = config.get<string>('logLevel', 'warn');
 
+	// Create kernel log file (Positron will stream this to Kernel output channel)
+	const kernelLogFile = path.join(os.tmpdir(), `julia-kernel-${Date.now()}.log`);
+	fs.writeFileSync(kernelLogFile, '', 'utf8');  // Create empty log file
+
 	// Build the kernel arguments
 	// The {connection_file} placeholder is replaced by the supervisor with the actual connection file path
 	// Note: We match the standard IJulia kernel.json format closely for compatibility
 	const argv = [
 		installation.binpath,
 		'-i',  // Interactive mode
-		'--color=no',  // Disable ANSI colors (Positron logs don't support them)
+		'--color=no',  // Disable ANSI colors
 		'-e',
 		getKernelStartupCode(),
 		'{connection_file}',
 	];
-
-	// Create kernel log file (Positron will stream this to Kernel output channel)
-	const kernelLogFile = path.join(os.tmpdir(), `julia-kernel-${Date.now()}.log`);
-	fs.writeFileSync(kernelLogFile, '', 'utf8');  // Create empty log file
 
 	// Build environment variables
 	const env: NodeJS.ProcessEnv = {
