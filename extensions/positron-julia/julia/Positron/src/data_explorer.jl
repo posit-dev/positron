@@ -578,28 +578,40 @@ Get an entire column as a vector for efficient operations.
 
 Used for sorting, filtering, and statistics. Returns a vector that can be
 used with Julia's vectorized operations.
+
+Multiple dispatch for type-specific optimizations:
+- DataFrames: Use native column access (zero-copy when possible)
+- Matrix: Direct slicing
+- Generic Tables.jl: Collect to vector
 """
-function get_column_vector(data::Any, col_idx::Int)::Vector
-	if data isa AbstractMatrix
-		return data[:, col_idx]
-	elseif data isa AbstractVector
-		return data
-	else
-		# Try Tables.jl interface (DataFrames, etc.)
+function get_column_vector(data::AbstractMatrix, col_idx::Int)::Vector
+	return data[:, col_idx]
+end
+
+function get_column_vector(data::AbstractVector, col_idx::Int)::Vector
+	return data
+end
+
+# DataFrame-specific implementation (most common in data science)
+function get_column_vector(data, col_idx::Int)::Vector
+	# DataFrame-specific optimization
+	if isdefined(Main, :DataFrames) && data isa Main.DataFrames.DataFrame
+		# Use ! to get column without copying (very efficient)
+		return data[!, col_idx]
+	end
+
+	# Generic Tables.jl interface
+	if isdefined(Main, :Tables) && Main.Tables.istable(data)
 		try
-			if isdefined(Main, :Tables) && Main.Tables.istable(data)
-				cols = Main.Tables.columns(data)
-				col = cols[col_idx]
-				return collect(col)  # Ensure it's a vector
-			elseif isdefined(Main, :DataFrames) && data isa Main.DataFrames.DataFrame
-				return data[!, col_idx]  # Get column without copying
-			end
+			cols = Main.Tables.columns(data)
+			col = cols[col_idx]
+			return collect(col)  # Ensure it's a vector
 		catch e
-			@debug "Failed to get column vector" col_idx exception=e
+			@debug "Failed to get column via Tables.jl" col_idx exception=e
 		end
 	end
 
-	# Fallback: iterate and collect
+	# Fallback: row-by-row iteration (slow but works)
 	nrows = get_num_rows(data)
 	return [get_cell_value(data, i, col_idx) for i in 1:nrows]
 end

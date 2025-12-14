@@ -35,6 +35,7 @@ using Positron
 
 	@testset "Data Explorer" begin
 		include("test_data_explorer.jl")
+		include("test_data_explorer_comprehensive.jl")
 	end
 
 	@testset "Help System" begin
