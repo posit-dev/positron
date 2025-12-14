@@ -142,13 +142,13 @@ include("test_helpers.jl")
 	@testset "Request Parsing - show_help_topic" begin
 		data = Dict("method" => "show_help_topic", "params" => Dict("topic" => "sum"))
 		req = Positron.parse_help_request(data)
-		@test req isa Positron.ShowHelpTopicParams
+		@test req isa Positron.HelpShowHelpTopicParams
 		@test req.topic == "sum"
 
 		# Empty topic
 		data = Dict("method" => "show_help_topic", "params" => Dict("topic" => ""))
 		req = Positron.parse_help_request(data)
-		@test req isa Positron.ShowHelpTopicParams
+		@test req isa Positron.HelpShowHelpTopicParams
 		@test req.topic == ""
 	end
 
@@ -163,9 +163,9 @@ include("test_helpers.jl")
 		@test string(Positron.ShowHelpKind_Url) == "url"
 	end
 
-	@testset "ShowHelpParams Serialization" begin
+	@testset "HelpShowHelpParams Serialization" begin
 		# HTML kind
-		params = Positron.ShowHelpParams("<html>content</html>", Positron.ShowHelpKind_Html, true)
+		params = Positron.HelpShowHelpParams("<html>content</html>", Positron.ShowHelpKind_Html, true)
 		json_str = JSON3.write(params)
 		parsed = JSON3.read(json_str, Dict)
 
@@ -174,7 +174,7 @@ include("test_helpers.jl")
 		@test parsed["focus"] == true
 
 		# Markdown kind
-		params = Positron.ShowHelpParams("# Markdown", Positron.ShowHelpKind_Markdown, false)
+		params = Positron.HelpShowHelpParams("# Markdown", Positron.ShowHelpKind_Markdown, false)
 		json_str = JSON3.write(params)
 		parsed = JSON3.read(json_str, Dict)
 
@@ -183,7 +183,7 @@ include("test_helpers.jl")
 		@test parsed["focus"] == false
 
 		# URL kind
-		params = Positron.ShowHelpParams("http://example.com", Positron.ShowHelpKind_Url, true)
+		params = Positron.HelpShowHelpParams("http://example.com", Positron.ShowHelpKind_Url, true)
 		json_str = JSON3.write(params)
 		parsed = JSON3.read(json_str, Dict)
 

@@ -133,83 +133,83 @@ StructTypes.StructType(::Type{QueryTableSummaryResult}) = StructTypes.Struct()
 """
 Clears (deletes) all variables in the current session.
 """
-struct ClearParams
+struct VariablesClearParams
     include_hidden_objects::Bool
 end
 
-StructTypes.StructType(::Type{ClearParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesClearParams}) = StructTypes.Struct()
 
 """
 Deletes the named variables from the current session.
 """
-struct DeleteParams
+struct VariablesDeleteParams
     names::Vector{String}
 end
 
-StructTypes.StructType(::Type{DeleteParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesDeleteParams}) = StructTypes.Struct()
 
 """
 Returns the children of a variable, as an array of variables.
 """
-struct InspectParams
+struct VariablesInspectParams
     path::Vector{String}
 end
 
-StructTypes.StructType(::Type{InspectParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesInspectParams}) = StructTypes.Struct()
 
 """
 Requests a formatted representation of a variable for copying to the
 clipboard.
 """
-struct ClipboardFormatParams
+struct VariablesClipboardFormatParams
     path::Vector{String}
     format::ClipboardFormatFormat
 end
 
-StructTypes.StructType(::Type{ClipboardFormatParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesClipboardFormatParams}) = StructTypes.Struct()
 
 """
 Request that the runtime open a data viewer to display the data in a
 variable.
 """
-struct ViewParams
+struct VariablesViewParams
     path::Vector{String}
 end
 
-StructTypes.StructType(::Type{ViewParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesViewParams}) = StructTypes.Struct()
 
 """
 Request a data summary for a table variable.
 """
-struct QueryTableSummaryParams
+struct VariablesQueryTableSummaryParams
     path::Vector{String}
     query_types::Vector{String}
 end
 
-StructTypes.StructType(::Type{QueryTableSummaryParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesQueryTableSummaryParams}) = StructTypes.Struct()
 
 """
 Event: Update variables
 """
-struct UpdateParams
+struct VariablesUpdateParams
     assigned::Vector{Variable}
     unevaluated::Vector{Variable}
     removed::Vector{String}
     version::Int64
 end
 
-StructTypes.StructType(::Type{UpdateParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesUpdateParams}) = StructTypes.Struct()
 
 """
 Event: Refresh variables
 """
-struct RefreshParams
+struct VariablesRefreshParams
     variables::Vector{Variable}
     length::Int64
     version::Int64
 end
 
-StructTypes.StructType(::Type{RefreshParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{VariablesRefreshParams}) = StructTypes.Struct()
 
 """
 Parse a backend request for the Variables comm.
@@ -221,19 +221,19 @@ function parse_variables_request(data::Dict)
     if method == "list"
         return nothing
     elseif method == "clear"
-        return ClearParams(get(params, "include_hidden_objects", false))
+        return VariablesClearParams(get(params, "include_hidden_objects", false))
     elseif method == "delete"
-        return DeleteParams(get(params, "names", []))
+        return VariablesDeleteParams(get(params, "names", []))
     elseif method == "inspect"
-        return InspectParams(get(params, "path", []))
+        return VariablesInspectParams(get(params, "path", []))
     elseif method == "clipboard_format"
         format_str = get(params, "format", "text/plain")
         format_enum = StructTypes.construct(ClipboardFormatFormat, format_str)
-        return ClipboardFormatParams(get(params, "path", []), format_enum)
+        return VariablesClipboardFormatParams(get(params, "path", []), format_enum)
     elseif method == "view"
-        return ViewParams(get(params, "path", []))
+        return VariablesViewParams(get(params, "path", []))
     elseif method == "query_table_summary"
-        return QueryTableSummaryParams(
+        return VariablesQueryTableSummaryParams(
             get(params, "path", []),
             get(params, "query_types", []),
         )

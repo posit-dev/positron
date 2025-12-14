@@ -309,21 +309,21 @@ include("test_helpers.jl")
 			"method" => "clear", "params" => Dict("include_hidden_objects" => true)
 		)
 		request = Positron.parse_variables_request(data)
-		@test request isa Positron.ClearParams
+		@test request isa Positron.VariablesClearParams
 		@test request.include_hidden_objects == true
 	end
 
 	@testset "Request Parsing - Delete" begin
 		data = Dict("method" => "delete", "params" => Dict("names" => ["x", "y"]))
 		request = Positron.parse_variables_request(data)
-		@test request isa Positron.DeleteParams
+		@test request isa Positron.VariablesDeleteParams
 		@test request.names == ["x", "y"]
 	end
 
 	@testset "Request Parsing - Inspect" begin
 		data = Dict("method" => "inspect", "params" => Dict("path" => ["foo", "bar"]))
 		request = Positron.parse_variables_request(data)
-		@test request isa Positron.InspectParams
+		@test request isa Positron.VariablesInspectParams
 		@test request.path == ["foo", "bar"]
 	end
 
@@ -333,7 +333,7 @@ include("test_helpers.jl")
 			"params" => Dict("path" => ["x"], "format" => "text/plain"),
 		)
 		request = Positron.parse_variables_request(data)
-		@test request isa Positron.ClipboardFormatParams
+		@test request isa Positron.VariablesClipboardFormatParams
 		@test request.path == ["x"]
 		@test string(request.format) == "text/plain"
 	end
@@ -341,7 +341,7 @@ include("test_helpers.jl")
 	@testset "Request Parsing - View" begin
 		data = Dict("method" => "view", "params" => Dict("path" => ["data"]))
 		request = Positron.parse_variables_request(data)
-		@test request isa Positron.ViewParams
+		@test request isa Positron.VariablesViewParams
 		@test request.path == ["data"]
 	end
 

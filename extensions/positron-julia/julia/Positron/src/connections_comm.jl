@@ -46,56 +46,56 @@ StructTypes.names(::Type{MetadataSchema}) = ((:type_, :type),)
 List objects within a data source, such as schemas, catalogs, tables
 and views.
 """
-struct ListObjectsParams
+struct ConnectionsListObjectsParams
     path::Vector{ObjectSchema}
 end
 
-StructTypes.StructType(::Type{ListObjectsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsListObjectsParams}) = StructTypes.Struct()
 
 """
 List fields of an object, such as columns of a table or view.
 """
-struct ListFieldsParams
+struct ConnectionsListFieldsParams
     path::Vector{ObjectSchema}
 end
 
-StructTypes.StructType(::Type{ListFieldsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsListFieldsParams}) = StructTypes.Struct()
 
 """
 Check if an object contains data, such as a table or view.
 """
-struct ContainsDataParams
+struct ConnectionsContainsDataParams
     path::Vector{ObjectSchema}
 end
 
-StructTypes.StructType(::Type{ContainsDataParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsContainsDataParams}) = StructTypes.Struct()
 
 """
 Get icon of an object, such as a table or view.
 """
-struct GetIconParams
+struct ConnectionsGetIconParams
     path::Vector{ObjectSchema}
 end
 
-StructTypes.StructType(::Type{GetIconParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsGetIconParams}) = StructTypes.Struct()
 
 """
 Preview object data, such as a table or view.
 """
-struct PreviewObjectParams
+struct ConnectionsPreviewObjectParams
     path::Vector{ObjectSchema}
 end
 
-StructTypes.StructType(::Type{PreviewObjectParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsPreviewObjectParams}) = StructTypes.Struct()
 
 """
 A connection has tied metadata such as an icon, the host, etc.
 """
-struct GetMetadataParams
+struct ConnectionsGetMetadataParams
     comm_id::String
 end
 
-StructTypes.StructType(::Type{GetMetadataParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{ConnectionsGetMetadataParams}) = StructTypes.Struct()
 
 """
 Parse a backend request for the Connections comm.
@@ -105,17 +105,17 @@ function parse_connections_request(data::Dict)
     params = get(data, "params", Dict())
 
     if method == "list_objects"
-        return ListObjectsParams(get(params, "path", []))
+        return ConnectionsListObjectsParams(get(params, "path", []))
     elseif method == "list_fields"
-        return ListFieldsParams(get(params, "path", []))
+        return ConnectionsListFieldsParams(get(params, "path", []))
     elseif method == "contains_data"
-        return ContainsDataParams(get(params, "path", []))
+        return ConnectionsContainsDataParams(get(params, "path", []))
     elseif method == "get_icon"
-        return GetIconParams(get(params, "path", []))
+        return ConnectionsGetIconParams(get(params, "path", []))
     elseif method == "preview_object"
-        return PreviewObjectParams(get(params, "path", []))
+        return ConnectionsPreviewObjectParams(get(params, "path", []))
     elseif method == "get_metadata"
-        return GetMetadataParams(get(params, "comm_id", ""))
+        return ConnectionsGetMetadataParams(get(params, "comm_id", ""))
     else
         error("Unknown connections method: $method")
     end

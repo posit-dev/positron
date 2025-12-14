@@ -127,122 +127,122 @@ Typically fired when the plot component has been resized by the user.
 This notification is useful to produce accurate pre-renderings of
 plots.
 """
-struct DidChangePlotsRenderSettingsParams
+struct UiDidChangePlotsRenderSettingsParams
     settings::PlotRenderSettings
 end
 
-StructTypes.StructType(::Type{DidChangePlotsRenderSettingsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiDidChangePlotsRenderSettingsParams}) = StructTypes.Struct()
 
 """
 Unlike other RPC methods, `call_method` calls into methods implemented
 in the interpreter and returns the result back to the frontend using
 an implementation-defined serialization scheme.
 """
-struct CallMethodParams
+struct UiCallMethodParams
     method::String
     params::Vector{Param}
 end
 
-StructTypes.StructType(::Type{CallMethodParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiCallMethodParams}) = StructTypes.Struct()
 
 """
 Event: Change in backend's busy/idle status
 """
-struct BusyParams
+struct UiBusyParams
     busy::Bool
 end
 
-StructTypes.StructType(::Type{BusyParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiBusyParams}) = StructTypes.Struct()
 
 """
 Event: Open an editor
 """
-struct OpenEditorParams
+struct UiOpenEditorParams
     file::String
     line::Int64
     column::Int64
     kind::Union{OpenEditorKind,Nothing}
 end
 
-StructTypes.StructType(::Type{OpenEditorParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiOpenEditorParams}) = StructTypes.Struct()
 
 """
 Event: Show a message
 """
-struct ShowMessageParams
+struct UiShowMessageParams
     message::String
 end
 
-StructTypes.StructType(::Type{ShowMessageParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiShowMessageParams}) = StructTypes.Struct()
 
 """
 Event: New state of the primary and secondary prompts
 """
-struct PromptStateParams
+struct UiPromptStateParams
     input_prompt::String
     continuation_prompt::String
 end
 
-StructTypes.StructType(::Type{PromptStateParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiPromptStateParams}) = StructTypes.Struct()
 
 """
 Event: Change the displayed working directory
 """
-struct WorkingDirectoryParams
+struct UiWorkingDirectoryParams
     directory::String
 end
 
-StructTypes.StructType(::Type{WorkingDirectoryParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiWorkingDirectoryParams}) = StructTypes.Struct()
 
 """
 Event: Open a workspace
 """
-struct OpenWorkspaceParams
+struct UiOpenWorkspaceParams
     path::String
     new_window::Bool
 end
 
-StructTypes.StructType(::Type{OpenWorkspaceParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiOpenWorkspaceParams}) = StructTypes.Struct()
 
 """
 Event: Set the selections in the editor
 """
-struct SetEditorSelectionsParams
+struct UiSetEditorSelectionsParams
     selections::Vector{Range}
 end
 
-StructTypes.StructType(::Type{SetEditorSelectionsParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiSetEditorSelectionsParams}) = StructTypes.Struct()
 
 """
 Event: Show a URL in Positron's Viewer pane
 """
-struct ShowUrlParams
+struct UiShowUrlParams
     url::String
     source::Union{PreviewSource,Nothing}
 end
 
-StructTypes.StructType(::Type{ShowUrlParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiShowUrlParams}) = StructTypes.Struct()
 
 """
 Event: Show an HTML file in Positron
 """
-struct ShowHtmlFileParams
+struct UiShowHtmlFileParams
     path::String
     title::String
     is_plot::Bool
     height::Int64
 end
 
-StructTypes.StructType(::Type{ShowHtmlFileParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiShowHtmlFileParams}) = StructTypes.Struct()
 
 """
 Event: Open a file or folder with the system default application
 """
-struct OpenWithSystemParams
+struct UiOpenWithSystemParams
     path::String
 end
 
-StructTypes.StructType(::Type{OpenWithSystemParams}) = StructTypes.Struct()
+StructTypes.StructType(::Type{UiOpenWithSystemParams}) = StructTypes.Struct()
 
 """
 Parse a backend request for the Ui comm.
@@ -252,9 +252,9 @@ function parse_ui_request(data::Dict)
     params = get(data, "params", Dict())
 
     if method == "did_change_plots_render_settings"
-        return DidChangePlotsRenderSettingsParams(get(params, "settings", Dict()))
+        return UiDidChangePlotsRenderSettingsParams(get(params, "settings", Dict()))
     elseif method == "call_method"
-        return CallMethodParams(get(params, "method", ""), get(params, "params", []))
+        return UiCallMethodParams(get(params, "method", ""), get(params, "params", []))
     else
         error("Unknown ui method: $method")
     end

@@ -1542,6 +1542,9 @@ function* createJuliaComm(name: string, frontend: any, backend: any): Generator<
 	}
 
 	// Create request types for backend methods
+	// Prefix with comm name to avoid conflicts (e.g., VariablesUpdateParams, PlotsUpdateParams)
+	const commPrefix = snakeCaseToSentenceCase(name);
+
 	if (backend) {
 		for (const method of backend.methods) {
 			const params: Array<MethodParam> = method.params;
@@ -1554,7 +1557,7 @@ function* createJuliaComm(name: string, frontend: any, backend: any): Generator<
 					yield formatComment('', `Parameters for ${method.name}`);
 				}
 				yield `"""\n`;
-				const structName = `${snakeCaseToSentenceCase(method.name)}Params`;
+				const structName = `${commPrefix}${snakeCaseToSentenceCase(method.name)}Params`;
 				yield `struct ${structName}\n`;
 
 				const escapedFields: Array<{ juliaName: string; jsonName: string }> = [];
@@ -1589,6 +1592,7 @@ function* createJuliaComm(name: string, frontend: any, backend: any): Generator<
 	}
 
 	// Create event parameter types for frontend methods
+	// Use same comm prefix for consistency
 	if (frontend) {
 		for (const method of frontend.methods) {
 			// Skip requests (methods with results)
@@ -1604,7 +1608,7 @@ function* createJuliaComm(name: string, frontend: any, backend: any): Generator<
 					yield formatComment('', `Parameters for ${method.name} event`);
 				}
 				yield `"""\n`;
-				const structName = `${snakeCaseToSentenceCase(method.name)}Params`;
+				const structName = `${commPrefix}${snakeCaseToSentenceCase(method.name)}Params`;
 				yield `struct ${structName}\n`;
 
 				const escapedFields: Array<{ juliaName: string; jsonName: string }> = [];
@@ -1658,7 +1662,7 @@ function* createJuliaComm(name: string, frontend: any, backend: any): Generator<
 			}
 
 			if (method.params.length > 0) {
-				yield `\t\treturn ${snakeCaseToSentenceCase(method.name)}Params(\n`;
+				yield `\t\treturn ${commPrefix}${snakeCaseToSentenceCase(method.name)}Params(\n`;
 				for (let i = 0; i < method.params.length; i++) {
 					const param = method.params[i];
 					const defaultValue = getJuliaDefaultValue(param);

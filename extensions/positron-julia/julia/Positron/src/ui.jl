@@ -40,9 +40,9 @@ Handle incoming messages on the UI comm.
 function handle_ui_msg(service::UIService, msg::Dict)
 	request = parse_ui_request(msg)
 
-	if request isa DidChangePlotsRenderSettingsParams
+	if request isa UiDidChangePlotsRenderSettingsParams
 		handle_did_change_plots_render_settings(service, request)
-	elseif request isa CallMethodParams
+	elseif request isa UiCallMethodParams
 		handle_call_method(service, request)
 	end
 end
@@ -57,7 +57,7 @@ end
 """
 Handle did_change_plots_render_settings notification.
 """
-function handle_did_change_plots_render_settings(service::UIService, request::DidChangePlotsRenderSettingsParams)
+function handle_did_change_plots_render_settings(service::UIService, request::UiDidChangePlotsRenderSettingsParams)
 	service.plot_render_settings = request.settings
 	# Notify plots service if needed
 	send_result(service.comm, nothing)
@@ -66,7 +66,7 @@ end
 """
 Handle call_method request.
 """
-function handle_call_method(service::UIService, request::CallMethodParams)
+function handle_call_method(service::UIService, request::UiCallMethodParams)
 	# Execute the method in the interpreter
 	try
 		result = call_interpreter_method(request.method, request.params)
