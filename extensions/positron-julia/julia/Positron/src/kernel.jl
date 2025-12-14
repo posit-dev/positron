@@ -235,8 +235,10 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
     # Forward messages from IJulia to our comm
     if hasproperty(ijulia_comm, :on_msg)
         ijulia_comm.on_msg = function (msg)
+            @info "Received comm message" comm_id=our_comm.comm_id
             content = get(msg, "content", Dict())
             data = get(content, "data", Dict())
+            @info "Handling message" data_keys=keys(data)
             handle_msg(our_comm, data)
         end
     end
@@ -262,6 +264,8 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         return
     end
 
+    @info "Sending comm message" comm_id=comm.comm_id data_type=typeof(data)
+
     # Convert to JSON
     json_data = JSON3.write(data)
     parsed_data = JSON3.read(json_data)
@@ -269,8 +273,10 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     # Send via IJulia comm
     try
         if hasproperty(comm.kernel, :send)
+            @info "Sending via IJulia.Comm.send"
             comm.kernel.send(parsed_data)
         elseif isdefined(IJulia, :send_comm)
+            @info "Sending via IJulia.send_comm"
             IJulia.send_comm(comm.kernel, parsed_data)
         else
             @warn "Cannot find method to send comm message"
