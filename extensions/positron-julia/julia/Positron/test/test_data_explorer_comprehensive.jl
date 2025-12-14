@@ -720,15 +720,226 @@ end
 	end
 end
 
+@testset "Data Explorer - DataFrame Column Types" begin
+	using Dates
+
+	@testset "Integer Types" begin
+		df = DataFrame(
+			int8 = Int8[1, 2, 3],
+			int16 = Int16[10, 20, 30],
+			int32 = Int32[100, 200, 300],
+			int64 = Int64[1000, 2000, 3000],
+			uint8 = UInt8[1, 2, 3],
+			uint16 = UInt16[10, 20, 30]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "integers")
+
+		# Test column extraction for each type
+		for col_idx in 1:6
+			col = Positron.get_column_vector(df, col_idx)
+			@test length(col) == 3
+			@test eltype(col) <: Integer
+		end
+
+		# Test sorting with different int types
+		instance.sort_keys = [Positron.ColumnSortKey(0, false)]  # Sort by int8 desc
+		Positron.apply_sorting!(instance)
+		@test df.int8[instance.sorted_indices] == [3, 2, 1]
+	end
+
+	@testset "Floating Point Types" begin
+		df = DataFrame(
+			float32 = Float32[1.1, 2.2, 3.3],
+			float64 = Float64[1.11, 2.22, 3.33]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "floats")
+
+		for col_idx in 1:2
+			col = Positron.get_column_vector(df, col_idx)
+			@test length(col) == 3
+			@test eltype(col) <: AbstractFloat
+		end
+
+		# Test histogram on Float32
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			5,
+			nothing
+		)
+		hist = Positron.compute_histogram(df, 1, params)
+		@test sum(hist.bin_counts) == 3
+	end
+
+	@testset "Boolean Columns" begin
+		df = DataFrame(flag = [true, false, true, false, true])
+		instance = Positron.DataExplorerInstance(df, "bools")
+
+		col = Positron.get_column_vector(df, 1)
+		@test length(col) == 5
+		@test eltype(col) == Bool
+
+		# Test boolean stats
+		stats = Positron.compute_boolean_stats(col)
+		@test stats.true_count == 3
+		@test stats.false_count == 2
+	end
+
+	@testset "String Columns" begin
+		df = DataFrame(
+			text = ["apple", "banana", "cherry", "date", "elderberry"]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "strings")
+
+		col = Positron.get_column_vector(df, 1)
+		@test length(col) == 5
+		@test eltype(col) == String
+
+		# Test string stats
+		stats = Positron.compute_string_stats(col)
+		@test stats.num_unique == 5
+		@test stats.num_empty == 0
+	end
+
+	@testset "Date and Time Types" begin
+		df = DataFrame(
+			date = [Date(2024, 1, 1), Date(2024, 1, 2), Date(2024, 1, 3)],
+			datetime = [DateTime(2024, 1, 1, 10, 30), DateTime(2024, 1, 2, 11, 30), DateTime(2024, 1, 3, 12, 30)],
+			time = [Time(10, 30), Time(11, 30), Time(12, 30)]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "dates")
+
+		# Test column extraction for date types
+		for col_idx in 1:3
+			col = Positron.get_column_vector(df, col_idx)
+			@test length(col) == 3
+		end
+
+		# Test sorting by date
+		instance.sort_keys = [Positron.ColumnSortKey(0, false)]  # Sort by date desc
+		Positron.apply_sorting!(instance)
+		@test df.date[instance.sorted_indices] == [Date(2024, 1, 3), Date(2024, 1, 2), Date(2024, 1, 1)]
+	end
+
+	@testset "Missing Values - Union Types" begin
+		df = DataFrame(
+			int_missing = Union{Int,Missing}[1, 2, missing, 4, missing],
+			float_missing = Union{Float64,Missing}[1.1, missing, 3.3, missing, 5.5],
+			string_missing = Union{String,Missing}["a", missing, "c", missing, "e"]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "with_missing")
+
+		# Test column extraction with missing
+		col = Positron.get_column_vector(df, 1)
+		@test length(col) == 5
+		@test count(ismissing, col) == 2
+
+		# Test sorting with missing values
+		instance.sort_keys = [Positron.ColumnSortKey(0, true)]
+		Positron.apply_sorting!(instance)
+		@test instance.sorted_indices !== nothing
+
+		# Test histogram excludes missing
+		params = Positron.ColumnHistogramParams(
+			Positron.ColumnHistogramParamsMethod_Fixed,
+			3,
+			nothing
+		)
+		hist = Positron.compute_histogram(df, 1, params)
+		@test sum(hist.bin_counts) == 3  # Only non-missing values
+	end
+
+	@testset "Complex Numbers" begin
+		df = DataFrame(complex = [1 + 2im, 3 + 4im, 5 + 6im])
+
+		instance = Positron.DataExplorerInstance(df, "complex")
+
+		col = Positron.get_column_vector(df, 1)
+		@test length(col) == 3
+		@test eltype(col) == Complex{Int}
+	end
+
+	@testset "Mixed Column Types in DataFrame" begin
+		df = DataFrame(
+			id = 1:10,
+			value = rand(10),
+			category = rand(["A", "B", "C"], 10),
+			flag = rand(Bool, 10),
+			date = [Date(2024, 1, i) for i in 1:10]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "mixed")
+
+		nrows, ncols = Positron.get_shape(df)
+		@test nrows == 10
+		@test ncols == 5
+
+		# Test that we can extract all column types
+		for col_idx in 1:ncols
+			col = Positron.get_column_vector(df, col_idx)
+			@test length(col) == 10
+		end
+	end
+
+	@testset "Large DataFrame with Various Types" begin
+		n = 10_000
+		df = DataFrame(
+			id = 1:n,
+			value = rand(n),
+			category = rand(["A", "B", "C", "D", "E"], n),
+			flag = rand(Bool, n),
+			int_col = rand(Int8, n),
+			float32_col = rand(Float32, n)
+		)
+
+		instance = Positron.DataExplorerInstance(df, "large_mixed")
+
+		# Test column extraction is efficient
+		for col_idx in 1:6
+			@time col = Positron.get_column_vector(df, col_idx)
+			@test length(col) == n
+		end
+
+		# Test sorting on different types
+		for col_idx in 0:5
+			instance.sort_keys = [Positron.ColumnSortKey(col_idx, true)]
+			@time Positron.apply_sorting!(instance)
+			@test length(instance.sorted_indices) == n
+		end
+	end
+
+	@testset "Empty Columns of Various Types" begin
+		df = DataFrame(
+			int = Int[],
+			float = Float64[],
+			string = String[],
+			bool = Bool[]
+		)
+
+		instance = Positron.DataExplorerInstance(df, "empty_typed")
+
+		nrows, ncols = Positron.get_shape(df)
+		@test nrows == 0
+		@test ncols == 4
+
+		# Should handle empty columns gracefully
+		for col_idx in 1:4
+			col = Positron.get_column_vector(df, col_idx)
+			@test isempty(col)
+		end
+	end
+end
+
 # TODO: Add more comprehensive tests
 # Priority test areas (from Python test_data_explorer.py):
-# - Frequency tables
+# - Frequency tables - NEXT
+# - Categorical columns (requires CategoricalArrays.jl)
 # - Schema operations (get_schema, search_schema, sort schema results)
-# - Column type inference and display types
 # - Filter evaluation for all filter types
 # - Export data selection
 # - Schema change detection
-# - Format options and value formatting
 # - Row labels with indices
-# - Wide DataFrames (100+ columns)
-# - Various data types (dates, times, categoricals)
