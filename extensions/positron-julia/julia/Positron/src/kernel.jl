@@ -64,8 +64,7 @@ function start_services!(kernel::PositronKernel = get_kernel())
 
     @info "Starting Positron services for Julia..."
 
-    # Register comm targets with IJulia
-    register_comm_targets!(kernel)
+    # Comm targets are auto-registered via IJulia.register_comm type dispatch methods
 
     # Set up execution hooks
     setup_execution_hooks!(kernel)
@@ -101,46 +100,41 @@ end
 """
 Register Jupyter comm targets for Positron services.
 """
-function register_comm_targets!(kernel::PositronKernel)
-    # Register comm target handlers
-    # These get called when the frontend opens a comm of a specific target
+# IJulia comm target registration using type dispatch.
+# IJulia calls these methods when a comm is opened with the corresponding target.
 
-    register_comm_target("positron.variables", kernel,
-        (comm, msg) -> handle_variables_comm_open(kernel, comm, msg))
-
-    register_comm_target("positron.help", kernel,
-        (comm, msg) -> handle_help_comm_open(kernel, comm, msg))
-
-    register_comm_target("positron.plot", kernel,
-        (comm, msg) -> handle_plot_comm_open(kernel, comm, msg))
-
-    register_comm_target("positron.dataExplorer", kernel,
-        (comm, msg) -> handle_data_explorer_comm_open(kernel, comm, msg))
-
-    register_comm_target("positron.ui", kernel,
-        (comm, msg) -> handle_ui_comm_open(kernel, comm, msg))
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, data)
+    kernel = get_kernel()
+    if kernel !== nothing
+        handle_variables_comm_open(kernel, comm, data)
+    end
 end
 
-"""
-Register a comm target with IJulia.
-"""
-function register_comm_target(
-    target_name::String,
-    kernel::PositronKernel,
-    handler::Function,
-)
-    # Hook into IJulia's comm infrastructure
-    # IJulia uses Comm.jl for comm handling
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.help")}, data)
+    kernel = get_kernel()
+    if kernel !== nothing
+        handle_help_comm_open(kernel, comm, data)
+    end
+end
 
-    if isdefined(IJulia, :register_comm)
-        # Direct registration if available
-        IJulia.register_comm(target_name) do comm, msg
-            handler(comm, msg)
-        end
-    else
-        # Store handler for manual dispatch
-        # This is a fallback if IJulia doesn't expose register_comm
-        @debug "Storing comm handler" target=target_name
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.plot")}, data)
+    kernel = get_kernel()
+    if kernel !== nothing
+        handle_plot_comm_open(kernel, comm, data)
+    end
+end
+
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.dataExplorer")}, data)
+    kernel = get_kernel()
+    if kernel !== nothing
+        handle_data_explorer_comm_open(kernel, comm, data)
+    end
+end
+
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.ui")}, data)
+    kernel = get_kernel()
+    if kernel !== nothing
+        handle_ui_comm_open(kernel, comm, data)
     end
 end
 
