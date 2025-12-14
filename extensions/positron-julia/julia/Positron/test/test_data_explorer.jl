@@ -427,7 +427,7 @@ end
 		instance.sort_keys = [Positron.ColumnSortKey(0, true)]
 
 		# Should complete in reasonable time
-		@time Positron.apply_sorting!(instance)
+		Positron.apply_sorting!(instance)
 
 		@test instance.sorted_indices !== nothing
 		@test length(instance.sorted_indices) == 1_000_000
@@ -444,7 +444,7 @@ end
 		instance.sort_keys = [Positron.ColumnSortKey(0, false)]
 		Positron.apply_sorting!(instance)
 
-		@time Positron.update_view_indices!(instance)
+		Positron.update_view_indices!(instance)
 
 		@test instance.view_indices !== nothing
 		@test length(instance.view_indices) == 50_000
@@ -616,7 +616,7 @@ end
 		)
 
 		# Should be fast even with 100K rows
-		@time hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
+		hist = Positron.compute_histogram(Positron.DataExplorerInstance(df, "test"), 1, params)
 
 		@test length(hist.bin_counts) > 0
 		@test sum(hist.bin_counts) == 100_000
@@ -900,14 +900,14 @@ end
 
 		# Test column extraction is efficient
 		for col_idx in 1:6
-			@time col = Positron.get_column_vector(df, col_idx)
+			col = Positron.get_column_vector(df, col_idx)
 			@test length(col) == n
 		end
 
 		# Test sorting on different types
 		for col_idx in 0:5
 			instance.sort_keys = [Positron.ColumnSortKey(col_idx, true)]
-			@time Positron.apply_sorting!(instance)
+			Positron.apply_sorting!(instance)
 			@test length(instance.sorted_indices) == n
 		end
 	end
