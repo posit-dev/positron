@@ -185,7 +185,7 @@ end
 Handle opening of variables comm.
 """
 function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    kernel_log("[Positron] Variables comm opened")
+    kernel_log("Variables comm opened")
 
     # Create our comm wrapper
     comm = create_comm("positron.variables")
@@ -198,9 +198,9 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     setup_comm_bridge!(comm, ijulia_comm)
 
     # Send initial refresh to populate Variables pane
-    kernel_log("[Positron] Sending initial variables refresh")
+    kernel_log("Sending initial variables refresh")
     send_refresh!(kernel.variables)
-    kernel_log("[Positron] Initial refresh completed")
+    kernel_log("Initial refresh completed")
 end
 
 """
