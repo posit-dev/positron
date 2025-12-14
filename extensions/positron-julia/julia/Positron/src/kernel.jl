@@ -105,25 +105,20 @@ function register_comm_targets!(kernel::PositronKernel)
     # Register comm target handlers
     # These get called when the frontend opens a comm of a specific target
 
-    register_comm_target("positron.variables", kernel) do comm, msg
-        handle_variables_comm_open(kernel, comm, msg)
-    end
+    register_comm_target("positron.variables", kernel,
+        (comm, msg) -> handle_variables_comm_open(kernel, comm, msg))
 
-    register_comm_target("positron.help", kernel) do comm, msg
-        handle_help_comm_open(kernel, comm, msg)
-    end
+    register_comm_target("positron.help", kernel,
+        (comm, msg) -> handle_help_comm_open(kernel, comm, msg))
 
-    register_comm_target("positron.plot", kernel) do comm, msg
-        handle_plot_comm_open(kernel, comm, msg)
-    end
+    register_comm_target("positron.plot", kernel,
+        (comm, msg) -> handle_plot_comm_open(kernel, comm, msg))
 
-    register_comm_target("positron.dataExplorer", kernel) do comm, msg
-        handle_data_explorer_comm_open(kernel, comm, msg)
-    end
+    register_comm_target("positron.dataExplorer", kernel,
+        (comm, msg) -> handle_data_explorer_comm_open(kernel, comm, msg))
 
-    register_comm_target("positron.ui", kernel) do comm, msg
-        handle_ui_comm_open(kernel, comm, msg)
-    end
+    register_comm_target("positron.ui", kernel,
+        (comm, msg) -> handle_ui_comm_open(kernel, comm, msg))
 end
 
 """
