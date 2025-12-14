@@ -27,7 +27,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 	const argv = [
 		installation.binpath,
 		'-i',  // Interactive mode
-		'--color=yes',  // Enable colored output
+		'--color=no',  // Disable ANSI colors (Positron logs don't support them)
 		'-e',
 		getKernelStartupCode(),
 		'{connection_file}',
