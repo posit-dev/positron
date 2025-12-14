@@ -307,11 +307,21 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 					const currentVersion = parseVersion(this.productService.version);
 					const nextVersion = parseVersion(productVersion);
 					this.majorMinorUpdateAvailableContextKey.set(Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion)));
-					this.onUpdateReady(state.update);
+					try {
+						console.log('[Positron Update] About to call this.onUpdateReady - method exists?', typeof this.onUpdateReady, this.onUpdateReady);
+						this.onUpdateReady(state.update);
+						console.log('[Positron Update] Returned from this.onUpdateReady');
+					} catch (e) {
+						console.error('[Positron Update] Exception calling onUpdateReady:', e);
+					}
 				} else {
 					console.log('[Positron Update] State Ready but no version at all!');
 					// Still try to show notification without version
-					this.onUpdateReady(state.update);
+					try {
+						this.onUpdateReady(state.update);
+					} catch (e) {
+						console.error('[Positron Update] Exception calling onUpdateReady (no version):', e);
+					}
 				}
 
 				// Reset explicitCheck after showing the Ready notification
