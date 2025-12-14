@@ -141,7 +141,7 @@ function stop_services!(kernel::PositronKernel = get_kernel())
         try
             close!(comm)
         catch e
-            kernel_log_warn("Error closing comm") exception=e
+            kernel_log_warn("Error closing comm")
         end
     end
     empty!(kernel.comms)
@@ -163,7 +163,7 @@ function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, m
             handle_variables_comm_open(kernel, comm, msg)
         end
     catch e
-        kernel_log_error("Error in Variables comm registration") exception=(e, catch_backtrace())
+        kernel_log_error("Error in Variables comm registration: $(e, catch_backtrace())")
         rethrow(e)  # Re-throw so it's visible but logged first
     end
 end
@@ -345,7 +345,7 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
             kernel_log_info("Warning: Cannot find method to send comm message")
         end
     catch e
-        kernel_log_error("Failed to send comm message") exception=(e, catch_backtrace())
+        kernel_log_error("Failed to send comm message: $(e, catch_backtrace())")
     end
 end
 
@@ -372,7 +372,7 @@ function on_post_execute(kernel::PositronKernel)
         # Update variables pane
         send_update!(kernel.variables)
     catch e
-        kernel_log_error("Error in post-execute hook") exception=(e, catch_backtrace())
+        kernel_log_error("Error in post-execute hook: $(e, catch_backtrace())")
     end
 end
 
@@ -473,7 +473,7 @@ function test_error_logging()
         # Deliberately cause an error
         error("This is a test error to verify kernel log captures errors correctly")
     catch e
-        kernel_log_error("TEST: Caught error as expected") exception=(e, catch_backtrace())
+        kernel_log_error("TEST: Caught error as expected: $(e, catch_backtrace())")
         kernel_log_info("If you see this in Kernel log (not console), error logging works!")
     end
 end
