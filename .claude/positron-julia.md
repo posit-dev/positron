@@ -19,8 +19,8 @@ extensions/positron-julia/
 │   │   └── kernel.jl                  # IJulia integration
 │   ├── test/
 │   │   ├── runtests.jl                # Main test runner
-│   │   ├── test_variables.jl          # Variables tests (148 tests)
-│   │   ├── test_inspectors.jl         # Type inspection tests (166 tests)
+│   │   ├── test_variables.jl          # Variables tests
+│   │   ├── test_inspectors.jl         # Type inspection tests
 │   │   ├── test_helpers.jl            # Mock utilities
 │   │   └── test_*.jl                  # Other test files
 │   ├── Project.toml                   # Package manifest
@@ -110,23 +110,6 @@ PATH="$HOME/.juliaup/bin:$PATH" npx ts-node positron/comms/generate-comms.ts var
 **Generator behavior:**
 - Skips Julia generation if `julia` not in PATH (helpful for non-Julia developers)
 - Shows warning if JuliaFormatter not installed (code generated but unformatted)
-
-### Interactive Testing
-
-A comprehensive testing file with all supported variable types is available:
-
-```julia
-# Load in Positron Julia console to populate Variables pane
-include("$(homedir())/code/positron-testingstuff/testing.jl")
-```
-
-This creates variables of all supported types for manual testing:
-- Primitives: booleans, integers, floats, complex, strings
-- Collections: arrays, matrices, ranges, tuples, sets, dicts
-- Composite: structs (Point, Person, Rectangle, etc.)
-- Functions: built-in, anonymous, named
-- DataFrames: simple, large, with missing values, wide
-- Nested structures
 
 ## Supported Variable Types
 
