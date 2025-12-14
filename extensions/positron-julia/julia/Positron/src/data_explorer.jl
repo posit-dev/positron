@@ -359,7 +359,7 @@ function handle_get_column_profiles(instance::DataExplorerInstance, request::Dat
 		julia_col_idx = profile_request.column_index + 1
 
 		for spec in profile_request.profiles
-			result = compute_column_profile(instance.data, julia_col_idx, spec, request.format_options)
+			result = compute_column_profile(instance, julia_col_idx, spec, request.format_options)
 
 			# Send result event
 			event = DataUpdateEvent(
@@ -571,6 +571,23 @@ function get_cell_value(data::Any, row_idx::Int, col_idx::Int)::Any
 		end
 		return nothing
 	end
+end
+
+"""
+Get a column from an instance, applying filters if present.
+
+Like Python's _get_column, returns filtered column data when filters are active.
+Used by histogram, stats, and frequency table computations.
+"""
+function get_filtered_column(instance::DataExplorerInstance, col_idx::Int)::Vector
+	col = get_column_vector(instance.data, col_idx)
+
+	# Apply filter if present
+	if instance.filtered_indices !== nothing
+		return col[instance.filtered_indices]
+	end
+
+	return col
 end
 
 """
@@ -1006,8 +1023,10 @@ end
 
 """
 Compute a column profile.
+
+Uses instance.filtered_indices to compute profiles on filtered data when filters are active.
 """
-function compute_column_profile(data::Any, col_idx::Int, spec::ColumnProfileSpec, format_opts::FormatOptions)::ColumnProfileResult
+function compute_column_profile(instance::DataExplorerInstance, col_idx::Int, spec::ColumnProfileSpec, format_opts::FormatOptions)::ColumnProfileResult
 	profile_type = spec.profile_type
 
 	null_count = nothing
@@ -1018,12 +1037,12 @@ function compute_column_profile(data::Any, col_idx::Int, spec::ColumnProfileSpec
 	large_freq_table = nothing
 
 	if profile_type == ColumnProfileType_NullCount
-		null_count = count_nulls(data, col_idx)
+		null_count = count_nulls(instance, col_idx)
 	elseif profile_type == ColumnProfileType_SummaryStats
-		summary_stats = compute_summary_stats(data, col_idx)
+		summary_stats = compute_summary_stats(instance, col_idx)
 	elseif profile_type in (ColumnProfileType_SmallHistogram, ColumnProfileType_LargeHistogram)
 		if spec.params isa ColumnHistogramParams
-			hist = compute_histogram(data, col_idx, spec.params)
+			hist = compute_histogram(instance, col_idx, spec.params)
 			if profile_type == ColumnProfileType_SmallHistogram
 				small_histogram = hist
 			else
@@ -1032,7 +1051,7 @@ function compute_column_profile(data::Any, col_idx::Int, spec::ColumnProfileSpec
 		end
 	elseif profile_type in (ColumnProfileType_SmallFrequencyTable, ColumnProfileType_LargeFrequencyTable)
 		if spec.params isa ColumnFrequencyTableParams
-			freq = compute_frequency_table(data, col_idx, spec.params)
+			freq = compute_frequency_table(instance, col_idx, spec.params)
 			if profile_type == ColumnProfileType_SmallFrequencyTable
 				small_freq_table = freq
 			else
@@ -1045,28 +1064,18 @@ function compute_column_profile(data::Any, col_idx::Int, spec::ColumnProfileSpec
 end
 
 """
-Count null values in a column.
+Count null values in a column, respecting filters.
 """
-function count_nulls(data::Any, col_idx::Int)::Int
-	nrows = get_num_rows(data)
-	count = 0
-
-	for row_idx in 1:nrows
-		val = get_cell_value(data, row_idx, col_idx)
-		if val === nothing || val === missing
-			count += 1
-		end
-	end
-
-	return count
+function count_nulls(instance::DataExplorerInstance, col_idx::Int)::Int
+	col = get_filtered_column(instance, col_idx)
+	return count(x -> x === nothing || x === missing, col)
 end
 
 """
-Compute summary statistics for a column.
+Compute summary statistics for a column, respecting filters.
 """
-function compute_summary_stats(data::Any, col_idx::Int)::ColumnSummaryStats
-	nrows = get_num_rows(data)
-	col_type = get_column_type(data, col_idx)
+function compute_summary_stats(instance::DataExplorerInstance, col_idx::Int)::ColumnSummaryStats
+	col_type = get_column_type(instance.data, col_idx)
 	display_type = julia_type_to_display_type(col_type)
 
 	number_stats = nothing
@@ -1076,14 +1085,11 @@ function compute_summary_stats(data::Any, col_idx::Int)::ColumnSummaryStats
 	datetime_stats = nothing
 	other_stats = nothing
 
+	# Get filtered column (respects row filters)
+	col = get_filtered_column(instance, col_idx)
+
 	# Collect non-null values
-	values = Any[]
-	for row_idx in 1:nrows
-		val = get_cell_value(data, row_idx, col_idx)
-		if val !== nothing && val !== missing
-			push!(values, val)
-		end
-	end
+	values = filter(x -> x !== nothing && x !== missing, col)
 
 	if isempty(values)
 		return ColumnSummaryStats(display_type, nothing, nothing, nothing, nothing, nothing, nothing)
@@ -1148,11 +1154,11 @@ function compute_boolean_stats(values::Vector)::SummaryStatsBoolean
 end
 
 """
-Compute histogram for a column following Python/R patterns.
+Compute histogram for a column, respecting filters.
 
 Supports multiple binning methods:
 - "sturges": ceil(log2(n)) + 1 bins
-- "fd" (Freedman-Diaconis): bin_width = 2 * IQR * n^(-1/3)
+- "freedman_diaconis": bin_width = 2 * IQR * n^(-1/3)
 - "scott": bin_width = 3.5 * σ * n^(-1/3)
 - "fixed": Use params.num_bins exactly
 
@@ -1162,30 +1168,14 @@ Handles edge cases:
 - Integer columns (limit bins to value range)
 - Empty data
 
-Performance: Like Python's polars implementation, this uses efficient
-column extraction to avoid unnecessary conversions. For DataFrames,
-uses native column access; for other types, delegates appropriately.
+Uses instance.filtered_indices to compute histogram only on filtered rows.
 """
-function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParams)::ColumnHistogram
-	# Get column vector efficiently (DataFrame-optimized via multiple dispatch)
-	# TODO: Pass instance to get filtered column for even better performance
-	col = get_column_vector(data, col_idx)
+function compute_histogram(instance::DataExplorerInstance, col_idx::Int, params::ColumnHistogramParams)::ColumnHistogram
+	# Get filtered column (respects row filters)
+	col = get_filtered_column(instance, col_idx)
 
-	# Remove missing and non-finite values efficiently
-	# For DataFrames with numeric columns, use vectorized operations
-	values = if isdefined(Main, :DataFrames) && data isa Main.DataFrames.DataFrame
-		# DataFrame-specific optimization: vectorized filtering
-		if eltype(col) <: Union{Missing,Number}
-			# Remove missing first, then filter non-finite
-			non_missing = skipmissing(col)
-			Float64[v for v in non_missing if isfinite(v)]
-		else
-			Float64[v for v in col if v isa Number && isfinite(v)]
-		end
-	else
-		# Generic fallback
-		Float64[v for v in col if v isa Number && isfinite(v)]
-	end
+	# Remove missing and non-finite values
+	values = Float64[v for v in col if v isa Number && isfinite(v)]
 
 	# Handle empty data
 	if isempty(values)
@@ -1282,7 +1272,7 @@ function compute_histogram(data::Any, col_idx::Int, params::ColumnHistogramParam
 end
 
 """
-Compute frequency table (top N most frequent values).
+Compute frequency table (top N most frequent values), respecting filters.
 
 Following Python/R pattern:
 - Count all unique values
@@ -1290,11 +1280,11 @@ Following Python/R pattern:
 - Return top N
 - Calculate other_count for remaining values
 
-Performance: Uses Dict for O(1) counting, sorts only unique values.
+Uses instance.filtered_indices to compute frequencies only on filtered rows.
 """
-function compute_frequency_table(data::Any, col_idx::Int, params::ColumnFrequencyTableParams)::ColumnFrequencyTable
-	# Get column efficiently
-	col = get_column_vector(data, col_idx)
+function compute_frequency_table(instance::DataExplorerInstance, col_idx::Int, params::ColumnFrequencyTableParams)::ColumnFrequencyTable
+	# Get filtered column (respects row filters)
+	col = get_filtered_column(instance, col_idx)
 
 	# Count occurrences (vectorized for DataFrame)
 	counts = Dict{Any,Int}()
