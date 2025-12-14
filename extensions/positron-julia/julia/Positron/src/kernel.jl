@@ -111,7 +111,7 @@ Register Jupyter comm targets for Positron services.
 # IJulia comm target registration using type dispatch.
 # IJulia calls these methods when a comm is opened with the corresponding target.
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, data)
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, msg::IJulia.Msg)
     try
         kernel = get_kernel()
         if kernel !== nothing
@@ -123,28 +123,28 @@ function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, d
     end
 end
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.help")}, data)
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.help")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
         handle_help_comm_open(kernel, comm, data)
     end
 end
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.plot")}, data)
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.plot")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
         handle_plot_comm_open(kernel, comm, data)
     end
 end
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.dataExplorer")}, data)
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.dataExplorer")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
         handle_data_explorer_comm_open(kernel, comm, data)
     end
 end
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.ui")}, data)
+function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.ui")}, msg::IJulia.Msg)
     kernel = get_kernel()
     if kernel !== nothing
         handle_ui_comm_open(kernel, comm, data)
