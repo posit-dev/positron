@@ -34,6 +34,10 @@ function init!(service::VariablesService, comm::PositronComm)
 
     on_msg!(comm, msg -> handle_variables_msg(service, msg))
     on_close!(comm, () -> handle_variables_close(service))
+
+    # Send initial refresh immediately (matches Ark's behavior)
+    # The frontend expects this proactive refresh event
+    send_refresh!(service)
 end
 
 """
