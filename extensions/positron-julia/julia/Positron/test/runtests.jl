@@ -40,4 +40,8 @@ using Positron
 	@testset "Help System" begin
 		include("test_help.jl")
 	end
+
+	@testset "Plots System" begin
+		include("test_plots.jl")
+	end
 end
