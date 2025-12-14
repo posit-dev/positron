@@ -196,13 +196,16 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     setup_comm_bridge!(comm, ijulia_comm)
 
     # Send initial refresh to populate Variables pane
-    # Add small delay to allow frontend to be ready (race condition fix)
-    kernel_log("Sending initial variables refresh (with delay)")
+    # Add small delay to allow frontend to be ready
+    kernel_log("Scheduling initial variables refresh")
     @async begin
-        sleep(0.1)  # 100ms delay
+        kernel_log("Waiting 100ms for frontend to be ready")
+        sleep(0.1)
+        kernel_log("Delay complete, sending initial refresh")
         send_refresh!(kernel.variables)
-        kernel_log("Initial refresh completed")
+        kernel_log("Initial refresh sent")
     end
+    kernel_log("Async task scheduled")
 end
 
 """
