@@ -74,11 +74,10 @@ function start_services!(kernel::PositronKernel = get_kernel())
         log_io = isdefined(IJulia, :orig_stderr) ? IJulia.orig_stderr[] : stderr
     end
 
-    # Configure logger with no ANSI codes (nothing = no colors)
+    # Configure logger - use :default with NO_COLOR env var to disable ANSI
     global_logger(ConsoleLogger(log_io, Logging.Info;
         show_limited=false,
-        right_justify=0,
-        meta_formatter=(level, _module, group, id, file, line) -> (nothing, "", "")
+        right_justify=0
     ))
 
     if kernel.started
