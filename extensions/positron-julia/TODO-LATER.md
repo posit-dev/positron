@@ -132,3 +132,37 @@ Julia has a debug adapter (`Debugger.jl` / `DebugAdapter.jl`) that could be inte
 
 **Priority**: Medium (nice-to-have, not core)
 
+
+## IJulia Comm Integration
+
+### Status: Needs Fix
+
+**Issue**: Current comm registration doesn't match IJulia's type-based dispatch pattern.
+
+**Error**: 
+```
+MethodError: no method matching register_comm(::Function, ::String)
+Closest: register_comm(::IJulia.Comm, ::Any)
+```
+
+**Root Cause**: 
+IJulia uses method dispatch on `Comm{target}` types:
+```julia
+function IJulia.register_comm(comm::IJulia.Comm{:positron_variables}, data)
+    # Handle comm open
+end
+```
+
+**Fix Needed**:
+Rewrite kernel.jl comm registration to use IJulia's type dispatch pattern instead of function handlers.
+
+**Files to Update**:
+- src/kernel.jl: register_comm_target and register_comm_targets!
+- May need to adjust how services are initialized
+
+**Reference**: IJulia/src/comm_manager.jl for proper pattern
+
+**Priority**: High - blocks runtime functionality
+
+**Workaround**: Services work when loaded directly, just not auto-registered via kernel startup.
+
