@@ -124,6 +124,25 @@ includet("src/Positron.jl")  # Auto-reload on changes
 include("test/test_variables.jl")
 ```
 
+**Test with code coverage:**
+```bash
+# Run tests with coverage enabled
+julia --project=. --code-coverage=user -e 'using Pkg; Pkg.test()'
+
+# View coverage summary
+julia --project=. -e 'using Coverage; coverage = process_folder(); covered, total = get_summary(coverage); println("Coverage: $(round(covered/total*100, digits=2))%")'
+
+# Generate HTML coverage report (requires Coverage.jl)
+julia --project=. -e 'using Pkg; Pkg.add("Coverage"); using Coverage;
+    coverage = process_folder();
+    covered, total = get_summary(coverage);
+    println("Coverage: $covered/$total = $(round(covered/total*100, digits=2))%");
+    LCOV.writefile("coverage.info", coverage)'
+
+# Clean coverage files
+find . -name "*.cov" -delete
+```
+
 **Test dependencies:**
 The test suite requires DataFrames.jl (automatically handled by Project.toml extras):
 ```julia
@@ -132,19 +151,25 @@ The test suite requires DataFrames.jl (automatically handled by Project.toml ext
 julia -e 'using Pkg; Pkg.add("DataFrames")'
 ```
 
-**Test coverage (335+ tests):**
-- Variable kind detection for all Julia types (primitives, collections, composites)
-- Display value and type formatting with dimension information
-- Child inspection (dicts, arrays, structs, DataFrames)
-- Path resolution and nested access
-- Clipboard formatting
-- Comm message parsing and handling
-- **DataFrame support:**
-  - Basic, empty, large, and wide DataFrames
-  - DataFrames with missing values
-  - Single row/column DataFrames
-  - Proper dimension display (rows x columns)
-  - Table detection via type name matching
+**Test coverage (462+ tests):**
+- **Variables (335 tests):**
+  - All Julia types (primitives, collections, composites, DataFrames)
+  - Display formatting with dimensions and truncation
+  - Child inspection and nested path resolution
+  - Clipboard formatting and serialization
+  - Comm protocol and message handling
+
+- **Help (68 tests):**
+  - Symbol resolution (simple and module-qualified)
+  - Documentation fetching and Markdown→HTML conversion
+  - Request handling and error cases
+
+- **Data Explorer (59 tests):**
+  - Virtual index management (filter, sort, combined views)
+  - Efficient get_data_values with view mapping
+  - Multi-column sorting with stability
+  - DataFrame edge cases (empty, single row/col, missing, large)
+  - Performance benchmarks (1M row sorts)
 
 **Interactive testing:**
 A comprehensive interactive testing file is available at `~/code/positron-testingstuff/testing.jl`
