@@ -112,9 +112,14 @@ Register Jupyter comm targets for Positron services.
 # IJulia calls these methods when a comm is opened with the corresponding target.
 
 function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, data)
-    kernel = get_kernel()
-    if kernel !== nothing
-        handle_variables_comm_open(kernel, comm, data)
+    try
+        kernel = get_kernel()
+        if kernel !== nothing
+            handle_variables_comm_open(kernel, comm, data)
+        end
+    catch e
+        @error "Error in Variables comm registration" exception=(e, catch_backtrace())
+        rethrow(e)  # Re-throw so it's visible but logged first
     end
 end
 
@@ -403,5 +408,26 @@ function __init__()
                 start_services!()
             end
         end
+    end
+end
+
+"""
+Test function to verify error logging works correctly.
+
+This function deliberately throws an error to verify that:
+1. The error is caught and logged to kernel log (not console)
+2. Stack trace appears in kernel log
+3. Error handling is working
+
+Call with: Positron.test_error_logging()
+"""
+function test_error_logging()
+    @info "Testing error logging - you should see this in Kernel log"
+    try
+        # Deliberately cause an error
+        error("This is a test error to verify kernel log captures errors correctly")
+    catch e
+        @error "TEST: Caught error as expected" exception=(e, catch_backtrace())
+        @info "If you see this in Kernel log (not console), error logging works!"
     end
 end
