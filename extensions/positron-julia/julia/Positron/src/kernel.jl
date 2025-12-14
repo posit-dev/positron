@@ -295,8 +295,10 @@ Set up hooks for code execution to update variables, handle plots, etc.
 """
 function setup_execution_hooks!(kernel::PositronKernel)
     # Hook into IJulia's post-execute callback
-    if isdefined(IJulia, :postexecute_hooks)
-        push!(IJulia.postexecute_hooks, () -> on_post_execute(kernel))
+    if isdefined(IJulia, :push_postexecute_hook)
+        IJulia.push_postexecute_hook(() -> on_post_execute(kernel))
+    elseif isdefined(IJulia, :_postexecute_hooks)
+        push!(IJulia._postexecute_hooks, () -> on_post_execute(kernel))
     end
 
     # Hook into display system for plots
