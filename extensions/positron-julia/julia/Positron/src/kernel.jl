@@ -16,25 +16,28 @@ using Logging
 Kernel logging functions - write to kernel log (not console).
 
 Uses IJulia.orig_stderr which routes to Positron's Kernel output channel.
-Positron adds timestamps automatically.
+Includes timestamp and log level for clarity.
 """
 function kernel_log_info(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
-        println(IJulia.orig_stderr[], "[info] $msg")
+        timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
+        println(IJulia.orig_stderr[], "$timestamp [info] $msg")
         flush(IJulia.orig_stderr[])
     end
 end
 
 function kernel_log_warn(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
-        println(IJulia.orig_stderr[], "[warn] $msg")
+        timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
+        println(IJulia.orig_stderr[], "$timestamp [warn] $msg")
         flush(IJulia.orig_stderr[])
     end
 end
 
 function kernel_log_error(msg::String)
     if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
-        println(IJulia.orig_stderr[], "[error] $msg")
+        timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
+        println(IJulia.orig_stderr[], "$timestamp [error] $msg")
         flush(IJulia.orig_stderr[])
     end
 end
