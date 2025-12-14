@@ -270,24 +270,23 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
 
     println("[POSITRON] Sending comm message: $(comm.comm_id), type=$(typeof(data))")
 
-    # Convert to JSON
-    json_data = JSON3.write(data)
-    parsed_data = JSON3.read(json_data)
+    # Convert to Dict (IJulia expects Dict, not JSON3.Object)
+    json_str = JSON3.write(data)
+    data_dict = JSON3.read(json_str, Dict{String,Any})
 
     # Send via IJulia comm
     try
         if hasproperty(comm.kernel, :send)
             println("[POSITRON] Sending via IJulia.Comm.send")
-            comm.kernel.send(parsed_data)
+            comm.kernel.send(data_dict)
         elseif isdefined(IJulia, :send_comm)
             println("[POSITRON] Sending via IJulia.send_comm")
-            IJulia.send_comm(comm.kernel, parsed_data)
+            IJulia.send_comm(comm.kernel, data_dict)
         else
             println("[POSITRON] Warning: Cannot find method to send comm message")
         end
     catch e
-        println("[POSITRON] ERROR sending: $e")
-        println(sprint(showerror, e, catch_backtrace()))
+        @error "Failed to send comm message" exception=(e, catch_backtrace())
     end
 end
 
