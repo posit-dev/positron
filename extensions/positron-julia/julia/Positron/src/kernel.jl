@@ -189,15 +189,13 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
     comm = create_comm("positron.variables")
     kernel.comms["variables"] = comm
 
-    # Initialize the service with this comm
-    init!(kernel.variables, comm)
-
-    # Hook up to IJulia comm for message passing
+    # Hook up to IJulia comm FIRST (sets comm.kernel)
     setup_comm_bridge!(comm, ijulia_comm)
 
-    # Don't send proactive refresh - wait for frontend to request
-    # Frontend will send "list" request when ready, we'll respond to that
-    kernel_log("Variables comm ready, waiting for frontend request")
+    # THEN initialize service (which sends initial refresh)
+    init!(kernel.variables, comm)
+
+    kernel_log("Variables comm initialized")
 end
 
 """
