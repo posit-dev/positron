@@ -36,7 +36,8 @@ function init!(service::VariablesService, comm::PositronComm)
     on_close!(comm, () -> handle_variables_close(service))
 
     # Send initial refresh immediately (matches Ark's behavior)
-    # The frontend expects this proactive refresh event
+    # The comm now has comm_open_msg stored, which will be used as parent_header
+    # This ensures the message is properly routed through the Supervisor
     send_refresh!(service)
 end
 

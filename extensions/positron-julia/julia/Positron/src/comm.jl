@@ -21,9 +21,10 @@ mutable struct PositronComm
     msg_handler::Union{Function,Nothing}
     close_handler::Union{Function,Nothing}
     send_lock::ReentrantLock
+    comm_open_msg::Any  # Store comm_open message to use as parent for initial sends
 
     function PositronComm(target_name::String, comm_id::String = string(uuid4()))
-        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock())
+        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing)
     end
 end
 
