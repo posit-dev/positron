@@ -13,3 +13,8 @@ trim_trailing_whitespace = true
 [{*.yml,*.yaml,package.json}]
 indent_style = space
 indent_size = 2
+
+# Julia uses 4-space indentation by convention
+[*.jl]
+indent_style = space
+indent_size = 4
