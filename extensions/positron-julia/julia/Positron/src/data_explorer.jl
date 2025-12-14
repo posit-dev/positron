@@ -736,17 +736,80 @@ function apply_row_filters(data::Any, filters::Vector{RowFilter})::Union{Vector{
 end
 
 """
-Apply a single row filter.
+Apply a single row filter using vectorized operations.
+
+Critical for performance: Uses entire column vector and broadcasting
+instead of row-by-row iteration. Matches Python/R vectorized approach.
 """
 function apply_single_row_filter(data::Any, filter::RowFilter)::BitVector
-	nrows = get_num_rows(data)
 	col_idx = filter.column_schema.column_index + 1  # Convert to 1-based
 
-	mask = falses(nrows)
+	# Get entire column at once (vectorized)
+	col = get_column_vector(data, col_idx)
 
-	for row_idx in 1:nrows
-		val = get_cell_value(data, row_idx, col_idx)
-		mask[row_idx] = value_matches_filter(val, filter)
+	# Apply filter vectorially based on type
+	filter_type = filter.filter_type
+
+	# Null/Empty checks (vectorized)
+	if filter_type == RowFilterType_IsNull
+		return (col .=== nothing) .| ismissing.(col)
+	elseif filter_type == RowFilterType_NotNull
+		return (col .!== nothing) .& .!ismissing.(col)
+	elseif filter_type == RowFilterType_IsEmpty
+		is_null = (col .=== nothing) .| ismissing.(col)
+		# Check each element if it's a string and empty
+		is_empty_str = [v isa AbstractString && isempty(v) for v in col]
+		return is_null .| is_empty_str
+	elseif filter_type == RowFilterType_NotEmpty
+		is_not_null = (col .!== nothing) .& .!ismissing.(col)
+		is_not_empty_str = [!(v isa AbstractString && isempty(v)) for v in col]
+		return is_not_null .& is_not_empty_str
+	elseif filter_type == RowFilterType_IsTrue
+		return col .=== true
+	elseif filter_type == RowFilterType_IsFalse
+		return col .=== false
+	end
+
+	# Vectorize comparison filters for numeric columns
+	if filter.params isa FilterComparison && all(x -> x isa Number || ismissing(x), col)
+		compare_val = tryparse(Float64, filter.params.value)
+		if compare_val !== nothing
+			# Vectorized numeric comparison
+			if filter.params.op == "="
+				return col .== compare_val
+			elseif filter.params.op == "!="
+				return col .!= compare_val
+			elseif filter.params.op == "<"
+				return col .< compare_val
+			elseif filter.params.op == "<="
+				return col .<= compare_val
+			elseif filter.params.op == ">"
+				return col .> compare_val
+			elseif filter.params.op == ">="
+				return col .>= compare_val
+			end
+		end
+	end
+
+	# Vectorize between filter for numeric columns
+	if filter.params isa FilterBetween && all(x -> x isa Number || ismissing(x), col)
+		left = tryparse(Float64, filter.params.left_value)
+		right = tryparse(Float64, filter.params.right_value)
+		if left !== nothing && right !== nothing
+			if filter.filter_type == RowFilterType_NotBetween
+				return (col .< left) .| (col .> right)
+			else
+				return (col .>= left) .& (col .<= right)
+			end
+		end
+	end
+
+	# For complex filters (search, set membership), fall back to row-by-row
+	# These are less common and harder to vectorize efficiently
+	nrows = length(col)
+	mask = falses(nrows)
+	for (i, val) in enumerate(col)
+		mask[i] = value_matches_filter(val, filter)
 	end
 
 	return mask
