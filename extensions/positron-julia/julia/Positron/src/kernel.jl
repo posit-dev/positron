@@ -153,6 +153,9 @@ function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, ms
 
     # Hook up to IJulia comm for message passing
     setup_comm_bridge!(comm, ijulia_comm)
+
+    # Send initial refresh to populate Variables pane (like Python does)
+    send_refresh!(kernel.variables)
 end
 
 """
