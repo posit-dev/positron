@@ -2,38 +2,6 @@
 
 This guide covers development workflows for the positron-julia extension and the Positron.jl library.
 
-## Task Tracking with Beads
-
-This project uses **beads** (`bd`) for issue tracking and dependency management.
-
-```bash
-# Navigate to the extension directory
-cd extensions/positron-julia
-
-# List all Julia issues
-bd list
-
-# Show ready-to-work issues (no blocking dependencies)
-bd ready
-
-# Show specific issue
-bd show julia-<id>
-
-# Update issue status
-bd update julia-<id> --status in_progress
-bd close julia-<id>
-
-# View dependency tree
-bd dep tree julia-<id>
-```
-
-**Current Projects:**
-- `julia-eh6`: Code Review and Quality (main epic)
-- `julia-9sx`: Data Explorer implementation (P0 - highest priority)
-- `julia-71m`, `julia-8yc`, `julia-uv5`: Other service implementations
-- `julia-a7c`, `julia-vuj`: E2E testing
-- See `bd list` for complete list
-
 ## Project Structure
 
 ```
@@ -208,12 +176,6 @@ params = create_variables_update_params(assigned, unevaluated, removed, version)
 
 **Future**: Consider using workspace management or marking variables as deleted.
 
-### Pre-commit Hook Warnings
-**Issue**: Generated Julia files use 4-space indentation (Julia standard) but Positron
-prefers tabs, causing pre-commit warnings.
-
-**Status**: Warnings are cosmetic and don't prevent commits. Julia files should follow
-Julia conventions.
 
 ## Architecture Notes
 

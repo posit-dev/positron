@@ -9,6 +9,3 @@ ThirdPartyNotices.txt eol=crlf
 *.sh eol=lf
 *.rtf -text
 **/*.json linguist-language=jsonc
-
-# Use bd merge for beads JSONL files
-.beads/issues.jsonl merge=beads
