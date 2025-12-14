@@ -57,6 +57,14 @@ end
 Start all Positron services.
 """
 function start_services!(kernel::PositronKernel = get_kernel())
+    # Configure logger for kernel log output (stderr, no colors)
+    using Logging
+    global_logger(ConsoleLogger(stderr, Logging.Info;
+        show_limited=false,
+        right_justify=0,
+        meta_formatter=(level, _module, group, id, file, line) -> (:black, "", "")
+    ))
+
     if kernel.started
         @warn "Positron services already started"
         return

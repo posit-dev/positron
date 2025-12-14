@@ -106,14 +106,12 @@ function getKernelStartupCode(): string {
 
 	return `
 		using Pkg;
-		using Logging;
 		if !haskey(Pkg.project().dependencies, "IJulia") &&
 			!haskey(Pkg.dependencies(), Base.UUID("7073ff75-c697-5162-941a-fcdaad2a7d2a"))
 			println("Installing IJulia for Jupyter kernel support...");
 			Pkg.add("IJulia");
 		end;
 		import IJulia;
-		global_logger(ConsoleLogger(stderr, Logging.Info; show_limited=false, right_justify=0, meta_formatter=(level, _module, group, id, file, line)->(:black, "", "")));
 		push!(LOAD_PATH, "${positronPath}");
 		try
 			using Positron;
