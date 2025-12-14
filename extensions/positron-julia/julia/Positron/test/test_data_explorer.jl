@@ -18,7 +18,6 @@ using DataFrames
 using Statistics
 using Random
 
-include("test_helpers.jl")
 
 @testset "Data Explorer - Core Functionality" begin
 	@testset "Instance Creation" begin

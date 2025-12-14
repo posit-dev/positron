@@ -6,7 +6,6 @@
 using Test
 using JSON3
 
-include("test_helpers.jl")
 
 @testset "Variables Tests" begin
 	@testset "Variable Kind Detection" begin
