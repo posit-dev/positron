@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 
 import { JuliaInstallation } from './julia-installation';
 import { JupyterKernelSpec } from './positron-supervisor';
@@ -33,6 +35,10 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 		'{connection_file}',
 	];
 
+	// Create kernel log file (Positron will stream this to Kernel output channel)
+	const kernelLogFile = path.join(os.tmpdir(), `julia-kernel-${Date.now()}.log`);
+	fs.writeFileSync(kernelLogFile, '', 'utf8');  // Create empty log file
+
 	// Build environment variables
 	const env: NodeJS.ProcessEnv = {
 		// Julia-specific environment variables
@@ -41,6 +47,9 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 		// Disable ANSI color codes in all output (NO_COLOR is standard, FORCE_COLOR=0 for compatibility)
 		NO_COLOR: '1',
 		FORCE_COLOR: '0',
+
+		// Positron kernel log file (Julia writes diagnostic logs here)
+		POSITRON_KERNEL_LOG: kernelLogFile,
 
 		// Positron-specific environment variables
 		POSITRON: '1',
