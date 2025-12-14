@@ -23,6 +23,9 @@ Usage:
 using Test
 using Positron
 
+# Load test helpers once (avoid multiple includes causing method redefinition warnings)
+include("test_helpers.jl")
+
 @testset verbose = true "Positron.jl Test Suite" begin
 	@testset "JSON-RPC Communication" begin
 		include("test_jsonrpc.jl")

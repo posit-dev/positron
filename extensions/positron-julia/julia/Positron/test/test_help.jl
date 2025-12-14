@@ -6,7 +6,6 @@
 using Test
 using JSON3
 
-include("test_helpers.jl")
 
 @testset "Help Service Tests" begin
 	@testset "HTML Escaping" begin
