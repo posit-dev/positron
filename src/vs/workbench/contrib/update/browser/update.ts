@@ -304,22 +304,22 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
 					console.log('[Positron Update] Ready - calling onUpdateReady with version:', productVersion);
-					console.log('[Positron Update] Step 1: About to parseVersion(this.productService.version)');
-					const currentVersion = parseVersion(this.productService.version);
-					console.log('[Positron Update] Step 2: currentVersion:', currentVersion);
-					const nextVersion = parseVersion(productVersion);
-					console.log('[Positron Update] Step 3: nextVersion:', nextVersion);
-					const isMajorMinor = Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion));
-					console.log('[Positron Update] Step 4: isMajorMinor:', isMajorMinor);
-					this.majorMinorUpdateAvailableContextKey.set(isMajorMinor);
-					console.log('[Positron Update] Step 5: Set context key');
+					// --- Start Positron ---
+					// Try to set major/minor update context, but don't let it block showing the notification
 					try {
-						console.log('[Positron Update] About to call this.onUpdateReady');
-						this.onUpdateReady(state.update);
-						console.log('[Positron Update] Returned from this.onUpdateReady');
+						const currentVersion = parseVersion(this.productService.version);
+						const nextVersion = parseVersion(productVersion);
+						const isMajorMinor = Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion));
+						this.majorMinorUpdateAvailableContextKey.set(isMajorMinor);
 					} catch (e) {
-						console.error('[Positron Update] Exception calling onUpdateReady:', e);
+						console.log('[Positron Update] Could not parse versions for major/minor check, skipping:', e);
+						// Just set to false if we can't determine
+						this.majorMinorUpdateAvailableContextKey.set(false);
 					}
+					// --- End Positron ---
+					console.log('[Positron Update] About to call this.onUpdateReady');
+					this.onUpdateReady(state.update);
+					console.log('[Positron Update] Returned from this.onUpdateReady');
 				} else {
 					console.log('[Positron Update] State Ready but no version at all!');
 					// Still try to show notification without version
