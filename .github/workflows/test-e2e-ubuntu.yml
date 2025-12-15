@@ -247,10 +247,10 @@ jobs:
       # Ensure chromium browser is installed for chromium project tests
       # The Playwright cache might only contain electron browser from previous runs
       - name: Install chromium browser for e2e-chromium
-        if: ${{ inputs.project == 'e2e-chromium' }}
+        if: ${{ inputs.project == 'e2e-chromium' && steps.restore-caches.outputs.cache-playwright-hit == 'true' }}
         run: |
           echo "Installing chromium browser for e2e-chromium project"
-          npx playwright install chromium
+          npx playwright install chromium --with-deps
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
