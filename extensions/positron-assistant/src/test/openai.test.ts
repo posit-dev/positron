@@ -30,7 +30,7 @@ suite('OpenAILanguageModel', () => {
 			type: positron.PositronLanguageModelType.Chat,
 			name: 'OpenAI Test',
 			model: 'gpt-4',
-			apiKey: 'test-api-key', // pragma: allowlist secret
+			apiKey: 'test-api-key',
 			baseUrl: 'https://api.openai.com/v1',
 			maxInputTokens: 8192,
 			maxOutputTokens: 4096
