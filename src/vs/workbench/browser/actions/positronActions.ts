@@ -80,14 +80,12 @@ export class PositronNewFolderFromGitAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				EnterMultiRootWorkspaceSupportContext,
-				ContextKeyExpr.deserialize('config.git.enabled && !git.missing')
-			),
+			precondition: ContextKeyExpr.deserialize('enterMultiRootWorkspaceSupport'),
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',
 				order: 5,
+				when: ContextKeyExpr.deserialize('config.git.enabled && !git.missing')
 			}
 		});
 	}
