@@ -60,8 +60,14 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 		</div>
 		<div className='drivers-list'>
 			{drivers.map((driver) => (
-				<div key={driver.driverId} className='driver-list-item'>
-					<div className='driver-info' onMouseDown={() => props.onDriverSelected(driver)}>
+				<div
+					key={driver.driverId}
+					className='driver-list-item'
+					role='button'
+					tabIndex={0}
+					onClick={() => props.onDriverSelected(driver)}
+				>
+					<div className='driver-info'>
 						<div className='driver-description'>
 							<strong>
 								{driver.metadata.description ?? localize(

@@ -97,9 +97,15 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 							<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
 							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
-						return <div key={name} className='driver-list-item'>
+						return <div
+							key={name}
+							className='driver-list-item'
+							role='button'
+							tabIndex={0}
+							onClick={() => onDriverSelectedHandler(drivers)}
+						>
 							{icon}
-							<div className='driver-info' onMouseDown={() => onDriverSelectedHandler(drivers)}>
+							<div className='driver-info'>
 								<div className='driver-name'>
 									{name}
 								</div>
