@@ -187,6 +187,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Notifies the React component container when focus changes.
 	 */
 	focusChanged(focused: boolean) {
+		this._isFocusedContextKey.set(focused)
 	}
 
 	/**
@@ -213,14 +214,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * The onFocused event.
 	 */
 	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
-
-	private readonly _focusoutListener = () => {
-		this._isFocusedContextKey.set(false)
-	};
-
-	private readonly _focusinListener = () => {
-		this._isFocusedContextKey.set(true)
-	}
 
 	//#endregion IReactComponentContainer
 
@@ -272,9 +265,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			this._group.scopedContextKeyService
 		);
 
-		// Create listeners
-		this._positronDataExplorerContainer?.addEventListener('focusin', this._focusinListener);
-		this._positronDataExplorerContainer?.addEventListener('focusout', this._focusoutListener);
+		// Create a focus tracker that updates the PositronConsoleFocused context key.
+		const focusTracker = this._register(DOM.trackFocus(this._positronDataExplorerContainer));
+		this._register(focusTracker.onDidFocus(() => this.focusChanged(true)));
+		this._register(focusTracker.onDidBlur(() => this.focusChanged(false)));
 	}
 
 	/**
@@ -283,10 +277,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	public override dispose(): void {
 		// Dispose the PositronReactRenderer for the PositronDataExplorer.
 		this.disposePositronReactRenderer();
-
-		// Dispose of listeners
-		this._positronDataExplorerContainer.removeEventListener('focusin', this._focusinListener);
-		this._positronDataExplorerContainer.removeEventListener('focusout', this._focusoutListener)
 
 		// Call the base class's dispose method.
 		super.dispose();
