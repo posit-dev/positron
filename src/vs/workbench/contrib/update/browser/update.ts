@@ -297,7 +297,9 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				// Use version fallback like we do elsewhere
 				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
-					// --- Start Positron ---
+					// const currentVersion = parseVersion(this.productService.version);
+					// const nextVersion = parseVersion(productVersion);
+					// this.majorMinorUpdateAvailableContextKey.set(Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion)));
 					// Try to set major/minor update context, but don't let it block showing the notification
 					try {
 						const currentVersion = parseVersion(this.productService.version);
@@ -308,7 +310,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 						// Just set to false if we can't determine
 						this.majorMinorUpdateAvailableContextKey.set(false);
 					}
-					// --- End Positron ---
 					this.onUpdateReady(state.update);
 				} else {
 					// Still try to show notification without version
