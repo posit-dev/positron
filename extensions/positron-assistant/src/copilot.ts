@@ -66,7 +66,27 @@ export class CopilotService implements vscode.Disposable {
 	 * Prompt the user to sign in to Copilot if they aren't already signed in.
 	 */
 	async signIn(): Promise<void> {
-		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_ALIGNED, { createIfNone: true });
+		// First, see if there's an existing session we can use
+		let session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_ALIGNED, { silent: true });
+		if (session) {
+			// Already signed in
+		} else {
+			// Prompt the user to sign in
+			session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_ALIGNED, { createIfNone: true });
+			if (session) {
+				// New session created, prompt the user to reload to finish setup
+				const shouldReload = await positron.window.showSimpleModalDialogPrompt(
+					vscode.l10n.t('Reload Required'),
+					vscode.l10n.t('Positron needs to reload to finish setting up GitHub Copilot.'),
+					vscode.l10n.t('Reload'),
+					vscode.l10n.t('Cancel')
+				);
+				if (shouldReload) {
+					await vscode.commands.executeCommand('workbench.action.reloadWindow');
+				}
+			}
+		}
+
 		if (session) {
 			this.setAuthSession(session);
 		}
