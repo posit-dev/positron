@@ -319,7 +319,7 @@ jobs:
 
       - name: Upload Extensions Test Logs If Failed
         if: ${{ always() && steps.extensions.outputs.exit_code != '0' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: extensions-tests-logs
           path: extensions-tests-logs/
@@ -327,7 +327,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-win-logs
           path: test-logs
@@ -335,7 +335,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-windows-json-results
           path: test-results/windows.json
@@ -355,7 +355,7 @@ jobs:
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json
