@@ -244,7 +244,11 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Create unique ID for the configuration
 	const id = randomUUID();
 
-	// Filter out sources that use autoconfiguration
+	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
+	const providerSource = sources.find(source => source.provider.id === userConfig.provider);
+	const isAutoconfigured = providerSource?.defaults.autoconfigure !== undefined;
+
+	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
 
 	// Check for required fields
@@ -281,11 +285,14 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	try {
 		await registerModel(newConfig, context, storage);
 
-		// Update global state
-		await context.globalState.update(
-			'positron.assistant.models',
-			[...existingConfigs, newConfig]
-		);
+		// Only save to persistent state for non-autoconfigured models
+		// Autoconfigured models (e.g., Copilot, env var based) are managed externally
+		if (!isAutoconfigured) {
+			await context.globalState.update(
+				'positron.assistant.models',
+				[...existingConfigs, newConfig]
+			);
+		}
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
@@ -318,7 +325,8 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {
-		throw new Error(vscode.l10n.t('No configuration found for provider {0}', providerId));
+		// Provider may be autoconfigured and not in persistent state, which is fine
+		return;
 	}
 	await deleteConfiguration(context, storage, targetConfig.id);
 }
