@@ -27,9 +27,16 @@ try
 	using LanguageServer
 	using SymbolServer
 
-	# Run the language server
-	# It communicates over stdin/stdout using the LSP protocol
-	runserver()
+	# Run the language server with the environment path
+	# This tells the language server where to find Project.toml and dependencies
+	# The server communicates over stdin/stdout using the LSP protocol
+	server = LanguageServerInstance(
+		stdin,
+		stdout,
+		env_path,  # Project environment path
+		first(DEPOT_PATH),  # Primary depot for symbol cache
+	)
+	run(server)
 catch e
 	@error "Failed to start language server" exception=(e, catch_backtrace())
 
