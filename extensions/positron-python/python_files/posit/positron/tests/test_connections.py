@@ -51,6 +51,13 @@ except ImportError:
     HAS_GOOGLE_BIGQUERY = False
 
 
+try:
+    import redshift_connector
+
+    HAS_REDSHIFT = "REDSHIFT_HOST" in os.environ
+except ImportError:
+    HAS_REDSHIFT = False
+
 from positron.access_keys import encode_access_key
 from positron.connections import ConnectionsService
 
@@ -828,3 +835,135 @@ class TestVariablePaneIntegration:
         assert variables_comm.messages == [json_rpc_response({})]
         variables_comm.messages.clear()
         return tuple(encoded_paths)
+
+
+@pytest.mark.skipif(not HAS_REDSHIFT, reason="Redshift not available")
+class TestRedshiftConnectionsService:
+    REDSHIFT_HOST = os.environ.get("REDSHIFT_HOST")
+    REDSHIFT_PROFILE = os.environ.get("REDSHIFT_PROFILE", "default")
+    REDSHIFT_DATABASE = "dev"
+    REDSHIFT_SCHEMA = "public"
+    REDSHIFT_TABLE = "airlines"
+
+    def _connect(self):
+        return redshift_connector.connect(
+            iam=True,
+            host=self.REDSHIFT_HOST,
+            database=self.REDSHIFT_DATABASE,
+            profile=self.REDSHIFT_PROFILE,
+        )
+
+    def _open_comm(self, connections_service: ConnectionsService):
+        con = self._connect()
+        comm_id = connections_service.register_connection(con)
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+        return dummy_comm, comm_id
+
+    def _database_path(self):
+        return [{"kind": "database", "name": self.REDSHIFT_DATABASE}]
+
+    def _schema_path(self):
+        return [*self._database_path(), {"kind": "schema", "name": self.REDSHIFT_SCHEMA}]
+
+    def _table_path(self):
+        return [*self._schema_path(), {"kind": "table", "name": self.REDSHIFT_TABLE}]
+
+    def _resolve_path(self, kind: str):
+        if kind == "root":
+            return []
+        if kind == "database":
+            return self._database_path()
+        if kind == "schema":
+            return self._schema_path()
+        if kind == "table":
+            return self._table_path()
+        raise ValueError(f"Unknown path kind: {kind}")
+
+    def test_register_connection(self, connections_service: ConnectionsService):
+        con = self._connect()
+        comm_id = connections_service.register_connection(con)
+        assert comm_id in connections_service.comms
+
+    @pytest.mark.parametrize(
+        "path_kind",
+        [
+            pytest.param("root", id="root"),
+            pytest.param("database", id="database"),
+            pytest.param("schema", id="schema"),
+            pytest.param("table", id="table"),
+        ],
+    )
+    def test_contains_data(self, connections_service: ConnectionsService, path_kind: str):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is (path_kind == "table")
+
+    @pytest.mark.parametrize(
+        ("path_kind", "expected"),
+        [
+            pytest.param("root", "data:image", id="root"),
+            pytest.param("database", "", id="database"),
+            pytest.param("schema", "", id="schema"),
+            pytest.param("table", "", id="table"),
+        ],
+    )
+    def test_get_icon(self, connections_service: ConnectionsService, path_kind: str, expected: str):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        if expected:
+            assert expected in result
+        else:
+            assert result == ""
+
+    @pytest.mark.parametrize(
+        "path_kind",
+        [
+            pytest.param("root", id="databases"),
+            pytest.param("database", id="schemas"),
+            pytest.param("schema", id="tables"),
+        ],
+    )
+    def test_list_objects(self, connections_service: ConnectionsService, path_kind: str):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+        expected = {
+            "root": self.REDSHIFT_DATABASE,
+            "database": self.REDSHIFT_SCHEMA,
+            "schema": self.REDSHIFT_TABLE,
+        }[path_kind]
+
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        names = [item["name"] for item in result]
+        assert expected in names
+
+    def test_list_fields(self, connections_service: ConnectionsService):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._table_path()
+
+        msg = _make_msg(params={"path": path}, method="list_fields", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        field_names = {field["name"].lower() for field in result}
+        assert {"carrier", "name"}.issubset(field_names)
+
+    def test_preview_object(self, connections_service: ConnectionsService):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._table_path()
+
+        msg = _make_msg(params={"path": path}, method="preview_object", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is None
