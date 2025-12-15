@@ -190,7 +190,7 @@ export namespace LanguageService {
     );
     // --- Start Positron ---
     export const multipleLanguageServersWarning = l10n.t(
-        'More than one Python language server extension is enabled: "{0}". You may experience duplicated hovers/completions/etc. Positron comes with Pyrefly installed by default; other extensions should work but are untested.',
+        'More than one Python language server extension is enabled: "{0}". You may experience duplicated hovers, completions, etc. Positron comes with Pyrefly installed by default; other extensions should work but are untested.',
     );
     // --- End Positron ---
 }
