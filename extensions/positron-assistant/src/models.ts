@@ -1655,7 +1655,6 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 		if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 			// Handle environment variable based auto-configuration
 			const key = model.source.defaults.autoconfigure.key;
-			// pragma: allowlist nextline secret
 			const apiKey = key ? process.env[key] : undefined;
 
 			if (key && apiKey) {
