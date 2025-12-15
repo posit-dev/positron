@@ -27,16 +27,16 @@ try
 	using LanguageServer
 	using SymbolServer
 
-	# Run the language server with the environment path
-	# This tells the language server where to find Project.toml and dependencies
-	# The server communicates over stdin/stdout using the LSP protocol
-	server = LanguageServerInstance(
-		stdin,
-		stdout,
-		env_path,  # Project environment path
-		first(DEPOT_PATH),  # Primary depot for symbol cache
-	)
-	run(server)
+	# Change to the environment directory so LanguageServer finds Project.toml
+	if isdir(env_path)
+		cd(env_path)
+		@info "  Changed to: $(pwd())"
+	end
+
+	# Run the language server
+	# It communicates over stdin/stdout using the LSP protocol
+	# runserver() auto-detects the environment from pwd()
+	runserver()
 catch e
 	@error "Failed to start language server" exception=(e, catch_backtrace())
 

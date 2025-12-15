@@ -36,8 +36,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	// support in positron-supervisor. See TODO-LATER.md.
 	// registerCompletionProvider(context);
 
-	// Start language server lazily when a Julia file is opened (not on startup)
-	// This avoids burdening users who have Julia installed but don't use it
+	// Start language server when a Julia file is opened
+	// Also check if any Julia files are already open (e.g., after reload)
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument(async (document) => {
 			if (document.languageId === 'julia' && !languageClient) {
@@ -47,6 +47,16 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		})
 	);
+
+	// Check if Julia files are already open (handles reload case)
+	const hasOpenJuliaFiles = vscode.workspace.textDocuments.some(
+		doc => doc.languageId === 'julia'
+	);
+	if (hasOpenJuliaFiles) {
+		startLanguageServer(context).catch(error => {
+			LOGGER.warn(`Language server not started: ${error.message}`);
+		});
+	}
 
 	LOGGER.info('Positron Julia extension activated');
 }
