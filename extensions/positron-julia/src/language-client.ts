@@ -226,6 +226,24 @@ export class JuliaLanguageClient implements vscode.Disposable {
 			clientOptions
 		);
 
+		// Handle unexpected stops - auto-restart after a delay
+		this._client.onDidChangeState((event) => {
+			if (event.newState === 1) { // State.Stopped
+				LOGGER.warn('Julia Language Server stopped unexpectedly');
+				// Clear the client reference
+				this._client = undefined;
+				// Attempt restart after a short delay (avoid rapid restart loops)
+				if (this._installation) {
+					setTimeout(() => {
+						LOGGER.info('Attempting to restart Julia Language Server...');
+						this.start(this._installation!).catch(err => {
+							LOGGER.error(`Failed to restart Language Server: ${err}`);
+						});
+					}, 3000);
+				}
+			}
+		});
+
 		try {
 			await this._client.start();
 			LOGGER.info('Julia Language Server started successfully');
