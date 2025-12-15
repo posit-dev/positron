@@ -23,6 +23,10 @@ fi
 # Hash regular extension package.json files (excluding submodules)
 FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f $FIND_EXCLUDES 2>/dev/null" | sort | xargs cat | sha256sum | cut -d' ' -f1)
 
+# Get git tree hash for extensions directory (changes when any file in extensions/ changes)
+# This ensures cache invalidates when source code changes, not just package.json
+GIT_TREE_HASH=$(git rev-parse HEAD:extensions 2>/dev/null || echo "no-git-tree")
+
 # Get all submodule commit SHAs (sorted for determinism)
 SUBMODULE_SHAS=""
 if [ -n "$SUBMODULE_PATHS" ]; then
@@ -39,8 +43,8 @@ if [ -n "$SUBMODULE_PATHS" ]; then
 	done <<< "$SUBMODULE_PATHS"
 fi
 
-# Combine both into final hash
-EXTENSIONS_HASH=$(echo "${FILES_HASH}-${SUBMODULE_SHAS}" | sha256sum | cut -d' ' -f1)
+# Combine all into final hash (package.json + git tree + submodules)
+EXTENSIONS_HASH=$(echo "${FILES_HASH}-${GIT_TREE_HASH}-${SUBMODULE_SHAS}" | sha256sum | cut -d' ' -f1)
 
 # Validate hash is not empty
 if [ -z "$EXTENSIONS_HASH" ]; then
@@ -49,4 +53,4 @@ if [ -z "$EXTENSIONS_HASH" ]; then
 fi
 
 echo "hash=$EXTENSIONS_HASH" >> "$GITHUB_OUTPUT"
-echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, submodules: ${SUBMODULE_SHAS:-none})"
+echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, git-tree: $GIT_TREE_HASH, submodules: ${SUBMODULE_SHAS:-none})"

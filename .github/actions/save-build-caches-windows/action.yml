@@ -63,8 +63,8 @@ runs:
           test/monaco/node_modules
           test/mcp/node_modules
         # Package-locks hash comes from restore step (DRY - single source of truth)
-        # IMPORTANT: If bumping npm-core-v1 -> npm-core-v2, also update restore-build-caches-windows/action.yml
-        key: npm-core-v1-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
+        # IMPORTANT: If bumping npm-core-v2 -> npm-core-v3, also update restore-build-caches-windows/action.yml
+        key: npm-core-v2-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
       if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
@@ -75,8 +75,8 @@ runs:
           extensions
           .vscode
         # Extensions hash comes from restore step (DRY - single source of truth)
-        # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update restore-build-caches-windows/action.yml
-        key: npm-extensions-v1-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
+        # IMPORTANT: If bumping npm-extensions-v2 -> npm-extensions-v3, also update restore-build-caches-windows/action.yml
+        key: npm-extensions-v2-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Extract Playwright version
       if: ${{ inputs.cache-playwright-hit == 'false' }}
