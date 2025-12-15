@@ -421,6 +421,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		// if (!this.shouldShowNotification()) {
 		// Always show notification for manual checks, otherwise respect the throttle
 		if (!this.explicitCheck && !this.shouldShowNotification()) {
+			// --- End Positron ---
 			return;
 		}
 
@@ -447,7 +448,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			// --- Start Positron ---
 			// { priority: NotificationPriority.OPTIONAL }
 			{
-				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.DEFAULT,
+				priority: this.explicitCheck ? NotificationPriority.URGENT : NotificationPriority.OPTIONAL,
 				sticky: this.explicitCheck
 			}
 			// --- End Positron ---
