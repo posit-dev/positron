@@ -13,7 +13,8 @@
     "@jupyterlab/rendermime-interfaces": "^3.10.4",
     "@jupyterlab/services": "^7.2.3",
     "@lumino/coreutils": "^2.1.2",
-    "@lumino/widgets": "^2.3.2"
+    "@lumino/widgets": "^2.3.2",
+    "@widgetti/jupyter-react": "^0.5.0"
   },
   "devDependencies": {
     "@types/vscode-webview": "^1.57.5",
