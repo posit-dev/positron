@@ -33,7 +33,7 @@ export class MultipleLanguageServersDiagnostic extends BaseDiagnostic {
         super(
             DiagnosticCodes.MultipleLanguageServersDiagnostic,
             message,
-            DiagnosticSeverity.Warning,
+            DiagnosticSeverity.Error,
             DiagnosticScope.Global,
             resource,
         );
@@ -73,7 +73,7 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
             return [];
         }
 
-        const extensionList = JSON.stringify(detectedExtensions, null, 1);
+        const extensionList = detectedExtensions.join('", "');
         const message = LanguageService.multipleLanguageServersWarning.format(extensionList);
         return [new MultipleLanguageServersDiagnostic(message, resource)];
     }
@@ -90,6 +90,13 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
 
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
         const options = [
+            {
+                prompt: Common.viewExtensions,
+                command: commandFactory.createCommand(diagnostic, {
+                    type: 'executeVSCCommand',
+                    options: 'workbench.view.extensions',
+                }),
+            },
             {
                 prompt: Common.doNotShowAgain,
                 command: commandFactory.createCommand(diagnostic, { type: 'ignore', options: DiagnosticScope.Global }),
