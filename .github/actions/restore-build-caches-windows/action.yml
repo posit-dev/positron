@@ -110,11 +110,14 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: |
-          extensions
-          .vscode
+          extensions/**/node_modules
+          extensions/**/out
+          .vscode/**/node_modules
+          .vscode/**/out
         # Extensions invalidate when extension package.json files or git submodules change
-        # IMPORTANT: If bumping npm-extensions-v2 -> npm-extensions-v3, also update save-build-caches-windows/action.yml
-        key: npm-extensions-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+        # Only cache node_modules and compiled outputs (out/), not source files or downloaded binaries (resources/)
+        # IMPORTANT: If bumping npm-extensions-v3 -> npm-extensions-v4, also update save-build-caches-windows/action.yml
+        key: npm-extensions-v3-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Extract Playwright version
       if: ${{ inputs.restore-playwright == 'true' }}
