@@ -7,15 +7,15 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
-import { OpenAILanguageModel } from '../models.js';
+import { OpenAIModelProvider } from '../providers/openai/openaiProvider.js';
 import { ModelConfig } from '../config.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
 
-suite('OpenAILanguageModel', () => {
+suite('OpenAIModelProvider', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
 	let mockConfig: ModelConfig;
-	let openAIModel: OpenAILanguageModel;
+	let openAIModel: OpenAIModelProvider;
 
 	setup(() => {
 		// Mock vscode.workspace.getConfiguration
@@ -40,7 +40,7 @@ suite('OpenAILanguageModel', () => {
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 		mockWorkspaceConfig.withArgs('filterModels', []).returns([]);
 
-		openAIModel = new OpenAILanguageModel(mockConfig);
+		openAIModel = new OpenAIModelProvider(mockConfig);
 	});
 
 	teardown(() => {

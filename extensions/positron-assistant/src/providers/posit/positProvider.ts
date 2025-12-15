@@ -7,11 +7,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
-import { deleteConfiguration, ModelConfig, SecretStorage } from './config';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants';
-import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
-import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from './providers/anthropic/anthropicProvider.js';
-import { ModelProvider } from './providers/base/modelProvider.js';
+import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
+import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
+import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
+import { ModelProvider } from '../base/modelProvider.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
