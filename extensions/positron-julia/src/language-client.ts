@@ -216,6 +216,8 @@ export class JuliaLanguageClient implements vscode.Disposable {
 			},
 			outputChannel: this._outputChannel,
 			traceOutputChannel: this._outputChannel,
+			// Help the language server find environments in subdirectories
+			workspaceFolder: vscode.workspace.workspaceFolders?.[0],
 		};
 
 		// Create and start the client
