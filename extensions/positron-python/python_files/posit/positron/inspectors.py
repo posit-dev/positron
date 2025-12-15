@@ -1260,6 +1260,18 @@ class RedshiftConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class SQLServerConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("pyodbc.Connection", "pymssql.Connection")
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1303,6 +1315,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(DatabricksConnectionInspector.CLASS_QNAME, DatabricksConnectionInspector),
     **dict.fromkeys(BigQueryConnectionInspector.CLASS_QNAME, BigQueryConnectionInspector),
     **dict.fromkeys(RedshiftConnectionInspector.CLASS_QNAME, RedshiftConnectionInspector),
+    **dict.fromkeys(SQLServerConnectionInspector.CLASS_QNAME, SQLServerConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
