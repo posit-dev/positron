@@ -126,10 +126,10 @@ runs:
           /root/.cache/ms-playwright
           /github/home/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
-        # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update save-build-caches/action.yml
-        key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        # IMPORTANT: If bumping playwright-v4 -> playwright-v5, also update save-build-caches/action.yml
+        key: playwright-v4-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
         restore-keys: |
-          playwright-v3-${{ runner.os }}-
+          playwright-v4-${{ runner.os }}-
 
     - name: Restore Electron binary cache
       if: ${{ inputs.restore-electron == 'true' }}
