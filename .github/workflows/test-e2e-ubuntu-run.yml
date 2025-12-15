@@ -122,6 +122,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DOCKER_CONFIG: /tmp/.docker
       POSITRON_BUILD_NUMBER: 0
+      HOME: /root
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false

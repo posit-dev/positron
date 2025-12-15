@@ -92,8 +92,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
-        path: |
-          ~\AppData\Local\ms-playwright
+        path: ~\AppData\Local\ms-playwright
         # Cache key tied directly to Playwright version for precision
         key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
