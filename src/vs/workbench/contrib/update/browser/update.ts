@@ -304,11 +304,17 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
 					console.log('[Positron Update] Ready - calling onUpdateReady with version:', productVersion);
+					console.log('[Positron Update] Step 1: About to parseVersion(this.productService.version)');
 					const currentVersion = parseVersion(this.productService.version);
+					console.log('[Positron Update] Step 2: currentVersion:', currentVersion);
 					const nextVersion = parseVersion(productVersion);
-					this.majorMinorUpdateAvailableContextKey.set(Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion)));
+					console.log('[Positron Update] Step 3: nextVersion:', nextVersion);
+					const isMajorMinor = Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion));
+					console.log('[Positron Update] Step 4: isMajorMinor:', isMajorMinor);
+					this.majorMinorUpdateAvailableContextKey.set(isMajorMinor);
+					console.log('[Positron Update] Step 5: Set context key');
 					try {
-						console.log('[Positron Update] About to call this.onUpdateReady - method exists?', typeof this.onUpdateReady, this.onUpdateReady);
+						console.log('[Positron Update] About to call this.onUpdateReady');
 						this.onUpdateReady(state.update);
 						console.log('[Positron Update] Returned from this.onUpdateReady');
 					} catch (e) {
