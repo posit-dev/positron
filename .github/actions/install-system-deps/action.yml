@@ -10,6 +10,15 @@ runs:
         # Prevent apt-get from hanging on interactive prompts
         export DEBIAN_FRONTEND=noninteractive
 
+        # Configure apt-get with timeouts to prevent hanging on slow downloads
+        # These options add retry logic and timeouts for network operations
+        sudo tee /etc/apt/apt.conf.d/99-timeout > /dev/null <<EOF
+        Acquire::http::Timeout "60";
+        Acquire::https::Timeout "60";
+        Acquire::ftp::Timeout "60";
+        Acquire::Retries "3";
+        EOF
+
         # Detect Ubuntu version
         UBUNTU_VERSION=$(lsb_release -rs)
         echo "Running on Ubuntu version: $UBUNTU_VERSION"
