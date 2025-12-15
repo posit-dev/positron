@@ -255,7 +255,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				if (state.explicit) {
 					this.explicitCheck = true;
 				}
-				console.log('[Positron Update] CheckingForUpdates - state.explicit:', state.explicit, 'this.explicitCheck:', this.explicitCheck);
 				break;
 			// --- End Positron ---
 
@@ -269,20 +268,17 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				// Only reset explicit check flag if we actually returned to idle (no update available)
 				// Keep it true if we're in an update flow (downloading, ready, etc.)
 				if (this.state.type === StateType.CheckingForUpdates) {
-					console.log('[Positron Update] Returning to Idle after check - resetting explicitCheck to false');
 					this.explicitCheck = false;
 				}
 				// --- End Positron ---
 				break;
 
 			case StateType.AvailableForDownload:
-				console.log('[Positron Update] State: AvailableForDownload - explicitCheck:', this.explicitCheck);
 				this.onUpdateAvailable(state.update);
 				break;
 
 			// --- Start Positron ---
 			case StateType.Downloading:
-				console.log('[Positron Update] State: Downloading - explicitCheck:', this.explicitCheck);
 				// With auto-update, we go directly from CheckingForUpdates to Downloading
 				// Show notification for explicit checks since they never see AvailableForDownload
 				if (this.explicitCheck) {
@@ -296,14 +292,11 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 				break;
 
 			case StateType.Ready: {
-				console.log('[Positron Update] State: Ready - explicitCheck:', this.explicitCheck);
-				console.log('[Positron Update] State Ready - update.productVersion:', state.update.productVersion, 'update.version:', state.update.version);
 				// --- Start Positron ---
 				// const productVersion = state.update.productVersion;
 				// Use version fallback like we do elsewhere
 				const productVersion = state.update.productVersion || state.update.version;
 				if (productVersion) {
-					console.log('[Positron Update] Ready - calling onUpdateReady with version:', productVersion);
 					// --- Start Positron ---
 					// Try to set major/minor update context, but don't let it block showing the notification
 					try {
@@ -312,27 +305,21 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 						const isMajorMinor = Boolean(currentVersion && nextVersion && isMajorMinorUpdate(currentVersion, nextVersion));
 						this.majorMinorUpdateAvailableContextKey.set(isMajorMinor);
 					} catch (e) {
-						console.log('[Positron Update] Could not parse versions for major/minor check, skipping:', e);
 						// Just set to false if we can't determine
 						this.majorMinorUpdateAvailableContextKey.set(false);
 					}
 					// --- End Positron ---
-					console.log('[Positron Update] About to call this.onUpdateReady');
 					this.onUpdateReady(state.update);
-					console.log('[Positron Update] Returned from this.onUpdateReady');
 				} else {
-					console.log('[Positron Update] State Ready but no version at all!');
 					// Still try to show notification without version
 					try {
 						this.onUpdateReady(state.update);
 					} catch (e) {
-						console.error('[Positron Update] Exception calling onUpdateReady (no version):', e);
 					}
 				}
 
 				// Reset explicitCheck after showing the Ready notification
 				// The manual check flow is now complete
-				console.log('[Positron Update] Ready notification shown, resetting explicitCheck to false');
 				this.explicitCheck = false;
 				// --- End Positron ---
 				break;
@@ -380,7 +367,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 	// --- Start Positron ---
 	private onUpdateDownloading(): void {
-		console.log('[Positron Update] onUpdateDownloading called - explicitCheck:', this.explicitCheck);
 		// Show notification when downloading starts (macOS auto-update flow)
 		this.notificationService.notify({
 			severity: Severity.Info,
@@ -469,19 +455,13 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 	// windows and mac
 	private onUpdateReady(update: IUpdate): void {
-		console.log('========== [Positron Update] onUpdateReady ENTRY POINT ==========');
-		console.log('[Positron Update] onUpdateReady called - explicitCheck:', this.explicitCheck);
-		console.log('[Positron Update] onUpdateReady - isMacintosh:', isMacintosh, 'isWindows:', isWindows);
 		// --- Start Positron ---
 		// Always show for: Windows system-wide installs OR manual checks
 		// Otherwise respect the throttle
 		const isWindowsSystemWide = isWindows && this.productService.target !== 'user';
-		console.log('[Positron Update] onUpdateReady - isWindowsSystemWide:', isWindowsSystemWide, 'shouldShowNotification:', this.shouldShowNotification());
 		if (!isWindowsSystemWide && !this.explicitCheck && !this.shouldShowNotification()) {
-			console.log('[Positron Update] Skipping onUpdateReady - not explicit and throttled');
 			return;
 		}
-		console.log('[Positron Update] onUpdateReady - PASSED throttle check, will show notification');
 		// --- End Positron ---
 
 		const actions = [{
@@ -506,7 +486,6 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		const message = productVersion
 			? nls.localize('updateReadyWithVersions', "{0} {1} update is now ready. Restart to apply.", this.productService.nameLong, productVersion)
 			: nls.localize('updateAvailableAfterRestart', "Restart {0} to apply the latest update.", this.productService.nameLong);
-		console.log('[Positron Update] Showing Ready notification:', message);
 		// --- End Positron ---
 
 		// windows user fast updates and mac
