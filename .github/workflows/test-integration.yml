@@ -81,6 +81,14 @@ jobs:
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
 
+      - name: Run extension postinstall scripts
+        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
+        run: |
+          # When extensions cache hits, postinstall scripts don't run
+          # But positron-r needs postinstall to download/setup the Ark kernel binary
+          echo "Extensions cache hit - running postinstall scripts for critical extensions"
+          cd extensions/positron-r && npm run postinstall
+
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
