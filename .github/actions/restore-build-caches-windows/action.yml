@@ -116,6 +116,15 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update save-build-caches-windows/action.yml
         key: npm-extensions-v1-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
+    - name: Extract Playwright version
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: playwright-version
+      shell: bash
+      run: |
+        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Playwright version: $PLAYWRIGHT_VERSION"
+
     - name: Restore Playwright browsers cache
       if: ${{ inputs.restore-playwright == 'true' }}
       id: cache-playwright
@@ -124,11 +133,10 @@ runs:
       with:
         path: |
           ~\AppData\Local\ms-playwright
-        # Include the e2e lockfile too in case test/e2e has its own playwright deps
-        # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update save-build-caches-windows/action.yml
-        key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        # Cache key tied directly to Playwright version for precision
+        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
         restore-keys: |
-          playwright-v3-${{ runner.os }}-
+          ${{ runner.os }}-playwright-
 
     - name: Restore Electron binary cache
       if: ${{ inputs.restore-electron == 'true' }}

@@ -78,6 +78,15 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v1 -> npm-extensions-v2, also update restore-build-caches-windows/action.yml
         key: npm-extensions-v1-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
+    - name: Extract Playwright version
+      if: ${{ inputs.cache-playwright-hit == 'false' }}
+      id: playwright-version
+      shell: bash
+      run: |
+        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Playwright version: $PLAYWRIGHT_VERSION"
+
     - name: Save Playwright browsers cache
       if: ${{ inputs.cache-playwright-hit == 'false' }}
       continue-on-error: true
@@ -85,8 +94,8 @@ runs:
       with:
         path: |
           ~\AppData\Local\ms-playwright
-        # IMPORTANT: If bumping playwright-v3 -> playwright-v4, also update restore-build-caches-windows/action.yml
-        key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        # Cache key tied directly to Playwright version for precision
+        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
 
     - name: Save Electron binary cache
       if: ${{ inputs.cache-electron-hit == 'false' }}
