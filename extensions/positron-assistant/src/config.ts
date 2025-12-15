@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
-import { clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel } from './extension';
+import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositLanguageModel } from './posit.js';
@@ -285,9 +285,17 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	try {
 		await registerModel(newConfig, context, storage);
 
-		// Only save to persistent state for non-autoconfigured models
-		// Autoconfigured models (e.g., Copilot, env var based) are managed externally
-		if (!isAutoconfigured) {
+		if (isAutoconfigured) {
+			// Track autoconfigured models in memory so they are returned by
+			// getAutoconfiguredModels()
+			addAutoconfiguredModel({
+				...newConfig,
+				apiKey: apiKey || ''
+			});
+		} else {
+			// Only save to persistent state for non-autoconfigured models
+			// Autoconfigured models (e.g., Copilot, env var based) are managed
+			// externally
 			await context.globalState.update(
 				'positron.assistant.models',
 				[...existingConfigs, newConfig]
@@ -325,7 +333,9 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {
-		// Provider may be autoconfigured and not in persistent state, which is fine
+		// Provider may be autoconfigured and not in persistent state
+		// Remove from autoconfigured models list if present
+		removeAutoconfiguredModel(providerId);
 		return;
 	}
 	await deleteConfiguration(context, storage, targetConfig.id);
