@@ -92,30 +92,16 @@ export class CopilotService implements vscode.Disposable {
 		return !!this._authSession;
 	}
 
-	static async autoconfigure(): Promise<AutoconfigureResult> {
-		// Refresh the signed-in state if needed
-		if (!CopilotService.instance().isSignedIn) {
-			CopilotService.instance().refreshSignedInState();
-		}
-
-		if (CopilotService.instance().isSignedIn) {
-			return {
-				signedIn: true,
-				message: vscode.l10n.t('the Accounts menu.')
-			};
-		} else {
-			return {
-				signedIn: false,
-			}
-		}
-	}
-
 	/**
 	 * Refresh the signed-in state based on the current model registration status.
 	 * This should be called when a model is registered or deleted.
 	 */
 	public async refreshSignedInState(): Promise<void> {
-		const session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true });
+		// Try the full scope first (used when signing in), then fall back to minimal scope
+		let session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_ALIGNED, { silent: true });
+		if (!session) {
+			session = await vscode.authentication.getSession(PROVIDER_ID, GITHUB_SCOPE_USER_EMAIL, { silent: true });
+		}
 		if (session?.id !== this._authSession?.id) {
 			this.setAuthSession(session);
 		}
@@ -185,6 +171,24 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	public provider: string;
 	public id: string;
 	public name: string;
+
+	static async autoconfigure(): Promise<AutoconfigureResult> {
+		// Refresh the signed-in state if needed
+		if (!CopilotService.instance().isSignedIn) {
+			await CopilotService.instance().refreshSignedInState();
+		}
+
+		if (CopilotService.instance().isSignedIn) {
+			return {
+				signedIn: true,
+				message: vscode.l10n.t('the Accounts menu.')
+			};
+		} else {
+			return {
+				signedIn: false,
+			}
+		}
+	}
 
 	constructor(
 		private readonly _config: ModelConfig,
