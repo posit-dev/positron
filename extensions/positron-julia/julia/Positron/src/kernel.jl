@@ -13,31 +13,70 @@ using IJulia
 using Logging
 using Dates
 
-"""
-Kernel logging functions - write to kernel log (not console).
+# Global log file handle
+const _log_file = Ref{Union{IOStream,Nothing}}(nothing)
 
-Uses IJulia.orig_stderr which routes to Positron's Kernel output channel.
-Includes timestamp and log level for clarity.
+"""
+Get the log file stream, opening it if necessary.
+Uses POSITRON_KERNEL_LOG environment variable.
+Falls back to orig_stderr if no log file is configured.
+"""
+function get_log_stream()
+    # Return cached file handle if already open
+    if _log_file[] !== nothing
+        return _log_file[]
+    end
+
+    # Try to open log file from environment variable
+    log_path = get(ENV, "POSITRON_KERNEL_LOG", "")
+    if !isempty(log_path)
+        try
+            _log_file[] = open(log_path, "a")
+            return _log_file[]
+        catch
+            # Fall back to stderr if we can't open the log file
+        end
+    end
+
+    # Fall back to orig_stderr
+    if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
+        return IJulia.orig_stderr[]
+    end
+
+    return nothing
+end
+
+"""
+Kernel logging functions - write to kernel log file or stderr.
+
+Uses POSITRON_KERNEL_LOG file if available, otherwise falls back to
+IJulia.orig_stderr. Writing to a file is streamed by LogStreamer
+and avoids the blank line issue with direct stderr output.
 """
 function kernel_log_info(msg::String)
-    if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
+    stream = get_log_stream()
+    if stream !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        # Use print instead of write to avoid blank lines
-        println(IJulia.orig_stderr[], "$timestamp [info] $msg")
+        println(stream, "$timestamp [info] $msg")
+        flush(stream)
     end
 end
 
 function kernel_log_warn(msg::String)
-    if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
+    stream = get_log_stream()
+    if stream !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        println(IJulia.orig_stderr[], "$timestamp [warn] $msg")
+        println(stream, "$timestamp [warn] $msg")
+        flush(stream)
     end
 end
 
 function kernel_log_error(msg::String)
-    if isdefined(IJulia, :orig_stderr) && IJulia.orig_stderr[] !== nothing
+    stream = get_log_stream()
+    if stream !== nothing
         timestamp = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS.sss")
-        println(IJulia.orig_stderr[], "$timestamp [error] $msg")
+        println(stream, "$timestamp [error] $msg")
+        flush(stream)
     end
 end
 
@@ -139,7 +178,10 @@ Register Jupyter comm targets for Positron services.
 # IJulia comm target registration using type dispatch.
 # IJulia calls these methods when a comm is opened with the corresponding target.
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.variables")}, msg::IJulia.Msg)
+function IJulia.register_comm(
+    comm::IJulia.Comm{Symbol("positron.variables")},
+    msg::IJulia.Msg,
+)
     try
         kernel = get_kernel()
         if kernel !== nothing
@@ -165,7 +207,10 @@ function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.plot")}, msg::I
     end
 end
 
-function IJulia.register_comm(comm::IJulia.Comm{Symbol("positron.dataExplorer")}, msg::IJulia.Msg)
+function IJulia.register_comm(
+    comm::IJulia.Comm{Symbol("positron.dataExplorer")},
+    msg::IJulia.Msg,
+)
     kernel = get_kernel()
     if kernel !== nothing
         handle_data_explorer_comm_open(kernel, comm, msg)
@@ -283,7 +328,9 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
     # Forward messages from IJulia to our comm
     if hasproperty(ijulia_comm, :on_msg)
         ijulia_comm.on_msg = function (msg)
-            kernel_log_info("Received comm message on $(our_comm.target_name): comm_id=$(our_comm.comm_id)")
+            kernel_log_info(
+                "Received comm message on $(our_comm.target_name): comm_id=$(our_comm.comm_id)",
+            )
             # msg is IJulia.Msg struct with .content field
             content = msg.content
             data = get(content, "data", Dict())
@@ -346,7 +393,7 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         else
             # Normal path: use IJulia.send_comm which uses kernel.execute_msg as parent
             kernel_log_info("Using execute_msg as parent (normal send)")
-            IJulia.send_comm(comm.kernel, data_dict; kernel=ijulia_kernel)
+            IJulia.send_comm(comm.kernel, data_dict; kernel = ijulia_kernel)
             kernel_log_info("IJulia.send_comm completed successfully")
         end
     catch e

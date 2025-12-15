@@ -5,8 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
 
 import { JuliaInstallation } from './julia-installation';
 import { JupyterKernelSpec } from './positron-supervisor';
@@ -23,12 +21,8 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 	const config = vscode.workspace.getConfiguration('positron.julia.kernel');
 	const logLevel = config.get<string>('logLevel', 'warn');
 
-	// Create kernel log file (Positron will stream this to Kernel output channel)
-	const kernelLogFile = path.join(os.tmpdir(), `julia-kernel-${Date.now()}.log`);
-	fs.writeFileSync(kernelLogFile, '', 'utf8');  // Create empty log file
-
 	// Build the kernel arguments
-	// The {connection_file} placeholder is replaced by the supervisor with the actual connection file path
+	// The {connection_file} and {log_file} placeholders are replaced by the supervisor
 	// Note: We match the standard IJulia kernel.json format closely for compatibility
 	const argv = [
 		installation.binpath,
@@ -37,6 +31,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 		'-e',
 		getKernelStartupCode(),
 		'{connection_file}',
+		'{log_file}',  // Log file path for kernel output
 	];
 
 	// Build environment variables
@@ -47,9 +42,6 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 		// Disable ANSI color codes in all output (NO_COLOR is standard, FORCE_COLOR=0 for compatibility)
 		NO_COLOR: '1',
 		FORCE_COLOR: '0',
-
-		// Positron kernel log file (Julia writes diagnostic logs here)
-		POSITRON_KERNEL_LOG: kernelLogFile,
 
 		// Positron-specific environment variables
 		POSITRON: '1',
@@ -113,7 +105,12 @@ function getKernelStartupCode(): string {
 		'Positron'
 	).replace(/\\/g, '/');  // Use forward slashes for Julia
 
+	// Command line args are: connection_file, log_file
+	// We need to set POSITRON_KERNEL_LOG before loading Positron so logging works
 	return `
+		if length(ARGS) >= 2
+			ENV["POSITRON_KERNEL_LOG"] = ARGS[2];
+		end;
 		using Pkg;
 		if !haskey(Pkg.project().dependencies, "IJulia") &&
 			!haskey(Pkg.dependencies(), Base.UUID("7073ff75-c697-5162-941a-fcdaad2a7d2a"))
