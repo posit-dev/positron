@@ -93,8 +93,8 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/.cache/ms-playwright
-        # Cache key tied directly to Playwright version for precision
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+        # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
+        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
 
     - name: Save Electron binary cache
       if: ${{ inputs.cache-electron-hit == 'false' }}

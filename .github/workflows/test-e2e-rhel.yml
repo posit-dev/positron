@@ -195,7 +195,9 @@ jobs:
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: |
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
-          npx playwright install --with-deps
+          # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
+          # System dependencies should be pre-installed in the Docker container
+          npx playwright install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch
@@ -232,7 +234,8 @@ jobs:
         if: ${{ inputs.project == 'e2e-chromium' && steps.restore-caches.outputs.cache-playwright-hit == 'true' }}
         run: |
           echo "Installing chromium browser for e2e-chromium project"
-          npx playwright install chromium --with-deps
+          # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
+          npx playwright install chromium
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
