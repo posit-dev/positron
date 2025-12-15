@@ -52,7 +52,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 
 	const [modalState, setModalState] = useState<ModalState>({ kind: ModalStateKind.ListDrivers });
 
-	// If threre is a foreground session, use its language ID as the preferred language id.
+	// If there is a foreground session, use its language ID as the preferred language id.
 	const [languageId, setLanguageId] = useState<string | undefined>(
 		props.renderer.services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId
 	);
@@ -106,7 +106,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 										// anything
 										setModalState({ kind: ModalStateKind.CreateConnection, driver: drivers[0], previous: modalState });
 									} else {
-										// otherwise we set the state the user to select the driver details
+										// otherwise we set the state the user to the user select the driver details
 										setModalState({ kind: ModalStateKind.SelectDriverDetails, drivers, previous: modalState });
 									}
 								}} />;

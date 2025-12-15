@@ -94,7 +94,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
 
 						const icon = baseIcon ?
-							<img className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
+							<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
 							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
 						return <div key={name} className='driver-list-item'>

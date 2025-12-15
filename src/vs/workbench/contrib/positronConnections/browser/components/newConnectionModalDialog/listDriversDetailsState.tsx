@@ -22,14 +22,14 @@ interface ListDriversDetailsProps {
 }
 
 export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsProps>) => {
-	const driver = props.drivers;
+	const drivers = props.drivers;
 
 	// drivers must be length > 1
-	if (driver.length <= 1) {
+	if (drivers.length <= 1) {
 		throw new Error('ListDriversDetails requires more than one driver');
 	}
 
-	const name = driver[0].metadata.name;
+	const name = drivers[0].metadata.name;
 	const summarizeInputs = (inputs: Input[]): React.ReactNode => {
 		if (inputs.length === 0) {
 			return localize(
@@ -52,13 +52,14 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 				)}
 			</h1>
 			<div className='icon'>
-				{driver[0].metadata.base64EncodedIconSvg ? <img
-					src={`data:image/svg+xml;base64,${driver[0].metadata.base64EncodedIconSvg}`}
+				{drivers[0].metadata.base64EncodedIconSvg ? <img
+					alt='' // decorative image
+					src={`data:image/svg+xml;base64,${drivers[0].metadata.base64EncodedIconSvg}`}
 				/> : null}
 			</div>
 		</div>
 		<div className='drivers-list'>
-			{driver.map((driver) => (
+			{drivers.map((driver) => (
 				<div key={driver.driverId} className='driver-list-item'>
 					<div className='driver-info' onMouseDown={() => props.onDriverSelected(driver)}>
 						<div className='driver-description'>

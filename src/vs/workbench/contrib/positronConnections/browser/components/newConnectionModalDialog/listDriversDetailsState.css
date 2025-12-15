@@ -29,7 +29,7 @@
 
 .connections-new-connection-list-drivers-details > .footer {
 	grid-row: 3;
-	display:inline-flex;
+	display: inline-flex;
 }
 
 .connections-new-connection-list-drivers-details > .footer > .button {
