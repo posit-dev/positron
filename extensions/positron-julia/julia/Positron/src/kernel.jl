@@ -522,3 +522,46 @@ function test_error_logging()
         kernel_log_info("If you see this in Kernel log (not console), error logging works!")
     end
 end
+
+# -------------------------------------------------------------------------
+# UI Notifications
+# -------------------------------------------------------------------------
+
+"""
+Show a message notification in the Positron UI.
+
+This displays a toast notification in the bottom right corner of the IDE.
+Useful for informing users about important events or errors.
+
+# Arguments
+- `message::String`: The message to display in the notification.
+
+# Examples
+```julia
+Positron.show_ui_message("Data import completed successfully!")
+Positron.show_ui_message("Warning: Large dataset may take time to process")
+```
+"""
+function show_ui_message(message::String)
+    kernel = get_kernel()
+    if !kernel.started
+        kernel_log_warn("Positron services not started, cannot show UI message")
+        return
+    end
+
+    show_message!(kernel.ui, message)
+end
+
+"""
+Test function to verify UI notifications work correctly.
+
+This function sends a test notification to the Positron UI.
+You should see a toast notification appear in the bottom right corner.
+
+Call with: Positron.test_ui_notification()
+"""
+function test_ui_notification()
+    kernel_log_info("Testing UI notification - sending message to Positron UI")
+    show_ui_message("Test notification from Julia kernel! If you see this popup, UI notifications work correctly.")
+    kernel_log_info("UI notification sent - check for toast notification in bottom right")
+end
