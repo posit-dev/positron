@@ -23,6 +23,10 @@ ignore = [
     'tests/testing_tools/adapter/test_util.py',
     'tests/testing_tools/adapter/pytest/test_cli.py',
     'tests/testing_tools/adapter/pytest/test_discovery.py',
+    # --- Start Positron ---
+    # We don't vendor jedilsp anymore so this import statement gets confused
+    'run-jedi-language-server.py',
+    # --- End Positron ---
 ]
 
 [tool.ruff]
