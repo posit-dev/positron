@@ -22,6 +22,8 @@ import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { getActiveCell } from '../../selectionMachine.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { CellEditorPosition } from '../../../common/editor/position.js';
+import { showHistoryKeybindingHint } from '../../../../../../platform/history/browser/historyWidgetKeybindingHint.js';
+import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -63,8 +65,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	constructor(
 		private readonly _notebook: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ILogService private readonly _logService: ILogService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
 
@@ -107,6 +110,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					showCommonFindToggles: true,
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
+					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
