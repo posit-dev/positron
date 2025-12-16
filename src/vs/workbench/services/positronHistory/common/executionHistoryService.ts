@@ -77,7 +77,7 @@ export interface IInputHistoryEntry {
 	/** Time that the input was submitted, in milliseconds since the Epoch */
 	when: number;
 
-	/** The debug state at the time the input was submitted */
+	/** The debug state at the time the input was submitted, if any */
 	debug?: string;
 
 	/** The code that was submitted, as a multi-line string */
