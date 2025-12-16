@@ -441,6 +441,140 @@ using DataFrames
         @test alice.age == 30
     end
 
+    @testset "Nested Struct Path Navigation" begin
+        # Define nested structs
+        struct InnerPoint
+            x::Float64
+            y::Float64
+        end
+
+        struct OuterBox
+            origin::InnerPoint
+            size::InnerPoint
+            label::String
+        end
+
+        box = OuterBox(InnerPoint(0.0, 0.0), InnerPoint(10.0, 20.0), "MyBox")
+        @eval Main test_box = $box
+
+        # Navigate to nested struct
+        origin = Positron.get_value_at_path(["test_box", "origin"])
+        @test origin isa InnerPoint
+        @test origin.x == 0.0
+
+        # Navigate to nested field via get_child_value
+        origin_x = Positron.get_child_value(box, "origin")
+        @test origin_x isa InnerPoint
+
+        # Get children of nested struct
+        origin_children = Positron.get_children(origin)
+        @test length(origin_children) == 2
+        x_child = filter(c -> c.display_name == "x", origin_children)[1]
+        @test x_child.display_value == "0.0"
+        @test x_child.has_children == false
+
+        # Verify parent struct children include nested structs
+        box_children = Positron.get_children(box)
+        @test length(box_children) == 3
+        origin_child = filter(c -> c.display_name == "origin", box_children)[1]
+        @test origin_child.has_children == true
+        @test occursin("InnerPoint", origin_child.display_type)
+    end
+
+    @testset "Parametric Structs" begin
+        struct Wrapper{T}
+            value::T
+            metadata::String
+        end
+
+        # Wrapper with Int
+        int_wrapper = Wrapper(42, "integer")
+        @test Positron.value_has_children(int_wrapper) == true
+
+        children = Positron.get_children(int_wrapper)
+        @test length(children) == 2
+
+        value_child = filter(c -> c.display_name == "value", children)[1]
+        @test value_child.display_value == "42"
+        @test value_child.has_children == false
+
+        # Wrapper with Vector
+        vec_wrapper = Wrapper([1, 2, 3], "vector")
+        vec_children = Positron.get_children(vec_wrapper)
+        vec_value_child = filter(c -> c.display_name == "value", vec_children)[1]
+        @test vec_value_child.has_children == true  # Vector has children
+
+        # Wrapper with nested Wrapper
+        nested_wrapper = Wrapper(Wrapper(99, "inner"), "outer")
+        nested_children = Positron.get_children(nested_wrapper)
+        nested_value = filter(c -> c.display_name == "value", nested_children)[1]
+        @test nested_value.has_children == true  # Inner Wrapper has children
+    end
+
+    @testset "Structs with Special Field Types" begin
+        struct SpecialFields
+            required::Int
+            optional::Union{String,Nothing}
+            maybe_missing::Union{Float64,Missing}
+            any_value::Any
+        end
+
+        # With all values present
+        full = SpecialFields(1, "present", 3.14, [1, 2, 3])
+        children = Positron.get_children(full)
+        @test length(children) == 4
+
+        optional_child = filter(c -> c.display_name == "optional", children)[1]
+        @test optional_child.display_value == "\"present\""
+
+        any_child = filter(c -> c.display_name == "any_value", children)[1]
+        @test any_child.has_children == true  # Vector has children
+
+        # With nothing
+        with_nothing = SpecialFields(1, nothing, 3.14, "string")
+        nothing_children = Positron.get_children(with_nothing)
+        optional_nothing = filter(c -> c.display_name == "optional", nothing_children)[1]
+        @test optional_nothing.display_value == "nothing"
+        @test optional_nothing.has_children == false
+
+        # With missing
+        with_missing = SpecialFields(1, "present", missing, nothing)
+        missing_children = Positron.get_children(with_missing)
+        maybe_missing_child = filter(c -> c.display_name == "maybe_missing", missing_children)[1]
+        @test maybe_missing_child.display_value == "missing"
+        @test maybe_missing_child.has_children == false
+    end
+
+    @testset "Struct with Many Fields" begin
+        struct ManyFields
+            a::Int
+            b::Int
+            c::Int
+            d::Int
+            e::Int
+            f::String
+            g::String
+            h::Float64
+            i::Bool
+            j::Vector{Int}
+        end
+
+        obj = ManyFields(1, 2, 3, 4, 5, "f", "g", 8.0, true, [10, 11])
+
+        children = Positron.get_children(obj)
+        @test length(children) == 10
+
+        # Verify all fields are present
+        names = Set([c.display_name for c in children])
+        @test "a" in names
+        @test "j" in names
+
+        # Verify types are correct
+        j_child = filter(c -> c.display_name == "j", children)[1]
+        @test j_child.has_children == true
+        @test occursin("Vector", j_child.display_type)
+    end
+
     @testset "Inspect DataFrame - Basic" begin
         df = DataFrame(
             id = 1:5,
