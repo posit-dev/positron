@@ -157,3 +157,19 @@ Get the current plot render settings.
 function get_plot_render_settings(service::UIService)::PlotRenderSettings
     return service.plot_render_settings
 end
+
+"""
+Show a message notification to the user in the Positron UI.
+
+This displays a toast notification in the bottom right corner of the IDE.
+"""
+function show_message!(service::UIService, message::String)
+    if service.comm === nothing
+        kernel_log_warn("UI comm not initialized, cannot show message: $message")
+        return
+    end
+
+    params = UiShowMessageParams(message)
+    send_event(service.comm, "show_message", params)
+    kernel_log_info("Sent UI notification: $message")
+end

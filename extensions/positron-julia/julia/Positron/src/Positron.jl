@@ -50,7 +50,10 @@ include("kernel.jl")
 export PositronKernel, get_kernel, start_services!, stop_services!
 
 # Exports - User-facing functions
-export view, showhelp
+export view, showhelp, show_ui_message
+
+# Exports - Test functions
+export test_error_logging, test_ui_notification
 
 # Exports - Services (for advanced usage)
 export VariablesService, HelpService, PlotsService, DataExplorerService, UIService
