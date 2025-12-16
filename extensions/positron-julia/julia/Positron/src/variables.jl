@@ -69,7 +69,7 @@ handle_request(service::VariablesService, r::VariablesDeleteParams) = handle_del
 handle_request(service::VariablesService, r::VariablesInspectParams) = handle_inspect(service, r.path)
 handle_request(service::VariablesService, r::VariablesClipboardFormatParams) = handle_clipboard_format(service, r.path, r.format)
 handle_request(service::VariablesService, r::VariablesViewParams) = handle_view(service, r.path)
-handle_request(service::VariablesService, r) = @warn "Variables: unknown request type" request_type=typeof(r)
+handle_request(service::VariablesService, r) = kernel_log_warn("Variables: unknown request type=$(typeof(r))")
 
 """
 Handle variables comm close.
@@ -105,7 +105,7 @@ function handle_clear(service::VariablesService, include_hidden::Bool)
             # or remove them from the workspace. For now, we'll skip this functionality
             # as it's complex to implement safely.
         catch e
-            @warn "Failed to clear variable" name exception=e
+            kernel_log_warn("Failed to clear variable $name: $(sprint(showerror, e))")
         end
     end
 
@@ -213,8 +213,8 @@ function collect_variables()::Vector{Variable}
             value = getfield(Main, name)
             var = create_variable(string(name), value, current_time)
             push!(variables, var)
-        catch e
-            @debug "Failed to collect variable" name exception=e
+        catch
+            # Skip variables that can't be accessed
         end
     end
 

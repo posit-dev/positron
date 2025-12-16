@@ -75,10 +75,7 @@ function handle_call_method(service::UIService, request::UiCallMethodParams)
         result = call_interpreter_method(request.method, request.params)
         send_result(service.comm, result)
     catch e
-        @error "Failed to call method" method=request.method exception=(
-            e,
-            catch_backtrace(),
-        )
+        kernel_log_error("Failed to call method $(request.method): $(sprint(showerror, e, catch_backtrace()))")
         send_error(
             service.comm,
             JsonRpcErrorCode.INTERNAL_ERROR,

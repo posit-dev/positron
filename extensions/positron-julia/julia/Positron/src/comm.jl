@@ -60,7 +60,7 @@ function handle_msg(comm::PositronComm, msg::Dict)
                 comm.msg_handler(msg)
             end
         catch e
-            @error "Error handling comm message" exception=(e, catch_backtrace())
+            kernel_log_error("Error handling comm message: $(sprint(showerror, e, catch_backtrace()))")
             send_error(
                 comm,
                 JsonRpcErrorCode.INTERNAL_ERROR,
@@ -107,7 +107,7 @@ Open the comm (send comm_open to frontend).
 """
 function open!(comm::PositronComm)
     # TODO: Send comm_open message via IJulia
-    @debug "Opening comm" comm_id=comm.comm_id target=comm.target_name
+    kernel_log_info("Opening comm: comm_id=$(comm.comm_id), target=$(comm.target_name)")
 end
 
 """
@@ -118,5 +118,5 @@ function close!(comm::PositronComm)
         comm.close_handler()
     end
     # TODO: Send comm_close message via IJulia
-    @debug "Closing comm" comm_id=comm.comm_id
+    kernel_log_info("Closing comm: comm_id=$(comm.comm_id)")
 end

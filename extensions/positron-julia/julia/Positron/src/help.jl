@@ -98,8 +98,8 @@ function get_help_content(topic::String)::Union{String,Nothing}
 
         # Convert to HTML
         return markdown_to_html(doc)
-    catch e
-        @debug "Failed to get help content" topic exception=e
+    catch
+        # Return nothing if help content can't be retrieved
         return nothing
     end
 end
@@ -160,8 +160,8 @@ function fetch_documentation(sym)::Union{String,Nothing}
         io = IOBuffer()
         show(IOContext(io, :color => false), MIME("text/plain"), doc)
         return String(take!(io))
-    catch e
-        @debug "Failed to fetch documentation" sym exception=e
+    catch
+        # Return nothing if documentation can't be fetched
         return nothing
     end
 end

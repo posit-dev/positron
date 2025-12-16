@@ -150,7 +150,7 @@ function handle_render(service::PlotsService, request::PlotRenderParams)
         result = PlotResult(base64encode(data), mime_type, settings)
         send_result(service.comm, result)
     catch e
-        @error "Failed to render plot" exception=(e, catch_backtrace())
+        kernel_log_error("Failed to render plot: $(sprint(showerror, e, catch_backtrace()))")
         send_error(
             service.comm,
             JsonRpcErrorCode.INTERNAL_ERROR,
@@ -255,8 +255,8 @@ function show_plot!(service::PlotsService, plot_obj::Any; id::String = string(uu
         )
 
         PlotResult(base64encode(data), "image/png", settings)
-    catch e
-        @debug "Failed to pre-render plot" exception=e
+    catch
+        # Pre-rendering is optional, continue without it
         nothing
     end
 
