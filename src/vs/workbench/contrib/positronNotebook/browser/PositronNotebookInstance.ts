@@ -49,6 +49,11 @@ import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, C
 import { Range } from '../../../../editor/common/core/range.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
+import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
+import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
+import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
+import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -177,6 +182,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Key-value map of language to base cell editor options for cells of that language.
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+
+	/**
+	 * Cached font information for the notebook editor.
+	 * Lazily generated on first access to getLayoutInfo().
+	 */
+	private _fontInfo: FontInfo | undefined;
 
 	/**
 	 * Model for the notebook contents.
@@ -461,6 +472,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}));
 		}
 
+		// Invalidate font cache when editor configuration changes
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('editor')) {
+				this._fontInfo = undefined;
+			}
+		}));
+
 		// Observe the current selected kernel from the notebook kernel service
 		this.kernel = observableFromEvent(
 			this,
@@ -682,18 +700,34 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Generates font information for the notebook editor.
+	 * Uses the same approach as VS Code notebooks to get actual measured font metrics.
+	 * @private
+	 */
+	private _generateFontInfo(): void {
+		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
+		const targetWindow = this._container ? DOM.getWindow(this._container) : DOM.getActiveWindow();
+		this._fontInfo = FontMeasurements.readFontInfo(
+			targetWindow,
+			createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value)
+		);
+	}
+
+	/**
 	 * Get layout information for the notebook editor.
-	 * For Positron notebooks, returns stub layout info.
-	 * Note: fontInfo is cast since decorators don't use it for Positron notebooks.
+	 * Returns actual layout dimensions and measured font information.
 	 */
 	getLayoutInfo(): NotebookLayoutInfo {
-		// Return stub layout info - dimensions don't matter for decorator purposes
-		// fontInfo is stubbed since decorators only check dimensions
+		// Generate fontInfo on first access
+		if (!this._fontInfo) {
+			this._generateFontInfo();
+		}
+
 		return {
 			width: this._container?.clientWidth ?? 0,
 			height: this._container?.clientHeight ?? 0,
 			scrollHeight: this._cellsContainer?.scrollHeight ?? 0,
-			fontInfo: undefined as unknown as NotebookLayoutInfo['fontInfo'],
+			fontInfo: this._fontInfo!,
 			stickyHeight: 0,
 			listViewOffsetTop: 0,
 		};
