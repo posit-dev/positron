@@ -35,21 +35,22 @@ runs:
           fi
         done
 
-        # Check critical binaries exist
-        if [ ! -f "node_modules/.bin/tsc" ]; then
+        # Check critical binaries exist in root node_modules
+        if [ ! -e "node_modules/.bin/tsc" ]; then
           echo "❌ Missing: node_modules/.bin/tsc"
           MISSING="$MISSING tsc"
         fi
 
-        if [ ! -f "node_modules/.bin/esbuild" ]; then
-          echo "❌ Missing: node_modules/.bin/esbuild"
+        # Check critical binaries exist in build/node_modules
+        if [ ! -e "build/node_modules/.bin/esbuild" ]; then
+          echo "❌ Missing: build/node_modules/.bin/esbuild"
           MISSING="$MISSING esbuild"
         fi
 
-        # Check patch-package ran (git patches were applied)
-        if [ ! -d "node_modules/.cache/patch-package" ]; then
-          echo "❌ Missing: patch-package cache (patches may not be applied)"
-          MISSING="$MISSING patch-package"
+        # Check that patch-package binary exists (required for postinstall)
+        if [ ! -e "node_modules/.bin/patch-package" ]; then
+          echo "❌ Missing: node_modules/.bin/patch-package"
+          MISSING="$MISSING patch-package-bin"
         fi
 
         if [ -n "$MISSING" ]; then
@@ -65,6 +66,8 @@ runs:
           echo "**Missing artifacts:**$MISSING" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Action taken:** npm dependencies will be reinstalled to regenerate the cache." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Checked: node_modules directories, tsc binary, esbuild binary, patch-package binary_" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           exit 1

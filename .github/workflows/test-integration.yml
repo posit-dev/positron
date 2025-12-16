@@ -81,6 +81,11 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
+            # Echo the if condition for debugging
+            echo "Cache npm core hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}"
+            echo "Cache npm extensions hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}"
+            echo "NPM cache verification: ${{ steps.verify-npm-cache.outputs.verification }}"
+
             # Install node-gyp (required by some packages)
             npm i --global node-gyp
 
