@@ -558,7 +558,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						);
+						).filter(entry => {
+							// Filter out debug entries.
+							return !entry.debug || entry.debug === 'inactive';
+						});
 					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
 				}
@@ -624,7 +627,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						);
+						).filter(entry => {
+							// Filter out debug entries.
+							return !entry.debug || entry.debug === 'inactive';
+						});
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;
