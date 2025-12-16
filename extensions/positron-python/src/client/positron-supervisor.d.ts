@@ -416,6 +416,12 @@ export interface DapComm {
      */
     handleMessage(msg: any): Promise<boolean>;
 
+    /** Connect to the DAP server. */
+    connect(): Promise<void>;
+
+    /** Disconnect from the DAP server. */
+    disconnect(): Promise<void>;
+
     /**
      * Dispose of the underlying comm.
      * Must be called if the DAP comm is no longer in use.

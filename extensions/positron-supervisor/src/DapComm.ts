@@ -23,6 +23,7 @@ export class DapComm {
 	private _port?: number;
 	private _debugSession?: vscode.DebugSession | undefined;
 	private attach?: () => Promise<void>;
+	private connected = false;
 
 	// Message counter used for creating unique message IDs
 	private messageCounter = 0;
@@ -68,8 +69,31 @@ export class DapComm {
 		this.attach = async () => {
 			this._debugSession = await this.startDebugSession(config, debugOptions);
 		};
+	}
 
+	async connect() {
+		if (!this.attach) {
+			throw new Error('Comm must be connected');
+		}
+
+		this.connected = true;
+
+		if (this._debugSession) {
+			return;
+		}
 		await this.attach();
+	}
+
+	async disconnect() {
+		const session = this._debugSession;
+
+		this.connected = false;
+		this._debugSession = undefined;
+
+		if (!session) {
+			return;
+		}
+		await vscode.debug.stopDebugging(session);
 	}
 
 	private debugSession(): vscode.DebugSession {
@@ -99,8 +123,12 @@ export class DapComm {
 				return true;
 			}
 
+			// Allow the backend to automatically reattach but only if we're
+			// online (i.e. not a background console session)
 			case 'attach': {
-				await this.attach!();
+				if (this.connected) {
+					await this.attach!();
+				}
 			}
 
 			// If the DAP has commands to execute, such as "n", "f", or "Q",
@@ -131,7 +159,7 @@ export class DapComm {
 		}
 	}
 
-	async startDebugSession(
+	private async startDebugSession(
 		config: vscode.DebugConfiguration,
 		sessionOptions: vscode.DebugSessionOptions
 	): Promise<vscode.DebugSession | undefined> {
