@@ -2259,7 +2259,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2025.14"
+            "pet": "2025.16"
         }
     }
 }
