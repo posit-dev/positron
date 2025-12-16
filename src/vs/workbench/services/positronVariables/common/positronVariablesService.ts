@@ -194,7 +194,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	/**
 	 * Sets whether the Variables pane is visible.
 	 * When the pane becomes hidden, all instances are disposed.
-	 * When the pane becomes visible, a new instance is lazily created for the foreground session.
+	 * When the pane becomes visible, instances are created for all active sessions.
 	 *
 	 * @param visible Whether the Variables pane is visible.
 	 */
@@ -210,11 +210,27 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			// Dispose all instances when the view is hidden
 			this._disposeAllInstances();
 		} else {
-			// Lazily create an instance for the foreground session only
+			// Create instances for all active sessions
+			const activeSessions = this._runtimeSessionService.activeSessions;
 			const foregroundSession = this._runtimeSessionService.foregroundSession;
-			if (foregroundSession) {
-				this.createOrAssignPositronVariablesInstance(foregroundSession, true);
+
+			// Create instances for all sessions, activating only the foreground one
+			for (const session of activeSessions) {
+				const isActivate = foregroundSession?.sessionId === session.sessionId;
+				this.createOrAssignPositronVariablesInstance(session, isActivate);
 			}
+
+			// If we have a foreground session, ensure its instance is populated
+			if (foregroundSession) {
+				const activeInstance = this._positronVariablesInstancesBySessionId.get(
+					foregroundSession.sessionId
+				);
+				if (activeInstance) {
+					// Set as active (this will trigger a refresh)
+					this._setActivePositronVariablesInstance(activeInstance);
+				}
+			}
+
 			// Sync to the active editor to handle notebook scenarios
 			this._syncToActiveEditor();
 		}
