@@ -23,9 +23,10 @@ mutable struct PositronComm
     send_lock::ReentrantLock
     comm_open_msg::Any  # Store comm_open message to use as parent for initial sends
     current_request_id::Union{String,Int,Nothing}  # ID of current request being processed
+    current_request_msg::Any  # Store incoming request message to use as parent for response
 
     function PositronComm(target_name::String, comm_id::String = string(uuid4()))
-        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing)
+        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing, nothing)
     end
 end
 
