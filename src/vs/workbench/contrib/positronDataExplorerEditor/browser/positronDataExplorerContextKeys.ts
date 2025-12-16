@@ -44,10 +44,10 @@ export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean
 );
 
 /**
- * Context key for whether CSV has header row option is enabled (default true).
- * Only meaningful for CSV/TSV files opened with DuckDB backend.
+ * Context key for whether has header row option is enabled (default true).
+ * Only meaningful for delimited text files (CSV/TSV) opened with DuckDB backend.
  */
-export const POSITRON_DATA_EXPLORER_CSV_HAS_HEADER_ROW = new RawContextKey<boolean>(
-	'positronDataExplorerCsvHasHeaderRow',
+export const POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW = new RawContextKey<boolean>(
+	'positronDataExplorerFileHasHeaderRow',
 	true
 );

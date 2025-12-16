@@ -54,7 +54,7 @@ interface FileOptionsDialogProps {
  */
 export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 	// State hooks - initialize with current values from the instance.
-	const initialHasHeaderRow = props.dataExplorerInstance.csvHasHeaderRow;
+	const initialHasHeaderRow = props.dataExplorerInstance.fileHasHeaderRow;
 	const [hasHeaderRow, setHasHeaderRow] = useState(initialHasHeaderRow);
 
 	// Track if settings have changed.
@@ -64,7 +64,7 @@ export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 	const handleApply = async () => {
 		// Only apply if settings have changed.
 		if (settingsChanged) {
-			await props.dataExplorerInstance.toggleCsvHasHeaderRow();
+			await props.dataExplorerInstance.toggleFileHasHeaderRow();
 		}
 		props.renderer.dispose();
 	};

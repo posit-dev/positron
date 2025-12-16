@@ -27,7 +27,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_CSV_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
@@ -110,9 +110,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	private readonly _isRowFilteringContextKey: IContextKey<boolean>;
 
 	/**
-	 * Gets the CSV has header row context key.
+	 * Gets the file has header row context key.
 	 */
-	private readonly _csvHasHeaderRowContextKey: IContextKey<boolean>;
+	private readonly _fileHasHeaderRowContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -259,7 +259,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isRowFilteringContextKey = POSITRON_DATA_EXPLORER_IS_ROW_FILTERING.bindTo(
 			this._group.scopedContextKeyService
 		);
-		this._csvHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_CSV_HAS_HEADER_ROW.bindTo(
+		this._fileHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW.bindTo(
 			this._group.scopedContextKeyService
 		);
 	}
@@ -398,11 +398,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					})
 				);
 
-				// Set initial CSV has header row state and add change handler.
-				this._csvHasHeaderRowContextKey.set(positronDataExplorerInstance.csvHasHeaderRow);
+				// Set initial file has header row state and add change handler.
+				this._fileHasHeaderRowContextKey.set(positronDataExplorerInstance.fileHasHeaderRow);
 				this._positronReactRenderer.register(
-					positronDataExplorerInstance.onDidChangeCsvHasHeaderRow(hasHeaderRow =>
-						this._csvHasHeaderRowContextKey.set(hasHeaderRow)
+					positronDataExplorerInstance.onDidChangeFileHasHeaderRow(hasHeaderRow =>
+						this._fileHasHeaderRowContextKey.set(hasHeaderRow)
 					)
 				);
 			} else {
