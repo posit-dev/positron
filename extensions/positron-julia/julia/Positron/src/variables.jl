@@ -45,23 +45,31 @@ end
 Handle incoming messages on the variables comm.
 """
 function handle_variables_msg(service::VariablesService, msg::Dict)
-    request = parse_variables_request(msg)
+    @info "Variables: received message" msg_keys=keys(msg)
 
-    if request === nothing
-        # list request
-        handle_list(service)
-    elseif request isa VariablesClearParams
-        handle_clear(service, request.include_hidden_objects)
-    elseif request isa VariablesDeleteParams
-        handle_delete(service, request.names)
-    elseif request isa VariablesInspectParams
-        handle_inspect(service, request.path)
-    elseif request isa VariablesClipboardFormatParams
-        handle_clipboard_format(service, request.path, request.format)
-    elseif request isa VariablesViewParams
-        handle_view(service, request.path)
+    request = parse_variables_request(msg)
+    @info "Variables: parsed request" request_type=typeof(request)
+
+    try
+        handle_request(service, request)
+    catch e
+        @error "Variables: error handling message" exception=(e, catch_backtrace())
+        try
+            send_error(service.comm, JsonRpcErrorCode.INTERNAL_ERROR, "Internal error: $(sprint(showerror, e))")
+        catch send_err
+            @error "Variables: failed to send error response" exception=(send_err, catch_backtrace())
+        end
     end
 end
+
+# Multiple dispatch for request handling
+handle_request(service::VariablesService, ::Nothing) = handle_list(service)
+handle_request(service::VariablesService, r::VariablesClearParams) = handle_clear(service, r.include_hidden_objects)
+handle_request(service::VariablesService, r::VariablesDeleteParams) = handle_delete(service, r.names)
+handle_request(service::VariablesService, r::VariablesInspectParams) = handle_inspect(service, r.path)
+handle_request(service::VariablesService, r::VariablesClipboardFormatParams) = handle_clipboard_format(service, r.path, r.format)
+handle_request(service::VariablesService, r::VariablesViewParams) = handle_view(service, r.path)
+handle_request(service::VariablesService, r) = @warn "Variables: unknown request type" request_type=typeof(r)
 
 """
 Handle variables comm close.
@@ -118,22 +126,34 @@ end
 Handle inspect request - return children of a variable.
 """
 function handle_inspect(service::VariablesService, path::Vector{String})
+    @info "Variables: handle_inspect called" path=path
+
     if isempty(path)
+        @warn "Variables: empty path in inspect request"
         send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Empty path")
         return
     end
 
     # Navigate to the value
+    @debug "Variables: navigating to path" path=path
     value = get_value_at_path(path)
     if value === nothing
+        @warn "Variables: variable not found at path" path=path
         send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Variable not found")
         return
     end
 
+    @debug "Variables: found value" value_type=typeof(value) has_children=value_has_children(value)
+
     # Get children
+    @debug "Variables: getting children"
     children = get_children(value)
+    @info "Variables: returning children" path=path num_children=length(children)
+
     result = InspectedVariable(children, length(children))
+    @debug "Variables: sending result"
     send_result(service.comm, result)
+    @debug "Variables: result sent"
 end
 
 """
@@ -262,30 +282,24 @@ function create_variable(name::String, value::Any, timestamp::Int)::Variable
 end
 
 """
-Determine the VariableKind for a value.
+Determine the VariableKind for a value using multiple dispatch.
 """
+get_variable_kind(::Bool)::VariableKind = VariableKind_Boolean
+get_variable_kind(::Number)::VariableKind = VariableKind_Number
+get_variable_kind(::AbstractString)::VariableKind = VariableKind_String
+get_variable_kind(::Function)::VariableKind = VariableKind_Function
+get_variable_kind(::AbstractDict)::VariableKind = VariableKind_Map
+get_variable_kind(::AbstractArray)::VariableKind = VariableKind_Collection
+get_variable_kind(::Nothing)::VariableKind = VariableKind_Empty
+get_variable_kind(::Missing)::VariableKind = VariableKind_Empty
+get_variable_kind(::Type)::VariableKind = VariableKind_Class
+
 function get_variable_kind(value::Any)::VariableKind
-    if value isa Bool
-        return VariableKind_Boolean
-    elseif value isa Number
-        return VariableKind_Number
-    elseif value isa AbstractString
-        return VariableKind_String
-    elseif value isa Function
-        return VariableKind_Function
-    elseif value isa AbstractDict
-        return VariableKind_Map
-    elseif value isa AbstractArray
-        return VariableKind_Collection
-    elseif value === nothing || value === missing
-        return VariableKind_Empty
-    elseif is_table_like(value)
+    # Fallback for types that need runtime checks
+    if is_table_like(value)
         return VariableKind_Table
-    elseif value isa Type
-        return VariableKind_Class
-    else
-        return VariableKind_Other
     end
+    return VariableKind_Other
 end
 
 """
@@ -427,26 +441,24 @@ function get_variable_size(value::Any)::Int64
 end
 
 """
-Check if a value has children that can be inspected.
+Check if a value has children that can be inspected using multiple dispatch.
 """
+value_has_children(v::AbstractDict)::Bool = !isempty(v)
+value_has_children(v::AbstractArray)::Bool = !isempty(v)
+value_has_children(::Number)::Bool = false
+value_has_children(::AbstractString)::Bool = false
+value_has_children(::Bool)::Bool = false
+value_has_children(::Nothing)::Bool = false
+value_has_children(::Missing)::Bool = false
+value_has_children(::Function)::Bool = false
+
 function value_has_children(value::Any)::Bool
     # DataFrames have columns as children
     if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
         return Main.DataFrames.ncol(value) > 0
     end
-
-    if value isa AbstractDict || value isa AbstractArray
-        return !isempty(value)
-    elseif value isa Number || value isa AbstractString || value isa Bool
-        return false
-    elseif value === nothing || value === missing
-        return false
-    elseif value isa Function
-        return false
-    else
-        # Struct-like types have fields
-        return fieldcount(typeof(value)) > 0
-    end
+    # Struct-like types have fields
+    return fieldcount(typeof(value)) > 0
 end
 
 """
@@ -470,24 +482,34 @@ end
 Get the value at a given path.
 """
 function get_value_at_path(path::Vector{String})
+    @debug "get_value_at_path: starting" path=path
+
     if isempty(path)
+        @warn "get_value_at_path: empty path"
         return nothing
     end
 
     # Start from Main
     try
-        current = getfield(Main, Symbol(path[1]))
+        root_name = Symbol(path[1])
+        @debug "get_value_at_path: getting root variable" name=root_name
+        current = getfield(Main, root_name)
+        @debug "get_value_at_path: found root" value_type=typeof(current)
 
         for key in path[2:end]
+            @debug "get_value_at_path: navigating to child" key=key current_type=typeof(current)
             current = get_child_value(current, key)
             if current === nothing
+                @warn "get_value_at_path: child not found" key=key
                 return nothing
             end
+            @debug "get_value_at_path: found child" value_type=typeof(current)
         end
 
+        @debug "get_value_at_path: returning value" value_type=typeof(current)
         return current
     catch e
-        @debug "Failed to get value at path" path exception=e
+        @error "get_value_at_path: error" path=path exception=(e, catch_backtrace())
         return nothing
     end
 end
@@ -594,44 +616,55 @@ end
 Get children of a value for inspection.
 """
 function get_children(value::Any)::Vector{Variable}
+    @debug "get_children: starting" value_type=typeof(value)
     children = Variable[]
     current_time = round(Int, time() * 1000)
 
-    # DataFrames: children are columns (like Python pandas/polars)
-    if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
-        col_names = Main.DataFrames.names(value)
-        n = min(length(col_names), 100)
-        for i = 1:n
-            col_name = col_names[i]
-            col_value = value[!, col_name]
-            push!(children, create_variable(col_name, col_value, current_time))
-        end
-    elseif value isa AbstractDict
-        for (k, v) in value
-            key_str = string(k)
-            push!(children, create_variable(key_str, v, current_time))
-        end
-    elseif value isa AbstractArray
-        # For arrays, children are elements along the first dimension
-        # This matches Python's behavior where arr[0] returns the first row for 2D arrays
-        n_children = get_array_children_count(value)
-        # Limit number of children shown
-        n = min(n_children, 100)
-        for i = 1:n
-            child_value = get_array_element(value, i)
-            push!(children, create_variable("[$i]", child_value, current_time))
-        end
-    else
-        # Get fields
-        for field in fieldnames(typeof(value))
-            try
-                field_value = getfield(value, field)
-                push!(children, create_variable(string(field), field_value, current_time))
-            catch
+    try
+        # DataFrames: children are columns (like Python pandas/polars)
+        if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+            @debug "get_children: processing DataFrame"
+            col_names = Main.DataFrames.names(value)
+            n = min(length(col_names), 100)
+            for i = 1:n
+                col_name = col_names[i]
+                col_value = value[!, col_name]
+                push!(children, create_variable(col_name, col_value, current_time))
+            end
+        elseif value isa AbstractDict
+            @debug "get_children: processing Dict" length=length(value)
+            for (k, v) in value
+                key_str = string(k)
+                push!(children, create_variable(key_str, v, current_time))
+            end
+        elseif value isa AbstractArray
+            # For arrays, children are elements along the first dimension
+            # This matches Python's behavior where arr[0] returns the first row for 2D arrays
+            n_children = get_array_children_count(value)
+            @debug "get_children: processing Array" ndims=ndims(value) size=size(value) n_children=n_children
+            # Limit number of children shown
+            n = min(n_children, 100)
+            for i = 1:n
+                child_value = get_array_element(value, i)
+                push!(children, create_variable("[$i]", child_value, current_time))
+            end
+        else
+            @debug "get_children: processing struct" fieldcount=fieldcount(typeof(value))
+            # Get fields
+            for field in fieldnames(typeof(value))
+                try
+                    field_value = getfield(value, field)
+                    push!(children, create_variable(string(field), field_value, current_time))
+                catch e
+                    @debug "get_children: failed to get field" field=field exception=e
+                end
             end
         end
+    catch e
+        @error "get_children: error processing value" value_type=typeof(value) exception=(e, catch_backtrace())
     end
 
+    @debug "get_children: returning" num_children=length(children)
     return children
 end
 
