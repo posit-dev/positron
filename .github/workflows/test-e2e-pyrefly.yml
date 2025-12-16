@@ -49,7 +49,7 @@ jobs:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
