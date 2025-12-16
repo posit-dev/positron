@@ -171,6 +171,12 @@ When you must modify upstream VSCode files:
 - **React components:** PascalCase (`DataExplorerPanel.tsx`)
 - **Test files:** Match source with `.test.ts` suffix
 
+## Git Commit Practices
+
+- **Never amend commits** - Always create new commits for additional changes. This preserves history and makes it easier to review incremental changes.
+- Create focused, atomic commits with clear messages
+- When asked to commit, create a new commit even if the previous commit was recent
+
 ## GitHub Integration
 
 ### Working with Issues and PRs
