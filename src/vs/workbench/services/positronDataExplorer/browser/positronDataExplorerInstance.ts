@@ -113,6 +113,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>());
 
+	/**
+	 * The onDidChangeFileHasHeaderRow event emitter.
+	 */
+	private readonly _onDidChangeFileHasHeaderRowEmitter = this._register(new Emitter<boolean>());
+
+	/**
+	 * Tracks the current "has header row" state for delimited text files (default true).
+	 */
+	private _fileHasHeaderRow = true;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -421,6 +431,60 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Toggles the "has header row" option and reloads the data.
+	 * Only applicable for delimited text files (CSV/TSV) opened with DuckDB backend.
+	 */
+	async toggleFileHasHeaderRow(): Promise<void> {
+		const backendClient = this._dataExplorerClientInstance.backendClient;
+
+		// Check if this is a DuckDB backend
+		if (!backendClient.clientId.startsWith('duckdb:')) {
+			this._services.notificationService.warn(
+				localize(
+					'positron.dataExplorer.fileOptions.notDuckDB',
+					'File options are only available for files opened with DuckDB.'
+				)
+			);
+			return;
+		}
+
+		// Import the DuckDB backend type and call the method
+		const duckdbBackend = backendClient as import('../common/positronDataExplorerDuckDBBackend.js').PositronDataExplorerDuckDBBackend;
+
+		// Toggle the state (default is true, so if not set, we're toggling from true to false)
+		const newHasHeaderRow = !this._fileHasHeaderRow;
+
+		try {
+			const result = await duckdbBackend.setDatasetImportOptions({
+				has_header_row: newHasHeaderRow
+			});
+
+			if (result.error_message) {
+				this._services.notificationService.error(
+					localize(
+						'positron.dataExplorer.fileOptions.failed',
+						'Failed to update file options: {0}',
+						result.error_message
+					)
+				);
+			} else {
+				// Success - update our tracked state
+				this._fileHasHeaderRow = newHasHeaderRow;
+				// Fire event so context key can be updated
+				this._onDidChangeFileHasHeaderRowEmitter.fire(newHasHeaderRow);
+			}
+		} catch (error) {
+			this._services.notificationService.error(
+				localize(
+					'positron.dataExplorer.fileOptions.error',
+					'Error updating file options: {0}',
+					error instanceof Error ? error.message : String(error)
+				)
+			);
+		}
+	}
+
+	/**
 	 * onDidClose event.
 	 */
 	readonly onDidClose = this._onDidCloseEmitter.event;
@@ -459,6 +523,25 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * The onDidChangeColumnSorting event.
 	 */
 	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
+
+	/**
+	 * Gets whether file options are supported (i.e., this is a DuckDB-backed CSV/TSV file).
+	 */
+	get supportsFileOptions() {
+		return this._dataExplorerClientInstance.backendClient.clientId.startsWith('duckdb:');
+	}
+
+	/**
+	 * Gets the current "has header row" state for delimited text files.
+	 */
+	get fileHasHeaderRow() {
+		return this._fileHasHeaderRow;
+	}
+
+	/**
+	 * The onDidChangeFileHasHeaderRow event.
+	 */
+	readonly onDidChangeFileHasHeaderRow = this._onDidChangeFileHasHeaderRowEmitter.event;
 
 	//#endregion IPositronDataExplorerInstance Implementation
 }

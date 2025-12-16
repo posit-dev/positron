@@ -514,10 +514,15 @@
 					}
 				},
 				{
-					"name": "is_plot",
-					"description": "Whether the HTML file is a plot-like object",
+					"name": "destination",
+					"description": "Where the file should be shown in Positron: as an interactive plot, in the viewer pane, or in a new editor tab.",
 					"schema": {
-						"type": "boolean"
+						"type": "string",
+						"enum": [
+							"plot",
+							"viewer",
+							"editor"
+						]
 					}
 				},
 				{
