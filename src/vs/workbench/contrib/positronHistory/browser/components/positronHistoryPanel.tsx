@@ -404,7 +404,7 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 			const historyEntries = executionHistoryService.getInputEntries(language);
 
 			// Filter out consecutive duplicates and empty entries
-			const filteredEntries = historyEntries.filter((entry, index) => {
+			const filteredEntries = historyEntries.filter((entry) => {
 				// Don't include empty entries
 				if (!entry.input.trim()) {
 					return false;
@@ -413,11 +413,13 @@ export const PositronHistoryPanel = (props: PositronHistoryPanelProps) => {
 				if (entry.debug && entry.debug !== 'inactive') {
 					return false;
 				}
-				// Include the first entry and non-duplicates
+				return true;
+			}).filter((entry, index, arr) => {
+				// Filter out consecutive duplicates
 				if (index === 0) {
 					return true;
 				}
-				return entry.input !== historyEntries[index - 1].input;
+				return entry.input !== arr[index - 1].input
 			});
 
 			// Apply search filter
