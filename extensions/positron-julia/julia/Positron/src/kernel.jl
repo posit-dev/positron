@@ -148,6 +148,11 @@ function start_services!(kernel::PositronKernel = get_kernel())
     install_is_complete_handler!()
 
     # Comm targets are auto-registered via IJulia.register_comm type dispatch methods
+    # for services that wait for the frontend to open comms (variables, help, data_explorer, ui)
+
+    # Initialize plots service immediately (uses kernel-initiated comms like Python)
+    # The PositronDisplay will be installed to capture plots from Julia's display system
+    init!(kernel.plots)
 
     # Set up execution hooks
     setup_execution_hooks!(kernel)
@@ -434,6 +439,13 @@ end
 Set up hooks for code execution to update variables, handle plots, etc.
 """
 function setup_execution_hooks!(kernel::PositronKernel)
+    # Hook into IJulia's pre-execute callback to ensure display stack is correct
+    if isdefined(IJulia, :push_preexecute_hook)
+        IJulia.push_preexecute_hook(() -> on_pre_execute(kernel))
+    elseif isdefined(IJulia, :_preexecute_hooks)
+        push!(IJulia._preexecute_hooks, () -> on_pre_execute(kernel))
+    end
+
     # Hook into IJulia's post-execute callback
     if isdefined(IJulia, :push_postexecute_hook)
         IJulia.push_postexecute_hook(() -> on_post_execute(kernel))
@@ -441,8 +453,25 @@ function setup_execution_hooks!(kernel::PositronKernel)
         push!(IJulia._postexecute_hooks, () -> on_post_execute(kernel))
     end
 
-    # Hook into display system for plots
+    # Hook into display system for plots (handled by PlotsService)
     setup_display_hooks!(kernel)
+end
+
+"""
+Called before each code execution.
+"""
+function on_pre_execute(kernel::PositronKernel)
+    try
+        # Re-fix displays to ensure PositronDisplay is at top of stack
+        # This catches cases where other code modified the display stack
+        fix_displays!(kernel.plots)
+
+        # Try to install Plots.jl display_dict override if Plots.jl was loaded after init
+        # This handles the case where user does `using Plots` after kernel starts
+        override_plots_display_dict!()
+    catch e
+        kernel_log_warn("Error in pre-execute hook: $e")
+    end
 end
 
 """
@@ -466,13 +495,13 @@ end
 
 """
 Set up display hooks for capturing plots.
+
+This is now handled by PlotsService.init!() which installs PositronDisplay.
+The display is re-fixed before each execution via on_pre_execute.
 """
 function setup_display_hooks!(kernel::PositronKernel)
-    # Create a custom display for plots
-    # This intercepts plot objects before they go to the default display
-
-    # Note: This is a simplified approach. A more robust implementation would
-    # involve creating a proper AbstractDisplay subtype.
+    # Nothing to do here - PositronDisplay is installed by init!(kernel.plots)
+    # and is refreshed before each execution via fix_displays!
 end
 
 # -------------------------------------------------------------------------

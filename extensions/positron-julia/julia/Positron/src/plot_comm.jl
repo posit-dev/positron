@@ -123,11 +123,25 @@ function parse_plot_request(data::Dict)
     if method == "get_intrinsic_size"
         return nothing
     elseif method == "render"
-        return PlotRenderParams(
-            get(params, "size", nothing),
-            get(params, "pixel_ratio", 0.0),
-            get(params, "format", Dict()),
-        )
+        # Parse size (optional)
+        size_data = get(params, "size", nothing)
+        size = if size_data !== nothing && size_data isa Dict
+            PlotSize(
+                get(size_data, "height", 0),
+                get(size_data, "width", 0),
+            )
+        else
+            nothing
+        end
+
+        # Parse pixel_ratio
+        pixel_ratio = get(params, "pixel_ratio", 1.0)
+
+        # Parse format (string to enum)
+        format_str = get(params, "format", "png")
+        format = get(STRING_TO_PLOTRENDERFORMAT, lowercase(format_str), PlotRenderFormat_Png)
+
+        return PlotRenderParams(size, pixel_ratio, format)
     else
         error("Unknown plot method: $method")
     end
