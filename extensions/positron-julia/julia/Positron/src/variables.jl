@@ -380,6 +380,7 @@ end
 Get the length of a variable (for collections).
 
 For DataFrames, returns the number of rows (nrow).
+For arrays, returns the first dimension size (matching Python's shape[0]).
 For other collections, returns length().
 """
 function get_variable_length(value::Any)::Int
@@ -394,6 +395,15 @@ function get_variable_length(value::Any)::Int
                 return rc === nothing ? 0 : rc
             end
         catch
+        end
+    end
+
+    # For arrays, return the first dimension size (matching Python's behavior)
+    if value isa AbstractArray
+        try
+            return ndims(value) > 0 ? size(value, 1) : 0
+        catch
+            return 0
         end
     end
 
@@ -420,6 +430,11 @@ end
 Check if a value has children that can be inspected.
 """
 function value_has_children(value::Any)::Bool
+    # DataFrames have columns as children
+    if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+        return Main.DataFrames.ncol(value) > 0
+    end
+
     if value isa AbstractDict || value isa AbstractArray
         return !isempty(value)
     elseif value isa Number || value isa AbstractString || value isa Bool
@@ -478,9 +493,41 @@ function get_value_at_path(path::Vector{String})
 end
 
 """
+Parse an array index from a key string.
+Handles both plain numbers ("1") and bracket format ("[1]").
+"""
+function parse_array_index(key::String)::Union{Int,Nothing}
+    # Try plain integer first
+    idx = tryparse(Int, key)
+    if idx !== nothing
+        return idx
+    end
+
+    # Try bracket format "[N]"
+    m = match(r"^\[(\d+)\]$", key)
+    if m !== nothing
+        return parse(Int, m.captures[1])
+    end
+
+    return nothing
+end
+
+"""
 Get a child value from a parent.
 """
 function get_child_value(parent::Any, key::String)
+    # Try DataFrame column access first
+    if isdefined(Main, :DataFrames) && parent isa Main.DataFrames.DataFrame
+        if key in Main.DataFrames.names(parent)
+            return parent[!, key]
+        end
+        # Also try Symbol access
+        if Symbol(key) in Main.DataFrames.propertynames(parent)
+            return parent[!, Symbol(key)]
+        end
+        return nothing
+    end
+
     # Try dictionary access
     if parent isa AbstractDict
         # Try string key first
@@ -500,9 +547,9 @@ function get_child_value(parent::Any, key::String)
 
     # Try array access
     if parent isa AbstractArray
-        idx = tryparse(Int, key)
-        if idx !== nothing && checkbounds(Bool, parent, idx)
-            return parent[idx]
+        idx = parse_array_index(key)
+        if idx !== nothing
+            return get_array_element(parent, idx)
         end
     end
 
@@ -516,22 +563,63 @@ function get_child_value(parent::Any, key::String)
 end
 
 """
+Get an element from an array at the given index.
+For multi-dimensional arrays, returns a slice along the first dimension.
+"""
+function get_array_element(arr::AbstractArray, idx::Int)
+    if !checkbounds(Bool, axes(arr, 1), idx)
+        return nothing
+    end
+
+    if ndims(arr) == 1
+        return arr[idx]
+    else
+        # For multi-dimensional arrays, return a slice along the first dimension
+        # This matches Python's behavior where arr[0] returns the first row
+        return selectdim(arr, 1, idx)
+    end
+end
+
+"""
+Get the number of children for an array (first dimension size).
+"""
+function get_array_children_count(arr::AbstractArray)::Int
+    if ndims(arr) == 0
+        return 0
+    end
+    return size(arr, 1)
+end
+
+"""
 Get children of a value for inspection.
 """
 function get_children(value::Any)::Vector{Variable}
     children = Variable[]
     current_time = round(Int, time() * 1000)
 
-    if value isa AbstractDict
+    # DataFrames: children are columns (like Python pandas/polars)
+    if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
+        col_names = Main.DataFrames.names(value)
+        n = min(length(col_names), 100)
+        for i = 1:n
+            col_name = col_names[i]
+            col_value = value[!, col_name]
+            push!(children, create_variable(col_name, col_value, current_time))
+        end
+    elseif value isa AbstractDict
         for (k, v) in value
             key_str = string(k)
             push!(children, create_variable(key_str, v, current_time))
         end
     elseif value isa AbstractArray
+        # For arrays, children are elements along the first dimension
+        # This matches Python's behavior where arr[0] returns the first row for 2D arrays
+        n_children = get_array_children_count(value)
         # Limit number of children shown
-        n = min(length(value), 100)
+        n = min(n_children, 100)
         for i = 1:n
-            push!(children, create_variable("[$i]", value[i], current_time))
+            child_value = get_array_element(value, i)
+            push!(children, create_variable("[$i]", child_value, current_time))
         end
     else
         # Get fields

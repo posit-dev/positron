@@ -169,14 +169,15 @@ using DataFrames
         @test occursin("Matrix", Positron.get_display_type(mat))
         @test Positron.value_has_viewer(mat) == true  # Matrices can be viewed
 
-        # Get size
+        # Get size - length returns first dimension (like Python's shape[0])
         @test size(mat) == (2, 2)
-        @test Positron.get_variable_length(mat) == 4
+        @test Positron.get_variable_length(mat) == 2  # 2 rows (first dimension)
 
         # Larger matrix
         large_mat = zeros(100, 50)
         @test Positron.get_variable_kind(large_mat) == Positron.VariableKind_Collection
         @test Positron.value_has_viewer(large_mat) == true
+        @test Positron.get_variable_length(large_mat) == 100  # 100 rows
     end
 
     @testset "Inspect Range" begin
@@ -505,5 +506,86 @@ using DataFrames
         df_single_col = DataFrame(values = 1:10)
         @test Positron.get_variable_kind(df_single_col) == Positron.VariableKind_Table
         @test Positron.get_variable_length(df_single_col) == 10
+    end
+
+    @testset "Inspect DataFrame - Has Children" begin
+        df = DataFrame(a = [1, 2, 3], b = ["x", "y", "z"])
+        @test Positron.value_has_children(df) == true
+
+        # Empty DataFrame has no children
+        df_empty = DataFrame()
+        @test Positron.value_has_children(df_empty) == false
+    end
+
+    @testset "Inspect DataFrame - Get Children (Columns)" begin
+        df = DataFrame(a = [1, 2, 3], b = ["x", "y", "z"], c = [1.0, 2.0, 3.0])
+        children = Positron.get_children(df)
+
+        # Children should be the columns, not rows
+        @test length(children) == 3
+
+        # Children should be named by column names
+        names = [c.display_name for c in children]
+        @test "a" in names
+        @test "b" in names
+        @test "c" in names
+
+        # First column should be an array of integers
+        a_child = children[findfirst(c -> c.display_name == "a", children)]
+        @test a_child.kind == Positron.VariableKind_Collection
+        @test a_child.length == 3
+        @test a_child.has_children == true
+    end
+
+    @testset "Inspect DataFrame - Get Child Value (Column Access)" begin
+        df = DataFrame(a = [1, 2, 3], b = ["x", "y", "z"])
+
+        # Get column by name
+        col_a = Positron.get_child_value(df, "a")
+        @test col_a == [1, 2, 3]
+
+        col_b = Positron.get_child_value(df, "b")
+        @test col_b == ["x", "y", "z"]
+
+        # Non-existent column returns nothing
+        @test Positron.get_child_value(df, "nonexistent") === nothing
+    end
+
+    @testset "Inspect DataFrame - Path Navigation" begin
+        @eval Main test_df = DataFrame(nums = [10, 20, 30], strs = ["a", "b", "c"])
+
+        # Access column via path
+        col = Positron.get_value_at_path(["test_df", "nums"])
+        @test col == [10, 20, 30]
+
+        # Access element within column
+        elem = Positron.get_value_at_path(["test_df", "nums", "[2]"])
+        @test elem == 20
+    end
+
+    @testset "Inspect DataFrame - Display Value and Type" begin
+        df = DataFrame(a = [1, 2, 3], b = ["x", "y", "z"])
+
+        # Display value should show dimensions
+        display_val = Positron.get_display_value(df)
+        @test occursin("3", display_val)  # 3 rows
+        @test occursin("2", display_val)  # 2 columns
+        @test occursin("DataFrame", display_val)
+
+        # Display type should include dimensions
+        display_type = Positron.get_display_type(df)
+        @test occursin("DataFrame", display_type)
+        @test occursin("3", display_type)  # rows
+        @test occursin("2", display_type)  # columns
+    end
+
+    @testset "Inspect DataFrame - Wide DataFrame Children" begin
+        # DataFrame with many columns (>100 should be truncated)
+        df_wide = DataFrame([Symbol("col$i") => [i] for i = 1:150])
+
+        children = Positron.get_children(df_wide)
+
+        # Should be limited to 100 children
+        @test length(children) == 100
     end
 end
