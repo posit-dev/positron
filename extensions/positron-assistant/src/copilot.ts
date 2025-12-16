@@ -134,10 +134,10 @@ export class CopilotService implements vscode.Disposable {
 }
 
 /**
- * Stub implementation of Copilot language model provider, so we can show its
- * sign in/sign out state in the language model configuration UI. Once signed
- * in/out, all the actual chat features are handled by the Copilot Chat
- * extension, so this is just a placeholder.
+ * Stub, authentication-only implementation of Copilot language model provider,
+ * so we can show its sign in/sign out state in the language model configuration
+ * UI. Once signed in/out, all the actual chat features are handled by the
+ * Copilot Chat extension, so this is just a placeholder.
  */
 export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvider {
 
@@ -173,7 +173,9 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'copilot',
+			// Use 'copilot-auth' as the ID to distinguish from the full
+			// Copilot implementation, which has the id 'copilot'
+			id: 'copilot-auth',
 			displayName: 'GitHub Copilot'
 		},
 		supportedOptions: ['oauth'],

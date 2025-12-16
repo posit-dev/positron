@@ -305,7 +305,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
 		// Refresh CopilotService signed-in state if this is a copilot model
-		if (newConfig.provider === 'copilot') {
+		if (newConfig.provider === 'copilot-auth') {
 			try {
 				CopilotService.instance().refreshSignedInState();
 			} catch (error) {
@@ -344,7 +344,7 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
 	try {
 		switch (userConfig.provider) {
-			case 'copilot':
+			case 'copilot-auth':
 				await CopilotService.instance().signIn();
 				break;
 			case 'posit-ai':
@@ -372,7 +372,7 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 	let oauthCompleted = false;
 	try {
 		switch (userConfig.provider) {
-			case 'copilot':
+			case 'copilot-auth':
 				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			case 'posit-ai':
@@ -438,7 +438,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 
 	// Refresh CopilotService signed-in state if this was a copilot model
-	if (targetConfig.provider === 'copilot') {
+	if (targetConfig.provider === 'copilot-auth') {
 		try {
 			CopilotService.instance().refreshSignedInState();
 		} catch (error) {
