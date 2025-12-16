@@ -62,7 +62,11 @@ registerSingleton(INotebookEditorProxyService, NotebookEditorProxyService, Insta
 /**
  * Gets a notebook editor from an editor pane, returning it as INotebookEditor.
  * This allows upstream code to work with both VS Code and Positron notebooks transparently.
- * Positron notebooks implement the subset of INotebookEditor needed by chat editing integration.
+ *
+ * Positron notebooks implement NotebookEditorChatEditingSubset (defined in IPositronNotebookEditor.ts)
+ * which is Pick<INotebookEditor, ...> for the methods used by chat editing integration.
+ * This provides compile-time verification that our implementations match upstream signatures.
+ *
  * @param editorPane - The editor pane to extract a notebook editor from.
  * @returns The notebook editor as INotebookEditor, or undefined if not found.
  */
@@ -70,7 +74,9 @@ export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): INote
 	// Check for Positron notebook instance first
 	const notebookInstance = getNotebookInstanceFromEditorPane(editorPane);
 	if (notebookInstance) {
-		// Cast to INotebookEditor - Positron notebooks implement the necessary subset of the interface
+		// Cast to INotebookEditor - Positron notebooks implement NotebookEditorChatEditingSubset
+		// which covers the INotebookEditor methods used by chat editing integration.
+		// Type safety is enforced by IChatEditingNotebookEditor extending Pick<INotebookEditor, ...>
 		return notebookInstance as unknown as INotebookEditor;
 	}
 	// Fall back to VS Code notebook editor
