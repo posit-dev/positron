@@ -258,15 +258,121 @@ using JSON3
     @testset "Get Child Value - Array" begin
         arr = [100, 200, 300]
 
+        # Plain integer format
         @test Positron.get_child_value(arr, "1") == 100
         @test Positron.get_child_value(arr, "2") == 200
         @test Positron.get_child_value(arr, "3") == 300
 
+        # Bracket format (as used by get_children)
+        @test Positron.get_child_value(arr, "[1]") == 100
+        @test Positron.get_child_value(arr, "[2]") == 200
+        @test Positron.get_child_value(arr, "[3]") == 300
+
         # Out of bounds
         @test Positron.get_child_value(arr, "10") === nothing
+        @test Positron.get_child_value(arr, "[10]") === nothing
 
         # Invalid index
         @test Positron.get_child_value(arr, "invalid") === nothing
+    end
+
+    @testset "Get Children - Matrix (2D Array)" begin
+        # 2D matrix - children should be rows, not individual elements
+        matrix = [1 2 3; 4 5 6]  # 2x3 matrix
+
+        children = Positron.get_children(matrix)
+
+        # Should have 2 children (rows), not 6 (total elements)
+        @test length(children) == 2
+
+        # First child should be the first row [1, 2, 3]
+        @test children[1].display_name == "[1]"
+        @test occursin("1", children[1].display_value)
+        @test occursin("2", children[1].display_value)
+        @test occursin("3", children[1].display_value)
+
+        # Second child should be the second row [4, 5, 6]
+        @test children[2].display_name == "[2]"
+        @test occursin("4", children[2].display_value)
+        @test occursin("5", children[2].display_value)
+        @test occursin("6", children[2].display_value)
+
+        # Each row should have children (the individual elements)
+        @test children[1].has_children == true
+        @test children[2].has_children == true
+    end
+
+    @testset "Get Child Value - Matrix (2D Array)" begin
+        matrix = [1 2; 3 4]  # 2x2 matrix
+
+        # Getting child at index 1 should return first row [1, 2]
+        row1 = Positron.get_child_value(matrix, "[1]")
+        @test row1 == [1, 2]
+
+        # Getting child at index 2 should return second row [3, 4]
+        row2 = Positron.get_child_value(matrix, "[2]")
+        @test row2 == [3, 4]
+
+        # Can then get individual elements from the row
+        @test Positron.get_child_value(row1, "[1]") == 1
+        @test Positron.get_child_value(row1, "[2]") == 2
+    end
+
+    @testset "Get Value at Path - Matrix Nested Access" begin
+        @eval Main test_matrix = [10 20; 30 40]
+
+        # Access first row
+        row1 = Positron.get_value_at_path(["test_matrix", "[1]"])
+        @test row1 == [10, 20]
+
+        # Access element in first row
+        elem = Positron.get_value_at_path(["test_matrix", "[1]", "[2]"])
+        @test elem == 20
+
+        # Access element in second row
+        elem2 = Positron.get_value_at_path(["test_matrix", "[2]", "[1]"])
+        @test elem2 == 30
+    end
+
+    @testset "Get Children - 3D Array" begin
+        # 3D array - children should be 2D slices
+        arr3d = reshape(1:24, 2, 3, 4)
+
+        children = Positron.get_children(arr3d)
+
+        # Should have 2 children (first dimension size)
+        @test length(children) == 2
+
+        # Each child is a 3x4 matrix
+        @test children[1].has_children == true
+        @test children[2].has_children == true
+    end
+
+    @testset "Variable Length - Arrays" begin
+        # 1D array - length is number of elements
+        @test Positron.get_variable_length([1, 2, 3]) == 3
+
+        # 2D array - length is first dimension (number of rows)
+        @test Positron.get_variable_length([1 2 3; 4 5 6]) == 2
+
+        # 3D array - length is first dimension
+        @test Positron.get_variable_length(reshape(1:24, 2, 3, 4)) == 2
+    end
+
+    @testset "Parse Array Index" begin
+        # Plain integer
+        @test Positron.parse_array_index("1") == 1
+        @test Positron.parse_array_index("42") == 42
+
+        # Bracket format
+        @test Positron.parse_array_index("[1]") == 1
+        @test Positron.parse_array_index("[42]") == 42
+
+        # Invalid formats
+        @test Positron.parse_array_index("abc") === nothing
+        @test Positron.parse_array_index("[abc]") === nothing
+        @test Positron.parse_array_index("") === nothing
+        @test Positron.parse_array_index("[]") === nothing
     end
 
     @testset "Get Child Value - Struct" begin
