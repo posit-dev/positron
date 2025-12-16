@@ -79,31 +79,46 @@ jobs:
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: npx playwright install --with-deps
 
-      - name: Run extension postinstall scripts
+      - name: Re-download Ark on cache hit
         if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
         run: |
           # When extensions cache hits, postinstall scripts don't run
           # But positron-r needs postinstall to download/setup the Ark kernel binary
-          # The cache includes extensions/positron-r/resources/ark which may be broken
           # Force complete re-download by removing entire ark directory
           echo "Extensions cache hit - forcing fresh Ark download"
           rm -rf extensions/positron-r/resources/ark
           cd extensions/positron-r && npm run postinstall
 
-          # Verify Ark was downloaded and is executable
-          if [ -f "resources/ark/ark" ]; then
-            echo "Ark binary found at resources/ark/ark"
-            ls -lh resources/ark/ark
-            file resources/ark/ark
+      - name: Verify Ark binary
+        run: |
+          # Verify Ark was downloaded and is executable (runs always, not just on cache hit)
+          if [ -f "extensions/positron-r/resources/ark/ark" ]; then
+            echo "Ark binary found at extensions/positron-r/resources/ark/ark"
+            ls -lh extensions/positron-r/resources/ark/ark
+            file extensions/positron-r/resources/ark/ark
             # Verify Ark can actually run (not just exist)
-            if ! ./resources/ark/ark --version 2>/dev/null; then
+            if ! extensions/positron-r/resources/ark/ark --version 2>/dev/null; then
               echo "ERROR: Ark binary exists but cannot execute!"
-              exit 1
+              echo "Attempting to re-download Ark..."
+              rm -rf extensions/positron-r/resources/ark
+              cd extensions/positron-r && npm run postinstall
+              # Verify again after re-download
+              if ! ./resources/ark/ark --version 2>/dev/null; then
+                echo "ERROR: Ark still cannot execute after re-download!"
+                exit 1
+              fi
             fi
             echo "Ark verified and functional"
           else
-            echo "ERROR: Ark binary not found after postinstall!"
-            exit 1
+            echo "ERROR: Ark binary not found!"
+            echo "Attempting to download Ark..."
+            cd extensions/positron-r && npm run postinstall
+            # Verify after download
+            if [ ! -f "resources/ark/ark" ] || ! ./resources/ark/ark --version 2>/dev/null; then
+              echo "ERROR: Ark download or execution failed!"
+              exit 1
+            fi
+            echo "Ark downloaded and verified successfully"
           fi
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
