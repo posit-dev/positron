@@ -182,5 +182,5 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 		}
 	}, [findInput, focusInput]);
 
-	return <div ref={containerRef} />;
+	return <div ref={containerRef} className='find-input-container' />;
 });

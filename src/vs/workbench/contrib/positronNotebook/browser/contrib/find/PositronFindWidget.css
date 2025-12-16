@@ -23,6 +23,9 @@
 	box-sizing: border-box;
 	line-height: 19px;
 
+	/* Initial width: match code oss NOTEBOOK_FIND_WIDGET_INITIAL_WIDTH */
+	width: 419px;
+
 	/* Styling */
 	font-size: 12px;
 	background-color: var(--vscode-editorWidget-background);
@@ -46,6 +49,11 @@
 	display: flex;
 	align-items: center;
 	gap: 3px;
+}
+
+.positron-find-widget .find-input-container {
+	/* Let the find input grow with the widget */
+	flex: 1;
 }
 
 .positron-find-widget .action-button {
