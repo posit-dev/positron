@@ -7,11 +7,11 @@
 import './PositronFindWidget.css';
 
 // React.
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
-import { PositronFindInput, PositronFindInputHandle } from './PositronFindInput.js';
+import { PositronFindInput } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IObservable, ISettableObservable, transaction } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
@@ -30,13 +30,6 @@ const noResultsLabel = localize('positronNotebook.find.noResults', "No results")
 const matchCountLabel = (matchIndex: number, matchCount: number) =>
 	localize('positronNotebook.find.matchCount', "{0} of {1}", matchIndex, matchCount);
 
-export interface PositronFindWidgetHandle {
-	/**
-	 * Focuses the find input box.
-	 */
-	focusInput(): void;
-}
-
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
 	readonly contextKeyService: IContextKeyService;
@@ -44,7 +37,6 @@ export interface PositronFindWidgetProps {
 	readonly matchCase: ISettableObservable<boolean>;
 	readonly matchWholeWord: ISettableObservable<boolean>;
 	readonly useRegex: ISettableObservable<boolean>;
-	readonly focusInput?: boolean;
 	readonly matchIndex: IObservable<number | undefined>;
 	readonly matchCount: IObservable<number | undefined>;
 	readonly findInputOptions: IFindInputOptions;
@@ -54,51 +46,44 @@ export interface PositronFindWidgetProps {
 	readonly onNextMatch: () => void;
 }
 
-export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronFindWidgetProps>(({
-	findText: findTextObs,
+export const PositronFindWidget = ({
+	findText,
 	contextKeyService,
 	contextViewService,
-	matchCase: matchCaseObs,
-	matchWholeWord: matchWholeWordObs,
-	useRegex: useRegexObs,
-	focusInput = true,
-	matchIndex: matchIndexObs,
-	matchCount: matchCountObs,
-	isVisible: isVisibleObs,
+	matchCase,
+	matchWholeWord,
+	useRegex,
+	matchIndex,
+	matchCount,
+	isVisible,
 	inputFocused,
 	findInputOptions,
 	onPreviousMatch,
 	onNextMatch,
-}, ref) => {
-	const findText = useObservedValue(findTextObs);
-	const matchCase = useObservedValue(matchCaseObs);
-	const matchWholeWord = useObservedValue(matchWholeWordObs);
-	const useRegex = useObservedValue(useRegexObs);
-	const matchIndex = useObservedValue(matchIndexObs);
-	const matchCount = useObservedValue(matchCountObs);
-	const isVisible = useObservedValue(isVisibleObs);
+}: PositronFindWidgetProps) => {
+	const _findText = useObservedValue(findText);
+	const _matchCase = useObservedValue(matchCase);
+	const _matchWholeWord = useObservedValue(matchWholeWord);
+	const _useRegex = useObservedValue(useRegex);
+	const _matchIndex = useObservedValue(matchIndex);
+	const _matchCount = useObservedValue(matchCount);
+	const _isVisible = useObservedValue(isVisible);
+	const _inputFocused = useObservedValue(inputFocused);
 
-	const inputRef = React.useRef<PositronFindInputHandle>(null);
-
-	const noMatches = !matchCount;
-	const hasNoResults = findText && matchCount === 0;
-
-	useImperativeHandle(ref, () => ({
-		focusInput: () => inputRef.current?.focus(),
-	}), []);
+	const noMatches = !_matchCount;
+	const hasNoResults = _findText && _matchCount === 0;
 
 	return (
-		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
+		<div className={`positron-find-widget${_isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
 			<PositronFindInput
-				ref={inputRef}
 				contextKeyService={contextKeyService}
 				contextViewService={contextViewService}
 				findInputOptions={findInputOptions}
-				focusInput={focusInput}
-				matchCase={matchCase}
-				matchWholeWord={matchWholeWord}
-				useRegex={useRegex}
-				value={findText}
+				focus={_inputFocused}
+				matchCase={_matchCase}
+				matchWholeWord={_matchWholeWord}
+				useRegex={_useRegex}
+				value={_findText}
 				onInputBlur={() => inputFocused.set(false, undefined)}
 				onInputFocus={() => inputFocused.set(true, undefined)}
 				onKeyDown={(e) => {
@@ -113,21 +98,21 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 					} else if (e.equals(KeyCode.Escape)) {
 						transaction((tx) => {
 							inputFocused.set(false, tx);
-							isVisibleObs.set(false, tx);
+							isVisible.set(false, tx);
 						})
 						e.preventDefault();
 						return;
 					}
 				}}
-				onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
-				onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
-				onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
-				onValueChange={(value) => findTextObs.set(value, undefined)}
+				onMatchCaseChange={(value) => matchCase.set(value, undefined)}
+				onMatchWholeWordChange={(value) => matchWholeWord.set(value, undefined)}
+				onUseRegexChange={(value) => useRegex.set(value, undefined)}
+				onValueChange={(value) => findText.set(value, undefined)}
 			/>
 			<FindResult
-				findText={findText}
-				matchCount={matchCount}
-				matchIndex={matchIndex}
+				findText={_findText}
+				matchCount={_matchCount}
+				matchIndex={_matchIndex}
 			/>
 			<div className='navigation-buttons'>
 				<ActionButton
@@ -150,13 +135,13 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 			<ActionButton
 				ariaLabel={closeLabel}
 				className='action-button close-button'
-				onPressed={() => isVisibleObs.set(false, undefined)}
+				onPressed={() => isVisible.set(false, undefined)}
 			>
 				<div className='codicon codicon-close' />
 			</ActionButton>
 		</div>
 	);
-});
+};
 
 interface FindResultProps {
 	findText: string;

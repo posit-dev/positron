@@ -136,6 +136,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 						this._matches.set([], tx);
 						this._currentMatch.set(undefined, tx);
 					});
+
+					// Restore focus to notebook
+					this._notebook.grabFocus();
 				}
 			}));
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // VS Code utilities.
 import { Delayer } from '../../../../../../base/common/async.js';
@@ -16,13 +16,6 @@ import { ContextScopedFindInput } from '../../../../../../platform/history/brows
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 
-export interface PositronFindInputHandle {
-	/**
-	 * Focuses the find input box.
-	 */
-	focus(): void;
-}
-
 export interface PositronFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
 	readonly contextKeyService: IContextKeyService;
@@ -31,7 +24,7 @@ export interface PositronFindInputProps {
 	readonly matchCase?: boolean;
 	readonly matchWholeWord?: boolean;
 	readonly useRegex?: boolean;
-	readonly focusInput?: boolean;
+	readonly focus?: boolean;
 	readonly onKeyDown?: (e: IKeyboardEvent) => void;
 	readonly onValueChange: (value: string) => void;
 	readonly onMatchCaseChange: (value: boolean) => void;
@@ -41,12 +34,12 @@ export interface PositronFindInputProps {
 	readonly onInputBlur?: () => void;
 }
 
-export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFindInputProps>(({
+export const PositronFindInput = ({
 	value,
 	matchCase = false,
 	matchWholeWord = false,
 	useRegex = false,
-	focusInput = false,
+	focus = false,
 	findInputOptions,
 	contextKeyService,
 	contextViewService,
@@ -57,7 +50,7 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 	onUseRegexChange,
 	onInputFocus,
 	onInputBlur,
-}, ref) => {
+}: PositronFindInputProps) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
 
@@ -96,11 +89,6 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 			setFindInput(null);
 		};
 	}, [contextKeyService, contextViewService]);
-
-	// Set up imperative handle
-	useImperativeHandle(ref, () => ({
-		focus: () => findInput?.focus(),
-	}), [findInput]);
 
 	// Cleanup delayer on unmount
 	useEffect(() => {
@@ -210,11 +198,11 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 
 	// Focus input when requested
 	useEffect(() => {
-		if (focusInput && findInput) {
+		if (findInput && focus) {
 			findInput.focus();
 			findInput.select();
 		}
-	}, [findInput, focusInput]);
+	}, [findInput, focus]);
 
 	return <div ref={containerRef} className='find-input-container' />;
-});
+}

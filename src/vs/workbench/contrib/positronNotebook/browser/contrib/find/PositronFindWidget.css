@@ -15,6 +15,11 @@
 	pointer-events: none;
 }
 
+/* Hide container when widget is not visible */
+.positron-find-widget-container:not(:has(.positron-find-widget.visible)) {
+	display: none;
+}
+
 .positron-find-widget {
 	position: absolute;
 	top: 0;

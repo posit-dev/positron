@@ -8,10 +8,10 @@ import React from 'react';
 import * as DOM from '../../../../../../base/browser/dom.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
-import { IObservable, observableValue, runOnChange, transaction } from '../../../../../../base/common/observable.js';
-import { PositronFindWidget, PositronFindWidgetHandle } from './PositronFindWidget.js';
+import { IObservable, observableValue, transaction } from '../../../../../../base/common/observable.js';
+import { PositronFindWidget } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronReactRenderer } from '../../../../../../base/browser/positronReactRenderer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 
@@ -47,8 +47,7 @@ export interface IPositronFindInstanceOptions {
  */
 export class PositronFindInstance extends Disposable {
 	private _container?: HTMLElement;
-	private _renderer?: PositronModalReactRenderer;
-	private _handle: PositronFindWidgetHandle | null = null;
+	private _renderer?: PositronReactRenderer;
 
 	// Events for user actions
 	private readonly _onDidRequestFindNext = this._register(new Emitter<void>());
@@ -77,19 +76,6 @@ export class PositronFindInstance extends Disposable {
 		private readonly _options: IPositronFindInstanceOptions
 	) {
 		super();
-
-		this._register(runOnChange(this._isVisible, (visible) => {
-			if (!visible) {
-				this._renderer?.dispose();
-				this._renderer = undefined;
-
-				// Clear match info when hiding
-				transaction(() => {
-					this.matchCount.set(undefined, undefined);
-					this.matchIndex.set(undefined, undefined);
-				});
-			}
-		}));
 	}
 
 	public override dispose(): void {
@@ -102,6 +88,7 @@ export class PositronFindInstance extends Disposable {
 	 * Shows the find widget.
 	 */
 	public show(): void {
+		// Only create renderer and widget on first show
 		if (!this._renderer) {
 			// Create widget container
 			this._container = DOM.$('.positron-find-widget-container');
@@ -109,46 +96,35 @@ export class PositronFindInstance extends Disposable {
 			// Append to parent container
 			this._options.container.appendChild(this._container);
 
-			// Create modal React renderer
-			this._renderer = this._register(new PositronModalReactRenderer({
-				container: this._container,
-				parent: this._options.container,
-				disableCaptures: true,
-			}));
+			// Create React renderer
+			this._renderer = this._register(new PositronReactRenderer(this._container));
+
+			// Create the find widget
+			const findWidget = React.createElement(PositronFindWidget, {
+				contextKeyService: this._options.contextKeyService,
+				contextViewService: this._options.contextViewService,
+				findInputOptions: this._options.findInputOptions,
+				findText: this.searchString,
+				inputFocused: this._inputFocused,
+				isVisible: this._isVisible,
+				matchCase: this.matchCase,
+				matchWholeWord: this.wholeWord,
+				useRegex: this.isRegex,
+				matchIndex: this.matchIndex,
+				matchCount: this.matchCount,
+				onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
+				onNextMatch: () => this._onDidRequestFindNext.fire(),
+			});
+
+			// Render the widget
+			this._renderer.render(findWidget);
 		}
 
-		// Create the find widget
-		const findWidget = React.createElement(PositronFindWidget, {
-			ref: (handle) => {
-				// Update the handle
-				this._handle = handle;
-
-				if (handle) {
-					// On mount, enable visibility
-					this._isVisible.set(true, undefined);
-				}
-			},
-			contextKeyService: this._options.contextKeyService,
-			contextViewService: this._options.contextViewService,
-			findInputOptions: this._options.findInputOptions,
-			findText: this.searchString,
-			focusInput: true,
-			inputFocused: this._inputFocused,
-			isVisible: this._isVisible,
-			matchCase: this.matchCase,
-			matchWholeWord: this.wholeWord,
-			useRegex: this.isRegex,
-			matchIndex: this.matchIndex,
-			matchCount: this.matchCount,
-			onPreviousMatch: () => this._onDidRequestFindPrevious.fire(),
-			onNextMatch: () => this._onDidRequestFindNext.fire(),
+		transaction((tx) => {
+			// Set visible state and request focus
+			this._isVisible.set(true, tx);
+			this._inputFocused.set(true, tx);
 		});
-
-		// Render the widget
-		this._renderer.render(findWidget);
-
-		// Focus the input
-		this._handle?.focusInput();
 	}
 
 	/**

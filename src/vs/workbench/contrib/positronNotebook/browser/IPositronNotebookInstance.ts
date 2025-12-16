@@ -369,4 +369,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
 	 */
 	readonly onDidFocusWidget: Event<void>;
+
+	/**
+	 * Grabs focus for this notebook based on the current selection state.
+	 */
+	grabFocus(): void;
 }
