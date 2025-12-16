@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './csvOptionsModalDialog.css';
+import './fileOptionsModalDialog.css';
 
 // React.
 import React, { useState } from 'react';
@@ -20,19 +20,19 @@ import { ContentArea } from '../positronComponents/positronModalDialog/component
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
 
 /**
- * Shows the CSV options modal dialog.
+ * Shows the file options modal dialog.
  * @param dataExplorerInstance The data explorer instance.
  * @returns A promise that resolves when the dialog is closed.
  */
-export const showCsvOptionsModalDialog = async (
+export const showFileOptionsModalDialog = async (
 	dataExplorerInstance: IPositronDataExplorerInstance,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
 
-	// Show the CSV options dialog.
+	// Show the file options dialog.
 	renderer.render(
-		<CsvOptionsModalDialog
+		<FileOptionsModalDialog
 			dataExplorerInstance={dataExplorerInstance}
 			renderer={renderer}
 		/>
@@ -40,19 +40,19 @@ export const showCsvOptionsModalDialog = async (
 };
 
 /**
- * CsvOptionsDialogProps interface.
+ * FileOptionsDialogProps interface.
  */
-interface CsvOptionsDialogProps {
+interface FileOptionsDialogProps {
 	dataExplorerInstance: IPositronDataExplorerInstance;
 	renderer: PositronModalReactRenderer;
 }
 
 /**
- * CsvOptionsModalDialog component.
+ * FileOptionsModalDialog component.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const CsvOptionsModalDialog = (props: CsvOptionsDialogProps) => {
+export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 	// State hooks - initialize with current values from the instance.
 	const initialHasHeaderRow = props.dataExplorerInstance.csvHasHeaderRow;
 	const [hasHeaderRow, setHasHeaderRow] = useState(initialHasHeaderRow);
@@ -76,7 +76,7 @@ export const CsvOptionsModalDialog = (props: CsvOptionsDialogProps) => {
 
 	const applyButton = (
 		<Button className='action-bar-button default' onPressed={handleApply}>
-			{localize('positron.csvOptions.apply', "Apply")}
+			{localize('positron.fileOptions.apply', "Apply")}
 		</Button>
 	);
 
@@ -91,14 +91,14 @@ export const CsvOptionsModalDialog = (props: CsvOptionsDialogProps) => {
 		<PositronModalDialog
 			height={200}
 			renderer={props.renderer}
-			title={localize('positron.csvOptionsModalDialogTitle', "CSV Options")}
+			title={localize('positron.fileOptionsModalDialogTitle', "File Options")}
 			width={350}
 		>
 			<ContentArea>
-				<div className='csv-options-content'>
+				<div className='file-options-content'>
 					<Checkbox
 						initialChecked={initialHasHeaderRow}
-						label={localize('positron.csvOptions.hasHeaderRow', "First row contains column names")}
+						label={localize('positron.fileOptions.hasHeaderRow', "First row contains column names")}
 						onChanged={setHasHeaderRow}
 					/>
 				</div>
