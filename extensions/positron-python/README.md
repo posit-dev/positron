@@ -48,6 +48,8 @@ Install the test requirements that are used in CI:
 
 ```sh
 uv sync --active --inexact --frozen --project python_files/posit
+# or if you don't have uv:
+pip install python_files/posit
 ```
 
 Run Positron's unit tests with [pytest](https://docs.pytest.org/en/8.0.x/):
