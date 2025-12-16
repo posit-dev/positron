@@ -35,6 +35,9 @@ suite('Positron - PositronVariablesService', () => {
 		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 		variablesService = accessor.positronVariablesService;
 		notebookEditorService = accessor.notebookEditorService;
+
+		// Set the view as visible so that variables instances are created
+		variablesService.setViewVisible(true);
 	});
 
 	async function createNotebookInstance() {
