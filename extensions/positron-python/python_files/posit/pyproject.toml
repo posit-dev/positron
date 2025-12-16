@@ -29,7 +29,7 @@ dependencies = [
     "pytest",
     "pytest-asyncio",
     "pytest-mock",
-    "redshift-connector",
+    "redshift-connector ; python_full_version < '3.14'",
     "scipy",
     "snowflake-connector-python",
     "sqlalchemy",
