@@ -86,6 +86,35 @@
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%julia.configuration.languageServer.enabled.markdownDescription%"
+					},
+					"julia.lint.run": {
+						"scope": "window",
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Run the linter on active files."
+					},
+					"julia.lint.missingrefs": {
+						"scope": "window",
+						"type": "string",
+						"enum": [
+							"none",
+							"symbols",
+							"all"
+						],
+						"default": "none",
+						"markdownDescription": "Report missing references. `none` disables the check, `symbols` only reports undefined symbols, `all` reports all missing references."
+					},
+					"julia.lint.disabledDirs": {
+						"scope": "window",
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [
+							"docs",
+							"test"
+						],
+						"markdownDescription": "Directories where linting is disabled."
 					}
 				}
 			}

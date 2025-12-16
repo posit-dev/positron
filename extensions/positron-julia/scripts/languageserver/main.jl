@@ -33,10 +33,18 @@ try
 		@info "  Changed to: $(pwd())"
 	end
 
-	# Run the language server
-	# It communicates over stdin/stdout using the LSP protocol
-	# runserver() auto-detects the environment from pwd()
-	runserver()
+	# Set up symbol server store path for persistent caching
+	# Use the first depot path entry for symbol storage
+	depot = first(DEPOT_PATH)
+	symserver_store_path = joinpath(depot, "symbolstorev5")
+	if !ispath(symserver_store_path)
+		mkpath(symserver_store_path)
+	end
+	@info "  Symbol store: $symserver_store_path"
+
+	# Run the language server with explicit symbol store path
+	# This enables persistent symbol caching including for stdlib modules
+	runserver(stdin, stdout, env_path, depot, nothing, symserver_store_path)
 catch e
 	@error "Failed to start language server" exception=(e, catch_backtrace())
 
