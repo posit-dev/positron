@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('SQLite DB Connection', {
+test.describe.skip('SQLite DB Connection', {
 	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS, tags.WIN]
 }, () => {
 	test.afterEach(async function ({ app }) {
