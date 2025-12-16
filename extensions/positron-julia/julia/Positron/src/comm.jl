@@ -22,9 +22,10 @@ mutable struct PositronComm
     close_handler::Union{Function,Nothing}
     send_lock::ReentrantLock
     comm_open_msg::Any  # Store comm_open message to use as parent for initial sends
+    current_request_id::Union{String,Int,Nothing}  # ID of current request being processed
 
     function PositronComm(target_name::String, comm_id::String = string(uuid4()))
-        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing)
+        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing)
     end
 end
 
@@ -55,6 +56,9 @@ Handle an incoming message on this comm.
 """
 function handle_msg(comm::PositronComm, msg::Dict)
     if comm.msg_handler !== nothing
+        # Extract and store the request ID for use in responses
+        comm.current_request_id = get(msg, "id", nothing)
+
         try
             lock(comm.send_lock) do
                 comm.msg_handler(msg)
@@ -66,6 +70,9 @@ function handle_msg(comm::PositronComm, msg::Dict)
                 JsonRpcErrorCode.INTERNAL_ERROR,
                 "Internal error: $(sprint(showerror, e))",
             )
+        finally
+            # Clear the request ID after handling
+            comm.current_request_id = nothing
         end
     end
 end
@@ -78,7 +85,7 @@ function send_result(
     data::Any = nothing;
     metadata::Union{Dict,Nothing} = nothing,
 )
-    result = JsonRpcResult(data)
+    result = JsonRpcResult(comm.current_request_id, data)
     _send_msg(comm, result, metadata)
 end
 
@@ -96,7 +103,7 @@ end
 Send a JSON-RPC error to the frontend.
 """
 function send_error(comm::PositronComm, code::Int, message::String)
-    error_msg = JsonRpcError(code, message)
+    error_msg = JsonRpcError(comm.current_request_id, code, message)
     _send_msg(comm, error_msg, nothing)
 end
 

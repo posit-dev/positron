@@ -22,13 +22,15 @@ mutable struct MockComm
     msg_handler::Union{Function,Nothing}
     close_handler::Union{Function,Nothing}
     send_lock::ReentrantLock
+    comm_open_msg::Any
+    current_request_id::Union{String,Int,Nothing}
 
     # Test-specific fields
     messages::Vector{Any}
     is_open::Bool
 
     function MockComm(target_name::String = "test", comm_id::String = string(uuid4()))
-        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), [], true)
+        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing, [], true)
     end
 end
 
@@ -44,7 +46,7 @@ end
 Override send_result for MockComm.
 """
 function Positron.send_result(comm::MockComm, result; metadata = nothing)
-    data = Positron.JsonRpcResult(result)
+    data = Positron.JsonRpcResult(comm.current_request_id, result)
     Positron._send_msg(comm, data, metadata)
     return nothing
 end
@@ -62,7 +64,7 @@ end
 Override send_error for MockComm.
 """
 function Positron.send_error(comm::MockComm, code, message::String; metadata = nothing)
-    data = Positron.JsonRpcError(code, message)
+    data = Positron.JsonRpcError(comm.current_request_id, code, message)
     Positron._send_msg(comm, data, metadata)
     return nothing
 end
