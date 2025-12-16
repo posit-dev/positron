@@ -33,11 +33,12 @@ A JSON-RPC response with a result.
 """
 struct JsonRpcResult
     jsonrpc::String
+    id::Union{String,Int,Nothing}
     result::Any
 end
 
-function JsonRpcResult(result::Any)
-    JsonRpcResult("2.0", result)
+function JsonRpcResult(id::Union{String,Int,Nothing}, result::Any)
+    JsonRpcResult("2.0", id, result)
 end
 
 StructTypes.StructType(::Type{JsonRpcResult}) = StructTypes.Struct()
@@ -47,11 +48,12 @@ A JSON-RPC error response.
 """
 struct JsonRpcError
     jsonrpc::String
+    id::Union{String,Int,Nothing}
     error::Dict{String,Any}
 end
 
-function JsonRpcError(code::Int, message::String)
-    JsonRpcError("2.0", Dict("code" => code, "message" => message))
+function JsonRpcError(id::Union{String,Int,Nothing}, code::Int, message::String)
+    JsonRpcError("2.0", id, Dict("code" => code, "message" => message))
 end
 
 StructTypes.StructType(::Type{JsonRpcError}) = StructTypes.Struct()
