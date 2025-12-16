@@ -73,13 +73,12 @@ runs:
       with:
         path: |
           extensions/**/node_modules
-          extensions/**/out
           .vscode/**/node_modules
-          .vscode/**/out
         # Extensions hash comes from restore step (DRY - single source of truth)
-        # Only cache node_modules and compiled outputs (out/), not source files or downloaded binaries (resources/)
-        # IMPORTANT: If bumping npm-extensions-v3 -> npm-extensions-v4, also update restore-build-caches-windows/action.yml
-        key: npm-extensions-v3-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
+        # Only cache node_modules, not compiled outputs (out/) or downloaded binaries (resources/)
+        # Extensions are recompiled during the "Compile Positron" step
+        # IMPORTANT: If bumping npm-extensions-v4 -> npm-extensions-v5, also update restore-build-caches-windows/action.yml
+        key: npm-extensions-v4-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Extract Playwright version
       if: ${{ inputs.cache-playwright-hit == 'false' }}

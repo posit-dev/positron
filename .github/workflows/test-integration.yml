@@ -60,6 +60,29 @@ jobs:
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
 
+      - name: Debug - Capture file state after cache restore
+        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed'
+        run: |
+          echo "📋 Capturing file state after cache restore..."
+
+          # List key directories
+          echo "=== extensions/vscode-api-tests ==="
+          ls -la extensions/vscode-api-tests/ || echo "Directory not found"
+
+          echo "=== extensions/vscode-api-tests/node_modules ==="
+          ls -la extensions/vscode-api-tests/node_modules/ | head -20 || echo "Directory not found"
+
+          echo "=== extensions/vscode-api-tests/out ==="
+          ls -la extensions/vscode-api-tests/out/ || echo "Directory not found"
+
+          # Check for specific test files
+          echo "=== Looking for runtime.test.js ==="
+          find extensions/vscode-api-tests -name "*runtime.test*" || echo "Not found"
+
+          # Check build artifacts
+          echo "=== extensions/positron-supervisor/out ==="
+          ls -la extensions/positron-supervisor/out/ | head -10 || echo "Directory not found"
+
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
 
@@ -94,6 +117,26 @@ jobs:
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Debug - Capture file state after compilation
+        run: |
+          echo "📋 Capturing file state after compilation..."
+
+          # Check if extensions/vscode-api-tests/out exists now
+          echo "=== extensions/vscode-api-tests/out ==="
+          ls -la extensions/vscode-api-tests/out/ | head -20 || echo "Directory not found"
+
+          # Check for compiled runtime tests
+          echo "=== Looking for compiled runtime.test.js ==="
+          find extensions/vscode-api-tests/out -name "*runtime.test*" || echo "Not found"
+
+          # Check positron-supervisor
+          echo "=== extensions/positron-supervisor/out ==="
+          ls -la extensions/positron-supervisor/out/ | head -20 || echo "Directory not found"
+
+          # Check if out directories were created
+          echo "=== All extension out/ directories ==="
+          find extensions -name "out" -type d | head -20 || echo "None found"
 
       - name: Install Playwright browsers and system dependencies
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}

@@ -40,6 +40,12 @@ jobs:
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
 
+      - name: Apply patches when cache hits
+        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed'
+        run: |
+          echo "Cache hit - applying patches to cached node_modules"
+          npx patch-package
+
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed'
         uses: nick-fields/retry@v3
