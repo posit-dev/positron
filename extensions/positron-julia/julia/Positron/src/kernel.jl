@@ -331,11 +331,17 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
             kernel_log_info(
                 "Received comm message on $(our_comm.target_name): comm_id=$(our_comm.comm_id)",
             )
+            # Store the incoming message to use as parent for response
+            our_comm.current_request_msg = msg
+
             # msg is IJulia.Msg struct with .content field
             content = msg.content
             data = get(content, "data", Dict())
             kernel_log_info("Message data: $data")
             handle_msg(our_comm, data)
+
+            # Clear the request message after handling
+            our_comm.current_request_msg = nothing
         end
     end
 
@@ -357,7 +363,8 @@ Override _send_msg to actually send via IJulia.
 This function handles the critical parent_header issue:
 - During comm_open, kernel.execute_msg is stale/invalid
 - We use the stored comm_open_msg as parent for initial messages
-- After first send, we clear comm_open_msg and fall back to execute_msg
+- For request/response patterns, we use current_request_msg as parent
+- Fall back to execute_msg for notifications during execution
 """
 function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     if comm.kernel === nothing
@@ -376,23 +383,35 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
     ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
 
     try
-        # Check if we have a stored comm_open message to use as parent
-        # This is critical for initial messages sent during comm_open
-        if comm.comm_open_msg !== nothing
-            kernel_log_info("Using comm_open message as parent (initial send)")
+        # Determine which parent message to use
+        parent_msg = nothing
+        parent_type = ""
 
-            # Build message manually with comm_open as parent
+        if comm.comm_open_msg !== nothing
+            # Initial send during comm_open
+            parent_msg = comm.comm_open_msg
+            parent_type = "comm_open"
+            # Clear comm_open_msg after first use
+            comm.comm_open_msg = nothing
+        elseif comm.current_request_msg !== nothing
+            # Response to an incoming request
+            parent_msg = comm.current_request_msg
+            parent_type = "request"
+        end
+
+        if parent_msg !== nothing
+            kernel_log_info("Using $parent_type message as parent")
+
+            # Build message manually with the correct parent
             # This ensures valid parent_header that passes Supervisor validation
             content = Dict("comm_id" => comm.kernel.id, "data" => data_dict)
-            msg = IJulia.msg_pub(comm.comm_open_msg, "comm_msg", content)
+            msg = IJulia.msg_pub(parent_msg, "comm_msg", content)
             IJulia.send_ipython(ijulia_kernel.publish[], ijulia_kernel, msg)
 
-            # Clear comm_open_msg after first use - subsequent messages use execute_msg
-            comm.comm_open_msg = nothing
-            kernel_log_info("Initial message sent successfully, cleared comm_open_msg")
+            kernel_log_info("Message sent successfully with $parent_type parent")
         else
-            # Normal path: use IJulia.send_comm which uses kernel.execute_msg as parent
-            kernel_log_info("Using execute_msg as parent (normal send)")
+            # Fall back to execute_msg for notifications during code execution
+            kernel_log_info("Using execute_msg as parent (notification during execution)")
             IJulia.send_comm(comm.kernel, data_dict; kernel = ijulia_kernel)
             kernel_log_info("IJulia.send_comm completed successfully")
         end

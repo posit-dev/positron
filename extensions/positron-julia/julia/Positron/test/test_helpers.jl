@@ -24,13 +24,14 @@ mutable struct MockComm
     send_lock::ReentrantLock
     comm_open_msg::Any
     current_request_id::Union{String,Int,Nothing}
+    current_request_msg::Any
 
     # Test-specific fields
     messages::Vector{Any}
     is_open::Bool
 
     function MockComm(target_name::String = "test", comm_id::String = string(uuid4()))
-        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing, [], true)
+        new(comm_id, target_name, nothing, nothing, nothing, ReentrantLock(), nothing, nothing, nothing, [], true)
     end
 end
 
