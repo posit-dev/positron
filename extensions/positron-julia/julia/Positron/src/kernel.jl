@@ -252,7 +252,7 @@ end
 Handle opening of help comm.
 """
 function handle_help_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    @debug "Help comm opened"
+    kernel_log_info("Help comm opened")
 
     comm = create_comm("positron.help")
     kernel.comms["help"] = comm
@@ -265,7 +265,7 @@ end
 Handle opening of plot comm.
 """
 function handle_plot_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    @debug "Plot comm opened"
+    kernel_log_info("Plot comm opened")
 
     comm = create_comm("positron.plot")
     kernel.comms["plot"] = comm
@@ -278,7 +278,7 @@ end
 Handle opening of data explorer comm.
 """
 function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    @debug "Data explorer comm opened"
+    kernel_log_info("Data explorer comm opened")
 
     # Data explorer comms are per-dataset
     # Extract the variable info from the message
@@ -312,7 +312,7 @@ end
 Handle opening of UI comm.
 """
 function handle_ui_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
-    @debug "UI comm opened"
+    kernel_log_info("UI comm opened")
 
     comm = create_comm("positron.ui")
     kernel.comms["ui"] = comm

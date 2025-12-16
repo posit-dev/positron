@@ -662,8 +662,8 @@ function get_column_vector(data, col_idx::Int)::Vector
             cols = Main.Tables.columns(data)
             col = cols[col_idx]
             return collect(col)  # Ensure it's a vector
-        catch e
-            @debug "Failed to get column via Tables.jl" col_idx exception=e
+        catch
+            # Fall through to fallback method
         end
     end
 
