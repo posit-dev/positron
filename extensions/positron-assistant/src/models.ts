@@ -338,7 +338,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		const maxModelsToTest = getMaxConnectionAttempts();
-		const modelsToTest = models.slice(0, maxModelsToTest);
+		const modelsToTest = models
+			.filter(m => m.id.includes('free')) // try to find free models
+			.slice(0, maxModelsToTest);
+
+		if (modelsToTest.length === 0) {
+			modelsToTest.push(...models.slice(0, maxModelsToTest));
+		}
 
 		log.debug(`[${this.providerName}] Testing up to ${modelsToTest.length} models for connectivity...`);
 
@@ -921,6 +927,30 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 		},
 	};
 
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
+		this.updateAiProvider();
+	}
+
+	/**
+	 * Creates a wrapped OpenAI provider that uses the Chat Completions API
+	 * instead of the Responses API. Snowflake Cortex only supports v1/chat/completions.
+	 */
+	protected updateAiProvider(): void {
+		const baseProvider = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
+		});
+		// Create a callable wrapper that routes to .chat() for the default call
+		// This ensures Snowflake uses v1/chat/completions instead of v1/responses
+		const chatWrapper = ((modelId: string, options?: any) => baseProvider.chat(modelId)) as OpenAIProvider;
+		// Copy over any additional properties/methods from the base provider
+		Object.assign(chatWrapper, baseProvider);
+		// Override the callable to always use chat
+		this.aiProvider = chatWrapper;
+	}
+
 	override get providerName(): string {
 		return OpenAICompatibleLanguageModel.source.provider.displayName;
 	}
@@ -930,7 +960,7 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 	}
 }
 
-class SnowflakeLanguageModel extends OpenAILanguageModel {
+class SnowflakeLanguageModel extends OpenAICompatibleLanguageModel {
 	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
 
 	static source: positron.ai.LanguageModelSource = {
@@ -949,30 +979,6 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
 		}
 	};
-
-	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
-		super(_config, _context);
-		this.updateAiProvider();
-	}
-
-	/**
-	 * Creates a wrapped OpenAI provider that uses the Chat Completions API
-	 * instead of the Responses API. Snowflake Cortex only supports v1/chat/completions.
-	 */
-	private updateAiProvider(): void {
-		const baseProvider = createOpenAI({
-			apiKey: this._config.apiKey,
-			baseURL: this.baseUrl,
-			fetch: createOpenAICompatibleFetch(this.providerName)
-		});
-		// Create a callable wrapper that routes to .chat() for the default call
-		// This ensures Snowflake uses v1/chat/completions instead of v1/responses
-		const chatWrapper = ((modelId: string, options?: any) => baseProvider.chat(modelId)) as OpenAIProvider;
-		// Copy over any additional properties/methods from the base provider
-		Object.assign(chatWrapper, baseProvider);
-		// Override the callable to always use chat
-		this.aiProvider = chatWrapper;
-	}
 
 	get providerName(): string {
 		return SnowflakeLanguageModel.source.provider.displayName;

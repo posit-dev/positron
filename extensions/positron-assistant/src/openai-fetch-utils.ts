@@ -28,7 +28,7 @@ export interface PossiblyBrokenChatCompletionChunk {
  * @param chunk The possibly broken chunk to fix
  * @returns A properly typed OpenAI.ChatCompletionChunk with all required fields populated
  */
-export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCompletionChunk): OpenAI.ChatCompletionChunk {
+export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCompletionChunk, noArgTools: string[] = []): OpenAI.ChatCompletionChunk {
 	// Fix id - ensure it's a string
 	const id = typeof chunk.id === 'string' ? chunk.id : '';
 
@@ -57,7 +57,10 @@ export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCo
 					: {};
 
 				// Fix empty role field - AI SDK expects 'assistant'
-				const fixedRole: 'assistant' | undefined = delta.role === '' ? 'assistant' : (delta.role === 'assistant' ? 'assistant' : undefined);
+				const fixedRole: 'assistant' | 'developer' | 'system' | 'user' | 'tool' =
+					(delta.role === '' || delta.role === undefined) ? 'assistant' :
+						(delta.role === 'assistant' || delta.role === 'developer' || delta.role === 'system' || delta.role === 'user' || delta.role === 'tool') ? delta.role :
+							'assistant';
 
 				// Build the delta
 				const fixedDelta: OpenAI.ChatCompletionChunk.Choice.Delta = {
@@ -79,8 +82,11 @@ export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCo
 							const fixedType: 'function' | undefined = toolCall.type === '' ? 'function' : (toolCall.type === 'function' ? 'function' : undefined);
 
 							// Fix empty arguments - AI SDK's isParsableJson check will fail for empty strings
+							// Only fix if the tool is known to take no arguments, to avoid breaking streaming arguments
+							const toolName = fn?.name;
+							const isNoArgTool = typeof toolName === 'string' && noArgTools.includes(toolName);
 							const fixedArguments = fn && typeof fn.arguments === 'string'
-								? (fn.arguments === '' ? '' : fn.arguments)
+								? (fn.arguments === '' && isNoArgTool ? '{}' : fn.arguments)
 								: undefined;
 
 							return {
@@ -136,14 +142,11 @@ export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCo
  * @param obj The object to check
  * @returns True if the object appears to be a ChatCompletionChunk (possibly malformed)
  */
-export function isPossiblyBrokenChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletionChunk {
+function isChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletionChunk {
 	return (
 		typeof obj === 'object' &&
 		obj !== null &&
-		typeof (obj as OpenAI.ChatCompletionChunk).id === 'string' &&
-		Array.isArray((obj as PossiblyBrokenChatCompletionChunk).choices) &&
-		typeof (obj as PossiblyBrokenChatCompletionChunk).created === 'number' &&
-		typeof (obj as PossiblyBrokenChatCompletionChunk).model === 'string' &&
+		Array.isArray((obj as OpenAI.ChatCompletionChunk).choices) &&
 		(obj as OpenAI.ChatCompletionChunk).object === 'chat.completion.chunk'
 	);
 }
@@ -157,14 +160,18 @@ export function createOpenAICompatibleFetch(providerName: string): (input: Reque
 	return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
 		log.debug(`[${providerName}] [DEBUG] Making request to: ${input}`);
 
+		let noArgTools: string[] = [];
+
 		// Transform the request body if needed
-		const transformedInit = transformRequestBody(init, providerName);
+		const transformedInit = transformRequestBody(init, providerName, (tools) => {
+			noArgTools = tools;
+		});
 
 		const response = await fetch(input, transformedInit);
 		log.debug(`[${providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
 
 		// Handle response transformations for streaming responses
-		return transformStreamingResponse(response, providerName);
+		return transformStreamingResponse(response, providerName, noArgTools);
 	};
 }
 
@@ -173,7 +180,7 @@ export function createOpenAICompatibleFetch(providerName: string): (input: Reque
  * Specifically, converts max_tokens to max_completion_tokens for providers like Snowflake
  * that require the newer parameter name.
  */
-function transformRequestBody(init: RequestInit | undefined, providerName: string): RequestInit | undefined {
+function transformRequestBody(init: RequestInit | undefined, providerName: string, onNoArgToolsFound?: (noArgTools: string[]) => void): RequestInit | undefined {
 	if (!init?.body || typeof init.body !== 'string') {
 		return init;
 	}
@@ -202,6 +209,21 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 		// Some providers don't support the 'strict' field in tool function definitions
 		if (requestBody.tools && Array.isArray(requestBody.tools)) {
 			log.debug(`[${providerName}] Request contains ${requestBody.tools.length} tools: ${requestBody.tools.map((t: any) => t.function?.name || t.name).join(', ')}`);
+
+			// Identify tools that take no arguments
+			// These tools will have their empty argument strings fixed in the response transformer
+			const noArgTools = requestBody.tools
+				.filter((t: any) => {
+					const params = t.function?.parameters;
+					// Check if parameters is empty or has no properties
+					return !params || !params.properties || Object.keys(params.properties).length === 0;
+				})
+				.map((t: any) => t.function?.name);
+
+			if (onNoArgToolsFound && noArgTools.length > 0) {
+				onNoArgToolsFound(noArgTools);
+			}
+
 			for (const tool of requestBody.tools) {
 				if (tool.function && tool.function.strict !== undefined) {
 					delete tool.function.strict;
@@ -225,7 +247,7 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 /**
  * Transforms streaming responses to fix OpenAI-compatible provider issues
  */
-function transformStreamingResponse(response: Response, providerName: string): Response {
+function transformStreamingResponse(response: Response, providerName: string, noArgTools: string[] = []): Response {
 	// Only process streaming responses
 	const contentType = response.headers.get('content-type');
 	if (!contentType?.includes('text/event-stream')) {
@@ -240,7 +262,7 @@ function transformStreamingResponse(response: Response, providerName: string): R
 		new TransformStream({
 			transform(chunk, controller) {
 				const text = new TextDecoder().decode(chunk);
-				const transformedText = transformServerSentEvents(text, providerName);
+				const transformedText = transformServerSentEvents(text, providerName, noArgTools);
 				controller.enqueue(new TextEncoder().encode(transformedText));
 			}
 		})
@@ -256,7 +278,7 @@ function transformStreamingResponse(response: Response, providerName: string): R
 /**
  * Transforms Server-Sent Events text by properly parsing JSON and fixing ChatCompletionChunks
  */
-function transformServerSentEvents(text: string, providerName: string): string {
+function transformServerSentEvents(text: string, providerName: string, noArgTools: string[] = []): string {
 	const lines = text.split('\n');
 	const transformedLines: string[] = [];
 
@@ -268,8 +290,8 @@ function transformServerSentEvents(text: string, providerName: string): string {
 				const data = JSON.parse(jsonStr);
 				// Check if it's a possibly broken chunk and fix it
 				// Otherwise, keep the original line
-				if (isPossiblyBrokenChatCompletionChunk(data)) {
-					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data);
+				if (isChatCompletionChunk(data)) {
+					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data, noArgTools);
 					transformedLines.push(`data: ${JSON.stringify(fixedChunk)}`);
 				} else {
 					transformedLines.push(`data: ${JSON.stringify(data)}`);
