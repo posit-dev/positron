@@ -85,8 +85,10 @@ class PositronVariablesContribution extends Disposable implements IWorkbenchCont
 
 	/**
 	 * Registers the view visibility handler to notify the variables service
-	 * when the Variables pane is explicitly hidden or shown via the "Hide View" action.
-	 * This does NOT fire when simply switching to another view in the same panel.
+	 * when the Variables pane is explicitly hidden or shown via the "Hide View"
+	 * action.
+	 *
+	 * This doesn't fire when simply switching to another view in the same panel.
 	 */
 	private _registerViewVisibilityHandler(): void {
 		// Get the view container for the Variables view

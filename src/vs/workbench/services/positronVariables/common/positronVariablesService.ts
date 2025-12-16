@@ -93,9 +93,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		// Call the disposable constructor.
 		super();
 
-		// Note: We don't create instances here anymore. Instances are only created
-		// when the Variables pane becomes visible (via setViewVisible).
-
 		// Register the onWillStartSession event handler so we start a new Positron variables
 		// instance before a runtime starts up (only if the view is visible).
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
