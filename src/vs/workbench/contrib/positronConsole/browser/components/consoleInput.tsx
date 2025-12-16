@@ -99,7 +99,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	/**
 	 * Gets the appropriate history navigator based on the current debug state.
-	 * Uses inactive navigator when debug state is 'inactive' or undefined,
+	 * Uses the default navigator when debug state is 'inactive' or undefined,
 	 * and debug navigator for all other debug states.
 	 *
 	 * @returns The appropriate HistoryNavigator2 or undefined if none exists.
@@ -726,19 +726,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			props.positronConsoleInstance.sessionMetadata.sessionId
 		);
 		if (inputHistoryEntries.length) {
-			// Partition entries into inactive (non-debug) and debug entries.
-			// Entries without a debug field or with debug === 'inactive' are
-			// considered inactive.
-			const inactiveEntries = inputHistoryEntries.filter(
+			// Partition entries into default (non-debug) and debug entries.
+			const entries = inputHistoryEntries.filter(
 				entry => !entry.debug || entry.debug === 'inactive'
 			);
 			const debugEntries = inputHistoryEntries.filter(
 				entry => entry.debug && entry.debug !== 'inactive'
 			);
 
-			if (inactiveEntries.length) {
+			if (entries.length) {
 				setHistoryNavigator(
-					new HistoryNavigator2<IInputHistoryEntry>(inactiveEntries.slice(-1000), 1000)
+					new HistoryNavigator2<IInputHistoryEntry>(entries.slice(-1000), 1000)
 				);
 			}
 			if (debugEntries.length) {
@@ -1101,7 +1099,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						}
 					}
 				} else {
-					// Add to inactive (non-debug) history navigator.
+					// Add to default history navigator.
 					if (!historyNavigatorRef.current) {
 						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
 							[createInputHistoryEntry()],
