@@ -132,6 +132,10 @@ export class JuliaRuntimeManager implements positron.LanguageRuntimeManager {
 	): Promise<positron.LanguageRuntimeSession> {
 		const installation = this.getOrReconstructInstallation(runtimeMetadata);
 
+		// Ensure Language Server is running when restoring a session
+		// This handles the case where Positron was reloaded and the LS needs to be started
+		await ensureLanguageServerForVersion(installation, this._context);
+
 		LOGGER.info(`Restoring Julia session for ${runtimeMetadata.runtimeName}`);
 		// Don't pass kernelSpec so the session will reconnect to the existing kernel
 		return new JuliaSession(

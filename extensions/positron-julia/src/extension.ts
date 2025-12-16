@@ -79,8 +79,15 @@ async function startLanguageServer(
 		return;
 	}
 
+	// If LS is already running, don't start another
+	if (languageClient?.isRunning()) {
+		LOGGER.debug('Julia Language Server is already running');
+		return;
+	}
+
 	// If no installation provided, find the first available one
 	if (!installation) {
+		LOGGER.debug('No installation provided, discovering Julia installations...');
 		for await (const inst of juliaRuntimeDiscoverer()) {
 			installation = inst;
 			break;
@@ -92,12 +99,15 @@ async function startLanguageServer(
 		return;
 	}
 
+	LOGGER.info(`Starting Julia Language Server with Julia ${installation.version}`);
+
 	// Create and start the language client
 	languageClient = new JuliaLanguageClient(context.extensionPath);
 	context.subscriptions.push(languageClient);
 
 	try {
 		await languageClient.start(installation);
+		LOGGER.info('Julia Language Server started successfully');
 	} catch (error) {
 		LOGGER.error(`Failed to start language server: ${error}`);
 		languageClient = undefined;
@@ -124,14 +134,15 @@ export async function supervisorApi(): Promise<PositronSupervisorApi> {
 /**
  * Ensures the Language Server is running with the specified Julia version.
  * Restarts the LS if it's running with a different version.
- * Called when creating a new session to ensure version compatibility.
+ * Called when creating or restoring a session to ensure version compatibility.
  */
 export async function ensureLanguageServerForVersion(
 	installation: any,
 	context: vscode.ExtensionContext
 ): Promise<void> {
 	// If no LS is running, start it with this version
-	if (!languageClient) {
+	if (!languageClient || !languageClient.isRunning()) {
+		LOGGER.info(`Language Server not running, starting for Julia ${installation.version}`);
 		await startLanguageServer(context, installation);
 		return;
 	}
@@ -145,5 +156,7 @@ export async function ensureLanguageServerForVersion(
 		await languageClient.stop();
 		languageClient = undefined;
 		await startLanguageServer(context, installation);
+	} else {
+		LOGGER.debug(`Language Server already running with Julia ${currentVersion}`);
 	}
 }
