@@ -81,26 +81,26 @@ runs:
       # This is the single source of truth for which package-lock files to include in npm cache keys
       run: .github/scripts/generate-package-locks-hash.sh "${{ hashFiles('package-lock.json', 'build/package-lock.json', 'remote/package-lock.json', 'remote/web/package-lock.json', 'remote/reh-web/package-lock.json', 'test/e2e/package-lock.json', 'test/integration/browser/package-lock.json', 'test/monaco/package-lock.json', 'test/mcp/package-lock.json') }}" || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
 
-    - name: Restore npm core dependencies cache
-      if: ${{ inputs.restore-npm == 'true' }}
-      id: cache-npm-core
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          .npm-cache
-          node_modules
-          build/node_modules
-          remote/node_modules
-          remote/web/node_modules
-          remote/reh-web/node_modules
-          test/e2e/node_modules
-          test/integration/browser/node_modules
-          test/monaco/node_modules
-          test/mcp/node_modules
-        # Core dependencies invalidate only when package-lock files change
-        # IMPORTANT: If bumping npm-core-v2 -> npm-core-v3, also update save-build-caches/action.yml
-        key: npm-core-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+    # - name: Restore npm core dependencies cache
+    #   if: ${{ inputs.restore-npm == 'true' }}
+    #   id: cache-npm-core
+    #   continue-on-error: true
+    #   uses: actions/cache/restore@v4
+    #   with:
+    #     path: |
+    #       .npm-cache
+    #       node_modules
+    #       build/node_modules
+    #       remote/node_modules
+    #       remote/web/node_modules
+    #       remote/reh-web/node_modules
+    #       test/e2e/node_modules
+    #       test/integration/browser/node_modules
+    #       test/monaco/node_modules
+    #       test/mcp/node_modules
+    #     # Core dependencies invalidate only when package-lock files change
+    #     # IMPORTANT: If bumping npm-core-v2 -> npm-core-v3, also update save-build-caches/action.yml
+    #     key: npm-core-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
       if: ${{ inputs.restore-npm == 'true' }}
