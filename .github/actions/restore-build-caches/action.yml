@@ -22,6 +22,14 @@ inputs:
     description: "Whether to restore built-in extensions cache (default: true)"
     required: false
     default: 'true'
+  restore-ark:
+    description: "Whether to restore Ark binary cache (default: true)"
+    required: false
+    default: 'true'
+  restore-kallichore:
+    description: "Whether to restore Kallichore binary cache (default: true)"
+    required: false
+    default: 'true'
 
 outputs:
   cache-playwright-hit:
@@ -42,6 +50,12 @@ outputs:
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-ark-hit:
+    description: "Whether Ark binary cache was restored"
+    value: ${{ steps.cache-ark.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-kallichore-hit:
+    description: "Whether Kallichore binary cache was restored"
+    value: ${{ steps.cache-kallichore.outputs.cache-hit == 'true' && 'true' || 'false' }}
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.extensions-hash.outputs.hash }}
@@ -195,6 +209,34 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
+    - name: Restore Ark binary cache
+      if: ${{ inputs.restore-ark == 'true' }}
+      id: cache-ark
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          extensions/positron-r/resources/ark
+        # Ark binary version is specified in positron-r package.json
+        # IMPORTANT: If bumping ark -> ark-v2, also update save-build-caches/action.yml
+        key: ark-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        restore-keys: |
+          ark-${{ runner.os }}-${{ inputs.distro }}-
+
+    - name: Restore Kallichore binary cache
+      if: ${{ inputs.restore-kallichore == 'true' }}
+      id: cache-kallichore
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          extensions/positron-supervisor/resources/kallichore
+        # Kallichore binary version is specified in positron-supervisor package.json
+        # IMPORTANT: If bumping kallichore -> kallichore-v2, also update save-build-caches/action.yml
+        key: kallichore-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        restore-keys: |
+          kallichore-${{ runner.os }}-${{ inputs.distro }}-
+
     - name: Log cache results
       if: always()
       shell: bash
@@ -236,4 +278,18 @@ runs:
           echo "  builtins:       hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
         else
           echo "  builtins:       skipped (disabled)"
+        fi
+
+        # ark
+        if [[ "${{ inputs.restore-ark }}" == "true" ]]; then
+          echo "  ark:            hit=${{ steps['cache-ark'].outputs['cache-hit'] || 'false' }}"
+        else
+          echo "  ark:            skipped (disabled)"
+        fi
+
+        # kallichore
+        if [[ "${{ inputs.restore-kallichore }}" == "true" ]]; then
+          echo "  kallichore:     hit=${{ steps['cache-kallichore'].outputs['cache-hit'] || 'false' }}"
+        else
+          echo "  kallichore:     skipped (disabled)"
         fi

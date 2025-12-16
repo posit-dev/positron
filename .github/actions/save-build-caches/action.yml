@@ -26,6 +26,14 @@ inputs:
     description: "Whether builtins cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
+  cache-ark-hit:
+    description: "Whether Ark binary cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  cache-kallichore-hit:
+    description: "Whether Kallichore binary cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
   extensions-hash:
     description: "Extensions hash from restore step (required only if saving npm extensions cache)"
     required: false
@@ -123,6 +131,54 @@ runs:
         # IMPORTANT: If bumping builtins -> builtins-v2, also update restore-build-caches/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
+    - name: Verify Ark binary before saving
+      if: ${{ inputs.cache-ark-hit == 'false' }}
+      id: verify-ark
+      continue-on-error: true
+      shell: bash
+      run: |
+        if [ -f "extensions/positron-r/resources/ark/ark" ] && extensions/positron-r/resources/ark/ark --version 2>/dev/null; then
+          echo "✅ Ark binary verified and functional"
+          echo "verified=true" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️ Ark binary missing or not functional - skipping cache save"
+          echo "verified=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Save Ark binary cache
+      if: ${{ inputs.cache-ark-hit == 'false' && steps.verify-ark.outputs.verified == 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          extensions/positron-r/resources/ark
+        # IMPORTANT: If bumping ark -> ark-v2, also update restore-build-caches/action.yml
+        key: ark-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
+
+    - name: Verify Kallichore binary before saving
+      if: ${{ inputs.cache-kallichore-hit == 'false' }}
+      id: verify-kallichore
+      continue-on-error: true
+      shell: bash
+      run: |
+        if [ -f "extensions/positron-supervisor/resources/kallichore/kcserver" ]; then
+          echo "✅ Kallichore binary verified"
+          echo "verified=true" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️ Kallichore binary missing - skipping cache save"
+          echo "verified=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Save Kallichore binary cache
+      if: ${{ inputs.cache-kallichore-hit == 'false' && steps.verify-kallichore.outputs.verified == 'true' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          extensions/positron-supervisor/resources/kallichore
+        # IMPORTANT: If bumping kallichore -> kallichore-v2, also update restore-build-caches/action.yml
+        key: kallichore-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+
     - name: Log cache save results
       if: always()
       shell: bash
@@ -172,4 +228,30 @@ runs:
           echo "  builtins:       skipped (cache hit)"
         else
           echo "  builtins:       skipped (not restored)"
+        fi
+
+        # ark
+        if [[ "${{ inputs.cache-ark-hit }}" == "false" ]]; then
+          if [[ "${{ steps.verify-ark.outputs.verified }}" == "true" ]]; then
+            echo "  ark:            saved"
+          else
+            echo "  ark:            skipped (verification failed)"
+          fi
+        elif [[ "${{ inputs.cache-ark-hit }}" == "true" ]]; then
+          echo "  ark:            skipped (cache hit)"
+        else
+          echo "  ark:            skipped (not restored)"
+        fi
+
+        # kallichore
+        if [[ "${{ inputs.cache-kallichore-hit }}" == "false" ]]; then
+          if [[ "${{ steps.verify-kallichore.outputs.verified }}" == "true" ]]; then
+            echo "  kallichore:     saved"
+          else
+            echo "  kallichore:     skipped (verification failed)"
+          fi
+        elif [[ "${{ inputs.cache-kallichore-hit }}" == "true" ]]; then
+          echo "  kallichore:     skipped (cache hit)"
+        else
+          echo "  kallichore:     skipped (not restored)"
         fi

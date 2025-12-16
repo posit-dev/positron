@@ -116,6 +116,8 @@ jobs:
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          cache-ark-hit: ${{ steps.restore-caches.outputs.cache-ark-hit }}
+          cache-kallichore-hit: ${{ steps.restore-caches.outputs.cache-kallichore-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
