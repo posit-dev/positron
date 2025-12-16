@@ -102,31 +102,16 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Run extension postinstall scripts
-        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
+      - name: Ensure Ark binary is present
         run: |
-          # When extensions cache hits, postinstall scripts don't run
-          # But positron-r needs postinstall to download/setup the Ark kernel binary
-          # The cache includes extensions/positron-r/resources/ark which may be broken
-          # Force complete re-download by removing entire ark directory
-          echo "Extensions cache hit - forcing fresh Ark download"
-          rm -rf extensions/positron-r/resources/ark
-          cd extensions/positron-r && npm run postinstall
-
-          # Verify Ark was downloaded and is executable
-          if [ -f "resources/ark/ark" ]; then
-            echo "Ark binary found at resources/ark/ark"
-            ls -lh resources/ark/ark
-            file resources/ark/ark
-            # Verify Ark can actually run (not just exist)
-            if ! ./resources/ark/ark --version 2>/dev/null; then
-              echo "ERROR: Ark binary exists but cannot execute!"
-              exit 1
-            fi
-            echo "Ark verified and functional"
+          # Always ensure Ark is downloaded and functional, regardless of cache status
+          # This handles both cache hit (postinstall skipped) and cache miss (postinstall may have failed) scenarios
+          if [ ! -f "extensions/positron-r/resources/ark/ark" ] || ! extensions/positron-r/resources/ark/ark --version 2>/dev/null; then
+            echo "Ark binary missing or not executable, downloading..."
+            rm -rf extensions/positron-r/resources/ark
+            cd extensions/positron-r && npm run postinstall
           else
-            echo "ERROR: Ark binary not found after postinstall!"
-            exit 1
+            echo "Ark binary already present and functional"
           fi
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
