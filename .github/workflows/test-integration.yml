@@ -91,8 +91,10 @@ jobs:
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers and system dependencies
-        # if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        run: npx playwright install --with-deps
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}
+        run: |
+          echo "Installing Playwright browsers (cache-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}, verification: ${{ steps.restore-caches.outputs.verify-playwright-outcome }})"
+          npx playwright install --with-deps
 
       - name: Set permissions on SUID sandbox helper
         run: |

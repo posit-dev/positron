@@ -27,6 +27,9 @@ outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
     value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  verify-playwright-outcome:
+    description: "Outcome of Playwright cache verification (success/failure/skipped)"
+    value: ${{ steps.verify-playwright.outcome || 'skipped' }}
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
     value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -36,6 +39,9 @@ outputs:
   cache-electron-hit:
     description: "Whether Electron cache was restored"
     value: ${{ steps.cache-electron.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  verify-electron-outcome:
+    description: "Outcome of Electron cache verification (success/failure/skipped)"
+    value: ${{ steps.verify-electron.outcome || 'skipped' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -118,45 +124,89 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v3 -> npm-extensions-v4, also update save-build-caches/action.yml
         key: npm-extensions-v3-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
-    # - name: Extract Playwright version
-    #   if: ${{ inputs.restore-playwright == 'true' }}
-    #   id: playwright-version
-    #   shell: bash
-    #   run: |
-    #     PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-    #     echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-    #     echo "Playwright version: $PLAYWRIGHT_VERSION"
+    - name: Extract Playwright version
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: playwright-version
+      shell: bash
+      run: |
+        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    # - name: Restore Playwright browsers cache
-    #   if: ${{ inputs.restore-playwright == 'true' }}
-    #   id: cache-playwright
-    #   continue-on-error: true
-    #   uses: actions/cache/restore@v4
-    #   with:
-    #     path: ~/.cache/ms-playwright
-    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-    #     key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-${{ inputs.distro }}-playwright-
+    - name: Restore Playwright browsers cache
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: cache-playwright
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.cache/ms-playwright
+        # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
+        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.distro }}-playwright-
 
-    # - name: Restore Electron binary cache
-    #   if: ${{ inputs.restore-electron == 'true' }}
-    #   id: cache-electron
-    #   continue-on-error: true
-    #   uses: actions/cache/restore@v4
-    #   with:
-    #     path: |
-    #       ~/.cache/electron
-    #       ~/.cache/electron-builder
-    #       /root/.cache/electron
-    #       /root/.cache/electron-builder
-    #       /github/home/.cache/electron
-    #       /github/home/.cache/electron-builder
-    #     # electron binaries are tied to package-lock and the electron version in package.json
-    #     # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches/action.yml
-    #     key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-    #     restore-keys: |
-    #       electron-${{ runner.os }}-
+    - name: Verify Playwright cache
+      if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
+      id: verify-playwright
+      continue-on-error: true
+      shell: bash
+      run: |
+        echo "Verifying Playwright cache..."
+        if [ ! -d "$HOME/.cache/ms-playwright" ]; then
+          echo "⚠️ Playwright cache directory missing"
+          echo "## ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        if [ -z "$(ls -A $HOME/.cache/ms-playwright)" ]; then
+          echo "⚠️ Playwright cache directory empty"
+          echo "## ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "✅ Playwright cache verified"
+
+    - name: Restore Electron binary cache
+      if: ${{ inputs.restore-electron == 'true' }}
+      id: cache-electron
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          /root/.cache/electron
+          /root/.cache/electron-builder
+          /github/home/.cache/electron
+          /github/home/.cache/electron-builder
+        # electron binaries are tied to package-lock and the electron version in package.json
+        # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches/action.yml
+        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+        restore-keys: |
+          electron-${{ runner.os }}-
+
+    - name: Verify Electron cache
+      if: ${{ inputs.restore-electron == 'true' && steps.cache-electron.outputs.cache-hit == 'true' }}
+      id: verify-electron
+      continue-on-error: true
+      shell: bash
+      run: |
+        echo "Verifying Electron cache..."
+        FOUND_CACHE=false
+        for cache_dir in "$HOME/.cache/electron" "/root/.cache/electron" "/github/home/.cache/electron"; do
+          if [ -d "$cache_dir" ] && [ -n "$(ls -A $cache_dir 2>/dev/null)" ]; then
+            echo "✅ Found Electron cache at $cache_dir"
+            FOUND_CACHE=true
+            break
+          fi
+        done
+        if [ "$FOUND_CACHE" = false ]; then
+          echo "⚠️ Electron cache missing or empty"
+          echo "## ⚠️ Electron Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache was restored but no valid cache directory found. Will redownload." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "✅ Electron cache verified"
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
