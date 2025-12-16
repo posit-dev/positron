@@ -26,6 +26,9 @@ export class JuliaLanguageClient implements vscode.Disposable {
 	private _installation: JuliaInstallation | undefined;
 	private _extensionPath: string;
 	private _outputChannel: vscode.OutputChannel;
+	private _restartCount: number = 0;
+	private _maxRestarts: number = 3;
+	private _restartResetTimeout: NodeJS.Timeout | undefined;
 
 	constructor(extensionPath: string) {
 		this._extensionPath = extensionPath;
@@ -218,30 +221,62 @@ export class JuliaLanguageClient implements vscode.Disposable {
 			traceOutputChannel: this._outputChannel,
 			// Help the language server find environments in subdirectories
 			workspaceFolder: vscode.workspace.workspaceFolders?.[0],
+			// Initialization options to configure LanguageServer.jl behavior
+			initializationOptions: {
+				julialangTestItemProvider: false,
+			},
 		};
 
 		// Create and start the client
+		// Use a unique ID to avoid command conflicts with julia-vscode extension
 		this._client = new LanguageClient(
-			'juliaLanguageServer',
-			'Julia Language Server',
+			'positron-julia-ls',
+			'Julia Language Server (Positron)',
 			serverOptions,
 			clientOptions
 		);
 
-		// Handle unexpected stops - auto-restart after a delay
+		// Remove ExecuteCommandFeature to prevent command registration conflicts
+		// The LanguageServer.jl provides commands like 'UpdateDocstringSignature' that may
+		// conflict with other extensions or previous LS instances
+		const features = (this._client as unknown as { _features: Array<{ constructor: { name: string } }> })._features;
+		const filteredFeatures = features.filter(f => f.constructor.name !== 'ExecuteCommandFeature');
+		(this._client as unknown as { _features: typeof filteredFeatures })._features = filteredFeatures;
+
+		// Handle unexpected stops - auto-restart with limits
 		this._client.onDidChangeState((event) => {
 			if (event.newState === 1) { // State.Stopped
 				LOGGER.warn('Julia Language Server stopped unexpectedly');
 				// Clear the client reference
 				this._client = undefined;
-				// Attempt restart after a short delay (avoid rapid restart loops)
+
+				// Check restart count to prevent infinite loops
+				this._restartCount++;
+				if (this._restartCount > this._maxRestarts) {
+					LOGGER.error(`Julia Language Server failed ${this._maxRestarts} times, giving up`);
+					return;
+				}
+
+				// Reset restart count after 5 minutes of stability
+				if (this._restartResetTimeout) {
+					clearTimeout(this._restartResetTimeout);
+				}
+
+				// Attempt restart after a delay (exponential backoff)
 				if (this._installation) {
+					const delay = 3000 * Math.pow(2, this._restartCount - 1);
+					LOGGER.info(`Attempting to restart Julia Language Server in ${delay}ms (attempt ${this._restartCount}/${this._maxRestarts})...`);
 					setTimeout(() => {
-						LOGGER.info('Attempting to restart Julia Language Server...');
-						this.start(this._installation!).catch(err => {
+						this.start(this._installation!).then(() => {
+							// Reset restart count after 5 minutes of stability
+							this._restartResetTimeout = setTimeout(() => {
+								this._restartCount = 0;
+								LOGGER.debug('Reset Language Server restart counter');
+							}, 5 * 60 * 1000);
+						}).catch(err => {
 							LOGGER.error(`Failed to restart Language Server: ${err}`);
 						});
-					}, 3000);
+					}, delay);
 				}
 			}
 		});
@@ -249,6 +284,8 @@ export class JuliaLanguageClient implements vscode.Disposable {
 		try {
 			await this._client.start();
 			LOGGER.info('Julia Language Server started successfully');
+			// Reset restart count on successful start
+			this._restartCount = 0;
 		} catch (error) {
 			LOGGER.error(`Failed to start Julia Language Server: ${error}`);
 			this._client = undefined;
