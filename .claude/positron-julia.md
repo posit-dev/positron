@@ -252,6 +252,76 @@ julia --project=. -e 'using Pkg; Pkg.update()'
 julia --project=. -e 'using Pkg; Pkg.status()'
 ```
 
+## Logging Conventions
+
+**IMPORTANT**: The Julia kernel has custom logging functions that write to the Kernel output pane. Do NOT use standard Julia logging macros (`@info`, `@debug`, `@warn`, `@error`) in kernel code - they output to the Console instead!
+
+### Kernel Logging Functions
+
+Use these functions defined in `kernel.jl`:
+
+```julia
+# Info level - general operational messages
+kernel_log_info("Variables: received message, keys=$(collect(keys(msg)))")
+
+# Warning level - non-fatal issues
+kernel_log_warn("Variables: variable not found at path=$path")
+
+# Error level - errors with stack traces
+kernel_log_error("Variables: error handling message: $(sprint(showerror, e, catch_backtrace()))")
+
+# Shorthand (defaults to info level)
+kernel_log("Message text")
+```
+
+### Why Not Standard Logging?
+
+- `@info`, `@debug`, `@warn`, `@error` write to Julia's default logger
+- The default logger outputs to the Console (REPL output)
+- Kernel operations should log to the Kernel output pane instead
+- The `kernel_log_*` functions write to `IJulia.orig_stderr` which goes to the Kernel log
+
+### Where to Use Each
+
+| Context | Use |
+|---------|-----|
+| kernel.jl | `kernel_log_*` functions |
+| variables.jl | `kernel_log_*` functions |
+| Any code running in kernel context | `kernel_log_*` functions |
+| Test files | `@info`, `@debug` (tests don't run in kernel) |
+| Standalone scripts | `@info`, `@debug` (standard logging is fine) |
+
+### Logging Best Practices
+
+1. **Include context in messages**: `"Variables: handle_inspect called, path=$path"`
+2. **Use string interpolation for dynamic data**: `"Found $(length(items)) items"`
+3. **Include stack traces for errors**: `sprint(showerror, e, catch_backtrace())`
+4. **Be concise but informative**: Log entry/exit of key operations
+5. **Don't log in tight loops**: Performance impact
+
+### Example Pattern
+
+```julia
+function handle_inspect(service::VariablesService, path::Vector{String})
+    kernel_log_info("Variables: handle_inspect called, path=$path")
+
+    # ... do work ...
+
+    if error_condition
+        kernel_log_warn("Variables: unexpected condition at path=$path")
+        return
+    end
+
+    try
+        # ... operation ...
+        kernel_log_info("Variables: operation completed successfully")
+    catch e
+        kernel_log_error("Variables: operation failed: $(sprint(showerror, e, catch_backtrace()))")
+        rethrow(e)
+    end
+end
+```
+
 ## Code Formatting
 
 All Julia code must be formatted before committing:

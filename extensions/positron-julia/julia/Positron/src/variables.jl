@@ -45,19 +45,19 @@ end
 Handle incoming messages on the variables comm.
 """
 function handle_variables_msg(service::VariablesService, msg::Dict)
-    @info "Variables: received message" msg_keys=keys(msg)
+    kernel_log_info("Variables: received message, keys=$(collect(keys(msg)))")
 
     request = parse_variables_request(msg)
-    @info "Variables: parsed request" request_type=typeof(request)
+    kernel_log_info("Variables: parsed request, type=$(typeof(request))")
 
     try
         handle_request(service, request)
     catch e
-        @error "Variables: error handling message" exception=(e, catch_backtrace())
+        kernel_log_error("Variables: error handling message: $(sprint(showerror, e, catch_backtrace()))")
         try
             send_error(service.comm, JsonRpcErrorCode.INTERNAL_ERROR, "Internal error: $(sprint(showerror, e))")
         catch send_err
-            @error "Variables: failed to send error response" exception=(send_err, catch_backtrace())
+            kernel_log_error("Variables: failed to send error response: $(sprint(showerror, send_err))")
         end
     end
 end
@@ -126,34 +126,36 @@ end
 Handle inspect request - return children of a variable.
 """
 function handle_inspect(service::VariablesService, path::Vector{String})
-    @info "Variables: handle_inspect called" path=path
+    kernel_log_info("Variables: handle_inspect called, path=$path")
 
     if isempty(path)
-        @warn "Variables: empty path in inspect request"
+        kernel_log_warn("Variables: empty path in inspect request")
         send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Empty path")
         return
     end
 
     # Navigate to the value
-    @debug "Variables: navigating to path" path=path
     value = get_value_at_path(path)
     if value === nothing
-        @warn "Variables: variable not found at path" path=path
+        kernel_log_warn("Variables: variable not found at path=$path")
         send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Variable not found")
         return
     end
 
-    @debug "Variables: found value" value_type=typeof(value) has_children=value_has_children(value)
+    kernel_log_info("Variables: found value, type=$(typeof(value)), has_children=$(value_has_children(value))")
 
     # Get children
-    @debug "Variables: getting children"
     children = get_children(value)
-    @info "Variables: returning children" path=path num_children=length(children)
+    kernel_log_info("Variables: returning $(length(children)) children for path=$path")
 
     result = InspectedVariable(children, length(children))
-    @debug "Variables: sending result"
-    send_result(service.comm, result)
-    @debug "Variables: result sent"
+    try
+        send_result(service.comm, result)
+        kernel_log_info("Variables: result sent successfully")
+    catch e
+        kernel_log_error("Variables: failed to send result: $(sprint(showerror, e, catch_backtrace()))")
+        rethrow(e)
+    end
 end
 
 """
@@ -482,34 +484,27 @@ end
 Get the value at a given path.
 """
 function get_value_at_path(path::Vector{String})
-    @debug "get_value_at_path: starting" path=path
-
     if isempty(path)
-        @warn "get_value_at_path: empty path"
+        kernel_log_warn("get_value_at_path: empty path")
         return nothing
     end
 
     # Start from Main
     try
         root_name = Symbol(path[1])
-        @debug "get_value_at_path: getting root variable" name=root_name
         current = getfield(Main, root_name)
-        @debug "get_value_at_path: found root" value_type=typeof(current)
 
         for key in path[2:end]
-            @debug "get_value_at_path: navigating to child" key=key current_type=typeof(current)
             current = get_child_value(current, key)
             if current === nothing
-                @warn "get_value_at_path: child not found" key=key
+                kernel_log_warn("get_value_at_path: child not found, key=$key")
                 return nothing
             end
-            @debug "get_value_at_path: found child" value_type=typeof(current)
         end
 
-        @debug "get_value_at_path: returning value" value_type=typeof(current)
         return current
     catch e
-        @error "get_value_at_path: error" path=path exception=(e, catch_backtrace())
+        kernel_log_error("get_value_at_path: error for path=$path: $(sprint(showerror, e))")
         return nothing
     end
 end
@@ -616,14 +611,12 @@ end
 Get children of a value for inspection.
 """
 function get_children(value::Any)::Vector{Variable}
-    @debug "get_children: starting" value_type=typeof(value)
     children = Variable[]
     current_time = round(Int, time() * 1000)
 
     try
         # DataFrames: children are columns (like Python pandas/polars)
         if isdefined(Main, :DataFrames) && value isa Main.DataFrames.DataFrame
-            @debug "get_children: processing DataFrame"
             col_names = Main.DataFrames.names(value)
             n = min(length(col_names), 100)
             for i = 1:n
@@ -632,7 +625,6 @@ function get_children(value::Any)::Vector{Variable}
                 push!(children, create_variable(col_name, col_value, current_time))
             end
         elseif value isa AbstractDict
-            @debug "get_children: processing Dict" length=length(value)
             for (k, v) in value
                 key_str = string(k)
                 push!(children, create_variable(key_str, v, current_time))
@@ -641,7 +633,6 @@ function get_children(value::Any)::Vector{Variable}
             # For arrays, children are elements along the first dimension
             # This matches Python's behavior where arr[0] returns the first row for 2D arrays
             n_children = get_array_children_count(value)
-            @debug "get_children: processing Array" ndims=ndims(value) size=size(value) n_children=n_children
             # Limit number of children shown
             n = min(n_children, 100)
             for i = 1:n
@@ -649,22 +640,20 @@ function get_children(value::Any)::Vector{Variable}
                 push!(children, create_variable("[$i]", child_value, current_time))
             end
         else
-            @debug "get_children: processing struct" fieldcount=fieldcount(typeof(value))
             # Get fields
             for field in fieldnames(typeof(value))
                 try
                     field_value = getfield(value, field)
                     push!(children, create_variable(string(field), field_value, current_time))
-                catch e
-                    @debug "get_children: failed to get field" field=field exception=e
+                catch
+                    # Skip fields that can't be accessed
                 end
             end
         end
     catch e
-        @error "get_children: error processing value" value_type=typeof(value) exception=(e, catch_backtrace())
+        kernel_log_error("get_children: error processing $(typeof(value)): $(sprint(showerror, e))")
     end
 
-    @debug "get_children: returning" num_children=length(children)
     return children
 end
 
