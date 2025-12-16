@@ -95,6 +95,12 @@ jobs:
             echo "Ark binary found at resources/ark/ark"
             ls -lh resources/ark/ark
             file resources/ark/ark
+            # Verify Ark can actually run (not just exist)
+            if ! ./resources/ark/ark --version 2>/dev/null; then
+              echo "ERROR: Ark binary exists but cannot execute!"
+              exit 1
+            fi
+            echo "Ark verified and functional"
           else
             echo "ERROR: Ark binary not found after postinstall!"
             exit 1
