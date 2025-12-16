@@ -27,6 +27,9 @@ outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
     value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  verify-playwright-outcome:
+    description: "Outcome of Playwright cache verification (success/failure/skipped)"
+    value: ${{ steps.verify-playwright.outcome || 'skipped' }}
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
     value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -140,20 +143,43 @@ runs:
         restore-keys: |
           ${{ runner.os }}-playwright-
 
-    - name: Restore Electron binary cache
-      if: ${{ inputs.restore-electron == 'true' }}
-      id: cache-electron
+    - name: Verify Playwright cache
+      if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
+      id: verify-playwright
       continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~\AppData\Local\electron\Cache
-          ~\AppData\Local\electron-builder\Cache
-        # electron binaries are tied to package-lock and the electron version in package.json
-        # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches-windows/action.yml
-        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-        restore-keys: |
-          electron-${{ runner.os }}-
+      shell: bash
+      run: |
+        echo "Verifying Playwright cache..."
+        # Convert Windows path to Unix path for bash
+        PLAYWRIGHT_DIR="$USERPROFILE/AppData/Local/ms-playwright"
+        if [ ! -d "$PLAYWRIGHT_DIR" ]; then
+          echo "⚠️ Playwright cache directory missing"
+          echo "### ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        if [ -z "$(ls -A "$PLAYWRIGHT_DIR")" ]; then
+          echo "⚠️ Playwright cache directory empty"
+          echo "### ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "✅ Playwright cache verified"
+
+    # - name: Restore Electron binary cache
+    #   if: ${{ inputs.restore-electron == 'true' }}
+    #   id: cache-electron
+    #   continue-on-error: true
+    #   uses: actions/cache/restore@v4
+    #   with:
+    #     path: |
+    #       ~\AppData\Local\electron\Cache
+    #       ~\AppData\Local\electron-builder\Cache
+    #     # electron binaries are tied to package-lock and the electron version in package.json
+    #     # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches-windows/action.yml
+    #     key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+    #     restore-keys: |
+    #       electron-${{ runner.os }}-
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -191,17 +217,19 @@ runs:
 
         # playwright
         if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
-          echo "  playwright:     hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
+          HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
+          VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
+          if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
+            echo "  playwright:     hit=true (⚠️ verification failed, will reinstall)"
+          else
+            echo "  playwright:     hit=$HIT"
+          fi
         else
           echo "  playwright:     skipped (disabled)"
         fi
 
-        # electron
-        if [[ "${{ inputs.restore-electron }}" == "true" ]]; then
-          echo "  electron:       hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
-        else
-          echo "  electron:       skipped (disabled)"
-        fi
+        # electron (disabled - downloaded during compile)
+        echo "  electron:       skipped (disabled)"
 
         # builtins
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
