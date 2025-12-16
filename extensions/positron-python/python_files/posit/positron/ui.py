@@ -21,6 +21,7 @@ from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     OpenEditorParams,
+    ShowHtmlFileDestination,
     ShowHtmlFileParams,
     ShowUrlParams,
     UiBackendMessageContent,
@@ -232,21 +233,25 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if not self._comm:
             return False
 
-        is_plot = False
+        destination = ShowHtmlFileDestination.Viewer
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
             # Send bokeh plots to the plots pane.
             # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
             # This is not great but currently the only information we have.
-            is_plot = self._is_module_function("bokeh.io.showing", "show")
+            destination = (
+                ShowHtmlFileDestination.Plot
+                if self._is_module_function("bokeh.io.showing", "show")
+                else ShowHtmlFileDestination.Viewer
+            )
 
-            return self._send_show_html_event(url, is_plot)
+            return self._send_show_html_event(url, destination)
 
         for addr in _localhosts:
             if addr in url:
                 is_plot = self._is_module_function("plotly.basedatatypes")
                 if is_plot:
-                    return self._send_show_html_event(url, is_plot)
+                    return self._send_show_html_event(url, ShowHtmlFileDestination.Plot)
                 else:
                     event = ShowUrlParams(url=url)
                     self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
@@ -271,7 +276,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         return True
         return False
 
-    def _send_show_html_event(self, url: str, is_plot: bool) -> bool:  # noqa: FBT001
+    def _send_show_html_event(self, url: str, destination: str) -> bool:
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False
@@ -283,7 +288,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 path=url,
                 # Use the URL's title.
                 title="",
-                is_plot=is_plot,
+                destination=destination,
                 # No particular height is required.
                 height=0,
             ).dict(),
