@@ -1,0 +1,81 @@
+name: "Verify npm Cache Integrity"
+description: "Verifies that cached npm dependencies have all required artifacts (binaries, patches, etc). Only runs if cache was restored."
+
+inputs:
+  cache-npm-core-hit:
+    description: "Whether npm core cache was hit (from restore-build-caches output)"
+    required: true
+
+outputs:
+  verification:
+    description: "Verification result: 'passed', 'failed', or 'skipped'"
+    value: ${{ steps.verify.outputs.verification }}
+  missing:
+    description: "List of missing artifacts (if verification failed)"
+    value: ${{ steps.verify.outputs.missing }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Verify npm cache integrity
+      id: verify
+      if: ${{ inputs.cache-npm-core-hit == 'true' }}
+      continue-on-error: true
+      shell: bash
+      run: |
+        echo "Verifying critical node_modules artifacts..."
+
+        MISSING=""
+
+        # Check critical directories exist
+        for dir in node_modules build/node_modules remote/node_modules test/integration/browser/node_modules; do
+          if [ ! -d "$dir" ]; then
+            echo "❌ Missing: $dir"
+            MISSING="$MISSING $dir"
+          fi
+        done
+
+        # Check critical binaries exist
+        if [ ! -f "node_modules/.bin/tsc" ]; then
+          echo "❌ Missing: node_modules/.bin/tsc"
+          MISSING="$MISSING tsc"
+        fi
+
+        if [ ! -f "node_modules/.bin/esbuild" ]; then
+          echo "❌ Missing: node_modules/.bin/esbuild"
+          MISSING="$MISSING esbuild"
+        fi
+
+        # Check patch-package ran (git patches were applied)
+        if [ ! -d "node_modules/.cache/patch-package" ]; then
+          echo "❌ Missing: patch-package cache (patches may not be applied)"
+          MISSING="$MISSING patch-package"
+        fi
+
+        if [ -n "$MISSING" ]; then
+          echo "verification=failed" >> $GITHUB_OUTPUT
+          echo "missing=$MISSING" >> $GITHUB_OUTPUT
+          echo "⚠️ Cache verification failed - will reinstall"
+
+          # Write warning to GitHub Step Summary
+          echo "## ⚠️ npm Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The npm-core cache was restored but is missing critical artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Missing artifacts:**$MISSING" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action taken:** npm dependencies will be reinstalled to regenerate the cache." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          exit 1
+        else
+          echo "verification=passed" >> $GITHUB_OUTPUT
+          echo "✅ Cache verification passed"
+        fi
+
+    - name: Set skipped status
+      if: ${{ inputs.cache-npm-core-hit != 'true' }}
+      shell: bash
+      run: |
+        echo "verification=skipped" >> $GITHUB_OUTPUT
+        echo "Cache was not restored, verification skipped"
