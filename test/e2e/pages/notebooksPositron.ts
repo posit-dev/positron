@@ -27,7 +27,7 @@ export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
@@ -191,7 +191,8 @@ export class PositronNotebooks extends Notebooks {
 
 	/**
 	 * Action: Create a new Positron notebook.
-	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
+	 * @param codeCells - Number of code cells to create
+	 * @param markdownCells - Number of markdown cells to create
 	 */
 	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
@@ -344,7 +345,10 @@ export class PositronNotebooks extends Notebooks {
 
 			// Click the last "New Code Cell" button to add a cell at the end
 			await this.newCellButton.last().click();
-			await expect(this.cell).toHaveCount(newCellButtonCount + 1, { timeout: DEFAULT_TIMEOUT });
+			// The button count before adding the cell will match the new cell count after adding the cell.
+			// This is because there is one extra "New Code Cell" button at the beginning of the notebook.
+			// Ex: if there are 0 cells, there is 1 button; if there is 1 cell, there are 2 buttons, etc.
+			await expect(this.cell).toHaveCount(newCellButtonCount, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
@@ -427,11 +431,7 @@ export class PositronNotebooks extends Notebooks {
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
-			if (delay) {
-				await editor.pressSequentially(code, { delay });
-			} else {
-				await editor.fill(code);
-			}
+			await editor.pressSequentially(code, { delay });
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();

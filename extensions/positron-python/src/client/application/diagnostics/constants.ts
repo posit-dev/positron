@@ -11,6 +11,8 @@ export enum DiagnosticCodes {
     // --- Start Positron ---
     // Add a new diagnostic code for unsupported Python versions
     UnsupportedPythonVersion = 'UnsupportedPythonVersion',
+    // and another for multiple language servers
+    MultipleLanguageServersDiagnostic = 'MultipleLanguageServersDiagnostic',
     // --- End Positron ---
     InvalidPythonPathInDebuggerSettingsDiagnostic = 'InvalidPythonPathInDebuggerSettingsDiagnostic',
     InvalidPythonPathInDebuggerLaunchDiagnostic = 'InvalidPythonPathInDebuggerLaunchDiagnostic',
