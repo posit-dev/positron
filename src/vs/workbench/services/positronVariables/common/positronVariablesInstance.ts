@@ -490,6 +490,18 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 				}
 			})
 		);
+
+		// If the runtime is already in a ready state (Ready, Idle, or Busy),
+		// create the client immediately. This handles the case where the view
+		// becomes visible after the runtime has already started.
+		const currentState = this._session.getRuntimeState();
+		if (currentState === RuntimeState.Ready ||
+			currentState === RuntimeState.Idle ||
+			currentState === RuntimeState.Busy) {
+			if (!this._variablesClient) {
+				await this.createRuntimeClient();
+			}
+		}
 	}
 
 	/**
