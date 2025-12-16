@@ -25,6 +25,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
+import { showFileOptionsModalDialog } from '../../../browser/positronModalDialogs/fileOptionsModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { mainWindow } from '../../../../base/browser/window.js';
@@ -59,6 +60,7 @@ export const enum PositronDataExplorerCommandId {
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
+	FileOptionsAction = 'workbench.action.positronDataExplorer.fileOptions',
 	ShowColumnContextMenuAction = 'workbench.action.positronDataExplorer.showColumnContextMenu',
 	ShowRowContextMenuAction = 'workbench.action.positronDataExplorer.showRowContextMenu',
 	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
@@ -946,6 +948,68 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerFileOptionsAction action.
+ * Opens a modal dialog for configuring file import options (e.g., header row setting)
+ * when viewing CSV/TSV files in the Data Explorer.
+ */
+class PositronDataExplorerFileOptionsAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.FileOptionsAction,
+			title: {
+				value: localize('positronDataExplorer.fileOptions', 'File Options'),
+				original: 'File Options'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+			),
+			icon: Codicon.settingsGear,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					),
+					order: 0
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					)
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		await showFileOptionsModalDialog(positronDataExplorerInstance);
+	}
+}
+
+/**
  * PositronDataExplorerShowColumnContextMenuAction action.
  */
 class PositronDataExplorerShowColumnContextMenuAction extends Action2 {
@@ -1132,6 +1196,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerFileOptionsAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
 	registerAction2(PositronDataExplorerShowColumnContextMenuAction);
