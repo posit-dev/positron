@@ -21,15 +21,15 @@ export class DapComm {
 
 	private _comm?: Comm;
 	private _port?: number;
-	private _debugSession?: vscode.DebugSession | undefined;
-	private attach?: () => Promise<void>;
+	private _debugSession?: vscode.DebugSession;
+	private _startingSession?: Promise<void>;
 	private connected = false;
-
-	// Message counter used for creating unique message IDs
 	private messageCounter = 0;
-
-	// Random stem for messages
 	private msgStem: string;
+	private disposables: vscode.Disposable[] = [];
+
+	private config?: vscode.DebugConfiguration;
+	private debugOptions?: vscode.DebugSessionOptions;
 
 	constructor(
 		private session: JupyterLanguageRuntimeSession,
@@ -54,7 +54,8 @@ export class DapComm {
 		this._port = serverPort;
 
 		this.session.emitJupyterLog(`Starting debug session for DAP server ${this.comm!.id}`);
-		const config: vscode.DebugConfiguration = {
+
+		this.config = {
 			type: this.debugType,
 			name: this.debugName,
 			request: 'attach',
@@ -62,18 +63,36 @@ export class DapComm {
 			internalConsoleOptions: 'neverOpen',
 		};
 
-		const debugOptions = {
+		this.debugOptions = {
 			suppressDebugToolbar: true,
 		};
 
-		this.attach = async () => {
-			this._debugSession = await this.startDebugSession(config, debugOptions);
-		};
+		// Reconnect sessions automatically as long as we are "connected"
+		this.register(vscode.debug.onDidTerminateDebugSession(async (session) => {
+			if (session !== this._debugSession) {
+				return;
+			}
+
+			this._debugSession = undefined;
+
+			if (!this.connected) {
+				return;
+			}
+
+			try {
+				await this.connect();
+			} catch (err) {
+				this.session.emitJupyterLog(
+					`Failed to reconnect debug session: ${err}`,
+					vscode.LogLevel.Warning
+				);
+			}
+		}));
 	}
 
 	async connect() {
-		if (!this.attach) {
-			throw new Error('Comm must be connected');
+		if (!this.config) {
+			throw new Error('Comm must be created before connecting');
 		}
 
 		this.connected = true;
@@ -81,7 +100,16 @@ export class DapComm {
 		if (this._debugSession) {
 			return;
 		}
-		await this.attach();
+		if (this._startingSession) {
+			return this._startingSession;
+		}
+
+		this._startingSession = (async () => {
+			this._debugSession = await this.startDebugSession();
+			this._startingSession = undefined;
+		})();
+
+		return this._startingSession;
 	}
 
 	async disconnect() {
@@ -115,20 +143,12 @@ export class DapComm {
 			// with a synthetic configuration.
 			case 'start_debug': {
 				vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
-				return true;
+				break;
 			}
 
 			case 'stop_debug': {
 				vscode.debug.setSuppressDebugToolbar(this.debugSession(), true);
-				return true;
-			}
-
-			// Allow the backend to automatically reattach but only if we're
-			// online (i.e. not a background console session)
-			case 'attach': {
-				if (this.connected) {
-					await this.attach!();
-				}
+				break;
 			}
 
 			// If the DAP has commands to execute, such as "n", "f", or "Q",
@@ -143,30 +163,27 @@ export class DapComm {
 						positron.RuntimeErrorBehavior.Stop
 					);
 				}
-
-				return true;
+				break;
 			}
 
 			// We use the restart button as a shortcut for restarting the runtime
 			case 'restart': {
 				await this.session.restart();
-				return true;
+				break;
 			}
 
 			default: {
 				return false;
 			}
 		}
+
+		return true;
 	}
 
-	private async startDebugSession(
-		config: vscode.DebugConfiguration,
-		sessionOptions: vscode.DebugSessionOptions
-	): Promise<vscode.DebugSession | undefined> {
+	private async startDebugSession(): Promise<vscode.DebugSession | undefined> {
 		const promise = new Promise<vscode.DebugSession | undefined>(resolve => {
-			// Wait for the session to start, matching on name and type
 			const disposable = vscode.debug.onDidStartDebugSession(session => {
-				if (session.type === config.type && session.name === config.name) {
+				if (session.type === this.config!.type && session.name === this.config!.name) {
 					disposable.dispose();
 					resolve(session);
 				}
@@ -174,7 +191,7 @@ export class DapComm {
 		});
 
 		try {
-			if (!await vscode.debug.startDebugging(undefined, config, sessionOptions)) {
+			if (!await vscode.debug.startDebugging(undefined, this.config!, this.debugOptions!)) {
 				throw new Error('Failed to start debug session');
 			}
 		} catch (err) {
@@ -188,7 +205,14 @@ export class DapComm {
 		return promise;
 	}
 
+	register<T extends vscode.Disposable>(disposable: T): T {
+		this.disposables.push(disposable);
+		return disposable;
+	}
+
 	dispose(): void {
+		this.disposables.forEach(d => d.dispose());
+		this.disposables = [];
 		this._comm?.dispose();
 	}
 }
