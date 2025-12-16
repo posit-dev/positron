@@ -17,15 +17,22 @@ using Dates
 const _log_file = Ref{Union{IOStream,Nothing}}(nothing)
 
 """
-Get the log file stream, opening it if necessary.
-Uses POSITRON_KERNEL_LOG environment variable.
-Falls back to orig_stderr if no log file is configured.
+Get the log file stream for kernel logging.
+
+Uses POSITRON_KERNEL_LOG environment variable which points to a log file.
+The supervisor streams this file to the Kernel output tab via LogStreamer.
+
+On session reconnect, the supervisor finds the log file path from the --logfile
+argument and continues streaming from the same file.
 """
 function get_log_stream()
-    # Return cached file handle if already open
-    if _log_file[] !== nothing
+    # Return cached file handle if already open and still valid
+    if _log_file[] !== nothing && isopen(_log_file[])
         return _log_file[]
     end
+
+    # Clear stale handle
+    _log_file[] = nothing
 
     # Try to open log file from environment variable
     log_path = get(ENV, "POSITRON_KERNEL_LOG", "")
@@ -47,11 +54,9 @@ function get_log_stream()
 end
 
 """
-Kernel logging functions - write to kernel log file or stderr.
+Kernel logging functions - write to log file or stderr.
 
-Uses POSITRON_KERNEL_LOG file if available, otherwise falls back to
-IJulia.orig_stderr. Writing to a file is streamed by LogStreamer
-and avoids the blank line issue with direct stderr output.
+Output is streamed by the supervisor's LogStreamer and shown in the Kernel output tab.
 """
 function kernel_log_info(msg::String)
     stream = get_log_stream()
