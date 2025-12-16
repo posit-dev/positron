@@ -8,8 +8,6 @@ import { log } from './extension.js';
 
 /**
  * Check if a model matches a user-defined filter pattern.
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
- * Please keep in sync!
  */
 function matchesModelFilter(pattern: string, id: string, name: string): boolean {
 	const normalizedPattern = pattern.toLowerCase().trim();
@@ -39,8 +37,6 @@ function matchesModelFilter(pattern: string, id: string, name: string): boolean 
 
 /**
  * Regex pattern matching with smart defaults for simple cases
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
- * Please keep in sync!
  */
 function regexMatch(pattern: string, text: string): boolean {
 	try {
@@ -81,8 +77,6 @@ function regexMatch(pattern: string, text: string): boolean {
  * determining which are user-selectable. When only models.visible is configured,
  * all models are returned but non-matching ones are marked as not user-selectable.
  *
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts with adaptations.
- * Please keep in sync!
  */
 export function applyModelFilters(
 	models: vscode.LanguageModelChatInformation[],
