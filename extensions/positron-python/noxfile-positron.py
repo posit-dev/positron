@@ -13,7 +13,15 @@ import nox
 @nox.parametrize("torch", ["1.12.1"])
 @nox.parametrize("lightning", ["2.1.4"])
 def test_minimum_reqs(session, pandas, numpy, torch, lightning):
-    session.install("-r", "python_files/posit/pinned-test-requirements.txt")
+    session.run(
+        "uv",
+        "sync",
+        "--active",
+        "--inexact",
+        "--frozen",
+        "--project",
+        "python_files/posit",
+    )
 
     # Install lightning first, since it may override numpy/torch.
     session.install("--force-reinstall", f"lightning=={lightning}")

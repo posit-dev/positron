@@ -113,7 +113,8 @@ jobs:
       - name: Install other Python requirements
         run: |
           uv run pip --disable-pip-version-check install -t ./python_files/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
-          uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
+          uv pip install --upgrade -r build/test-requirements.txt
+          uv sync --active --inexact --frozen --project python_files/posit
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e # v2.3.3
@@ -205,7 +206,7 @@ jobs:
         run: uv run scripts/vendor.py
 
       - name: Install Positron IPyKernel test requirements
-        run: uv pip install --upgrade -r python_files/posit/pinned-test-requirements.txt
+        run: uv sync --active --inexact --frozen --project python_files/posit
 
       - name: Run Positron IPyKernel unit tests
         run: uv run pytest python_files/posit
