@@ -11,6 +11,11 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install E2E Dependencies
+      run: |
+        npm --prefix test/e2e ci --prefer-offline
+      shell: bash
+
     - name: Compile E2E Tests
       shell: bash
       run: npm --prefix test/e2e run compile
