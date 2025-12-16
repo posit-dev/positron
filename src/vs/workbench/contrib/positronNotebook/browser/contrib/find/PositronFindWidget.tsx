@@ -83,71 +83,69 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 
 	return (
 		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
-			<div className='row'>
-				<PositronFindInput
-					ref={inputRef}
-					findInputOptions={findInputOptions}
-					focusInput={focusInput}
-					matchCase={matchCase}
-					matchWholeWord={matchWholeWord}
-					useRegex={useRegex}
-					value={findText}
-					onInputBlur={() => inputFocused.set(false, undefined)}
-					onInputFocus={() => inputFocused.set(true, undefined)}
-					onKeyDown={(e) => {
-						if (e.equals(KeyCode.Enter)) {
-							onNextMatch();
-							e.preventDefault();
-							return;
-						} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
-							onPreviousMatch();
-							e.preventDefault();
-							return;
-						} else if (e.equals(KeyCode.Escape)) {
-							transaction((tx) => {
-								inputFocused.set(false, tx);
-								isVisibleObs.set(false, tx);
-							})
-							e.preventDefault();
-							return;
-						}
-					}}
-					onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
-					onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
-					onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
-					onValueChange={(value) => findTextObs.set(value, undefined)}
-				/>
-				<FindResult
-					findText={findText}
-					matchCount={matchCount}
-					matchIndex={matchIndex}
-				/>
-				<div className='navigation-buttons'>
-					<ActionButton
-						ariaLabel={previousMatchLabel}
-						className='action-button'
-						disabled={noMatches}
-						onPressed={() => onPreviousMatch()}
-					>
-						<ThemeIcon icon={Codicon.arrowUp} />
-					</ActionButton>
-					<ActionButton
-						ariaLabel={nextMatchLabel}
-						className='action-button'
-						disabled={noMatches}
-						onPressed={() => onNextMatch()}
-					>
-						<ThemeIcon icon={Codicon.arrowDown} />
-					</ActionButton>
-				</div>
+			<PositronFindInput
+				ref={inputRef}
+				findInputOptions={findInputOptions}
+				focusInput={focusInput}
+				matchCase={matchCase}
+				matchWholeWord={matchWholeWord}
+				useRegex={useRegex}
+				value={findText}
+				onInputBlur={() => inputFocused.set(false, undefined)}
+				onInputFocus={() => inputFocused.set(true, undefined)}
+				onKeyDown={(e) => {
+					if (e.equals(KeyCode.Enter)) {
+						onNextMatch();
+						e.preventDefault();
+						return;
+					} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
+						onPreviousMatch();
+						e.preventDefault();
+						return;
+					} else if (e.equals(KeyCode.Escape)) {
+						transaction((tx) => {
+							inputFocused.set(false, tx);
+							isVisibleObs.set(false, tx);
+						})
+						e.preventDefault();
+						return;
+					}
+				}}
+				onMatchCaseChange={(value) => matchCaseObs.set(value, undefined)}
+				onMatchWholeWordChange={(value) => matchWholeWordObs.set(value, undefined)}
+				onUseRegexChange={(value) => useRegexObs.set(value, undefined)}
+				onValueChange={(value) => findTextObs.set(value, undefined)}
+			/>
+			<FindResult
+				findText={findText}
+				matchCount={matchCount}
+				matchIndex={matchIndex}
+			/>
+			<div className='navigation-buttons'>
 				<ActionButton
-					ariaLabel={closeLabel}
-					className='action-button close-button'
-					onPressed={() => isVisibleObs.set(false, undefined)}
+					ariaLabel={previousMatchLabel}
+					className='action-button'
+					disabled={noMatches}
+					onPressed={() => onPreviousMatch()}
 				>
-					<div className='codicon codicon-close' />
+					<ThemeIcon icon={Codicon.arrowUp} />
+				</ActionButton>
+				<ActionButton
+					ariaLabel={nextMatchLabel}
+					className='action-button'
+					disabled={noMatches}
+					onPressed={() => onNextMatch()}
+				>
+					<ThemeIcon icon={Codicon.arrowDown} />
 				</ActionButton>
 			</div>
+			<ActionButton
+				ariaLabel={closeLabel}
+				className='action-button close-button'
+				onPressed={() => isVisibleObs.set(false, undefined)}
+			>
+				<div className='codicon codicon-close' />
+			</ActionButton>
 		</div>
 	);
 });

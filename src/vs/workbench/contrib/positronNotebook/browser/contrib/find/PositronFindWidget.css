@@ -36,6 +36,11 @@
 	box-shadow: 0 0 8px 2px var(--vscode-widget-shadow);
 	padding: 4px;
 
+	/* Layout */
+	display: flex;
+	align-items: center;
+	gap: 3px;
+
 	/* Capture pointer events */
 	pointer-events: auto;
 }
@@ -43,12 +48,6 @@
 /* Reduce motion support for accessibility */
 .monaco-reduce-motion .positron-find-widget {
 	transition: transform 0ms linear;
-}
-
-.positron-find-widget .row {
-	display: flex;
-	align-items: center;
-	gap: 3px;
 }
 
 .positron-find-widget .find-input-container {
