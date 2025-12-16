@@ -143,9 +143,6 @@
 			}
 		]
 	},
-	"extensionPack": [
-		"vscode.julia"
-	],
 	"scripts": {
 		"compile": "gulp compile-extension:positron-julia",
 		"watch": "gulp watch-extension:positron-julia",
