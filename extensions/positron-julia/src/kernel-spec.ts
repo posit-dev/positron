@@ -23,7 +23,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 
 	// Build the kernel arguments
 	// The {connection_file} and {log_file} placeholders are replaced by the supervisor
-	// Note: We match the standard IJulia kernel.json format closely for compatibility
+	// Note: We use --logfile so the supervisor can find it on restore/reconnect
 	const argv = [
 		installation.binpath,
 		'-i',  // Interactive mode
@@ -31,6 +31,7 @@ export function createJuliaKernelSpec(installation: JuliaInstallation): JupyterK
 		'-e',
 		getKernelStartupCode(),
 		'{connection_file}',
+		'--logfile',
 		'{log_file}',  // Log file path for kernel output
 	];
 
@@ -105,11 +106,14 @@ function getKernelStartupCode(): string {
 		'Positron'
 	).replace(/\\/g, '/');  // Use forward slashes for Julia
 
-	// Command line args are: connection_file, log_file
+	// Command line args are: connection_file, --logfile, log_file_path
 	// We need to set POSITRON_KERNEL_LOG before loading Positron so logging works
 	return `
-		if length(ARGS) >= 2
-			ENV["POSITRON_KERNEL_LOG"] = ARGS[2];
+		for i in 1:length(ARGS)-1
+			if ARGS[i] == "--logfile"
+				ENV["POSITRON_KERNEL_LOG"] = ARGS[i+1];
+				break;
+			end;
 		end;
 		using Pkg;
 		if !haskey(Pkg.project().dependencies, "IJulia") &&
