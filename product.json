@@ -323,6 +323,12 @@
 		"extensionId": "positron.positron-assistant",
 		"chatExtensionId": "positron.positron-assistant",
 		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsRefreshTokenCommand": "github.copilot.signIn",
+		"chatRefreshTokenCommand": "github.copilot.refreshToken",
+		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
+		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
+		"completionsAdvancedSetting": "github.copilot.advanced",
+		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
 		"provider": {
 			"default": {
 				"id": "positron.assistant",
