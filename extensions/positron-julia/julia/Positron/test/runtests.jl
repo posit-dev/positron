@@ -31,6 +31,10 @@ include("test_helpers.jl")
         include("test_jsonrpc.jl")
     end
 
+    @testset "Kernel Functionality" begin
+        include("test_kernel.jl")
+    end
+
     @testset "Variables and Inspection" begin
         include("test_variables.jl")
         include("test_inspectors.jl")

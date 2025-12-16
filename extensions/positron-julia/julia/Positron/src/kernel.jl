@@ -139,6 +139,9 @@ function start_services!(kernel::PositronKernel = get_kernel())
 
     kernel_log_info("Starting Positron services for Julia...")
 
+    # Install custom is_complete_request handler for proper multi-line code handling
+    install_is_complete_handler!()
+
     # Comm targets are auto-registered via IJulia.register_comm type dispatch methods
 
     # Set up execution hooks
@@ -519,6 +522,73 @@ This should be called from the IJulia startup script.
 function __init__()
     # Positron.start_services!() is called explicitly from kernel startup script
     # No automatic initialization needed here
+end
+
+# -------------------------------------------------------------------------
+# Custom is_complete_request handler
+# -------------------------------------------------------------------------
+
+"""
+Determine if a code fragment is complete, incomplete, or invalid.
+
+This replaces IJulia's default is_complete_request handler to properly handle
+multi-line code with multiple expressions. The default handler uses Meta.parse
+which only handles single expressions, causing multi-expression code like:
+
+    x = 1
+    y = 2
+
+to be reported as "invalid" (since Meta.parse sees "extra token after end of expression").
+
+This implementation uses Meta.parseall which correctly handles multiple expressions
+and checks if any of them are incomplete.
+"""
+function check_code_complete(code::String)
+    try
+        ex = Meta.parseall(code)
+
+        # Check if any expression in the toplevel block is incomplete
+        for arg in ex.args
+            if Meta.isexpr(arg, :incomplete)
+                return "incomplete"
+            elseif Meta.isexpr(arg, :error)
+                return "invalid"
+            end
+        end
+
+        return "complete"
+    catch e
+        # If parsing throws an exception, the code is invalid
+        kernel_log_warn("Error parsing code for completeness check: $e")
+        return "invalid"
+    end
+end
+
+"""
+Install our custom is_complete_request handler in IJulia.
+This must be called after IJulia is loaded.
+"""
+function install_is_complete_handler!()
+    if !isdefined(IJulia, :handlers)
+        kernel_log_warn("IJulia.handlers not found, cannot install custom is_complete handler")
+        return
+    end
+
+    # Replace the default handler with our custom one
+    IJulia.handlers["is_complete_request"] = function (socket, kernel, msg)
+        code = msg.content["code"]::String
+        status = check_code_complete(code)
+
+        kernel_log_info("is_complete_request: status=$status for code length=$(length(code))")
+
+        IJulia.send_ipython(
+            kernel.requests[],
+            kernel,
+            IJulia.msg_reply(msg, "is_complete_reply", Dict("status" => status, "indent" => "")),
+        )
+    end
+
+    kernel_log_info("Installed custom is_complete_request handler")
 end
 
 """
