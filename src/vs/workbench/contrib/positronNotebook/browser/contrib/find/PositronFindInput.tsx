@@ -4,11 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+
+// VS Code utilities.
+import { Delayer } from '../../../../../../base/common/async.js';
 
 // Other dependencies.
 import { FindInput, IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js';
+import { ContextScopedFindInput } from '../../../../../../platform/history/browser/contextScopedHistoryWidget.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 
 export interface PositronFindInputHandle {
 	/**
@@ -19,6 +25,8 @@ export interface PositronFindInputHandle {
 
 export interface PositronFindInputProps {
 	readonly findInputOptions: IFindInputOptions;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextViewService: IContextViewService;
 	readonly value?: string;
 	readonly matchCase?: boolean;
 	readonly matchWholeWord?: boolean;
@@ -40,6 +48,8 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 	useRegex = false,
 	focusInput = false,
 	findInputOptions,
+	contextKeyService,
+	contextViewService,
 	onKeyDown,
 	onValueChange,
 	onMatchCaseChange,
@@ -50,6 +60,9 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 }, ref) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [findInput, setFindInput] = useState<FindInput | null>(null);
+
+	// Delayer for history updates (500ms like SimpleFindWidget)
+	const historyDelayerRef = useRef<Delayer<void>>(new Delayer(500));
 
 	// Capture initial options to avoid recreating FindInput on prop changes
 	const initialOptionsRef = useRef(findInputOptions);
@@ -64,10 +77,11 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 		const options = initialOptionsRef.current;
 
 		// Create the FindInput widget with merged options
-		const input = new FindInput(
+		const input = new ContextScopedFindInput(
 			containerRef.current,  // parent
-			undefined,  // context view provider
+			contextViewService,
 			options,
+			contextKeyService,
 		);
 
 		// Set the initial value immediately to avoid a flicker waiting for the value effect
@@ -81,12 +95,30 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 			input.dispose();
 			setFindInput(null);
 		};
-	}, []);
+	}, [contextKeyService, contextViewService]);
 
 	// Set up imperative handle
 	useImperativeHandle(ref, () => ({
 		focus: () => findInput?.focus(),
 	}), [findInput]);
+
+	// Cleanup delayer on unmount
+	useEffect(() => {
+		const delayer = historyDelayerRef.current;
+		return () => delayer.dispose();
+	}, []);
+
+	// History update callback - adds current value to history
+	const updateHistory = useCallback(() => {
+		if (findInput) {
+			findInput.inputBox.addToHistory();
+		}
+	}, [findInput]);
+
+	// Debounced history update - triggers after 500ms of inactivity
+	const delayedUpdateHistory = useCallback(() => {
+		historyDelayerRef.current.trigger(updateHistory);
+	}, [updateHistory]);
 
 	// Set up onInput listener
 	useEffect(() => {
@@ -96,10 +128,11 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 
 		const disposable = findInput.onInput(() => {
 			onValueChange(findInput.getValue());
+			delayedUpdateHistory();
 		});
 
 		return () => disposable.dispose();
-	}, [findInput, onValueChange]);
+	}, [findInput, onValueChange, delayedUpdateHistory]);
 
 	// Set up onDidOptionChange listener
 	useEffect(() => {
@@ -111,10 +144,11 @@ export const PositronFindInput = forwardRef<PositronFindInputHandle, PositronFin
 			onMatchCaseChange(findInput.getCaseSensitive());
 			onMatchWholeWordChange(findInput.getWholeWords());
 			onUseRegexChange(findInput.getRegex());
+			delayedUpdateHistory();
 		});
 
 		return () => disposable.dispose();
-	}, [findInput, onMatchCaseChange, onMatchWholeWordChange, onUseRegexChange]);
+	}, [findInput, onMatchCaseChange, onMatchWholeWordChange, onUseRegexChange, delayedUpdateHistory]);
 
 	useEffect(() => {
 		if (findInput && onKeyDown) {

@@ -19,6 +19,8 @@ import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { localize } from '../../../../../../nls.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 
 // Localized strings
 const previousMatchLabel = localize('positronNotebook.find.previousMatch', "Previous Match");
@@ -37,6 +39,8 @@ export interface PositronFindWidgetHandle {
 
 export interface PositronFindWidgetProps {
 	readonly findText: ISettableObservable<string>;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextViewService: IContextViewService;
 	readonly matchCase: ISettableObservable<boolean>;
 	readonly matchWholeWord: ISettableObservable<boolean>;
 	readonly useRegex: ISettableObservable<boolean>;
@@ -52,6 +56,8 @@ export interface PositronFindWidgetProps {
 
 export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronFindWidgetProps>(({
 	findText: findTextObs,
+	contextKeyService,
+	contextViewService,
 	matchCase: matchCaseObs,
 	matchWholeWord: matchWholeWordObs,
 	useRegex: useRegexObs,
@@ -85,6 +91,8 @@ export const PositronFindWidget = forwardRef<PositronFindWidgetHandle, PositronF
 		<div className={`positron-find-widget${isVisible ? ' visible' : ''}${hasNoResults ? ' no-results' : ''}`}>
 			<PositronFindInput
 				ref={inputRef}
+				contextKeyService={contextKeyService}
+				contextViewService={contextViewService}
 				findInputOptions={findInputOptions}
 				focusInput={focusInput}
 				matchCase={matchCase}

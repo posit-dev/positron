@@ -20,6 +20,7 @@ import { NotebookTextModel } from '../../../../notebook/common/model/notebookTex
 import { RunOnceScheduler } from '../../../../../../base/common/async.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { getActiveCell } from '../../selectionMachine.js';
+import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 import { CellEditorPosition } from '../../../common/editor/position.js';
 
 export class PositronCellFindMatch {
@@ -63,6 +64,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		private readonly _notebook: IPositronNotebookInstance,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
+		@IContextViewService private readonly _contextViewService: IContextViewService,
 	) {
 		super();
 
@@ -106,6 +108,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
 				},
+				contextKeyService: this._notebook.scopedContextKeyService,
+				contextViewService: this._contextViewService,
 			}));
 			this._findInstance = findInstance;
 

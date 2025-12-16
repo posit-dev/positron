@@ -12,6 +12,8 @@ import { IObservable, observableValue, runOnChange, transaction } from '../../..
 import { PositronFindWidget, PositronFindWidgetHandle } from './PositronFindWidget.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
 
 /**
  * Options for configuring the PositronFindInstance.
@@ -27,6 +29,16 @@ export interface IPositronFindInstanceOptions {
 	 * Options for the find input widget.
 	 */
 	findInputOptions: IFindInputOptions;
+
+	/**
+	 * Context key service for scoped context keys.
+	 */
+	contextKeyService: IContextKeyService;
+
+	/**
+	 * Context view service for dropdowns and suggestions.
+	 */
+	contextViewService: IContextViewService;
 }
 
 /**
@@ -116,6 +128,8 @@ export class PositronFindInstance extends Disposable {
 					this._isVisible.set(true, undefined);
 				}
 			},
+			contextKeyService: this._options.contextKeyService,
+			contextViewService: this._options.contextViewService,
 			findInputOptions: this._options.findInputOptions,
 			findText: this.searchString,
 			focusInput: true,
