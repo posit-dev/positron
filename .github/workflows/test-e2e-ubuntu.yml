@@ -231,7 +231,7 @@ jobs:
         if: ${{ inputs.save_cache }}
         uses: ./.github/actions/save-build-caches
         with:
-          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed' && 'true' || 'false' }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}

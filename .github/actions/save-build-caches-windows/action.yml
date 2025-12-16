@@ -63,8 +63,8 @@ runs:
           test/mcp/node_modules
         # Package-locks hash comes from restore step (DRY - single source of truth)
         # Note: test/e2e/node_modules excluded - not in postinstall dirs.js, installed separately
-        # IMPORTANT: If bumping npm-core-v3 -> npm-core-v4, also update restore-build-caches-windows/action.yml
-        key: npm-core-v3-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
+        # IMPORTANT: If bumping npm-core-v4 -> npm-core-v5, also update restore-build-caches-windows/action.yml
+        key: npm-core-v4-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
       if: ${{ inputs.cache-npm-extensions-hit == 'false' }}

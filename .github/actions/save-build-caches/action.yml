@@ -63,8 +63,8 @@ runs:
           test/mcp/node_modules
         # Package-locks hash comes from restore step (DRY - single source of truth)
         # Note: test/e2e/node_modules excluded - not in postinstall dirs.js, installed separately
-        # IMPORTANT: If bumping npm-core-v3 -> npm-core-v4, also update restore-build-caches/action.yml
-        key: npm-core-v3-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
+        # IMPORTANT: If bumping npm-core-v4 -> npm-core-v5, also update restore-build-caches/action.yml
+        key: npm-core-v4-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
       if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
@@ -81,38 +81,38 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v3 -> npm-extensions-v4, also update restore-build-caches/action.yml
         key: npm-extensions-v3-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
-    - name: Extract Playwright version
-      if: ${{ inputs.cache-playwright-hit == 'false' }}
-      id: playwright-version
-      shell: bash
-      run: |
-        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-        echo "Playwright version: $PLAYWRIGHT_VERSION"
+    # - name: Extract Playwright version
+    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
+    #   id: playwright-version
+    #   shell: bash
+    #   run: |
+    #     PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+    #     echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+    #     echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    - name: Save Playwright browsers cache
-      if: ${{ inputs.cache-playwright-hit == 'false' }}
-      continue-on-error: true
-      uses: actions/cache/save@v4
-      with:
-        path: ~/.cache/ms-playwright
-        # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
+    # - name: Save Playwright browsers cache
+    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
+    #   continue-on-error: true
+    #   uses: actions/cache/save@v4
+    #   with:
+    #     path: ~/.cache/ms-playwright
+    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
+    #     key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
 
-    - name: Save Electron binary cache
-      if: ${{ inputs.cache-electron-hit == 'false' }}
-      continue-on-error: true
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ~/.cache/electron
-          ~/.cache/electron-builder
-          /root/.cache/electron
-          /root/.cache/electron-builder
-          /github/home/.cache/electron
-          /github/home/.cache/electron-builder
-        # IMPORTANT: If bumping electron -> electron-v2, also update restore-build-caches/action.yml
-        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+    # - name: Save Electron binary cache
+    #   if: ${{ inputs.cache-electron-hit == 'false' }}
+    #   continue-on-error: true
+    #   uses: actions/cache/save@v4
+    #   with:
+    #     path: |
+    #       ~/.cache/electron
+    #       ~/.cache/electron-builder
+    #       /root/.cache/electron
+    #       /root/.cache/electron-builder
+    #       /github/home/.cache/electron
+    #       /github/home/.cache/electron-builder
+    #     # IMPORTANT: If bumping electron -> electron-v2, also update restore-build-caches/action.yml
+    #     key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}

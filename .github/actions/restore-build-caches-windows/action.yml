@@ -103,8 +103,8 @@ runs:
           test/mcp/node_modules
         # Core dependencies invalidate only when package-lock files change
         # Note: test/e2e/node_modules excluded - not in postinstall dirs.js, installed separately
-        # IMPORTANT: If bumping npm-core-v3 -> npm-core-v4, also update save-build-caches-windows/action.yml
-        key: npm-core-v3-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        # IMPORTANT: If bumping npm-core-v4 -> npm-core-v5, also update save-build-caches-windows/action.yml
+        key: npm-core-v4-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
       if: ${{ inputs.restore-npm == 'true' }}
