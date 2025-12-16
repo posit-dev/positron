@@ -65,23 +65,48 @@ jobs:
         run: |
           echo "📋 Capturing file state after cache restore..."
 
-          # List key directories
-          echo "=== extensions/vscode-api-tests ==="
+          # Show cache restore outputs
+          echo "=== Cache Restore Status ==="
+          echo "npm-core hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}"
+          echo "npm-extensions hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}"
+
+          # List ALL extension node_modules directories that exist
+          echo ""
+          echo "=== ALL extension node_modules directories ==="
+          find extensions -maxdepth 2 -type d -name "node_modules" | sort || echo "None found"
+
+          # Count how many extension node_modules we found
+          echo ""
+          echo "=== Count of extension node_modules ==="
+          find extensions -maxdepth 2 -type d -name "node_modules" | wc -l
+
+          # Check size of a few key extension node_modules
+          echo ""
+          echo "=== Size of key extension node_modules ==="
+          du -sh extensions/vscode-api-tests/node_modules 2>/dev/null || echo "vscode-api-tests/node_modules: NOT FOUND"
+          du -sh extensions/positron-supervisor/node_modules 2>/dev/null || echo "positron-supervisor/node_modules: NOT FOUND"
+          du -sh extensions/positron-python/node_modules 2>/dev/null || echo "positron-python/node_modules: NOT FOUND"
+          du -sh extensions/positron-r/node_modules 2>/dev/null || echo "positron-r/node_modules: NOT FOUND"
+
+          # Check if node_modules directories are empty or have content
+          echo ""
+          echo "=== Sample content from vscode-api-tests/node_modules ==="
+          ls extensions/vscode-api-tests/node_modules/ 2>/dev/null | head -10 || echo "Directory not found or empty"
+
+          # Check for out/ directories (should NOT exist after cache restore)
+          echo ""
+          echo "=== out/ directories (should be empty after restore) ==="
+          find extensions -maxdepth 2 -type d -name "out" | wc -l
+
+          # Detailed check of vscode-api-tests
+          echo ""
+          echo "=== extensions/vscode-api-tests directory listing ==="
           ls -la extensions/vscode-api-tests/ || echo "Directory not found"
 
-          echo "=== extensions/vscode-api-tests/node_modules ==="
-          ls -la extensions/vscode-api-tests/node_modules/ | head -20 || echo "Directory not found"
-
-          echo "=== extensions/vscode-api-tests/out ==="
-          ls -la extensions/vscode-api-tests/out/ || echo "Directory not found"
-
-          # Check for specific test files
-          echo "=== Looking for runtime.test.js ==="
-          find extensions/vscode-api-tests -name "*runtime.test*" || echo "Not found"
-
-          # Check build artifacts
-          echo "=== extensions/positron-supervisor/out ==="
-          ls -la extensions/positron-supervisor/out/ | head -10 || echo "Directory not found"
+          # Check for specific test files (source, not compiled)
+          echo ""
+          echo "=== Looking for runtime.test.ts source ==="
+          find extensions/vscode-api-tests/src -name "*runtime.test*" || echo "Not found"
 
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
@@ -122,21 +147,35 @@ jobs:
         run: |
           echo "📋 Capturing file state after compilation..."
 
-          # Check if extensions/vscode-api-tests/out exists now
-          echo "=== extensions/vscode-api-tests/out ==="
-          ls -la extensions/vscode-api-tests/out/ | head -20 || echo "Directory not found"
+          # Count all out/ directories
+          echo "=== Count of extension out/ directories ==="
+          find extensions -maxdepth 2 -type d -name "out" | wc -l
+
+          # List all out/ directories
+          echo ""
+          echo "=== All extension out/ directories ==="
+          find extensions -maxdepth 2 -type d -name "out" | sort | head -30 || echo "None found"
+
+          # Check size of key out/ directories
+          echo ""
+          echo "=== Size of key extension out/ directories ==="
+          du -sh extensions/vscode-api-tests/out 2>/dev/null || echo "vscode-api-tests/out: NOT FOUND"
+          du -sh extensions/positron-supervisor/out 2>/dev/null || echo "positron-supervisor/out: NOT FOUND"
+          du -sh extensions/positron-python/out 2>/dev/null || echo "positron-python/out: NOT FOUND"
 
           # Check for compiled runtime tests
+          echo ""
           echo "=== Looking for compiled runtime.test.js ==="
-          find extensions/vscode-api-tests/out -name "*runtime.test*" || echo "Not found"
+          find extensions/vscode-api-tests/out -name "*runtime.test*" 2>/dev/null || echo "Not found"
 
-          # Check positron-supervisor
-          echo "=== extensions/positron-supervisor/out ==="
-          ls -la extensions/positron-supervisor/out/ | head -20 || echo "Directory not found"
+          # Sample content from key out/ directories
+          echo ""
+          echo "=== Sample content from vscode-api-tests/out ==="
+          ls extensions/vscode-api-tests/out/ 2>/dev/null | head -10 || echo "Directory not found"
 
-          # Check if out directories were created
-          echo "=== All extension out/ directories ==="
-          find extensions -name "out" -type d | head -20 || echo "None found"
+          echo ""
+          echo "=== Sample content from positron-supervisor/out ==="
+          ls extensions/positron-supervisor/out/ 2>/dev/null | head -10 || echo "Directory not found"
 
       - name: Install Playwright browsers and system dependencies
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}
