@@ -702,15 +702,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Generates font information for the notebook editor.
 	 * Uses the same approach as VS Code notebooks to get actual measured font metrics.
+	 * Caches the result for subsequent calls.
+	 * @returns The generated or cached font information
 	 * @private
 	 */
-	private _generateFontInfo(): void {
+	private _generateFontInfo(): FontInfo {
+		if (this._fontInfo) {
+			return this._fontInfo;
+		}
+
 		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
 		const targetWindow = this._container ? DOM.getWindow(this._container) : DOM.getActiveWindow();
 		this._fontInfo = FontMeasurements.readFontInfo(
 			targetWindow,
 			createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value)
 		);
+		return this._fontInfo;
 	}
 
 	/**
@@ -718,16 +725,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Returns actual layout dimensions and measured font information.
 	 */
 	getLayoutInfo(): NotebookLayoutInfo {
-		// Generate fontInfo on first access
-		if (!this._fontInfo) {
-			this._generateFontInfo();
-		}
-
 		return {
 			width: this._container?.clientWidth ?? 0,
 			height: this._container?.clientHeight ?? 0,
 			scrollHeight: this._cellsContainer?.scrollHeight ?? 0,
-			fontInfo: this._fontInfo!,
+			fontInfo: this._generateFontInfo(),
 			stickyHeight: 0,
 			listViewOffsetTop: 0,
 		};
