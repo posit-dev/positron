@@ -33,8 +33,8 @@ inputs:
 
 outputs:
   cache-playwright-hit:
-    description: "Whether Playwright cache was restored"
-    value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
+    description: "Whether Playwright cache was restored and verified"
+    value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && steps.verify-playwright.outcome != 'failure' && 'true' || 'false' }}
   verify-playwright-outcome:
     description: "Outcome of Playwright cache verification (success/failure/skipped)"
     value: ${{ steps.verify-playwright.outcome || 'skipped' }}
@@ -154,9 +154,10 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
+        # IMPORTANT: If bumping playwright-v1 -> playwright-v2, also update save-build-caches/action.yml
+        key: playwright-v1-${{ runner.os }}-${{ inputs.distro }}-${{ steps.playwright-version.outputs.version }}
         restore-keys: |
-          ${{ runner.os }}-${{ inputs.distro }}-playwright-
+          playwright-v1-${{ runner.os }}-${{ inputs.distro }}-
 
     - name: Verify Playwright cache
       if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
@@ -165,19 +166,32 @@ runs:
       shell: bash
       run: |
         echo "Verifying Playwright cache..."
-        if [ ! -d "$HOME/.cache/ms-playwright" ]; then
-          echo "⚠️ Playwright cache directory missing"
+
+        # Check 1: Playwright CLI works
+        if ! npx playwright --version > /dev/null 2>&1; then
+          echo "⚠️ Playwright binary not functional"
           echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-          echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          echo "Playwright CLI failed to run. Will reinstall." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
-        if [ -z "$(ls -A $HOME/.cache/ms-playwright)" ]; then
-          echo "⚠️ Playwright cache directory empty"
+
+        # Check 2: At least one browser binary exists
+        BROWSER_FOUND=false
+        for browser_dir in "$HOME/.cache/ms-playwright"/*; do
+          if [ -d "$browser_dir" ]; then
+            BROWSER_FOUND=true
+            break
+          fi
+        done
+
+        if [ "$BROWSER_FOUND" = false ]; then
+          echo "⚠️ No browser binaries found in cache"
           echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-          echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          echo "No browser directories found. Will reinstall." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
-        echo "✅ Playwright cache verified"
+
+        echo "✅ Playwright cache verified (CLI functional, browsers present)"
 
     # - name: Restore Electron binary cache
     #   if: ${{ inputs.restore-electron == 'true' }}
@@ -249,105 +263,91 @@ runs:
         ANY_MISS=false
 
         # npm-core
-        echo "::group::📦 npm-core"
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
           if [[ "${{ steps['cache-npm-core'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "npm-core :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "npm-core :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "npm-core :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # npm-extensions
-        echo "::group::📦 npm-extensions"
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
           if [[ "${{ steps['cache-npm-extensions'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "npm-extensions :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "npm-extensions :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "npm-extensions :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # playwright
-        echo "::group::📦 playwright"
         if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
           HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
           VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
           if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
-            echo "⚠️  cache hit (verification failed, will reinstall)"
+            echo "playwright :: ⚠️  cache hit (verification failed, will reinstall)"
             echo "::warning::Playwright cache verification failed - will reinstall browsers"
             ALL_HIT=false
           elif [[ "$HIT" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "playwright :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "playwright :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "playwright :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # electron
-        echo "::group::📦 electron"
-        echo "⏭️  skipped (downloaded during compile)"
-        echo "::endgroup::"
+        echo "electron :: ⏭️  skipped (downloaded during compile)"
 
         # builtins
-        echo "::group::📦 builtins"
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
           if [[ "${{ steps['cache-builtins'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "builtins :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "builtins :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "builtins :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # ark
-        echo "::group::📦 ark"
         if [[ "${{ inputs.restore-ark }}" == "true" ]]; then
           if [[ "${{ steps['cache-ark'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "ark :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "ark :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "ark :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # kallichore
-        echo "::group::📦 kallichore"
         if [[ "${{ inputs.restore-kallichore }}" == "true" ]]; then
           if [[ "${{ steps['cache-kallichore'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "✅ cache hit"
+            echo "kallichore :: ✅ cache hit"
           else
-            echo "❌ cache miss"
+            echo "kallichore :: ❌ cache miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "⏭️  skipped (disabled)"
+          echo "kallichore :: ⏭️  skipped (disabled)"
         fi
-        echo "::endgroup::"
 
         # Summary notice
         if [[ "$ALL_HIT" == "true" ]]; then
