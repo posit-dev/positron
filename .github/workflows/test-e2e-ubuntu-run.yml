@@ -275,30 +275,13 @@ jobs:
           restore-playwright: true # Need this for running tests
 
       - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}
-        run: |
-          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
-          npx playwright install --with-deps
-
-      - name: Save caches
-        if: ${{ matrix.shard == 1 }}
-        uses: ./.github/actions/save-build-caches
-        with:
-          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+        run: npx playwright install --with-deps
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
         run: |
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge --with-deps
-
-      # Ensure chromium browser is installed for chromium project tests
-      # The Playwright cache might only contain electron browser from previous runs
-      - name: Install chromium browser for e2e-chromium
-        if: ${{ inputs.project == 'e2e-chromium' && steps.restore-caches.outputs.cache-playwright-hit == 'true' }}
-        run: |
-          echo "Installing chromium browser for e2e-chromium project"
-          npx playwright install chromium --with-deps
 
       - name: Run Playwright Tests
         shell: bash

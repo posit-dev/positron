@@ -1,5 +1,5 @@
 name: "Save Build Caches"
-description: "Saves caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions. Only saves caches that were restored but missed (cache-*-hit == 'false')."
+description: "Saves caches for npm dependencies and built-in extensions. Only saves caches that were restored but missed (cache-*-hit == 'false')."
 
 inputs:
   distro:
@@ -12,10 +12,6 @@ inputs:
     default: ''
   cache-npm-extensions-hit:
     description: "Whether npm extensions cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
-    required: false
-    default: ''
-  cache-playwright-hit:
-    description: "Whether Playwright cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-builtins-hit:
@@ -86,59 +82,6 @@ runs:
         # Does NOT cache compiled outputs (out/) - extensions are recompiled during the "Compile Positron" step
         # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update restore-build-caches/action.yml
         key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
-
-    # TEMPORARILY DISABLED: Playwright cache disabled for debugging
-    # - name: Extract Playwright version
-    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
-    #   id: playwright-version
-    #   shell: bash
-    #   run: |
-    #     PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-    #     echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-    #     echo "Playwright version: $PLAYWRIGHT_VERSION"
-
-    # - name: Verify Playwright before saving
-    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
-    #   id: verify-playwright-save
-    #   continue-on-error: true
-    #   shell: bash
-    #   run: |
-    #     echo "Verifying Playwright installation before saving to cache..."
-
-    #     # Check 1: Playwright CLI works
-    #     if ! npx playwright --version > /dev/null 2>&1; then
-    #       echo "⚠️ Playwright CLI not functional - skipping cache save"
-    #       echo "verified=false" >> $GITHUB_OUTPUT
-    #       exit 0
-    #     fi
-
-    #     # Check 2: At least one browser binary exists
-    #     BROWSER_FOUND=false
-    #     for browser_dir in "$HOME/.cache/ms-playwright"/*; do
-    #       if [ -d "$browser_dir" ]; then
-    #         BROWSER_FOUND=true
-    #         break
-    #       fi
-    #     done
-
-    #     if [ "$BROWSER_FOUND" = false ]; then
-    #       echo "⚠️ No Playwright browser directories found - skipping cache save"
-    #       echo "verified=false" >> $GITHUB_OUTPUT
-    #       exit 0
-    #     fi
-
-    #     echo "✅ Playwright installation verified and functional"
-    #     echo "verified=true" >> $GITHUB_OUTPUT
-
-    # - name: Save Playwright browsers cache
-    #   if: ${{ inputs.cache-playwright-hit == 'false' && steps.verify-playwright-save.outputs.verified == 'true' }}
-    #   continue-on-error: true
-    #   uses: actions/cache/save@v4
-    #   with:
-    #     path: ~/.cache/ms-playwright
-    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-    #     # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update restore-build-caches/action.yml
-    #     key: playwright-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
@@ -224,17 +167,6 @@ runs:
         else
           printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (not restored)"
         fi
-
-        # playwright (TEMPORARILY DISABLED)
-        printf "%-16s %s\n" "playwright" "🚫 disabled (debugging)"
-        # if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
-        #   printf "%-16s %s\n" "playwright" "💾 saved"
-        #   ANY_SAVED=true
-        # elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
-        #   printf "%-16s %s\n" "playwright" "✅ skipped (already cached)"
-        # else
-        #   printf "%-16s %s\n" "playwright" "⏭️  skipped (not restored)"
-        # fi
 
         # builtins
         if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then

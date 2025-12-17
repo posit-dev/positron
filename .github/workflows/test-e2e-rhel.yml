@@ -184,14 +184,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      # Ensure chromium browser is installed for chromium project tests
-      # The Playwright cache might only contain electron browser from previous runs
-      - name: Install chromium browser for e2e-chromium
-        if: ${{ inputs.project == 'e2e-chromium' && steps.restore-caches.outputs.cache-playwright-hit == 'true' }}
-        run: |
-          echo "Installing chromium browser for e2e-chromium project"
-          # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
-          npx playwright install chromium
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts

@@ -10,10 +10,6 @@ inputs:
     description: "Whether to restore npm cache (default: true)"
     required: false
     default: 'true'
-  restore-playwright:
-    description: "Whether to restore Playwright cache (default: true)"
-    required: false
-    default: 'true'
   restore-builtins:
     description: "Whether to restore built-in extensions cache (default: true)"
     required: false
@@ -28,12 +24,6 @@ inputs:
     default: 'true'
 
 outputs:
-  cache-playwright-hit:
-    description: "Whether Playwright cache was restored and verified"
-    value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && steps.verify-playwright.outcome != 'failure' && 'true' || 'false' }}
-  verify-playwright-outcome:
-    description: "Outcome of Playwright cache verification (success/failure/skipped)"
-    value: ${{ steps.verify-playwright.outcome || 'skipped' }}
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
     value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -130,63 +120,6 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update save-build-caches/action.yml
         key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
-    - name: Extract Playwright version
-      if: ${{ inputs.restore-playwright == 'true' }}
-      id: playwright-version
-      shell: bash
-      run: |
-        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-        echo "Playwright version: $PLAYWRIGHT_VERSION"
-
-    # TEMPORARILY DISABLED: Playwright cache disabled for debugging
-    # - name: Restore Playwright browsers cache
-    #   if: ${{ inputs.restore-playwright == 'true' }}
-    #   id: cache-playwright
-    #   continue-on-error: true
-    #   uses: actions/cache/restore@v4
-    #   with:
-    #     path: ~/.cache/ms-playwright
-    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-    #     # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update save-build-caches/action.yml
-    #     key: playwright-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.playwright-version.outputs.version }}
-    #     restore-keys: |
-    #       playwright-v2-${{ runner.os }}-${{ inputs.distro }}-
-
-    # - name: Verify Playwright cache
-    #   if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
-    #   id: verify-playwright
-    #   continue-on-error: true
-    #   shell: bash
-    #   run: |
-    #     echo "Verifying Playwright cache..."
-
-    #     # Check 1: Playwright CLI works
-    #     if ! npx playwright --version > /dev/null 2>&1; then
-    #       echo "⚠️ Playwright binary not functional"
-    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-    #       echo "Playwright CLI failed to run. Will reinstall." >> $GITHUB_STEP_SUMMARY
-    #       exit 1
-    #     fi
-
-    #     # Check 2: At least one browser binary exists
-    #     BROWSER_FOUND=false
-    #     for browser_dir in "$HOME/.cache/ms-playwright"/*; do
-    #       if [ -d "$browser_dir" ]; then
-    #         BROWSER_FOUND=true
-    #         break
-    #       fi
-    #     done
-
-    #     if [ "$BROWSER_FOUND" = false ]; then
-    #       echo "⚠️ No browser binaries found in cache"
-    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-    #       echo "No browser directories found. Will reinstall." >> $GITHUB_STEP_SUMMARY
-    #       exit 1
-    #     fi
-
-    #     echo "✅ Playwright cache verified (CLI functional, browsers present)"
-
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
       id: cache-builtins
@@ -275,28 +208,6 @@ runs:
         else
           printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (disabled)"
         fi
-
-        # playwright (TEMPORARILY DISABLED)
-        printf "%-16s %s\n" "playwright" "🚫 disabled (debugging)"
-        ALL_HIT=false
-        ANY_MISS=true
-        # if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
-        #   HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
-        #   VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
-        #   if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
-        #     printf "%-16s %s\n" "playwright" "⚠️  hit (verification failed, will reinstall)"
-        #     echo "::warning::Playwright cache verification failed - will reinstall browsers"
-        #     ALL_HIT=false
-        #   elif [[ "$HIT" == "true" ]]; then
-        #     printf "%-16s %s\n" "playwright" "✅ hit"
-        #   else
-        #     printf "%-16s %s\n" "playwright" "❌ miss"
-        #     ALL_HIT=false
-        #     ANY_MISS=true
-        #   fi
-        # else
-        #   printf "%-16s %s\n" "playwright" "⏭️  skipped (disabled)"
-        # fi
 
         # builtins
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then

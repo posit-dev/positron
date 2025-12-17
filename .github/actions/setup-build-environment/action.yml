@@ -25,9 +25,6 @@ outputs:
   cache-npm-extensions-hit:
     description: "Whether npm extensions cache was restored"
     value: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
-  cache-playwright-hit:
-    description: "Whether Playwright cache was restored and verified"
-    value: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
   cache-builtins-hit:
     description: "Whether builtins cache was restored"
     value: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
@@ -100,11 +97,10 @@ runs:
         echo "::endgroup::"
 
     - name: Install Playwright browsers
-      if: ${{ inputs.install-playwright == 'true' && (steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure') }}
+      if: ${{ inputs.install-playwright == 'true' }}
       shell: bash
       run: |
         echo "::group::🎭 Install Playwright browsers"
-        echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
         if [[ "${{ inputs.playwright-with-deps }}" == "true" ]]; then
           npx playwright install --with-deps
         else
