@@ -317,12 +317,10 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 							const partCellUri = part.uri.scheme === Schemas.vscodeNotebookCell ? part.uri : undefined;
 							if (partCellUri) {
 								entry.streaming.pushNotebookCellText(partCellUri, edit, done);
-							} else {
-								// --- End Positron ---
-								entry.streaming.pushText(edit, done);
-								// --- Start Positron ---
+								continue;
 							}
 							// --- End Positron ---
+							entry.streaming.pushText(edit, done);
 						} else if (isCellTextEditOperationArray(edit)) {
 							for (const edits of Object.values(groupBy(edit, e => e.uri.toString()))) {
 								if (edits) {
