@@ -312,8 +312,6 @@ export class ChatEditingService extends Disposable implements IChatEditingServic
 						if (isTextEditOperationArray(edit)) {
 							// --- Start Positron ---
 							// If this is a cell URI, route through pushNotebookCellText to preserve the cell URI
-							// Check if the part URI is a cell URI - if so, we need to route text edits
-							// through pushNotebookCellText to preserve the cell URI for the notebook entry
 							const partCellUri = part.uri.scheme === Schemas.vscodeNotebookCell ? part.uri : undefined;
 							if (partCellUri) {
 								entry.streaming.pushNotebookCellText(partCellUri, edit, done);
