@@ -98,13 +98,7 @@ export class OverlayToolbarDecorator extends Disposable {
 				}
 			}));
 
-			// --- Start Positron ---
-			// Handle potentially undefined scopedContextKeyService for Positron notebooks
-			const scopedContextKeyService = this.notebookEditor.scopedContextKeyService;
-			const scopedInstaService = scopedContextKeyService
-				? this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])))
-				: this.instantiationService;
-			// --- End Positron ---
+			const scopedInstaService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, this.notebookEditor.scopedContextKeyService])));
 			const toolbarWidget = scopedInstaService.createInstance(MenuWorkbenchToolBar, toolbar, MenuId.ChatEditingEditorHunk, {
 				telemetrySource: 'chatEditingNotebookHunk',
 				hiddenItemStrategy: HiddenItemStrategy.NoHide,

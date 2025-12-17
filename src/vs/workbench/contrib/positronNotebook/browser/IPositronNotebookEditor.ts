@@ -121,10 +121,10 @@ export interface IContextKeysNotebookEditor extends Pick<
 	| 'notebookOptions'
 	| 'getDomNode'
 	| 'getLength'
+	| 'scopedContextKeyService'
 > {
 	readonly onDidChangeViewCells: Event<IContextKeysNotebookViewCellsUpdateEvent>;
 	hasModel(): this is IContextKeysActiveNotebookEditor;
-	readonly scopedContextKeyService: IContextKeyService | undefined;
 }
 
 export interface IContextKeysActiveNotebookEditor extends IContextKeysNotebookEditor {
@@ -242,10 +242,10 @@ export interface IChatEditingNotebookEditor extends NotebookEditorChatEditingSub
 	 * Scoped context key service for toolbar/menu context.
 	 * Required by decorators for creating scoped instantiation services.
 	 *
-	 * Note: Optional to match IContextKeysNotebookEditor. VS Code notebooks always provide this,
-	 * Positron notebooks provide it after attachView() is called.
+	 * Note: Positron notebooks throw if accessed before attachView() is called,
+	 * but by the time decorators are created, it should always be available.
 	 */
-	readonly scopedContextKeyService: IContextKeyService | undefined;
+	readonly scopedContextKeyService: IContextKeyService;
 }
 //#endregion Chat Editing
 

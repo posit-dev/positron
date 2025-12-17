@@ -294,7 +294,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._cellsContainer;
 	}
 
-	get scopedContextKeyService(): IContextKeyService | undefined {
+	get scopedContextKeyService(): IContextKeyService {
+		if (!this._scopedContextKeyService) {
+			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
+		}
 		return this._scopedContextKeyService;
 	}
 
