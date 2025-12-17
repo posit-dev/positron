@@ -185,6 +185,9 @@ end
 
 """
 Handle view request - open data viewer for variable.
+
+Opens a kernel-initiated data explorer comm for the variable at the given path.
+Returns the comm_id to the frontend so it can connect to the data explorer.
 """
 function handle_view(service::VariablesService, path::Vector{String})
     if isempty(path)
@@ -192,9 +195,69 @@ function handle_view(service::VariablesService, path::Vector{String})
         return
     end
 
-    # TODO: Open data explorer for the variable
-    # For now, just acknowledge
-    send_result(service.comm, nothing)
+    # Get the value at the path
+    value = get_value_at_path(path)
+    if value === nothing
+        send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Variable not found: $(join(path, "."))")
+        return
+    end
+
+    # Check if the value can be viewed in data explorer
+    if !value_has_viewer(value)
+        send_error(service.comm, JsonRpcErrorCode.INVALID_PARAMS, "Variable cannot be viewed in data explorer")
+        return
+    end
+
+    # Get the title from the path (last element)
+    title = path[end]
+
+    # Open a data explorer for this value
+    # This creates a kernel-initiated comm and returns the comm_id
+    comm_id = open_data_explorer_view(value, title)
+
+    if comm_id === nothing
+        send_error(service.comm, JsonRpcErrorCode.INTERNAL_ERROR, "Failed to open data explorer")
+        return
+    end
+
+    # Return the comm_id to the frontend
+    # The frontend will use this to connect to the data explorer comm
+    send_result(service.comm, comm_id)
+end
+
+"""
+Open a data explorer view for a value, returning the comm_id.
+
+This creates a kernel-initiated data explorer comm, similar to how plots work.
+The frontend receives the comm_id and connects to receive data.
+"""
+function open_data_explorer_view(data::Any, title::String)::Union{String,Nothing}
+    kernel = get_kernel()
+    if kernel === nothing || !kernel.started
+        kernel_log_warn("Cannot open data explorer: kernel not started")
+        return nothing
+    end
+
+    # Generate a unique comm_id for this data explorer
+    comm_id = string(uuid4())
+
+    kernel_log_info("Opening data explorer view: title=$title, comm_id=$comm_id")
+
+    # Create the data explorer instance
+    instance = open_data_explorer!(kernel.data_explorer, data, title; id = comm_id)
+
+    # Create a kernel-initiated comm for this data explorer
+    comm = create_comm("positron.dataExplorer"; comm_id = comm_id)
+
+    # Open the comm (sends comm_open to frontend with title metadata)
+    open!(comm; data = Dict("title" => title))
+
+    # Initialize the instance with the comm
+    init!(instance, comm)
+
+    kernel_log_info("Data explorer opened: comm_id=$comm_id")
+
+    return comm_id
 end
 
 """

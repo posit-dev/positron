@@ -54,28 +54,43 @@ end
 
 """
 Handle an incoming message on this comm.
+
+Error handling is critical here - we must never let exceptions escape
+to the IJulia event loop, as that could break the kernel's ability to
+process subsequent messages.
 """
 function handle_msg(comm::PositronComm, msg::Dict)
-    if comm.msg_handler !== nothing
-        # Extract and store the request ID for use in responses
-        comm.current_request_id = get(msg, "id", nothing)
-        kernel_log_info("handle_msg: target=$(comm.target_name), comm_id=$(comm.comm_id), jsonrpc_id=$(comm.current_request_id)")
+    if comm.msg_handler === nothing
+        return
+    end
 
-        try
-            lock(comm.send_lock) do
-                comm.msg_handler(msg)
-            end
-        catch e
-            kernel_log_error("Error handling comm message: $(sprint(showerror, e, catch_backtrace()))")
-            send_error(
-                comm,
-                JsonRpcErrorCode.INTERNAL_ERROR,
-                "Internal error: $(sprint(showerror, e))",
-            )
-        finally
-            # Clear the request ID after handling
-            comm.current_request_id = nothing
+    # Extract and store the request ID for use in responses
+    comm.current_request_id = get(msg, "id", nothing)
+    kernel_log_info("handle_msg: target=$(comm.target_name), comm_id=$(comm.comm_id), jsonrpc_id=$(comm.current_request_id)")
+
+    try
+        lock(comm.send_lock) do
+            comm.msg_handler(msg)
         end
+    catch e
+        # Log the full error with stack trace
+        kernel_log_error("Error handling comm message: $(sprint(showerror, e, catch_backtrace()))")
+
+        # Try to send error response, but don't let this fail break the kernel
+        try
+            # Truncate error message to avoid issues with very long stack traces
+            error_msg = sprint(showerror, e)
+            if length(error_msg) > 500
+                error_msg = first(error_msg, 500) * "..."
+            end
+            send_error(comm, JsonRpcErrorCode.INTERNAL_ERROR, "Internal error: $error_msg")
+            kernel_log_info("Error response sent successfully")
+        catch send_err
+            kernel_log_error("Failed to send error response: $(sprint(showerror, send_err))")
+        end
+    finally
+        # Always clean up state, even on error
+        comm.current_request_id = nothing
     end
 end
 
@@ -137,20 +152,31 @@ function open!(comm::PositronComm; data::Dict = Dict())
     kernel_log_info("Registered kernel-initiated comm: $(comm.target_name), id=$(comm.comm_id)")
 
     # Set up message handlers
+    # CRITICAL: Wrap in try-catch to prevent errors from breaking IJulia event loop
     ijulia_comm.on_msg = function (msg)
-        comm.current_request_msg = msg
-        content = msg.content
-        msg_data = get(content, "data", Dict())
-        # Log incoming message (truncate large data)
-        method = get(msg_data, "method", "unknown")
-        kernel_log_info("Received comm message: $(comm.target_name), comm_id=$(comm.comm_id), method=$method")
-        handle_msg(comm, msg_data)
-        comm.current_request_msg = nothing
+        try
+            comm.current_request_msg = msg
+            content = msg.content
+            msg_data = get(content, "data", Dict())
+            # Log incoming message (truncate large data)
+            method = get(msg_data, "method", "unknown")
+            kernel_log_info("Received comm message: $(comm.target_name), comm_id=$(comm.comm_id), method=$method")
+            handle_msg(comm, msg_data)
+        catch e
+            # Log but never let errors escape to IJulia - that breaks the kernel
+            kernel_log_error("FATAL: Unhandled error in comm on_msg: $(sprint(showerror, e, catch_backtrace()))")
+        finally
+            comm.current_request_msg = nothing
+        end
     end
 
     ijulia_comm.on_close = function (msg)
-        if comm.close_handler !== nothing
-            comm.close_handler()
+        try
+            if comm.close_handler !== nothing
+                comm.close_handler()
+            end
+        catch e
+            kernel_log_error("Error in comm on_close: $(sprint(showerror, e))")
         end
     end
 

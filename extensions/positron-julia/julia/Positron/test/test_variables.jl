@@ -630,3 +630,81 @@ end
         # (Current implementation sends if assigned or removed is non-empty)
     end
 end
+
+@testset "handle_view Tests" begin
+    using DataFrames
+
+    @testset "handle_view - Empty Path Returns Error" begin
+        service = Positron.VariablesService()
+        comm = MockComm("variables")
+        service.comm = comm
+
+        # Call handle_view with empty path
+        Positron.handle_view(service, String[])
+
+        # Should have sent an error
+        @test length(comm.messages) > 0
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcError
+        @test occursin("Empty path", msg["data"].error["message"])
+    end
+
+    @testset "handle_view - Variable Not Found Returns Error" begin
+        service = Positron.VariablesService()
+        comm = MockComm("variables")
+        service.comm = comm
+
+        # Call handle_view with non-existent variable
+        Positron.handle_view(service, ["nonexistent_variable_xyz"])
+
+        # Should have sent an error
+        @test length(comm.messages) > 0
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcError
+        @test occursin("not found", msg["data"].error["message"])
+    end
+
+    @testset "handle_view - Non-Viewable Variable Returns Error" begin
+        service = Positron.VariablesService()
+        comm = MockComm("variables")
+        service.comm = comm
+
+        # Create a simple scalar that's not viewable
+        @eval Main test_scalar_not_viewable = 42
+
+        # Call handle_view
+        Positron.handle_view(service, ["test_scalar_not_viewable"])
+
+        # Should have sent an error since scalars aren't viewable
+        @test length(comm.messages) > 0
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcError
+        @test occursin("cannot be viewed", msg["data"].error["message"])
+    end
+
+    @testset "value_has_viewer - DataFrame" begin
+        df = DataFrame(a = 1:10, b = rand(10))
+        @test Positron.value_has_viewer(df) == true
+    end
+
+    @testset "value_has_viewer - Large Vector" begin
+        vec = rand(100)
+        @test Positron.value_has_viewer(vec) == true
+    end
+
+    @testset "value_has_viewer - Small Vector" begin
+        vec = [1, 2, 3]
+        @test Positron.value_has_viewer(vec) == false
+    end
+
+    @testset "value_has_viewer - Matrix" begin
+        mat = rand(5, 5)
+        @test Positron.value_has_viewer(mat) == true
+    end
+
+    @testset "value_has_viewer - Scalar" begin
+        @test Positron.value_has_viewer(42) == false
+        @test Positron.value_has_viewer("hello") == false
+        @test Positron.value_has_viewer(3.14) == false
+    end
+end
