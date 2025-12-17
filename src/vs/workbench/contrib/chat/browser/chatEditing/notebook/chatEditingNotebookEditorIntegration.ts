@@ -22,8 +22,8 @@ import { NotebookDeletedCellDecorator } from '../../../../notebook/browser/diff/
 import { NotebookInsertedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookInsertedCellDecorator.js';
 import { NotebookModifiedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookModifiedCellDecorator.js';
 import { INotebookTextDiffEditor } from '../../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
-import { CellEditState, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
 // --- Start Positron ---
+import { CellEditState, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
 // Use proxy to get editors from both VS Code and Positron notebook sources
 import { getNotebookEditorFromEditorPane } from '../../../../positronNotebook/browser/NotebookEditorProxyService.js';
 // --- End Positron ---
