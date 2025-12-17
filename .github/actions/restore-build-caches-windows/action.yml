@@ -154,12 +154,23 @@ runs:
       continue-on-error: true
       shell: bash
       run: |
-        if [ -f "extensions/positron-r/resources/ark/ark.exe" ]; then
-          echo "Ark binary found, checking version..."
-          ARK_VERSION=$(extensions/positron-r/resources/ark/ark.exe --version 2>&1 || echo "version check failed")
-          echo "Ark version: $ARK_VERSION"
+        # On Windows, Ark binaries are in architecture-specific subdirectories
+        ARK_X64="extensions/positron-r/resources/ark/windows-x64/ark.exe"
+        ARK_ARM64="extensions/positron-r/resources/ark/windows-arm64/ark.exe"
+
+        echo "Checking Ark binaries..."
+        if [ -f "$ARK_X64" ]; then
+          echo "✅ Ark x64 binary found"
+          ARK_VERSION=$("$ARK_X64" --version 2>&1 || echo "version check failed")
+          echo "  Version: $ARK_VERSION"
         else
-          echo "Ark binary not found at expected path"
+          echo "❌ Ark x64 binary not found at: $ARK_X64"
+        fi
+
+        if [ -f "$ARK_ARM64" ]; then
+          echo "✅ Ark arm64 binary found"
+        else
+          echo "❌ Ark arm64 binary not found at: $ARK_ARM64"
         fi
 
     - name: Restore Kallichore binary cache

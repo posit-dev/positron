@@ -99,11 +99,24 @@ runs:
       continue-on-error: true
       shell: bash
       run: |
-        if [ -f "extensions/positron-r/resources/ark/ark.exe" ] && extensions/positron-r/resources/ark/ark.exe --version 2>/dev/null; then
-          echo "✅ Ark binary verified and functional"
-          echo "verified=true" >> $GITHUB_OUTPUT
+        # On Windows, Ark binaries are in architecture-specific subdirectories
+        ARK_X64="extensions/positron-r/resources/ark/windows-x64/ark.exe"
+        ARK_ARM64="extensions/positron-r/resources/ark/windows-arm64/ark.exe"
+
+        if [ -f "$ARK_X64" ] && [ -f "$ARK_ARM64" ]; then
+          echo "✅ Found both Ark binaries (x64 and arm64)"
+          # Test x64 binary functionality
+          if "$ARK_X64" --version 2>/dev/null; then
+            echo "✅ Ark x64 binary verified and functional"
+            echo "verified=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Ark x64 binary exists but not functional - skipping cache save"
+            echo "verified=false" >> $GITHUB_OUTPUT
+          fi
         else
-          echo "⚠️ Ark binary missing or not functional - skipping cache save"
+          echo "⚠️ Ark binaries missing - skipping cache save"
+          [ ! -f "$ARK_X64" ] && echo "  Missing: $ARK_X64"
+          [ ! -f "$ARK_ARM64" ] && echo "  Missing: $ARK_ARM64"
           echo "verified=false" >> $GITHUB_OUTPUT
         fi
 
