@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
+import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
 import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
-import type { notebooks } from 'positron';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -42,7 +41,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cell The cell to map
 	 * @returns The cell DTO with status information
 	 */
-	private mapCellToDTO(cell: IPositronNotebookCell): notebooks.NotebookCell {
+	private mapCellToDTO(cell: IPositronNotebookCell): INotebookCellDTO {
 		const cellId = cell.uri.toString();
 		const isCodeCell = cell.isCodeCell();
 		const cellOutputs = isCodeCell ? cell.outputs.get() : [];
@@ -55,7 +54,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 				? 'selected'
 				: 'unselected';
 
-		const baseDTO: notebooks.NotebookCell = {
+		const baseDTO: INotebookCellDTO = {
 			id: cellId,
 			index: cell.index,
 			type: cell.kind === CellKind.Code ? NotebookCellType.Code : NotebookCellType.Markdown,
@@ -94,7 +93,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const selectionState = instance.selectionStateMachine.state.get();
 
 		// Map selected cells using helper function
-		const selectedCells: notebooks.NotebookCell[] = [];
+		const selectedCells: INotebookCellDTO[] = [];
 		const selectedCellsList = getSelectedCells(selectionState);
 		for (const cell of selectedCellsList) {
 			selectedCells.push(this.mapCellToDTO(cell));
@@ -118,14 +117,14 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @returns Array of all cells in the notebook.
 	 */
-	async $getCells(notebookUri: string): Promise<notebooks.NotebookCell[]> {
+	async $getCells(notebookUri: string): Promise<INotebookCellDTO[]> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cellDTOs: notebooks.NotebookCell[] = [];
+		const cellDTOs: INotebookCellDTO[] = [];
 
 		for (const cell of cells) {
 			cellDTOs.push(this.mapCellToDTO(cell));
@@ -140,7 +139,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param cellIndex The index of the cell to retrieve.
 	 * @returns The cell DTO, or undefined if not found.
 	 */
-	async $getCell(notebookUri: string, cellIndex: number): Promise<notebooks.NotebookCell | undefined> {
+	async $getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
