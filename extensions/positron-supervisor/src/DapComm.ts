@@ -114,6 +114,11 @@ export class DapComm {
 			return this._startingSession;
 		}
 
+		this.session.emitJupyterLog(
+			`Connecting to DAP server on port ${this._port}`,
+			vscode.LogLevel.Info
+		);
+
 		this._startingSession = (async () => {
 			this._debugSession = await this.startDebugSession();
 			this._startingSession = undefined;
@@ -131,6 +136,12 @@ export class DapComm {
 		if (!session) {
 			return;
 		}
+
+		this.session.emitJupyterLog(
+			`Disconnecting from DAP server on port ${this._port}`,
+			vscode.LogLevel.Info
+		);
+
 		await vscode.debug.stopDebugging(session);
 	}
 
