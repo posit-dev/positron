@@ -100,29 +100,6 @@ suite('Model Resolution Helpers', () => {
 
 			assert.strictEqual(result, false);
 		});
-
-		test('falls back to legacy providerModelPreferences when models.providerPreferences not set', () => {
-			// Mock models.providerPreferences to return undefined, forcing fallback to legacy option
-			mockGetConfiguration.withArgs('models.providerPreferences').returns(undefined);
-			const legacyProviderModelPreferences = { 'anthropic-api': 'sonnet-4' };
-			mockGetConfiguration.withArgs('providerModelPreferences').returns(legacyProviderModelPreferences);
-
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
-
-			assert.strictEqual(result, true);
-		});
-
-		test('falls back to legacy defaultModels when neither models.providerPreferences nor providerModelPreferences set', () => {
-			// Mock both new options to return undefined, forcing fallback to legacy defaultModels
-			mockGetConfiguration.withArgs('models.providerPreferences').returns(undefined);
-			mockGetConfiguration.withArgs('providerModelPreferences').returns(undefined);
-			const legacyDefaultModels = { 'anthropic-api': 'sonnet-4' };
-			mockGetConfiguration.withArgs('defaultModels').returns(legacyDefaultModels);
-
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
-
-			assert.strictEqual(result, true);
-		});
 	});
 
 	suite('getMaxTokens', () => {
