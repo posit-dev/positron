@@ -48,9 +48,9 @@ on:
           - always
           - never
 
-# concurrency:
-#   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   setup:
@@ -58,8 +58,6 @@ jobs:
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
-    with:
-      save_cache: false  # Only restore - PRs and merges handle cache saving
   e2e-electron:
     name: e2e
     needs: [setup]

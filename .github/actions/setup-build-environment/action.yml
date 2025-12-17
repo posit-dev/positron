@@ -1,0 +1,122 @@
+name: "Setup Build Environment"
+description: "Restores caches, installs dependencies, compiles Positron, and sets up testing environment"
+
+inputs:
+  distro:
+    description: "Distribution identifier (ubuntu, rhel, windows)"
+    required: false
+    default: 'ubuntu'
+  install-playwright:
+    description: "Whether to install Playwright browsers (default: true)"
+    required: false
+    default: 'true'
+  playwright-with-deps:
+    description: "Whether to use --with-deps when installing Playwright (default: true, set to false for RHEL)"
+    required: false
+    default: 'true'
+  github-token:
+    description: "GitHub token for private package access"
+    required: true
+
+outputs:
+  cache-npm-core-hit:
+    description: "Whether npm core cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+  cache-npm-extensions-hit:
+    description: "Whether npm extensions cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+  cache-playwright-hit:
+    description: "Whether Playwright cache was restored and verified"
+    value: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+  cache-builtins-hit:
+    description: "Whether builtins cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+  cache-ark-hit:
+    description: "Whether Ark binary cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-ark-hit }}
+  cache-kallichore-hit:
+    description: "Whether Kallichore binary cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-kallichore-hit }}
+  extensions-hash:
+    description: "Generated hash of all extension package-lock.json files"
+    value: ${{ steps.restore-caches.outputs.extensions-hash }}
+  package-locks-hash:
+    description: "Computed hash of all package-lock.json files"
+    value: ${{ steps.restore-caches.outputs.package-locks-hash }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Restore caches
+      id: restore-caches
+      uses: ./.github/actions/restore-build-caches
+      with:
+        distro: ${{ inputs.distro }}
+
+    - name: Apply patches when cache hits
+      if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
+      shell: bash
+      run: |
+        echo "::group::🩹 Apply patches to cached node_modules"
+        echo "Cache hit - applying patches to cached node_modules"
+        npx patch-package
+        echo "::endgroup::"
+
+    - name: Install node dependencies
+      if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+      uses: nick-fields/retry@v3
+      env:
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        POSITRON_GITHUB_RO_PAT: ${{ inputs.github-token }}
+        POSITRON_PARALLEL_INSTALL: '1'
+        POSITRON_NPM_CONCURRENCY: '10'
+        NPM_CONFIG_AUDIT: 'false'
+        NPM_CONFIG_FUND: 'false'
+        NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        DOCKER_CONFIG: /tmp/.docker
+      with:
+        timeout_minutes: 30
+        max_attempts: 3
+        retry_wait_seconds: 5
+        shell: bash
+        command: |
+          echo "::group::📦 Install node dependencies"
+          bash scripts/install-npm-parallel.sh
+          echo "::endgroup::"
+
+    - name: Install E2E test dependencies
+      shell: bash
+      run: |
+        echo "::group::🎭 Install E2E test dependencies"
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+        echo "::endgroup::"
+
+    - name: Compile Positron and Download Electron
+      shell: bash
+      run: |
+        echo "::group::⚡ Compile Positron and Download Electron"
+        npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+        echo "::endgroup::"
+
+    - name: Install Playwright browsers
+      if: ${{ inputs.install-playwright == 'true' && (steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure') }}
+      shell: bash
+      run: |
+        echo "::group::🎭 Install Playwright browsers"
+        echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
+        if [[ "${{ inputs.playwright-with-deps }}" == "true" ]]; then
+          npx playwright install --with-deps
+        else
+          # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
+          # System dependencies should be pre-installed in the Docker container
+          npx playwright install
+        fi
+        echo "::endgroup::"
+
+    - name: Prelaunch
+      shell: bash
+      run: |
+        echo "::group::🚀 Download built-in extensions"
+        npm run prelaunch
+        echo "::endgroup::"
