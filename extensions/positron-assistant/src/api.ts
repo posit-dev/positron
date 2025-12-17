@@ -16,6 +16,7 @@ import fs = require('fs');
 import { log } from './extension.js';
 import { CopilotService } from './copilot.js';
 import { PromptMetadataMode, PromptRenderer } from './promptRender.js';
+import { PositronLLMApi } from './llm-api.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -31,12 +32,56 @@ export class PositronAssistantApi {
 	/** An emitter for sign-in events */
 	private _signInEmitter = new vscode.EventEmitter<string>();
 
+	/** The LLM API instance */
+	private _llm?: PositronLLMApi;
+
 	/** Get or create the singleton instance. */
 	public static get() {
 		if (!PositronAssistantApi._instance) {
 			PositronAssistantApi._instance = new PositronAssistantApi();
 		}
 		return PositronAssistantApi._instance;
+	}
+
+	/**
+	 * Unified LLM API for direct model interaction.
+	 *
+	 * This API works with all providers (Anthropic, Posit AI, Copilot, etc.)
+	 * and routes requests optimally based on the provider type.
+	 *
+	 * Model IDs use canonical "provider/model" format:
+	 * - "anthropic-api/claude-sonnet-4"
+	 * - "copilot/gpt-4o"
+	 *
+	 * @example
+	 * ```typescript
+	 * const api = await vscode.extensions.getExtension('positron.positron-assistant').activate();
+	 *
+	 * // List available models
+	 * const models = await api.llm.getAvailableModels();
+	 * // → [{ id: "anthropic-api/claude-sonnet-4", ... }, { id: "copilot/gpt-4o", ... }]
+	 *
+	 * // Stream text
+	 * const stream = await api.llm.streamText({
+	 *   model: 'anthropic-api/claude-sonnet-4',
+	 *   messages: [{ role: 'user', content: 'Hello!' }]
+	 * });
+	 *
+	 * for await (const chunk of stream.textStream) {
+	 *   console.log(chunk);
+	 * }
+	 * ```
+	 */
+	public get llm(): PositronLLMApi {
+		if (!this._llm) {
+			throw new Error('LLM API not initialized. Is positron.assistant.enable set to true?');
+		}
+		return this._llm;
+	}
+
+	/** @internal */
+	initializeLLM(impl: PositronLLMApi): void {
+		this._llm = impl;
 	}
 
 	/**

@@ -28,6 +28,7 @@ import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
 import { verifyProvidersInConfiguredModels } from './modelDefinitions.js';
+import { PositronLLMApiImpl } from './llm-api-impl.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -36,6 +37,7 @@ const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
 let tokenTracker: TokenTracker;
+let llmApiInstance: PositronLLMApiImpl | undefined;
 
 const autoconfiguredModels: ModelConfig[] = [];
 
@@ -205,6 +207,9 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 
 	const hasChatModels = hasPositronChatModels || hasOtherChatModels;
 	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
+
+	// Notify LLM API that configs changed
+	llmApiInstance?.notifyConfigsChanged();
 }
 
 /**
@@ -375,6 +380,14 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	const storage = vscode.env.uiKind === vscode.UIKind.Web ?
 		new GlobalSecretStorage(context) :
 		new EncryptedSecretStorage(context);
+
+	// Initialize LLM API
+	llmApiInstance = new PositronLLMApiImpl(
+		context,
+		storage,
+		() => modelDisposables.map(d => d.modelConfig)
+	);
+	PositronAssistantApi.get().initializeLLM(llmApiInstance);
 
 	// Register Copilot service
 	registerCopilotService(context);
