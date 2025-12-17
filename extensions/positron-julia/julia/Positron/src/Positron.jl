@@ -23,7 +23,6 @@ using Dates
 using Base64
 using Markdown
 using Statistics  # For mean, std, quantile in Data Explorer
-using DataFrames
 using PrecompileTools: @setup_workload, @compile_workload
 
 # Core comm infrastructure
@@ -65,6 +64,7 @@ export PositronComm, create_comm, on_msg!, on_close!, send_result, send_event, s
 
 # Precompilation workload to reduce first-use latency
 @setup_workload begin
+    using DataFrames
     # Create test data during precompile setup
     test_df = DataFrame(
         int_col = [1, 2, 3, 4, 5],

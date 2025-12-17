@@ -375,32 +375,67 @@ function handle_get_column_profiles(
     instance::DataExplorerInstance,
     request::DataExplorerGetColumnProfilesParams,
 )
-    # Process profiles asynchronously and send results via events
-    # For now, we'll process synchronously
+    # Collect all profile results
+    results = ColumnProfileResult[]
+
     for profile_request in request.profiles
         # Adjust for 0-based indexing
         julia_col_idx = profile_request.column_index + 1
 
+        # Compute all requested profiles for this column and merge into one result
+        result = ColumnProfileResult(
+            nothing,  # null_count
+            nothing,  # summary_stats
+            nothing,  # small_histogram
+            nothing,  # large_histogram
+            nothing,  # small_frequency_table
+            nothing,  # large_frequency_table
+        )
+
         for spec in profile_request.profiles
-            result = compute_column_profile(
+            profile_result = compute_column_profile(
                 instance,
                 julia_col_idx,
                 spec,
                 request.format_options,
             )
-
-            # Send result event
-            event = DataUpdateEvent(
-                request.callback_id,
-                profile_request.column_index,  # Keep 0-based for frontend
-                result,
-            )
-            send_event(instance.comm, "column_profile_result", event)
+            # Merge the computed result into our aggregate result
+            result = merge_profile_results(result, profile_result)
         end
+
+        push!(results, result)
     end
 
+    # Send all results in a single event
+    event = DataExplorerReturnColumnProfilesParams(
+        request.callback_id,
+        results,
+        nothing,  # error_message
+    )
+    send_event(instance.comm, "return_column_profiles", event)
+
+    # Also send the RPC reply
     send_result(instance.comm, nothing)
 end
+
+"""
+Merge two ColumnProfileResult structs, taking non-nothing values from both.
+"""
+function merge_profile_results(a::ColumnProfileResult, b::ColumnProfileResult)::ColumnProfileResult
+    return ColumnProfileResult(
+        something_or(a.null_count, b.null_count),
+        something_or(a.summary_stats, b.summary_stats),
+        something_or(a.small_histogram, b.small_histogram),
+        something_or(a.large_histogram, b.large_histogram),
+        something_or(a.small_frequency_table, b.small_frequency_table),
+        something_or(a.large_frequency_table, b.large_frequency_table),
+    )
+end
+
+"""
+Return the first non-nothing value, or nothing if both are nothing.
+"""
+something_or(a, b) = a !== nothing ? a : b
 
 """
 Handle export_data_selection request.
