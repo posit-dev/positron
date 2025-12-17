@@ -1261,7 +1261,7 @@ class RedshiftConnectionInspector(BaseConnectionInspector):
 
 
 class SQLServerConnectionInspector(BaseConnectionInspector):
-    CLASS_QNAME = ("pyodbc.Connection", "pymssql.Connection")
+    CLASS_QNAME = ("pyodbc.Connection", "pymssql.Connection", "pymssql._pymssql.Connection")
 
     def _is_active(self, value) -> bool:
         try:
