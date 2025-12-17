@@ -272,7 +272,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-rhel-json-results
           path: test-results/rhel.json
@@ -280,7 +280,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-logs
           path: test-logs
