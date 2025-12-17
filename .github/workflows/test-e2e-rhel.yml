@@ -195,6 +195,9 @@ jobs:
           shell: bash
           command: bash scripts/install-npm-parallel.sh
 
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
@@ -220,6 +223,7 @@ jobs:
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          cache-ark-hit: ${{ steps.restore-caches.outputs.cache-ark-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 

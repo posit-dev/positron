@@ -111,6 +111,27 @@ jobs:
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
 
+      - name: Debug - Capture file tree BEFORE npm install
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        run: |
+          echo "📋 Capturing file tree BEFORE npm install..."
+
+          # Capture complete file tree (excluding node_modules contents for brevity)
+          find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-before-npm-install.txt
+
+          # Check key binaries and symlinks
+          echo "=== Kallichore binary ==="
+          ls -lh extensions/positron-supervisor/resources/kallichore/ 2>/dev/null || echo "Directory not found"
+
+          echo "=== Ark binary ==="
+          ls -lh extensions/positron-r/resources/ark/ 2>/dev/null || echo "Directory not found"
+
+          echo "=== Sample node_modules/.bin symlinks ==="
+          ls -lh node_modules/.bin/ | head -20 || echo "Directory not found"
+
+          echo "=== extensions/positron-supervisor/node_modules/.bin ==="
+          ls -lh extensions/positron-supervisor/node_modules/.bin/ 2>/dev/null | head -10 || echo "Directory not found"
+
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
         uses: nick-fields/retry@v3
@@ -140,6 +161,39 @@ jobs:
 
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
+
+      - name: Debug - Capture file tree AFTER npm install
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        run: |
+          echo "📋 Capturing file tree AFTER npm install..."
+
+          # Capture complete file tree (excluding node_modules contents for brevity)
+          find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
+
+          # Compare before and after
+          echo "=== Files ADDED by npm install ==="
+          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | head -50
+
+          echo ""
+          echo "=== Files REMOVED by npm install ==="
+          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | head -50
+
+          # Check key binaries and symlinks again
+          echo ""
+          echo "=== Kallichore binary (after) ==="
+          ls -lh extensions/positron-supervisor/resources/kallichore/ 2>/dev/null || echo "Directory not found"
+
+          echo ""
+          echo "=== Ark binary (after) ==="
+          ls -lh extensions/positron-r/resources/ark/ 2>/dev/null || echo "Directory not found"
+
+          echo ""
+          echo "=== Sample node_modules/.bin symlinks (after) ==="
+          ls -lh node_modules/.bin/ | head -20 || echo "Directory not found"
+
+          echo ""
+          echo "=== extensions/positron-supervisor/node_modules/.bin (after) ==="
+          ls -lh extensions/positron-supervisor/node_modules/.bin/ 2>/dev/null | head -10 || echo "Directory not found"
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
@@ -198,17 +252,6 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Ensure Ark binary is present
-        run: |
-          # Always ensure Ark is downloaded and functional, regardless of cache status
-          # This handles both cache hit (postinstall skipped) and cache miss (postinstall may have failed) scenarios
-          if [ ! -f "extensions/positron-r/resources/ark/ark" ] || ! extensions/positron-r/resources/ark/ark --version 2>/dev/null; then
-            echo "Ark binary missing or not executable, downloading..."
-            rm -rf extensions/positron-r/resources/ark
-            cd extensions/positron-r && npm run postinstall
-          else
-            echo "Ark binary already present and functional"
-          fi
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - name: Prelaunch

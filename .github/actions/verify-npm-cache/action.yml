@@ -59,7 +59,7 @@ runs:
           echo "⚠️ Cache verification failed - will reinstall"
 
           # Write warning to GitHub Step Summary
-          echo "### ⚠️ npm Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ npm Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The npm-core cache was restored but is missing critical artifacts." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

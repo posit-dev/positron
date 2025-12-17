@@ -164,13 +164,13 @@ runs:
     #     echo "Verifying Playwright cache..."
     #     if [ ! -d "$HOME/.cache/ms-playwright" ]; then
     #       echo "⚠️ Playwright cache directory missing"
-    #       echo "### ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
     #       echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
     #       exit 1
     #     fi
     #     if [ -z "$(ls -A $HOME/.cache/ms-playwright)" ]; then
     #       echo "⚠️ Playwright cache directory empty"
-    #       echo "### ⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
     #       echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
     #       exit 1
     #     fi

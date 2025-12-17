@@ -66,6 +66,9 @@ jobs:
           shell: bash
           command: bash scripts/install-npm-parallel.sh
 
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
+
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
