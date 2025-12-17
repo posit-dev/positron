@@ -157,6 +157,9 @@ function start_services!(kernel::PositronKernel = get_kernel())
     # Set up execution hooks
     setup_execution_hooks!(kernel)
 
+    # Register atexit handler to clean up on graceful shutdown
+    atexit(() -> stop_services!(kernel))
+
     kernel.started = true
     kernel_log_info("Positron services started")
 end
@@ -171,7 +174,10 @@ function stop_services!(kernel::PositronKernel = get_kernel())
 
     kernel_log_info("Stopping Positron services...")
 
-    # Close all comms
+    # Shutdown plots service (closes all plot comms)
+    shutdown!(kernel.plots)
+
+    # Close all other comms
     for (_, comm) in kernel.comms
         try
             close!(comm)
@@ -243,8 +249,8 @@ Handle opening of variables comm.
 function handle_variables_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     kernel_log("Variables comm opened")
 
-    # Create our comm wrapper
-    comm = create_comm("positron.variables")
+    # Create our comm wrapper with the same ID as the IJulia comm
+    comm = create_comm("positron.variables"; comm_id = ijulia_comm.id)
     kernel.comms["variables"] = comm
 
     # Store comm_open message to use as parent for initial messages
@@ -267,7 +273,7 @@ Handle opening of help comm.
 function handle_help_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     kernel_log_info("Help comm opened")
 
-    comm = create_comm("positron.help")
+    comm = create_comm("positron.help"; comm_id = ijulia_comm.id)
     kernel.comms["help"] = comm
 
     init!(kernel.help, comm)
@@ -280,7 +286,7 @@ Handle opening of plot comm.
 function handle_plot_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     kernel_log_info("Plot comm opened")
 
-    comm = create_comm("positron.plot")
+    comm = create_comm("positron.plot"; comm_id = ijulia_comm.id)
     kernel.comms["plot"] = comm
 
     init!(kernel.plots, comm)
@@ -315,8 +321,8 @@ function handle_data_explorer_comm_open(kernel::PositronKernel, ijulia_comm::Any
     # Create instance
     instance = open_data_explorer!(kernel.data_explorer, data_obj, title)
 
-    # Create comm for this instance
-    comm = create_comm("positron.dataExplorer")
+    # Create comm for this instance with the same ID as the IJulia comm
+    comm = create_comm("positron.dataExplorer"; comm_id = ijulia_comm.id)
     init!(instance, comm)
     setup_comm_bridge!(comm, ijulia_comm)
 end
@@ -327,7 +333,7 @@ Handle opening of UI comm.
 function handle_ui_comm_open(kernel::PositronKernel, ijulia_comm::Any, msg::Any)
     kernel_log_info("UI comm opened")
 
-    comm = create_comm("positron.ui")
+    comm = create_comm("positron.ui"; comm_id = ijulia_comm.id)
     kernel.comms["ui"] = comm
 
     init!(kernel.ui, comm)
@@ -336,13 +342,33 @@ end
 
 """
 Set up bidirectional message passing between our comm and IJulia comm.
+
+For frontend-initiated comms, we need to register them in IJulia's comm registry
+so that incoming messages are routed correctly.
 """
 function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
+    # Get the IJulia kernel for registration
+    ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
+
+    # Check if IJulia already registered this comm and register if not.
+    # For frontend-initiated comms, IJulia may not have registered the comm yet.
+    if ijulia_kernel !== nothing && hasproperty(ijulia_comm, :id)
+        comm_id = ijulia_comm.id
+        already_registered = haskey(ijulia_kernel.comms, comm_id)
+        if already_registered
+            kernel_log_info("Comm already in registry: $(our_comm.target_name), id=$comm_id")
+        else
+            ijulia_kernel.comms[comm_id] = ijulia_comm
+            kernel_log_info("Registered frontend-initiated comm: $(our_comm.target_name), id=$comm_id")
+        end
+    end
+
     # Forward messages from IJulia to our comm
     if hasproperty(ijulia_comm, :on_msg)
+        kernel_log_info("Setting on_msg handler for $(our_comm.target_name), comm_id=$(ijulia_comm.id)")
         ijulia_comm.on_msg = function (msg)
             kernel_log_info(
-                "Received comm message on $(our_comm.target_name): comm_id=$(our_comm.comm_id)",
+                "Received comm message on $(our_comm.target_name): comm_id=$(ijulia_comm.id)",
             )
             # Store the incoming message to use as parent for response
             our_comm.current_request_msg = msg
@@ -356,6 +382,14 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
             # Clear the request message after handling
             our_comm.current_request_msg = nothing
         end
+        # Verify the handler was set
+        if ijulia_comm.on_msg !== nothing
+            kernel_log_info("on_msg handler set successfully for $(our_comm.target_name)")
+        else
+            kernel_log_error("on_msg handler is still nothing for $(our_comm.target_name)!")
+        end
+    else
+        kernel_log_error("IJulia comm does not have on_msg property for $(our_comm.target_name)")
     end
 
     if hasproperty(ijulia_comm, :on_close)
@@ -418,14 +452,44 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         end
 
         if parent_msg !== nothing
-            # Build message manually with the correct parent
-            # This ensures valid parent_header that passes Supervisor validation
-            content = Dict("comm_id" => comm.kernel.id, "data" => data_dict)
+            kernel_log_info("Using $parent_type message as parent for comm response")
+            # Log parent message details for debugging
+            if hasfield(typeof(parent_msg), :header) && parent_msg.header !== nothing
+                parent_header = parent_msg.header
+                request_msg_id = get(parent_header, "msg_id", "N/A")
+                kernel_log_info("Request header.msg_id=$(request_msg_id) (this must match frontend's pending RPC key)")
+            else
+                kernel_log_warn("Parent message has no header!")
+            end
+            # Build message manually with the correct parent.
+            # The frontend matches RPC responses using parent_header.msg_id.
+            response_comm_id = comm.kernel.id
+            content = Dict("comm_id" => response_comm_id, "data" => data_dict)
+            kernel_log_info("Response comm_id=$(response_comm_id) (PositronComm.comm_id=$(comm.comm_id))")
+            if response_comm_id != comm.comm_id
+                kernel_log_error("comm_id mismatch in response")
+            end
+            kernel_log_info("Response data has keys: $(collect(keys(data_dict)))")
+
+            # Verify JSON-RPC response structure
+            if haskey(data_dict, "result") || haskey(data_dict, "error")
+                jsonrpc_id = get(data_dict, "id", "MISSING")
+                kernel_log_info("JSON-RPC response: id=$(jsonrpc_id), has_result=$(haskey(data_dict, "result")), has_error=$(haskey(data_dict, "error"))")
+            else
+                kernel_log_warn("JSON-RPC response missing 'result' and 'error' keys! Keys present: $(collect(keys(data_dict)))")
+            end
+
             msg = IJulia.msg_pub(parent_msg, "comm_msg", content)
+            kernel_log_info("Response parent_header.msg_id=$(msg.parent_header["msg_id"]) (must match request_msg_id)")
+            kernel_log_info("Response header.msg_id=$(msg.header["msg_id"]) (new message ID)")
             IJulia.send_ipython(ijulia_kernel.publish[], ijulia_kernel, msg)
+            kernel_log_info("Message sent on IOPub channel")
         else
             # Fall back to execute_msg for notifications during code execution
+            # NOTE: This won't work for RPC responses! But it's ok for events.
+            kernel_log_info("No parent message, using send_comm fallback (events only)")
             IJulia.send_comm(comm.kernel, data_dict; kernel = ijulia_kernel)
+            kernel_log_info("Message sent via send_comm")
         end
     catch e
         kernel_log_error("Failed to send comm message: $e")

@@ -59,6 +59,7 @@ function handle_msg(comm::PositronComm, msg::Dict)
     if comm.msg_handler !== nothing
         # Extract and store the request ID for use in responses
         comm.current_request_id = get(msg, "id", nothing)
+        kernel_log_info("handle_msg: target=$(comm.target_name), comm_id=$(comm.comm_id), jsonrpc_id=$(comm.current_request_id)")
 
         try
             lock(comm.send_lock) do
@@ -86,6 +87,7 @@ function send_result(
     data::Any = nothing;
     metadata::Union{Dict,Nothing} = nothing,
 )
+    kernel_log_info("send_result: comm_id=$(comm.comm_id), request_id=$(comm.current_request_id), data_type=$(typeof(data))")
     result = JsonRpcResult(comm.current_request_id, data)
     _send_msg(comm, result, metadata)
 end
@@ -129,6 +131,11 @@ function open!(comm::PositronComm; data::Dict = Dict())
         data = data,
     )
 
+    # Register the comm in IJulia's registry so comm_msg handler can find it.
+    # IJulia.Comm with primary=true does not auto-register.
+    ijulia_kernel.comms[comm.comm_id] = ijulia_comm
+    kernel_log_info("Registered kernel-initiated comm: $(comm.target_name), id=$(comm.comm_id)")
+
     # Set up message handlers
     ijulia_comm.on_msg = function (msg)
         comm.current_request_msg = msg
@@ -149,6 +156,13 @@ function open!(comm::PositronComm; data::Dict = Dict())
 
     # Store the IJulia comm for sending messages
     comm.kernel = ijulia_comm
+
+    # Verify comm_id consistency
+    if ijulia_comm.id != comm.comm_id
+        kernel_log_error("IJulia comm_id mismatch: comm.comm_id=$(comm.comm_id), ijulia_comm.id=$(ijulia_comm.id)")
+    else
+        kernel_log_info("Verified: IJulia comm.id=$(ijulia_comm.id) matches PositronComm.comm_id=$(comm.comm_id)")
+    end
 end
 
 """
@@ -157,6 +171,13 @@ Close the comm.
 function close!(comm::PositronComm)
     if comm.close_handler !== nothing
         comm.close_handler()
+    end
+
+    # Unregister from IJulia's comm registry
+    ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
+    if haskey(ijulia_kernel.comms, comm.comm_id)
+        delete!(ijulia_kernel.comms, comm.comm_id)
+        kernel_log_info("Unregistered comm: $(comm.target_name), id=$(comm.comm_id)")
     end
 
     # Send comm_close message via IJulia

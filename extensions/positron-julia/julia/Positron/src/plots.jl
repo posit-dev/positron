@@ -355,15 +355,44 @@ function create_render_func(plot_obj::Any)
         io = IOBuffer()
         mime = get_mime_type(format)
 
-        # Try to render with the requested MIME type
-        if showable(MIME(mime), plot_obj)
-            show(io, MIME(mime), plot_obj)
-        elseif showable(MIME("image/png"), plot_obj)
-            show(io, MIME("image/png"), plot_obj)
-        elseif showable(MIME("image/svg+xml"), plot_obj)
-            show(io, MIME("image/svg+xml"), plot_obj)
-        else
-            error("Plot object does not support image rendering")
+        # Calculate actual pixel size (logical size * pixel ratio for retina displays)
+        actual_width = size !== nothing ? round(Int, size.width * pixel_ratio) : nothing
+        actual_height = size !== nothing ? round(Int, size.height * pixel_ratio) : nothing
+
+        # Try to render at the specified size
+        rendered = false
+
+        # For Plots.jl: use the plot's internal resize mechanism
+        if isdefined(Main, :Plots) && typeof(plot_obj) <: Main.Plots.Plot
+            try
+                # Save original size to restore after rendering
+                original_size = Main.Plots.size(plot_obj)
+                if actual_width !== nothing && actual_height !== nothing
+                    # Resize the plot for rendering
+                    Main.Plots.plot!(plot_obj; size = (actual_width, actual_height))
+                end
+                show(io, MIME(mime), plot_obj)
+                # Restore original size
+                if actual_width !== nothing && actual_height !== nothing
+                    Main.Plots.plot!(plot_obj; size = original_size)
+                end
+                rendered = true
+            catch e
+                kernel_log_warn("Plots.jl resize failed: $e, falling back to default")
+            end
+        end
+
+        # Fallback: try standard show without size
+        if !rendered
+            if showable(MIME(mime), plot_obj)
+                show(io, MIME(mime), plot_obj)
+            elseif showable(MIME("image/png"), plot_obj)
+                show(io, MIME("image/png"), plot_obj)
+            elseif showable(MIME("image/svg+xml"), plot_obj)
+                show(io, MIME("image/svg+xml"), plot_obj)
+            else
+                error("Plot object does not support image rendering")
+            end
         end
 
         return take!(io)

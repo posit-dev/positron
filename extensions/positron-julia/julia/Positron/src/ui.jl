@@ -38,12 +38,20 @@ end
 Handle incoming messages on the UI comm.
 """
 function handle_ui_msg(service::UIService, msg::Dict)
+    method = get(msg, "method", "unknown")
+    kernel_log_info("UI service received message: method=$method")
+
     request = parse_ui_request(msg)
+    kernel_log_info("UI service parsed request: $(typeof(request))")
 
     if request isa UiDidChangePlotsRenderSettingsParams
+        kernel_log_info("UI service handling did_change_plots_render_settings")
         handle_did_change_plots_render_settings(service, request)
     elseif request isa UiCallMethodParams
+        kernel_log_info("UI service handling call_method: $(request.method)")
         handle_call_method(service, request)
+    else
+        kernel_log_warn("UI service: unknown request type: $(typeof(request))")
     end
 end
 
@@ -61,9 +69,11 @@ function handle_did_change_plots_render_settings(
     service::UIService,
     request::UiDidChangePlotsRenderSettingsParams,
 )
+    kernel_log_info("Updating plot render settings: size=$(request.settings.size), pixel_ratio=$(request.settings.pixel_ratio), format=$(request.settings.format)")
     service.plot_render_settings = request.settings
-    # Notify plots service if needed
+    kernel_log_info("Sending result for did_change_plots_render_settings")
     send_result(service.comm, nothing)
+    kernel_log_info("Result sent for did_change_plots_render_settings")
 end
 
 """
