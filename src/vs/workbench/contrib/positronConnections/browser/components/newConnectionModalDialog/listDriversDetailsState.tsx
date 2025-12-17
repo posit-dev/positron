@@ -60,11 +60,9 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 		</div>
 		<div className='drivers-list'>
 			{drivers.map((driver) => (
-				<div
+				<button
 					key={driver.driverId}
 					className='driver-list-item'
-					role='button'
-					tabIndex={0}
 					onClick={() => props.onDriverSelected(driver)}
 				>
 					<div className='driver-info'>
@@ -87,7 +85,7 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 						<div className={`driver-button codicon codicon-chevron-right`}>
 						</div>
 					</div>
-				</div>
+				</button>
 			))}
 		</div>
 		<div className='footer'>

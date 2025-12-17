@@ -49,11 +49,16 @@
 }
 
 .connections-new-connection-list-drivers-details > .drivers-list > .driver-list-item {
+	background: transparent;
+	border: none;
+	color: inherit;
 	display: grid;
 	grid-template-columns: auto;
 	gap: 2px;
 	align-items: center;
 	padding: 0px 5px;
+	text-align: left;
+	cursor: pointer;
 }
 
 .connections-new-connection-list-drivers-details > .drivers-list > .driver-list-item > .driver-info {

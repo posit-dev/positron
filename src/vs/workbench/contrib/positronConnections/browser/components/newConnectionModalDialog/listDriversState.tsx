@@ -97,11 +97,9 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 							<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
 							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
-						return <div
+						return <button
 							key={name}
 							className='driver-list-item'
-							role='button'
-							tabIndex={0}
 							onClick={() => onDriverSelectedHandler(drivers)}
 						>
 							{icon}
@@ -112,7 +110,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 								<div className={`driver-button codicon codicon-chevron-right`}>
 								</div>
 							</div>
-						</div>;
+						</button>;
 					}) :
 					<div className='no-drivers'>
 						{(() => localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available"))()}
