@@ -137,47 +137,47 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update save-build-caches/action.yml
         key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
-    # - name: Extract Playwright version
-    #   if: ${{ inputs.restore-playwright == 'true' }}
-    #   id: playwright-version
-    #   shell: bash
-    #   run: |
-    #     PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-    #     echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-    #     echo "Playwright version: $PLAYWRIGHT_VERSION"
+    - name: Extract Playwright version
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: playwright-version
+      shell: bash
+      run: |
+        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    # - name: Restore Playwright browsers cache
-    #   if: ${{ inputs.restore-playwright == 'true' }}
-    #   id: cache-playwright
-    #   continue-on-error: true
-    #   uses: actions/cache/restore@v4
-    #   with:
-    #     path: ~/.cache/ms-playwright
-    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-    #     key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-${{ inputs.distro }}-playwright-
+    - name: Restore Playwright browsers cache
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: cache-playwright
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.cache/ms-playwright
+        # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
+        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.distro }}-playwright-
 
-    # - name: Verify Playwright cache
-    #   if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
-    #   id: verify-playwright
-    #   continue-on-error: true
-    #   shell: bash
-    #   run: |
-    #     echo "Verifying Playwright cache..."
-    #     if [ ! -d "$HOME/.cache/ms-playwright" ]; then
-    #       echo "⚠️ Playwright cache directory missing"
-    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-    #       echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
-    #       exit 1
-    #     fi
-    #     if [ -z "$(ls -A $HOME/.cache/ms-playwright)" ]; then
-    #       echo "⚠️ Playwright cache directory empty"
-    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-    #       echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
-    #       exit 1
-    #     fi
-    #     echo "✅ Playwright cache verified"
+    - name: Verify Playwright cache
+      if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
+      id: verify-playwright
+      continue-on-error: true
+      shell: bash
+      run: |
+        echo "Verifying Playwright cache..."
+        if [ ! -d "$HOME/.cache/ms-playwright" ]; then
+          echo "⚠️ Playwright cache directory missing"
+          echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache was restored but directory is missing. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        if [ -z "$(ls -A $HOME/.cache/ms-playwright)" ]; then
+          echo "⚠️ Playwright cache directory empty"
+          echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Cache directory exists but is empty. Will reinstall." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "✅ Playwright cache verified"
 
     # - name: Restore Electron binary cache
     #   if: ${{ inputs.restore-electron == 'true' }}

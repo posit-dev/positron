@@ -91,23 +91,23 @@ runs:
         # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update restore-build-caches/action.yml
         key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
-    # - name: Extract Playwright version
-    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
-    #   id: playwright-version
-    #   shell: bash
-    #   run: |
-    #     PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
-    #     echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
-    #     echo "Playwright version: $PLAYWRIGHT_VERSION"
+    - name: Extract Playwright version
+      if: ${{ inputs.cache-playwright-hit == 'false' }}
+      id: playwright-version
+      shell: bash
+      run: |
+        PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")
+        echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    # - name: Save Playwright browsers cache
-    #   if: ${{ inputs.cache-playwright-hit == 'false' }}
-    #   continue-on-error: true
-    #   uses: actions/cache/save@v4
-    #   with:
-    #     path: ~/.cache/ms-playwright
-    #     # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-    #     key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
+    - name: Save Playwright browsers cache
+      if: ${{ inputs.cache-playwright-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.cache/ms-playwright
+        # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
+        key: ${{ runner.os }}-${{ inputs.distro }}-playwright-${{ steps.playwright-version.outputs.version }}
 
     # - name: Save Electron binary cache
     #   if: ${{ inputs.cache-electron-hit == 'false' }}

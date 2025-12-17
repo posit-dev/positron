@@ -202,7 +202,7 @@ jobs:
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}
         run: |
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
