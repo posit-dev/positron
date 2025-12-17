@@ -134,6 +134,9 @@ function open!(comm::PositronComm; data::Dict = Dict())
         comm.current_request_msg = msg
         content = msg.content
         msg_data = get(content, "data", Dict())
+        # Log incoming message (truncate large data)
+        method = get(msg_data, "method", "unknown")
+        kernel_log_info("Received comm message: $(comm.target_name), comm_id=$(comm.comm_id), method=$method")
         handle_msg(comm, msg_data)
         comm.current_request_msg = nothing
     end
