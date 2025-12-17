@@ -244,55 +244,114 @@ runs:
       if: always()
       shell: bash
       run: |
-        echo "Cache results:"
+        # Track cache status for summary
+        ALL_HIT=true
+        ANY_MISS=false
 
         # npm-core
+        echo "::group::📦 npm-core"
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
-          echo "  npm-core:       hit=${{ steps['cache-npm-core'].outputs['cache-hit'] || 'false' }}"
+          if [[ "${{ steps['cache-npm-core'].outputs['cache-hit'] }}" == "true" ]]; then
+            echo "✅ cache hit"
+          else
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
+          fi
         else
-          echo "  npm-core:       skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
         fi
+        echo "::endgroup::"
 
         # npm-extensions
+        echo "::group::📦 npm-extensions"
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
-          echo "  npm-extensions: hit=${{ steps['cache-npm-extensions'].outputs['cache-hit'] || 'false' }}"
+          if [[ "${{ steps['cache-npm-extensions'].outputs['cache-hit'] }}" == "true" ]]; then
+            echo "✅ cache hit"
+          else
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
+          fi
         else
-          echo "  npm-extensions: skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
         fi
+        echo "::endgroup::"
 
         # playwright
+        echo "::group::📦 playwright"
         if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
           HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
           VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
           if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
-            echo "  playwright:     hit=true (⚠️ verification failed, will reinstall)"
+            echo "⚠️  cache hit (verification failed, will reinstall)"
+            echo "::warning::Playwright cache verification failed - will reinstall browsers"
+            ALL_HIT=false
+          elif [[ "$HIT" == "true" ]]; then
+            echo "✅ cache hit"
           else
-            echo "  playwright:     hit=$HIT"
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
           fi
         else
-          echo "  playwright:     skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
         fi
+        echo "::endgroup::"
 
-        # electron (disabled - downloaded during compile)
-        echo "  electron:       skipped (disabled)"
+        # electron
+        echo "::group::📦 electron"
+        echo "⏭️  skipped (downloaded during compile)"
+        echo "::endgroup::"
 
         # builtins
+        echo "::group::📦 builtins"
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
-          echo "  builtins:       hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
+          if [[ "${{ steps['cache-builtins'].outputs['cache-hit'] }}" == "true" ]]; then
+            echo "✅ cache hit"
+          else
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
+          fi
         else
-          echo "  builtins:       skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
         fi
+        echo "::endgroup::"
 
         # ark
+        echo "::group::📦 ark"
         if [[ "${{ inputs.restore-ark }}" == "true" ]]; then
-          echo "  ark:            hit=${{ steps['cache-ark'].outputs['cache-hit'] || 'false' }}"
+          if [[ "${{ steps['cache-ark'].outputs['cache-hit'] }}" == "true" ]]; then
+            echo "✅ cache hit"
+          else
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
+          fi
         else
-          echo "  ark:            skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
         fi
+        echo "::endgroup::"
 
         # kallichore
+        echo "::group::📦 kallichore"
         if [[ "${{ inputs.restore-kallichore }}" == "true" ]]; then
-          echo "  kallichore:     hit=${{ steps['cache-kallichore'].outputs['cache-hit'] || 'false' }}"
+          if [[ "${{ steps['cache-kallichore'].outputs['cache-hit'] }}" == "true" ]]; then
+            echo "✅ cache hit"
+          else
+            echo "❌ cache miss"
+            ALL_HIT=false
+            ANY_MISS=true
+          fi
         else
-          echo "  kallichore:     skipped (disabled)"
+          echo "⏭️  skipped (disabled)"
+        fi
+        echo "::endgroup::"
+
+        # Summary notice
+        if [[ "$ALL_HIT" == "true" ]]; then
+          echo "::notice::All caches restored successfully - npm install will be skipped"
+        elif [[ "$ANY_MISS" == "true" ]]; then
+          echo "::notice::Some caches missed - npm install will run to rebuild"
         fi

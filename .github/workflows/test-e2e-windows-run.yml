@@ -138,20 +138,14 @@ jobs:
         id: restore-caches
         uses: ./.github/actions/restore-build-caches-windows
 
-      - name: Verify npm cache integrity
-        id: verify-npm-cache
-        uses: ./.github/actions/verify-npm-cache
-        with:
-          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
-
       - name: Apply patches when cache hits
-        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed'
+        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
         run: |
           echo "Cache hit - applying patches to cached node_modules"
           npx patch-package
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64
@@ -216,7 +210,7 @@ jobs:
         if: ${{ matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches-windows
         with:
-          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed' && 'true' || 'false' }}
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}

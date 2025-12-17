@@ -6,7 +6,7 @@ name: "Test: Unit"
 # set save_cache: true. Examples:
 # - test-pull-request.yml: unit-tests saves, integration-tests and e2e do not
 # - test-merge.yml: unit-tests saves, setup/integration/e2e do not
-# - test-full-suite.yml: setup job saves via test-e2e-ubuntu-build.yml, all others do not
+# - test-full-suite.yml: only restores
 
 on:
   workflow_call:

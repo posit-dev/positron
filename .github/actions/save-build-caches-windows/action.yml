@@ -182,75 +182,106 @@ runs:
       if: always()
       shell: bash
       run: |
-        echo "Cache save results:"
+        # Track save status for summary
+        ANY_SAVED=false
 
         # npm-core
+        echo "::group::💾 npm-core"
         if [[ "${{ inputs.cache-npm-core-hit }}" == "false" ]]; then
-          echo "  npm-core:       saved"
+          echo "💾 saved"
+          ANY_SAVED=true
         elif [[ "${{ inputs.cache-npm-core-hit }}" == "true" ]]; then
-          echo "  npm-core:       skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  npm-core:       skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # npm-extensions
+        echo "::group::💾 npm-extensions"
         if [[ "${{ inputs.cache-npm-extensions-hit }}" == "false" ]]; then
-          echo "  npm-extensions: saved"
+          echo "💾 saved"
+          ANY_SAVED=true
         elif [[ "${{ inputs.cache-npm-extensions-hit }}" == "true" ]]; then
-          echo "  npm-extensions: skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  npm-extensions: skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # playwright
+        echo "::group::💾 playwright"
         if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
-          echo "  playwright:     saved"
+          echo "💾 saved"
+          ANY_SAVED=true
         elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
-          echo "  playwright:     skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  playwright:     skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # electron
+        echo "::group::💾 electron"
         if [[ "${{ inputs.cache-electron-hit }}" == "false" ]]; then
-          echo "  electron:       saved"
+          echo "💾 saved"
+          ANY_SAVED=true
         elif [[ "${{ inputs.cache-electron-hit }}" == "true" ]]; then
-          echo "  electron:       skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  electron:       skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # builtins
+        echo "::group::💾 builtins"
         if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then
-          echo "  builtins:       saved"
+          echo "💾 saved"
+          ANY_SAVED=true
         elif [[ "${{ inputs.cache-builtins-hit }}" == "true" ]]; then
-          echo "  builtins:       skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  builtins:       skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # ark
+        echo "::group::💾 ark"
         if [[ "${{ inputs.cache-ark-hit }}" == "false" ]]; then
           if [[ "${{ steps.verify-ark.outputs.verified }}" == "true" ]]; then
-            echo "  ark:            saved"
+            echo "💾 saved"
+            ANY_SAVED=true
           else
-            echo "  ark:            skipped (verification failed)"
+            echo "⚠️  skipped (verification failed)"
+            echo "::warning::Ark binary verification failed - cache not saved"
           fi
         elif [[ "${{ inputs.cache-ark-hit }}" == "true" ]]; then
-          echo "  ark:            skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  ark:            skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
         fi
+        echo "::endgroup::"
 
         # kallichore
+        echo "::group::💾 kallichore"
         if [[ "${{ inputs.cache-kallichore-hit }}" == "false" ]]; then
           if [[ "${{ steps.verify-kallichore.outputs.verified }}" == "true" ]]; then
-            echo "  kallichore:     saved"
+            echo "💾 saved"
+            ANY_SAVED=true
           else
-            echo "  kallichore:     skipped (verification failed)"
+            echo "⚠️  skipped (verification failed)"
+            echo "::warning::Kallichore binary verification failed - cache not saved"
           fi
         elif [[ "${{ inputs.cache-kallichore-hit }}" == "true" ]]; then
-          echo "  kallichore:     skipped (cache hit)"
+          echo "✅ skipped (already cached)"
         else
-          echo "  kallichore:     skipped (not restored)"
+          echo "⏭️  skipped (not restored)"
+        fi
+        echo "::endgroup::"
+
+        # Summary notice
+        if [[ "$ANY_SAVED" == "true" ]]; then
+          echo "::notice::Caches saved successfully for future CI runs"
+        else
+          echo "::notice::No new caches saved - all caches were already up to date"
         fi
