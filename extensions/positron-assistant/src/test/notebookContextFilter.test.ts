@@ -26,8 +26,7 @@ function createMockCell(
 		executionStatus: undefined,
 		executionOrder: undefined,
 		lastRunSuccess: undefined,
-		lastExecutionDuration: undefined,
-		cellUri: `vscode-notebook-cell:///test/notebook.ipynb#${index}`
+		lastExecutionDuration: undefined
 	};
 }
 

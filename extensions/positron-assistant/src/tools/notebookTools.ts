@@ -444,7 +444,8 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						const { response } = getChatRequestData(options.chatRequestId, participantService);
 
 						// Apply the edit directly via response.textEdit()
-						const cellDocUri = vscode.Uri.parse(cell.cellUri);
+						// cell.id is the cell document URI string
+						const cellDocUri = vscode.Uri.parse(cell.id);
 						const cellDoc = await vscode.workspace.openTextDocument(cellDocUri);
 						const currentContent = cellDoc.getText();
 

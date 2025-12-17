@@ -2505,12 +2505,6 @@ declare module 'positron' {
 			 * Only present for code cells
 			 */
 			lastRunEndTime?: number;
-
-			/**
-			 * The cell document URI.
-			 * This is the URI that should be used for chat editing diffs.
-			 */
-			cellUri: string;
 		}
 
 		/**

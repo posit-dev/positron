@@ -61,8 +61,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			type: cell.kind === CellKind.Code ? NotebookCellType.Code : NotebookCellType.Markdown,
 			content: cell.getContent(),
 			hasOutput: cellOutputs.length > 0,
-			selectionStatus,
-			cellUri: cell.uri.toString()
+			selectionStatus
 		};
 
 		// Add execution-related fields only for code cells

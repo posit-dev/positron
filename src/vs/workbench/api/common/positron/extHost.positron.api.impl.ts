@@ -396,8 +396,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					executionOrder: cell.executionOrder,
 					lastRunSuccess: cell.lastRunSuccess,
 					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime,
-					cellUri: cell.cellUri
+					lastRunEndTime: cell.lastRunEndTime
 				}));
 			},
 
