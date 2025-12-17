@@ -6,15 +6,17 @@
 /* eslint-disable class-methods-use-this */
 
 import { inject, injectable } from 'inversify';
+import * as path from 'path';
 import { ModuleInstallerType } from '../../pythonEnvironments/info';
-import { ExecutionInfo, IConfigurationService } from '../types';
-import { ModuleInstaller } from './moduleInstaller';
+import { ExecutionInfo, IConfigurationService, Product } from '../types';
+import { ModuleInstaller, translateProductToModule } from './moduleInstaller';
 import { InterpreterUri, ModuleInstallFlags } from './types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { IServiceContainer } from '../../ioc/types';
 import { isResource } from '../utils/misc';
 import { IWorkspaceService } from '../application/types';
 import { IInterpreterService } from '../../interpreter/contracts';
+import { IFileSystem } from '../platform/types';
 
 @injectable()
 export class UVInstaller extends ModuleInstaller {
@@ -54,8 +56,26 @@ export class UVInstaller extends ModuleInstaller {
     ): Promise<ExecutionInfo> {
         // If the resource isSupported, then the uv binary exists
         const execPath = 'uv';
-        // TODO: should we use uv add if a pyproject.toml exists?
-        const args = ['pip', 'install', '--upgrade'];
+
+        // Don't use 'uv add' for ipykernel since it's only being used to enable the Console
+        const isIpykernel = moduleName === translateProductToModule(Product.ipykernel);
+
+        // ...or if we're trying to break system packages
+        const isBreakingSystemPackages = (flags & ModuleInstallFlags.breakSystemPackages) !== 0;
+
+        // ...or if pyproject.toml doesn't exist at the workspace root
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const fileSystem = this.serviceContainer.get<IFileSystem>(IFileSystem);
+        const workspaceFolder = isResource(resource)
+            ? workspaceService.getWorkspaceFolder(resource)
+            : workspaceService.workspaceFolders?.[0];
+        const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
+        const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
+
+        const usePyprojectWorkflow =
+            !isIpykernel &&
+            !isBreakingSystemPackages &&
+            pyprojectExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -64,22 +84,22 @@ export class UVInstaller extends ModuleInstaller {
         const interpreter = isResource(resource) ? await interpreterService.getActiveInterpreter(resource) : resource;
         const interpreterPath = interpreter?.path ?? settings.pythonPath;
         const pythonPath = isResource(resource) ? interpreterPath : resource.path;
-        args.push('--python', pythonPath);
 
-        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-        const proxy = workspaceService.getConfiguration('http').get('proxy', '');
-        if (proxy.length > 0) {
-            args.push('--proxy', proxy);
-        }
+        const args: string[] = [];
 
-        if (flags & ModuleInstallFlags.reInstall) {
-            args.push('--force-reinstall');
-        }
+        if (usePyprojectWorkflow) {
+            // Use 'uv add' for project-based workflow
+            args.push('add');
+        } else {
+            // Use 'uv pip install' for environment-based workflow
+            args.push('pip', 'install');
 
-        // Support the --break-system-packages flag to temporarily work around PEP 668.
-        if (flags & ModuleInstallFlags.breakSystemPackages) {
-            args.push('--break-system-packages');
+            // Support the --break-system-packages flag to temporarily work around PEP 668.
+            if (isBreakingSystemPackages) {
+                args.push('--break-system-packages');
+            }
         }
+        args.push('--upgrade', '--python', pythonPath);
 
         return {
             args: [...args, moduleName],
