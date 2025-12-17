@@ -734,7 +734,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 							log.error(`[tool] Failed to apply notebook edit proposal: ${errorMessage}`);
 							// Return the error as a tool result so the model can handle it gracefully
 							toolResponses[req.callId] = new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(`Error applying notebook cell edit to cell ${editProposal.cellIndex}.`),
+								new vscode.LanguageModelTextPart(`Error applying notebook cell edit to cell ${editProposal.cellIndex}`),
 								new vscode.LanguageModelTextPart(errorMessage)
 							]);
 						}
