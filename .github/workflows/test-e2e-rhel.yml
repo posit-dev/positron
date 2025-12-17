@@ -1,20 +1,8 @@
 name: "Test: E2E (RHEL)"
 
-# Cache Save Strategy:
-# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
-# try to save the same cache key simultaneously. Only ONE job per calling workflow should
-# set save_cache: true. In practice:
-# - test-pull-request.yml: Does NOT set save_cache (unit-tests saves instead)
-# - test-full-suite.yml: Does NOT set save_cache (setup job via test-e2e-ubuntu-build.yml saves)
-
 on:
   workflow_call:
     inputs:
-      save_cache:
-        required: false
-        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
-        type: boolean
-        default: false
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -165,7 +153,7 @@ jobs:
 
       - name: Setup build environment
         id: setup-build
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
         with:
           distro: rhel
           install-playwright: 'true'
@@ -183,7 +171,6 @@ jobs:
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts

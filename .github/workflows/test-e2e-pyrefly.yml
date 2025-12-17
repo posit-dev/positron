@@ -39,7 +39,7 @@ jobs:
           submodules: recursive
 
       - name: Setup build environment
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
         with:
           distro: ubuntu
           install-playwright: 'true'

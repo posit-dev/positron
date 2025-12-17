@@ -9,7 +9,7 @@ name: "E2E: Build Postiron (Ubuntu)"
 # - test-cross-browser.yml: setup saves (default true), all others do not
 
 on:
-  workflow_call:
+ workflow_call: {}
 
 permissions:
   id-token: write
@@ -74,7 +74,7 @@ jobs:
 
       - name: Setup build environment
         id: setup-build
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
         with:
           distro: ubuntu
           install-playwright: 'true'

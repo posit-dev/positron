@@ -153,8 +153,6 @@ jobs:
         with:
           version: "4.4.0"
 
-      # Note: R cache is saved by unit tests (not integration tests) to avoid race conditions
-      # when both workflows run in parallel (see test-pull-request.yml and test-merge.yml)
       - name: Save R installation and packages cache
         if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true

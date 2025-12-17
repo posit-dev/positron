@@ -12,8 +12,6 @@ jobs:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
-    with:
-      save_cache: false  # unit-tests saves instead to avoid race conditions
 
   e2e-electron:
     name: e2e
