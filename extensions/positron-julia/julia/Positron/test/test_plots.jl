@@ -9,7 +9,8 @@ import Positron:
     DISPLAYABLE_MIMES,
     get_mime_type,
     is_plot,
-    create_render_func
+    create_render_func,
+    sanitize_html_for_console
 
 # Import comm types for testing
 import Positron:
@@ -176,6 +177,34 @@ import Positron:
         # Closing again should be safe
         Positron.close_plot!(plot)
         @test plot.closed == true
+    end
+
+    @testset "HTML Sanitization for Console" begin
+        # Test stripping double-quoted style attributes
+        html = """<div style="color: red;">Hello</div>"""
+        result = sanitize_html_for_console(html)
+        @test result == """<div>Hello</div>"""
+
+        # Test stripping single-quoted style attributes
+        html = """<div style='text-align: center;'>Hello</div>"""
+        result = sanitize_html_for_console(html)
+        @test result == """<div>Hello</div>"""
+
+        # Test with multiple style attributes
+        html = """<table style="border: 1px;"><tr style="color: blue;"><td>Data</td></tr></table>"""
+        result = sanitize_html_for_console(html)
+        @test result == """<table><tr><td>Data</td></tr></table>"""
+
+        # Test HTML without style attributes (should be unchanged)
+        html = """<div class="container"><span>Text</span></div>"""
+        result = sanitize_html_for_console(html)
+        @test result == html
+
+        # Test complex DataFrames-like HTML
+        html = """<table class="data-frame"><thead><tr><th style="text-align: right;">id</th></tr></thead><tbody><tr><td style="text-align: right;">1</td></tr></tbody></table>"""
+        result = sanitize_html_for_console(html)
+        @test !occursin("style=", result)
+        @test occursin("class=\"data-frame\"", result)  # Other attributes preserved
     end
 end
 

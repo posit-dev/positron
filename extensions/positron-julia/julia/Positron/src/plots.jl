@@ -26,6 +26,21 @@ const DISPLAYABLE_MIMES = [
 ]
 
 """
+Sanitize HTML for console display by removing inline style attributes.
+
+Positron's console renderer converts HTML to React elements, but React requires
+style props to be objects, not strings. This function strips inline style
+attributes to avoid React error #62.
+"""
+function sanitize_html_for_console(html::String)::String
+    # Remove style="..." attributes from HTML tags
+    # This regex matches style="..." with either single or double quotes
+    sanitized = replace(html, r"\s+style\s*=\s*\"[^\"]*\"" => "")
+    sanitized = replace(sanitized, r"\s+style\s*=\s*'[^']*'" => "")
+    return sanitized
+end
+
+"""
 A single plot instance with its associated comm.
 
 Each plot has its own comm for handling render requests from the frontend.
@@ -296,8 +311,23 @@ function override_generic_display_dict!()
                 Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Error capturing plot: $(sprint(showerror, e))")
             end
 
-            # Not a plot, use original
-            return _positron_original_display_dict(x)
+            # Not a plot, use original display_dict
+            result = _positron_original_display_dict(x)
+
+            # Sanitize HTML output to avoid React style prop errors
+            # Positron's console renderer can't handle inline style attributes
+            if haskey(result, "text/html")
+                try
+                    html_content = result["text/html"]
+                    if html_content isa String
+                        result["text/html"] = Base.invokelatest($PositronModule.sanitize_html_for_console, html_content)
+                    end
+                catch e
+                    Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Error sanitizing HTML: $(sprint(showerror, e))")
+                end
+            end
+
+            return result
         end
     end
 
