@@ -162,35 +162,23 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 5
           shell: bash
-          # Parallel install strategy:
+          # Install strategy:
           # 1. Pre-install build/ so postinstall can access gulp-merge-json
-          # 2. Run root and test/e2e npm ci in parallel as background processes
-          # 3. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
-          # 4. Postinstall skips build/ since it's already installed (avoids duplicate work)
+          # 2. Run root npm ci which triggers postinstall (installs 60+ extensions in parallel, concurrency: 30)
+          # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
+          # Note: test/e2e is installed in separate step below (not cached, always runs)
           # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
           command: |
             # Pre-install build directory (required by postinstall for gulp-merge-json)
             npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
-            # Run root and test/e2e installs in parallel
-            pids=()
-            npm ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
-            npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000 & pids+=($!)
+            # Run root npm ci (triggers postinstall which installs all extensions)
+            npm ci --no-audit --no-fund --fetch-timeout 120000
 
-            # Wait for all processes and check exit codes
-            exit_code=0
-            for pid in "${pids[@]}"; do
-              if ! wait "$pid"; then
-                exit_code=1
-              fi
-            done
+            echo "npm ci completed successfully"
 
-            if [ $exit_code -ne 0 ]; then
-              echo "One or more npm ci commands failed"
-              exit 1
-            fi
-
-            echo "All npm ci commands completed successfully"
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --no-audit --no-fund
 
       - name: Debug - Check Ark and Kallichore binaries after npm install
         if: always()
