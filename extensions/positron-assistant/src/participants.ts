@@ -718,7 +718,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				}
 
 				log.debug(`[tool] Tool ${req.name} returned result: ${JSON.stringify(result.content, null, 2)}`);
-
 				toolResponses[req.callId] = result;
 			}
 
