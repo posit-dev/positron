@@ -130,12 +130,12 @@ runs:
           .vscode/**/node_modules
           extensions/positron-assistant/resources
           extensions/positron-python/python-env-tools
-          extensions/positron-python/python_files/lib
+          extensions/positron-python/python_files
         # Extensions invalidate when extension package.json files or git submodules change
-        # Cache includes node_modules AND postinstall artifacts (binaries, Python libs)
+        # Cache includes node_modules AND postinstall artifacts (binaries, Python libs, vendored packages)
         # Does NOT cache compiled outputs (out/) - extensions are recompiled during the "Compile Positron" step
-        # IMPORTANT: If bumping npm-extensions-v5 -> npm-extensions-v6, also update save-build-caches/action.yml
-        key: npm-extensions-v5-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+        # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update save-build-caches/action.yml
+        key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
     # - name: Extract Playwright version
     #   if: ${{ inputs.restore-playwright == 'true' }}

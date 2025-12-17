@@ -131,7 +131,7 @@ jobs:
             "extensions/positron-supervisor/resources/kallichore"
             "extensions/positron-assistant/resources"
             "extensions/positron-python/python-env-tools"
-            "extensions/positron-python/python_files/lib"
+            "extensions/positron-python/python_files"
           )
 
           # Find files NOT in any cached location
