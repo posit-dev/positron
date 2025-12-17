@@ -28,10 +28,10 @@
 
 .connections-new-connection-list-drivers > .driver-list {
 	grid-row: 3;
+	height: 100%;
 	border-radius: 4px;
 	border: 1px solid var(--vscode-positronVariables-border);
 	overflow-y: auto;
-	height: 100%;
 }
 
 .connections-new-connection-list-drivers > .footer {
@@ -70,11 +70,17 @@
 }
 
 .driver-list-item {
+	background: transparent;
+	border: none;
+	color: inherit;
 	display: grid;
 	grid-template-columns: 24px auto;
 	gap: 2px;
 	align-items: center;
 	padding: 0px 5px;
+	text-align: left;
+	width: 100%;
+	cursor: pointer;
 }
 
 .driver-list-item > .driver-icon {

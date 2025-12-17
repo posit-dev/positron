@@ -145,7 +145,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	async getChildren() {
-		if (this._children === undefined) {
+		if (this._children === null || this._children === undefined) {
 			const children = await this.client.listObjects([]);
 			this._children = await Promise.all(children.map(async (item) => {
 				return await PositronConnectionItem.init(
@@ -437,7 +437,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	}
 
 	async hasChildren() {
-		if (this._has_children === undefined) {
+		if (this._has_children === null || this._has_children === undefined) {
 			// Anything other than the 'field' type is said to have children.
 			this._has_children = this._kind !== 'field';
 		}
@@ -487,7 +487,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	}
 
 	private async hasViewer() {
-		if (this._has_viewer === undefined) {
+		if (this._has_viewer === null || this._has_viewer === undefined) {
 			this._has_viewer = await this.instance.client.containsData(this.path);
 		}
 		return this._has_viewer;

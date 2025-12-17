@@ -606,6 +606,7 @@
 	font-family: var(--monaco-monospace-font);
 	font-size: 11px;
 	color: var(--vscode-textPreformat-foreground);
+	background-color: var(--vscode-textPreformat-background);
 	padding: 1px 3px;
 	border-radius: 4px;
 }
