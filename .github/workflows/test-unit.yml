@@ -101,7 +101,6 @@ jobs:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          cache-electron-hit: ${{ steps.restore-caches.outputs.cache-electron-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
           cache-ark-hit: ${{ steps.restore-caches.outputs.cache-ark-hit }}
           cache-kallichore-hit: ${{ steps.restore-caches.outputs.cache-kallichore-hit }}

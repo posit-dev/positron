@@ -18,10 +18,6 @@ inputs:
     description: "Whether Playwright cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
-  cache-electron-hit:
-    description: "Whether Electron cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
-    required: false
-    default: ''
   cache-builtins-hit:
     description: "Whether builtins cache was hit during restore (from restore-build-caches-windows output). If 'false', will save. If 'true' or empty, will skip."
     required: false
@@ -107,19 +103,8 @@ runs:
       with:
         path: ~\AppData\Local\ms-playwright
         # Cache key tied directly to Playwright version for precision
-        # IMPORTANT: If bumping playwright-v1 -> playwright-v2, also update restore-build-caches-windows/action.yml
-        key: playwright-v1-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-    - name: Save Electron binary cache
-      if: ${{ inputs.cache-electron-hit == 'false' }}
-      continue-on-error: true
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ~\AppData\Local\electron\Cache
-          ~\AppData\Local\electron-builder\Cache
-        # IMPORTANT: If bumping electron -> electron-v2, also update restore-build-caches-windows/action.yml
-        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+        # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update restore-build-caches-windows/action.yml
+        key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
@@ -188,87 +173,70 @@ runs:
 
         # npm-core
         if [[ "${{ inputs.cache-npm-core-hit }}" == "false" ]]; then
-          echo "npm-core :: 💾 saved"
+          printf "%-16s %s\n" "npm-core" "💾 saved"
           ANY_SAVED=true
         elif [[ "${{ inputs.cache-npm-core-hit }}" == "true" ]]; then
-          echo "npm-core :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "npm-core" "✅ skipped (already cached)"
         else
-          echo "npm-core :: ⏭️  skipped (not restored)"
+          printf "%-16s %s\n" "npm-core" "⏭️  skipped (not restored)"
         fi
 
         # npm-extensions
         if [[ "${{ inputs.cache-npm-extensions-hit }}" == "false" ]]; then
-          echo "npm-extensions :: 💾 saved"
+          printf "%-16s %s\n" "npm-extensions" "💾 saved"
           ANY_SAVED=true
         elif [[ "${{ inputs.cache-npm-extensions-hit }}" == "true" ]]; then
-          echo "npm-extensions :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "npm-extensions" "✅ skipped (already cached)"
         else
-          echo "npm-extensions :: ⏭️  skipped (not restored)"
+          printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (not restored)"
         fi
 
         # playwright
         if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
-          echo "playwright :: 💾 saved"
+          printf "%-16s %s\n" "playwright" "💾 saved"
           ANY_SAVED=true
         elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
-          echo "playwright :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "playwright" "✅ skipped (already cached)"
         else
-          echo "playwright :: ⏭️  skipped (not restored)"
-        fi
-
-        # electron
-        if [[ "${{ inputs.cache-electron-hit }}" == "false" ]]; then
-          echo "electron :: 💾 saved"
-          ANY_SAVED=true
-        elif [[ "${{ inputs.cache-electron-hit }}" == "true" ]]; then
-          echo "electron :: ✅ skipped (already cached)"
-        else
-          echo "electron :: ⏭️  skipped (not restored)"
+          printf "%-16s %s\n" "playwright" "⏭️  skipped (not restored)"
         fi
 
         # builtins
         if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then
-          echo "builtins :: 💾 saved"
+          printf "%-16s %s\n" "builtins" "💾 saved"
           ANY_SAVED=true
         elif [[ "${{ inputs.cache-builtins-hit }}" == "true" ]]; then
-          echo "builtins :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "builtins" "✅ skipped (already cached)"
         else
-          echo "builtins :: ⏭️  skipped (not restored)"
+          printf "%-16s %s\n" "builtins" "⏭️  skipped (not restored)"
         fi
 
         # ark
         if [[ "${{ inputs.cache-ark-hit }}" == "false" ]]; then
           if [[ "${{ steps.verify-ark.outputs.verified }}" == "true" ]]; then
-            echo "ark :: 💾 saved"
+            printf "%-16s %s\n" "ark" "💾 saved"
             ANY_SAVED=true
           else
-            echo "ark :: ⚠️  skipped (verification failed)"
+            printf "%-16s %s\n" "ark" "⚠️  skipped (verification failed)"
             echo "::warning::Ark binary verification failed - cache not saved"
           fi
         elif [[ "${{ inputs.cache-ark-hit }}" == "true" ]]; then
-          echo "ark :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "ark" "✅ skipped (already cached)"
         else
-          echo "ark :: ⏭️  skipped (not restored)"
+          printf "%-16s %s\n" "ark" "⏭️  skipped (not restored)"
         fi
 
         # kallichore
         if [[ "${{ inputs.cache-kallichore-hit }}" == "false" ]]; then
           if [[ "${{ steps.verify-kallichore.outputs.verified }}" == "true" ]]; then
-            echo "kallichore :: 💾 saved"
+            printf "%-16s %s\n" "kallichore" "💾 saved"
             ANY_SAVED=true
           else
-            echo "kallichore :: ⚠️  skipped (verification failed)"
+            printf "%-16s %s\n" "kallichore" "⚠️  skipped (verification failed)"
             echo "::warning::Kallichore binary verification failed - cache not saved"
           fi
         elif [[ "${{ inputs.cache-kallichore-hit }}" == "true" ]]; then
-          echo "kallichore :: ✅ skipped (already cached)"
+          printf "%-16s %s\n" "kallichore" "✅ skipped (already cached)"
         else
-          echo "kallichore :: ⏭️  skipped (not restored)"
-        fi
-
-        # Summary notice
-        if [[ "$ANY_SAVED" == "true" ]]; then
-          echo "::notice::Caches saved successfully for future CI runs"
-        else
-          echo "::notice::No new caches saved - all caches were already up to date"
+          printf "%-16s %s\n" "kallichore" "⏭️  skipped (not restored)"
         fi

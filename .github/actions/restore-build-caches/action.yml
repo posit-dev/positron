@@ -14,10 +14,6 @@ inputs:
     description: "Whether to restore Playwright cache (default: true)"
     required: false
     default: 'true'
-  restore-electron:
-    description: "Whether to restore Electron cache (default: true)"
-    required: false
-    default: 'true'
   restore-builtins:
     description: "Whether to restore built-in extensions cache (default: true)"
     required: false
@@ -44,9 +40,6 @@ outputs:
   cache-npm-extensions-hit:
     description: "Whether npm extensions cache was restored"
     value: ${{ steps.cache-npm-extensions.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-electron-hit:
-    description: "Whether Electron cache was restored"
-    value: ${{ steps.cache-electron.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
@@ -154,10 +147,10 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         # Cache key tied directly to Playwright version and distro (Ubuntu vs RHEL have different deps)
-        # IMPORTANT: If bumping playwright-v1 -> playwright-v2, also update save-build-caches/action.yml
-        key: playwright-v1-${{ runner.os }}-${{ inputs.distro }}-${{ steps.playwright-version.outputs.version }}
+        # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update save-build-caches/action.yml
+        key: playwright-v2-${{ runner.os }}-${{ inputs.distro }}-${{ steps.playwright-version.outputs.version }}
         restore-keys: |
-          playwright-v1-${{ runner.os }}-${{ inputs.distro }}-
+          playwright-v2-${{ runner.os }}-${{ inputs.distro }}-
 
     - name: Verify Playwright cache
       if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
@@ -192,25 +185,6 @@ runs:
         fi
 
         echo "✅ Playwright cache verified (CLI functional, browsers present)"
-
-    # - name: Restore Electron binary cache
-    #   if: ${{ inputs.restore-electron == 'true' }}
-    #   id: cache-electron
-    #   continue-on-error: true
-    #   uses: actions/cache/restore@v4
-    #   with:
-    #     path: |
-    #       ~/.cache/electron
-    #       ~/.cache/electron-builder
-    #       /root/.cache/electron
-    #       /root/.cache/electron-builder
-    #       /github/home/.cache/electron
-    #       /github/home/.cache/electron-builder
-    #     # electron binaries are tied to package-lock and the electron version in package.json
-    #     # IMPORTANT: If bumping electron -> electron-v2, also update save-build-caches/action.yml
-    #     key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-    #     restore-keys: |
-    #       electron-${{ runner.os }}-
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -265,27 +239,27 @@ runs:
         # npm-core
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
           if [[ "${{ steps['cache-npm-core'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "npm-core :: ✅ cache hit"
+            printf "%-16s %s\n" "npm-core" "✅ hit"
           else
-            echo "npm-core :: ❌ cache miss"
+            printf "%-16s %s\n" "npm-core" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "npm-core :: ⏭️  skipped (disabled)"
+          printf "%-16s %s\n" "npm-core" "⏭️  skipped (disabled)"
         fi
 
         # npm-extensions
         if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
           if [[ "${{ steps['cache-npm-extensions'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "npm-extensions :: ✅ cache hit"
+            printf "%-16s %s\n" "npm-extensions" "✅ hit"
           else
-            echo "npm-extensions :: ❌ cache miss"
+            printf "%-16s %s\n" "npm-extensions" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "npm-extensions :: ⏭️  skipped (disabled)"
+          printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (disabled)"
         fi
 
         # playwright
@@ -293,65 +267,55 @@ runs:
           HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
           VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
           if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
-            echo "playwright :: ⚠️  cache hit (verification failed, will reinstall)"
+            printf "%-16s %s\n" "playwright" "⚠️  hit (verification failed, will reinstall)"
             echo "::warning::Playwright cache verification failed - will reinstall browsers"
             ALL_HIT=false
           elif [[ "$HIT" == "true" ]]; then
-            echo "playwright :: ✅ cache hit"
+            printf "%-16s %s\n" "playwright" "✅ hit"
           else
-            echo "playwright :: ❌ cache miss"
+            printf "%-16s %s\n" "playwright" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "playwright :: ⏭️  skipped (disabled)"
+          printf "%-16s %s\n" "playwright" "⏭️  skipped (disabled)"
         fi
-
-        # electron
-        echo "electron :: ⏭️  skipped (downloaded during compile)"
 
         # builtins
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
           if [[ "${{ steps['cache-builtins'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "builtins :: ✅ cache hit"
+            printf "%-16s %s\n" "builtins" "✅ hit"
           else
-            echo "builtins :: ❌ cache miss"
+            printf "%-16s %s\n" "builtins" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "builtins :: ⏭️  skipped (disabled)"
+          printf "%-16s %s\n" "builtins" "⏭️  skipped (disabled)"
         fi
 
         # ark
         if [[ "${{ inputs.restore-ark }}" == "true" ]]; then
           if [[ "${{ steps['cache-ark'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "ark :: ✅ cache hit"
+            printf "%-16s %s\n" "ark" "✅ hit"
           else
-            echo "ark :: ❌ cache miss"
+            printf "%-16s %s\n" "ark" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "ark :: ⏭️  skipped (disabled)"
+          printf "%-16s %s\n" "ark" "⏭️  skipped (disabled)"
         fi
 
         # kallichore
         if [[ "${{ inputs.restore-kallichore }}" == "true" ]]; then
           if [[ "${{ steps['cache-kallichore'].outputs['cache-hit'] }}" == "true" ]]; then
-            echo "kallichore :: ✅ cache hit"
+            printf "%-16s %s\n" "kallichore" "✅ hit"
           else
-            echo "kallichore :: ❌ cache miss"
+            printf "%-16s %s\n" "kallichore" "❌ miss"
             ALL_HIT=false
             ANY_MISS=true
           fi
         else
-          echo "kallichore :: ⏭️  skipped (disabled)"
-        fi
-
-        # Summary notice
-        if [[ "$ALL_HIT" == "true" ]]; then
-          echo "::notice::All caches restored successfully - npm install will be skipped"
-        elif [[ "$ANY_MISS" == "true" ]]; then
-          echo "::notice::Some caches missed - npm install will run to rebuild"
+          printf "%-16s %s\n" "kallichore" "⏭️  skipped (disabled)"
         fi
