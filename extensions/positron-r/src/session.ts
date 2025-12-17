@@ -953,6 +953,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 		LOGGER.info('Exiting DAP loop');
 		dapComm?.dispose();
+		this._dapComm = undefined;
 	}
 
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
