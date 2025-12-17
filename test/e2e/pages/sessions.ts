@@ -849,24 +849,18 @@ export class Sessions {
 
 			await this.page.keyboard.press('Escape');
 
-			// Verify Language Console
-			const baseSessionName = session.name.split('-')[0].trim();
-			const escapedFullSessionName = new RegExp(session.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-			const escapedBaseSessionName = new RegExp(baseSessionName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+			const language = session.name.split(' ')[0].trim();
 
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedBaseSessionName);
-			await expect(this.outputChannel).toHaveValue(/Console$/);
+			await expect(this.outputChannel).toHaveValue(`${language} Supervisor`);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedBaseSessionName);
-			await expect(this.outputChannel).toHaveValue(/Kernel$/);
+			await expect(this.outputChannel).toHaveValue(`${language} Kernel`);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedFullSessionName);
-			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
+			await expect(this.outputChannel).toHaveValue(`${language} Language Server`);
 
 			// Go back to console when done
 			await this.console.focus();
