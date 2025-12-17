@@ -904,8 +904,8 @@ end
 
 StructTypes.StructType(::Type{DataSelectionIndices}) = StructTypes.Struct()
 
-# A union of selection types
-const Selection = Union{
+# A union of data selection types for data explorer
+const DataSelection = Union{
     DataSelectionSingleCell,
     DataSelectionCellRange,
     DataSelectionCellIndices,
@@ -919,7 +919,7 @@ actions
 """
 struct TableSelection
     kind::TableSelectionKind
-    selection::Selection
+    selection::DataSelection
 end
 
 StructTypes.StructType(::Type{TableSelection}) = StructTypes.Struct()
@@ -1062,6 +1062,91 @@ StructTypes.StructType(::Type{DataExplorerReturnColumnProfilesParams}) =
     StructTypes.Struct()
 
 """
+Parse a DataSelection from a Dict based on the selection kind.
+"""
+function parse_selection(kind::TableSelectionKind, data::Dict)::DataSelection
+    if kind == TableSelectionKind_SingleCell
+        return DataSelectionSingleCell(
+            get(data, "row_index", 0),
+            get(data, "column_index", 0),
+        )
+    elseif kind == TableSelectionKind_CellRange
+        return DataSelectionCellRange(
+            get(data, "first_row_index", 0),
+            get(data, "last_row_index", 0),
+            get(data, "first_column_index", 0),
+            get(data, "last_column_index", 0),
+        )
+    elseif kind == TableSelectionKind_CellIndices
+        return DataSelectionCellIndices(
+            get(data, "row_indices", Int64[]),
+            get(data, "column_indices", Int64[]),
+        )
+    elseif kind in (TableSelectionKind_ColumnRange, TableSelectionKind_RowRange)
+        return DataSelectionRange(
+            get(data, "first_index", 0),
+            get(data, "last_index", 0),
+        )
+    elseif kind in (TableSelectionKind_ColumnIndices, TableSelectionKind_RowIndices)
+        return DataSelectionIndices(get(data, "indices", Int64[]))
+    else
+        error("Unknown selection kind: $kind")
+    end
+end
+
+"""
+Parse a TableSelection from a Dict.
+"""
+function parse_table_selection(data::Dict)::TableSelection
+    kind_str = get(data, "kind", "")
+    if !haskey(STRING_TO_TABLESELECTIONKIND, kind_str)
+        error("Unknown TableSelectionKind: $kind_str")
+    end
+    kind = STRING_TO_TABLESELECTIONKIND[kind_str]
+    selection_data = get(data, "selection", Dict())
+    selection = parse_selection(kind, selection_data)
+    return TableSelection(kind, selection)
+end
+
+"""
+Parse an ArraySelection from a Dict. Determines the type based on the fields present.
+"""
+function parse_array_selection(data::Dict)::ArraySelection
+    if haskey(data, "indices")
+        return DataSelectionIndices(get(data, "indices", Int64[]))
+    else
+        # Default to range selection
+        return DataSelectionRange(
+            get(data, "first_index", 0),
+            get(data, "last_index", 0),
+        )
+    end
+end
+
+"""
+Parse a ColumnSelection from a Dict.
+"""
+function parse_column_selection(data::Dict)::ColumnSelection
+    column_index = get(data, "column_index", 0)
+    spec_data = get(data, "spec", Dict())
+    spec = parse_array_selection(spec_data)
+    return ColumnSelection(column_index, spec)
+end
+
+"""
+Parse FormatOptions from a Dict.
+"""
+function parse_format_options(data::Dict)::FormatOptions
+    return FormatOptions(
+        get(data, "large_num_digits", 2),
+        get(data, "small_num_digits", 4),
+        get(data, "max_integral_digits", 7),
+        get(data, "max_value_length", 1000),
+        get(data, "thousands_sep", nothing),
+    )
+end
+
+"""
 Parse a backend request for the DataExplorer comm.
 """
 function parse_data_explorer_request(data::Dict)
@@ -1078,19 +1163,20 @@ function parse_data_explorer_request(data::Dict)
             get(params, "sort_order", ""),
         )
     elseif method == "get_data_values"
-        return DataExplorerGetDataValuesParams(
-            get(params, "columns", []),
-            get(params, "format_options", Dict()),
-        )
+        columns_dicts = get(params, "columns", [])
+        columns = [parse_column_selection(col) for col in columns_dicts]
+        format_opts = parse_format_options(get(params, "format_options", Dict()))
+        return DataExplorerGetDataValuesParams(columns, format_opts)
     elseif method == "get_row_labels"
-        return DataExplorerGetRowLabelsParams(
-            get(params, "selection", Dict()),
-            get(params, "format_options", Dict()),
-        )
+        selection = parse_array_selection(get(params, "selection", Dict()))
+        format_opts = parse_format_options(get(params, "format_options", Dict()))
+        return DataExplorerGetRowLabelsParams(selection, format_opts)
     elseif method == "export_data_selection"
+        selection_dict = get(params, "selection", Dict())
+        format_str = get(params, "format", "csv")
         return DataExplorerExportDataSelectionParams(
-            get(params, "selection", Dict()),
-            get(params, "format", Dict()),
+            parse_table_selection(selection_dict),
+            STRING_TO_EXPORTFORMAT[format_str],
         )
     elseif method == "convert_to_code"
         return DataExplorerConvertToCodeParams(

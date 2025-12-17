@@ -364,23 +364,29 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
     end
 
     # Forward messages from IJulia to our comm
+    # CRITICAL: Wrap in try-catch to prevent errors from breaking IJulia event loop
     if hasproperty(ijulia_comm, :on_msg)
         kernel_log_info("Setting on_msg handler for $(our_comm.target_name), comm_id=$(ijulia_comm.id)")
         ijulia_comm.on_msg = function (msg)
-            kernel_log_info(
-                "Received comm message on $(our_comm.target_name): comm_id=$(ijulia_comm.id)",
-            )
-            # Store the incoming message to use as parent for response
-            our_comm.current_request_msg = msg
+            try
+                kernel_log_info(
+                    "Received comm message on $(our_comm.target_name): comm_id=$(ijulia_comm.id)",
+                )
+                # Store the incoming message to use as parent for response
+                our_comm.current_request_msg = msg
 
-            # msg is IJulia.Msg struct with .content field
-            content = msg.content
-            data = get(content, "data", Dict())
-            kernel_log_info("Message data: $data")
-            handle_msg(our_comm, data)
-
-            # Clear the request message after handling
-            our_comm.current_request_msg = nothing
+                # msg is IJulia.Msg struct with .content field
+                content = msg.content
+                data = get(content, "data", Dict())
+                kernel_log_info("Message data: $data")
+                handle_msg(our_comm, data)
+            catch e
+                # Log but never let errors escape to IJulia - that breaks the kernel
+                kernel_log_error("FATAL: Unhandled error in comm on_msg: $(sprint(showerror, e, catch_backtrace()))")
+            finally
+                # Clear the request message after handling
+                our_comm.current_request_msg = nothing
+            end
         end
         # Verify the handler was set
         if ijulia_comm.on_msg !== nothing
@@ -394,8 +400,12 @@ function setup_comm_bridge!(our_comm::PositronComm, ijulia_comm::Any)
 
     if hasproperty(ijulia_comm, :on_close)
         ijulia_comm.on_close = function ()
-            if our_comm.close_handler !== nothing
-                our_comm.close_handler()
+            try
+                if our_comm.close_handler !== nothing
+                    our_comm.close_handler()
+                end
+            catch e
+                kernel_log_error("Error in comm on_close: $(sprint(showerror, e))")
             end
         end
     end

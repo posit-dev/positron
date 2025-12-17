@@ -1508,3 +1508,215 @@ end
         @test instance.view_indices == instance.filtered_indices
     end
 end
+
+@testset "Data Explorer - Request Parsing" begin
+    @testset "parse_table_selection - SingleCell" begin
+        data = Dict(
+            "kind" => "single_cell",
+            "selection" => Dict("row_index" => 5, "column_index" => 3),
+        )
+        result = Positron.parse_table_selection(data)
+
+        @test result.kind == Positron.TableSelectionKind_SingleCell
+        @test result.selection isa Positron.DataSelectionSingleCell
+        @test result.selection.row_index == 5
+        @test result.selection.column_index == 3
+    end
+
+    @testset "parse_table_selection - CellRange" begin
+        data = Dict(
+            "kind" => "cell_range",
+            "selection" => Dict(
+                "first_row_index" => 0,
+                "last_row_index" => 10,
+                "first_column_index" => 1,
+                "last_column_index" => 5,
+            ),
+        )
+        result = Positron.parse_table_selection(data)
+
+        @test result.kind == Positron.TableSelectionKind_CellRange
+        @test result.selection isa Positron.DataSelectionCellRange
+        @test result.selection.first_row_index == 0
+        @test result.selection.last_row_index == 10
+    end
+
+    @testset "parse_table_selection - RowRange" begin
+        data = Dict(
+            "kind" => "row_range",
+            "selection" => Dict("first_index" => 0, "last_index" => 99),
+        )
+        result = Positron.parse_table_selection(data)
+
+        @test result.kind == Positron.TableSelectionKind_RowRange
+        @test result.selection isa Positron.DataSelectionRange
+        @test result.selection.first_index == 0
+        @test result.selection.last_index == 99
+    end
+
+    @testset "parse_table_selection - ColumnIndices" begin
+        data = Dict(
+            "kind" => "column_indices",
+            "selection" => Dict("indices" => [0, 2, 5, 7]),
+        )
+        result = Positron.parse_table_selection(data)
+
+        @test result.kind == Positron.TableSelectionKind_ColumnIndices
+        @test result.selection isa Positron.DataSelectionIndices
+        @test result.selection.indices == [0, 2, 5, 7]
+    end
+
+    @testset "parse_data_explorer_request - export_data_selection" begin
+        data = Dict(
+            "method" => "export_data_selection",
+            "params" => Dict(
+                "selection" => Dict(
+                    "kind" => "cell_range",
+                    "selection" => Dict(
+                        "first_row_index" => 0,
+                        "last_row_index" => 5,
+                        "first_column_index" => 0,
+                        "last_column_index" => 2,
+                    ),
+                ),
+                "format" => "csv",
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerExportDataSelectionParams
+        @test result.selection.kind == Positron.TableSelectionKind_CellRange
+        @test result.format == Positron.ExportFormat_Csv
+    end
+
+    @testset "parse_array_selection - Range" begin
+        data = Dict("first_index" => 0, "last_index" => 99)
+        result = Positron.parse_array_selection(data)
+
+        @test result isa Positron.DataSelectionRange
+        @test result.first_index == 0
+        @test result.last_index == 99
+    end
+
+    @testset "parse_array_selection - Indices" begin
+        data = Dict("indices" => [0, 5, 10, 15])
+        result = Positron.parse_array_selection(data)
+
+        @test result isa Positron.DataSelectionIndices
+        @test result.indices == [0, 5, 10, 15]
+    end
+
+    @testset "parse_column_selection" begin
+        data = Dict(
+            "column_index" => 3,
+            "spec" => Dict("first_index" => 0, "last_index" => 49),
+        )
+        result = Positron.parse_column_selection(data)
+
+        @test result isa Positron.ColumnSelection
+        @test result.column_index == 3
+        @test result.spec isa Positron.DataSelectionRange
+        @test result.spec.first_index == 0
+        @test result.spec.last_index == 49
+    end
+
+    @testset "parse_column_selection - with indices" begin
+        data = Dict(
+            "column_index" => 1,
+            "spec" => Dict("indices" => [0, 2, 4, 6]),
+        )
+        result = Positron.parse_column_selection(data)
+
+        @test result isa Positron.ColumnSelection
+        @test result.column_index == 1
+        @test result.spec isa Positron.DataSelectionIndices
+        @test result.spec.indices == [0, 2, 4, 6]
+    end
+
+    @testset "parse_format_options" begin
+        data = Dict(
+            "large_num_digits" => 4,
+            "small_num_digits" => 6,
+            "max_integral_digits" => 12,
+            "max_value_length" => 500,
+            "thousands_sep" => ",",
+        )
+        result = Positron.parse_format_options(data)
+
+        @test result isa Positron.FormatOptions
+        @test result.large_num_digits == 4
+        @test result.small_num_digits == 6
+        @test result.max_integral_digits == 12
+        @test result.max_value_length == 500
+        @test result.thousands_sep == ","
+    end
+
+    @testset "parse_format_options - defaults" begin
+        data = Dict{String,Any}()
+        result = Positron.parse_format_options(data)
+
+        @test result isa Positron.FormatOptions
+        @test result.large_num_digits == 2
+        @test result.small_num_digits == 4
+        @test result.max_integral_digits == 7
+        @test result.max_value_length == 1000
+        @test result.thousands_sep === nothing
+    end
+
+    @testset "parse_data_explorer_request - get_data_values" begin
+        data = Dict(
+            "method" => "get_data_values",
+            "params" => Dict(
+                "columns" => [
+                    Dict(
+                        "column_index" => 0,
+                        "spec" => Dict("first_index" => 0, "last_index" => 99),
+                    ),
+                    Dict(
+                        "column_index" => 1,
+                        "spec" => Dict("first_index" => 0, "last_index" => 99),
+                    ),
+                ],
+                "format_options" => Dict(
+                    "large_num_digits" => 2,
+                    "small_num_digits" => 4,
+                    "max_integral_digits" => 7,
+                    "max_value_length" => 1000,
+                ),
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerGetDataValuesParams
+        @test length(result.columns) == 2
+        @test result.columns[1].column_index == 0
+        @test result.columns[1].spec isa Positron.DataSelectionRange
+        @test result.columns[1].spec.first_index == 0
+        @test result.columns[1].spec.last_index == 99
+        @test result.columns[2].column_index == 1
+        @test result.format_options isa Positron.FormatOptions
+        @test result.format_options.large_num_digits == 2
+    end
+
+    @testset "parse_data_explorer_request - get_row_labels" begin
+        data = Dict(
+            "method" => "get_row_labels",
+            "params" => Dict(
+                "selection" => Dict("first_index" => 10, "last_index" => 20),
+                "format_options" => Dict(
+                    "large_num_digits" => 2,
+                    "small_num_digits" => 4,
+                    "max_integral_digits" => 7,
+                    "max_value_length" => 1000,
+                ),
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerGetRowLabelsParams
+        @test result.selection isa Positron.DataSelectionRange
+        @test result.selection.first_index == 10
+        @test result.selection.last_index == 20
+        @test result.format_options isa Positron.FormatOptions
+    end
+end

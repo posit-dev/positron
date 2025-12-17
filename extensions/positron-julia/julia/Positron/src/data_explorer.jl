@@ -146,23 +146,21 @@ Handle get_state request.
 function handle_get_state(instance::DataExplorerInstance)
     nrows, ncols = get_shape(instance.data)
 
-    # Get filtered shape
+    # Get filtered shape (row filters affect row count, column filters not currently tracked)
     filtered_rows =
-        instance.filtered_row_indices !== nothing ? length(instance.filtered_row_indices) :
-        nrows
-    filtered_cols =
-        instance.filtered_column_indices !== nothing ?
-        length(instance.filtered_column_indices) : ncols
+        instance.filtered_indices !== nothing ? length(instance.filtered_indices) : nrows
 
     state = BackendState(
         instance.display_name,
-        TableShape(filtered_rows, filtered_cols),
+        TableShape(filtered_rows, ncols),
         TableShape(nrows, ncols),
         has_row_labels(instance.data),
         instance.column_filters,
         instance.row_filters,
         instance.sort_keys,
         get_supported_features(),
+        nothing,  # connected - not applicable for in-memory data
+        nothing,  # error_message - no error
     )
 
     send_result(instance.comm, state)
@@ -316,8 +314,7 @@ function handle_set_column_filters(
     request::DataExplorerSetColumnFiltersParams,
 )
     instance.column_filters = request.filters
-    # Invalidate cached indices
-    instance.filtered_column_indices = nothing
+    # Column filters are used in search_schema, not for data retrieval
     send_result(instance.comm, nothing)
 end
 
