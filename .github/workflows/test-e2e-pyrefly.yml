@@ -60,6 +60,7 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
         with:
           timeout_minutes: 30
           max_attempts: 3
