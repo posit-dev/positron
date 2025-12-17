@@ -214,7 +214,7 @@ export class Sessions {
 	 *
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
-	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
+	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Supervisor Output Channel' | 'Show LSP Output Channel') {
 		await this.console.focus();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
@@ -851,7 +851,7 @@ export class Sessions {
 
 			const language = session.name.split(' ')[0].trim();
 
-			await this.selectMetadataOption('Show Console Output Channel');
+			await this.selectMetadataOption('Show Supervisor Output Channel');
 			await expect(this.outputChannel).toHaveValue(`${language} Supervisor`);
 
 			// Verify Output Channel
