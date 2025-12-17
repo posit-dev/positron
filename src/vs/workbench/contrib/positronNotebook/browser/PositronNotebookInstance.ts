@@ -159,8 +159,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Dom element that contains the notebook is rendered in.
+	 * Observable so contributions (like find widget) can react to attach/detach events.
 	 */
-	private _container: HTMLElement | undefined = undefined;
+	private readonly _container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
+	readonly container = this._container;
 
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
@@ -224,20 +226,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _isDisposed: boolean = false;
 	// #endregion
 
-	/**
-	 * Public getter for the notebook editor container.
-	 * Used for focus scope checking to determine if focus is still within the notebook.
-	 */
-	get container(): HTMLElement | undefined {
-		return this._container;
-	}
 
 	get overlayContainer(): HTMLElement | undefined {
 		return this._overlayContainer;
 	}
 
 	getFocusedCell(): IPositronNotebookCell | null {
-		const container = this.container;
+		const container = this._container.get();
 		if (!container) {
 			return null;
 		}
@@ -371,7 +366,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Is the instance connected to an editor as indicated by having an associated container object?
 	 */
 	get connectedToEditor(): boolean {
-		return Boolean(this._container);
+		return Boolean(this._container.get());
 	}
 
 	get uri(): URI {
@@ -629,10 +624,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @throws Error if called before the notebook has been mounted to a DOM container
 	 */
 	getDomNode(): HTMLElement {
-		if (!this._container) {
+		const container = this._container.get();
+		if (!container) {
 			throw new Error(`Requested notebook DOM node before it was mounted`);
 		}
-		return this._container;
+		return container;
 	}
 
 	/**
@@ -1313,7 +1309,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService, overlayContainer?: HTMLElement) {
 		this.detachView();
-		this._container = container;
+		this._container.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(container, scopedContextKeyService);
@@ -1374,7 +1370,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Detaches the notebook view from its container and cleans up resources.
 	 */
 	detachView(): void {
-		this._container = undefined;
+		this._container.set(undefined, undefined);
 		this._overlayContainer = undefined;
 		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
@@ -1537,8 +1533,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Check if we need to focus the notebook parent container.
 		// This happens when there are no cells left in the notebook
 		// after an operation.
-		if (!wasEmpty && willBeEmpty && this._container) {
-			this._container.focus();
+		const container = this._container.get();
+		if (!wasEmpty && willBeEmpty && container) {
+			container.focus();
 		}
 	}
 
@@ -1638,7 +1635,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			case SelectionState.NoCells:
 				// Fall back to notebook container
-				this._container?.focus();
+				this._container.get()?.focus();
 				break;
 		}
 	}

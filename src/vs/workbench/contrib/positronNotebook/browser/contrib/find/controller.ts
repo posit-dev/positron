@@ -48,6 +48,12 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	private _findInstance: PositronFindInstance | undefined;
 
 	/**
+	 * Tracks whether the find widget was visible before the view was detached.
+	 * Used to restore visibility when the view is reattached.
+	 */
+	private _wasVisibleBeforeDetach = false;
+
+	/**
 	 * Ordered list of all matches across all notebook cells.
 	 */
 	private readonly _matches = observableValue<PositronCellFindMatch[]>('positronNotebookFindControllerMatches', []);
@@ -82,6 +88,21 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		if (this._notebook.textModel) {
 			this.attachNotebookModel(this._notebook.textModel);
 		}
+
+		// Hide find widget when view is detached, restore when reattached
+		this._register(autorun(reader => {
+			const container = this._notebook.container.read(reader);
+			if (container === undefined) {
+				// Detached - save visibility state and hide
+				this._wasVisibleBeforeDetach = this._findInstance?.isVisible.read(undefined) ?? false;
+				this._findInstance?.hide();
+			} else {
+				// Attached - restore visibility if it was visible before
+				if (this._wasVisibleBeforeDetach && this._findInstance) {
+					this._findInstance.show();
+				}
+			}
+		}));
 	}
 
 	public static get(notebook: IPositronNotebookInstance): PositronNotebookFindController | undefined {

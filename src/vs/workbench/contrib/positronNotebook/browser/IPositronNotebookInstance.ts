@@ -93,9 +93,10 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 
 	/**
 	 * The DOM element that contains the entire notebook editor (including toolbar, cells, etc.).
-	 * This is the top-level container for the notebook UI.
+	 * This is the top-level container for the notebook UI. Observable so contributions can react
+	 * to attach/detach events.
 	 */
-	readonly container: HTMLElement | undefined;
+	readonly container: IObservable<HTMLElement | undefined>;
 
 	/**
 	 * The DOM element that contributions (such as the find widget) can render into.
