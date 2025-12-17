@@ -631,9 +631,11 @@ class ChatStatusDashboard extends Disposable {
 
 			// Next Edit Suggestions not currently supported in Positron.
 			// When enabled, remove the defaultChat.nextEditSuggestionsSetting check and use the setting directly.
+			// When the NES setting is not configured (empty string), don't filter out NES providers
+			// since that would incorrectly hide valid providers like Github Copilot
 			const nesEnabled = defaultChat.nextEditSuggestionsSetting
 				? this.configurationService.getValue<boolean>(defaultChat.nextEditSuggestionsSetting) ?? false
-				: false;
+				: true;
 
 			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
 			const details = new Array<HTMLDivElement>();
