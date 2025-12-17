@@ -85,7 +85,6 @@ function Base.display(d::PositronDisplay, m::MIME, @nospecialize(x))
     # Check if this is a displayable MIME type
     mime_str = string(m)
     if startswith(mime_str, "image/") && showable(m, x)
-        kernel_log_info("PositronDisplay: Capturing plot with MIME $mime_str")
         try
             capture_plot!(d.service, x)
             return  # Successfully captured
@@ -131,30 +130,22 @@ Display method for PositronDisplay - tries to find a suitable MIME type.
 Called by Julia's display system when display(x) is called without a MIME type.
 """
 function Base.display(d::PositronDisplay, @nospecialize(x))
-    kernel_log_info("PositronDisplay.display called for type $(typeof(x)), enabled=$(d.service.enabled)")
-
     if !d.service.enabled
-        kernel_log_info("PositronDisplay disabled, falling through")
         throw(MethodError(display, (d, x)))
     end
 
     # First check if it looks like a plot type by name
     is_plot_type = looks_like_plot(x)
-    kernel_log_info("  looks_like_plot: $is_plot_type")
 
     # Try supported MIME types in order of preference
     for mime in DISPLAYABLE_MIMES
-        is_showable = showable(mime, x)
-        kernel_log_info("  Checking MIME $(string(mime)): showable=$is_showable")
-        if is_showable
-            kernel_log_info("PositronDisplay: Found displayable MIME $(string(mime)) for $(typeof(x))")
+        if showable(mime, x)
             return display(d, mime, x)
         end
     end
 
     # If it looks like a plot but nothing was showable, try to capture anyway
     if is_plot_type
-        kernel_log_info("PositronDisplay: Plot type detected but no MIME showable, trying capture anyway")
         try
             capture_plot!(d.service, x)
             return
@@ -164,7 +155,6 @@ function Base.display(d::PositronDisplay, @nospecialize(x))
     end
 
     # Not a displayable plot - fall through to next display
-    kernel_log_info("PositronDisplay: No displayable MIME found for $(typeof(x)), falling through")
     throw(MethodError(display, (d, x)))
 end
 
@@ -247,13 +237,12 @@ function override_plots_display_dict!()
             try
                 kernel = Base.invokelatest($PositronModule.get_kernel)
                 if kernel !== nothing && kernel.plots.enabled
-                    Base.invokelatest($PositronModule.kernel_log_info, "display_dict: Intercepting Plots.jl plot")
                     Base.invokelatest($PositronModule.capture_plot!, kernel.plots, plt)
                     # Return empty dict - plot will appear in Plots pane only
                     return Dict{String,Any}()
                 end
             catch e
-                Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Failed to capture plot: $(sprint(showerror, e))")
+                Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Failed to capture Plots.jl plot: $(sprint(showerror, e))")
             end
 
             # Fall back to original Plots.jl behavior using the extension
@@ -298,14 +287,13 @@ function override_generic_display_dict!()
                 if kernel !== nothing && kernel.plots.enabled
                     is_plot_type = Base.invokelatest($PositronModule.looks_like_plot, x)
                     if is_plot_type
-                        Base.invokelatest($PositronModule.kernel_log_info, "display_dict: Intercepting plot-like object of type $(typeof(x))")
                         Base.invokelatest($PositronModule.capture_plot!, kernel.plots, x)
                         # Return empty dict - plot will appear in Plots pane only
                         return Dict{String,Any}()
                     end
                 end
             catch e
-                Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Error checking plot type: $(sprint(showerror, e))")
+                Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Error capturing plot: $(sprint(showerror, e))")
             end
 
             # Not a plot, use original
@@ -327,12 +315,6 @@ function fix_displays!(service::PlotsService)
         return
     end
 
-    # Log current display stack before modification
-    kernel_log_info("Display stack before fix_displays!:")
-    for (i, d) in enumerate(Base.Multimedia.displays)
-        kernel_log_info("  [$i] $(typeof(d))")
-    end
-
     # Remove any existing PositronDisplay instances
     for d in reverse(Base.Multimedia.displays)
         if d isa PositronDisplay
@@ -342,14 +324,6 @@ function fix_displays!(service::PlotsService)
 
     # Push our display at the top
     pushdisplay(service.display)
-
-    # Log display stack after modification
-    kernel_log_info("Display stack after fix_displays!:")
-    for (i, d) in enumerate(Base.Multimedia.displays)
-        kernel_log_info("  [$i] $(typeof(d))")
-    end
-
-    kernel_log_info("PositronDisplay installed at top of display stack")
 end
 
 """
@@ -358,8 +332,6 @@ Capture a plot object and create a new Plot instance with its own comm.
 This is called when PositronDisplay intercepts a plot from the display system.
 """
 function capture_plot!(service::PlotsService, plot_obj::Any)
-    kernel_log_info("Capturing plot of type $(typeof(plot_obj))")
-
     # Create a render function that captures the plot object
     # This allows re-rendering at different sizes later
     render_func = create_render_func(plot_obj)
@@ -367,8 +339,6 @@ function capture_plot!(service::PlotsService, plot_obj::Any)
     # Create the plot instance
     plot = Plot(render_func)
     push!(service.plots, plot)
-
-    kernel_log_info("Created plot with ID $(plot.id)")
 
     # Open a comm from the kernel to notify the frontend
     open_plot_comm!(plot)
@@ -408,7 +378,7 @@ This sends a comm_open message to the frontend, which will create
 a corresponding plot view in the Plots pane.
 """
 function open_plot_comm!(plot::Plot)
-    kernel_log_info("Opening comm for plot $(plot.id)")
+    kernel_log_info("Opening plot comm: $(plot.id)")
 
     # Create the comm
     comm = create_comm("positron.plot"; comm_id = plot.id)
@@ -420,8 +390,6 @@ function open_plot_comm!(plot::Plot)
 
     # Open the comm (sends comm_open to frontend)
     open!(comm)
-
-    kernel_log_info("Plot comm opened: $(plot.id)")
 end
 
 """
@@ -442,6 +410,7 @@ end
 Handle plot comm close.
 """
 function handle_plot_close(plot::Plot)
+    kernel_log_info("Plot comm closed: $(plot.id)")
     plot.closed = true
     plot.comm = nothing
 end
@@ -454,8 +423,6 @@ function handle_render(plot::Plot, request::PlotRenderParams)
         return
     end
 
-    kernel_log_info("Rendering plot $(plot.id)")
-
     try
         # Extract format string
         format_str = string(request.format)
@@ -467,8 +434,6 @@ function handle_render(plot::Plot, request::PlotRenderParams)
         # Build result
         result = PlotResult(base64encode(data), mime_type, nothing)
         send_result(plot.comm, result)
-
-        kernel_log_info("Plot $(plot.id) rendered successfully")
     catch e
         kernel_log_error("Failed to render plot $(plot.id): $(sprint(showerror, e, catch_backtrace()))")
         send_error(

@@ -385,11 +385,8 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         return
     end
 
-    kernel_log_info("Sending comm message: $(comm.comm_id), type=$(typeof(data))")
-
     # Convert to Dict (IJulia expects Dict, not JSON3.Object)
     json_str = JSON3.write(data)
-    kernel_log_info("Message JSON: $json_str")
     data_dict = JSON3.read(json_str, Dict{String,Any})
 
     # Get the IJulia kernel
@@ -413,20 +410,14 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         end
 
         if parent_msg !== nothing
-            kernel_log_info("Using $parent_type message as parent")
-
             # Build message manually with the correct parent
             # This ensures valid parent_header that passes Supervisor validation
             content = Dict("comm_id" => comm.kernel.id, "data" => data_dict)
             msg = IJulia.msg_pub(parent_msg, "comm_msg", content)
             IJulia.send_ipython(ijulia_kernel.publish[], ijulia_kernel, msg)
-
-            kernel_log_info("Message sent successfully with $parent_type parent")
         else
             # Fall back to execute_msg for notifications during code execution
-            kernel_log_info("Using execute_msg as parent (notification during execution)")
             IJulia.send_comm(comm.kernel, data_dict; kernel = ijulia_kernel)
-            kernel_log_info("IJulia.send_comm completed successfully")
         end
     catch e
         kernel_log_error("Failed to send comm message: $e")

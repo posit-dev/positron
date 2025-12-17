@@ -117,8 +117,6 @@ This creates an IJulia.Comm with primary=true, which sends comm_open to the fron
 The frontend will then create the corresponding comm on its side.
 """
 function open!(comm::PositronComm; data::Dict = Dict())
-    kernel_log_info("Opening comm: comm_id=$(comm.comm_id), target=$(comm.target_name)")
-
     # Create IJulia comm with primary=true to send comm_open to frontend
     # This is the kernel-initiated comm pattern (like Python's PositronComm.create)
     ijulia_kernel = isdefined(IJulia, :kernel) ? IJulia.kernel : IJulia._default_kernel
@@ -133,11 +131,9 @@ function open!(comm::PositronComm; data::Dict = Dict())
 
     # Set up message handlers
     ijulia_comm.on_msg = function (msg)
-        kernel_log_info("Received comm message on $(comm.target_name): comm_id=$(comm.comm_id)")
         comm.current_request_msg = msg
         content = msg.content
         msg_data = get(content, "data", Dict())
-        kernel_log_info("Message data: $msg_data")
         handle_msg(comm, msg_data)
         comm.current_request_msg = nothing
     end
@@ -150,16 +146,12 @@ function open!(comm::PositronComm; data::Dict = Dict())
 
     # Store the IJulia comm for sending messages
     comm.kernel = ijulia_comm
-
-    kernel_log_info("Comm opened successfully: $(comm.comm_id)")
 end
 
 """
 Close the comm.
 """
 function close!(comm::PositronComm)
-    kernel_log_info("Closing comm: comm_id=$(comm.comm_id)")
-
     if comm.close_handler !== nothing
         comm.close_handler()
     end
