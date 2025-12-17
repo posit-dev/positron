@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { executeCommand } from '../common/vscodeApis/commandApis';
-import { traceInfo } from '../logging/index.js';
+import { traceInfo } from '../logging';
 
 function getSupportedLibraries(): string[] {
     const libraries: string[] = ['streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
