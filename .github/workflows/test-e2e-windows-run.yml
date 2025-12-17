@@ -192,6 +192,37 @@ jobs:
 
             echo "All npm ci commands completed successfully"
 
+      - name: Debug - Check Ark and Kallichore binaries after npm install
+        if: always()
+        shell: bash
+        run: |
+          echo "=== Checking for Ark binary ==="
+          if [ -f "extensions/positron-r/resources/ark/ark.exe" ]; then
+            echo "✅ Ark binary exists at: extensions/positron-r/resources/ark/ark.exe"
+            ls -lh extensions/positron-r/resources/ark/ark.exe
+            echo "Testing Ark version..."
+            extensions/positron-r/resources/ark/ark.exe --version || echo "⚠️ Ark version check failed"
+          else
+            echo "❌ Ark binary NOT found at: extensions/positron-r/resources/ark/ark.exe"
+            echo "Contents of extensions/positron-r/resources/:"
+            ls -la extensions/positron-r/resources/ || echo "Directory doesn't exist"
+            echo "Contents of extensions/positron-r/resources/ark/:"
+            ls -la extensions/positron-r/resources/ark/ || echo "Directory doesn't exist"
+          fi
+
+          echo ""
+          echo "=== Checking for Kallichore binary ==="
+          if [ -f "extensions/positron-supervisor/resources/kallichore/kcserver.exe" ]; then
+            echo "✅ Kallichore binary exists at: extensions/positron-supervisor/resources/kallichore/kcserver.exe"
+            ls -lh extensions/positron-supervisor/resources/kallichore/kcserver.exe
+          else
+            echo "❌ Kallichore binary NOT found at: extensions/positron-supervisor/resources/kallichore/kcserver.exe"
+            echo "Contents of extensions/positron-supervisor/resources/:"
+            ls -la extensions/positron-supervisor/resources/ || echo "Directory doesn't exist"
+            echo "Contents of extensions/positron-supervisor/resources/kallichore/:"
+            ls -la extensions/positron-supervisor/resources/kallichore/ || echo "Directory doesn't exist"
+          fi
+
       - name: Compile E2E Tests
         run: npm --prefix test/e2e run compile
 

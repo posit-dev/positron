@@ -99,11 +99,11 @@ runs:
       continue-on-error: true
       shell: bash
       run: |
-        if [ -f "extensions/positron-r/resources/ark/ark.exe" ]; then
-          echo "✅ Ark binary verified"
+        if [ -f "extensions/positron-r/resources/ark/ark.exe" ] && extensions/positron-r/resources/ark/ark.exe --version 2>/dev/null; then
+          echo "✅ Ark binary verified and functional"
           echo "verified=true" >> $GITHUB_OUTPUT
         else
-          echo "⚠️ Ark binary missing - skipping cache save"
+          echo "⚠️ Ark binary missing or not functional - skipping cache save"
           echo "verified=false" >> $GITHUB_OUTPUT
         fi
 
