@@ -171,12 +171,20 @@ jobs:
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
 
           # Compare before and after
-          echo "=== Files ADDED by npm install ==="
-          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | head -50
+          echo "=== Files ADDED by npm install (count) ==="
+          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | wc -l
 
           echo ""
-          echo "=== Files REMOVED by npm install ==="
-          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | head -50
+          echo "=== Files REMOVED by npm install (count) ==="
+          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | wc -l
+
+          echo ""
+          echo "=== Files ADDED (excluding npm cache and node_modules) ==="
+          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | grep -v "\.npm-cache" | grep -v "node_modules" | head -100
+
+          echo ""
+          echo "=== Files REMOVED (excluding npm cache and node_modules) ==="
+          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | grep -v "\.npm-cache" | grep -v "node_modules" | head -100
 
           # Check key binaries and symlinks again
           echo ""
