@@ -232,10 +232,10 @@ runs:
         path: |
           extensions/positron-supervisor/resources/kallichore
         # Kallichore binary version is specified in positron-supervisor package.json
-        # IMPORTANT: If bumping kallichore -> kallichore-v2, also update save-build-caches/action.yml
-        key: kallichore-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        # IMPORTANT: If bumping kallichore-v2 -> kallichore-v3, also update save-build-caches/action.yml
+        key: kallichore-v2-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
         restore-keys: |
-          kallichore-${{ runner.os }}-${{ inputs.distro }}-
+          kallichore-v2-${{ runner.os }}-${{ inputs.distro }}-
 
     - name: Log cache results
       if: always()

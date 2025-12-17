@@ -173,7 +173,7 @@ runs:
         path: |
           extensions/positron-supervisor/resources/kallichore
         # IMPORTANT: If bumping kallichore -> kallichore-v2, also update restore-build-caches-windows/action.yml
-        key: kallichore-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        key: kallichore-v2-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
 
     - name: Log cache save results
       if: always()
