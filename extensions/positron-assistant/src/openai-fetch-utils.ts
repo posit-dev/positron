@@ -51,7 +51,7 @@ type PossiblyBrokenDelta = Omit<OpenAI.ChatCompletionChunk.Choice.Delta, 'role' 
 /**
  * Relaxed ChatCompletionChunk type that uses PossiblyBrokenDelta for choices.
  */
-type PossiblyBrokenChatCompletionChunk = Omit<OpenAI.ChatCompletionChunk, 'choices'> & {
+export type PossiblyBrokenChatCompletionChunk = Omit<OpenAI.ChatCompletionChunk, 'choices'> & {
 	choices: Array<Omit<OpenAI.ChatCompletionChunk.Choice, 'delta'> & {
 		delta: PossiblyBrokenDelta;
 	}>;
