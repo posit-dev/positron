@@ -53,7 +53,7 @@ async function flatten_items(items: IPositronConnectionItem[], expanded_entries:
 	const entries: IPositronConnectionEntry[] = [];
 	for (const item of items) {
 
-		const expanded = item.getChildren === undefined ?
+		const expanded = item.getChildren === null || item.getChildren === undefined ?
 			undefined :
 			expanded_entries.has(item.id);
 
