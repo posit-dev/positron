@@ -31,7 +31,6 @@ jobs:  # to input into inspect-ai-test job below
       upload_logs: false
       report_currents: false
       skip_extension_test: true
-      save_cache: false  # Only restore - PRs and merges handle cache saving
       workers: 1
     secrets: inherit
 

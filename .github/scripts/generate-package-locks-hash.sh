@@ -1,42 +1,71 @@
 #!/usr/bin/env bash
-# Validate and pass through package-locks hash for npm-core cache key
+# Generate package-locks hash for npm-core cache key from dirs.js
 #
 # PURPOSE:
 # The npm-core cache invalidates when any "core" package-lock.json file changes.
 # Core = non-extension directories: root, build/, remote/, test/{integration,monaco,mcp}
 #
-# WHY THIS SCRIPT:
-# The hash is calculated using GitHub's hashFiles() in the workflow (faster, no shell needed).
-# This script validates the hash and outputs it in the expected format for cache actions.
+# SINGLE SOURCE OF TRUTH:
+# This script reads build/npm/dirs.js directly to discover which directories have
+# package-lock.json files. When new directories are added to dirs.js, this script
+# automatically includes them in the hash - no manual updates needed!
 #
-# IMPORTANT:
-# The hashFiles() call in restore-build-caches*/action.yml MUST match the directories
-# listed in build/npm/dirs.js (lines 9-12, 74-81) to ensure cache invalidates correctly.
-#
-# Currently includes:
-# - package-lock.json (root)
-# - build/package-lock.json
-# - remote/package-lock.json
-# - remote/web/package-lock.json
-# - remote/reh-web/package-lock.json
-# - test/e2e/package-lock.json (for E2E builds)
-# - test/integration/browser/package-lock.json
-# - test/monaco/package-lock.json
-# - test/mcp/package-lock.json
+# HOW IT WORKS:
+# 1. Read dirs.js to get list of directories that get npm install during postinstall
+# 2. Filter to "core" dirs (exclude extensions/ and .vscode/)
+# 3. Map to package-lock.json paths (e.g., "build" -> "build/package-lock.json")
+# 4. Read and hash all package-lock.json files
+# 5. Output combined hash for use as cache key
 #
 # OUTPUT:
 # Writes "hash=<sha256>" to $GITHUB_OUTPUT for use as npm-core cache key
 
 set -euo pipefail
 
-# This must match the hashFiles() call in the workflow
-PACKAGE_LOCKS_HASH=$(echo "$1")
+# Generate hash from dirs.js
+HASH=$(node -e "
+const { dirs } = require('./build/npm/dirs.js');
+const fs = require('fs');
+const crypto = require('crypto');
+const path = require('path');
+
+// Filter to core dirs (exclude extensions and .vscode)
+const coreDirs = dirs.filter(d =>
+  !d.startsWith('extensions/') &&
+  !d.startsWith('.vscode/')
+);
+
+// Map to package-lock.json paths
+const lockFiles = coreDirs
+  .map(d => d === '' ? 'package-lock.json' : path.join(d, 'package-lock.json'))
+  .filter(f => {
+    try {
+      return fs.existsSync(f);
+    } catch {
+      return false;
+    }
+  })
+  .sort();
+
+console.error('Hashing package-lock.json files from dirs.js:');
+lockFiles.forEach(f => console.error('  - ' + f));
+
+// Hash all files together
+const hash = crypto.createHash('sha256');
+for (const file of lockFiles) {
+  hash.update(fs.readFileSync(file));
+}
+console.log(hash.digest('hex'));
+")
 
 # Validate hash is not empty
-if [ -z "$PACKAGE_LOCKS_HASH" ]; then
-	echo "::warning::package-locks hash is empty. Check that hashFiles() in workflow includes all required package-lock.json files. Cache will be disabled for this run."
+if [ -z "$HASH" ]; then
+	echo "::warning::package-locks hash generation failed. Cache will be disabled for this run."
 	exit 1
 fi
 
-echo "hash=$PACKAGE_LOCKS_HASH" >> "$GITHUB_OUTPUT"
-echo "Generated package-locks hash: $PACKAGE_LOCKS_HASH"
+# Output to GITHUB_OUTPUT (if running in CI) or stdout (if running locally)
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+	echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+fi
+echo "Generated package-locks hash: $HASH"
