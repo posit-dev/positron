@@ -612,7 +612,10 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                 openLabel: InterpreterQuickPickList.browsePath.openButtonLabel,
                 canSelectMany: false,
                 title: InterpreterQuickPickList.browsePath.title,
+                defaultUri: state.workspace,
+                // --- Start Positron ---
                 resolveSymlinks: false,
+                // --- End Positron ---
             });
             if (uris && uris.length > 0) {
                 state.path = uris[0].fsPath;
