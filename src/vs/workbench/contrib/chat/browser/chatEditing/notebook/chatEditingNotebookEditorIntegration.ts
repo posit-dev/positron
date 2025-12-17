@@ -26,7 +26,7 @@ import { CellEditState, ICellViewModel } from '../../../../notebook/browser/note
 // --- Start Positron ---
 // Use proxy to get editors from both VS Code and Positron notebook sources
 import { getNotebookEditorFromEditorPane } from '../../../../positronNotebook/browser/NotebookEditorProxyService.js';
-import { IChatEditingCellViewModel, IChatEditingNotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
+import { IChatEditingCellViewModel, IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
 // --- End Positron ---
 import { INotebookEditorService } from '../../../../notebook/browser/services/notebookEditorService.js';
 import { NotebookCellTextModel } from '../../../../notebook/common/model/notebookCellTextModel.js';
@@ -40,9 +40,7 @@ import { OverlayToolbarDecorator } from './overlayToolbarDecorator.js';
 
 export class ChatEditingNotebookEditorIntegration extends Disposable implements IModifiedFileEntryEditorIntegration {
 	private integration: ChatEditingNotebookEditorWidgetIntegration;
-	// --- Start Positron ---
-	private notebookEditor: IChatEditingNotebookEditor;
-	// --- End Positron ---
+	private notebookEditor: INotebookEditor;
 	constructor(
 		_entry: ChatEditingModifiedNotebookEntry,
 		editor: IEditorPane,
@@ -117,9 +115,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 
 	constructor(
 		private readonly _entry: ChatEditingModifiedNotebookEntry,
-		// --- Start Positron ---
-		private readonly notebookEditor: IChatEditingNotebookEditor,
-		// --- End Positron ---
+		private readonly notebookEditor: INotebookEditor,
 		private readonly notebookModel: NotebookTextModel,
 		originalModel: NotebookTextModel,
 		private readonly cellChanges: IObservable<ICellDiffInfo[]>,
@@ -143,7 +139,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 			const isReadOnly = shouldBeReadonly.read(r);
 			// --- Start Positron ---
 			// Use the notebook editor we already have, or try to retrieve from service
-			let notebookEditor: IChatEditingNotebookEditor | undefined = this.notebookEditor;
+			let notebookEditor: INotebookEditor | undefined = this.notebookEditor;
 			if (!notebookEditor || notebookEditor.textModel !== this.notebookModel) {
 				notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
 			}
