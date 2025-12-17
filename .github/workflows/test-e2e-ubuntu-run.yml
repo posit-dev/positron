@@ -134,7 +134,7 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -159,7 +159,7 @@ jobs:
         shell: bash
 
       - name: Download build artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: "positron-build"
           path: /tmp/artifacts
@@ -363,7 +363,7 @@ jobs:
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest-4x
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
@@ -398,7 +398,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*

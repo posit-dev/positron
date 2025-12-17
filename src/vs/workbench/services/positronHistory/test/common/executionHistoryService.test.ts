@@ -24,6 +24,8 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { URI } from '../../../../../base/common/uri.js';
 import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRuntimeSession.js';
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -618,6 +620,7 @@ suite('ExecutionHistoryService', () => {
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IConfigurationService, configurationService);
 		instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService());
+		instantiationService.stub(IContextKeyService, new MockContextKeyService());
 
 		executionHistoryService = instantiationService.createInstance(ExecutionHistoryService);
 		disposables.add(executionHistoryService);

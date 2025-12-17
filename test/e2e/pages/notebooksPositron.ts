@@ -191,7 +191,8 @@ export class PositronNotebooks extends Notebooks {
 
 	/**
 	 * Action: Create a new Positron notebook.
-	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
+	 * @param codeCells - Number of code cells to create
+	 * @param markdownCells - Number of markdown cells to create
 	 */
 	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
@@ -344,7 +345,10 @@ export class PositronNotebooks extends Notebooks {
 
 			// Click the last "New Code Cell" button to add a cell at the end
 			await this.newCellButton.last().click();
-			await expect(this.cell).toHaveCount(newCellButtonCount + 1, { timeout: DEFAULT_TIMEOUT });
+			// The button count before adding the cell will match the new cell count after adding the cell.
+			// This is because there is one extra "New Code Cell" button at the beginning of the notebook.
+			// Ex: if there are 0 cells, there is 1 button; if there is 1 cell, there are 2 buttons, etc.
+			await expect(this.cell).toHaveCount(newCellButtonCount, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 

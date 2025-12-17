@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -105,7 +105,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
@@ -121,7 +121,7 @@ jobs:
         run: uv run scripts/vendor.py
 
       - name: Install latest versions Positron IPyKernel test requirements
-        run: uv pip install --upgrade -r python_files/posit/test-requirements.txt
+        run: uv sync --active --inexact --upgrade --project python_files/posit
 
       - name: Run Positron IPyKernel unit tests
         run: uv run pytest python_files/posit --junit-xml=python-test-results.xml

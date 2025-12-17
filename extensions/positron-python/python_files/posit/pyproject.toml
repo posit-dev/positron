@@ -1,0 +1,38 @@
+[project]
+name = "posit"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "bokeh",
+    "databricks-sql-connector[pyarrow]",
+    "duckdb",
+    "fastcore",
+    "geopandas",
+    "google-cloud-bigquery",
+    "haystack-ai",
+    "holoviews",
+    "hvplot",
+    "ibis-framework[duckdb] ; python_full_version >= '3.10'",
+    "ibis-framework[polars] ; python_full_version == '3.9.*'",
+    "ipykernel",
+    "ipython",
+    "ipywidgets",
+    "lightning",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "plotly",
+    "plotnine",
+    "polars",
+    "polars[timezone] ; sys_platform == 'win32'",
+    "pyarrow",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "redshift-connector ; python_full_version < '3.14'",
+    "scipy",
+    "snowflake-connector-python",
+    "sqlalchemy",
+    "syrupy",
+    "torch",
+]
