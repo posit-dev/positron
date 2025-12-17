@@ -29,6 +29,11 @@ export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSI
 export interface IPositronPlotClient extends IDisposable {
 	readonly id: string;
 	readonly metadata: IPositronPlotMetadata;
+
+	/**
+	 * Event that fires when the plot's metadata changes.
+	 */
+	readonly onDidUpdateMetadata?: Event<IPositronPlotMetadata>;
 }
 
 export interface IZoomablePlotClient {
@@ -181,6 +186,12 @@ export interface IPositronPlotsService {
 	 * of the removed plot is the event payload.
 	 */
 	readonly onDidRemovePlot: Event<string>;
+
+	/**
+	 * Notifies subscribers when a plot's metadata has been updated. The ID
+	 * of the plot is the event payload.
+	 */
+	readonly onDidUpdatePlotMetadata: Event<string>;
 
 	/**
 	 * Notifies subscribers when the list of Positron plot instances is replaced

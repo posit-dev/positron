@@ -100,7 +100,6 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		assert.strictEqual(plotClient.id, message.id);
 		assert.deepStrictEqual(plotClient.metadata, {
 			id: message.id,
-			parent_id: message.parent_id,
 			created: Date.parse(message.when),
 			session_id: session.sessionId,
 			code: '',
