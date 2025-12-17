@@ -8,10 +8,11 @@ import './listDriversDetailsState.css';
 
 
 // React.
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect } from 'react';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { localize } from '../../../../../../nls.js';
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 
 interface ListDriversDetailsProps {
@@ -22,11 +23,23 @@ interface ListDriversDetailsProps {
 }
 
 export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsProps>) => {
+	const services = usePositronReactServicesContext();
 	const drivers = props.drivers;
+	const { onBack } = props;
 
 	// drivers must be length > 1
+	useEffect(() => {
+		if (drivers.length <= 1) {
+			services.notificationService.error(localize(
+				'positron.connections.newConnectionModalDialog.listDriversDetails.invalidDriverSelection',
+				'Unable to show driver details. Please select a driver again.'
+			));
+			onBack();
+		}
+	}, [drivers, onBack, services]);
+
 	if (drivers.length <= 1) {
-		throw new Error('ListDriversDetails requires more than one driver');
+		return null;
 	}
 
 	const name = drivers[0].metadata.name;
