@@ -29,6 +29,10 @@ import { InternalQuickSuggestionsOptions, QuickSuggestionsValue } from '../../..
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { StandardTokenType } from '../../../common/encodedTokenAttributes.js';
 
+// --- Start Positron ---
+const POSITRON_PYTHON_EXTENSION_ID = 'ms-python.python';
+// --- End Positron ---
+
 export const Context = {
 	Visible: historyNavigationVisible,
 	HasFocusedSuggestion: new RawContextKey<boolean>('suggestWidgetHasFocusedSuggestion', false, localize('suggestWidgetHasSelection', "Whether any suggestion is focused")),
@@ -332,7 +336,6 @@ export async function provideSuggestionItems(
 	//   - If one item is from our Python extension and the other is not, prefer the one from our Python extension.
 	//   - If both items are from our Python extension, the first-seen item is kept.
 	//   - If both items are from other extensions, the first-seen item is kept.
-	const positronPythonExtensionId = 'ms-python.python';
 	const deduplicatedResult: CompletionItem[] = [];
 	const seen = new Map<string, CompletionItem>();
 
@@ -342,8 +345,8 @@ export async function provideSuggestionItems(
 		if (existing) {
 			// If the existing item is not from positron-python and the new one is from positron-python,
 			// replace with the new one
-			if (existing.extensionId?.value !== positronPythonExtensionId &&
-				item.extensionId?.value === positronPythonExtensionId) {
+			if (existing.extensionId?.value !== POSITRON_PYTHON_EXTENSION_ID &&
+				item.extensionId?.value === POSITRON_PYTHON_EXTENSION_ID) {
 				const existingIndex = deduplicatedResult.indexOf(existing);
 				if (existingIndex !== -1) {
 					deduplicatedResult[existingIndex] = item;
@@ -370,9 +373,8 @@ export async function provideSuggestionItems(
 function defaultComparator(a: CompletionItem, b: CompletionItem): number {
 	// --- Start Positron ---
 	// Prioritize positron-python extension completions
-	const positronPythonExtensionId = 'ms-python.python';
-	const aIsPositronPython = a.extensionId?.value === positronPythonExtensionId;
-	const bIsPositronPython = b.extensionId?.value === positronPythonExtensionId;
+	const aIsPositronPython = a.extensionId?.value === POSITRON_PYTHON_EXTENSION_ID;
+	const bIsPositronPython = b.extensionId?.value === POSITRON_PYTHON_EXTENSION_ID;
 	if (aIsPositronPython && !bIsPositronPython) {
 		return -1;
 	} else if (!aIsPositronPython && bIsPositronPython) {
