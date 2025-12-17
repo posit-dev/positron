@@ -21,7 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
-import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage, handleNotebookEditProposal } from './tools/notebookUtils.js';
+import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -718,13 +718,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				}
 
 				log.debug(`[tool] Tool ${req.name} returned result: ${JSON.stringify(result.content, null, 2)}`);
-
-				// Handle notebook cell edit proposals (converts to text edits for diff views)
-				const notebookResult = await handleNotebookEditProposal(req.name, result, response);
-				if (notebookResult) {
-					toolResponses[req.callId] = notebookResult;
-					continue;
-				}
 
 				toolResponses[req.callId] = result;
 			}
