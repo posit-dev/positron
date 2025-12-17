@@ -249,8 +249,8 @@ function override_plots_display_dict!()
                 if kernel !== nothing && kernel.plots.enabled
                     Base.invokelatest($PositronModule.kernel_log_info, "display_dict: Intercepting Plots.jl plot")
                     Base.invokelatest($PositronModule.capture_plot!, kernel.plots, plt)
-                    # Return minimal output - plot will appear in Plots pane
-                    return Dict{String,Any}("text/plain" => "Plot displayed in Plots pane")
+                    # Return empty dict - plot will appear in Plots pane only
+                    return Dict{String,Any}()
                 end
             catch e
                 Base.invokelatest($PositronModule.kernel_log_error, "display_dict: Failed to capture plot: $(sprint(showerror, e))")
@@ -300,7 +300,8 @@ function override_generic_display_dict!()
                     if is_plot_type
                         Base.invokelatest($PositronModule.kernel_log_info, "display_dict: Intercepting plot-like object of type $(typeof(x))")
                         Base.invokelatest($PositronModule.capture_plot!, kernel.plots, x)
-                        return Dict{String,Any}("text/plain" => "Plot displayed in Plots pane")
+                        # Return empty dict - plot will appear in Plots pane only
+                        return Dict{String,Any}()
                     end
                 end
             catch e
