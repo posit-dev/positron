@@ -1719,4 +1719,110 @@ end
         @test result.selection.last_index == 20
         @test result.format_options isa Positron.FormatOptions
     end
+
+    @testset "parse_column_histogram_params" begin
+        data = Dict(
+            "method" => "freedman_diaconis",
+            "num_bins" => 50,
+            "quantiles" => [0.25, 0.5, 0.75],
+        )
+        result = Positron.parse_column_histogram_params(data)
+
+        @test result isa Positron.ColumnHistogramParams
+        @test result.method == Positron.ColumnHistogramParamsMethod_FreedmanDiaconis
+        @test result.num_bins == 50
+        @test result.quantiles == [0.25, 0.5, 0.75]
+    end
+
+    @testset "parse_column_frequency_table_params" begin
+        data = Dict("limit" => 25)
+        result = Positron.parse_column_frequency_table_params(data)
+
+        @test result isa Positron.ColumnFrequencyTableParams
+        @test result.limit == 25
+    end
+
+    @testset "parse_column_profile_spec - null_count" begin
+        data = Dict("profile_type" => "null_count")
+        result = Positron.parse_column_profile_spec(data)
+
+        @test result isa Positron.ColumnProfileSpec
+        @test result.profile_type == Positron.ColumnProfileType_NullCount
+        @test result.params === nothing
+    end
+
+    @testset "parse_column_profile_spec - histogram with params" begin
+        data = Dict(
+            "profile_type" => "small_histogram",
+            "params" => Dict("method" => "sturges", "num_bins" => 20),
+        )
+        result = Positron.parse_column_profile_spec(data)
+
+        @test result isa Positron.ColumnProfileSpec
+        @test result.profile_type == Positron.ColumnProfileType_SmallHistogram
+        @test result.params isa Positron.ColumnHistogramParams
+        @test result.params.method == Positron.ColumnHistogramParamsMethod_Sturges
+    end
+
+    @testset "parse_column_profile_request" begin
+        data = Dict(
+            "column_index" => 5,
+            "profiles" => [
+                Dict("profile_type" => "null_count"),
+                Dict("profile_type" => "summary_stats"),
+            ],
+        )
+        result = Positron.parse_column_profile_request(data)
+
+        @test result isa Positron.ColumnProfileRequest
+        @test result.column_index == 5
+        @test length(result.profiles) == 2
+        @test result.profiles[1].profile_type == Positron.ColumnProfileType_NullCount
+        @test result.profiles[2].profile_type == Positron.ColumnProfileType_SummaryStats
+    end
+
+    @testset "parse_data_explorer_request - get_column_profiles" begin
+        data = Dict(
+            "method" => "get_column_profiles",
+            "params" => Dict(
+                "callback_id" => "test-callback-123",
+                "profiles" => [
+                    Dict(
+                        "column_index" => 0,
+                        "profiles" => [
+                            Dict("profile_type" => "null_count"),
+                            Dict(
+                                "profile_type" => "small_histogram",
+                                "params" => Dict("method" => "sturges", "num_bins" => 10),
+                            ),
+                        ],
+                    ),
+                    Dict(
+                        "column_index" => 1,
+                        "profiles" => [Dict("profile_type" => "summary_stats")],
+                    ),
+                ],
+                "format_options" => Dict(
+                    "large_num_digits" => 2,
+                    "small_num_digits" => 4,
+                    "max_integral_digits" => 7,
+                    "max_value_length" => 1000,
+                ),
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerGetColumnProfilesParams
+        @test result.callback_id == "test-callback-123"
+        @test length(result.profiles) == 2
+        @test result.profiles[1].column_index == 0
+        @test length(result.profiles[1].profiles) == 2
+        @test result.profiles[1].profiles[1].profile_type ==
+              Positron.ColumnProfileType_NullCount
+        @test result.profiles[1].profiles[2].profile_type ==
+              Positron.ColumnProfileType_SmallHistogram
+        @test result.profiles[1].profiles[2].params isa Positron.ColumnHistogramParams
+        @test result.profiles[2].column_index == 1
+        @test result.format_options isa Positron.FormatOptions
+    end
 end

@@ -1147,6 +1147,61 @@ function parse_format_options(data::Dict)::FormatOptions
 end
 
 """
+Parse ColumnHistogramParams from a Dict.
+"""
+function parse_column_histogram_params(data::Dict)::ColumnHistogramParams
+    method_str = get(data, "method", "sturges")
+    method = STRING_TO_COLUMNHISTOGRAMPARAMSMETHOD[method_str]
+    num_bins = get(data, "num_bins", 10)
+    quantiles = get(data, "quantiles", nothing)
+    return ColumnHistogramParams(method, num_bins, quantiles)
+end
+
+"""
+Parse ColumnFrequencyTableParams from a Dict.
+"""
+function parse_column_frequency_table_params(data::Dict)::ColumnFrequencyTableParams
+    return ColumnFrequencyTableParams(get(data, "limit", 100))
+end
+
+"""
+Parse ColumnProfileSpec from a Dict.
+"""
+function parse_column_profile_spec(data::Dict)::ColumnProfileSpec
+    profile_type_str = get(data, "profile_type", "null_count")
+    profile_type = STRING_TO_COLUMNPROFILETYPE[profile_type_str]
+
+    params_data = get(data, "params", nothing)
+    params = if params_data === nothing
+        nothing
+    elseif profile_type in (
+        ColumnProfileType_SmallHistogram,
+        ColumnProfileType_LargeHistogram,
+    )
+        parse_column_histogram_params(params_data)
+    elseif profile_type in (
+        ColumnProfileType_SmallFrequencyTable,
+        ColumnProfileType_LargeFrequencyTable,
+    )
+        parse_column_frequency_table_params(params_data)
+    else
+        nothing
+    end
+
+    return ColumnProfileSpec(profile_type, params)
+end
+
+"""
+Parse ColumnProfileRequest from a Dict.
+"""
+function parse_column_profile_request(data::Dict)::ColumnProfileRequest
+    column_index = get(data, "column_index", 0)
+    profiles_data = get(data, "profiles", [])
+    profiles = [parse_column_profile_spec(p) for p in profiles_data]
+    return ColumnProfileRequest(column_index, profiles)
+end
+
+"""
 Parse a backend request for the DataExplorer comm.
 """
 function parse_data_explorer_request(data::Dict)
@@ -1194,10 +1249,13 @@ function parse_data_explorer_request(data::Dict)
     elseif method == "set_sort_columns"
         return DataExplorerSetSortColumnsParams(get(params, "sort_keys", []))
     elseif method == "get_column_profiles"
+        profiles_dicts = get(params, "profiles", [])
+        profiles = [parse_column_profile_request(p) for p in profiles_dicts]
+        format_opts = parse_format_options(get(params, "format_options", Dict()))
         return DataExplorerGetColumnProfilesParams(
             get(params, "callback_id", ""),
-            get(params, "profiles", []),
-            get(params, "format_options", Dict()),
+            profiles,
+            format_opts,
         )
     elseif method == "get_state"
         return nothing
