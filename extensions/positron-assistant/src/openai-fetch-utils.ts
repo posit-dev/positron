@@ -7,20 +7,56 @@ import { log } from './extension.js';
 import type { OpenAI } from 'openai';
 
 /**
- * A "possibly broken" ChatCompletionChunk type that represents what we might receive
- * from OpenAI-compatible providers before validation. All fields are optional or loosely typed
- * to allow for malformed responses.
+ * Types representing potentially malformed ChatCompletionChunk responses from OpenAI-compatible
+ * providers. These types relax the strict OpenAI SDK types to accept known deviations that
+ * cause validation errors in the AI SDK.
+ *
+ * Known issues from providers (e.g., Snowflake Cortex):
+ *
+ * 1. Empty role field:
+ *    - Expected: `{ "role": "assistant" }`
+ *    - Broken:   `{ "role": "" }`
+ *
+ * 2. Empty tool arguments for no-parameter tools:
+ *    - Expected: `{ "arguments": "{}" }`
+ *    - Broken:   `{ "arguments": "" }`
  */
-export interface PossiblyBrokenChatCompletionChunk {
-	id?: unknown;
-	choices?: unknown;
-	created?: unknown;
-	model?: unknown;
-	object?: unknown;
-	service_tier?: unknown;
-	system_fingerprint?: unknown;
-	usage?: unknown;
-}
+
+/**
+ * Relaxed tool call function type.
+ * - `arguments` is optional (may be missing or empty string instead of valid JSON)
+ */
+type PossiblyBrokenToolCallFunction = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall.Function, 'arguments'> & {
+	arguments?: string;
+};
+
+/**
+ * Relaxed tool call type.
+ * - `function` uses the relaxed PossiblyBrokenToolCallFunction type
+ */
+type PossiblyBrokenToolCall = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall, 'function'> & {
+	function: PossiblyBrokenToolCallFunction;
+};
+
+/**
+ * Relaxed delta type.
+ * - `role` accepts empty string '' (some providers send `"role": ""` instead of `"assistant"`)
+ * - `tool_calls` uses relaxed PossiblyBrokenToolCall type
+ */
+type PossiblyBrokenDelta = Omit<OpenAI.ChatCompletionChunk.Choice.Delta, 'role' | 'tool_calls'> & {
+	role?: OpenAI.ChatCompletionChunk.Choice.Delta['role'] | '';
+	tool_calls?: Array<PossiblyBrokenToolCall>;
+};
+
+/**
+ * Relaxed ChatCompletionChunk type that uses PossiblyBrokenDelta for choices.
+ */
+type PossiblyBrokenChatCompletionChunk = Omit<OpenAI.ChatCompletionChunk, 'choices'> & {
+	choices: Array<Omit<OpenAI.ChatCompletionChunk.Choice, 'delta'> & {
+		delta: PossiblyBrokenDelta;
+	}>;
+};
+
 
 /**
  * Fixes a possibly broken ChatCompletionChunk by ensuring all required fields exist
@@ -28,109 +64,47 @@ export interface PossiblyBrokenChatCompletionChunk {
  * @param chunk The possibly broken chunk to fix
  * @returns A properly typed OpenAI.ChatCompletionChunk with all required fields populated
  */
-export function fixPossiblyBrokenChatCompletionChunk(chunk: PossiblyBrokenChatCompletionChunk, noArgTools: string[] = []): OpenAI.ChatCompletionChunk {
-	// Fix id - ensure it's a string
-	const id = typeof chunk.id === 'string' ? chunk.id : '';
+export function fixPossiblyBrokenChatCompletionChunk(
+	chunk: PossiblyBrokenChatCompletionChunk,
+	noArgTools: string[] = [],
+	providerName?: string): OpenAI.ChatCompletionChunk {
 
-	// Fix created - ensure it's a number
-	const created = typeof chunk.created === 'number' ? chunk.created : 0;
+	const choices: OpenAI.ChatCompletionChunk.Choice[] = chunk.choices.map((choice) => {
+		// Fix empty tool arguments: some providers return '' for no-parameter tools,
+		// but the AI SDK expects valid JSON '{}'
+		const fixedToolCalls = choice.delta.tool_calls?.map((toolCall) => {
+			const { name, arguments: args } = toolCall.function;
+			const isNoArgTool = name && noArgTools.includes(name);
+			const hasEmptyArgs = args === '';
 
-	// Fix model - ensure it's a string
-	const model = typeof chunk.model === 'string' ? chunk.model : '';
-
-	// Fix service_tier - ensure it's a valid service tier or undefined
-	const service_tier = (chunk.service_tier === 'scale' || chunk.service_tier === 'default' || chunk.service_tier === 'auto' || chunk.service_tier === 'flex')
-		? chunk.service_tier
-		: undefined;
-
-	// Fix system_fingerprint - ensure it's a string or undefined
-	const system_fingerprint = typeof chunk.system_fingerprint === 'string' ? chunk.system_fingerprint : undefined;
-
-	// Fix choices - ensure it's an array with proper structure
-	const choices: OpenAI.ChatCompletionChunk.Choice[] = [];
-	if (Array.isArray(chunk.choices)) {
-		for (const choice of chunk.choices) {
-			if (typeof choice === 'object' && choice !== null) {
-				const c = choice as Record<string, unknown>;
-				const delta = typeof c.delta === 'object' && c.delta !== null
-					? c.delta as Record<string, unknown>
-					: {};
-
-				// Fix empty role field - AI SDK expects 'assistant'
-				const fixedRole: 'assistant' | 'developer' | 'system' | 'user' | 'tool' =
-					(delta.role === '' || delta.role === undefined) ? 'assistant' :
-						(delta.role === 'assistant' || delta.role === 'developer' || delta.role === 'system' || delta.role === 'user' || delta.role === 'tool') ? delta.role :
-							'assistant';
-
-				// Build the delta
-				const fixedDelta: OpenAI.ChatCompletionChunk.Choice.Delta = {
-					content: typeof delta.content === 'string' ? delta.content : (delta.content === null ? null : undefined),
-					refusal: typeof delta.refusal === 'string' ? delta.refusal : (delta.refusal === null ? null : undefined),
-					role: fixedRole,
-				};
-
-				// Fix tool_calls if present
-				if (Array.isArray(delta.tool_calls)) {
-					fixedDelta.tool_calls = delta.tool_calls.map((tc: unknown): OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall => {
-						if (typeof tc === 'object' && tc !== null) {
-							const toolCall = tc as Record<string, unknown>;
-							const fn = typeof toolCall.function === 'object' && toolCall.function !== null
-								? toolCall.function as Record<string, unknown>
-								: undefined;
-
-							// Fix empty type field - AI SDK expects 'function'
-							const fixedType: 'function' | undefined = toolCall.type === '' ? 'function' : (toolCall.type === 'function' ? 'function' : undefined);
-
-							// Fix empty arguments - AI SDK's isParsableJson check will fail for empty strings
-							// Only fix if the tool is known to take no arguments, to avoid breaking streaming arguments
-							const toolName = fn?.name;
-							const isNoArgTool = typeof toolName === 'string' && noArgTools.includes(toolName);
-							const fixedArguments = fn && typeof fn.arguments === 'string'
-								? (fn.arguments === '' && isNoArgTool ? '{}' : fn.arguments)
-								: undefined;
-
-							return {
-								index: typeof toolCall.index === 'number' ? toolCall.index : 0,
-								id: typeof toolCall.id === 'string' ? toolCall.id : undefined,
-								type: fixedType,
-								function: fn ? {
-									name: typeof fn.name === 'string' ? fn.name : undefined,
-									arguments: fixedArguments,
-								} : undefined,
-							};
-						}
-						return { index: 0 };
-					});
-				}
-
-				// Fix finish_reason
-				const finishReason = c.finish_reason;
-				const validFinishReasons = ['stop', 'length', 'tool_calls', 'content_filter', 'function_call'];
-				const fixedFinishReason = (typeof finishReason === 'string' && validFinishReasons.includes(finishReason))
-					? finishReason as OpenAI.ChatCompletionChunk.Choice['finish_reason']
-					: null;
-
-				// Build the fixed choice
-				const fixedChoice: OpenAI.ChatCompletionChunk.Choice = {
-					index: typeof c.index === 'number' ? c.index : 0,
-					delta: fixedDelta,
-					finish_reason: fixedFinishReason,
-					logprobs: c.logprobs as OpenAI.ChatCompletionChunk.Choice['logprobs'],
-				};
-
-				choices.push(fixedChoice);
+			if (isNoArgTool && hasEmptyArgs) {
+				log.debug(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${name}`);
+				return { ...toolCall, function: { ...toolCall.function, arguments: '{}' } };
 			}
-		}
-	}
+			return toolCall;
+		});
+
+		return {
+			...choice,
+			delta: {
+				...choice.delta,
+				// Fix empty role: some providers return '' but AI SDK expects 'assistant'
+				role: choice.delta.role || 'assistant',
+				...(fixedToolCalls && { tool_calls: fixedToolCalls }),
+			},
+		};
+	});
+
+
 
 	return {
-		id,
+		id: chunk.id,
 		choices,
-		created,
-		model,
+		created: chunk.created,
+		model: chunk.model,
 		object: 'chat.completion.chunk',
-		service_tier,
-		system_fingerprint,
+		service_tier: chunk.service_tier,
+		system_fingerprint: chunk.system_fingerprint,
 		usage: chunk.usage as OpenAI.CompletionUsage | undefined,
 	};
 }
@@ -146,10 +120,16 @@ function isChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletio
 	return (
 		typeof obj === 'object' &&
 		obj !== null &&
-		Array.isArray((obj as OpenAI.ChatCompletionChunk).choices) &&
-		(obj as OpenAI.ChatCompletionChunk).object === 'chat.completion.chunk'
+		'id' in obj &&
+		'created' in obj &&
+		'model' in obj &&
+		'choices' in obj &&
+		Array.isArray(obj.choices) &&
+		'object' in obj &&
+		obj.object === 'chat.completion.chunk'
 	);
 }
+
 
 /**
  * Creates a custom fetch function for OpenAI-compatible providers that handles:
@@ -291,10 +271,10 @@ function transformServerSentEvents(text: string, providerName: string, noArgTool
 				// Check if it's a possibly broken chunk and fix it
 				// Otherwise, keep the original line
 				if (isChatCompletionChunk(data)) {
-					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data, noArgTools);
+					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data, noArgTools, providerName);
 					transformedLines.push(`data: ${JSON.stringify(fixedChunk)}`);
 				} else {
-					transformedLines.push(`data: ${JSON.stringify(data)}`);
+					transformedLines.push(line);
 				}
 
 			} catch (parseError) {
