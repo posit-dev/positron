@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { log } from './extension.js';
+import { DEFAULT_SELECTABLE_PATTERNS } from './constants.js';
 
 /**
  * Check if a model matches a user-defined filter pattern.
@@ -124,10 +125,8 @@ export function applyModelFilters(
 	}
 
 	// Stage 2: Apply soft filtering (Positron user selectable defaults)
-	const selectableDefaults = ['claude', 'gpt'];
-
 	filteredModels = filteredModels.map(model => {
-		const matches = selectableDefaults.some(pattern =>
+		const matches = DEFAULT_SELECTABLE_PATTERNS.some(pattern =>
 			matchesModelFilter(pattern, model.id, model.name)
 		);
 
