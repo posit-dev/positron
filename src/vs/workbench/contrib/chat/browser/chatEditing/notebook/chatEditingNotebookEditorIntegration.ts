@@ -430,9 +430,10 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 						return true;
 					}
 					// --- Start Positron ---
-					// For Positron notebooks, cellViewModel may be undefined
-					// Still update the index and try to reveal via cell editor integration
-					// TODO: Make adapter positron notebook cell classes to ICellViewModel so we don't need custom logic here.
+					// For Positron notebooks, cellViewModel is undefined
+					// because Positron uses IPositronNotebookCell rather than
+					// ICellViewModel. So handle this by finding the cell editor
+					// directly and revealing the range manually.
 					this.updateCurrentIndex(change, indexInCell);
 					// Find the cell editor integration if available
 					const cell = this.notebookModel.cells[change.modifiedCellIndex!];
@@ -440,12 +441,10 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 						const integration = this.cellEditorIntegrations.get(cell)?.integration;
 						if (integration && textChange) {
 							// Try to reveal in the editor directly
-							// --- Start Positron ---
 							// Use IChatEditingCellViewModel which is the narrower type for codeEditors
 							const editor = this.notebookEditor.codeEditors.find(([vm]: [IChatEditingCellViewModel, unknown]) => {
 								return vm.handle === cell.handle;
 							})?.[1];
-							// --- End Positron ---
 							if (editor && editor.hasModel()) {
 								const range = textChange.modified.toInclusiveRange();
 								if (range) {
