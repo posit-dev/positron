@@ -80,12 +80,10 @@ export const ListDriversDetails = (props: PropsWithChildren<ListDriversDetailsPr
 				>
 					<div className='driver-info'>
 						<div className='driver-description'>
-							<strong>
-								{driver.metadata.description ?? localize(
-									'positron.connections.newConnectionModalDialog.listDriversDetails.noDescription',
-									'No description available'
-								)}
-							</strong>
+							{driver.metadata.description ?? localize(
+								'positron.connections.newConnectionModalDialog.listDriversDetails.noDescription',
+								'No description available'
+							)}
 							{':'}
 						</div>
 						<div className='driver-inputs'>
