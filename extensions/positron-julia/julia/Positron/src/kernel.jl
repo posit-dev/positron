@@ -385,8 +385,16 @@ function _send_msg(comm::PositronComm, data::Any, metadata::Union{Dict,Nothing})
         return
     end
 
+    kernel_log_info("Sending comm message: $(comm.comm_id), target=$(comm.target_name), type=$(typeof(data))")
+
     # Convert to Dict (IJulia expects Dict, not JSON3.Object)
     json_str = JSON3.write(data)
+    # Log truncated message (avoid logging large plot data)
+    if length(json_str) > 500
+        kernel_log_info("Message JSON (truncated): $(first(json_str, 200))...$(last(json_str, 100)) ($(length(json_str)) bytes)")
+    else
+        kernel_log_info("Message JSON: $json_str")
+    end
     data_dict = JSON3.read(json_str, Dict{String,Any})
 
     # Get the IJulia kernel

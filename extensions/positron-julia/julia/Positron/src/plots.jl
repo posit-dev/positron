@@ -426,20 +426,26 @@ Handle render request for a specific plot.
 """
 function handle_render(plot::Plot, request::PlotRenderParams)
     if plot.comm === nothing
+        kernel_log_warn("Plot $(plot.id) render: comm is nothing")
         return
     end
 
     try
         # Extract format string
         format_str = string(request.format)
+        kernel_log_info("Plot $(plot.id) rendering: size=$(request.size), pixel_ratio=$(request.pixel_ratio), format=$format_str")
 
         # Render the plot
         data = plot.render_func(request.size, request.pixel_ratio, format_str)
         mime_type = get_mime_type(format_str)
 
+        kernel_log_info("Plot $(plot.id) rendered $(length(data)) bytes, mime=$mime_type")
+
         # Build result
         result = PlotResult(base64encode(data), mime_type, nothing)
+        kernel_log_info("Plot $(plot.id) sending result...")
         send_result(plot.comm, result)
+        kernel_log_info("Plot $(plot.id) result sent")
     catch e
         kernel_log_error("Failed to render plot $(plot.id): $(sprint(showerror, e, catch_backtrace()))")
         send_error(
@@ -455,15 +461,18 @@ Handle get_intrinsic_size request for a specific plot.
 """
 function handle_get_intrinsic_size(plot::Plot)
     if plot.comm === nothing
+        kernel_log_warn("Plot $(plot.id) get_intrinsic_size: comm is nothing")
         return
     end
 
     if plot.intrinsic_size !== nothing
         width, height = plot.intrinsic_size
         result = IntrinsicSize(width, height, PlotUnit_Inches, "Julia")
+        kernel_log_info("Plot $(plot.id) sending intrinsic size: $(width)x$(height)")
         send_result(plot.comm, result)
     else
         # Most Julia plots don't have intrinsic sizes
+        kernel_log_info("Plot $(plot.id) no intrinsic size, sending null")
         send_result(plot.comm, nothing)
     end
 end
