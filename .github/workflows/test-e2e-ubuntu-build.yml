@@ -82,6 +82,7 @@ jobs:
           echo "Cloning QA example content (always fresh)..."
           git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache
           COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
+          echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
           echo "Cloned QA content at commit: $COMMIT_SHA"
 
       - name: Create Build Artifact

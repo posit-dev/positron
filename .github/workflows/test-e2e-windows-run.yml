@@ -105,7 +105,7 @@ jobs:
     outputs:
       extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -144,7 +144,7 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/restore-build-caches-windows
+        uses: ./.github/actions/restore-build-caches-v2
 
       - name: Apply patches when cache hits
         if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
@@ -203,7 +203,7 @@ jobs:
 
       - name: Save caches
         if: ${{ inputs.save_cache && matrix.shard == 1 }}
-        uses: ./.github/actions/save-build-caches-windows
+        uses: ./.github/actions/save-build-caches-v2
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}

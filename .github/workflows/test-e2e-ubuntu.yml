@@ -168,7 +168,7 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/restore-build-caches
+        uses: ./.github/actions/restore-build-caches-v2
 
       - name: Install node dependencies
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'

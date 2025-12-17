@@ -43,7 +43,7 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/restore-build-caches
+        uses: ./.github/actions/restore-build-caches-v2
 
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
@@ -94,7 +94,7 @@ jobs:
 
       - name: Save caches
         if: ${{ inputs.save_cache }}
-        uses: ./.github/actions/save-build-caches
+        uses: ./.github/actions/save-build-caches-v2
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
