@@ -140,54 +140,55 @@ runs:
         echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
         echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    - name: Restore Playwright browsers cache
-      if: ${{ inputs.restore-playwright == 'true' }}
-      id: cache-playwright
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: ~\AppData\Local\ms-playwright
-        # Cache key tied directly to Playwright version for precision
-        # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update save-build-caches-windows/action.yml
-        key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-        restore-keys: |
-          playwright-v2-${{ runner.os }}-
+    # TEMPORARILY DISABLED: Playwright cache disabled for debugging
+    # - name: Restore Playwright browsers cache
+    #   if: ${{ inputs.restore-playwright == 'true' }}
+    #   id: cache-playwright
+    #   continue-on-error: true
+    #   uses: actions/cache/restore@v4
+    #   with:
+    #     path: ~\AppData\Local\ms-playwright
+    #     # Cache key tied directly to Playwright version for precision
+    #     # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update save-build-caches-windows/action.yml
+    #     key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+    #     restore-keys: |
+    #       playwright-v2-${{ runner.os }}-
 
-    - name: Verify Playwright cache
-      if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
-      id: verify-playwright
-      continue-on-error: true
-      shell: bash
-      run: |
-        echo "Verifying Playwright cache..."
-        # Convert Windows path to Unix path for bash
-        PLAYWRIGHT_DIR="$USERPROFILE/AppData/Local/ms-playwright"
+    # - name: Verify Playwright cache
+    #   if: ${{ inputs.restore-playwright == 'true' && steps.cache-playwright.outputs.cache-hit == 'true' }}
+    #   id: verify-playwright
+    #   continue-on-error: true
+    #   shell: bash
+    #   run: |
+    #     echo "Verifying Playwright cache..."
+    #     # Convert Windows path to Unix path for bash
+    #     PLAYWRIGHT_DIR="$USERPROFILE/AppData/Local/ms-playwright"
 
-        # Check 1: Playwright CLI works
-        if ! npx playwright --version > /dev/null 2>&1; then
-          echo "⚠️ Playwright binary not functional"
-          echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-          echo "Playwright CLI failed to run. Will reinstall." >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
+    #     # Check 1: Playwright CLI works
+    #     if ! npx playwright --version > /dev/null 2>&1; then
+    #       echo "⚠️ Playwright binary not functional"
+    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+    #       echo "Playwright CLI failed to run. Will reinstall." >> $GITHUB_STEP_SUMMARY
+    #       exit 1
+    #     fi
 
-        # Check 2: At least one browser binary exists
-        BROWSER_FOUND=false
-        for browser_dir in "$PLAYWRIGHT_DIR"/*; do
-          if [ -d "$browser_dir" ]; then
-            BROWSER_FOUND=true
-            break
-          fi
-        done
+    #     # Check 2: At least one browser binary exists
+    #     BROWSER_FOUND=false
+    #     for browser_dir in "$PLAYWRIGHT_DIR"/*; do
+    #       if [ -d "$browser_dir" ]; then
+    #         BROWSER_FOUND=true
+    #         break
+    #       fi
+    #     done
 
-        if [ "$BROWSER_FOUND" = false ]; then
-          echo "⚠️ No browser binaries found in cache"
-          echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
-          echo "No browser directories found. Will reinstall." >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
+    #     if [ "$BROWSER_FOUND" = false ]; then
+    #       echo "⚠️ No browser binaries found in cache"
+    #       echo "⚠️ Playwright Cache Verification Failed" >> $GITHUB_STEP_SUMMARY
+    #       echo "No browser directories found. Will reinstall." >> $GITHUB_STEP_SUMMARY
+    #       exit 1
+    #     fi
 
-        echo "✅ Playwright cache verified (CLI functional, browsers present)"
+    #     echo "✅ Playwright cache verified (CLI functional, browsers present)"
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -216,6 +217,19 @@ runs:
         key: ark-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
         restore-keys: |
           ark-${{ runner.os }}-${{ inputs.distro }}-
+
+    - name: Log Ark version (debugging)
+      if: ${{ inputs.restore-ark == 'true' && steps.cache-ark.outputs.cache-hit == 'true' }}
+      continue-on-error: true
+      shell: bash
+      run: |
+        if [ -f "extensions/positron-r/resources/ark/ark.exe" ]; then
+          echo "Ark binary found, checking version..."
+          ARK_VERSION=$(extensions/positron-r/resources/ark/ark.exe --version 2>&1 || echo "version check failed")
+          echo "Ark version: $ARK_VERSION"
+        else
+          echo "Ark binary not found at expected path"
+        fi
 
     - name: Restore Kallichore binary cache
       if: ${{ inputs.restore-kallichore == 'true' }}
@@ -265,24 +279,27 @@ runs:
           printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (disabled)"
         fi
 
-        # playwright
-        if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
-          HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
-          VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
-          if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
-            printf "%-16s %s\n" "playwright" "⚠️  hit (verification failed, will reinstall)"
-            echo "::warning::Playwright cache verification failed - will reinstall browsers"
-            ALL_HIT=false
-          elif [[ "$HIT" == "true" ]]; then
-            printf "%-16s %s\n" "playwright" "✅ hit"
-          else
-            printf "%-16s %s\n" "playwright" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "playwright" "⏭️  skipped (disabled)"
-        fi
+        # playwright (TEMPORARILY DISABLED)
+        printf "%-16s %s\n" "playwright" "🚫 disabled (debugging)"
+        ALL_HIT=false
+        ANY_MISS=true
+        # if [[ "${{ inputs.restore-playwright }}" == "true" ]]; then
+        #   HIT="${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
+        #   VERIFY="${{ steps['verify-playwright'].outcome || 'skipped' }}"
+        #   if [[ "$HIT" == "true" && "$VERIFY" == "failure" ]]; then
+        #     printf "%-16s %s\n" "playwright" "⚠️  hit (verification failed, will reinstall)"
+        #     echo "::warning::Playwright cache verification failed - will reinstall browsers"
+        #     ALL_HIT=false
+        #   elif [[ "$HIT" == "true" ]]; then
+        #     printf "%-16s %s\n" "playwright" "✅ hit"
+        #   else
+        #     printf "%-16s %s\n" "playwright" "❌ miss"
+        #     ALL_HIT=false
+        #     ANY_MISS=true
+        #   fi
+        # else
+        #   printf "%-16s %s\n" "playwright" "⏭️  skipped (disabled)"
+        # fi
 
         # builtins
         if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then

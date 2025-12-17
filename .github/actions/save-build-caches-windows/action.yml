@@ -96,15 +96,49 @@ runs:
         echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
         echo "Playwright version: $PLAYWRIGHT_VERSION"
 
-    - name: Save Playwright browsers cache
+    - name: Verify Playwright before saving
       if: ${{ inputs.cache-playwright-hit == 'false' }}
+      id: verify-playwright-save
       continue-on-error: true
-      uses: actions/cache/save@v4
-      with:
-        path: ~\AppData\Local\ms-playwright
-        # Cache key tied directly to Playwright version for precision
-        # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update restore-build-caches-windows/action.yml
-        key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      shell: bash
+      run: |
+        echo "Verifying Playwright installation before saving to cache..."
+
+        # Check 1: Playwright CLI works
+        if ! npx playwright --version > /dev/null 2>&1; then
+          echo "⚠️ Playwright CLI not functional - skipping cache save"
+          echo "verified=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Check 2: At least one browser binary exists (Windows path)
+        BROWSER_FOUND=false
+        for browser_dir in "$USERPROFILE/AppData/Local/ms-playwright"/*; do
+          if [ -d "$browser_dir" ]; then
+            BROWSER_FOUND=true
+            break
+          fi
+        done
+
+        if [ "$BROWSER_FOUND" = false ]; then
+          echo "⚠️ No Playwright browser directories found - skipping cache save"
+          echo "verified=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "✅ Playwright installation verified and functional"
+        echo "verified=true" >> $GITHUB_OUTPUT
+
+    # TEMPORARILY DISABLED: Playwright cache disabled for debugging
+    # - name: Save Playwright browsers cache
+    #   if: ${{ inputs.cache-playwright-hit == 'false' && steps.verify-playwright-save.outputs.verified == 'true' }}
+    #   continue-on-error: true
+    #   uses: actions/cache/save@v4
+    #   with:
+    #     path: ~\AppData\Local\ms-playwright
+    #     # Cache key tied directly to Playwright version for precision
+    #     # IMPORTANT: If bumping playwright-v2 -> playwright-v3, also update restore-build-caches-windows/action.yml
+    #     key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
@@ -191,15 +225,16 @@ runs:
           printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (not restored)"
         fi
 
-        # playwright
-        if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
-          printf "%-16s %s\n" "playwright" "💾 saved"
-          ANY_SAVED=true
-        elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "playwright" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "playwright" "⏭️  skipped (not restored)"
-        fi
+        # playwright (TEMPORARILY DISABLED)
+        printf "%-16s %s\n" "playwright" "🚫 disabled (debugging)"
+        # if [[ "${{ inputs.cache-playwright-hit }}" == "false" ]]; then
+        #   printf "%-16s %s\n" "playwright" "💾 saved"
+        #   ANY_SAVED=true
+        # elif [[ "${{ inputs.cache-playwright-hit }}" == "true" ]]; then
+        #   printf "%-16s %s\n" "playwright" "✅ skipped (already cached)"
+        # else
+        #   printf "%-16s %s\n" "playwright" "⏭️  skipped (not restored)"
+        # fi
 
         # builtins
         if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then
