@@ -50,8 +50,13 @@ def _sqlalchemy():
 
     return sqlalchemy
 
+def _pyodbc():
+    import pyodbc
 
-__all__ = ["_ibis", "_numpy", "_pandas", "_polars", "_pyarrow", "_sqlalchemy", "_torch"]
+    return pyodbc
+
+
+__all__ = ["_ibis", "_numpy", "_pandas", "_polars", "_pyarrow", "_pyodbc", "_sqlalchemy", "_torch"]
 
 
 def is_pandas(table):
