@@ -258,15 +258,6 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Restore caches
-        id: restore-caches
-        uses: ./.github/actions/restore-build-caches
-        with:
-          restore-npm: false       # Skip - already in artifact
-          restore-electron: false  # Skip - already in artifact
-          restore-builtins: false  # Skip - already in artifact
-          restore-playwright: true # Need this for running tests
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 

@@ -1,7 +1,35 @@
 #!/bin/bash
 set -e
 
-# Check for postinstall artifacts that aren't in our caches
+# Validate npm cache coverage by detecting uncached postinstall artifacts
+#
+# WHY THIS EXISTS:
+# npm install runs postinstall scripts that download/build artifacts (Ark, Kallichore, Python
+# libs, etc.). We cache these artifacts to speed up CI. If a postinstall creates artifacts that
+# aren't in our cache paths, they'll be missing when the cache hits on the next run, causing
+# mysterious test failures.
+#
+# HOW IT WORKS:
+# 1. Before npm install: Capture file tree snapshot (excludes node_modules/)
+# 2. After npm install: Capture file tree snapshot
+# 3. This script: Diff the snapshots to find files added by postinstall
+# 4. Verify: Check if added files are in our cached paths or can be safely ignored
+#
+# CACHE ARCHITECTURE:
+# - npm-core: Core dependencies (root, build/, remote/, test/{integration,monaco,mcp})
+# - npm-extensions: Extension dependencies (extensions/**/node_modules)
+# - Separate binary caches: Ark (positron-r), Kallichore (positron-supervisor)
+# - Also cached: Python vendored libs (positron-python), assistant resources, etc.
+#
+# WHAT TO DO IF THIS FAILS:
+# If uncached artifacts are detected, update the cache paths in:
+# - .github/actions/restore-build-caches/action.yml (Linux)
+# - .github/actions/restore-build-caches-windows/action.yml (Windows)
+# - .github/actions/save-build-caches/action.yml (Linux)
+# - .github/actions/save-build-caches-windows/action.yml (Windows)
+#
+# Or if the artifacts are non-critical (tests pass without them), add to IGNORE_PATTERNS below.
+#
 # Usage: check-uncached-artifacts.sh <before-file> <after-file>
 
 BEFORE_FILE="$1"

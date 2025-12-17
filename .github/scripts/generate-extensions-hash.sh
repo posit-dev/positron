@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-# Generate a hash of all extension + .vscode package.json files
-# Use package.json instead of package-lock.json because lock files get modified during npm install
-# Exclude git submodules from file hash as they can cause non-deterministic hashes
-# For submodules, include the commit SHAs directly in the hash for deterministic cache invalidation
-# Note: Tried using hashFiles() with glob patterns, but it didn't work as expected so building own hash
+# Generate a deterministic hash for npm-extensions cache invalidation
+#
+# PURPOSE:
+# Creates a composite hash that invalidates the npm-extensions cache when:
+# 1. Extension dependencies change (package.json files)
+# 2. Extension source code changes (git tree hash)
+# 3. Git submodule commits change (e.g., positron-python vendored dependencies)
+#
+# WHY THREE COMPONENTS:
+# - package.json hash: Detects when dependencies are added/removed/updated
+# - git tree hash: Detects when extension source code changes (forces recompilation)
+# - submodule SHAs: Detects when vendored dependencies (submodules) are updated
+#
+# WHY NOT package-lock.json:
+# Lock files are modified during npm install (postinstall updates), making them unsuitable
+# for cache keys. We use package.json which is stable across npm install runs.
+#
+# WHY EXCLUDE SUBMODULE FILES:
+# Submodule files can cause non-deterministic hashes (depends on whether submodules are
+# initialized). Instead, we hash the commit SHAs that submodules are pinned to.
+#
+# OUTPUT:
+# Writes "hash=<sha256>" to $GITHUB_OUTPUT for use as npm-extensions cache key
 
 set -euo pipefail
 

@@ -45,8 +45,6 @@ jobs:
           install-playwright: 'true'
           github-token: ${{ github.token }}
 
-      # Note: Manual/nightly workflows only restore caches - PRs and merges handle cache saving
-
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:

@@ -1,13 +1,5 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
-# Cache Save Strategy:
-# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
-# try to save the same cache key simultaneously. Only ONE job per calling workflow should
-# set save_cache: true. Examples:
-# - test-merge.yml: unit-tests saves, setup does not
-# - test-full-suite.yml: setup saves (default true), all others do not
-# - test-cross-browser.yml: setup saves (default true), all others do not
-
 on:
  workflow_call: {}
 
