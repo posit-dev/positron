@@ -101,8 +101,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * The DOM element that contributions (such as the find widget) can render into.
 	 * This container is a sibling to the main notebook content and inherits the notebook's
 	 * scoped context keys, allowing contributions to access notebook-specific context.
+	 * Hidden when switching notebooks to prevent stale widgets from showing.
 	 */
-	readonly contributionsContainer: HTMLElement | undefined;
+	readonly overlayContainer: HTMLElement | undefined;
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.

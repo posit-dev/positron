@@ -75,12 +75,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	private _notebookContainer: HTMLElement | undefined;
 
 	/**
-	 * Container for contributions (like find widget) to render into,
+	 * Overlay container for contributions (like find widget) to render into,
 	 * allowing them to maintain their own separate React roots.
 	 * Sibling to _notebookContainer, child of _editorContainer.
 	 * Inherits scoped context keys from _editorContainer.
+	 * Hidden when switching notebooks to prevent stale widgets from showing.
 	 */
-	private _contributionsContainer: HTMLElement | undefined;
+	private _overlayContainer: HTMLElement | undefined;
 
 	/**
 	 * A disposable store for disposables attached to the editor instance.
@@ -227,9 +228,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		this._notebookContainer = DOM.$('.positron-notebook-container');
 		this._editorContainer.appendChild(this._notebookContainer);
 
-		// Create the contributions container for widgets (find, etc)
-		this._contributionsContainer = DOM.$('.positron-notebook-contributions');
-		this._editorContainer.appendChild(this._contributionsContainer);
+		// Create the overlay container for widgets (find, etc)
+		this._overlayContainer = DOM.$('.positron-notebook-overlay-container');
+		this._editorContainer.appendChild(this._overlayContainer);
 
 		// Create a scoped context key service rooted at the editor container so contributions inherit it.
 		this._containerScopedContextKeyService = this._register(this.contextKeyService.createScoped(this._editorContainer));
@@ -309,7 +310,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		const scopedContextKeyService = this._renderReact();
 
-		notebookInstance.attachView(this._notebookContainer!, scopedContextKeyService, this._contributionsContainer!);
+		notebookInstance.attachView(this._notebookContainer!, scopedContextKeyService, this._overlayContainer!);
 	}
 
 	/**
@@ -392,8 +393,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Notebook container is not set.');
 		}
 
-		if (!this._contributionsContainer) {
-			throw new Error('Contributions container is not set.');
+		if (!this._overlayContainer) {
+			throw new Error('Overlay container is not set.');
 		}
 
 		const scopedContextKeyService = this._containerScopedContextKeyService;

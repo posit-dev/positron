@@ -93,8 +93,8 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 	 */
 	private getOrCreateFindInstance(): PositronFindInstance {
 		if (!this._findInstance) {
-			if (!this._notebook.contributionsContainer) {
-				throw new Error('Notebook contributions container not available for Find Widget rendering');
+			if (!this._notebook.overlayContainer) {
+				throw new Error('Notebook overlay container not available for Find Widget rendering');
 			}
 			if (!this._notebook.scopedContextKeyService) {
 				throw new Error('Scoped context key service not available for Find Widget');
@@ -107,7 +107,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			// Create the find instance
 			const findWidgetSearchHistory = FindWidgetSearchHistory.getOrCreate(this._storageService);
 			const findInstance = this._register(new PositronFindInstance({
-				container: this._notebook.contributionsContainer,
+				container: this._notebook.overlayContainer,
 				findInputOptions: {
 					label: localize('positronNotebook.find.label', "Find"),
 					placeholder: localize('positronNotebook.find.placeholder', "Find"),
