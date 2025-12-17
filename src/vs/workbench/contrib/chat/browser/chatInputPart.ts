@@ -649,14 +649,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// We'd need to persist the last used model per provider in storage or in memory, and then look that up here.
 		// See https://github.com/posit-dev/positron/issues/9829 for more details.
 
-		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
+		const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.globalPreference');
 
 		// Try to get the preferred model from the configuration
-		if (config.preferredModel) {
+		if (globalPreference) {
 			const preferredModel = models.find(m =>
-				m.identifier === config.preferredModel ||
-				m.metadata.id.includes(config.preferredModel) ||
-				m.metadata.name.includes(config.preferredModel)
+				m.identifier === globalPreference ||
+				m.metadata.id.includes(globalPreference) ||
+				m.metadata.name.includes(globalPreference)
 			);
 			if (preferredModel) {
 				this.logService.debug(`ChatInputPart#determineSelectedModel: Using preferred model from config: ${JSON.stringify(preferredModel, null, 2)}`);
@@ -682,9 +682,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// Allow user to override application persisted model with config setting
 		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
 		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
-		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
-		if (config.preferredModel) {
-			persistedSelection = config.preferredModel;
+		const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.globalPreference');
+		if (globalPreference) {
+			persistedSelection = globalPreference;
 			persistedAsDefault = false;
 		}
 		// --- End Positron ---

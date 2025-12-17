@@ -533,8 +533,8 @@ export class LanguageModelsService implements ILanguageModelsService {
 			if (e.affectsConfiguration('positron.assistant.filterModels')) {
 				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
-			} else if (e.affectsConfiguration('positron.assistant.configuredModels')) {
-				this._logService.trace('[LM] Configured models configuration changed, re-resolving language models');
+			} else if (e.affectsConfiguration('positron.assistant.models.custom')) {
+				this._logService.trace('[LM] Custom models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
 			}
 		}));

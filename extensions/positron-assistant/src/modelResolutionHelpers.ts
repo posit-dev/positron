@@ -51,10 +51,10 @@ export function isDefaultUserModel(
 ): boolean {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	// Support both new and legacy configuration key names for backwards compatibility
-	const providerModelPreferences = config.get<Record<string, string>>('providerModelPreferences') ?? config.get<Record<string, string>>('defaultModels');
+	const providerPreferences = config.get<Record<string, string>>('models.providerPreferences') ?? config.get<Record<string, string>>('providerModelPreferences') ?? config.get<Record<string, string>>('defaultModels');
 
 	// Check user-configured default for this provider
-	const userDefault = providerModelPreferences[provider];
+	const userDefault = providerPreferences[provider];
 	if (userDefault) {
 		if (id.includes(userDefault) || name?.includes(userDefault)) {
 			return true;

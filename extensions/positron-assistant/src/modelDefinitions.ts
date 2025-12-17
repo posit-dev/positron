@@ -19,7 +19,7 @@ export interface ModelDefinition {
  */
 export function getConfiguredModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const configuredModels = config.get<Record<string, ModelDefinition[]>>('configuredModels', {});
+	const configuredModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
 	return configuredModels[providerId] || [];
 }
 
@@ -28,7 +28,7 @@ export function getConfiguredModels(providerId: string): ModelDefinition[] {
  */
 export async function verifyProvidersInConfiguredModels() {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const configuredModels = config.get<Record<string, ModelDefinition[]>>('configuredModels', {});
+	const configuredModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
 	const enabledProviders = await getEnabledProviders();
 
 	const invalidProviders = Object.keys(configuredModels)
@@ -38,12 +38,12 @@ export async function verifyProvidersInConfiguredModels() {
 		return;
 	}
 
-	const message = vscode.l10n.t('Configured models contain unsupported providers: {0}. Please review your configuration for \'positron.assistant.configuredModels\'', invalidProviders.map(p => `'${p}'`).join(', '));
+	const message = vscode.l10n.t('Custom models contain unsupported providers: {0}. Please review your configuration for \'positron.assistant.models.custom\'', invalidProviders.map(p => `'${p}'`).join(', '));
 	log.warn(message);
 	const settingsAction = vscode.l10n.t('Open Settings');
 	const selectedAction = await vscode.window.showWarningMessage(message, settingsAction);
 	if (selectedAction === settingsAction) {
-		await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.configuredModels');
+		await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.models.custom');
 	}
 }
 

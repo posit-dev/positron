@@ -335,33 +335,10 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.models.visible": {
-            "type": "array",
-            "default": [
-              "claude",
-              "gpt"
-            ],
-            "markdownDescription": "%configuration.models.visible.description%",
-            "items": {
-              "type": "string"
-            },
-            "examples": [
-              [
-                "sonnet"
-              ],
-              [
-                "Claude*",
-                "GPT-5"
-              ],
-              [
-                "**/google/gemini*"
-              ]
-            ]
-          },
-          "positron.assistant.models.required": {
+          "positron.assistant.models.include": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.required.description%",
+            "markdownDescription": "%configuration.models.include.description%",
             "items": {
               "type": "string"
             },
@@ -376,32 +353,32 @@
               ]
             ]
           },
-          "positron.assistant.globalPreferredModel": {
+          "positron.assistant.models.globalPreference": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.globalPreferredModel.description%",
+            "markdownDescription": "%configuration.models.globalPreference.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
             ]
           },
-          "positron.assistant.providerModelPreferences": {
+          "positron.assistant.models.providerPreferences": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.providerModelPreferences.description%",
+            "markdownDescription": "%configuration.models.providerPreferences.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
             ]
           },
-          "positron.assistant.configuredModels": {
+          "positron.assistant.models.custom": {
             "type": "object",
             "default": {},
-            "markdownDescription": "%configuration.configuredModels.description%",
+            "markdownDescription": "%configuration.models.custom.description%",
             "additionalProperties": {
               "type": "array",
               "items": {

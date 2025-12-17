@@ -31,7 +31,7 @@ suite('Model Definitions', () => {
 					identifier: 'user-claude'
 				}
 			];
-			mockWorkspaceConfig.withArgs('configuredModels', {}).returns({
+			mockWorkspaceConfig.withArgs('models.custom', {}).returns({
 				'anthropic-api': userModels
 			});
 
@@ -43,14 +43,14 @@ suite('Model Definitions', () => {
 		});
 
 		test('returns empty array for unknown provider', () => {
-			mockWorkspaceConfig.withArgs('configuredModels', {}).returns({});
+			mockWorkspaceConfig.withArgs('models.custom', {}).returns({});
 
 			const result = getAllModelDefinitions('unknown-provider');
 
 			assert.deepStrictEqual(result, []);
 		});
 
-		test('show a warning if configured models include unsupported providers', async () => {
+		test('show a warning if custom models include unsupported providers', async () => {
 			const userModels = {
 				'unsupported-provider': [
 					{
@@ -59,7 +59,7 @@ suite('Model Definitions', () => {
 					}
 				]
 			};
-			mockWorkspaceConfig.withArgs('configuredModels', {}).returns(userModels);
+			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
 
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
@@ -72,7 +72,7 @@ suite('Model Definitions', () => {
 			assert.ok(warningMessage.includes('unsupported-provider'));
 		});
 
-		test('does not show a warning if all configured providers are supported', async () => {
+		test('does not show a warning if all custom model providers are supported', async () => {
 			const userModels = {
 				'anthropic-api': [
 					{
@@ -81,7 +81,7 @@ suite('Model Definitions', () => {
 					}
 				]
 			};
-			mockWorkspaceConfig.withArgs('configuredModels', {}).returns(userModels);
+			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
 			// Call the function that verifies providers
