@@ -82,11 +82,14 @@ runs:
         path: |
           extensions/**/node_modules
           .vscode/**/node_modules
+          extensions/positron-assistant/resources
+          extensions/positron-python/python-env-tools
+          extensions/positron-python/python_files/lib
         # Extensions hash comes from restore step (DRY - single source of truth)
-        # Only cache node_modules, not compiled outputs (out/) or downloaded binaries (resources/)
-        # Extensions are recompiled during the "Compile Positron" step
-        # IMPORTANT: If bumping npm-extensions-v4 -> npm-extensions-v5, also update restore-build-caches-windows/action.yml
-        key: npm-extensions-v4-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
+        # Cache includes node_modules AND postinstall artifacts (binaries, Python libs)
+        # Does NOT cache compiled outputs (out/) - extensions are recompiled during the "Compile Positron" step
+        # IMPORTANT: If bumping npm-extensions-v5 -> npm-extensions-v6, also update restore-build-caches-windows/action.yml
+        key: npm-extensions-v5-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Extract Playwright version
       if: ${{ inputs.cache-playwright-hit == 'false' }}

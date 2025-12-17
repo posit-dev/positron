@@ -60,54 +60,6 @@ jobs:
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
 
-      - name: Debug - Capture file state after cache restore
-        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true' && steps.verify-npm-cache.outputs.verification != 'failed'
-        run: |
-          echo "📋 Capturing file state after cache restore..."
-
-          # Show cache restore outputs
-          echo "=== Cache Restore Status ==="
-          echo "npm-core hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}"
-          echo "npm-extensions hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}"
-
-          # List ALL extension node_modules directories that exist
-          echo ""
-          echo "=== ALL extension node_modules directories ==="
-          find extensions -maxdepth 2 -type d -name "node_modules" | sort || echo "None found"
-
-          # Count how many extension node_modules we found
-          echo ""
-          echo "=== Count of extension node_modules ==="
-          find extensions -maxdepth 2 -type d -name "node_modules" | wc -l
-
-          # Check size of a few key extension node_modules
-          echo ""
-          echo "=== Size of key extension node_modules ==="
-          du -sh extensions/vscode-api-tests/node_modules 2>/dev/null || echo "vscode-api-tests/node_modules: NOT FOUND"
-          du -sh extensions/positron-supervisor/node_modules 2>/dev/null || echo "positron-supervisor/node_modules: NOT FOUND"
-          du -sh extensions/positron-python/node_modules 2>/dev/null || echo "positron-python/node_modules: NOT FOUND"
-          du -sh extensions/positron-r/node_modules 2>/dev/null || echo "positron-r/node_modules: NOT FOUND"
-
-          # Check if node_modules directories are empty or have content
-          echo ""
-          echo "=== Sample content from vscode-api-tests/node_modules ==="
-          ls extensions/vscode-api-tests/node_modules/ 2>/dev/null | head -10 || echo "Directory not found or empty"
-
-          # Check for out/ directories (should NOT exist after cache restore)
-          echo ""
-          echo "=== out/ directories (should be empty after restore) ==="
-          find extensions -maxdepth 2 -type d -name "out" | wc -l
-
-          # Detailed check of vscode-api-tests
-          echo ""
-          echo "=== extensions/vscode-api-tests directory listing ==="
-          ls -la extensions/vscode-api-tests/ || echo "Directory not found"
-
-          # Check for specific test files (source, not compiled)
-          echo ""
-          echo "=== Looking for runtime.test.ts source ==="
-          find extensions/vscode-api-tests/src -name "*runtime.test*" || echo "Not found"
-
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps
 
@@ -162,83 +114,66 @@ jobs:
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
 
-      - name: Debug - Capture file tree AFTER npm install
+      - name: Check for uncached postinstall artifacts
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
         run: |
-          echo "📋 Capturing file tree AFTER npm install..."
+          echo "🔍 Checking for uncached postinstall artifacts..."
 
-          # Capture complete file tree (excluding node_modules contents for brevity)
+          # Capture complete file tree (excluding node_modules contents)
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
 
-          # Compare before and after
-          echo "=== Files ADDED by npm install (count) ==="
-          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | wc -l
+          # Find files added by npm install
+          ADDED_FILES=$(comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | grep -v "\.npm-cache" | grep -v "node_modules")
 
-          echo ""
-          echo "=== Files REMOVED by npm install (count) ==="
-          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | wc -l
+          # Filter for files in known cached locations
+          CACHED_PATTERNS=(
+            "extensions/positron-r/resources/ark"
+            "extensions/positron-supervisor/resources/kallichore"
+            "extensions/positron-assistant/resources"
+            "extensions/positron-python/python-env-tools"
+            "extensions/positron-python/python_files/lib"
+          )
 
-          echo ""
-          echo "=== Files ADDED (excluding npm cache and node_modules) ==="
-          comm -13 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | grep -v "\.npm-cache" | grep -v "node_modules" | head -100
+          # Find files NOT in any cached location
+          UNCACHED_FILES=""
+          while IFS= read -r file; do
+            IS_CACHED=false
+            for pattern in "${CACHED_PATTERNS[@]}"; do
+              if [[ "$file" == *"$pattern"* ]]; then
+                IS_CACHED=true
+                break
+              fi
+            done
+            if [[ "$IS_CACHED" == false ]]; then
+              UNCACHED_FILES="$UNCACHED_FILES$file\n"
+            fi
+          done <<< "$ADDED_FILES"
 
-          echo ""
-          echo "=== Files REMOVED (excluding npm cache and node_modules) ==="
-          comm -23 /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt | grep -v "\.npm-cache" | grep -v "node_modules" | head -100
+          # Report results
+          TOTAL_ADDED=$(echo "$ADDED_FILES" | wc -l)
+          UNCACHED_COUNT=$(echo -e "$UNCACHED_FILES" | grep -v '^$' | wc -l)
 
-          # Check key binaries and symlinks again
-          echo ""
-          echo "=== Kallichore binary (after) ==="
-          ls -lh extensions/positron-supervisor/resources/kallichore/ 2>/dev/null || echo "Directory not found"
+          echo "Total files added by npm install: $TOTAL_ADDED"
+          echo "Files in cached locations: $((TOTAL_ADDED - UNCACHED_COUNT))"
+          echo "⚠️  Files in UNCACHED locations: $UNCACHED_COUNT"
 
-          echo ""
-          echo "=== Ark binary (after) ==="
-          ls -lh extensions/positron-r/resources/ark/ 2>/dev/null || echo "Directory not found"
-
-          echo ""
-          echo "=== Sample node_modules/.bin symlinks (after) ==="
-          ls -lh node_modules/.bin/ | head -20 || echo "Directory not found"
-
-          echo ""
-          echo "=== extensions/positron-supervisor/node_modules/.bin (after) ==="
-          ls -lh extensions/positron-supervisor/node_modules/.bin/ 2>/dev/null | head -10 || echo "Directory not found"
+          if [[ $UNCACHED_COUNT -gt 0 ]]; then
+            echo ""
+            echo "🚨 WARNING: npm install created files outside cached paths!"
+            echo "These files will be missing when caches hit, causing test failures."
+            echo ""
+            echo "Uncached files (first 50):"
+            echo -e "$UNCACHED_FILES" | grep -v '^$' | head -50
+            echo ""
+            echo "⚠️ Uncached Postinstall Artifacts Detected" >> $GITHUB_STEP_SUMMARY
+            echo "npm install created $UNCACHED_COUNT files outside cached paths." >> $GITHUB_STEP_SUMMARY
+            echo "Update cache paths in .github/actions/*-build-caches*/action.yml" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All postinstall artifacts are in cached locations"
+          fi
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
-
-      - name: Debug - Capture file state after compilation
-        run: |
-          echo "📋 Capturing file state after compilation..."
-
-          # Count all out/ directories
-          echo "=== Count of extension out/ directories ==="
-          find extensions -maxdepth 2 -type d -name "out" | wc -l
-
-          # List all out/ directories
-          echo ""
-          echo "=== All extension out/ directories ==="
-          find extensions -maxdepth 2 -type d -name "out" | sort | head -30 || echo "None found"
-
-          # Check size of key out/ directories
-          echo ""
-          echo "=== Size of key extension out/ directories ==="
-          du -sh extensions/vscode-api-tests/out 2>/dev/null || echo "vscode-api-tests/out: NOT FOUND"
-          du -sh extensions/positron-supervisor/out 2>/dev/null || echo "positron-supervisor/out: NOT FOUND"
-          du -sh extensions/positron-python/out 2>/dev/null || echo "positron-python/out: NOT FOUND"
-
-          # Check for compiled runtime tests
-          echo ""
-          echo "=== Looking for compiled runtime.test.js ==="
-          find extensions/vscode-api-tests/out -name "*runtime.test*" 2>/dev/null || echo "Not found"
-
-          # Sample content from key out/ directories
-          echo ""
-          echo "=== Sample content from vscode-api-tests/out ==="
-          ls extensions/vscode-api-tests/out/ 2>/dev/null | head -10 || echo "Directory not found"
-
-          echo ""
-          echo "=== Sample content from positron-supervisor/out ==="
-          ls extensions/positron-supervisor/out/ 2>/dev/null | head -10 || echo "Directory not found"
 
       - name: Install Playwright browsers and system dependencies
         if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' || steps.restore-caches.outputs.verify-playwright-outcome == 'failure' }}
