@@ -70,5 +70,8 @@ if [ -z "$EXTENSIONS_HASH" ]; then
 	exit 1
 fi
 
-echo "hash=$EXTENSIONS_HASH" >> "$GITHUB_OUTPUT"
+# Output to GITHUB_OUTPUT (if running in CI) or stdout (if running locally)
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+	echo "hash=$EXTENSIONS_HASH" >> "$GITHUB_OUTPUT"
+fi
 echo "Generated extensions hash: $EXTENSIONS_HASH (files: $FILES_HASH, git-tree: $GIT_TREE_HASH, submodules: ${SUBMODULE_SHAS:-none})"

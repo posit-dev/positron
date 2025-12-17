@@ -77,71 +77,12 @@ jobs:
           mv /positron-license /__w/positron || true
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
-      - name: Check remote QA content version
-        id: qa-remote-check
-        continue-on-error: true
-        run: |
-          echo "Checking latest commit in qa-example-content..."
-          REMOTE_SHA=$(git ls-remote https://github.com/posit-dev/qa-example-content.git HEAD | awk '{print $1}')
-          echo "remote-sha=$REMOTE_SHA" >> "$GITHUB_OUTPUT"
-          echo "Latest qa-example-content commit: $REMOTE_SHA"
-
-      - name: Restore QA example content cache
-        id: cache-qa-content
-        uses: actions/cache/restore@v4
-        with:
-          path: /tmp/qa-example-content-cache
-          # Cache key based on remote commit SHA for accurate freshness
-          # Falls back to any previous cache if remote check failed
-          key: qa-content-${{ steps.qa-remote-check.outputs.remote-sha }}-v1
-          restore-keys: |
-            qa-content-
-
-      - name: Verify cached content freshness
-        id: verify-cache
-        if: steps.cache-qa-content.outputs.cache-hit == 'true'
-        continue-on-error: true
-        run: |
-          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
-            CACHED_SHA=$(cat /tmp/qa-example-content-cache/.cached-commit)
-            REMOTE_SHA="${{ steps.qa-remote-check.outputs.remote-sha }}"
-            echo "Cached commit: $CACHED_SHA"
-            echo "Remote commit: $REMOTE_SHA"
-            if [ "$CACHED_SHA" != "$REMOTE_SHA" ]; then
-              echo "Cache is stale - will re-clone"
-              echo "cache-is-fresh=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            else
-              echo "Cache is fresh"
-              echo "cache-is-fresh=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "No .cached-commit file found - will re-clone"
-            echo "cache-is-fresh=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Clone QA example content
-        if: |
-          steps.cache-qa-content.outputs.cache-hit != 'true' ||
-          steps.verify-cache.outputs.cache-is-fresh == 'false'
         run: |
-          echo "Cloning fresh QA example content..."
-          rm -rf /tmp/qa-example-content-cache || true
-          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache || true
-          if [ -d /tmp/qa-example-content-cache ]; then
-            COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
-            echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
-            echo "Cloned QA content at commit: $COMMIT_SHA"
-          fi
-
-      - name: Save QA example content cache
-        if: |
-          steps.cache-qa-content.outputs.cache-hit != 'true' ||
-          steps.verify-cache.outputs.cache-is-fresh == 'false'
-        uses: actions/cache/save@v4
-        with:
-          path: /tmp/qa-example-content-cache
-          key: qa-content-${{ steps.qa-remote-check.outputs.remote-sha }}-v1
+          echo "Cloning QA example content (always fresh)..."
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache
+          COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
+          echo "Cloned QA content at commit: $COMMIT_SHA"
 
       - name: Create Build Artifact
         run: |

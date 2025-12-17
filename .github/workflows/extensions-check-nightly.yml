@@ -37,8 +37,6 @@ jobs:
           install-playwright: 'true'
           github-token: ${{ github.token }}
 
-      # Note: Nightly workflow only restores caches - PRs and merges handle cache saving
-
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb
 

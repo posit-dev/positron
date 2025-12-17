@@ -1,6 +1,14 @@
 name: "Restore Build Caches (Windows)"
 description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions on Windows."
 
+# IMPORTANT: Cache paths must be kept in sync across 4 files:
+# - .github/actions/restore-build-caches/action.yml (Linux)
+# - .github/actions/save-build-caches/action.yml (Linux)
+# - .github/actions/restore-build-caches-windows/action.yml (this file - Windows)
+# - .github/actions/save-build-caches-windows/action.yml (Windows)
+#
+# When adding/modifying cache paths, update ALL 4 files to maintain restore/save parity.
+
 inputs:
   distro:
     description: "Distribution identifier for cache key (default: windows). Not typically changed for Windows."

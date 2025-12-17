@@ -1,6 +1,14 @@
 name: "Restore Build Caches"
 description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions."
 
+# IMPORTANT: Cache paths must be kept in sync across 4 files:
+# - .github/actions/restore-build-caches/action.yml (this file - Linux)
+# - .github/actions/save-build-caches/action.yml (Linux)
+# - .github/actions/restore-build-caches-windows/action.yml (Windows)
+# - .github/actions/save-build-caches-windows/action.yml (Windows)
+#
+# When adding/modifying cache paths, update ALL 4 files to maintain restore/save parity.
+
 inputs:
   distro:
     description: "Linux distribution identifier for cache key (default: ubuntu). Use 'rhel' for RHEL/Rocky Linux."
