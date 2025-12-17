@@ -50,6 +50,7 @@ def _sqlalchemy():
 
     return sqlalchemy
 
+
 def _pyodbc():
     import pyodbc
 

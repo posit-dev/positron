@@ -1268,7 +1268,7 @@ class SQLServerConnectionInspector(BaseConnectionInspector):
             # check this is a SQL Server connection
             try:
                 dbms_name = value.getinfo(_pyodbc().SQL_DBMS_NAME).upper()
-                if all(x not in dbms_name for x in ("SQL SERVER","AZURE SQL")):
+                if all(x not in dbms_name for x in ("SQL SERVER", "AZURE SQL")):
                     return False
             except Exception:
                 # unable to get the driver name or pyodbc not installed
