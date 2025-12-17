@@ -24,6 +24,8 @@ import { IContextViewService } from '../../../../../../platform/contextview/brow
 import { CellEditorPosition } from '../../../common/editor/position.js';
 import { showHistoryKeybindingHint } from '../../../../../../platform/history/browser/historyWidgetKeybindingHint.js';
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
+import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
+import { FindWidgetSearchHistory } from '../../../../../../editor/contrib/find/browser/findWidgetSearchHistory.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -68,6 +70,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILogService private readonly _logService: ILogService,
+		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 
@@ -102,6 +105,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			const findInputFocused = CONTEXT_FIND_INPUT_FOCUSED.bindTo(this._notebook.scopedContextKeyService);
 
 			// Create the find instance
+			const findWidgetSearchHistory = FindWidgetSearchHistory.getOrCreate(this._storageService);
 			const findInstance = this._register(new PositronFindInstance({
 				container: this._notebook.contributionsContainer,
 				findInputOptions: {
@@ -111,6 +115,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 					inputBoxStyles: defaultInputBoxStyles,
 					toggleStyles: defaultToggleStyles,
 					showHistoryHint: () => showHistoryKeybindingHint(this._keybindingService),
+					history: findWidgetSearchHistory,
 				},
 				contextKeyService: this._notebook.scopedContextKeyService,
 				contextViewService: this._contextViewService,
