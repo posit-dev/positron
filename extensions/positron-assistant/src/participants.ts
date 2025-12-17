@@ -11,7 +11,7 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
-import { ContextInfo, PositronAssistantToolName, NotebookCellEditProposal, NotebookCellEditType, NotebookCellEditOperation } from './types.js';
+import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -21,7 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
-import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
+import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage, handleNotebookEditProposal } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -719,27 +719,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 				log.debug(`[tool] Tool ${req.name} returned result: ${JSON.stringify(result.content, null, 2)}`);
 
-				// Intercept notebook cell edit proposals and convert them to text edits
-				if (req.name === PositronAssistantToolName.EditNotebookCells) {
-					const editProposal = this.parseNotebookEditProposal(result);
-					if (editProposal) {
-						try {
-							await this.applyNotebookEditProposal(editProposal, response);
-							// Return a success message instead of the raw proposal
-							toolResponses[req.callId] = new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(`Successfully proposed edit to cell ${editProposal.cellIndex}`)
-							]);
-						} catch (error) {
-							const errorMessage = error instanceof Error ? error.message : String(error);
-							log.error(`[tool] Failed to apply notebook edit proposal: ${errorMessage}`);
-							// Return the error as a tool result so the model can handle it gracefully
-							toolResponses[req.callId] = new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(`Error applying notebook cell edit to cell ${editProposal.cellIndex}`),
-								new vscode.LanguageModelTextPart(errorMessage)
-							]);
-						}
-						continue;
-					}
+				// Handle notebook cell edit proposals (converts to text edits for diff views)
+				const notebookResult = await handleNotebookEditProposal(req.name, result, response);
+				if (notebookResult) {
+					toolResponses[req.callId] = notebookResult;
+					continue;
 				}
 
 				toolResponses[req.callId] = result;
@@ -760,103 +744,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Return token usage information
 		return tokenUsage;
-	}
-
-	/**
-	 * Parses a notebook edit proposal from a tool result.
-	 * Returns the proposal if it's a valid notebook cell edit, null otherwise.
-	 */
-	private parseNotebookEditProposal(result: vscode.LanguageModelToolResult): NotebookCellEditProposal | null {
-		// Check if the result contains a JSON edit proposal
-		if (result.content.length === 0) {
-			return null;
-		}
-
-		const firstPart = result.content[0];
-		if (!(firstPart instanceof vscode.LanguageModelTextPart)) {
-			return null;
-		}
-
-		try {
-			const proposal = JSON.parse(firstPart.value);
-			if (proposal?.type === NotebookCellEditType && proposal.operation === NotebookCellEditOperation) {
-				return proposal as NotebookCellEditProposal;
-			}
-		} catch {
-			// Not a JSON proposal, return null
-		}
-
-		return null;
-	}
-
-	/**
-	 * Applies a notebook edit proposal by converting it to a text edit.
-	 * This routes the edit through the chat editing system for diff views.
-	 */
-	private async applyNotebookEditProposal(
-		proposal: NotebookCellEditProposal,
-		response: vscode.ChatResponseStream
-	): Promise<void> {
-		// Validate that we have either cellUri or notebookUri
-		if (!proposal.cellUri && !proposal.notebookUri) {
-			throw new Error('Either cellUri or notebookUri must be provided in edit proposal');
-		}
-
-		// Prefer cellUri if available, otherwise resolve from notebook document
-		let cellDocUri: vscode.Uri;
-		if (proposal.cellUri) {
-			try {
-				cellDocUri = vscode.Uri.parse(proposal.cellUri);
-			} catch (error) {
-				const errorMsg = error instanceof Error ? error.message : String(error);
-				throw new Error(`Invalid cell URI format: ${proposal.cellUri}. ${errorMsg}`);
-			}
-		} else {
-			// Fallback: open notebook document and get cell URI by index
-			try {
-				const notebookUri = vscode.Uri.parse(proposal.notebookUri);
-				const notebookDoc = await vscode.workspace.openNotebookDocument(notebookUri);
-
-				// Validate cellIndex is a valid integer
-				if (!Number.isInteger(proposal.cellIndex) || proposal.cellIndex < 0) {
-					throw new Error(`Invalid cellIndex: ${proposal.cellIndex}. Must be a non-negative integer.`);
-				}
-
-				// cellAt() auto-adjusts indices per VS Code API, but validate bounds explicitly
-				if (proposal.cellIndex >= notebookDoc.cellCount) {
-					throw new Error(`Cell index ${proposal.cellIndex} is out of bounds (notebook has ${notebookDoc.cellCount} cells)`);
-				}
-
-				const cell = notebookDoc.cellAt(proposal.cellIndex);
-				cellDocUri = cell.document.uri;
-			} catch (error) {
-				// Re-throw with context if this is an error we didn't already throw
-				if (error instanceof Error && !error.message.includes('Invalid cellIndex') && !error.message.includes('out of bounds')) {
-					throw new Error(`Failed to open notebook document: ${error.message}`);
-				}
-				throw error;
-			}
-		}
-
-		// Get the current cell content to compute a proper text edit
-		const cellDoc = await vscode.workspace.openTextDocument(cellDocUri);
-		const currentContent = cellDoc.getText();
-		const newContent = proposal.newContent;
-
-		// Only create edit if content actually changed
-		if (currentContent === newContent) {
-			return;
-		}
-
-		// Create a full document replacement edit
-		// This will be diffed by the chat editing system
-		const edit = new vscode.TextEdit(
-			new vscode.Range(0, 0, cellDoc.lineCount, 0),
-			newContent
-		);
-
-		// Emit the text edit through the chat editing system
-		response.textEdit(cellDocUri, edit);
 	}
 
 	/**
