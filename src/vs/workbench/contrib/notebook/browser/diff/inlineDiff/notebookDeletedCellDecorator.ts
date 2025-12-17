@@ -13,7 +13,11 @@ import { NotebookCellTextModel } from '../../../common/model/notebookCellTextMod
 import { NotebookTextModel } from '../../../common/model/notebookTextModel.js';
 import { DefaultLineHeight } from '../diffElementViewModel.js';
 import { CellDiffInfo } from '../notebookDiffViewModel.js';
-import { INotebookEditor, NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+// --- Start Positron ---
+// Use IChatEditingNotebookEditor for compatibility with both VS Code and Positron notebooks
+import { NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+import { IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
+// --- End Positron ---
 import * as DOM from '../../../../../../base/browser/dom.js';
 import { MenuWorkbenchToolBar, HiddenItemStrategy } from '../../../../../../platform/actions/browser/toolbar.js';
 import { MenuId } from '../../../../../../platform/actions/common/actions.js';
@@ -223,7 +227,13 @@ export class NotebookDeletedCellWidget extends Disposable {
 			toolbar.className = this._toolbarOptions.className;
 			rootContainer.appendChild(toolbar);
 
-			const scopedInstaService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, this._notebookEditor.scopedContextKeyService])));
+			// --- Start Positron ---
+			// Handle potentially undefined scopedContextKeyService for Positron notebooks
+			const scopedContextKeyService = this._notebookEditor.scopedContextKeyService;
+			const scopedInstaService = scopedContextKeyService
+				? this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])))
+				: this.instantiationService;
+			// --- End Positron ---
 			const toolbarWidget = scopedInstaService.createInstance(MenuWorkbenchToolBar, toolbar, this._toolbarOptions.menuId, {
 				telemetrySource: this._toolbarOptions.telemetrySource,
 				hiddenItemStrategy: HiddenItemStrategy.NoHide,

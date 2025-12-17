@@ -22,8 +22,8 @@ import { NotebookDeletedCellDecorator } from '../../../../notebook/browser/diff/
 import { NotebookInsertedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookInsertedCellDecorator.js';
 import { NotebookModifiedCellDecorator } from '../../../../notebook/browser/diff/inlineDiff/notebookModifiedCellDecorator.js';
 import { INotebookTextDiffEditor } from '../../../../notebook/browser/diff/notebookDiffEditorBrowser.js';
+import { CellEditState, ICellViewModel } from '../../../../notebook/browser/notebookBrowser.js';
 // --- Start Positron ---
-import { CellEditState, ICellViewModel, INotebookEditor } from '../../../../notebook/browser/notebookBrowser.js';
 // Use proxy to get editors from both VS Code and Positron notebook sources
 import { getNotebookEditorFromEditorPane } from '../../../../positronNotebook/browser/NotebookEditorProxyService.js';
 import { IChatEditingCellViewModel, IChatEditingNotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
@@ -143,7 +143,6 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 			const isReadOnly = shouldBeReadonly.read(r);
 			// --- Start Positron ---
 			// Use the notebook editor we already have, or try to retrieve from service
-			// Cast to INotebookEditor for compatibility with notebookEditorService fallback
 			let notebookEditor: IChatEditingNotebookEditor | undefined = this.notebookEditor;
 			if (!notebookEditor || notebookEditor.textModel !== this.notebookModel) {
 				notebookEditor = notebookEditorService.retrieveExistingWidgetFromURI(_entry.modifiedURI)?.value;
@@ -349,21 +348,15 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 		const cellChanges = this.cellChanges.get();
 		const accessibilitySignalService = this.accessibilitySignalService;
 
-		// --- Start Positron ---
-		// Cast to INotebookEditor for decorator compatibility
-		this.insertedCellDecorator ??= this._register(this.instantiationService.createInstance(NotebookInsertedCellDecorator, this.notebookEditor as INotebookEditor));
-		this.modifiedCellDecorator ??= this._register(this.instantiationService.createInstance(NotebookModifiedCellDecorator, this.notebookEditor as INotebookEditor));
-		this.overlayToolbarDecorator ??= this._register(this.instantiationService.createInstance(OverlayToolbarDecorator, this.notebookEditor as INotebookEditor, this.notebookModel));
-		// --- End Positron ---
+		this.insertedCellDecorator ??= this._register(this.instantiationService.createInstance(NotebookInsertedCellDecorator, this.notebookEditor));
+		this.modifiedCellDecorator ??= this._register(this.instantiationService.createInstance(NotebookModifiedCellDecorator, this.notebookEditor));
+		this.overlayToolbarDecorator ??= this._register(this.instantiationService.createInstance(OverlayToolbarDecorator, this.notebookEditor, this.notebookModel));
 
 		if (this.deletedCellDecorator) {
 			this._store.delete(this.deletedCellDecorator);
 			this.deletedCellDecorator.dispose();
 		}
-		// --- Start Positron ---
-		// Cast to INotebookEditor for decorator compatibility
-		this.deletedCellDecorator = this._register(this.instantiationService.createInstance(NotebookDeletedCellDecorator, this.notebookEditor as INotebookEditor, {
-			// --- End Positron ---
+		this.deletedCellDecorator = this._register(this.instantiationService.createInstance(NotebookDeletedCellDecorator, this.notebookEditor, {
 			className: 'chat-diff-change-content-widget',
 			telemetrySource: 'chatEditingNotebookHunk',
 			menuId: MenuId.ChatEditingEditorHunk,

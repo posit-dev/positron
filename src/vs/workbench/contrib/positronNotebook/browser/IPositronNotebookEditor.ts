@@ -167,6 +167,7 @@ type NotebookEditorChatEditingSubset = Pick<INotebookEditor,
 	| 'focusContainer'
 	| 'revealOffsetInCenterIfOutsideViewport'
 	| 'setFocus'
+	| 'setSelections'
 	| 'changeViewZones'
 	| 'changeCellOverlays'
 	// Options
@@ -236,6 +237,15 @@ export interface IChatEditingNotebookEditor extends NotebookEditorChatEditingSub
 	 * Note: This is a Positron-specific addition not present in INotebookEditor.
 	 */
 	getCellViewModelByHandle?(handle: number): ICellViewModel | undefined;
+
+	/**
+	 * Scoped context key service for toolbar/menu context.
+	 * Required by decorators for creating scoped instantiation services.
+	 *
+	 * Note: Optional to match IContextKeysNotebookEditor. VS Code notebooks always provide this,
+	 * Positron notebooks provide it after attachView() is called.
+	 */
+	readonly scopedContextKeyService: IContextKeyService | undefined;
 }
 //#endregion Chat Editing
 
