@@ -74,16 +74,20 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
-            # Echo the if condition for debugging
-            echo "Cache npm core hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}"
-            echo "Cache npm extensions hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}"
-            echo "NPM cache verification: ${{ steps.verify-npm-cache.outputs.verification }}"
+            # Capture file tree before npm install (for cache validation)
+            find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-before-npm-install.txt
 
             # Install node-gyp (required by some packages)
             npm i --global node-gyp
 
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
+
+      - name: Check for uncached postinstall artifacts
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.verify-npm-cache.outputs.verification == 'failed' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        run: |
+          find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
+          .github/scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
