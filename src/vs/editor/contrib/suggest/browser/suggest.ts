@@ -329,10 +329,10 @@ export async function provideSuggestionItems(
 	// --- Start Positron ---
 	// Deduplicate completion items that have the same insertText.
 	// When duplicates are found:
-	//   - If one item is from our Python extension and the other is not, prefer the one not from our Python extension.
+	//   - If one item is from our Python extension and the other is not, prefer the one from our Python extension.
 	//   - If both items are from our Python extension, the first-seen item is kept.
 	//   - If both items are from other extensions, the first-seen item is kept.
-	const msPythonExtensionId = 'ms-python.python';
+	const positronPythonExtensionId = 'ms-python.python';
 	const deduplicatedResult: CompletionItem[] = [];
 	const seen = new Map<string, CompletionItem>();
 
@@ -340,10 +340,10 @@ export async function provideSuggestionItems(
 		const key = item.completion.insertText;
 		const existing = seen.get(key);
 		if (existing) {
-			// If the existing item is from ms-python.python and the new one is not,
+			// If the existing item is not from positron-python and the new one is from positron-python,
 			// replace with the new one
-			if (existing.extensionId?.value === msPythonExtensionId &&
-				item.extensionId?.value !== msPythonExtensionId) {
+			if (existing.extensionId?.value !== positronPythonExtensionId &&
+				item.extensionId?.value === positronPythonExtensionId) {
 				const existingIndex = deduplicatedResult.indexOf(existing);
 				if (existingIndex !== -1) {
 					deduplicatedResult[existingIndex] = item;
@@ -368,6 +368,17 @@ export async function provideSuggestionItems(
 
 
 function defaultComparator(a: CompletionItem, b: CompletionItem): number {
+	// --- Start Positron ---
+	// Prioritize positron-python extension completions
+	const positronPythonExtensionId = 'ms-python.python';
+	const aIsPositronPython = a.extensionId?.value === positronPythonExtensionId;
+	const bIsPositronPython = b.extensionId?.value === positronPythonExtensionId;
+	if (aIsPositronPython && !bIsPositronPython) {
+		return -1;
+	} else if (!aIsPositronPython && bIsPositronPython) {
+		return 1;
+	}
+	// --- End Positron ---
 	// check with 'sortText'
 	if (a.sortTextLow && b.sortTextLow) {
 		if (a.sortTextLow < b.sortTextLow) {
