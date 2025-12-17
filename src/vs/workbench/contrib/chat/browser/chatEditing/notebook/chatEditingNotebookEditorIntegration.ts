@@ -241,8 +241,7 @@ class ChatEditingNotebookEditorWidgetIntegration extends Disposable implements I
 					return;
 				}
 				if (cell.cellKind === CellKind.Markup && !this.markupCellListeners.has(cell.handle)) {
-					// Get cell view model by handle - returns undefined for Positron notebooks (no cell view models)
-					const cellModel = this.notebookEditor.getViewModel()?.viewCells?.find((c: ICellViewModel) => c.handle === cell.handle);
+					const cellModel = this.notebookEditor.getViewModel()?.viewCells.find(c => c.handle === cell.handle);
 					if (cellModel) {
 						const listener = cellModel.onDidChangeState((e) => {
 							if (e.editStateChanged) {
