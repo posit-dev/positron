@@ -1,13 +1,21 @@
-name: "Test: E2E (Windows) — Run-only"
+name: "Test: E2E (Windows) — Sharded"
 
 # Cache Save Strategy:
-# This workflow runs with multiple shards in parallel (e.g., shards 1-4). To prevent race
-# conditions when multiple shards try to save the same cache key simultaneously, only
-# shard 1 saves caches (see "Save caches" step with if: ${{ matrix.shard == 1 }}).
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true, and only shard 1 actually saves. Examples:
+# - test-pull-request.yml: windows e2e saves (save_cache: true, shard 1 only)
+# - test-merge.yml: windows e2e saves (save_cache: true, shard 1 only)
+# - test-full-suite.yml: only restores (save_cache: false or omitted)
 
 on:
   workflow_call:
     inputs:
+      save_cache:
+        required: false
+        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
+        type: boolean
+        default: false
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -249,7 +257,7 @@ jobs:
         run: npm run prelaunch
 
       - name: Save caches
-        if: ${{ matrix.shard == 1 }}
+        if: ${{ inputs.save_cache && matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches-windows
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}

@@ -37,6 +37,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
+      save_cache: true
       grep: ""
       project: "e2e-windows"
       display_name: "windows"
