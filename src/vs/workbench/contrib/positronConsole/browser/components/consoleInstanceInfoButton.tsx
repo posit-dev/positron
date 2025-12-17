@@ -27,7 +27,7 @@ const localizeShowKernelOutputChannel = (channelName: string) => localize('posit
 
 const OutputChannelNames = {
 	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
-	[LanguageRuntimeSessionChannel.Console]: localize('positron.console.info.console', 'Console'),
+	[LanguageRuntimeSessionChannel.Console]: localize('positron.console.info.supervisor', 'Supervisor'),
 	[LanguageRuntimeSessionChannel.LSP]: localize('positron.console.info.lsp', 'LSP')
 };
 
