@@ -12,6 +12,7 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { ICellDto2 } from '../../notebook/common/notebookCommon.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -58,6 +59,29 @@ export interface IPositronNotebookService {
 	 * @returns true if Positron notebooks are the default editor, false otherwise
 	 */
 	usingPositronNotebooks(): boolean;
+
+	/**
+	 * Stores cells in the shared clipboard.
+	 * @param cells The cells to store in the clipboard
+	 */
+	setClipboardCells(cells: ICellDto2[]): void;
+
+	/**
+	 * Retrieves cells from the shared clipboard.
+	 * @returns The cells currently stored in the clipboard, or empty array if none
+	 */
+	getClipboardCells(): ICellDto2[];
+
+	/**
+	 * Checks if there are cells available in the shared clipboard.
+	 * @returns True if cells are available, false otherwise
+	 */
+	hasClipboardCells(): boolean;
+
+	/**
+	 * Clears the shared clipboard.
+	 */
+	clearClipboard(): void;
 }
 
 export class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -75,6 +99,7 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 	//#region Private Properties
 	private _instanceById = new Map<string, IPositronNotebookInstance>();
 	private _activeInstance: IPositronNotebookInstance | null = null;
+	private _clipboardCells: ICellDto2[] = [];
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -121,6 +146,22 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 
 	public usingPositronNotebooks(): boolean {
 		return utilUsingPositronNotebooks(this._configurationService);
+	}
+
+	public setClipboardCells(cells: ICellDto2[]): void {
+		this._clipboardCells = cells;
+	}
+
+	public getClipboardCells(): ICellDto2[] {
+		return this._clipboardCells;
+	}
+
+	public hasClipboardCells(): boolean {
+		return this._clipboardCells.length > 0;
+	}
+
+	public clearClipboard(): void {
+		this._clipboardCells = [];
 	}
 	//#endregion Public Methods
 }

@@ -269,11 +269,19 @@ configurationRegistry.registerConfiguration({
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
 		},
-		// Whether to show notebook consoles
+		// Whether to automatically create consoles for notebook sessions
 		'console.showNotebookConsoles': {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('console.showNotebookConsoles', "Whether to show consoles for open notebooks."),
+			markdownDescription: localize('console.showNotebookConsoles', "Controls whether consoles are automatically shown for open notebooks."),
+			tags: ['experimental'],
+		},
+		// Whether to show the notebook console actions in menus
+		'console.showNotebookConsoleActions': {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize('console.showNotebookConsoleActions', "Controls whether notebook console actions are visible in notebook toolbars. When enabled, you can manually show or focus a notebook console using the 'Show Notebook Console' menu item."),
+			tags: ['experimental'],
 		}
 	}
 });

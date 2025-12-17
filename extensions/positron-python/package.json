@@ -1003,7 +1003,9 @@
             "ruff.importStrategy": "useBundled",
             "[python]": {
                 "editor.inlayHints.enabled": "offUnlessPressed"
-            }
+            },
+            "pyright.disableLanguageServices": true,
+            "pyright.disableOrganizeImports": true
         },
         "debuggers": [
             {
@@ -2133,6 +2135,9 @@
         "lint-fix": "eslint --fix src build pythonExtensionApi gulpfile.js",
         "format-check": "prettier --check 'src/**/*.ts' 'build/**/*.js' '.github/**/*.yml' gulpfile.js",
         "format-fix": "prettier --write 'src/**/*.ts' 'build/**/*.js' '.github/**/*.yml' gulpfile.js",
+        "check-python": "npm run check-python:ruff && npm run check-python:pyright",
+        "check-python:ruff": "cd python_files && python -m pip install -U ruff && python -m ruff check . && python -m ruff format --check",
+        "check-python:pyright": "cd python_files && npx --yes pyright@1.1.308 .",
         "clean": "gulp clean",
         "addExtensionPackDependencies": "gulp addExtensionPackDependencies",
         "updateBuildNumber": "gulp updateBuildNumber",
@@ -2141,7 +2146,7 @@
         "positron:testMinimumPythonReqs": "nox --noxfile noxfile-positron.py -- python_files/posit"
     },
     "dependencies": {
-        "@iarna/toml": "^2.2.5",
+        "@iarna/toml": "^3.0.0",
         "@vscode/extension-telemetry": "^0.8.4",
         "arch": "^2.1.0",
         "fs-extra": "^11.2.0",
@@ -2254,7 +2259,7 @@
     },
     "positron": {
         "externalDependencies": {
-            "pet": "2025.14"
+            "pet": "2025.16"
         }
     }
 }

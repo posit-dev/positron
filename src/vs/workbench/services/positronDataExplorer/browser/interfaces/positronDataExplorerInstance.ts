@@ -125,4 +125,25 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Converts the current data view's filters and sorts to code in the desired syntax.
 	 */
 	convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined>;
+
+	/**
+	 * Toggles the "has header row" option and reloads the data.
+	 * Only applicable for delimited text files (CSV/TSV) opened with DuckDB backend.
+	 */
+	toggleFileHasHeaderRow(): Promise<void>;
+
+	/**
+	 * Gets whether file options are supported (i.e., this is a DuckDB-backed CSV/TSV file).
+	 */
+	readonly supportsFileOptions: boolean;
+
+	/**
+	 * Gets the current "has header row" state for delimited text files.
+	 */
+	readonly fileHasHeaderRow: boolean;
+
+	/**
+	 * The onDidChangeFileHasHeaderRow event.
+	 */
+	readonly onDidChangeFileHasHeaderRow: Event<boolean>;
 }

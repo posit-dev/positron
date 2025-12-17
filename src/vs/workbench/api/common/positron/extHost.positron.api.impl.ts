@@ -459,6 +459,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async getCellOutputs(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCellOutput[]> {
 				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellIndex);
+			},
+
+			async moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void> {
+				return extHostNotebookFeatures.moveCell(notebookUri, fromIndex, toIndex);
+			},
+
+			async reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
+				return extHostNotebookFeatures.reorderCells(notebookUri, newOrder);
 			}
 		};
 

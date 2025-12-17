@@ -207,6 +207,15 @@ export enum OpenEditorKind {
 }
 
 /**
+ * Possible values for Destination in ShowHtmlFile
+ */
+export enum ShowHtmlFileDestination {
+	Plot = 'plot',
+	Viewer = 'viewer',
+	Editor = 'editor'
+}
+
+/**
  * Possible values for Type in PreviewSource
  */
 export enum PreviewSourceType {
@@ -503,9 +512,10 @@ export interface ShowHtmlFileParams {
 	title: string;
 
 	/**
-	 * Whether the HTML file is a plot-like object
+	 * Where the file should be shown in Positron: as an interactive plot, in
+	 * the viewer pane, or in a new editor tab.
 	 */
-	is_plot: boolean;
+	destination: ShowHtmlFileDestination;
 
 	/**
 	 * The desired height of the HTML viewer, in pixels. The special value 0
@@ -666,9 +676,10 @@ export interface ShowHtmlFileEvent {
 	title: string;
 
 	/**
-	 * Whether the HTML file is a plot-like object
+	 * Where the file should be shown in Positron: as an interactive plot, in
+	 * the viewer pane, or in a new editor tab.
 	 */
-	is_plot: boolean;
+	destination: ShowHtmlFileDestination;
 
 	/**
 	 * The desired height of the HTML viewer, in pixels. The special value 0
@@ -958,7 +969,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url', 'source']);
-		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
+		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'destination', 'height']);
 		this.onDidOpenWithSystem = super.createEventEmitter('open_with_system', ['path']);
 		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);
 	}

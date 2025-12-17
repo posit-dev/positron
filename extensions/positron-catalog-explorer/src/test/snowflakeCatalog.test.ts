@@ -60,7 +60,7 @@ suite('Snowflake Catalog Provider Tests', () => {
 		'another-connection': {
 			account: 'another-account',
 			user: 'another-user',
-			password: 'test-password' // pragma: allowlist secret
+			password: 'test-password'
 		}
 	};
 

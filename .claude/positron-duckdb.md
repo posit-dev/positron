@@ -110,11 +110,18 @@ Statistical computation engine:
 The extension implements the full Data Explorer RPC protocol:
 - `OpenDataset`: Import files or connect to tables
 - `GetSchema`: Retrieve column information
-- `GetDataValues`: Query formatted cell values  
+- `GetDataValues`: Query formatted cell values
 - `SetRowFilters`: Apply WHERE clause filters
 - `SetSortColumns`: Apply ORDER BY sorting
 - `GetColumnProfiles`: Generate statistical summaries
 - `ExportDataSelection`: Export data in various formats
+
+**IMPORTANT: Protocol Types Location**
+The standard Data Explorer protocol types are auto-generated from `positron/comms/data_explorer-backend-openrpc.json` into `src/vs/workbench/services/languageRuntime/common/positronDataExplorerComm.ts`. **Do NOT manually edit positronDataExplorerComm.ts** - changes must be made in the OpenRPC schema and regenerated.
+
+DuckDB-specific extensions to the protocol (like `SetDatasetImportOptions` for CSV import options) should be defined in:
+- `src/vs/workbench/services/positronDataExplorer/common/positronDataExplorerDuckDBBackend.ts` (core types)
+- `extensions/positron-duckdb/src/interfaces.ts` (extension types - must mirror the core types)
 
 ## Supported Data Types
 

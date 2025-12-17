@@ -140,16 +140,15 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		await notebooksPositron.triggerCellAction(0, 'Paste cell below');
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 1']);
 
-		// ISSUE #10240: Pasting inside of cell includes metadata
 		// Copy cell using action bar and paste into existing cell using keyboard
-		// await notebooksPositron.selectCellAtIndex(0);
-		// await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
-		// await notebooksPositron.selectFromMoreActionsMenu(0, 'Copy cell');
-		// await notebooksPositron.selectCellAtIndex(2);
-		// await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: true });
-		// await hotKeys.selectAll();
-		// await hotKeys.paste();
-		// await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 0']);
+		await notebooksPositron.selectCellAtIndex(0);
+		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+		await notebooksPositron.triggerCellAction(0, 'Copy cell');
+		await notebooksPositron.selectCellAtIndex(2);
+		await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: true });
+		await hotKeys.selectAll();
+		await hotKeys.paste();
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 0']);
 	});
 
 	test('Cell actions with multiple cells selected', async function ({ app }) {

@@ -46,9 +46,10 @@ export interface RMetadataExtra {
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
 
 	/**
-	 * If this R installation is from a conda environment, the path to that environment.
+	 * Metadata for package manager environments (Conda or Pixi).
+	 * Use ReasonDiscovered.CONDA or ReasonDiscovered.PIXI to determine the type.
 	 */
-	readonly condaEnvironmentPath?: string;
+	readonly packagerMetadata?: PackagerMetadata;
 }
 
 /**
@@ -61,6 +62,7 @@ export enum ReasonDiscovered {
 	PATH = "PATH",
 	HQ = "HQ",
 	CONDA = "CONDA",
+	PIXI = "PIXI",
 
 	adHoc = "adHoc",
 	userSetting = "userSetting",
@@ -77,6 +79,46 @@ export enum ReasonRejected {
 	excluded = "excluded",
 }
 
+/**
+ * Metadata for an R installation from a Conda environment.
+ */
+export interface CondaMetadata {
+	/** Path to the conda environment */
+	readonly environmentPath: string;
+}
+
+/**
+ * Metadata for an R installation from a Pixi environment.
+ */
+export interface PixiMetadata {
+	/** Path to the pixi environment */
+	readonly environmentPath: string;
+	/** Path to the manifest file (pixi.toml or pyproject.toml) */
+	readonly manifestPath: string;
+	/** Name of the environment */
+	readonly environmentName?: string;
+}
+
+/**
+ * Packager metadata - either Conda or Pixi.
+ * Check ReasonDiscovered.CONDA or ReasonDiscovered.PIXI to determine which type.
+ */
+export type PackagerMetadata = CondaMetadata | PixiMetadata;
+
+/**
+ * Type guard to check if packager metadata is from Pixi (has manifestPath).
+ */
+export function isPixiMetadata(metadata: PackagerMetadata): metadata is PixiMetadata {
+	return 'manifestPath' in metadata;
+}
+
+/**
+ * Type guard to check if packager metadata is from Conda (no manifestPath).
+ */
+export function isCondaMetadata(metadata: PackagerMetadata): metadata is CondaMetadata {
+	return !('manifestPath' in metadata);
+}
+
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
 	if (Object.values(ReasonDiscovered).includes(reason as ReasonDiscovered)) {
 		switch (reason) {
@@ -90,6 +132,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in the primary location for R versions on this operating system';
 			case ReasonDiscovered.CONDA:
 				return 'Found in a Conda environment';
+			case ReasonDiscovered.PIXI:
+				return 'Found in a Pixi environment';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.userSetting:
@@ -141,7 +185,7 @@ export class RInstallation {
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
 	public readonly default: boolean = false;
-	public readonly condaEnvironmentPath: string | undefined = undefined;
+	public readonly packagerMetadata: PackagerMetadata | undefined = undefined;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -150,13 +194,13 @@ export class RInstallation {
 	 * @param current Whether this installation is known to be the current version of R
 	 * @param reasonDiscovered How we discovered this R binary (and there could be more than one
 	 *   reason)
-	 * @param condaEnvironmentPath If this R is from a conda environment, the path to that environment
+	 * @param packagerMetadata Metadata for the package manager environment (Conda or Pixi)
 	 */
 	constructor(
 		pth: string,
 		current: boolean = false,
 		reasonDiscovered: ReasonDiscovered[] | null = null,
-		condaEnvironmentPath?: string
+		packagerMetadata?: PackagerMetadata
 	) {
 		pth = path.normalize(pth);
 
@@ -165,7 +209,7 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
-		this.condaEnvironmentPath = condaEnvironmentPath;
+		this.packagerMetadata = packagerMetadata;
 
 		// Check if the installation is the default R interpreter for Positron
 		const defaultInterpreterPath = getDefaultInterpreterPath();

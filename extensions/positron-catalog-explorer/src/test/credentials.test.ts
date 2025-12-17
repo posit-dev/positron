@@ -15,7 +15,7 @@ const TEST_CONNECTION_DATA = {
 	'test-connection': {
 		account: 'test-account',
 		user: 'test-user',
-		password: 'test-password' // pragma: allowlist secret
+		password: 'test-password'
 	}
 };
 
@@ -140,8 +140,8 @@ suite('Credentials Tests', () => {
 			'test-connection': {
 				account: 'test-account',
 				user: 'test-user',
-				private_key_file: 'path/path', // pragma: allowlist secret
-				private_key_pass: 'xxxx', // pragma: allowlist secret
+				private_key_file: 'path/path',
+				private_key_pass: 'xxxx',
 				connection_timeout: 30,
 				oauth_refresh_token: 'token123',
 			}

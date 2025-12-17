@@ -25,7 +25,6 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	z-index: 10;
 }
 
 /* Position element to the top of the cell */
@@ -38,6 +37,27 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	visibility: hidden;
+}
+
+/* Show when selected, running, or explicitly visible */
+.left-hand-action-container-top.visible {
+	visibility: visible;
+}
+
+/* Show on hover (matches existing behavior) */
+.left-hand-action-container:hover .left-hand-action-container-top {
+	visibility: visible;
+}
+
+/* Show when cell or its children are focused via tab */
+.positron-notebook-cell:focus-within .left-hand-action-container-top {
+	visibility: visible;
+}
+
+/* Always show execution status animation when running */
+.left-hand-action-container[data-execution-status='running'] .left-hand-action-container-top {
+	visibility: visible;
 }
 
 /* Positions element to the bottom of the cell */
@@ -138,17 +158,28 @@
 }
 
 /* Execution order badge styling */
-.execution-order-badge {
+span.execution-order-badge {
 	font-weight: 500;
 	font-size: var(--_badge-font-size, 10px);
 	line-height: 1;
 	color: inherit;
 	font-family: var(--monaco-monospace-font);
+	cursor: pointer;
 }
 
 /* Error state styling - use error color for execution badge */
 .execution-order-badge-container[data-has-error="true"] {
 	color: var(--vscode-errorForeground);
+}
+
+/* Wrapper for the execution status badge - provides consistent hover target */
+.execution-status-badge-wrapper {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--_container-size, 20px);
+	min-height: var(--_container-size, 20px);
+	cursor: default;
 }
 
 /* Animation for running state */

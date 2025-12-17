@@ -11,6 +11,13 @@
 	--_positron-notebook-selection-bar-inset: 0;
 }
 
+/* We need to overpower the upstream .monaco-workbench [tabindex="0"]:focus selector here */
+.monaco-workbench div.positron-notebook-cell.positron-notebook-code-cell[tabindex="0"]:focus {
+	/* When the cell is selected via tab navigation we need to move the focus
+	ring out so it's not covered up by the selection bar */
+	outline-offset: 0px;
+}
+
 /* Base styles for selected and editing states */
 .positron-notebook-cell.selected,
 .positron-notebook-cell.editing {

@@ -335,6 +335,8 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 					return acc + `\n\nSuggested text edits: ${JSON.stringify(content.edits)}\n\n`;
 				} else if (content instanceof vscode.ChatResponseAnchorPart) {
 					return acc + `\n\nAnchor: ${content.title ? `${content.title} ` : ''}${JSON.stringify(content.value2)}\n\n`;
+				} else if (content instanceof vscode.ChatResponseCommandButtonPart) {
+					return acc;
 				} else {
 					// TODO: Lower more history entry types to text.
 					throw new Error(`Unsupported response kind when lowering chat agent response: ${content.constructor.name}`);

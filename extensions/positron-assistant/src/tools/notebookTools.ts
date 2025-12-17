@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
-import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -144,16 +144,19 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 /**
  * Tool: Edit Notebook Cells
  *
- * Performs edit operations on notebook cells: add, update, or delete.
+ * Performs edit operations on notebook cells: add, update, delete, or reorder.
  * Uses a simple enum-based operation parameter for flexibility.
  */
 export const EditNotebookCellsTool = vscode.lm.registerTool<{
-	operation: 'add' | 'update' | 'delete';
+	operation: 'add' | 'update' | 'delete' | 'reorder';
 	cellType?: 'code' | 'markdown';
 	index?: number;
 	content?: string;
 	cellIndex?: number;
 	run?: boolean;
+	fromIndex?: number;
+	toIndex?: number;
+	newOrder?: number[];
 }>(PositronAssistantToolName.EditNotebookCells, {
 	prepareInvocation: async (options, _token) => {
 		const { operation, cellType, cellIndex, run } = options.input;
@@ -175,6 +178,10 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 				delete: {
 					invocationMessage: vscode.l10n.t('Deleting notebook cell'),
 					pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
+				},
+				reorder: {
+					invocationMessage: vscode.l10n.t('Reordering notebook cells'),
+					pastTenseMessage: vscode.l10n.t('Reordered notebook cells'),
 				},
 			};
 			return messages[operation];
@@ -240,6 +247,35 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 				};
 			}
 
+			case 'reorder': {
+				const { fromIndex, toIndex, newOrder } = options.input;
+
+				// Determine if this is a single move or full reorder
+				if (newOrder !== undefined) {
+					// Full permutation reorder
+					const message = vscode.l10n.t('Reorder all {0} cells in the notebook?', context.cellCount);
+					return {
+						invocationMessage: vscode.l10n.t('Reordering notebook cells'),
+						confirmationMessages: {
+							title: vscode.l10n.t('Reorder Notebook Cells'),
+							message: message
+						},
+						pastTenseMessage: vscode.l10n.t('Reordered notebook cells'),
+					};
+				} else {
+					// Single cell move
+					const message = vscode.l10n.t('Move cell {0} to position {1}?', fromIndex, toIndex);
+					return {
+						invocationMessage: vscode.l10n.t('Moving notebook cell'),
+						confirmationMessages: {
+							title: vscode.l10n.t('Move Notebook Cell'),
+							message: message
+						},
+						pastTenseMessage: vscode.l10n.t('Moved notebook cell'),
+					};
+				}
+			}
+
 			default:
 				return {
 					invocationMessage: vscode.l10n.t('Editing notebook cell'),
@@ -248,7 +284,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 		}
 	},
 	invoke: async (options, token) => {
-		const { operation, cellType, index, content, cellIndex, run } = options.input;
+		const { operation, cellType, index, content, cellIndex, run, fromIndex, toIndex, newOrder } = options.input;
 
 		try {
 			const context = await getActiveNotebookContext();
@@ -419,10 +455,76 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 					]);
 				}
 
+				case 'reorder': {
+					// Determine if this is a single move or full reorder
+					if (newOrder !== undefined) {
+						// Full permutation reorder
+						const permValidation = validatePermutation(newOrder, context.cellCount);
+						if (!permValidation.valid) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(permValidation.error!)
+							]);
+						}
+
+						// Check for identity permutation (no-op)
+						if (permValidation.isIdentity) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('No reordering needed - cells are already in the specified order')
+							]);
+						}
+
+						await positron.notebooks.reorderCells(context.uri, newOrder);
+
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(`Successfully reordered ${context.cellCount} cells`)
+						]);
+					} else {
+						// Single cell move - validate required parameters
+						if (fromIndex === undefined) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('Missing required parameter: fromIndex (current index of cell to move)')
+							]);
+						}
+						if (toIndex === undefined) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('Missing required parameter: toIndex (target index to move cell to)')
+							]);
+						}
+
+						// Validate indices
+						const fromValidation = validateCellIndices([fromIndex], context.cellCount);
+						if (!fromValidation.valid) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(`Invalid fromIndex: ${fromValidation.error}`)
+							]);
+						}
+
+						const toValidation = validateCellIndices([toIndex], context.cellCount);
+						if (!toValidation.valid) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(`Invalid toIndex: ${toValidation.error}`)
+							]);
+						}
+
+						// Check for no-op
+						if (fromIndex === toIndex) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart('No move needed - cell is already at the specified position')
+							]);
+						}
+
+						await positron.notebooks.moveCell(context.uri, fromIndex, toIndex);
+
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(`Successfully moved cell from index ${fromIndex} to index ${toIndex}`)
+						]);
+					}
+				}
+
 				default:
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart(
-							`Unknown operation: ${operation}. Must be "add", "update", or "delete".`
+							`Unknown operation: ${operation}. Must be "add", "update", "delete", or "reorder".`
 						)
 					]);
 			}
