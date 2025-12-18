@@ -153,6 +153,16 @@ export interface IPositronConsoleService {
 	 * @param focus A value which indicates whether to focus the console.
 	 */
 	showNotebookConsole(notebookUri: URI, focus: boolean): void;
+
+	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 * This will activate the console instance for the given session, scroll to the input,
+	 * and briefly highlight it to draw attention to it.
+	 *
+	 * @param sessionId The session ID of the console instance.
+	 * @param executionId The execution ID of the input to reveal.
+	 */
+	revealExecution(sessionId: string, executionId: string): void;
 }
 
 /**
@@ -337,6 +347,12 @@ export interface IPositronConsoleInstance {
 	readonly onDidAttachSession: Event<ILanguageRuntimeSession | undefined>;
 
 	/**
+	 * The onDidRequestRevealExecution event. Fired when an execution should be
+	 * revealed and highlighted in the console.
+	 */
+	readonly onDidRequestRevealExecution: Event<string>;
+
+	/**
 	 * The onDidChangeWidthInChars event.
 	 */
 	readonly onDidChangeWidthInChars: Event<number>;
@@ -480,4 +496,13 @@ export interface IPositronConsoleInstance {
 	 * Gets the currently attached runtime, or undefined if none.
 	 */
 	attachedRuntimeSession: ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 * This will scroll to the input and briefly highlight it.
+	 *
+	 * @param executionId The execution ID of the input to reveal.
+	 * @returns `true` if the execution was found and revealed, `false` otherwise.
+	 */
+	revealExecution(executionId: string): boolean;
 }

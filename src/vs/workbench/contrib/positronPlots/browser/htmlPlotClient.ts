@@ -40,7 +40,7 @@ export class HtmlPlotClient extends WebviewPlotClient {
 		// Create the metadata for the plot.
 		super({
 			id: `plot-${HtmlPlotClient._nextId++}`,
-			parent_id: '',
+			execution_id: '',
 			created: Date.now(),
 			session_id: _session.sessionId,
 			code: '',

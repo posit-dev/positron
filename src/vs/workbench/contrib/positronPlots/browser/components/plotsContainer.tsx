@@ -426,6 +426,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			e.stopPropagation();
 
 			const targetElement = e.currentTarget as HTMLElement;
+			const executionId = currentPlotInstance?.metadata.execution_id;
+			const sessionId = currentPlotInstance?.metadata.session_id;
 
 			showCustomContextMenu({
 				anchorElement: targetElement,
@@ -438,6 +440,16 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 						onSelected: () => {
 							if (plotCode) {
 								services.clipboardService.writeText(plotCode);
+							}
+						}
+					}),
+					new CustomContextMenuItem({
+						label: localize('positronPlots.revealInConsole', "Reveal in Console"),
+						icon: 'go-to-file',
+						disabled: !executionId || !sessionId,
+						onSelected: () => {
+							if (executionId && sessionId) {
+								services.positronConsoleService.revealExecution(sessionId, executionId);
 							}
 						}
 					})
