@@ -214,8 +214,12 @@ function handle_search_schema(
     end
 
     # Apply sorting if requested
-    if request.sort_order !== nothing && request.sort_order != "original"
-        sort_column_matches!(matches, instance.data, request.sort_order)
+    sort_order = request.sort_order
+    if sort_order !== nothing
+        sort_order_str = sort_order isa String ? sort_order : string(sort_order)
+        if sort_order_str != "original"
+            sort_column_matches!(matches, instance.data, sort_order_str)
+        end
     end
 
     result = SearchSchemaResult(matches)

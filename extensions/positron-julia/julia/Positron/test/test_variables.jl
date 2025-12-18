@@ -178,7 +178,7 @@ using JSON3
 
         @test length(children) == 3
         names = [c.display_name for c in children]
-        @test "a" in names || "b" in names || "c" in names
+        @test Set(names) == Set(["a", "b", "c"])
     end
 
     @testset "Get Children - Array" begin
@@ -523,12 +523,13 @@ using JSON3
         # Send update should detect the new variable
         Positron.send_update!(service)
 
-        # Should have sent an update event if there were changes
-        if length(comm.messages) > 0
-            msg = last_message(comm)
-            @test haskey(msg, "data")
-            # The update params should have the new variable
-        end
+        @test !isempty(comm.messages)
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcNotification
+        @test msg["data"].method == "update"
+        params = msg["data"].params
+        @test params isa Positron.VariablesUpdateParams
+        @test any(v -> v.display_name == "new_test_var", params.assigned)
     end
 
     @testset "Variables Service - Refresh Event" begin
@@ -560,10 +561,13 @@ end
         # Send update should detect it
         Positron.send_update!(service)
 
-        # Should have sent update event
-        @test length(comm.messages) > 0
+        @test !isempty(comm.messages)
         msg = last_message(comm)
-        @test haskey(msg, "data")
+        @test msg["data"] isa Positron.JsonRpcNotification
+        @test msg["data"].method == "update"
+        params = msg["data"].params
+        @test params isa Positron.VariablesUpdateParams
+        @test any(v -> v.display_name == "new_var", params.assigned)
     end
 
     @testset "Detect Variable Removal" begin
