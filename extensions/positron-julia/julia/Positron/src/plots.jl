@@ -455,19 +455,19 @@ end
 Handle incoming messages on a plot's comm.
 """
 function handle_plot_msg(plot::Plot, msg::Dict)
-    kernel_log_info("Plot $(plot.id) received message: method=$(get(msg, "method", "unknown"))")
+    handle_with_logging("Plot $(plot.id)", plot.comm, msg) do
+        request = parse_plot_request(msg)
 
-    request = parse_plot_request(msg)
-
-    if request isa PlotRenderParams
-        kernel_log_info("Plot $(plot.id) handling render request")
-        handle_render(plot, request)
-    elseif request === nothing
-        # get_intrinsic_size request
-        kernel_log_info("Plot $(plot.id) handling get_intrinsic_size request")
-        handle_get_intrinsic_size(plot)
-    else
-        kernel_log_warn("Plot $(plot.id) unknown request type: $(typeof(request))")
+        if request isa PlotRenderParams
+            kernel_log_info("Plot $(plot.id) handling render request")
+            handle_render(plot, request)
+        elseif request === nothing
+            # get_intrinsic_size request
+            kernel_log_info("Plot $(plot.id) handling get_intrinsic_size request")
+            handle_get_intrinsic_size(plot)
+        else
+            kernel_log_warn("Plot $(plot.id) unknown request type: $(typeof(request))")
+        end
     end
 end
 

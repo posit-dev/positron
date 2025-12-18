@@ -37,10 +37,12 @@ end
 Handle incoming messages on the help comm.
 """
 function handle_help_msg(service::HelpService, msg::Dict)
-    request = parse_help_request(msg)
+    handle_with_logging("Help", service.comm, msg) do
+        request = parse_help_request(msg)
 
-    if request isa HelpShowHelpTopicParams
-        handle_show_help_topic(service, request.topic)
+        if request isa HelpShowHelpTopicParams
+            handle_show_help_topic(service, request.topic)
+        end
     end
 end
 

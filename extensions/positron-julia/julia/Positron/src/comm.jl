@@ -192,6 +192,36 @@ function open!(comm::PositronComm; data::Dict = Dict())
 end
 
 """
+Helper to wrap message handlers with consistent error handling and logging.
+
+Usage:
+    handle_with_logging("DataExplorer", comm, msg) do
+        # parsing and handling logic
+    end
+"""
+function handle_with_logging(
+    handler::Function,
+    service_name::String,
+    comm::Union{PositronComm,Nothing},
+    msg::Dict,
+)
+    method = get(msg, "method", "unknown")
+
+    try
+        handler()
+    catch e
+        kernel_log_error("$service_name: error handling '$method': $(sprint(showerror, e, catch_backtrace()))")
+        if comm !== nothing
+            try
+                send_error(comm, JsonRpcErrorCode.INTERNAL_ERROR, "Internal error: $(sprint(showerror, e))")
+            catch send_err
+                kernel_log_error("$service_name: failed to send error response: $(sprint(showerror, send_err))")
+            end
+        end
+    end
+end
+
+"""
 Close the comm.
 """
 function close!(comm::PositronComm)

@@ -107,29 +107,31 @@ end
 Handle incoming messages on the data explorer comm.
 """
 function handle_data_explorer_msg(instance::DataExplorerInstance, msg::Dict)
-    method = get(msg, "method", nothing)
-    request = parse_data_explorer_request(msg)
+    handle_with_logging("DataExplorer", instance.comm, msg) do
+        method = get(msg, "method", nothing)
+        request = parse_data_explorer_request(msg)
 
-    if method == "get_state"
-        handle_get_state(instance)
-    elseif request isa DataExplorerGetSchemaParams
-        handle_get_schema(instance, request)
-    elseif request isa DataExplorerSearchSchemaParams
-        handle_search_schema(instance, request)
-    elseif request isa DataExplorerGetDataValuesParams
-        handle_get_data_values(instance, request)
-    elseif request isa DataExplorerGetRowLabelsParams
-        handle_get_row_labels(instance, request)
-    elseif request isa DataExplorerSetColumnFiltersParams
-        handle_set_column_filters(instance, request)
-    elseif request isa DataExplorerSetRowFiltersParams
-        handle_set_row_filters(instance, request)
-    elseif request isa DataExplorerSetSortColumnsParams
-        handle_set_sort_columns(instance, request)
-    elseif request isa DataExplorerGetColumnProfilesParams
-        handle_get_column_profiles(instance, request)
-    elseif request isa DataExplorerExportDataSelectionParams
-        handle_export_data_selection(instance, request)
+        if method == "get_state"
+            handle_get_state(instance)
+        elseif request isa DataExplorerGetSchemaParams
+            handle_get_schema(instance, request)
+        elseif request isa DataExplorerSearchSchemaParams
+            handle_search_schema(instance, request)
+        elseif request isa DataExplorerGetDataValuesParams
+            handle_get_data_values(instance, request)
+        elseif request isa DataExplorerGetRowLabelsParams
+            handle_get_row_labels(instance, request)
+        elseif request isa DataExplorerSetColumnFiltersParams
+            handle_set_column_filters(instance, request)
+        elseif request isa DataExplorerSetRowFiltersParams
+            handle_set_row_filters(instance, request)
+        elseif request isa DataExplorerSetSortColumnsParams
+            handle_set_sort_columns(instance, request)
+        elseif request isa DataExplorerGetColumnProfilesParams
+            handle_get_column_profiles(instance, request)
+        elseif request isa DataExplorerExportDataSelectionParams
+            handle_export_data_selection(instance, request)
+        end
     end
 end
 
