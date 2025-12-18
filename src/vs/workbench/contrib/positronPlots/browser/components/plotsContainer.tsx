@@ -119,6 +119,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPlotInstance, metadataVersion]);
 
+	// Get the plot code from metadata (reactive to metadata updates)
+	const plotCode = useMemo(() => {
+		return currentPlotInstance?.metadata.code;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentPlotInstance, metadataVersion]);
+
 	// Plot history useEffect to handle scrolling, mouse wheel events, and keyboard navigation.
 	useEffect(() => {
 		// Get the current plot history and container. If the plot history is not rendered,
@@ -402,14 +408,20 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const displayText = `${sessionName ?? ''}${separator}${plotName ?? ''}`;
 
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!displayText) {
+		if (!displayText && !plotCode) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
 		}
 
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
-			<span className='plot-info-text' title={displayText}>{displayText}</span>
+			{displayText && <span className='plot-info-text' title={displayText}>{displayText}</span>}
+			{plotCode && (
+				<button className='plot-code-button' title={plotCode}>
+					<span className='plot-code-text'>{plotCode}</span>
+					<span className='codicon codicon-code'></span>
+				</button>
+			)}
 		</div>;
 	};
 

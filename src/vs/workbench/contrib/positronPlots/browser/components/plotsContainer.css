@@ -36,3 +36,37 @@
 	text-overflow: ellipsis;
 	opacity: 0.8;
 }
+
+.plots-container .plot-info-header .plot-code-button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
+	padding: 0 4px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	max-width: 150px;
+	overflow: hidden;
+}
+
+.plots-container .plot-info-header .plot-code-button .plot-code-text {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.plots-container .plot-info-header .plot-code-button .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+}
+
+.plots-container .plot-info-header .plot-code-button:hover .plot-code-text,
+.plots-container .plot-info-header .plot-code-button:hover .codicon {
+	opacity: 1;
+}
