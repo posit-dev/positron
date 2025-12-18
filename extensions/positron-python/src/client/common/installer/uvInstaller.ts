@@ -66,9 +66,10 @@ export class UVInstaller extends ModuleInstaller {
         // ...or if pyproject.toml doesn't exist at the workspace root
         const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
         const fileSystem = this.serviceContainer.get<IFileSystem>(IFileSystem);
-        const workspaceFolder = isResource(resource)
-            ? workspaceService.getWorkspaceFolder(resource)
-            : workspaceService.workspaceFolders?.[0];
+        let workspaceFolder = isResource(resource) ? workspaceService.getWorkspaceFolder(resource) : undefined;
+        if (!workspaceFolder && workspaceService.workspaceFolders && workspaceService.workspaceFolders.length > 0) {
+            workspaceFolder = workspaceService.workspaceFolders[0];
+        }
         const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
         const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
 
