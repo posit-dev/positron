@@ -32,6 +32,7 @@ import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
+import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
 /**
  *
@@ -194,6 +195,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				InQuickPickContextKey.key,
 				// Other editor inputs (find widget, etc.)
 				EditorContextKeys.textInputFocus.key,
+				// Find input box
+				CONTEXT_FIND_INPUT_FOCUSED.key,
 				// Chat-related contexts (assistant inline or panel chat)
 				CTX_INLINE_CHAT_FOCUSED.key,
 				// Other editors like find widget etc..
