@@ -209,8 +209,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 			// Check if focus is still within the notebook editor container
 			// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
-			const notebookContainer = instance.container.get();
-			if (notebookContainer?.contains(activeElement)) {
+			if (instance.currentContainer?.contains(activeElement)) {
 				return;
 			}
 
