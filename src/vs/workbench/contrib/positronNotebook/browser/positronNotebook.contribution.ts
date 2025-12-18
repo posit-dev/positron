@@ -707,8 +707,6 @@ registerAction2(class extends NotebookAction2 {
 			menu: {
 				id: MenuId.PositronNotebookCellActionLeft,
 				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					InputFocusedContext.toNegated(),
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
 					CELL_CONTEXT_KEYS.isPending.toNegated()
