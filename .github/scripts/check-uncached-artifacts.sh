@@ -17,11 +17,11 @@ set -e
 #
 # WHAT TO DO IF FILES ARE DETECTED:
 # Option A: Add to cache (if tests need these files)
-#   - .github/actions/restore-build-caches/action.yml (add path to appropriate cache)
-#   - .github/actions/save-build-caches/action.yml (add path to appropriate cache)
+#   - Edit .github/scripts/cache-paths.sh (add path to appropriate cache section)
+#   - Run .github/scripts/verify-cache-paths.sh to verify
 #
 # Option B: Ignore (if tests don't need these files)
-#   - Add pattern to IGNORE_PATTERNS array below (line 45)
+#   - Add pattern to IGNORE_PATTERNS array below
 #
 # Usage: check-uncached-artifacts.sh <before-file> <after-file>
 
@@ -55,7 +55,7 @@ done < <(get_npm_extensions_patterns)
 # Ark and Kallichore binaries are intentionally NOT cached because:
 #   - They're platform-specific (can't share between Linux/Windows/Mac)
 #   - They're large (~50-100MB combined)
-#   - They're quick to download from GitHub releases (~10-20s)
+#   - They're quick to download from GitHub
 #   - Workflows explicitly run 'npm rebuild --foreground-scripts' when cache hits
 IGNORE_PATTERNS+=(
   "extensions/positron-python/resources/pet/VERSION"
@@ -110,10 +110,8 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
   echo "   That's it! The action files load paths dynamically."
   echo "   Optionally verify: .github/scripts/verify-cache-paths.sh"
   echo ""
-  echo "   See .github/scripts/README-cache-management.md for details"
-  echo ""
   echo "❌ Option B: Ignore (if tests don't need these files)"
-  echo "   Add pattern to IGNORE_PATTERNS in this file (~line 55):"
+  echo "   Add pattern to IGNORE_PATTERNS in this file (~line 60):"
   echo "   - .github/scripts/check-uncached-artifacts.sh"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
