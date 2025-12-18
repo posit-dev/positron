@@ -78,6 +78,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly currentEditor: ICodeEditor | undefined;
 
 	/**
+	 * The cell's code editor as an observable.
+	 */
+	readonly editor: IObservable<ICodeEditor | undefined>;
+
+	/**
 	 * Current cell outputs as an observable.
 	 * Returns undefined for markdown cells (which have no outputs).
 	 * Code cells override this to return their outputs observable.
