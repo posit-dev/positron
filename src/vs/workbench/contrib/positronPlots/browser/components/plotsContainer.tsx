@@ -30,6 +30,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 /**
  * PlotContainerProps interface.
@@ -405,13 +406,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return null;
 		}
 
-		const separator = sessionName && plotName ? ' : ' : '';
-
-		// Show session name and plot name if available
-		const displayText = `${sessionName ?? ''}${separator}${plotName ?? ''}`;
-
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!displayText && !plotCode) {
+		if (!sessionName && !plotName && !plotCode) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
@@ -435,7 +431,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				popupAlignment: 'left',
 				entries: [
 					new CustomContextMenuItem({
-						label: localize('positronPlots.copyCode', "Copy"),
+						label: localize('positronPlots.copyCode', "Copy Code"),
 						icon: 'copy',
 						onSelected: () => {
 							if (plotCode) {
@@ -444,12 +440,31 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 						}
 					}),
 					new CustomContextMenuItem({
-						label: localize('positronPlots.revealInConsole', "Reveal in Console"),
+						label: localize('positronPlots.revealInConsole', "Reveal Code in Console"),
 						icon: 'go-to-file',
 						disabled: !executionId || !sessionId,
 						onSelected: () => {
 							if (executionId && sessionId) {
 								services.positronConsoleService.revealExecution(sessionId, executionId);
+							}
+						}
+					}),
+					new CustomContextMenuItem({
+						label: localize('positronPlots.runCodeAgain', "Run Code Again"),
+						icon: 'run',
+						disabled: !plotCode || !sessionId,
+						onSelected: async () => {
+							if (plotCode && sessionId) {
+								const languageId = currentPlotInstance?.metadata.language;
+								if (languageId) {
+									await services.positronConsoleService.executeCode(
+										languageId,
+										sessionId,
+										plotCode,
+										{ source: CodeAttributionSource.Interactive },
+										true
+									);
+								}
 							}
 						}
 					})
@@ -458,7 +473,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		};
 
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
-			{displayText && <span className='plot-info-text' title={displayText}>{displayText}</span>}
+			{(sessionName || plotName) && (
+				<span className='plot-info-text'>
+					{sessionName && <span className='plot-session-name'>{sessionName}</span>}
+					{plotName && <span className='plot-name'>{plotName}</span>}
+				</span>
+			)}
 			{plotCode && (
 				<button
 					className='plot-code-button'
