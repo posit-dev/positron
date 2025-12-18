@@ -36,11 +36,6 @@ if [[ "$OPERATION" != "restore" && "$OPERATION" != "save" ]]; then
 	exit 1
 fi
 
-# Track overall status for potential use by caller
-ALL_HIT=true
-ANY_MISS=false
-ANY_SAVED=false
-
 log_restore_status() {
 	local cache_name="$1"
 	local enabled_var="$2"
@@ -51,8 +46,6 @@ log_restore_status() {
 			printf "%-16s %s\n" "$cache_name" "✅ hit"
 		else
 			printf "%-16s %s\n" "$cache_name" "❌ miss"
-			ALL_HIT=false
-			ANY_MISS=true
 		fi
 	else
 		printf "%-16s %s\n" "$cache_name" "⏭️  skipped (disabled)"
@@ -72,7 +65,6 @@ log_save_status() {
 			# Binary cache requires verification
 			if [[ "${!verify_var:-false}" == "true" ]]; then
 				printf "%-16s %s\n" "$cache_name" "💾 saved"
-				ANY_SAVED=true
 			else
 				printf "%-16s %s\n" "$cache_name" "⚠️  skipped (verification failed)"
 				echo "::warning::$cache_name binary verification failed - cache not saved"
@@ -80,7 +72,6 @@ log_save_status() {
 		else
 			# Non-binary cache, no verification needed
 			printf "%-16s %s\n" "$cache_name" "💾 saved"
-			ANY_SAVED=true
 		fi
 	elif [[ "$hit_status" == "true" ]]; then
 		printf "%-16s %s\n" "$cache_name" "✅ skipped (already cached)"

@@ -66,6 +66,7 @@ elif [[ "$PLATFORM" == "windows" ]]; then
 	# Windows configuration
 	# IMPORTANT: Use workspace-relative path (same as Linux) for consistency
 	# This allows both platforms to use identical cache paths in action.yml
+	# Note: .npm-cache works correctly on Windows (no need for AppData/Roaming)
 	echo "Configuring npm cache for Windows..."
 	NPM_CACHE_PATH=".npm-cache"
 
