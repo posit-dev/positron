@@ -82,14 +82,19 @@ jobs:
   e2e-windows:
     name: e2e
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
-    uses: ./.github/workflows/test-e2e-windows.yml
+    uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
       grep: ""
-      display_name: "electron (win)"
+      project: "e2e-windows"
+      display_name: "windows"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_currents: false
       allow_soft_fail: false
+      upload_logs: false
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-chromium:
     name: e2e

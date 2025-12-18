@@ -185,6 +185,11 @@ jobs:
             chown -R $(id -u):$(id -g) /__w/positron || true
           fi
 
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: 'true'  # Always download since using extracted build artifact
+
       - name: Seed system tmp cache from bundled cache
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
@@ -258,21 +263,8 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Restore Playwright browser cache
-        id: cache-playwright
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
-
       - name: Install Playwright browsers
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
-          npx playwright install --with-deps
+        run: npx playwright install --with-deps
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}

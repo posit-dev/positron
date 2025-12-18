@@ -10,7 +10,7 @@ import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
 import { PositWorkbench } from './workbench-pwb.js';
 
-const LOAD_TIMEOUT = 80000;
+const LOAD_TIMEOUT = 60000;
 
 const READINESS_LOCATORS = {
 	monacoWorkbench: '.monaco-workbench',

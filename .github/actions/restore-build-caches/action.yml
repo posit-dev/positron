@@ -1,0 +1,163 @@
+name: "Restore Build Caches"
+description: "Restores caches for npm dependencies and built-in extensions. Works on both Linux and Windows."
+
+# Platform-Agnostic Design:
+# This action automatically detects the platform (Linux/Windows) and uses appropriate
+# cache paths. Cache configuration is centralized in .github/scripts/:
+# - configure-npm-cache.sh: Sets up npm cache directory
+# - log-cache-status.sh: Unified logging for cache operations
+# - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
+#
+# IMPORTANT: When adding new cache paths:
+# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 2. That's it! This action loads paths dynamically from cache-paths.sh
+# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+#
+# The paths are loaded at runtime via the "Load cache paths" step below,
+# eliminating the need to manually sync multiple files.
+
+inputs:
+  distro:
+    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
+    required: false
+    default: 'ubuntu'
+  restore-npm-core:
+    description: "Whether to restore npm core dependencies cache (default: true)"
+    required: false
+    default: 'true'
+  restore-npm-extensions:
+    description: "Whether to restore npm extensions cache (default: true)"
+    required: false
+    default: 'true'
+  restore-builtins:
+    description: "Whether to restore built-in extensions cache (default: true)"
+    required: false
+    default: 'true'
+
+outputs:
+  cache-npm-core-hit:
+    description: "Whether npm core dependencies cache was restored"
+    value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-hit:
+    description: "Whether npm extensions cache was restored"
+    value: ${{ steps.cache-npm-extensions.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-builtins-hit:
+    description: "Whether built-in extensions cache was restored"
+    value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  extensions-hash:
+    description: "Generated hash of all extension package-lock.json files"
+    value: ${{ steps.extensions-hash.outputs.hash }}
+  package-locks-hash:
+    description: "Computed hash of all package-lock.json files (for DRY cache key generation)"
+    value: ${{ steps.package-locks-hash.outputs.hash }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Verify cache paths configuration
+      shell: bash
+      run: |
+        echo "::group::🔍 Verifying cache paths"
+        .github/scripts/verify-cache-paths.sh
+        echo "::endgroup::"
+
+    - name: Configure npm cache
+      shell: bash
+      run: .github/scripts/configure-npm-cache.sh
+
+    - name: Determine effective distro
+      id: distro
+      shell: bash
+      run: |
+        # Auto-detect distro for Windows, otherwise use input
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          EFFECTIVE_DISTRO="windows"
+        else
+          EFFECTIVE_DISTRO="${{ inputs.distro }}"
+        fi
+        echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
+        echo "Using distro: $EFFECTIVE_DISTRO"
+
+    - name: Load cache paths from source of truth
+      id: cache-paths
+      shell: bash
+      run: |
+        echo "::group::📦 Loading cache paths from cache-paths.sh"
+        source .github/scripts/cache-paths.sh
+
+        echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$BUILTINS_PATHS" | sed 's/^/  → /'
+
+        output_to_github_actions
+        echo "::endgroup::"
+
+    - name: Generate extensions cache key
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: extensions-hash
+      continue-on-error: true
+      shell: bash
+      run: |
+        if ! .github/scripts/generate-extensions-hash.sh; then
+          echo "::warning::Extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Generate package-locks cache key
+      if: ${{ inputs.restore-npm-core == 'true' }}
+      id: package-locks-hash
+      continue-on-error: true
+      shell: bash
+      run: |
+        if ! .github/scripts/generate-package-locks-hash.sh; then
+          echo "::warning::Package-locks hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Package-locks hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-package-locks-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Restore npm core dependencies cache
+      if: ${{ inputs.restore-npm-core == 'true' }}
+      id: cache-npm-core
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-core-paths }}
+        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+
+    - name: Restore npm extensions cache
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: cache-npm-extensions
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
+        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+
+    - name: Restore built-in extensions cache
+      if: ${{ inputs.restore-builtins == 'true' }}
+      id: cache-builtins
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.builtins-paths }}
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+        restore-keys: |
+          builtins-${{ runner.os }}-
+
+    - name: Log cache results
+      if: always()
+      shell: bash
+      env:
+        RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
+        RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
+        RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
+        CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
+        CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
+      run: .github/scripts/log-cache-status.sh restore

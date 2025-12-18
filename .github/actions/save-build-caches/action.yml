@@ -1,0 +1,118 @@
+name: "Save Build Caches"
+description: "Saves caches for npm dependencies and built-in extensions. Works on both Linux and Windows. Only saves caches that were restored but missed (cache-*-hit == 'false')."
+
+# Platform-Agnostic Design:
+# This action automatically detects the platform (Linux/Windows) and uses appropriate
+# cache paths. Cache configuration is centralized in .github/scripts/:
+# - log-cache-status.sh: Unified logging for cache operations
+# - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
+#
+# IMPORTANT: When adding new cache paths:
+# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 2. That's it! This action loads paths dynamically from cache-paths.sh
+# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+#
+# The paths are loaded at runtime via the "Load cache paths" step below,
+# eliminating the need to manually sync multiple files.
+#
+# Cache Matching Strategy:
+# GitHub Actions uses branch hierarchy when matching caches:
+# - Caches saved on 'main' are available to all branches
+# - Caches saved on PRs are available to that PR and its parent branches
+# - When a PR adds dependencies, test-pull-request saves the cache
+# - After merge, test-merge can restore from the PR's cache OR rebuild and save a new 'main' cache
+# This ensures efficient cache usage across branches without duplicate saves.
+
+inputs:
+  distro:
+    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
+    required: false
+    default: 'ubuntu'
+  cache-npm-core-hit:
+    description: "Whether npm core cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  cache-npm-extensions-hit:
+    description: "Whether npm extensions cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  cache-builtins-hit:
+    description: "Whether builtins cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  extensions-hash:
+    description: "Extensions hash from restore step (required only if saving npm extensions cache)"
+    required: false
+    default: ''
+  package-locks-hash:
+    description: "Package-locks hash from restore step (required only if saving npm core cache)"
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine effective distro
+      id: distro
+      shell: bash
+      run: |
+        # Auto-detect distro for Windows, otherwise use input
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          EFFECTIVE_DISTRO="windows"
+        else
+          EFFECTIVE_DISTRO="${{ inputs.distro }}"
+        fi
+        echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
+        echo "Using distro: $EFFECTIVE_DISTRO"
+
+    - name: Load cache paths from source of truth
+      id: cache-paths
+      shell: bash
+      run: |
+        echo "::group::📦 Loading cache paths from cache-paths.sh"
+        source .github/scripts/cache-paths.sh
+
+        echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$BUILTINS_PATHS" | sed 's/^/  → /'
+
+        output_to_github_actions
+        echo "::endgroup::"
+
+    - name: Save npm core dependencies cache
+      if: ${{ inputs.cache-npm-core-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-core-paths }}
+        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
+
+    - name: Save npm extensions cache
+      if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
+        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-hash }}
+
+    - name: Save built-in extensions cache
+      if: ${{ inputs.cache-builtins-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.builtins-paths }}
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+
+    - name: Log cache save results
+      if: always()
+      shell: bash
+      env:
+        CACHE_NPM_CORE_HIT: ${{ inputs.cache-npm-core-hit }}
+        CACHE_NPM_EXTENSIONS_HIT: ${{ inputs.cache-npm-extensions-hit }}
+        CACHE_BUILTINS_HIT: ${{ inputs.cache-builtins-hit }}
+      run: .github/scripts/log-cache-status.sh save
