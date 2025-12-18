@@ -576,6 +576,9 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell) {
 			cell.insertCodeCellAbove();
+		} else {
+			// Empty notebook: add a code cell
+			notebook.addCell(CellKind.Code, 0, false);
 		}
 	}
 });
@@ -609,6 +612,9 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell) {
 			cell.insertCodeCellBelow();
+		} else {
+			// Empty notebook: add a code cell
+			notebook.addCell(CellKind.Code, 0, false);
 		}
 	}
 });

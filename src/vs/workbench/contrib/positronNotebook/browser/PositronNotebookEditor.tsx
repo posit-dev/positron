@@ -220,12 +220,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		// Create the top-level editor container
 		this._editorContainer = DOM.$('.positron-notebook-editor');
-		// Make container focusable so it can maintain focus when empty
-		this._editorContainer.tabIndex = -1;
 		parent.appendChild(this._editorContainer);
 
-		// Create the notebook container
+		// Create the notebook container (focusable so it can maintain focus when empty)
 		this._notebookContainer = DOM.$('.positron-notebook-container');
+		this._notebookContainer.tabIndex = -1;
 		this._editorContainer.appendChild(this._notebookContainer);
 
 		// Create the overlay container for widgets (find, etc)
