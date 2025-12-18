@@ -42,12 +42,17 @@
 	align-items: center;
 	gap: 4px;
 	margin-left: auto;
-	padding: 0 4px;
+	padding: 2px 4px;
 	background: none;
 	border: none;
+	border-radius: 4px;
 	cursor: pointer;
-	max-width: 150px;
+	max-width: 200px;
 	overflow: hidden;
+}
+
+.plots-container .plot-info-header .plot-code-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .plots-container .plot-info-header .plot-code-button .plot-code-text {
@@ -64,6 +69,11 @@
 	flex-shrink: 0;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
+}
+
+.plots-container .plot-info-header .plot-code-button .codicon-chevron-down {
+	font-size: 10px;
+	margin-left: 2px;
 }
 
 .plots-container .plot-info-header .plot-code-button:hover .plot-code-text,

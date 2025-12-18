@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
+import { localize } from '../../../../../nls.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
@@ -27,6 +28,8 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 
 /**
  * PlotContainerProps interface.
@@ -414,12 +417,45 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			</div>;
 		}
 
+		/**
+		 * Handles the click on the plot code button to show a dropdown menu.
+		 * @param e The mouse event.
+		 */
+		const handlePlotCodeClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+			e.preventDefault();
+			e.stopPropagation();
+
+			const targetElement = e.currentTarget as HTMLElement;
+
+			showCustomContextMenu({
+				anchorElement: targetElement,
+				popupPosition: 'bottom',
+				popupAlignment: 'left',
+				entries: [
+					new CustomContextMenuItem({
+						label: localize('positronPlots.copyCode', "Copy"),
+						icon: 'copy',
+						onSelected: () => {
+							if (plotCode) {
+								services.clipboardService.writeText(plotCode);
+							}
+						}
+					})
+				]
+			});
+		};
+
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			{displayText && <span className='plot-info-text' title={displayText}>{displayText}</span>}
 			{plotCode && (
-				<button className='plot-code-button' title={plotCode}>
-					<span className='plot-code-text'>{plotCode}</span>
+				<button
+					className='plot-code-button'
+					title={plotCode}
+					onClick={handlePlotCodeClick}
+				>
 					<span className='codicon codicon-code'></span>
+					<span className='plot-code-text'>{plotCode}</span>
+					<span className='codicon codicon-chevron-down'></span>
 				</button>
 			)}
 		</div>;
