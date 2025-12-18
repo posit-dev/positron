@@ -52,6 +52,15 @@ export interface IPositronVariablesService {
 	setActivePositronVariablesSession(sessionId: string): void;
 
 	/**
+	 * Sets whether the Variables pane is visible.
+	 * When the pane becomes hidden, all instances are disposed.
+	 * When the pane becomes visible, instances are created for active sessions.
+	 *
+	 * @param visible Whether the Variables pane is visible.
+	 */
+	setViewVisible(visible: boolean): void;
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronVariablesService.
 	 */
 	initialize(): void;
