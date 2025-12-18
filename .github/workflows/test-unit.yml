@@ -49,7 +49,7 @@ jobs:
         uses: ./.github/actions/install-system-deps
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -76,8 +76,17 @@ jobs:
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
 
+      - name: Download binaries (Ark, Kallichore)
+        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
+        shell: bash
+        working-directory: extensions
+        run: |
+          # Force postinstall to download binaries even when node_modules cached
+          cd positron-r && npm rebuild --foreground-scripts
+          cd ../positron-supervisor && npm rebuild --foreground-scripts
+
       - name: Check for uncached postinstall artifacts
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
         run: |
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
@@ -99,8 +108,6 @@ jobs:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
           cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          cache-ark-hit: ${{ steps.restore-caches.outputs.cache-ark-hit }}
-          cache-kallichore-hit: ${{ steps.restore-caches.outputs.cache-kallichore-hit }}
           extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 

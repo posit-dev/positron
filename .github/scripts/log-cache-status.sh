@@ -16,22 +16,14 @@ set -euo pipefail
 #   For restore operation:
 #     - RESTORE_NPM: "true" if npm restore is enabled
 #     - RESTORE_BUILTINS: "true" if builtins restore is enabled
-#     - RESTORE_ARK: "true" if ark restore is enabled
-#     - RESTORE_KALLICHORE: "true" if kallichore restore is enabled
 #     - CACHE_NPM_CORE_HIT: "true" if npm-core cache hit
 #     - CACHE_NPM_EXTENSIONS_HIT: "true" if npm-extensions cache hit
 #     - CACHE_BUILTINS_HIT: "true" if builtins cache hit
-#     - CACHE_ARK_HIT: "true" if ark cache hit
-#     - CACHE_KALLICHORE_HIT: "true" if kallichore cache hit
 #
 #   For save operation:
 #     - CACHE_NPM_CORE_HIT: "true"/"false"/"" (empty means not restored)
 #     - CACHE_NPM_EXTENSIONS_HIT: "true"/"false"/"" (empty means not restored)
 #     - CACHE_BUILTINS_HIT: "true"/"false"/"" (empty means not restored)
-#     - CACHE_ARK_HIT: "true"/"false"/"" (empty means not restored)
-#     - CACHE_KALLICHORE_HIT: "true"/"false"/"" (empty means not restored)
-#     - VERIFY_ARK: "true" if ark binary verified (only checked when saving)
-#     - VERIFY_KALLICHORE: "true" if kallichore binary verified (only checked when saving)
 #
 # Exit Codes:
 #   0: Success
@@ -102,14 +94,10 @@ if [[ "$OPERATION" == "restore" ]]; then
 	log_restore_status "npm-core" "RESTORE_NPM" "CACHE_NPM_CORE_HIT"
 	log_restore_status "npm-extensions" "RESTORE_NPM" "CACHE_NPM_EXTENSIONS_HIT"
 	log_restore_status "builtins" "RESTORE_BUILTINS" "CACHE_BUILTINS_HIT"
-	log_restore_status "ark" "RESTORE_ARK" "CACHE_ARK_HIT"
-	log_restore_status "kallichore" "RESTORE_KALLICHORE" "CACHE_KALLICHORE_HIT"
 
 elif [[ "$OPERATION" == "save" ]]; then
 	# Save operation logging
 	log_save_status "npm-core" "CACHE_NPM_CORE_HIT"
 	log_save_status "npm-extensions" "CACHE_NPM_EXTENSIONS_HIT"
 	log_save_status "builtins" "CACHE_BUILTINS_HIT"
-	log_save_status "ark" "CACHE_ARK_HIT" "VERIFY_ARK"
-	log_save_status "kallichore" "CACHE_KALLICHORE_HIT" "VERIFY_KALLICHORE"
 fi

@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/install-system-deps
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -68,6 +68,15 @@ jobs:
 
             # Run parallel npm install
             bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
+        shell: bash
+        working-directory: extensions
+        run: |
+          # Force postinstall to download binaries even when node_modules cached
+          cd positron-r && npm rebuild --foreground-scripts
+          cd ../positron-supervisor && npm rebuild --foreground-scripts
 
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"

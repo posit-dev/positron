@@ -1,5 +1,5 @@
 name: "Restore Build Caches"
-description: "Restores caches for npm dependencies, built-in extensions, and binaries. Works on both Linux and Windows."
+description: "Restores caches for npm dependencies and built-in extensions. Works on both Linux and Windows."
 
 # Platform-Agnostic Design:
 # This action automatically detects the platform (Linux/Windows) and uses appropriate
@@ -8,8 +8,8 @@ description: "Restores caches for npm dependencies, built-in extensions, and bin
 # - log-cache-status.sh: Unified logging for cache operations
 #
 # When modifying cache paths or keys, update:
-# 1. This file (restore-build-caches-v2/action.yml)
-# 2. save-build-caches-v2/action.yml (to maintain restore/save parity)
+# 1. This file (restore-build-caches/action.yml)
+# 2. save-build-caches/action.yml (to maintain restore/save parity)
 
 inputs:
   distro:
@@ -24,14 +24,6 @@ inputs:
     description: "Whether to restore built-in extensions cache (default: true)"
     required: false
     default: 'true'
-  restore-ark:
-    description: "Whether to restore Ark binary cache (default: true)"
-    required: false
-    default: 'true'
-  restore-kallichore:
-    description: "Whether to restore Kallichore binary cache (default: true)"
-    required: false
-    default: 'true'
 
 outputs:
   cache-npm-core-hit:
@@ -43,12 +35,6 @@ outputs:
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-ark-hit:
-    description: "Whether Ark binary cache was restored"
-    value: ${{ steps.cache-ark.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-kallichore-hit:
-    description: "Whether Kallichore binary cache was restored"
-    value: ${{ steps.cache-kallichore.outputs.cache-hit == 'true' && 'true' || 'false' }}
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.extensions-hash.outputs.hash }}
@@ -134,41 +120,13 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
-    - name: Restore Ark binary cache
-      if: ${{ inputs.restore-ark == 'true' }}
-      id: cache-ark
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          extensions/positron-r/resources/ark
-        key: ark-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
-        restore-keys: |
-          ark-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
-
-    - name: Restore Kallichore binary cache
-      if: ${{ inputs.restore-kallichore == 'true' }}
-      id: cache-kallichore
-      continue-on-error: true
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          extensions/positron-supervisor/resources/kallichore
-        key: kallichore-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
-        restore-keys: |
-          kallichore-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
-
     - name: Log cache results
       if: always()
       shell: bash
       env:
         RESTORE_NPM: ${{ inputs.restore-npm }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
-        RESTORE_ARK: ${{ inputs.restore-ark }}
-        RESTORE_KALLICHORE: ${{ inputs.restore-kallichore }}
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
-        CACHE_ARK_HIT: ${{ steps.cache-ark.outputs.cache-hit }}
-        CACHE_KALLICHORE_HIT: ${{ steps.cache-kallichore.outputs.cache-hit }}
       run: .github/scripts/log-cache-status.sh restore

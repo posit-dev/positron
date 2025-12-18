@@ -4,10 +4,10 @@ set -e
 # Detect uncached postinstall artifacts
 #
 # WHY THIS EXISTS:
-# npm install runs postinstall scripts that download/build artifacts (Ark, Kallichore, Python
-# libs, etc.). We cache these artifacts to speed up CI. If a postinstall creates artifacts that
-# aren't in our cache paths, they'll be missing when the cache hits on the next run, causing
-# mysterious test failures.
+# npm install runs postinstall scripts that download/build artifacts (Python libs, vendored
+# packages, etc.). We cache npm_modules + some postinstall artifacts to speed up CI. If a
+# postinstall creates artifacts that aren't in our cache paths, they'll be missing when the
+# cache hits on the next run, causing mysterious test failures.
 #
 # HOW IT WORKS:
 # 1. Before npm install: Capture file tree snapshot (excludes node_modules/)
@@ -19,8 +19,6 @@ set -e
 # Option A: Add to cache (if tests need these files)
 #   - .github/actions/restore-build-caches/action.yml (add path to appropriate cache)
 #   - .github/actions/save-build-caches/action.yml (add path to appropriate cache)
-#   - .github/actions/restore-build-caches-windows/action.yml (Windows)
-#   - .github/actions/save-build-caches-windows/action.yml (Windows)
 #
 # Option B: Ignore (if tests don't need these files)
 #   - Add pattern to IGNORE_PATTERNS array below (line 45)
@@ -85,13 +83,11 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
   echo "ACTION REQUIRED: Choose one of the following:"
   echo ""
   echo "✅ Option A: Add to cache (if tests need these files)"
-  echo "   Edit these 4 files and add the path(s) to the appropriate cache:"
+  echo "   Edit these 2 files and add the path(s) to the appropriate cache:"
   echo "   1. .github/actions/restore-build-caches/action.yml"
   echo "   2. .github/actions/save-build-caches/action.yml"
-  echo "   3. .github/actions/restore-build-caches-windows/action.yml"
-  echo "   4. .github/actions/save-build-caches-windows/action.yml"
   echo ""
-  echo "   Look for cache sections like 'npm extensions', 'ark', 'kallichore', etc."
+  echo "   Look for cache sections like 'npm core', 'npm extensions', 'builtins', etc."
   echo ""
   echo "❌ Option B: Ignore (if tests don't need these files)"
   echo "   Edit this file and add pattern to IGNORE_PATTERNS (line 45):"
