@@ -45,20 +45,10 @@ end
 Handle incoming messages on the variables comm.
 """
 function handle_variables_msg(service::VariablesService, msg::Dict)
-    kernel_log_info("Variables: received message, keys=$(collect(keys(msg)))")
-
-    request = parse_variables_request(msg)
-    kernel_log_info("Variables: parsed request, type=$(typeof(request))")
-
-    try
+    handle_with_logging("Variables", service.comm, msg) do
+        request = parse_variables_request(msg)
+        kernel_log_info("Variables: parsed request, type=$(typeof(request))")
         handle_request(service, request)
-    catch e
-        kernel_log_error("Variables: error handling message: $(sprint(showerror, e, catch_backtrace()))")
-        try
-            send_error(service.comm, JsonRpcErrorCode.INTERNAL_ERROR, "Internal error: $(sprint(showerror, e))")
-        catch send_err
-            kernel_log_error("Variables: failed to send error response: $(sprint(showerror, send_err))")
-        end
     end
 end
 

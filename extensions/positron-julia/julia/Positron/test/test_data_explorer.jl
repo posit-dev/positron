@@ -1825,4 +1825,202 @@ end
         @test result.profiles[2].column_index == 1
         @test result.format_options isa Positron.FormatOptions
     end
+
+    @testset "parse_column_schema" begin
+        data = Dict(
+            "column_name" => "test_col",
+            "column_label" => "Test Column",
+            "column_index" => 5,
+            "type_name" => "Float64",
+            "type_display" => "floating",
+        )
+        result = Positron.parse_column_schema(data)
+
+        @test result isa Positron.ColumnSchema
+        @test result.column_name == "test_col"
+        @test result.column_label == "Test Column"
+        @test result.column_index == 5
+        @test result.type_name == "Float64"
+        @test result.type_display == Positron.ColumnDisplayType_Floating
+    end
+
+    @testset "parse_filter_between" begin
+        data = Dict("left_value" => "10", "right_value" => "100")
+        result = Positron.parse_filter_between(data)
+
+        @test result isa Positron.FilterBetween
+        @test result.left_value == "10"
+        @test result.right_value == "100"
+    end
+
+    @testset "parse_filter_comparison" begin
+        data = Dict("op" => ">", "value" => "42")
+        result = Positron.parse_filter_comparison(data)
+
+        @test result isa Positron.FilterComparison
+        @test result.op == Positron.FilterComparisonOp_Gt
+        @test result.value == "42"
+    end
+
+    @testset "parse_filter_text_search" begin
+        data = Dict(
+            "search_type" => "contains",
+            "term" => "hello",
+            "case_sensitive" => true,
+        )
+        result = Positron.parse_filter_text_search(data)
+
+        @test result isa Positron.FilterTextSearch
+        @test result.search_type == Positron.TextSearchType_Contains
+        @test result.term == "hello"
+        @test result.case_sensitive == true
+    end
+
+    @testset "parse_filter_set_membership" begin
+        data = Dict("values" => ["a", "b", "c"], "inclusive" => false)
+        result = Positron.parse_filter_set_membership(data)
+
+        @test result isa Positron.FilterSetMembership
+        @test result.values == ["a", "b", "c"]
+        @test result.inclusive == false
+    end
+
+    @testset "parse_row_filter - with comparison params" begin
+        data = Dict(
+            "filter_id" => "filter-123",
+            "filter_type" => "compare",
+            "column_schema" => Dict(
+                "column_name" => "price",
+                "column_index" => 2,
+                "type_name" => "Float64",
+                "type_display" => "floating",
+            ),
+            "condition" => "and",
+            "is_valid" => true,
+            "params" => Dict("op" => ">=", "value" => "100"),
+        )
+        result = Positron.parse_row_filter(data)
+
+        @test result isa Positron.RowFilter
+        @test result.filter_id == "filter-123"
+        @test result.filter_type == Positron.RowFilterType_Compare
+        @test result.column_schema.column_name == "price"
+        @test result.condition == Positron.RowFilterCondition_And
+        @test result.is_valid == true
+        @test result.params isa Positron.FilterComparison
+        @test result.params.op == Positron.FilterComparisonOp_GtEq
+        @test result.params.value == "100"
+    end
+
+    @testset "parse_row_filter - with between params" begin
+        data = Dict(
+            "filter_id" => "filter-456",
+            "filter_type" => "between",
+            "column_schema" => Dict(
+                "column_name" => "age",
+                "column_index" => 0,
+                "type_name" => "Int64",
+                "type_display" => "integer",
+            ),
+            "condition" => "or",
+            "params" => Dict("left_value" => "18", "right_value" => "65"),
+        )
+        result = Positron.parse_row_filter(data)
+
+        @test result isa Positron.RowFilter
+        @test result.filter_type == Positron.RowFilterType_Between
+        @test result.condition == Positron.RowFilterCondition_Or
+        @test result.params isa Positron.FilterBetween
+        @test result.params.left_value == "18"
+        @test result.params.right_value == "65"
+    end
+
+    @testset "parse_row_filter - is_null (no params)" begin
+        data = Dict(
+            "filter_id" => "filter-789",
+            "filter_type" => "is_null",
+            "column_schema" => Dict(
+                "column_name" => "notes",
+                "column_index" => 3,
+                "type_name" => "String",
+                "type_display" => "string",
+            ),
+            "condition" => "and",
+        )
+        result = Positron.parse_row_filter(data)
+
+        @test result isa Positron.RowFilter
+        @test result.filter_type == Positron.RowFilterType_IsNull
+        @test result.params === nothing
+    end
+
+    @testset "parse_column_sort_key" begin
+        data = Dict("column_index" => 5, "ascending" => false)
+        result = Positron.parse_column_sort_key(data)
+
+        @test result isa Positron.ColumnSortKey
+        @test result.column_index == 5
+        @test result.ascending == false
+    end
+
+    @testset "parse_data_explorer_request - set_row_filters" begin
+        data = Dict(
+            "method" => "set_row_filters",
+            "params" => Dict(
+                "filters" => [
+                    Dict(
+                        "filter_id" => "f1",
+                        "filter_type" => "compare",
+                        "column_schema" => Dict(
+                            "column_name" => "value",
+                            "column_index" => 0,
+                            "type_name" => "Int64",
+                            "type_display" => "integer",
+                        ),
+                        "condition" => "and",
+                        "params" => Dict("op" => ">", "value" => "10"),
+                    ),
+                    Dict(
+                        "filter_id" => "f2",
+                        "filter_type" => "not_null",
+                        "column_schema" => Dict(
+                            "column_name" => "name",
+                            "column_index" => 1,
+                            "type_name" => "String",
+                            "type_display" => "string",
+                        ),
+                        "condition" => "and",
+                    ),
+                ],
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerSetRowFiltersParams
+        @test length(result.filters) == 2
+        @test result.filters[1].filter_type == Positron.RowFilterType_Compare
+        @test result.filters[1].params isa Positron.FilterComparison
+        @test result.filters[2].filter_type == Positron.RowFilterType_NotNull
+        @test result.filters[2].params === nothing
+    end
+
+    @testset "parse_data_explorer_request - set_sort_columns" begin
+        data = Dict(
+            "method" => "set_sort_columns",
+            "params" => Dict(
+                "sort_keys" => [
+                    Dict("column_index" => 0, "ascending" => true),
+                    Dict("column_index" => 2, "ascending" => false),
+                ],
+            ),
+        )
+        result = Positron.parse_data_explorer_request(data)
+
+        @test result isa Positron.DataExplorerSetSortColumnsParams
+        @test length(result.sort_keys) == 2
+        @test result.sort_keys[1].column_index == 0
+        @test result.sort_keys[1].ascending == true
+        @test result.sort_keys[2].column_index == 2
+        @test result.sort_keys[2].ascending == false
+    end
 end

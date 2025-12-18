@@ -1202,6 +1202,133 @@ function parse_column_profile_request(data::Dict)::ColumnProfileRequest
 end
 
 """
+Parse ColumnSchema from a Dict.
+"""
+function parse_column_schema(data::Dict)::ColumnSchema
+    type_display_str = get(data, "type_display", "unknown")
+    type_display = STRING_TO_COLUMNDISPLAYTYPE[type_display_str]
+
+    return ColumnSchema(
+        get(data, "column_name", ""),
+        get(data, "column_label", nothing),
+        get(data, "column_index", 0),
+        get(data, "type_name", ""),
+        type_display,
+        get(data, "description", nothing),
+        nothing,  # children - not parsing nested schemas for now
+        get(data, "precision", nothing),
+        get(data, "scale", nothing),
+        get(data, "timezone", nothing),
+        get(data, "type_size", nothing),
+    )
+end
+
+"""
+Parse FilterBetween from a Dict.
+"""
+function parse_filter_between(data::Dict)::FilterBetween
+    return FilterBetween(
+        get(data, "left_value", ""),
+        get(data, "right_value", ""),
+    )
+end
+
+"""
+Parse FilterComparison from a Dict.
+"""
+function parse_filter_comparison(data::Dict)::FilterComparison
+    op_str = get(data, "op", "=")
+    op = STRING_TO_FILTERCOMPARISONOP[op_str]
+    return FilterComparison(op, get(data, "value", ""))
+end
+
+"""
+Parse FilterTextSearch from a Dict.
+"""
+function parse_filter_text_search(data::Dict)::FilterTextSearch
+    search_type_str = get(data, "search_type", "contains")
+    search_type = STRING_TO_TEXTSEARCHTYPE[search_type_str]
+    return FilterTextSearch(
+        search_type,
+        get(data, "term", ""),
+        get(data, "case_sensitive", false),
+    )
+end
+
+"""
+Parse FilterSetMembership from a Dict.
+"""
+function parse_filter_set_membership(data::Dict)::FilterSetMembership
+    return FilterSetMembership(
+        get(data, "values", String[]),
+        get(data, "inclusive", true),
+    )
+end
+
+"""
+Parse RowFilterParams from a Dict based on the filter type.
+"""
+function parse_row_filter_params(
+    data::Union{Dict,Nothing},
+    filter_type::RowFilterType,
+)::Union{RowFilterParams,Nothing}
+    if data === nothing
+        return nothing
+    end
+
+    # Map filter types to their parameter types
+    if filter_type in (RowFilterType_Between, RowFilterType_NotBetween)
+        return parse_filter_between(data)
+    elseif filter_type == RowFilterType_Compare
+        return parse_filter_comparison(data)
+    elseif filter_type == RowFilterType_Search
+        return parse_filter_text_search(data)
+    elseif filter_type == RowFilterType_SetMembership
+        return parse_filter_set_membership(data)
+    else
+        # No params for IsNull, NotNull, IsEmpty, NotEmpty, IsTrue, IsFalse
+        return nothing
+    end
+end
+
+"""
+Parse RowFilter from a Dict.
+"""
+function parse_row_filter(data::Dict)::RowFilter
+    filter_type_str = get(data, "filter_type", "is_null")
+    filter_type = STRING_TO_ROWFILTERTYPE[filter_type_str]
+
+    condition_str = get(data, "condition", "and")
+    condition = STRING_TO_ROWFILTERCONDITION[condition_str]
+
+    column_schema_data = get(data, "column_schema", Dict())
+    column_schema = parse_column_schema(column_schema_data)
+
+    params_data = get(data, "params", nothing)
+    params = parse_row_filter_params(params_data, filter_type)
+
+    return RowFilter(
+        get(data, "filter_id", ""),
+        filter_type,
+        column_schema,
+        condition,
+        get(data, "is_valid", nothing),
+        get(data, "error_message", nothing),
+        params,
+    )
+end
+
+"""
+Parse ColumnSortKey from a Dict.
+"""
+function parse_column_sort_key(data::Dict)::ColumnSortKey
+    return ColumnSortKey(
+        get(data, "column_index", 0),
+        get(data, "ascending", true),
+    )
+end
+
+"""
 Parse a backend request for the DataExplorer comm.
 """
 function parse_data_explorer_request(data::Dict)
@@ -1245,9 +1372,13 @@ function parse_data_explorer_request(data::Dict)
     elseif method == "set_column_filters"
         return DataExplorerSetColumnFiltersParams(get(params, "filters", []))
     elseif method == "set_row_filters"
-        return DataExplorerSetRowFiltersParams(get(params, "filters", []))
+        filters_dicts = get(params, "filters", [])
+        filters = [parse_row_filter(f) for f in filters_dicts]
+        return DataExplorerSetRowFiltersParams(filters)
     elseif method == "set_sort_columns"
-        return DataExplorerSetSortColumnsParams(get(params, "sort_keys", []))
+        sort_keys_dicts = get(params, "sort_keys", [])
+        sort_keys = [parse_column_sort_key(k) for k in sort_keys_dicts]
+        return DataExplorerSetSortColumnsParams(sort_keys)
     elseif method == "get_column_profiles"
         profiles_dicts = get(params, "profiles", [])
         profiles = [parse_column_profile_request(p) for p in profiles_dicts]
