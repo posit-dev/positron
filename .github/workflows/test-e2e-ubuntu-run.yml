@@ -186,14 +186,9 @@ jobs:
           fi
 
       - name: Download binaries (Ark, Kallichore)
-        shell: bash
-        working-directory: /__w/positron/positron/extensions
-        run: |
-          # Force postinstall to download binaries even when using cached build artifact
-          echo "Downloading Ark binary..."
-          cd positron-r && npm rebuild --foreground-scripts
-          echo "Downloading Kallichore binary..."
-          cd ../positron-supervisor && npm rebuild --foreground-scripts
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: 'true'  # Always download since using extracted build artifact
 
       - name: Seed system tmp cache from bundled cache
         run: |

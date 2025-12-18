@@ -185,14 +185,21 @@ jobs:
 
             echo "npm ci completed successfully"
 
-      - name: Download binaries (Ark, Kallichore)
-        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
-        shell: bash
-        working-directory: extensions
-        run: |
-          # Force postinstall to download binaries even when node_modules cached
-          cd positron-r && npm rebuild --foreground-scripts
-          cd ../positron-supervisor && npm rebuild --foreground-scripts
+      - name: Download binaries (Ark, Kallichore) with retry
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            # Download platform-specific binaries for Windows
+            # Wrapped in retry due to occasional GitHub API timeouts
+            cd extensions
+            echo "Downloading Ark binary..."
+            cd positron-r && npm rebuild --foreground-scripts
+            echo "Downloading Kallichore binary..."
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
 
       - name: Install E2E test dependencies
         run: npm --prefix test/e2e ci --no-audit --no-fund

@@ -90,6 +90,11 @@ runs:
         npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
         echo "::endgroup::"
 
+    - name: Download binaries (Ark, Kallichore)
+      uses: ./.github/actions/download-binaries
+      with:
+        cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+
     - name: Install Playwright browsers
       if: ${{ inputs.install-playwright == 'true' }}
       shell: bash

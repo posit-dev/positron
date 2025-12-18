@@ -191,13 +191,9 @@ jobs:
           command: bash scripts/install-npm-parallel.sh
 
       - name: Download binaries (Ark, Kallichore)
-        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
-        shell: bash
-        working-directory: extensions
-        run: |
-          # Force postinstall to download binaries even when node_modules cached
-          cd positron-r && npm rebuild --foreground-scripts
-          cd ../positron-supervisor && npm rebuild --foreground-scripts
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
 
       - name: Install E2E test dependencies
         run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund

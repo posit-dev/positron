@@ -77,13 +77,9 @@ jobs:
             bash scripts/install-npm-parallel.sh
 
       - name: Download binaries (Ark, Kallichore)
-        if: steps.restore-caches.outputs.cache-npm-extensions-hit == 'true'
-        shell: bash
-        working-directory: extensions
-        run: |
-          # Force postinstall to download binaries even when node_modules cached
-          cd positron-r && npm rebuild --foreground-scripts
-          cd ../positron-supervisor && npm rebuild --foreground-scripts
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
 
       - name: Check for uncached postinstall artifacts
         if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
@@ -178,9 +174,6 @@ jobs:
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: npm run test-node
-
-      # - name: Install Unit Test Dependencies
-      #   uses: ./.github/actions/setup-unit-test-env
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
