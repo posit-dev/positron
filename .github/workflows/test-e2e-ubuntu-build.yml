@@ -1,7 +1,7 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
 on:
- workflow_call: {}
+  workflow_call: {}
 
 permissions:
   id-token: write

@@ -5,10 +5,15 @@ description: "Saves caches for npm dependencies and built-in extensions. Works o
 # This action automatically detects the platform (Linux/Windows) and uses appropriate
 # cache paths. Cache configuration is centralized in .github/scripts/:
 # - log-cache-status.sh: Unified logging for cache operations
+# - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
 #
-# When modifying cache paths or keys, update:
-# 1. restore-build-caches/action.yml (to maintain restore/save parity)
-# 2. This file (save-build-caches/action.yml)
+# IMPORTANT: When adding new cache paths:
+# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 2. That's it! This action loads paths dynamically from cache-paths.sh
+# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+#
+# The paths are loaded at runtime via the "Load cache paths" step below,
+# eliminating the need to manually sync multiple files.
 
 inputs:
   distro:
@@ -52,21 +57,19 @@ runs:
         echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
         echo "Using distro: $EFFECTIVE_DISTRO"
 
+    - name: Load cache paths from source of truth
+      id: cache-paths
+      shell: bash
+      run: |
+        source .github/scripts/cache-paths.sh
+        output_to_github_actions
+
     - name: Save npm core dependencies cache
       if: ${{ inputs.cache-npm-core-hit == 'false' }}
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
-        path: |
-          .npm-cache
-          node_modules
-          build/node_modules
-          remote/node_modules
-          remote/web/node_modules
-          remote/reh-web/node_modules
-          test/integration/browser/node_modules
-          test/monaco/node_modules
-          test/mcp/node_modules
+        path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
@@ -74,12 +77,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
-        path: |
-          extensions/**/node_modules
-          .vscode/**/node_modules
-          extensions/positron-assistant/resources
-          extensions/positron-python/python-env-tools
-          extensions/positron-python/python_files
+        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
         key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Save built-in extensions cache
@@ -87,8 +85,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
-        path: |
-          .build/builtInExtensions
+        path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
     - name: Log cache save results

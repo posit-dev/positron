@@ -115,7 +115,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       DOCKER_CONFIG: /tmp/.docker
       POSITRON_BUILD_NUMBER: 0
-      HOME: /root
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
@@ -131,6 +130,7 @@ jobs:
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       RETICULATE_PYTHON: /root/.venv/bin/python
+      HOME: /root
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
@@ -265,7 +265,7 @@ jobs:
         if: ${{ inputs.project == 'e2e-edge' }}
         run: |
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
-          npx playwright install msedge --with-deps
+          npx playwright install msedge
 
       - name: Run Playwright Tests
         shell: bash

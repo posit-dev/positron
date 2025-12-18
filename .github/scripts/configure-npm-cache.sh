@@ -11,7 +11,7 @@ set -euo pipefail
 #
 # Platform Detection:
 #   - Linux: Uses .npm-cache in repo root + configures pip cache
-#   - Windows: Uses ~/AppData/Roaming/npm-cache (standard Windows location)
+#   - Windows: Uses .npm-cache in repo root (same as Linux for consistency)
 #
 # Environment Variables Set:
 #   - NPM_CONFIG_CACHE: npm cache directory

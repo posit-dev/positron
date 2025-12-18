@@ -6,10 +6,15 @@ description: "Restores caches for npm dependencies and built-in extensions. Work
 # cache paths. Cache configuration is centralized in .github/scripts/:
 # - configure-npm-cache.sh: Sets up npm cache directory
 # - log-cache-status.sh: Unified logging for cache operations
+# - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
 #
-# When modifying cache paths or keys, update:
-# 1. This file (restore-build-caches/action.yml)
-# 2. save-build-caches/action.yml (to maintain restore/save parity)
+# IMPORTANT: When adding new cache paths:
+# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 2. That's it! This action loads paths dynamically from cache-paths.sh
+# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+#
+# The paths are loaded at runtime via the "Load cache paths" step below,
+# eliminating the need to manually sync multiple files.
 
 inputs:
   distro:
@@ -45,6 +50,13 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Verify cache paths configuration
+      shell: bash
+      run: |
+        echo "::group::🔍 Verifying cache paths"
+        .github/scripts/verify-cache-paths.sh
+        echo "::endgroup::"
+
     - name: Configure npm cache
       shell: bash
       run: .github/scripts/configure-npm-cache.sh
@@ -61,6 +73,13 @@ runs:
         fi
         echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
         echo "Using distro: $EFFECTIVE_DISTRO"
+
+    - name: Load cache paths from source of truth
+      id: cache-paths
+      shell: bash
+      run: |
+        source .github/scripts/cache-paths.sh
+        output_to_github_actions
 
     - name: Generate extensions cache key
       if: ${{ inputs.restore-npm == 'true' }}
@@ -82,16 +101,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
-        path: |
-          .npm-cache
-          node_modules
-          build/node_modules
-          remote/node_modules
-          remote/web/node_modules
-          remote/reh-web/node_modules
-          test/integration/browser/node_modules
-          test/monaco/node_modules
-          test/mcp/node_modules
+        path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
@@ -100,12 +110,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
-        path: |
-          extensions/**/node_modules
-          .vscode/**/node_modules
-          extensions/positron-assistant/resources
-          extensions/positron-python/python-env-tools
-          extensions/positron-python/python_files
+        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
         key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore built-in extensions cache
@@ -114,8 +119,7 @@ runs:
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
-        path: |
-          .build/builtInExtensions
+        path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-

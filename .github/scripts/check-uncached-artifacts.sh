@@ -39,9 +39,20 @@ echo "🔍 Checking for uncached postinstall artifacts..."
 # Find files added by npm install (excluding node_modules and npm cache)
 ADDED_FILES=$(comm -13 "$BEFORE_FILE" "$AFTER_FILE" | grep -v "\.npm-cache" | grep -v "node_modules" || true)
 
-# Known non-critical files that don't need caching (tests pass without them)
-# Add patterns here if you want to suppress warnings for specific files
-IGNORE_PATTERNS=(
+# Load cache path configuration (single source of truth)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/cache-paths.sh"
+
+# Build ignore patterns from cache configuration
+# These files are already covered by our cache config, so no warning needed
+IGNORE_PATTERNS=()
+while IFS= read -r pattern; do
+  [ -z "$pattern" ] && continue
+  IGNORE_PATTERNS+=("$pattern")
+done < <(get_npm_extensions_patterns)
+
+# Additional one-off files that don't need caching (tests pass without them)
+IGNORE_PATTERNS+=(
   "extensions/positron-python/resources/pet/VERSION"
 )
 
@@ -83,14 +94,19 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
   echo "ACTION REQUIRED: Choose one of the following:"
   echo ""
   echo "✅ Option A: Add to cache (if tests need these files)"
-  echo "   Edit these 2 files and add the path(s) to the appropriate cache:"
-  echo "   1. .github/actions/restore-build-caches/action.yml"
-  echo "   2. .github/actions/save-build-caches/action.yml"
+  echo "   Edit ONE FILE: .github/scripts/cache-paths.sh"
+  echo "   Add the path(s) to the appropriate cache section:"
+  echo "     - NPM_CORE_PATHS (for root/build/remote/test)"
+  echo "     - NPM_EXTENSIONS_PATHS (for extensions/)"
+  echo "     - BUILTINS_PATHS (for .build/builtInExtensions)"
   echo ""
-  echo "   Look for cache sections like 'npm core', 'npm extensions', 'builtins', etc."
+  echo "   That's it! The action files load paths dynamically."
+  echo "   Optionally verify: .github/scripts/verify-cache-paths.sh"
+  echo ""
+  echo "   See .github/scripts/README-cache-management.md for details"
   echo ""
   echo "❌ Option B: Ignore (if tests don't need these files)"
-  echo "   Edit this file and add pattern to IGNORE_PATTERNS (line 45):"
+  echo "   Add pattern to IGNORE_PATTERNS in this file (~line 55):"
   echo "   - .github/scripts/check-uncached-artifacts.sh"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
