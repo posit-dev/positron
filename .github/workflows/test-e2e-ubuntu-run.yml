@@ -134,7 +134,7 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -184,6 +184,16 @@ jobs:
           if [ -d /__w/positron ]; then
             chown -R $(id -u):$(id -g) /__w/positron || true
           fi
+
+      - name: Download binaries (Ark, Kallichore)
+        shell: bash
+        working-directory: /__w/positron/positron/extensions
+        run: |
+          # Force postinstall to download binaries even when using cached build artifact
+          echo "Downloading Ark binary..."
+          cd positron-r && npm rebuild --foreground-scripts
+          echo "Downloading Kallichore binary..."
+          cd ../positron-supervisor && npm rebuild --foreground-scripts
 
       - name: Seed system tmp cache from bundled cache
         run: |

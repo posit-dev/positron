@@ -71,7 +71,7 @@ jobs:
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
     with:
-      save_cache: true  # Only this job saves cache to avoid race conditions
+      save_cache: true  # Saves Ubuntu caches for subsequent runs
 
   integration-tests:
     name: test
