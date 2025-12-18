@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import path = require('path');
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-
+// blah trigger extensions
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 
 	const drivers = [

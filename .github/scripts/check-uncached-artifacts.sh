@@ -59,7 +59,7 @@ done < <(get_npm_extensions_patterns)
 #   - Workflows explicitly run 'npm rebuild --foreground-scripts' when cache hits
 IGNORE_PATTERNS+=(
   "extensions/positron-python/resources/pet/VERSION"
-  "extensions/positron-r/resources/ark"
+  # "extensions/positron-r/resources/ark"
   "extensions/positron-supervisor/resources/kallichore"
 )
 
