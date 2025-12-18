@@ -117,11 +117,6 @@ runs:
           echo "hash=fallback-package-locks-$(date +%s)" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Log cache restore start
-      if: ${{ inputs.restore-npm == 'true' || inputs.restore-builtins == 'true' }}
-      shell: bash
-      run: echo "::group::📦 Restoring caches"
-
     - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
       id: cache-npm-core
@@ -150,11 +145,6 @@ runs:
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
-
-    - name: Log cache restore end
-      if: always() && (inputs.restore-npm == 'true' || inputs.restore-builtins == 'true')
-      shell: bash
-      run: echo "::endgroup::"
 
     - name: Log cache results
       if: always()

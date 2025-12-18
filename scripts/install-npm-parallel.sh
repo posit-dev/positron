@@ -11,12 +11,33 @@ mkdir -p "$NPM_CONFIG_CACHE"
 
 echo "Installing npm dependencies in parallel using cache: $NPM_CONFIG_CACHE"
 
-# Run all npm ci commands in parallel for faster installation
-pids=()
-npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+# Detect Windows platform
+IS_WINDOWS=false
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+	IS_WINDOWS=true
+elif [[ -n "${RUNNER_OS:-}" ]] && [[ "$RUNNER_OS" == "Windows" ]]; then
+	IS_WINDOWS=true
+fi
+
+# On Windows, install remote/ first to avoid node-gyp race conditions with native modules
+# remote/ contains @vscode/windows-process-tree which has native dependencies that conflict
+# when built in parallel with extensions that share the same native modules
+if [ "$IS_WINDOWS" = true ]; then
+	echo "Windows detected: Installing remote/ first to avoid node-gyp race conditions"
+	npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+
+	# Then run other installs in parallel
+	pids=()
+	npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+	npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+	npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+else
+	# Linux/Mac: Run all npm ci commands in parallel for faster installation
+	pids=()
+	npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+	npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+	npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+	npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 
 # Wait for all npm ci processes and check exit codes
 exit_code=0
