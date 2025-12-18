@@ -12,7 +12,7 @@ import { Range } from '../../../../../editor/common/core/range.js';
 /**
  * Decoration entry stored in the decorations map.
  */
-interface CellDecoration {
+interface ICellDecoration {
 	/** Our stable string ID for this decoration */
 	id: string;
 	/** Current editor decoration ID, undefined when not applied */
@@ -34,7 +34,7 @@ interface CellDecoration {
  */
 export class CellDecorationManager extends Disposable {
 	/** Map of string id -> decoration entry */
-	private readonly _decorations = new Map<string, CellDecoration>();
+	private readonly _decorations = new Map<string, ICellDecoration>();
 
 	/** Counter for generating cell decoration IDs */
 	private _nextId = 0;
@@ -139,7 +139,7 @@ export class CellDecorationManager extends Disposable {
 	 */
 	private _addModelDecoration(decoration: IModelDeltaDecoration): string {
 		const id = `${this._nextId++}`;
-		const entry: CellDecoration = { id, decorationId: undefined, options: decoration };
+		const entry: ICellDecoration = { id, decorationId: undefined, options: decoration };
 		this._decorations.set(id, entry);
 
 		if (this._editor && this._editor.hasModel()) {
