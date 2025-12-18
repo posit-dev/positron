@@ -729,7 +729,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
-		const targetWindow = this._container ? DOM.getWindow(this._container) : DOM.getActiveWindow();
+		const targetWindow = this.currentContainer ? DOM.getWindow(this.currentContainer) : DOM.getActiveWindow();
 		this._fontInfo = FontMeasurements.readFontInfo(
 			targetWindow,
 			createBareFontInfoFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value)
@@ -743,8 +743,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	getLayoutInfo(): NotebookLayoutInfo {
 		return {
-			width: this._container?.clientWidth ?? 0,
-			height: this._container?.clientHeight ?? 0,
+			width: this.currentContainer?.clientWidth ?? 0,
+			height: this.currentContainer?.clientHeight ?? 0,
 			scrollHeight: this._cellsContainer?.scrollHeight ?? 0,
 			fontInfo: this._generateFontInfo(),
 			stickyHeight: 0,
@@ -781,7 +781,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	focusContainer(_clearSelection?: boolean): void {
 		// Try to focus the container if available
-		this._container?.focus();
+		this.currentContainer?.focus();
 	}
 
 	/**
@@ -1296,10 +1296,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get codeEditors(): [IChatEditingCellViewModel, ICodeEditor][] {
 		return this.cells.get()
-			.filter(cell => cell.editor !== undefined)
+			.filter(cell => cell.currentEditor !== undefined)
 			.map(cell => {
 				const viewModel: IChatEditingCellViewModel = { handle: cell.handle };
-				return [viewModel, cell.editor!] as [IChatEditingCellViewModel, ICodeEditor];
+				return [viewModel, cell.currentEditor!];
 			});
 	}
 
