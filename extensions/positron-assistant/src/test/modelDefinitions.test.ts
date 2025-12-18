@@ -64,7 +64,7 @@ suite('Model Definitions', () => {
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
 			// Call the function that verifies providers
-			const { verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
+			const { verifyProvidersInCustomModels: verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
 			await verifyProvidersInConfiguredModels();
 
 			assert.strictEqual(showWarningMessageStub.calledOnce, true);
@@ -85,7 +85,7 @@ suite('Model Definitions', () => {
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
 			// Call the function that verifies providers
-			const { verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
+			const { verifyProvidersInCustomModels: verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
 			await verifyProvidersInConfiguredModels();
 
 			assert.strictEqual(showWarningMessageStub.notCalled, true);

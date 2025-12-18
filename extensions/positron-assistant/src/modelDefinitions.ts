@@ -15,24 +15,24 @@ export interface ModelDefinition {
 }
 
 /**
- * Get user-configured models from VS Code settings for a specific provider.
+ * Get custom models from VS Code settings for a specific provider.
  */
-export function getConfiguredModels(providerId: string): ModelDefinition[] {
+export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const configuredModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	return configuredModels[providerId] || [];
+	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
+	return customModels[providerId] || [];
 }
 
 /**
- * Check whether the provider IDs in the configured models are valid providers.
+ * Check whether the provider IDs in the custom models are valid providers.
  */
-export async function verifyProvidersInConfiguredModels() {
+export async function verifyProvidersInCustomModels() {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const configuredModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
+	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
 	const enabledProviders = await getEnabledProviders();
 
-	const invalidProviders = Object.keys(configuredModels)
-		// Note: 'copilot' is a special case, where we don't support configuredModels
+	const invalidProviders = Object.keys(customModels)
+		// Note: 'copilot' is a special case, where we don't support customModels
 		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
 	if (invalidProviders.length === 0) {
 		return;
@@ -116,13 +116,13 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 
 /**
  * Get all available model definitions for a provider, with intelligent fallback hierarchy:
- * 1. User-configured models (from settings) - highest priority
+ * 1. Custom models (from settings) - highest priority
  * 2. Built-in model definitions - fallback when no user config
  */
 export function getAllModelDefinitions(providerId: string): ModelDefinition[] {
-	const configured = getConfiguredModels(providerId);
-	if (configured.length > 0) {
-		return configured;
+	const models = getCustomModels(providerId);
+	if (models.length > 0) {
+		return models;
 	}
 	return builtInModelDefinitions.get(providerId) || [];
 }

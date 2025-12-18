@@ -630,8 +630,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Determine the model to select for the current provider.
 	 * Order of precedence:
 	 * 1. TODO: Last used model for the provider (persisted in storage)
-	 * 2. Preferred model from configuration (if set and available)
-	 * 3. Default model for the provider (inherited from default model config in Positron Assistant extension, or if set in settings)
+	 * 2. Provider-specific preferred model from Positron Assistant user setting, marked as isDefault
+	 * 3. Global preferred model from Positron Assistant user setting
 	 * 4. First available model from the provider
 	 * @returns The model to select for the current provider, or undefined if no models are available.
 	 */
@@ -649,9 +649,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// We'd need to persist the last used model per provider in storage or in memory, and then look that up here.
 		// See https://github.com/posit-dev/positron/issues/9829 for more details.
 
-		const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.preference.global');
+		const defaultModel = models.find(m => m.metadata.isDefault);
+		if (defaultModel) {
+			this.logService.debug(`ChatInputPart#determineSelectedModel: Using default model for provider: ${JSON.stringify(defaultModel, null, 2)}`);
+			return defaultModel;
+		}
 
-		// Try to get the preferred model from the configuration
+		const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.preference.global');
 		if (globalPreference) {
 			const preferredModel = models.find(m =>
 				m.identifier === globalPreference ||
@@ -659,16 +663,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				m.metadata.name.includes(globalPreference)
 			);
 			if (preferredModel) {
-				this.logService.debug(`ChatInputPart#determineSelectedModel: Using preferred model from config: ${JSON.stringify(preferredModel, null, 2)}`);
+				this.logService.debug(`ChatInputPart#determineSelectedModel: Using global preference from user config: ${JSON.stringify(preferredModel, null, 2)}`);
 				return preferredModel;
 			}
-		}
-
-		// Get the default model for the provider from settings
-		const defaultModel = models.find(m => m.metadata.isDefault);
-		if (defaultModel) {
-			this.logService.debug(`ChatInputPart#determineSelectedModel: Using default model for provider: ${JSON.stringify(defaultModel, null, 2)}`);
-			return defaultModel;
 		}
 
 		// Fallback to the first model
@@ -682,10 +679,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// Allow user to override application persisted model with config setting
 		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
 		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
-		const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.preference.global');
-		if (globalPreference) {
-			persistedSelection = globalPreference;
-			persistedAsDefault = false;
+
+		// Only apply global preference if there's no model marked as default by byProvider preference
+		const models = this.getModels();
+		const hasProviderDefault = models.some(m => m.metadata.isDefault);
+		if (!hasProviderDefault) {
+			const globalPreference = this.configurationService.getValue<string>('positron.assistant.models.preference.global');
+			if (globalPreference) {
+				persistedSelection = globalPreference;
+				persistedAsDefault = false;
+			}
 		}
 		// --- End Positron ---
 
