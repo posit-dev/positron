@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable, runOnChange } from '../../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
@@ -143,34 +143,20 @@ export class PositronNotebookFindDecorations extends Disposable {
 	): void {
 		this._logService.trace(`[FindDecorations] _deferDecorations: Setting up observer for cell ${cellHandle}`);
 
-		const disposables = new DisposableStore();
-
-		// Watch for editor changes on this cell
-		disposables.add(runOnChange(cell.editor, editor => {
+		// Watch for editor changes on this cell.
+		// The editor observable is only set when the model is ready, so we can apply immediately.
+		const disposable = runOnChange(cell.editor, editor => {
 			this._logService.trace(
 				`[FindDecorations] _deferDecorations CALLBACK: Cell ${cellHandle} editor changed to ${editor ? 'mounted' : 'unmounted'}`
 			);
 			if (editor) {
-				if (editor.hasModel()) {
-					// Editor has model - apply decorations immediately
-					this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Editor has model, applying deferred decorations now`);
-					this._applyDecorations(editor, cellHandle, decorations);
-					this._cellEditorObservers.deleteAndDispose(cellHandle);
-				} else {
-					// Editor exists but no model yet - wait for model
-					this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Editor has no model, waiting for onDidChangeModel`);
-					disposables.add(editor.onDidChangeModel(e => {
-						if (e.newModelUrl) {
-							this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Model attached, applying deferred decorations now`);
-							this._applyDecorations(editor, cellHandle, decorations);
-							this._cellEditorObservers.deleteAndDispose(cellHandle);
-						}
-					}));
-				}
+				this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Applying deferred decorations now`);
+				this._applyDecorations(editor, cellHandle, decorations);
+				this._cellEditorObservers.deleteAndDispose(cellHandle);
 			}
-		}));
+		});
 
-		this._cellEditorObservers.set(cellHandle, disposables);
+		this._cellEditorObservers.set(cellHandle, disposable);
 		this._logService.trace(`[FindDecorations] _deferDecorations: Observer registered, total observers: ${this._cellEditorObservers.size}`);
 	}
 
@@ -219,27 +205,13 @@ export class PositronNotebookFindDecorations extends Disposable {
 	}
 
 	private _deferCurrentMatch(cell: IPositronNotebookCell, cellRange: PositronCellFindMatch['cellRange']): void {
-		const disposables = new DisposableStore();
-
-		// Watch for editor changes on this cell
-		disposables.add(runOnChange(cell.editor, editor => {
+		// Watch for editor changes on this cell.
+		// The editor observable is only set when the model is ready, so we can apply immediately.
+		this._currentMatchEditorObserver.value = runOnChange(cell.editor, editor => {
 			if (editor) {
-				if (editor.hasModel()) {
-					// Editor has model - apply current match decoration immediately
-					this._applyCurrentMatch(cell, cellRange, editor);
-					this._currentMatchEditorObserver.clear();
-				} else {
-					// Editor exists but no model yet - wait for model
-					disposables.add(editor.onDidChangeModel(e => {
-						if (e.newModelUrl) {
-							this._applyCurrentMatch(cell, cellRange, editor);
-							this._currentMatchEditorObserver.clear();
-						}
-					}));
-				}
+				this._applyCurrentMatch(cell, cellRange, editor);
+				this._currentMatchEditorObserver.clear();
 			}
-		}));
-
-		this._currentMatchEditorObserver.value = disposables;
+		});
 	}
 }

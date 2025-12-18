@@ -151,11 +151,15 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		}, {
 			contributions: getNotebookEditorContributions()
 		}));
-		cell.attachEditor(editor);
 
 		// Request model for cell and pass to editor.
 		cell.getTextEditorModel().then(model => {
 			editor.setModel(model);
+
+			// Only attach the editor to the cell when the model is set.
+			// This simplifies dependents that use the cell editor when it's attached
+			// e.g. find widget decorations.
+			cell.attachEditor(editor);
 		});
 
 		// Bind the cell editor focused context key to the editor's internal scoped service
