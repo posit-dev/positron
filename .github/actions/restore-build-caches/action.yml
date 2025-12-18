@@ -1,17 +1,19 @@
 name: "Restore Build Caches"
-description: "Restores caches for npm dependencies, Playwright browsers, Electron binaries, and built-in extensions."
+description: "Restores caches for npm dependencies, built-in extensions, and binaries. Works on both Linux and Windows."
 
-# IMPORTANT: Cache paths must be kept in sync across 4 files:
-# - .github/actions/restore-build-caches/action.yml (this file - Linux)
-# - .github/actions/save-build-caches/action.yml (Linux)
-# - .github/actions/restore-build-caches-windows/action.yml (Windows)
-# - .github/actions/save-build-caches-windows/action.yml (Windows)
+# Platform-Agnostic Design:
+# This action automatically detects the platform (Linux/Windows) and uses appropriate
+# cache paths. Cache configuration is centralized in .github/scripts/:
+# - configure-npm-cache.sh: Sets up npm cache directory
+# - log-cache-status.sh: Unified logging for cache operations
 #
-# When adding/modifying cache paths, update ALL 4 files to maintain restore/save parity.
+# When modifying cache paths or keys, update:
+# 1. This file (restore-build-caches-v2/action.yml)
+# 2. save-build-caches-v2/action.yml (to maintain restore/save parity)
 
 inputs:
   distro:
-    description: "Linux distribution identifier for cache key (default: ubuntu). Use 'rhel' for RHEL/Rocky Linux."
+    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
     required: false
     default: 'ubuntu'
   restore-npm:
@@ -57,27 +59,28 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Validate distro input
+    - name: Configure npm cache
       shell: bash
-      run: |
-        if [[ "${{ runner.os }}" != "Linux" ]]; then
-          echo "Error: restore-build-caches action is for Linux only. Use restore-build-caches-windows for Windows." >&2
-          exit 1
-        fi
+      run: .github/scripts/configure-npm-cache.sh
 
-    - name: Configure local caches
+    - name: Determine effective distro
+      id: distro
       shell: bash
       run: |
-        echo "NPM_CONFIG_CACHE=.npm-cache" >> "$GITHUB_ENV"
-        echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
-        mkdir -p .npm-cache .pip-cache .versions
+        # Auto-detect distro for Windows, otherwise use input
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          EFFECTIVE_DISTRO="windows"
+        else
+          EFFECTIVE_DISTRO="${{ inputs.distro }}"
+        fi
+        echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
+        echo "Using distro: $EFFECTIVE_DISTRO"
 
     - name: Generate extensions cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: extensions-hash
       continue-on-error: true
       shell: bash
-      # Generate a hash of all extension + .vscode package.json files
       run: .github/scripts/generate-extensions-hash.sh || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
 
     - name: Generate package-locks cache key
@@ -85,8 +88,6 @@ runs:
       id: package-locks-hash
       continue-on-error: true
       shell: bash
-      # Automatically discovers package-lock.json files from build/npm/dirs.js
-      # No manual list to maintain - just update dirs.js and cache keys update automatically!
       run: .github/scripts/generate-package-locks-hash.sh || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
 
     - name: Restore npm core dependencies cache
@@ -105,10 +106,7 @@ runs:
           test/integration/browser/node_modules
           test/monaco/node_modules
           test/mcp/node_modules
-        # Core dependencies invalidate only when package-lock files change
-        # Note: test/e2e/node_modules excluded - not in postinstall dirs.js, installed separately
-        # IMPORTANT: If bumping npm-core-v4 -> npm-core-v5, also update save-build-caches/action.yml
-        key: npm-core-v4-${{ runner.os }}-${{ inputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
       if: ${{ inputs.restore-npm == 'true' }}
@@ -122,11 +120,7 @@ runs:
           extensions/positron-assistant/resources
           extensions/positron-python/python-env-tools
           extensions/positron-python/python_files
-        # Extensions invalidate when extension package.json files or git submodules change
-        # Cache includes node_modules AND postinstall artifacts (binaries, Python libs, vendored packages)
-        # Does NOT cache compiled outputs (out/) - extensions are recompiled during the "Compile Positron" step
-        # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update save-build-caches/action.yml
-        key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -136,8 +130,6 @@ runs:
       with:
         path: |
           .build/builtInExtensions
-        # product.json contains the list and versions of built-in extensions
-        # IMPORTANT: If bumping builtins -> builtins-v2, also update save-build-caches/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
@@ -150,24 +142,9 @@ runs:
       with:
         path: |
           extensions/positron-r/resources/ark
-        # Ark binary version is specified in positron-r package.json
-        # IMPORTANT: If bumping ark -> ark-v2, also update save-build-caches/action.yml
-        key: ark-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        key: ark-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
         restore-keys: |
-          ark-${{ runner.os }}-${{ inputs.distro }}-
-
-    - name: Log Ark version
-      if: ${{ inputs.restore-ark == 'true' && steps.cache-ark.outputs.cache-hit == 'true' }}
-      continue-on-error: true
-      shell: bash
-      run: |
-        if [ -f "extensions/positron-r/resources/ark/ark" ]; then
-          echo "Ark binary found, checking version..."
-          ARK_VERSION=$(extensions/positron-r/resources/ark/ark --version 2>&1 || echo "version check failed")
-          echo "Ark version: $ARK_VERSION"
-        else
-          echo "Ark binary not found at expected path"
-        fi
+          ark-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Restore Kallichore binary cache
       if: ${{ inputs.restore-kallichore == 'true' }}
@@ -177,81 +154,21 @@ runs:
       with:
         path: |
           extensions/positron-supervisor/resources/kallichore
-        # Kallichore binary version is specified in positron-supervisor package.json
-        # IMPORTANT: If bumping kallichore-v3 -> kallichore-v4, also update save-build-caches/action.yml
-        key: kallichore-v3-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        key: kallichore-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
         restore-keys: |
-          kallichore-v3-${{ runner.os }}-${{ inputs.distro }}-
+          kallichore-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Log cache results
       if: always()
       shell: bash
-      run: |
-        # Track cache status for summary
-        ALL_HIT=true
-        ANY_MISS=false
-
-        # npm-core
-        if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
-          if [[ "${{ steps['cache-npm-core'].outputs['cache-hit'] }}" == "true" ]]; then
-            printf "%-16s %s\n" "npm-core" "✅ hit"
-          else
-            printf "%-16s %s\n" "npm-core" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "npm-core" "⏭️  skipped (disabled)"
-        fi
-
-        # npm-extensions
-        if [[ "${{ inputs.restore-npm }}" == "true" ]]; then
-          if [[ "${{ steps['cache-npm-extensions'].outputs['cache-hit'] }}" == "true" ]]; then
-            printf "%-16s %s\n" "npm-extensions" "✅ hit"
-          else
-            printf "%-16s %s\n" "npm-extensions" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (disabled)"
-        fi
-
-        # builtins
-        if [[ "${{ inputs.restore-builtins }}" == "true" ]]; then
-          if [[ "${{ steps['cache-builtins'].outputs['cache-hit'] }}" == "true" ]]; then
-            printf "%-16s %s\n" "builtins" "✅ hit"
-          else
-            printf "%-16s %s\n" "builtins" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "builtins" "⏭️  skipped (disabled)"
-        fi
-
-        # ark
-        if [[ "${{ inputs.restore-ark }}" == "true" ]]; then
-          if [[ "${{ steps['cache-ark'].outputs['cache-hit'] }}" == "true" ]]; then
-            printf "%-16s %s\n" "ark" "✅ hit"
-          else
-            printf "%-16s %s\n" "ark" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "ark" "⏭️  skipped (disabled)"
-        fi
-
-        # kallichore
-        if [[ "${{ inputs.restore-kallichore }}" == "true" ]]; then
-          if [[ "${{ steps['cache-kallichore'].outputs['cache-hit'] }}" == "true" ]]; then
-            printf "%-16s %s\n" "kallichore" "✅ hit"
-          else
-            printf "%-16s %s\n" "kallichore" "❌ miss"
-            ALL_HIT=false
-            ANY_MISS=true
-          fi
-        else
-          printf "%-16s %s\n" "kallichore" "⏭️  skipped (disabled)"
-        fi
+      env:
+        RESTORE_NPM: ${{ inputs.restore-npm }}
+        RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
+        RESTORE_ARK: ${{ inputs.restore-ark }}
+        RESTORE_KALLICHORE: ${{ inputs.restore-kallichore }}
+        CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
+        CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
+        CACHE_ARK_HIT: ${{ steps.cache-ark.outputs.cache-hit }}
+        CACHE_KALLICHORE_HIT: ${{ steps.cache-kallichore.outputs.cache-hit }}
+      run: .github/scripts/log-cache-status.sh restore

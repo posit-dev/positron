@@ -39,7 +39,7 @@ jobs:
 
       - name: Restore caches
         id: restore-caches
-        uses: ./.github/actions/restore-build-caches-v2
+        uses: ./.github/actions/restore-build-caches
 
       - name: Install system dependencies
         uses: ./.github/actions/install-system-deps

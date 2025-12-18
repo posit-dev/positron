@@ -1,17 +1,19 @@
 name: "Save Build Caches"
-description: "Saves caches for npm dependencies and built-in extensions. Only saves caches that were restored but missed (cache-*-hit == 'false')."
+description: "Saves caches for npm dependencies, built-in extensions, and binaries. Works on both Linux and Windows. Only saves caches that were restored but missed (cache-*-hit == 'false')."
 
-# IMPORTANT: Cache paths must be kept in sync across 4 files:
-# - .github/actions/restore-build-caches/action.yml (Linux)
-# - .github/actions/save-build-caches/action.yml (this file - Linux)
-# - .github/actions/restore-build-caches-windows/action.yml (Windows)
-# - .github/actions/save-build-caches-windows/action.yml (Windows)
+# Platform-Agnostic Design:
+# This action automatically detects the platform (Linux/Windows) and uses appropriate
+# cache paths. Cache configuration is centralized in .github/scripts/:
+# - verify-binary.sh: Platform-aware binary verification
+# - log-cache-status.sh: Unified logging for cache operations
 #
-# When adding/modifying cache paths, update ALL 4 files to maintain restore/save parity.
+# When modifying cache paths or keys, update:
+# 1. restore-build-caches-v2/action.yml (to maintain restore/save parity)
+# 2. This file (save-build-caches-v2/action.yml)
 
 inputs:
   distro:
-    description: "Linux distribution identifier for cache key (default: ubuntu). Use 'rhel' for RHEL/Rocky Linux."
+    description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
     required: false
     default: 'ubuntu'
   cache-npm-core-hit:
@@ -46,13 +48,18 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Validate distro input
+    - name: Determine effective distro
+      id: distro
       shell: bash
       run: |
-        if [[ "${{ runner.os }}" != "Linux" ]]; then
-          echo "Error: save-build-caches action is for Linux only. Use save-build-caches-windows for Windows." >&2
-          exit 1
+        # Auto-detect distro for Windows, otherwise use input
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          EFFECTIVE_DISTRO="windows"
+        else
+          EFFECTIVE_DISTRO="${{ inputs.distro }}"
         fi
+        echo "distro=$EFFECTIVE_DISTRO" >> "$GITHUB_OUTPUT"
+        echo "Using distro: $EFFECTIVE_DISTRO"
 
     - name: Save npm core dependencies cache
       if: ${{ inputs.cache-npm-core-hit == 'false' }}
@@ -69,10 +76,7 @@ runs:
           test/integration/browser/node_modules
           test/monaco/node_modules
           test/mcp/node_modules
-        # Package-locks hash comes from restore step (DRY - single source of truth)
-        # Note: test/e2e/node_modules excluded - not in postinstall dirs.js, installed separately
-        # IMPORTANT: If bumping npm-core-v4 -> npm-core-v5, also update restore-build-caches/action.yml
-        key: npm-core-v4-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.package-locks-hash }}
+        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm extensions cache
       if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
@@ -85,11 +89,7 @@ runs:
           extensions/positron-assistant/resources
           extensions/positron-python/python-env-tools
           extensions/positron-python/python_files
-        # Extensions hash comes from restore step (DRY - single source of truth)
-        # Cache includes node_modules AND postinstall artifacts (binaries, Python libs, vendored packages)
-        # Does NOT cache compiled outputs (out/) - extensions are recompiled during the "Compile Positron" step
-        # IMPORTANT: If bumping npm-extensions-v6 -> npm-extensions-v7, also update restore-build-caches/action.yml
-        key: npm-extensions-v6-${{ runner.os }}-${{ inputs.distro }}-${{ inputs.extensions-hash }}
+        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-hash }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
@@ -98,7 +98,6 @@ runs:
       with:
         path: |
           .build/builtInExtensions
-        # IMPORTANT: If bumping builtins -> builtins-v2, also update restore-build-caches/action.yml
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
     - name: Verify Ark binary before saving
@@ -106,14 +105,7 @@ runs:
       id: verify-ark
       continue-on-error: true
       shell: bash
-      run: |
-        if [ -f "extensions/positron-r/resources/ark/ark" ] && extensions/positron-r/resources/ark/ark --version 2>/dev/null; then
-          echo "✅ Ark binary verified and functional"
-          echo "verified=true" >> $GITHUB_OUTPUT
-        else
-          echo "⚠️ Ark binary missing or not functional - skipping cache save"
-          echo "verified=false" >> $GITHUB_OUTPUT
-        fi
+      run: .github/scripts/verify-binary.sh ark
 
     - name: Save Ark binary cache
       if: ${{ inputs.cache-ark-hit == 'false' && steps.verify-ark.outputs.verified == 'true' }}
@@ -122,22 +114,14 @@ runs:
       with:
         path: |
           extensions/positron-r/resources/ark
-        # IMPORTANT: If bumping ark -> ark-v2, also update restore-build-caches/action.yml
-        key: ark-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        key: ark-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-r/package.json') }}
 
     - name: Verify Kallichore binary before saving
       if: ${{ inputs.cache-kallichore-hit == 'false' }}
       id: verify-kallichore
       continue-on-error: true
       shell: bash
-      run: |
-        if [ -f "extensions/positron-supervisor/resources/kallichore/kcserver" ]; then
-          echo "✅ Kallichore binary verified"
-          echo "verified=true" >> $GITHUB_OUTPUT
-        else
-          echo "⚠️ Kallichore binary missing - skipping cache save"
-          echo "verified=false" >> $GITHUB_OUTPUT
-        fi
+      run: .github/scripts/verify-binary.sh kallichore
 
     - name: Save Kallichore binary cache
       if: ${{ inputs.cache-kallichore-hit == 'false' && steps.verify-kallichore.outputs.verified == 'true' }}
@@ -146,72 +130,17 @@ runs:
       with:
         path: |
           extensions/positron-supervisor/resources/kallichore
-        # IMPORTANT: If bumping kallichore-v3 -> kallichore-v4, also update restore-build-caches/action.yml
-        key: kallichore-v3-${{ runner.os }}-${{ inputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        key: kallichore-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
 
     - name: Log cache save results
       if: always()
       shell: bash
-      run: |
-        # Track save status for summary
-        ANY_SAVED=false
-
-        # npm-core
-        if [[ "${{ inputs.cache-npm-core-hit }}" == "false" ]]; then
-          printf "%-16s %s\n" "npm-core" "💾 saved"
-          ANY_SAVED=true
-        elif [[ "${{ inputs.cache-npm-core-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "npm-core" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "npm-core" "⏭️  skipped (not restored)"
-        fi
-
-        # npm-extensions
-        if [[ "${{ inputs.cache-npm-extensions-hit }}" == "false" ]]; then
-          printf "%-16s %s\n" "npm-extensions" "💾 saved"
-          ANY_SAVED=true
-        elif [[ "${{ inputs.cache-npm-extensions-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "npm-extensions" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "npm-extensions" "⏭️  skipped (not restored)"
-        fi
-
-        # builtins
-        if [[ "${{ inputs.cache-builtins-hit }}" == "false" ]]; then
-          printf "%-16s %s\n" "builtins" "💾 saved"
-          ANY_SAVED=true
-        elif [[ "${{ inputs.cache-builtins-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "builtins" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "builtins" "⏭️  skipped (not restored)"
-        fi
-
-        # ark
-        if [[ "${{ inputs.cache-ark-hit }}" == "false" ]]; then
-          if [[ "${{ steps.verify-ark.outputs.verified }}" == "true" ]]; then
-            printf "%-16s %s\n" "ark" "💾 saved"
-            ANY_SAVED=true
-          else
-            printf "%-16s %s\n" "ark" "⚠️  skipped (verification failed)"
-            echo "::warning::Ark binary verification failed - cache not saved"
-          fi
-        elif [[ "${{ inputs.cache-ark-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "ark" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "ark" "⏭️  skipped (not restored)"
-        fi
-
-        # kallichore
-        if [[ "${{ inputs.cache-kallichore-hit }}" == "false" ]]; then
-          if [[ "${{ steps.verify-kallichore.outputs.verified }}" == "true" ]]; then
-            printf "%-16s %s\n" "kallichore" "💾 saved"
-            ANY_SAVED=true
-          else
-            printf "%-16s %s\n" "kallichore" "⚠️  skipped (verification failed)"
-            echo "::warning::Kallichore binary verification failed - cache not saved"
-          fi
-        elif [[ "${{ inputs.cache-kallichore-hit }}" == "true" ]]; then
-          printf "%-16s %s\n" "kallichore" "✅ skipped (already cached)"
-        else
-          printf "%-16s %s\n" "kallichore" "⏭️  skipped (not restored)"
-        fi
+      env:
+        CACHE_NPM_CORE_HIT: ${{ inputs.cache-npm-core-hit }}
+        CACHE_NPM_EXTENSIONS_HIT: ${{ inputs.cache-npm-extensions-hit }}
+        CACHE_BUILTINS_HIT: ${{ inputs.cache-builtins-hit }}
+        CACHE_ARK_HIT: ${{ inputs.cache-ark-hit }}
+        CACHE_KALLICHORE_HIT: ${{ inputs.cache-kallichore-hit }}
+        VERIFY_ARK: ${{ steps.verify-ark.outputs.verified }}
+        VERIFY_KALLICHORE: ${{ steps.verify-kallichore.outputs.verified }}
+      run: .github/scripts/log-cache-status.sh save
