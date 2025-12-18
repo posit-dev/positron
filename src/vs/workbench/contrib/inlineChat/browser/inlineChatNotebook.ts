@@ -122,7 +122,7 @@ export class InlineChatNotebookContribution {
 			// cancel existing chat sessions when a new one is started.
 			for (const positronInstance of positronNotebookService.listInstances(candidate.notebook)) {
 				if (positronInstance.hasCodeEditor(newSessionEditor)) {
-					for (const { editor } of positronInstance.cells.get()) {
+					for (const { currentEditor: editor } of positronInstance.cells.get()) {
 						if (editor && editor !== newSessionEditor) {
 							InlineChatController.get(editor)?.acceptSession();
 						}

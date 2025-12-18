@@ -110,7 +110,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this._instance.cells.get().indexOf(this);
 	}
 
-	get editor(): ICodeEditor | undefined {
+	get currentEditor(): ICodeEditor | undefined {
 		return this._editor.get();
 	}
 

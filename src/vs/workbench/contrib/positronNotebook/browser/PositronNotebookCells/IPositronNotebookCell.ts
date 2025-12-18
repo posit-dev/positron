@@ -73,9 +73,9 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	getContent(): string;
 
 	/**
-	 * The cell's code editor widget.
+	 * The cell's current code editor widget.
 	 */
-	readonly editor: ICodeEditor | undefined;
+	readonly currentEditor: ICodeEditor | undefined;
 
 	/**
 	 * Current cell outputs as an observable.

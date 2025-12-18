@@ -65,7 +65,7 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// Focus the Monaco editor to enter edit mode
-			cell.editor?.focus();
+			cell.currentEditor?.focus();
 		}
 	};
 
@@ -256,7 +256,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
 		const disposable = autorun(reader => {
 			cell.editorFocusRequested.read(reader);
-			const editor = cell.editor;
+			const editor = cell.currentEditor;
 			// Check if THIS cell is still the one being edited
 			// This prevents stale focus requests when user rapidly navigates between cells
 			const state = instance.selectionStateMachine.state.read(reader);

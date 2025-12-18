@@ -51,8 +51,8 @@ export class PositronNotebookFindDecorations extends Disposable {
 			// Update all decorations
 			for (const [cellHandle, decorations] of newDecorationsByCellHandle.entries()) {
 				const cell = cells.find(c => c.handle === cellHandle);
-				if (cell?.editor) {
-					cell.editor.changeDecorations(accessor => {
+				if (cell?.currentEditor) {
+					cell.currentEditor.changeDecorations(accessor => {
 						const oldDecorationIds = this._decorationIdsByCellHandle.get(cellHandle) ?? [];
 						const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, decorations);
 						this._decorationIdsByCellHandle.set(cellHandle, newDecorationIds);
@@ -71,8 +71,8 @@ export class PositronNotebookFindDecorations extends Disposable {
 			if (oldDecoration) {
 				const { cellHandle, decorationId } = oldDecoration;
 				const cell = cells.find(c => c.handle === cellHandle);
-				if (cell?.editor) {
-					cell.editor.changeDecorations(accessor => {
+				if (cell?.currentEditor) {
+					cell.currentEditor.changeDecorations(accessor => {
 						accessor.changeDecorationOptions(decorationId, FindDecorations._FIND_MATCH_DECORATION);
 					});
 				}
@@ -82,7 +82,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 			// Add the new current match decoration
 			if (currentMatch) {
 				const { cell, cellRange } = currentMatch.cellMatch;
-				if (!cell.editor) {
+				if (!cell.currentEditor) {
 					return;
 				}
 
@@ -90,7 +90,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 				if (cellRange.range) {
 					const decorationIds = this._decorationIdsByCellHandle.get(cell.handle) ?? [];
 					for (const decorationId of decorationIds) {
-						const model = cell.editor.getModel();
+						const model = cell.currentEditor.getModel();
 						if (model) {
 							const range = model.getDecorationRange(decorationId);
 							if (cellRange.range.equalsRange(range)) {
@@ -102,7 +102,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 				}
 
 				if (newCurrentDecorationId !== null) {
-					cell.editor.changeDecorations(accessor => {
+					cell.currentEditor.changeDecorations(accessor => {
 						accessor.changeDecorationOptions(newCurrentDecorationId, FindDecorations._CURRENT_FIND_MATCH_DECORATION);
 					});
 

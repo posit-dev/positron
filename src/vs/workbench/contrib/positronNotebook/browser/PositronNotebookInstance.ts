@@ -1282,7 +1282,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	hasCodeEditor(editor: ICodeEditor): boolean {
 		for (const cell of this.cells.get()) {
-			if (cell.editor && cell.editor === editor) {
+			if (cell.currentEditor && cell.currentEditor === editor) {
 				return true;
 			}
 		}

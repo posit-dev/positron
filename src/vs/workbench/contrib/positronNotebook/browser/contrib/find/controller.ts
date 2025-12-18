@@ -259,9 +259,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		let matchIndex: number | undefined = undefined;
 		if (cellMatches.length > 0) {
 			const activeCell = getActiveCell(this._notebook.selectionStateMachine.state.get());
-			if (activeCell?.editor) {
+			if (activeCell?.currentEditor) {
 				// We have an editor with a cursor position
-				const position = activeCell.editor.getPosition();
+				const position = activeCell.currentEditor.getPosition();
 				if (position) {
 					const cursorPosition = new CellEditorPosition(activeCell.index, position);
 					const foundIndex = cellMatches.findLastIndex(({ cellRange }) =>
@@ -328,9 +328,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return -1;
 		}
 
-		if (activeCell.editor) {
+		if (activeCell.currentEditor) {
 			// We have an editor with a cursor position
-			const position = activeCell.editor.getPosition();
+			const position = activeCell.currentEditor.getPosition();
 			if (position) {
 				const cursorPosition = new CellEditorPosition(activeCell.index, position);
 				const nextMatchIndex = cellMatches.findIndex(({ cellRange }) =>
@@ -371,9 +371,9 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return -1;
 		}
 
-		if (activeCell.editor) {
+		if (activeCell.currentEditor) {
 			// We have an editor with a cursor position
-			const position = activeCell.editor.getPosition();
+			const position = activeCell.currentEditor.getPosition();
 			if (position) {
 				const cursorPosition = new CellEditorPosition(activeCell.index, position);
 				const prevMatchIndex = cellMatches.findLastIndex(({ cellRange }) =>
@@ -409,11 +409,11 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		});
 
 		// Select the match in the editor
-		if (cell.editor) {
+		if (cell.currentEditor) {
 			// Set the selection to the match range
-			cell.editor.setSelection(cellRange.range);
+			cell.currentEditor.setSelection(cellRange.range);
 			// Reveal the range in the editor
-			cell.editor.revealRangeInCenter(cellRange.range);
+			cell.currentEditor.revealRangeInCenter(cellRange.range);
 		}
 
 		transaction((tx) => {
