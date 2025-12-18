@@ -52,8 +52,15 @@ while IFS= read -r pattern; do
 done < <(get_npm_extensions_patterns)
 
 # Additional one-off files that don't need caching (tests pass without them)
+# Ark and Kallichore binaries are intentionally NOT cached because:
+#   - They're platform-specific (can't share between Linux/Windows/Mac)
+#   - They're large (~50-100MB combined)
+#   - They're quick to download from GitHub releases (~10-20s)
+#   - Workflows explicitly run 'npm rebuild --foreground-scripts' when cache hits
 IGNORE_PATTERNS+=(
   "extensions/positron-python/resources/pet/VERSION"
+  "extensions/positron-r/resources/ark"
+  "extensions/positron-supervisor/resources/kallichore"
 )
 
 # Filter out ignored patterns
@@ -116,7 +123,7 @@ if [[ $UNCACHED_COUNT -gt 0 ]]; then
     echo "" >> $GITHUB_STEP_SUMMARY
     echo "npm install created $UNCACHED_COUNT files outside node_modules/" >> $GITHUB_STEP_SUMMARY
     echo "" >> $GITHUB_STEP_SUMMARY
-    echo "See workflow logs for details and action required." >> $GITHUB_STEP_SUMMARY
+    echo "Check the \"uncached postinstall artifacts\" step for more details." >> $GITHUB_STEP_SUMMARY
   fi
 
   # Don't fail - just warn. Let humans decide if it's critical.

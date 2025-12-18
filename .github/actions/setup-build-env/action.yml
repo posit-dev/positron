@@ -28,12 +28,6 @@ outputs:
   cache-builtins-hit:
     description: "Whether builtins cache was restored"
     value: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-  cache-ark-hit:
-    description: "Whether Ark binary cache was restored"
-    value: ${{ steps.restore-caches.outputs.cache-ark-hit }}
-  cache-kallichore-hit:
-    description: "Whether Kallichore binary cache was restored"
-    value: ${{ steps.restore-caches.outputs.cache-kallichore-hit }}
   extensions-hash:
     description: "Generated hash of all extension package-lock.json files"
     value: ${{ steps.restore-caches.outputs.extensions-hash }}
@@ -60,7 +54,7 @@ runs:
         echo "::endgroup::"
 
     - name: Install node dependencies
-      if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true' || steps.restore-caches.outputs.cache-ark-hit != 'true' || steps.restore-caches.outputs.cache-kallichore-hit != 'true'
+      if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
       uses: nick-fields/retry@v3
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
