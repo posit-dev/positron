@@ -26,6 +26,7 @@ import { showHistoryKeybindingHint } from '../../../../../../platform/history/br
 import { IKeybindingService } from '../../../../../../platform/keybinding/common/keybinding.js';
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { FindWidgetSearchHistory } from '../../../../../../editor/contrib/find/browser/findWidgetSearchHistory.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 
 export class PositronCellFindMatch {
 	constructor(
@@ -75,12 +76,13 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextViewService private readonly _contextViewService: IContextViewService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
 	) {
 		super();
 
-		this._register(new PositronNotebookFindDecorations(this._notebook, this._matches, this._currentMatch));
+		this._register(this._instantiationService.createInstance(PositronNotebookFindDecorations, this._notebook, this._matches, this._currentMatch));
 
 		this._register(this._notebook.onDidChangeModel((notebookModel) => {
 			this.attachNotebookModel(notebookModel);
@@ -92,12 +94,16 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 		// Hide find widget when view is detached, restore when reattached
 		this._register(autorun(reader => {
 			const container = this._notebook.container.read(reader);
+			this._logService.trace(`[FindController] Container autorun: container=${container ? 'attached' : 'detached'}`);
+
 			if (container === undefined) {
 				// Detached - save visibility state and hide
 				this._wasVisibleBeforeDetach = this._findInstance?.isVisible.read(undefined) ?? false;
+				this._logService.trace(`[FindController] Detaching, wasVisible=${this._wasVisibleBeforeDetach}`);
 				this._findInstance?.hide();
 			} else {
 				// Attached - restore visibility if it was visible before
+				this._logService.trace(`[FindController] Attaching, wasVisible=${this._wasVisibleBeforeDetach}`);
 				if (this._wasVisibleBeforeDetach && this._findInstance) {
 					this._findInstance.show();
 				}

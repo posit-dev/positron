@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableMap, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { autorun, IObservable, runOnChange } from '../../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../../editor/browser/editorBrowser.js';
 import { IModelDeltaDecoration } from '../../../../../../editor/common/model.js';
@@ -35,6 +35,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 		this._register(autorun(reader => {
 			const matches = this._matches.read(reader);
 			const cells = this._notebook.cells.read(undefined);  // untracked read
+			this._logService.trace(`[FindDecorations] Matches autorun triggered: ${matches.length} matches`);
 			this._applyAllDecorations(matches, cells);
 		}));
 
@@ -113,14 +114,23 @@ export class PositronNotebookFindDecorations extends Disposable {
 		for (const [cellHandle, decorations] of newDecorationsByCellHandle.entries()) {
 			const cell = cellsByHandle.get(cellHandle);
 			if (!cell) {
+				this._logService.trace(`[FindDecorations] Cell handle ${cellHandle} not found in cells list`);
 				continue;
 			}
 
+			this._logService.trace(
+				`[FindDecorations] Cell ${cellHandle}: ` +
+				`hasEditor=${Boolean(cell.currentEditor)}, ` +
+				`decorations=${decorations.length}`
+			);
+
 			if (cell.currentEditor) {
 				// Editor available - apply immediately
+				this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Applying immediately`);
 				this._applyDecorations(cell.currentEditor, cellHandle, decorations);
 			} else if (decorations.length > 0) {
 				// Editor not available but has matches - defer until mounted
+				this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Deferring (editor not mounted)`);
 				this._deferDecorations(cell, cellHandle, decorations);
 			}
 		}
@@ -131,24 +141,51 @@ export class PositronNotebookFindDecorations extends Disposable {
 		cellHandle: number,
 		decorations: IModelDeltaDecoration[]
 	): void {
-		// Watch for editor changes on this cell
-		const observer = runOnChange(cell.editor, editor => {
-			if (editor) {
-				// Editor is now available - apply decorations
-				this._applyDecorations(editor, cellHandle, decorations);
-				// Clean up this observer after applying
-				this._cellEditorObservers.deleteAndDispose(cellHandle);
-			}
-		});
+		this._logService.trace(`[FindDecorations] _deferDecorations: Setting up observer for cell ${cellHandle}`);
 
-		this._cellEditorObservers.set(cellHandle, observer);
+		const disposables = new DisposableStore();
+
+		// Watch for editor changes on this cell
+		disposables.add(runOnChange(cell.editor, editor => {
+			this._logService.trace(
+				`[FindDecorations] _deferDecorations CALLBACK: Cell ${cellHandle} editor changed to ${editor ? 'mounted' : 'unmounted'}`
+			);
+			if (editor) {
+				if (editor.hasModel()) {
+					// Editor has model - apply decorations immediately
+					this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Editor has model, applying deferred decorations now`);
+					this._applyDecorations(editor, cellHandle, decorations);
+					this._cellEditorObservers.deleteAndDispose(cellHandle);
+				} else {
+					// Editor exists but no model yet - wait for model
+					this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Editor has no model, waiting for onDidChangeModel`);
+					disposables.add(editor.onDidChangeModel(e => {
+						if (e.newModelUrl) {
+							this._logService.trace(`[FindDecorations] Cell ${cellHandle}: Model attached, applying deferred decorations now`);
+							this._applyDecorations(editor, cellHandle, decorations);
+							this._cellEditorObservers.deleteAndDispose(cellHandle);
+						}
+					}));
+				}
+			}
+		}));
+
+		this._cellEditorObservers.set(cellHandle, disposables);
+		this._logService.trace(`[FindDecorations] _deferDecorations: Observer registered, total observers: ${this._cellEditorObservers.size}`);
 	}
 
 	private _applyDecorations(editor: ICodeEditor, cellHandle: number, decorations: IModelDeltaDecoration[]): void {
+		this._logService.trace(`[FindDecorations] _applyDecorations: Cell ${cellHandle}, ${decorations.length} decorations`);
+
 		editor.changeDecorations(accessor => {
 			const oldDecorationIds = this._decorationIdsByCellHandle.get(cellHandle) ?? [];
 			const newDecorationIds = accessor.deltaDecorations(oldDecorationIds, decorations);
 			this._decorationIdsByCellHandle.set(cellHandle, newDecorationIds);
+
+			this._logService.trace(
+				`[FindDecorations] _applyDecorations COMPLETE: Cell ${cellHandle}, ` +
+				`old=${oldDecorationIds.length}, new=${newDecorationIds.length}`
+			);
 		});
 	}
 
@@ -182,14 +219,27 @@ export class PositronNotebookFindDecorations extends Disposable {
 	}
 
 	private _deferCurrentMatch(cell: IPositronNotebookCell, cellRange: PositronCellFindMatch['cellRange']): void {
+		const disposables = new DisposableStore();
+
 		// Watch for editor changes on this cell
-		this._currentMatchEditorObserver.value = runOnChange(cell.editor, editor => {
+		disposables.add(runOnChange(cell.editor, editor => {
 			if (editor) {
-				// Editor is now available - apply current match decoration
-				this._applyCurrentMatch(cell, cellRange, editor);
-				// Clean up observer
-				this._currentMatchEditorObserver.clear();
+				if (editor.hasModel()) {
+					// Editor has model - apply current match decoration immediately
+					this._applyCurrentMatch(cell, cellRange, editor);
+					this._currentMatchEditorObserver.clear();
+				} else {
+					// Editor exists but no model yet - wait for model
+					disposables.add(editor.onDidChangeModel(e => {
+						if (e.newModelUrl) {
+							this._applyCurrentMatch(cell, cellRange, editor);
+							this._currentMatchEditorObserver.clear();
+						}
+					}));
+				}
 			}
-		});
+		}));
+
+		this._currentMatchEditorObserver.value = disposables;
 	}
 }
