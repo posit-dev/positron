@@ -10,6 +10,8 @@
 # When adding new cache paths, update this file only.
 
 # npm core dependencies cache paths
+# "The main stuff we need" - All the JavaScript packages for building and testing Positron
+# Includes: root node_modules, build packages, remote packages, test packages, and npm cache
 # Invalidates when: any core package-lock.json changes
 read -r -d '' NPM_CORE_PATHS << 'EOF' || true
 .npm-cache
@@ -24,6 +26,8 @@ test/mcp/node_modules
 EOF
 
 # npm extensions cache paths
+# "The extra extensions stuff" - Packages and resources for Positron-specific extensions
+# Includes: extension node_modules, Python tools, assistant resources, etc.
 # Invalidates when: extension package.json OR source code OR submodule commits change
 read -r -d '' NPM_EXTENSIONS_PATHS << 'EOF' || true
 extensions/**/node_modules
@@ -34,7 +38,9 @@ extensions/positron-python/python_files
 EOF
 
 # Built-in extensions cache paths
-# Invalidates when: product.json changes
+# "The built-in VS Code extensions we download" - Pre-made extensions from the VS Code marketplace
+# Includes: Downloaded built-in extensions specified in product.json
+# Invalidates when: product.json changes (which lists what extensions to download)
 read -r -d '' BUILTINS_PATHS << 'EOF' || true
 .build/builtInExtensions
 EOF

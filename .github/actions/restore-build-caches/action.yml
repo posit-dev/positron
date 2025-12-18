@@ -21,8 +21,12 @@ inputs:
     description: "Distribution identifier for cache key (default: ubuntu for Linux). Use 'rhel' for RHEL/Rocky Linux. Windows auto-detects to 'windows'."
     required: false
     default: 'ubuntu'
-  restore-npm:
-    description: "Whether to restore npm cache (default: true)"
+  restore-npm-core:
+    description: "Whether to restore npm core dependencies cache (default: true)"
+    required: false
+    default: 'true'
+  restore-npm-extensions:
+    description: "Whether to restore npm extensions cache (default: true)"
     required: false
     default: 'true'
   restore-builtins:
@@ -94,7 +98,7 @@ runs:
         echo "::endgroup::"
 
     - name: Generate extensions cache key
-      if: ${{ inputs.restore-npm == 'true' }}
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: extensions-hash
       continue-on-error: true
       shell: bash
@@ -106,7 +110,7 @@ runs:
         fi
 
     - name: Generate package-locks cache key
-      if: ${{ inputs.restore-npm == 'true' }}
+      if: ${{ inputs.restore-npm-core == 'true' }}
       id: package-locks-hash
       continue-on-error: true
       shell: bash
@@ -118,7 +122,7 @@ runs:
         fi
 
     - name: Restore npm core dependencies cache
-      if: ${{ inputs.restore-npm == 'true' }}
+      if: ${{ inputs.restore-npm-core == 'true' }}
       id: cache-npm-core
       continue-on-error: true
       uses: actions/cache/restore@v4
@@ -127,7 +131,7 @@ runs:
         key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
     - name: Restore npm extensions cache
-      if: ${{ inputs.restore-npm == 'true' }}
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
       id: cache-npm-extensions
       continue-on-error: true
       uses: actions/cache/restore@v4
@@ -150,7 +154,8 @@ runs:
       if: always()
       shell: bash
       env:
-        RESTORE_NPM: ${{ inputs.restore-npm }}
+        RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
+        RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}

@@ -14,7 +14,8 @@ set -euo pipefail
 #
 # Environment Variables (set by GitHub Actions):
 #   For restore operation:
-#     - RESTORE_NPM: "true" if npm restore is enabled
+#     - RESTORE_NPM_CORE: "true" if npm core restore is enabled
+#     - RESTORE_NPM_EXTENSIONS: "true" if npm extensions restore is enabled
 #     - RESTORE_BUILTINS: "true" if builtins restore is enabled
 #     - CACHE_NPM_CORE_HIT: "true" if npm-core cache hit
 #     - CACHE_NPM_EXTENSIONS_HIT: "true" if npm-extensions cache hit
@@ -82,8 +83,8 @@ log_save_status() {
 
 if [[ "$OPERATION" == "restore" ]]; then
 	# Restore operation logging
-	log_restore_status "npm-core" "RESTORE_NPM" "CACHE_NPM_CORE_HIT"
-	log_restore_status "npm-extensions" "RESTORE_NPM" "CACHE_NPM_EXTENSIONS_HIT"
+	log_restore_status "npm-core" "RESTORE_NPM_CORE" "CACHE_NPM_CORE_HIT"
+	log_restore_status "npm-extensions" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_HIT"
 	log_restore_status "builtins" "RESTORE_BUILTINS" "CACHE_BUILTINS_HIT"
 
 elif [[ "$OPERATION" == "save" ]]; then
