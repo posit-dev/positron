@@ -228,6 +228,7 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			return;
 		}
 
+		// Schedule the debounced content changed event to trigger researches
 		this._notebookModelDisposables.add(notebookModel.onDidChangeContent(e => {
 			if (e.rawEvents.some(
 				event => event.kind === NotebookCellsChangeType.ChangeCellContent ||

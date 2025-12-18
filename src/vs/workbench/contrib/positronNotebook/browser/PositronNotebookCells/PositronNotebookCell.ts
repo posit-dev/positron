@@ -7,9 +7,11 @@ import { disposableTimeout } from '../../../../../base/common/async.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ITextModel } from '../../../../../editor/common/model.js';
+import { IModelDeltaDecoration, ITextModel } from '../../../../../editor/common/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { Range } from '../../../../../editor/common/core/range.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
@@ -45,6 +47,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
+	/** Decoration manager that handles mount/unmount automatically */
+	private readonly _decorationManager: CellDecorationManager;
+
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
 	public readonly isActive = observableValue('cellIsActive', false);
@@ -57,6 +62,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		@ITextModelService private readonly _textModelService: ITextModelService,
 	) {
 		super();
+
+		// Initialize decoration manager with editor observable
+		this._decorationManager = this._register(new CellDecorationManager(this.editor));
 
 		// Observable of internal metadata to derive execution status and timing info
 		// e.g. as used in PositronNotebookCodeCell
@@ -189,6 +197,15 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	detachEditor(): void {
 		this.editor.set(undefined, undefined);
+	}
+
+	// Decoration API (delegates to manager, matches ICellViewModel)
+	deltaModelDecorations(oldDecorations: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
+		return this._decorationManager.deltaModelDecorations(oldDecorations, newDecorations);
+	}
+
+	getCellDecorationRange(id: string): Range | null {
+		return this._decorationManager.getCellDecorationRange(id);
 	}
 
 	/**
