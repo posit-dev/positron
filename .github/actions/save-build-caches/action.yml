@@ -61,8 +61,20 @@ runs:
       id: cache-paths
       shell: bash
       run: |
+        echo "::group::📦 Loading cache paths from cache-paths.sh"
         source .github/scripts/cache-paths.sh
+
+        echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$BUILTINS_PATHS" | sed 's/^/  → /'
+
         output_to_github_actions
+        echo "::endgroup::"
 
     - name: Save npm core dependencies cache
       if: ${{ inputs.cache-npm-core-hit == 'false' }}
