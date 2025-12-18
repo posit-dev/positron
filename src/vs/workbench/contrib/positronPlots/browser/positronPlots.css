@@ -14,6 +14,13 @@
 	flex-direction: row;
 }
 
+.plots-container .plot-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	overflow: hidden;
+}
+
 .plots-container.history-bottom {
 	flex-direction: column;
 }

@@ -417,14 +417,16 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// most recently generated plot.
 	return (
 		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge} tabIndex={0}>
-			{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
-			<div className='selected-plot'>
-				{positronPlotsContext.positronPlotInstances.length === 0 &&
-					<div className='plot-placeholder'></div>}
-				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
-					plotInstance.id === positronPlotsContext.selectedInstanceId &&
-					render(plotInstance)
-				))}
+			<div className='plot-content'>
+				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
+				<div className='selected-plot'>
+					{positronPlotsContext.positronPlotInstances.length === 0 &&
+						<div className='plot-placeholder'></div>}
+					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
+						plotInstance.id === positronPlotsContext.selectedInstanceId &&
+						render(plotInstance)
+					))}
+				</div>
 			</div>
 			{props.showHistory && renderHistory()}
 		</div>
