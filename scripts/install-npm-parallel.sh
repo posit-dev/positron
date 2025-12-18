@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # install-npm-parallel.sh
 # Installs npm dependencies in parallel for root, build, remote, and test/e2e directories.
@@ -27,8 +27,18 @@ fi
 # Running these sequentially ensures build tools are ready before extensions install
 if [ "$IS_WINDOWS" = true ]; then
 	echo "Windows detected: Installing core directories sequentially to avoid race conditions"
+
+	# Disable postinstall.js parallel mode on Windows - let this script control parallelism
+	export POSITRON_PARALLEL_INSTALL=0
+
+	# Install sequentially to avoid native module build races
+	echo "Installing build dependencies..."
 	npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+
+	echo "Installing remote dependencies..."
 	npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+
+	echo "Installing root dependencies (includes extensions via postinstall)..."
 	npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
 
 	# test/e2e can run separately since it has no native modules
@@ -47,13 +57,14 @@ fi
 exit_code=0
 for pid in "${pids[@]}"; do
 	if ! wait "$pid"; then
+		echo "ERROR: npm ci failed for process $pid"
 		exit_code=1
 	fi
 done
 
 if [ $exit_code -ne 0 ]; then
-	echo "One or more npm ci commands failed"
+	echo "ERROR: One or more npm ci commands failed - check logs above for details"
 	exit 1
 fi
 
-echo "All npm ci commands completed successfully"
+echo "✓ All npm dependencies installed successfully"

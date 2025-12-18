@@ -160,8 +160,8 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-          POSITRON_PARALLEL_INSTALL: '1'
-          POSITRON_NPM_CONCURRENCY: '30'
+          POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
+          POSITRON_NPM_CONCURRENCY: '30'         # Unused when parallel install is disabled
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications

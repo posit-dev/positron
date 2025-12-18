@@ -69,7 +69,8 @@ runs:
       with:
         timeout_minutes: 30
         max_attempts: 3
-        retry_wait_seconds: 5
+        retry_wait_seconds: 10
+        retry_on: error
         shell: bash
         command: |
           echo "::group::📦 Install node dependencies"
