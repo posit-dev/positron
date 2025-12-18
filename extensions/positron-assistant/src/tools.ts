@@ -363,7 +363,7 @@ export function registerAssistantTools(
 	// - AddNotebookCell: Add new code or markdown cells
 	// - UpdateNotebookCell: Update existing cell content
 	// - GetCellOutputs: Retrieve outputs from executed cells
-	registerNotebookTools(context);
+	registerNotebookTools(context, participantService);
 }
 
 /**
@@ -374,7 +374,7 @@ export function registerAssistantTools(
  * @returns The request data for the given tool invocation token.
  * @throws Error if there is no tool invocation token or if the request data cannot be found.
  */
-function getChatRequestData(
+export function getChatRequestData(
 	chatRequestId: string | undefined,
 	participantService: ParticipantService,
 ) {
