@@ -353,22 +353,22 @@
               ]
             ]
           },
-          "positron.assistant.models.globalPreference": {
+          "positron.assistant.models.preference.global": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.models.globalPreference.description%",
+            "markdownDescription": "%configuration.models.preference.global.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
             ]
           },
-          "positron.assistant.models.providerPreferences": {
+          "positron.assistant.models.preference.byProvider": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.models.providerPreferences.description%",
+            "markdownDescription": "%configuration.models.preference.byProvider.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
@@ -426,9 +426,6 @@
                   }
                 ]
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.notebookSuggestions.model": {
