@@ -20,6 +20,10 @@ import type { OpenAI } from 'openai';
  * 2. Empty tool arguments for no-parameter tools:
  *    - Expected: `{ "arguments": "{}" }`
  *    - Broken:   `{ "arguments": "" }`
+ *
+ * 3. Empty tool call type:
+ *    - Expected: `{ "type": "function" }`
+ *    - Broken:   `{ "type": "" }`
  */
 
 /**
@@ -33,9 +37,11 @@ type PossiblyBrokenToolCallFunction = Omit<OpenAI.ChatCompletionChunk.Choice.Del
 /**
  * Relaxed tool call type.
  * - `function` uses the relaxed PossiblyBrokenToolCallFunction type
+ * - `type` accepts empty string '' (some providers send `"type": ""` instead of `"function"`)
  */
-type PossiblyBrokenToolCall = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall, 'function'> & {
+type PossiblyBrokenToolCall = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall, 'function' | 'type'> & {
 	function: PossiblyBrokenToolCallFunction;
+	type?: 'function' | '';
 };
 
 /**
@@ -72,16 +78,31 @@ export function fixPossiblyBrokenChatCompletionChunk(
 	const choices: OpenAI.ChatCompletionChunk.Choice[] = chunk.choices.map((choice) => {
 		// Fix empty tool arguments: some providers return '' for no-parameter tools,
 		// but the AI SDK expects valid JSON '{}'
-		const fixedToolCalls = choice.delta.tool_calls?.map((toolCall) => {
+		// Fix empty tool type: some providers return '' but AI SDK expects 'function'
+		const fixedToolCalls = choice.delta.tool_calls?.map((toolCall): OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall => {
 			const { name, arguments: args } = toolCall.function;
 			const isNoArgTool = name && noArgTools.includes(name);
 			const hasEmptyArgs = args === '';
+			const hasEmptyType = toolCall.type === '';
+
+			const fixedFunction = (isNoArgTool && hasEmptyArgs)
+				? { ...toolCall.function, arguments: '{}' }
+				: toolCall.function;
+			const fixedFunctionType = hasEmptyType ? 'function' : toolCall.type || 'function';
 
 			if (isNoArgTool && hasEmptyArgs) {
 				log.debug(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${name}`);
-				return { ...toolCall, function: { ...toolCall.function, arguments: '{}' } };
 			}
-			return toolCall;
+
+			if (hasEmptyType) {
+				log.debug(`[${providerName}] Converting empty tool type to 'function' for tool: ${name || '(unnamed)'}`);
+			}
+
+			return {
+				...toolCall,
+				function: fixedFunction,
+				type: fixedFunctionType,
+			};
 		});
 
 		return {
@@ -90,7 +111,9 @@ export function fixPossiblyBrokenChatCompletionChunk(
 				...choice.delta,
 				// Fix empty role: some providers return '' but AI SDK expects 'assistant'
 				role: choice.delta.role || 'assistant',
-				...(fixedToolCalls && { tool_calls: fixedToolCalls }),
+				// Fix tool_calls: use fixed array if available, omit if null/undefined
+				// Some providers send tool_calls: null which may cause validation issues
+				tool_calls: fixedToolCalls,
 			},
 		};
 	});
@@ -171,8 +194,6 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 
 		log.debug(`[${providerName}] [DEBUG] Original request body:`, JSON.stringify(requestBody, null, 2));
 
-		let bodyModified = false;
-
 		// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
 		// is deprecated for models such as GPT-5.
 		// This property is now called max_completion_tokens in the AI SDK v5.
@@ -182,7 +203,20 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 			log.debug(`[${providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
 			requestBody.max_completion_tokens = requestBody.max_tokens;
 			delete requestBody.max_tokens;
-			bodyModified = true;
+		}
+
+		// Transform 'developer' role to 'system' for providers that don't support it.
+		// The 'developer' role was introduced by OpenAI for newer models, but many
+		// OpenAI-compatible providers only support 'system', 'user', 'assistant', 'tool', 'function'.
+		// Example error without this fix:
+		// [Custom Provider] Error: 'role' must be one of 'system', 'assistant', 'tool', or 'function'
+		if (requestBody.messages && Array.isArray(requestBody.messages)) {
+			for (const message of requestBody.messages) {
+				if (message.role === 'developer') {
+					log.debug(`[${providerName}] Converting 'developer' role to 'system' for compatibility`);
+					message.role = 'system';
+				}
+			}
 		}
 
 		// Transform tools to be compatible with OpenAI-compatible providers
