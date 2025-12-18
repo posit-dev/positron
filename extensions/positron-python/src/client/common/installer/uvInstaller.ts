@@ -73,10 +73,7 @@ export class UVInstaller extends ModuleInstaller {
         const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
         const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
 
-        const usePyprojectWorkflow =
-            !isIpykernel &&
-            !isBreakingSystemPackages &&
-            pyprojectExists;
+        const usePyprojectWorkflow = !isIpykernel && !isBreakingSystemPackages && pyprojectExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
