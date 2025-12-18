@@ -81,7 +81,7 @@ fi
 
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then
-	echo "✅ All cache path validation passed!"
+	echo "🎉 All cache path validation passed!"
 	echo ""
 	echo "Cache paths are loaded dynamically from cache-paths.sh"
 	echo "No manual syncing of action.yml files needed!"

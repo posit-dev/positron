@@ -98,14 +98,29 @@ runs:
       id: extensions-hash
       continue-on-error: true
       shell: bash
-      run: .github/scripts/generate-extensions-hash.sh || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
+      run: |
+        if ! .github/scripts/generate-extensions-hash.sh; then
+          echo "::warning::Extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Generate package-locks cache key
       if: ${{ inputs.restore-npm == 'true' }}
       id: package-locks-hash
       continue-on-error: true
       shell: bash
-      run: .github/scripts/generate-package-locks-hash.sh || echo "hash=fallback-$(date +%s)" >> "$GITHUB_OUTPUT"
+      run: |
+        if ! .github/scripts/generate-package-locks-hash.sh; then
+          echo "::warning::Package-locks hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Package-locks hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-package-locks-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Log cache restore start
+      if: ${{ inputs.restore-npm == 'true' || inputs.restore-builtins == 'true' }}
+      shell: bash
+      run: echo "::group::📦 Restoring caches"
 
     - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm == 'true' }}
@@ -135,6 +150,11 @@ runs:
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
+
+    - name: Log cache restore end
+      if: always() && (inputs.restore-npm == 'true' || inputs.restore-builtins == 'true')
+      shell: bash
+      run: echo "::endgroup::"
 
     - name: Log cache results
       if: always()
