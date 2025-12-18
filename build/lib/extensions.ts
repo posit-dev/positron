@@ -12,8 +12,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { Stream } from 'stream';
 import File from 'vinyl';
-import { createStatsStream } from './stats';
-import * as util2 from './util';
+import { createStatsStream } from './stats.ts';
+import * as util2 from './util.ts';
 import filter from 'gulp-filter';
 import rename from 'gulp-rename';
 import fancyLog from 'fancy-log';
@@ -21,19 +21,19 @@ import ansiColors from 'ansi-colors';
 import buffer from 'gulp-buffer';
 import * as jsoncParser from 'jsonc-parser';
 import webpack from 'webpack';
-import { getProductionDependencies } from './dependencies';
-import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
-import { getBootstrapExtensionStream } from './bootstrapExtensions';
-import { getVersion } from './getVersion';
-import { fetchUrls, fetchGithub } from './fetch';
-const vzip = require('gulp-vinyl-zip');
+import { getProductionDependencies } from './dependencies.ts';
+import { type IExtensionDefinition, getExtensionStream } from './builtInExtensions.ts';
+import { getVersion } from './getVersion.ts';
+import { fetchUrls, fetchGithub } from './fetch.ts';
+import vzip from 'gulp-vinyl-zip';
 
-// --- Start PWB: from Positron ---
-import { PromiseHandles } from './util';
+import { createRequire } from 'module';
+// --- Start Positron ---
 import os from 'os';
-// --- End PWB: from Positron ---
+import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
+// --- End Positron ---
 
-const root = path.dirname(path.dirname(__dirname));
+const root = path.dirname(path.dirname(import.meta.dirname));
 const commit = getVersion(root);
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 
@@ -94,6 +94,7 @@ function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolea
 }
 
 function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, disableMangle: boolean): Stream {
+	const require = createRequire(import.meta.url);
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const webpack = require('webpack');
 	const webpackGulp = require('webpack-stream');
@@ -151,14 +152,13 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 
 		// check for a webpack configuration files, then invoke webpack
 		// and merge its output with the files stream.
-		const webpackConfigLocations = (<string[]>glob.sync(
+		const webpackConfigLocations = (glob.sync(
 			path.join(extensionPath, '**', webpackConfigFileName),
 			{ ignore: ['**/node_modules'] }
-		));
-
+		) as string[]);
 		const webpackStreams = webpackConfigLocations.flatMap(webpackConfigPath => {
 
-			const webpackDone = (err: any, stats: any) => {
+			const webpackDone = (err: Error | undefined, stats: any) => {
 				fancyLog(`Bundled extension: ${ansiColors.yellow(path.join(path.basename(extensionPath), path.relative(extensionPath, webpackConfigPath)))}...`);
 				if (err) {
 					result.emit('error', err);
@@ -172,7 +172,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 				}
 			};
 
-			const exportedConfig = require(webpackConfigPath).default;
+			const exportedConfig = createRequire(import.meta.url)(webpackConfigPath).default;
 			return (Array.isArray(exportedConfig) ? exportedConfig : [exportedConfig]).map(config => {
 				const webpackConfig = {
 					...config,
@@ -204,7 +204,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 						// * rewrite sourceMappingURL
 						// * save to disk so that upload-task picks this up
 						if (path.extname(data.basename) === '.js') {
-							const contents = (<Buffer>data.contents).toString('utf8');
+							const contents = (data.contents as Buffer).toString('utf8');
 							data.contents = Buffer.from(contents.replace(/\n\/\/# sourceMappingURL=(.*)$/gm, function (_m, g1) {
 								return `\n//# sourceMappingURL=${sourceMappingURLBase}/extensions/${path.basename(extensionPath)}/${relativeOutputPath}/${g1}`;
 							}), 'utf8');
@@ -235,7 +235,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 }
 
 function fromLocalNormal(extensionPath: string): Stream {
-	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
+	const vsce = createRequire(import.meta.url)('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
 
 	// --- Start PWB: from Positron ---
@@ -250,12 +250,13 @@ function fromLocalNormal(extensionPath: string): Stream {
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
 
-const userAgent = 'VSCode Build';
-const baseHeaders = {
-	'X-Market-Client-Id': 'VSCode Build',
-	'User-Agent': userAgent,
-	'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
-};
+function getBaseHeaders() {
+	return {
+		'X-Market-Client-Id': 'VSCode Build',
+		'User-Agent': 'VSCode Build',
+		'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
+	};
+}
 
 // --- Start Positron ---
 
@@ -289,9 +290,9 @@ function getArchFromPlatformId(platformId: string): string {
 }
 
 export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
-	// --- End Positron ---
-	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
 
+	// --- End Positron ---
 	const [publisher, name] = extensionName.split('.');
 	// --- Start Positron ---
 	let urls: string[];
@@ -323,7 +324,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 				return fetchUrls('', {
 					base: url,
-					nodeFetchOptions: { headers: baseHeaders },
+					nodeFetchOptions: { headers: getBaseHeaders() },
 					checksumSha256: sha256
 				})
 					.pipe(buffer())
@@ -336,7 +337,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 			return fetchUrls('', {
 				base: urls[0],
 				nodeFetchOptions: {
-					headers: baseHeaders
+					headers: getBaseHeaders()
 				},
 				checksumSha256: sha256
 			})
@@ -349,7 +350,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 		return fetchUrls('', {
 			base: urls[0],
 			nodeFetchOptions: {
-				headers: baseHeaders
+				headers: getBaseHeaders()
 			},
 			checksumSha256: sha256
 		})
@@ -366,7 +367,7 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 // --- Start PWB: Bundle PWB extension ---
 export function fromPositUrl({ name: extensionName, version, sha256, positUrl, metadata }: IExtensionDefinition): Stream {
-	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [, name] = extensionName.split('.');
 	const url = `${positUrl}/${name}-${version}.vsix`;
@@ -378,7 +379,7 @@ export function fromPositUrl({ name: extensionName, version, sha256, positUrl, m
 	return fetchUrls('', {
 		base: url,
 		nodeFetchOptions: {
-			headers: baseHeaders
+			headers: getBaseHeaders()
 		},
 		checksumSha256: sha256
 	})
@@ -393,7 +394,7 @@ export function fromPositUrl({ name: extensionName, version, sha256, positUrl, m
 // --- End PWB: Bundle PWB extension ---
 
 export function fromVsix(vsixPath: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition): Stream {
-	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	fancyLog('Using local VSIX for extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 
@@ -420,7 +421,7 @@ export function fromVsix(vsixPath: string, { name: extensionName, version, sha25
 }
 
 export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition): Stream {
-	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+	const json = createRequire(import.meta.url)('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	fancyLog('Downloading extension from GH:', ansiColors.yellow(`${name}@${version}`), '...');
 
@@ -478,7 +479,7 @@ const marketplaceWebExtensionsExclude = new Set([
 	'ms-vscode.vscode-js-profile-table'
 ]);
 
-const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
+const productJson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
 const builtInExtensions: IExtensionDefinition[] = productJson.builtInExtensions || [];
 // --- Start Positron ---
 const bootstrapExtensions: IExtensionDefinition[] = productJson.bootstrapExtensions || [];
@@ -565,7 +566,7 @@ export function packageAllLocalExtensionsStream(forWeb: boolean, disableMangle: 
 function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean, native: boolean): Stream {
 	const nativeExtensionsSet = new Set(nativeExtensions);
 	const localExtensionsDescriptions = (
-		(<string[]>glob.sync('extensions/*/package.json'))
+		(glob.sync('extensions/*/package.json') as string[])
 			.map(manifestPath => {
 				const absoluteManifestPath = path.join(root, manifestPath);
 				const extensionPath = path.dirname(path.join(root, manifestPath));
@@ -575,7 +576,7 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 			.filter(({ name }) => native ? nativeExtensionsSet.has(name) : !nativeExtensionsSet.has(name))
 			.filter(({ name }) => excludedExtensions.indexOf(name) === -1)
 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
-			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
+			.filter(({ manifestPath }) => (forWeb ? isWebExtension(createRequire(import.meta.url)(manifestPath)) : true))
 	);
 
 	// --- Start Positron ---
@@ -754,6 +755,7 @@ const esbuildMediaScripts = [
 ];
 
 export async function webpackExtensions(taskName: string, isWatch: boolean, webpackConfigLocations: { configPath: string; outputRoot?: string }[]) {
+	const require = createRequire(import.meta.url);
 	const webpack = require('webpack') as typeof import('webpack');
 
 	const webpackConfigs: webpack.Configuration[] = [];
@@ -977,9 +979,12 @@ function createSequentialFileStream(extensionPath: string, fileNames: string[]):
 /**
  * A class representing a promise to list the files in an extension
  */
-class ListPromise extends PromiseHandles<string[]> {
-	constructor(readonly opts: any) {
+class ListPromise extends util2.PromiseHandles<string[]> {
+	readonly opts: any;
+
+	constructor(opts: any) {
 		super();
+		this.opts = opts;
 	}
 }
 
@@ -1011,7 +1016,7 @@ function listExtensionFiles(opts: any): Promise<string[]> {
  * Processes the queue of pending work
  */
 function processListQueue() {
-	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
+	const vsce = createRequire(import.meta.url)('@vscode/vsce') as typeof import('@vscode/vsce');
 
 	// Ignore if we are currently doing work
 	if (listBusy) {
@@ -1054,7 +1059,7 @@ export async function copyExtensionBinaries(outputRoot: string) {
 		// be copied.  The Positron extension metadata lives in the
 		// `positron.json` file in the extension's root directory.
 		const binaryMetadata = (
-			(<string[]>glob.sync('extensions/*/positron.json'))
+			(glob.sync('extensions/*/positron.json') as string[])
 				.filter(metadataPath => {
 					// Don't copy binaries for excluded extensions.
 					const extension = path.basename(path.dirname(metadataPath));

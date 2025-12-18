@@ -13,9 +13,10 @@ import { CodeBlockModelCollection } from '../../../common/codeBlockModelCollecti
 import { IChatCodeBlockInfo } from '../../chat.js';
 import { ICodeBlockRenderOptions } from '../../codeBlockPart.js';
 import { IChatContentPartRenderContext } from '../chatContentParts.js';
-import { ChatMarkdownContentPart, EditorPool } from '../chatMarkdownContentPart.js';
+import { ChatMarkdownContentPart } from '../chatMarkdownContentPart.js';
 import { ChatProgressSubPart } from '../chatProgressContentPart.js';
 import { BaseChatToolInvocationSubPart } from './chatToolInvocationSubPart.js';
+import { EditorPool } from '../chatContentCodePools.js';
 
 
 /**

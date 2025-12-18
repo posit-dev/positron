@@ -79,9 +79,9 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Respond to a request from the extension host to send a progress part to the chat response.
 	 */
-	$responseProgress(sessionId: string, content: IChatProgressDto): void {
+	$responseProgress(sessionResource: URI, content: IChatProgressDto): void {
 		const progress = revive(content) as IChatProgress;
-		const model = this._chatService.getSessionByLegacyId(sessionId) as ChatModel;
+		const model = this._chatService.getSession(sessionResource) as ChatModel;
 		if (!model) {
 			throw new Error('Chat session not found.');
 		}

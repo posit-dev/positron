@@ -30,7 +30,7 @@ export interface ICodeMapperRequest {
 	readonly codeBlocks: ICodeMapperCodeBlock[];
 	readonly chatRequestId?: string;
 	readonly chatRequestModel?: string;
-	readonly chatSessionId?: string;
+	readonly chatSessionResource?: URI;
 	readonly location?: string;
 }
 
@@ -85,8 +85,8 @@ export class CodeMapperService implements ICodeMapperService {
 		// This allows, for example, Copilot to use its own code mapper provider
 		// when Copilot is the current chat model.
 
-		if (request.chatSessionId) {
-			const modelId = this._chatService.getSessionByLegacyId(request.chatSessionId)?.getRequests().at(0)?.modelId;
+		if (request.chatSessionResource) {
+			const modelId = this._chatService.getSession(request.chatSessionResource)?.getRequests().at(0)?.modelId;
 			if (modelId) {
 				const model = this._languageModelsService.lookupLanguageModel(modelId);
 				const extension = model?.extension;

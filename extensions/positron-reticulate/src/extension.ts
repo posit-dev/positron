@@ -560,21 +560,20 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 			// TODO: what more can we say here? And what actions can we suggest the use to take?
 			const informCreateVirtualEenv = async function () {
-				const selection = await vscode.window.showInformationMessage(vscode.l10n.t(`
-				Reticulate strongly recommends using a virtualenv.
-				`,
-					{
-						title: 'reticulate::virtualenv_create()',
-						execute: () => {
-							positron.runtime.executeCode(
-								'r',
-								'reticulate::virtualenv_create("r-reticulate", packages = c("numpy", "ipykernel"))',
-								true,
-								false
-							);
-						}
-					}
-				));
+				const createItem: vscode.MessageItem = { title: 'reticulate::virtualenv_create()' };
+				const selection = await vscode.window.showInformationMessage(
+					vscode.l10n.t('Reticulate strongly recommends using a virtualenv.'),
+					createItem
+				);
+
+				if (selection === createItem) {
+					positron.runtime.executeCode(
+						'r',
+						'reticulate::virtualenv_create("r-reticulate", packages = c("numpy", "ipykernel"))',
+						true,
+						false
+					);
+				}
 			};
 			// We don't need to await for that, just let they know what we recommend.
 			informCreateVirtualEenv();

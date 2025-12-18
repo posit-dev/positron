@@ -19,6 +19,8 @@ import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from 
 import { CHAT_CATEGORY } from './chatActions.js';
 
 // --- Start Positron ---
+// This action was removed in 1.107.0 and restored for Positron.
+
 // eslint-disable-next-line no-duplicate-imports
 import { ContextKeyTrueExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 // --- End Positron ---

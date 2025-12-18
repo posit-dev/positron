@@ -50,7 +50,7 @@ export class MainThreadChatCodemapper extends Disposable implements MainThreadCo
 					codeBlocks: uiRequest.codeBlocks,
 					chatRequestId: uiRequest.chatRequestId,
 					chatRequestModel: uiRequest.chatRequestModel,
-					chatSessionId: uiRequest.chatSessionId,
+					chatSessionResource: uiRequest.chatSessionResource,
 					location: uiRequest.location
 				};
 				try {

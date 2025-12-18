@@ -25,7 +25,7 @@ import { IProductService } from '../../../../platform/product/common/productServ
 import { asJson, IRequestService } from '../../../../platform/request/common/request.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ChatContextKeys } from './chatContextKeys.js';
-import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRequestModeInstructions, IChatRequestVariableData, ISerializableChatAgentData } from './chatModel.js';
+import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRequestModeInstructions, IChatRequestVariableData, IChatTokenUsage, ISerializableChatAgentData } from './chatModel.js';
 import { IRawChatCommandContribution } from './chatParticipantContribTypes.js';
 import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDetails, IChatTaskDto } from './chatService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind, COPILOT_CHAT_EXTENSION_ID } from './constants.js';
@@ -74,6 +74,7 @@ export interface IChatAgentData {
 	isDynamic?: boolean;
 	/** This agent is contributed from core and not from an extension */
 	isCore?: boolean;
+	canAccessPreviousChatHistory?: boolean;
 	metadata: IChatAgentMetadata;
 	slashCommands: IChatAgentCommand[];
 	locations: ChatAgentLocation[];
@@ -118,15 +119,6 @@ export interface IChatAgentCommand extends IRawChatCommandContribution {
 	followupPlaceholder?: string;
 }
 
-export interface IChatRequesterInformation {
-	name: string;
-
-	/**
-	 * A full URI for the icon of the requester.
-	 */
-	icon?: URI;
-}
-
 export interface IChatAgentMetadata {
 	helpTextPrefix?: string | IMarkdownString;
 	helpTextPostfix?: string | IMarkdownString;
@@ -137,7 +129,6 @@ export interface IChatAgentMetadata {
 	supportIssueReporting?: boolean;
 	followupPlaceholder?: string;
 	isSticky?: boolean;
-	requester?: IChatRequesterInformation;
 	additionalWelcomeMessage?: string | IMarkdownString;
 }
 
@@ -145,7 +136,7 @@ export type UserSelectedTools = Record<string, boolean>;
 
 
 export interface IChatAgentRequest {
-	sessionId: string;
+	sessionResource: URI;
 	requestId: string;
 	agentId: string;
 	command?: string;
@@ -156,21 +147,14 @@ export interface IChatAgentRequest {
 	variables: IChatRequestVariableData;
 	location: ChatAgentLocation;
 	locationData?: Revived<IChatLocationData>;
-	acceptedConfirmationData?: any[];
-	rejectedConfirmationData?: any[];
+	acceptedConfirmationData?: unknown[];
+	rejectedConfirmationData?: unknown[];
 	userSelectedModelId?: string;
 	userSelectedTools?: UserSelectedTools;
 	modeInstructions?: IChatRequestModeInstructions;
 	editedFileEvents?: IChatAgentEditedFileEvent[];
 	isSubagent?: boolean;
 
-	/**
-	 * Summary data for chat sessions context
-	 */
-	chatSummary?: {
-		prompt?: string;
-		history?: string;
-	};
 }
 
 export interface IChatQuestion {
@@ -188,7 +172,13 @@ export interface IChatAgentResult {
 	errorDetails?: IChatResponseErrorDetails;
 	timings?: IChatAgentResultTimings;
 	/** Extra properties that the agent can use to identify a result */
-	readonly metadata?: { readonly [key: string]: any };
+	// --- Start Positron ---
+	// Add tokenUsage to the metadata
+	readonly metadata?: {
+		readonly [key: string]: unknown;
+		tokenUsage?: IChatTokenUsage;
+	};
+	// --- End Positron ---
 	readonly details?: string;
 	nextQuestion?: IChatQuestion;
 }

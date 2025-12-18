@@ -160,7 +160,7 @@ export interface MainThreadAiFeaturesShape {
 	$unregisterChatAgent(id: string): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
-	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
+	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
 	$getSupportedProviders(): Thenable<string[]>;
 	$getChatExport(): Thenable<object | undefined>;

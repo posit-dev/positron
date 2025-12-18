@@ -1011,7 +1011,7 @@ export interface IQuickInputService {
 	/**
 	 * Cancels quick input and closes it.
 	 */
-	cancel(): Promise<void>;
+	cancel(reason?: QuickInputHideReason): Promise<void>;
 
 	/**
 	 * Toggles hover for the current quick input item

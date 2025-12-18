@@ -366,7 +366,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "node build/lib/preLaunch.js",
+			"command": "node build/lib/preLaunch.ts",
 			"options": {
 				"env": {
 					"VSCODE_DEV": "1"
@@ -393,9 +393,12 @@
 			"detail": "node_modules/tsec/bin/tsec -p src/tsconfig.json --noEmit"
 		},
 		{
-			"label": "Launch Http Server",
+			"label": "Launch Monaco Editor Vite",
 			"type": "shell",
-			"command": "node_modules/.bin/ts-node -T ./scripts/playground-server",
+			"command": "npm run dev",
+			"options": {
+				"cwd": "./build/vite/"
+			},
 			"isBackground": true,
 			"problemMatcher": {
 				"pattern": {
@@ -406,10 +409,7 @@
 					"beginsPattern": "never match",
 					"endsPattern": ".*"
 				}
-			},
-			"dependsOn": [
-				"Core - Build"
-			]
+			}
 		},
 		{
 			"label": "Kill Positron Build Watchers",

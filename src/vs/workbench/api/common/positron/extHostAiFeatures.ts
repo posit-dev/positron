@@ -76,7 +76,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		}
 
 		const dto = typeConvert.ChatResponsePart.from(part, this._commands.converter, this._disposables);
-		this._proxy.$responseProgress(context.sessionId, dto);
+		this._proxy.$responseProgress(context.sessionResource, dto);
 	}
 
 	async $responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Promise<void> {
