@@ -84,6 +84,135 @@ using Random
     end
 end
 
+@testset "Data Explorer - Handler Coverage" begin
+    @testset "handle_get_state and get_schema" begin
+        df = DataFrame(a = 1:3, b = ["x", "y", "z"])
+        instance = Positron.DataExplorerInstance(df, "state_df")
+        comm = MockComm("data_explorer")
+        instance.comm = comm
+
+        # Pretend filters reduced the view
+        instance.filtered_indices = [1, 3]
+        Positron.handle_get_state(instance)
+
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcResult
+        state = msg["data"].result
+        @test state isa Positron.BackendState
+        @test state.table_shape.num_rows == 2  # filtered count
+        @test state.table_unfiltered_shape.num_rows == 3
+
+        # Fetch schemas for both columns
+        Positron.handle_get_schema(
+            instance,
+            Positron.DataExplorerGetSchemaParams([0, 1]),
+        )
+        msg = last_message(comm)
+        schema = msg["data"].result
+        @test schema isa Positron.TableSchema
+        @test length(schema.columns) == 2
+        @test schema.columns[1].column_name == "a"
+    end
+
+    @testset "handle_get_row_labels" begin
+        df = DataFrame(a = 10:15)
+        instance = Positron.DataExplorerInstance(df, "labels_df")
+        comm = MockComm("data_explorer")
+        instance.comm = comm
+
+        request = Positron.DataExplorerGetRowLabelsParams(
+            Positron.DataSelectionRange(0, 2),
+            Positron.FormatOptions(2, 2, 10, 1000, nothing),
+        )
+        Positron.handle_get_row_labels(instance, request)
+
+        msg = last_message(comm)
+        labels = msg["data"].result
+        @test labels isa Positron.TableRowLabels
+        @test labels.row_labels[1] == ["1", "2", "3"]
+    end
+
+    @testset "handle_set_sort_columns" begin
+        df = DataFrame(x = [3, 1, 2])
+        instance = Positron.DataExplorerInstance(df, "sort_df")
+        comm = MockComm("data_explorer")
+        instance.comm = comm
+
+        Positron.handle_set_sort_columns(
+            instance,
+            Positron.DataExplorerSetSortColumnsParams(
+                [Positron.ColumnSortKey(0, true)],
+            ),
+        )
+
+        @test instance.sorted_indices !== nothing
+        @test instance.view_indices == instance.sorted_indices
+        msg = last_message(comm)
+        @test msg["data"] isa Positron.JsonRpcResult
+    end
+
+    @testset "handle_set_row_filters with empty filters" begin
+        df = DataFrame(val = 1:4)
+        instance = Positron.DataExplorerInstance(df, "filter_df")
+        comm = MockComm("data_explorer")
+        instance.comm = comm
+
+        Positron.handle_set_row_filters(
+            instance,
+            Positron.DataExplorerSetRowFiltersParams(Positron.RowFilter[]),
+        )
+
+        @test instance.filtered_indices === nothing
+        msg = last_message(comm)
+        result = msg["data"].result
+        @test result isa Positron.FilterResult
+        @test result.selected_num_rows == 4
+    end
+
+    @testset "handle_search_schema with text filter" begin
+        df = DataFrame(alpha = 1:2, beta = 3:4, gamma = 5:6)
+        instance = Positron.DataExplorerInstance(df, "schema_df")
+        comm = MockComm("data_explorer")
+        instance.comm = comm
+
+        filters = [
+            Positron.ColumnFilter(
+                Positron.ColumnFilterType_TextSearch,
+                Positron.FilterTextSearch(
+                    Positron.TextSearchType_Contains,
+                    "beta",
+                    false,
+                ),
+            ),
+        ]
+
+        Positron.handle_search_schema(
+            instance,
+            Positron.DataExplorerSearchSchemaParams(
+                filters,
+                Positron.SearchSchemaSortOrder_AscendingName,
+            ),
+        )
+
+        msg = last_message(comm)
+        result = msg["data"].result
+        @test result isa Positron.SearchSchemaResult
+        @test result.matches == [1]  # Only the beta column (0-based)
+
+        # Also accept string sort order via request parsing
+        parsed = Positron.parse_data_explorer_request(Dict(
+            "method" => "search_schema",
+            "params" => Dict(
+                "filters" => filters,
+                "sort_order" => "ascending_name",
+            ),
+        ))
+        Positron.handle_search_schema(instance, parsed)
+        result2 = last_message(comm)["data"].result
+        @test result2.matches == [1]
+    end
+end
+
 @testset "Data Explorer - Virtual Index Management" begin
     @testset "update_view_indices! - No Filters or Sorts" begin
         df = DataFrame(x = 1:5)

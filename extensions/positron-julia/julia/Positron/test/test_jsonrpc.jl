@@ -19,17 +19,19 @@ function test_jsonrpc()
 
     @testset "JsonRpcResult serialization" begin
         # Test result serialization
-        result = Positron.JsonRpcResult(Dict("value" => 42))
+        result = Positron.JsonRpcResult(1, Dict("value" => 42))
         json_str = JSON3.write(result)
         parsed = JSON3.read(json_str)
 
         @test parsed["jsonrpc"] == "2.0"
+        @test parsed["id"] == 1
         @test parsed["result"]["value"] == 42
     end
 
     @testset "JsonRpcError serialization" begin
         # Test error serialization
         error = Positron.JsonRpcError(
+            99,
             Positron.JsonRpcErrorCode.INVALID_PARAMS,
             "Invalid parameter",
         )
@@ -37,6 +39,7 @@ function test_jsonrpc()
         parsed = JSON3.read(json_str)
 
         @test parsed["jsonrpc"] == "2.0"
+        @test parsed["id"] == 99
         @test parsed["error"]["code"] == Positron.JsonRpcErrorCode.INVALID_PARAMS
         @test parsed["error"]["message"] == "Invalid parameter"
     end
@@ -60,3 +63,6 @@ function test_jsonrpc()
         @test Positron.JsonRpcErrorCode.INTERNAL_ERROR == -32603
     end
 end
+
+# Run the tests when the file is included by runtests.jl
+test_jsonrpc()

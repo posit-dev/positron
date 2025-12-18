@@ -26,8 +26,10 @@ files = [
 for file in files
     file_cov = filter(x -> endswith(x.filename, file), cov)
     if !isempty(file_cov)
-        covered_lines = count(x -> !isnothing(x.coverage) && x.coverage > 0, file_cov)
-        total_lines = length(file_cov)
+        # Coverage.jl stores per-line coverage counts in a vector, with `nothing` for non-code
+        entries = [c for fc in file_cov for c in getfield(fc, :coverage) if c !== nothing]
+        covered_lines = count(x -> x > 0, entries)
+        total_lines = length(entries)
         pct = round(covered_lines/total_lines*100, digits = 1)
         status = pct > 70 ? "✅" : (pct > 40 ? "🟡" : "❌")
         println("$status $file: $covered_lines/$total_lines ($pct%)")

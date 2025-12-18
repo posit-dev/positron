@@ -22,6 +22,61 @@ using Positron
 function foo()
     println("hello")
 end
+
+@testset "Comm and Kernel Logging" begin
+    # Override _send_msg for PositronComm to capture messages locally
+    const __test_comm_messages = Any[]
+    @eval begin
+        function Positron._send_msg(
+            comm::Positron.PositronComm,
+            data::Any,
+            metadata::Union{Dict,Nothing},
+        )
+            push!(__test_comm_messages, Dict("data" => data, "metadata" => metadata))
+            return nothing
+        end
+    end
+
+    @testset "handle_msg error path sends JsonRpcError" begin
+        comm = Positron.PositronComm("test-comm")
+        Positron.on_msg!(comm, msg -> error("boom"))
+        Positron.handle_msg(comm, Dict("id" => 42, "method" => "fail"))
+
+        @test !isempty(__test_comm_messages)
+        msg = __test_comm_messages[end]
+        @test msg["data"] isa Positron.JsonRpcError
+        @test msg["data"].error["code"] == Positron.JsonRpcErrorCode.INTERNAL_ERROR
+    end
+
+    @testset "kernel_log writes to POSITRON_KERNEL_LOG" begin
+        mktemp() do path, io
+            old_env = get(ENV, "POSITRON_KERNEL_LOG", nothing)
+            try
+                ENV["POSITRON_KERNEL_LOG"] = path
+                # Reset cached log stream
+                Positron._log_file[] = nothing
+
+                Positron.kernel_log_info("info-line")
+                Positron.kernel_log_warn("warn-line")
+                Positron.kernel_log_error("error-line")
+                flush(io)
+            finally
+                close(io)
+                if old_env === nothing
+                    delete!(ENV, "POSITRON_KERNEL_LOG")
+                else
+                    ENV["POSITRON_KERNEL_LOG"] = old_env
+                end
+                Positron._log_file[] = nothing
+            end
+
+            content = read(path, String)
+            @test occursin("info-line", content)
+            @test occursin("warn-line", content)
+            @test occursin("error-line", content)
+        end
+    end
+end
 """) == "complete"
 
         # Multi-line single expression (struct)

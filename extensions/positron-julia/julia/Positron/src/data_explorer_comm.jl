@@ -1340,9 +1340,15 @@ function parse_data_explorer_request(data::Dict)
     elseif method == "get_schema"
         return DataExplorerGetSchemaParams(get(params, "column_indices", []))
     elseif method == "search_schema"
+        sort_order = get(params, "sort_order", "")
+        if sort_order isa String && sort_order != ""
+            sort_order = StructTypes.construct(SearchSchemaSortOrder, sort_order)
+        elseif sort_order == ""
+            sort_order = SearchSchemaSortOrder_Original
+        end
         return DataExplorerSearchSchemaParams(
             get(params, "filters", []),
-            get(params, "sort_order", ""),
+            sort_order,
         )
     elseif method == "get_data_values"
         columns_dicts = get(params, "columns", [])

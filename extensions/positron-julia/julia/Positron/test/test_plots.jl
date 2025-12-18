@@ -10,7 +10,9 @@ import Positron:
     get_mime_type,
     is_plot,
     create_render_func,
-    sanitize_html_for_console
+    sanitize_html_for_console,
+    handle_render,
+    handle_get_intrinsic_size
 
 # Import comm types for testing
 import Positron:
@@ -205,6 +207,62 @@ import Positron:
         result = sanitize_html_for_console(html)
         @test !occursin("style=", result)
         @test occursin("class=\"data-frame\"", result)  # Other attributes preserved
+    end
+
+    @testset "Render func and handlers" begin
+        struct DummyPlot end
+        Base.show(io::IO, ::MIME"image/png", ::DummyPlot) = print(io, "pngdata")
+
+        render = create_render_func(DummyPlot())
+        bytes = render(nothing, 1.0, "png")
+        @test String(bytes) == "pngdata"
+
+        # Override _send_msg to capture PositronComm traffic locally
+        global plot_messages = Any[]
+        @eval begin
+            function Positron._send_msg(
+                comm::Positron.PositronComm,
+                data::Any,
+                metadata::Union{Dict,Nothing},
+            )
+                push!(plot_messages, Dict("data" => data, "metadata" => metadata))
+                return nothing
+            end
+        end
+
+        plot = Plot((size, pr, fmt) -> Vector{UInt8}("abc"))
+        plot.comm = Positron.PositronComm("plot-comm")
+        params = PlotRenderParams(nothing, 1.0, PlotRenderFormat_Png)
+        handle_render(plot, params)
+        msg = plot_messages[end]
+        @test msg["data"] isa Positron.JsonRpcResult
+        @test occursin("YWJj", msg["data"].result.data)  # base64 of "abc"
+
+        # handle_get_intrinsic_size returns nothing when not set
+        empty!(plot_messages)
+        handle_get_intrinsic_size(plot)
+        msg2 = plot_messages[end]
+        @test msg2["data"] isa Positron.JsonRpcResult
+        @test msg2["data"].result === nothing
+
+        # With intrinsic_size present
+        plot.intrinsic_size = (2.0, 3.0)
+        empty!(plot_messages)
+        handle_get_intrinsic_size(plot)
+        msg3 = plot_messages[end]
+        res = msg3["data"].result
+        @test res isa Positron.IntrinsicSize
+        @test res.width == 2.0
+        @test res.height == 3.0
+    end
+
+    @testset "looks_like_plot heuristics" begin
+        struct FakePlotsPlot end
+        @test is_plot(FakePlotsPlot()) == false  # fallback uses looks_like_plot internally
+        @test Positron.looks_like_plot(FakePlotsPlot()) == true
+
+        struct NotAPlot end
+        @test Positron.looks_like_plot(NotAPlot()) == false
     end
 end
 
