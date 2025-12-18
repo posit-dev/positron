@@ -14,6 +14,14 @@ description: "Saves caches for npm dependencies and built-in extensions. Works o
 #
 # The paths are loaded at runtime via the "Load cache paths" step below,
 # eliminating the need to manually sync multiple files.
+#
+# Cache Matching Strategy:
+# GitHub Actions uses branch hierarchy when matching caches:
+# - Caches saved on 'main' are available to all branches
+# - Caches saved on PRs are available to that PR and its parent branches
+# - When a PR adds dependencies, test-pull-request saves the cache
+# - After merge, test-merge can restore from the PR's cache OR rebuild and save a new 'main' cache
+# This ensures efficient cache usage across branches without duplicate saves.
 
 inputs:
   distro:

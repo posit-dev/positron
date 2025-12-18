@@ -15,8 +15,12 @@ runs:
       working-directory: extensions
       run: |
         echo "Extensions cache hit detected - downloading binaries"
-        # When extensions cache hits, postinstall scripts didn't run
-        # Force rebuild to download platform-specific binaries
+        # WHY WE ONLY RUN THIS WHEN CACHE HITS (counterintuitive but correct):
+        # - When cache MISSES: npm install runs postinstall scripts that download binaries automatically
+        # - When cache HITS: npm install is skipped, so postinstall scripts never run
+        # - Solution: Use 'npm rebuild --foreground-scripts' to re-run postinstall and download binaries
+        # - Note: Platform-specific binaries (extensions/*/resources/ark, */kallichore) are intentionally
+        #   NOT included in cache paths, so they must be downloaded fresh on each platform
         echo "Downloading Ark binary..."
         cd positron-r && npm rebuild --foreground-scripts
         echo "Downloading Kallichore binary..."
