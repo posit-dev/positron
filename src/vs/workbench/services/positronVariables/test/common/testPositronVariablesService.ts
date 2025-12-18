@@ -115,6 +115,17 @@ export class TestPositronVariablesService extends Disposable implements IPositro
 		// No-op for test implementation
 	}
 
+	/**
+	 * Sets whether the Variables pane is visible.
+	 * This is a no-op in the test implementation since visibility
+	 * doesn't affect test behavior.
+	 *
+	 * @param visible Whether the Variables pane is visible.
+	 */
+	setViewVisible(visible: boolean): void {
+		// No-op for test implementation
+	}
+
 	//#endregion IPositronVariablesService Implementation
 
 	//#region Private Methods
