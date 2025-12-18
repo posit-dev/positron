@@ -59,10 +59,23 @@ export class NotebookEditorProxyService extends Disposable implements INotebookE
 
 registerSingleton(INotebookEditorProxyService, NotebookEditorProxyService, InstantiationType.Delayed);
 
+/**
+ * Gets a notebook editor from an editor pane, returning it as IPositronNotebookEditor.
+ * This allows code to work with both VS Code and Positron notebooks through a common interface.
+ *
+ * Positron notebooks implement IChatEditingNotebookEditor which extends
+ * Pick<INotebookEditor, ...> for methods used by chat editing integration.
+ * VS Code's INotebookEditor satisfies this interface as well.
+ *
+ * @param editorPane - The editor pane to extract a notebook editor from.
+ * @returns The notebook editor as IPositronNotebookEditor, or undefined if not found.
+ */
 export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): IPositronNotebookEditor | undefined {
+	// Check for Positron notebook instance first
 	const notebookInstance = getNotebookInstanceFromEditorPane(editorPane);
 	if (notebookInstance) {
 		return notebookInstance;
 	}
+	// Fall back to VS Code notebook editor
 	return getVscodeNotebookEditorFromEditorPane(editorPane);
 }

@@ -372,29 +372,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					return undefined;
 				}
 
-				// Helper function to map DTO cell to public API cell
-				const mapCell = (cell: positron.notebooks.NotebookCell): positron.notebooks.NotebookCell => ({
-					id: cell.id,
-					index: cell.index,
-					type: cell.type,
-					content: cell.content,
-					hasOutput: cell.hasOutput,
-					selectionStatus: cell.selectionStatus,
-					executionStatus: cell.executionStatus,
-					executionOrder: cell.executionOrder,
-					lastRunSuccess: cell.lastRunSuccess,
-					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
-				});
-
 				// Convert DTO to public API types
 				return {
 					uri: context.uri,
 					kernelId: context.kernelId,
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
-					selectedCells: context.selectedCells.map(mapCell),
-					allCells: context.allCells?.map(mapCell)
+					selectedCells: context.selectedCells,
+					allCells: context.allCells
 				};
 			},
 
@@ -420,19 +405,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				if (!cell) {
 					return undefined;
 				}
-				return {
-					id: cell.id,
-					index: cell.index,
-					type: cell.type,
-					content: cell.content,
-					hasOutput: cell.hasOutput,
-					selectionStatus: cell.selectionStatus,
-					executionStatus: cell.executionStatus,
-					executionOrder: cell.executionOrder,
-					lastRunSuccess: cell.lastRunSuccess,
-					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
-				};
+				return cell;
 			},
 
 			async runCells(notebookUri: string, cellIndices: number[]): Promise<void> {

@@ -13,7 +13,11 @@ import { NotebookCellTextModel } from '../../../common/model/notebookCellTextMod
 import { NotebookTextModel } from '../../../common/model/notebookTextModel.js';
 import { DefaultLineHeight } from '../diffElementViewModel.js';
 import { CellDiffInfo } from '../notebookDiffViewModel.js';
-import { INotebookEditor, NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+// --- Start Positron ---
+// Use IChatEditingNotebookEditor for compatibility with both VS Code and Positron notebooks
+import { NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+import { IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
+// --- End Positron ---
 import * as DOM from '../../../../../../base/browser/dom.js';
 import { MenuWorkbenchToolBar, HiddenItemStrategy } from '../../../../../../platform/actions/browser/toolbar.js';
 import { MenuId } from '../../../../../../platform/actions/common/actions.js';
