@@ -39,7 +39,6 @@ registerAction2(class extends PositronNotebookFindAction {
 			keybinding: {
 				when: ContextKeyExpr.and(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					// ContextKeyExpr.or(NOTEBOOK_IS_ACTIVE_EDITOR, INTERACTIVE_WINDOW_IS_ACTIVE_EDITOR),
 					EditorContextKeys.focus.toNegated()
 				),
 				primary: KeyCode.KeyF | KeyMod.CtrlCmd,

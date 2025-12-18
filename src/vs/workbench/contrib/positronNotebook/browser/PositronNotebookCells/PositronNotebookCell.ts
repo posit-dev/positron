@@ -199,7 +199,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this.editor.set(undefined, undefined);
 	}
 
-	// Decoration API (delegates to manager, matches ICellViewModel)
 	deltaModelDecorations(oldDecorations: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
 		return this._decorationManager.deltaModelDecorations(oldDecorations, newDecorations);
 	}
@@ -346,7 +345,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	async showEditor(): Promise<ICodeEditor | undefined> {
 		// Returns the current editor (may be undefined if not yet mounted)
 		// Focus is managed by React through the editorFocusRequested observable
-		return this.editor.get();
+		return this.currentEditor;
 	}
 
 	deselect(): void {

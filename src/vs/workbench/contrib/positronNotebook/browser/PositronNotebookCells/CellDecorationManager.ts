@@ -23,14 +23,6 @@ interface ICellDecoration {
 
 /**
  * Manages decorations for a notebook cell across editor mount/unmount cycles.
- *
- * This class implements VS Code's battle-tested pattern from BaseCellViewModel where:
- * - Decorations can be added before an editor is attached (lazy decorations)
- * - When an editor is attached, all pending decorations are applied
- * - When an editor is detached, decoration IDs are cleared but options are preserved
- * - When an editor is reattached, decorations are automatically reapplied
- *
- * Uses string IDs matching the ICellViewModel interface.
  */
 export class CellDecorationManager extends Disposable {
 	/** Map of string id -> decoration entry */

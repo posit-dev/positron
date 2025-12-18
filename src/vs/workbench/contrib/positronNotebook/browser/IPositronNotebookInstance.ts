@@ -93,8 +93,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 
 	/**
 	 * The DOM element that contains the entire notebook editor (including toolbar, cells, etc.).
-	 * This is the top-level container for the notebook UI. Observable so contributions can react
-	 * to attach/detach events.
+	 * This is the top-level container for the notebook UI.
 	 */
 	readonly currentContainer: HTMLElement | undefined;
 
@@ -107,7 +106,6 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * The DOM element that contributions (such as the find widget) can render into.
 	 * This container is a sibling to the main notebook content and inherits the notebook's
 	 * scoped context keys, allowing contributions to access notebook-specific context.
-	 * Hidden when switching notebooks to prevent stale widgets from showing.
 	 */
 	readonly overlayContainer: HTMLElement | undefined;
 
@@ -357,6 +355,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 */
 	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
 
+	/**
+	 * Gets a registered notebook contribution by its ID.
+	 * @param id The unique identifier of the contribution.
+	 * @returns The contribution instance, or undefined if not found.
+	 */
 	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
 
 	/**
