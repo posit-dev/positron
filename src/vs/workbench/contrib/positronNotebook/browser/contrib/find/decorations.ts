@@ -12,6 +12,7 @@ import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNote
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { CurrentPositronCellMatch, PositronCellFindMatch } from './controller.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
+import { getOrSet } from '../../../../../../base/common/map.js';
 
 export class PositronNotebookFindDecorations extends Disposable {
 	private readonly _decorationIdsByCellHandle = new Map<number, string[]>();
@@ -82,23 +83,12 @@ export class PositronNotebookFindDecorations extends Disposable {
 		this._cellEditorObservers.clearAndDisposeAll();
 		this._logService.trace(`[FindDecorations] Cleared ${observerCount} pending editor observers`);
 
-		// Create cell lookup map for efficient access
-		const cellsByHandle = new Map<number, IPositronNotebookCell>();
-		for (const cell of cells) {
-			cellsByHandle.set(cell.handle, cell);
-		}
-
 		// Group matches by cell handle
 		const newDecorationsByCellHandle = new Map<number, IModelDeltaDecoration[]>();
-		for (const cellMatch of matches) {
-			const cellHandle = cellMatch.cell.handle;
-			let decorations = newDecorationsByCellHandle.get(cellHandle);
-			if (!decorations) {
-				decorations = [];
-				newDecorationsByCellHandle.set(cellHandle, decorations);
-			}
+		for (const { cell, cellRange } of matches) {
+			const decorations = getOrSet(newDecorationsByCellHandle, cell.handle, []);
 			decorations.push({
-				range: cellMatch.cellRange.range,
+				range: cellRange.range,
 				options: FindDecorations._FIND_MATCH_DECORATION,
 			});
 		}
@@ -111,6 +101,7 @@ export class PositronNotebookFindDecorations extends Disposable {
 		}
 
 		// Update decorations for each cell
+		const cellsByHandle = new Map(cells.map(cell => [cell.handle, cell]));
 		for (const [cellHandle, decorations] of newDecorationsByCellHandle.entries()) {
 			const cell = cellsByHandle.get(cellHandle);
 			if (!cell) {
