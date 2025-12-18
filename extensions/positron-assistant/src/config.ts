@@ -157,56 +157,83 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
 	const autoconfiguredModels = getAutoconfiguredModels();
-	const sources: positron.ai.LanguageModelSource[] = [...getLanguageModels(), ...completionModels]
-		.map((provider) => {
-			// Get model data from `registeredModels` (for manually configured models; stored in persistent storage)
-			// or `autoconfiguredModels` (for auto-configured models; e.g., env var based or managed credentials)
-			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
+	const allProviders = [...getLanguageModels(), ...completionModels];
 
-			// Most providers don't know if they are signed in, but but if they
-			// do, use that information; otherwise, assume signed in if
-			// registered
-			const signedIn = provider.source.signedIn || !!isRegistered;
+	// Build a map of provider IDs to their autoconfigure functions
+	const providerAutoconfigureFns = new Map<string, () => Promise<{ signedIn: boolean; message?: string }>>();
+	for (const provider of allProviders) {
+		if ('autoconfigure' in provider && typeof provider.autoconfigure === 'function') {
+			providerAutoconfigureFns.set(provider.source.provider.id, provider.autoconfigure);
+		}
+	}
 
-			// Update source data with actual model configuration status if found
-			// Otherwise, use defaults from provider
-			const source: positron.ai.LanguageModelSource = {
-				...provider.source,
-				signedIn,
-				defaults: isRegistered
-					? { ...provider.source.defaults, ...isRegistered }
-					: provider.source.defaults
-			};
-			return source;
-		})
-		.filter((source) => {
-			// If no specific set of providers was specified, include all
-			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
-		})
-		.map((source) => {
-			// Handle autoconfigurable providers
-			if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
-				// Resolve environment variables
-				if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
-					const envVarName = source.defaults.autoconfigure.key;
-					const envVarValue = process.env[envVarName];
+	const sources: positron.ai.LanguageModelSource[] = await Promise.all(
+		allProviders
+			.map((provider) => {
+				// Get model data from `registeredModels` (for manually configured models; stored in persistent storage)
+				// or `autoconfiguredModels` (for auto-configured models; e.g., env var based or managed credentials)
+				const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
 
-					return {
-						...source,
-						defaults: {
-							...source.defaults,
-							autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
-						},
-					};
-				} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
-					// No special handling for custom autoconfiguration at this time
-					// The custom autoconfiguration logic should handle everything
-					// and is retrieved from `autoconfiguredModels` above
-					return source;
+				// Update source data with actual model configuration status if found
+				// Otherwise, use defaults from provider
+				const source: positron.ai.LanguageModelSource = {
+					...provider.source,
+					signedIn: !!isRegistered,
+					defaults: isRegistered
+						? { ...provider.source.defaults, ...isRegistered }
+						: provider.source.defaults
+				};
+				return source;
+			})
+			.filter((source) => {
+				// If no specific set of providers was specified, include all
+				return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
+			})
+			.map(async (source) => {
+				// Handle autoconfigurable providers
+				if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+					// Resolve environment variables
+					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
+						const envVarName = source.defaults.autoconfigure.key;
+						const envVarValue = process.env[envVarName];
+
+						return {
+							...source,
+							defaults: {
+								...source.defaults,
+								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
+							},
+						};
+					} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
+						// Call autoconfigure() to refresh signed-in status for custom providers
+						const autoconfigureFn = providerAutoconfigureFns.get(source.provider.id);
+						if (autoconfigureFn) {
+							try {
+								const result = await autoconfigureFn();
+								return {
+									...source,
+									signedIn: result.signedIn,
+									defaults: {
+										...source.defaults,
+										autoconfigure: {
+											type: positron.ai.LanguageModelAutoconfigureType.Custom,
+											message: result.message ?? source.defaults.autoconfigure.message,
+											signedIn: result.signedIn
+										}
+									},
+								};
+							} catch (error) {
+								// If autoconfigure fails, return the source unchanged
+								log.warn(`Failed to autoconfigure provider ${source.provider.id}: ${error}`);
+								return source;
+							}
+						}
+						return source;
+					}
 				}
-			}
-			return source;
-		});
+				return source;
+			})
+	);
 
 	// Show a modal asking user for configuration details
 	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {

@@ -60,6 +60,15 @@ export class CopilotService implements vscode.Disposable {
 	) {
 		// Refresh signed-in state on startup
 		this.refreshSignedInState();
+
+		// Listen for authentication session changes to detect sign-out
+		this._disposables.push(
+			vscode.authentication.onDidChangeSessions((e) => {
+				if (e.provider.id === PROVIDER_ID) {
+					this.refreshSignedInState();
+				}
+			})
+		);
 	}
 
 	/**
@@ -195,10 +204,8 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	public name: string;
 
 	static async autoconfigure(): Promise<AutoconfigureResult> {
-		// Refresh the signed-in state if needed
-		if (!CopilotService.instance().isSignedIn) {
-			await CopilotService.instance().refreshSignedInState();
-		}
+		// Refresh the signed-in state
+		await CopilotService.instance().refreshSignedInState();
 
 		if (CopilotService.instance().isSignedIn) {
 			return {
