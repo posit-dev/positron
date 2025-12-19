@@ -31,15 +31,24 @@ if [ "$IS_WINDOWS" = true ]; then
 	# Disable postinstall.js parallel mode on Windows - let this script control parallelism
 	export POSITRON_PARALLEL_INSTALL=0
 
-	# Install sequentially to avoid native module build races
+	# Install sequentially to avoid native module build races, checking exit codes
 	echo "Installing build dependencies..."
-	npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+	if ! npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"; then
+		echo "ERROR: build/ npm ci failed"
+		exit 1
+	fi
 
 	echo "Installing remote dependencies..."
-	npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+	if ! npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"; then
+		echo "ERROR: remote/ npm ci failed"
+		exit 1
+	fi
 
 	echo "Installing root dependencies (includes extensions via postinstall)..."
-	npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+	if ! npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"; then
+		echo "ERROR: root npm ci failed"
+		exit 1
+	fi
 
 	# test/e2e can run separately since it has no native modules
 	pids=()

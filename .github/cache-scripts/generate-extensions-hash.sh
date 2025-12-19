@@ -161,6 +161,16 @@ elif [ "$FILTER" == "stable" ]; then
 			GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
 		fi
 	done
+
+	# Also hash .vscode/extensions/* (they're in the stable cache too!)
+	for vscode_ext_dir in .vscode/extensions/*/; do
+		if [ -d "$vscode_ext_dir" ]; then
+			vscode_ext_dir="${vscode_ext_dir%/}"
+			TREE_HASH=$(git rev-parse "HEAD:$vscode_ext_dir" 2>/dev/null || echo "no-tree")
+			GIT_TREE_HASH="${GIT_TREE_HASH}${TREE_HASH}"
+		fi
+	done
+
 	GIT_TREE_HASH=$(echo "$GIT_TREE_HASH" | sha256sum | cut -d' ' -f1)
 else
 	echo "  → No filter: entire extensions directory"
