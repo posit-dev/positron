@@ -138,6 +138,27 @@ def test_mpl_get_intrinsic_size(shell: PositronShell, plots_service: PlotsServic
     ]
 
 
+def test_mpl_get_metadata(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Create a plot.
+    plot_comm = _create_mpl_plot(shell, plots_service)
+
+    # Send a get_metadata request to the plot comm.
+    msg = json_rpc_request("get_metadata", {}, comm_id="dummy_comm_id")
+    plot_comm.handle_msg(msg)
+
+    # Check that the response includes the expected metadata.
+    assert len(plot_comm.messages) == 1
+    response = plot_comm.messages[0]
+    result = response["data"]["result"]
+
+    # Verify the metadata structure
+    assert result["kind"] == "Matplotlib"
+    assert result["name"] == "Matplotlib Figure 1"
+    # execution_id and code may be empty in test context since there's no real execute_request
+    assert "execution_id" in result
+    assert "code" in result
+
+
 def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comm = _create_mpl_plot(shell, plots_service)
 
