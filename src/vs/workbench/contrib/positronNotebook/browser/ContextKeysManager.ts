@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
@@ -12,15 +13,15 @@ import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/note
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 /**
- * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
+ * Context key that is set when the Positron notebook editor container is focused.
  */
-export const POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorContainerFocused', false);
+export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorFocused', false, localize('positronNotebookFocused', "Whether a Positron notebook editor or a notebook editor widget (e.g. a cell editor or the find widget) has focus"));
 
 /**
  * Context key that is set when a cell editor (Monaco editor within a notebook cell) is focused.
  * This is more specific than EditorContextKeys.editorTextFocus which applies to ANY Monaco editor.
  */
-export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false);
+export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused"));
 
 // Cell state context keys
 export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
