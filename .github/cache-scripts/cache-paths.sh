@@ -29,6 +29,9 @@
 
 set -euo pipefail
 
+# Find repository root (needed for Node.js require() to find build/npm/dirs.js)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 # ============================================================================
 # SECTION 1: Platform Detection
 # ============================================================================
@@ -109,7 +112,7 @@ PLAYWRIGHT_PATHS="$PLAYWRIGHT_CACHE"
 # SSOT: build/npm/dirs.js (volatileExtensions array)
 generate_npm_extensions_volatile_paths() {
 	local volatile_exts
-	volatile_exts=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
+	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
 
 	local paths=""
 	while IFS= read -r ext; do
@@ -131,7 +134,7 @@ generate_npm_extensions_volatile_paths() {
 # Note: Automatically discovers extensions (no manual list needed)
 generate_npm_extensions_stable_paths() {
 	local volatile_exts
-	volatile_exts=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
+	volatile_exts=$(cd "$REPO_ROOT" && node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
 
 	# Build exclusion pattern from volatile extensions
 	local volatile_pattern=""

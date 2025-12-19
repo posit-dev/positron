@@ -139,8 +139,9 @@ done <<< "$ADDED_FILES"
 # ============================================================================
 # Show summary and detailed instructions if uncached files are found.
 
-TOTAL_ADDED=$(echo "$ADDED_FILES" | grep -v '^$' | wc -l | tr -d ' ')
-UNCACHED_COUNT=$(echo -e "$UNCACHED_FILES" | grep -v '^$' | wc -l | tr -d ' ')
+# Count non-empty lines (|| true to handle empty input with set -e)
+TOTAL_ADDED=$([ -z "$ADDED_FILES" ] && echo "0" || echo "$ADDED_FILES" | grep -vc '^$' || echo "0")
+UNCACHED_COUNT=$([ -z "$UNCACHED_FILES" ] && echo "0" || echo -e "$UNCACHED_FILES" | grep -vc '^$' || echo "0")
 
 echo "Files added outside node_modules: $TOTAL_ADDED"
 echo "Files ignored by IGNORE_PATTERNS: $((TOTAL_ADDED - UNCACHED_COUNT))"
