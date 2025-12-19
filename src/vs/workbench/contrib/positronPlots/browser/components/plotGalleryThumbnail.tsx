@@ -75,16 +75,11 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 	}, [props.plotClient.metadata.name]);
 
 	return (
-		<div
-			className={'plot-thumbnail' + (props.selected ? ' selected' : '')}
-			data-plot-id={props.plotClient.id}
-			tabIndex={-1}
-			onKeyDown={handleKeyDown}
-		>
+		<>
 			<button
 				ref={plotThumbnailButtonRef}
-				className='plot-thumbnail-button'
-				tabIndex={props.selected ? 0 : -1}
+				className={'plot-thumbnail plot-thumbnail-button' + (props.selected ? ' selected' : '')}
+				onKeyDown={handleKeyDown}
 				onClick={selectPlot}
 			>
 				<div className='image-wrapper'>
@@ -103,6 +98,6 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 				onClick={removePlot}
 			>
 			</button>
-		</div>
+		</>
 	);
 };

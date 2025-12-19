@@ -88,7 +88,7 @@
 .history-bottom .plot-thumbnail {
 	margin-left: 5px;
 	margin-right: 5px;
-	margin-bottom: 10px;
+	width: 80px;
 }
 
 .selected-plot {
@@ -106,25 +106,8 @@
 	transition: opacity 0.2s ease-in-out;
 }
 
-.plot-thumbnail button {
-	cursor: pointer;
-	overflow: hidden;
-	margin: 0;
-	padding: 0;
-}
-
-.plot-thumbnail .plot-thumbnail-button {
-	position: relative;
-	width: 100%;
-	height: 100%;
-	background: transparent;
-	border: none;
-	overflow: visible;
-}
-
-.plot-thumbnail .plot-thumbnail-button .image-wrapper {
-	width: 100%;
-	height: 100%;
+.plot-thumbnail-button{
+	border: 1px solid transparent;
 }
 
 .plot-thumbnail button:active img,
@@ -157,9 +140,7 @@
 }
 
 .plot-thumbnail.selected .image-wrapper {
-	border-radius: 3px;
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: -1px;
+	border: none;
 }
 
 /**
@@ -187,8 +168,7 @@
 	position: relative;
 }
 
-.plot-instance .image-wrapper img,
-.plot-thumbnail .image-wrapper img {
+.plot-instance .image-wrapper img {
 	display: block;
 	max-width: 100%;
 	max-height: 100%;
@@ -197,6 +177,11 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
+}
+
+.plot-thumbnail .image-wrapper img {
+	max-width: 100%;
+	max-height: 100%;
 }
 
 .plot-instance {
