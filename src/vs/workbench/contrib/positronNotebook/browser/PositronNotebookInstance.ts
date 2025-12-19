@@ -554,9 +554,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
-		this._register(runOnChange(this.selectionStateMachine.state, (state) => {
-			const isEditing = state.type === SelectionState.EditingSelection;
-			this.contextManager.setContainerFocused(!isEditing);
+		this._register(runOnChange(this.selectionStateMachine.state, (_state) => {
 			this._onDidChangeSelection.fire();
 		}));
 

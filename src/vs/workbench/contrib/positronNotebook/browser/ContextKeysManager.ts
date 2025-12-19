@@ -126,10 +126,6 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	private readonly _containerDisposables = this._register(new DisposableStore());
 	//#endregion Private Properties
 
-	//#region Public Properties
-	positronEditorFocus?: IContextKey<boolean>;
-	//#endregion Public Properties
-
 	//#region Constructor & Dispose
 	constructor(
 		private readonly _notebookInstance: IPositronNotebookInstance,
@@ -143,14 +139,14 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Public Methods
 	setContainer(container: HTMLElement) {
 		this._containerDisposables.clear();
-		this.positronEditorFocus?.reset();
-
 		const disposables = this._containerDisposables;
 
 		const { scopedContextKeyService } = this._notebookInstance;
 		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])));
 
-		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(scopedContextKeyService);
+		const positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(scopedContextKeyService);
+
+		disposables.add(toDisposable(() => positronEditorFocus.reset()));
 
 		// Create the manager for VSCode notebook editor context keys
 		// Extensions may depend on these familiar context keys
@@ -158,23 +154,12 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 		const focusTracker = disposables.add(DOM.trackFocus(container));
 		disposables.add(focusTracker.onDidFocus(() => {
-			this.positronEditorFocus?.set(true);
+			positronEditorFocus.set(true);
 		}));
 
 		disposables.add(focusTracker.onDidBlur(() => {
-			this.positronEditorFocus?.set(false);
+			positronEditorFocus.set(false);
 		}));
-	}
-
-	/**
-	 * Manually set the container focused state.
-	 * This is needed because DOM.trackFocus doesn't fire blur events when a child element
-	 * (like a Monaco editor) gets focus. We need to manually coordinate this with the
-	 * cell editing state to ensure the context key is accurate.
-	 * @param focused - Whether the container should be considered focused
-	 */
-	setContainerFocused(focused: boolean): void {
-		this.positronEditorFocus?.set(focused);
 	}
 
 	//#endregion Public Methods
