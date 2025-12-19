@@ -59,7 +59,6 @@
 
 .history-right .plot-thumbnail {
 	margin-top: 5px;
-	margin-bottom: 15px;
 }
 
 /*
@@ -82,13 +81,10 @@
 	width: fit-content;
 	margin-right: 10px;
 	margin-left: 10px;
-	padding-bottom: 10px;
 }
 
 .history-bottom .plot-thumbnail {
-	margin-left: 5px;
-	margin-right: 5px;
-	width: 80px;
+	width: 100px;
 }
 
 .selected-plot {
@@ -99,8 +95,9 @@
 }
 
 .plot-thumbnail {
-	height: 80px;
-	width: 80px;
+	height: 90px;
+	width: 90px;
+	margin: 5px;
 	padding: 0;
 	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;
@@ -132,11 +129,6 @@
 .plot-thumbnail img {
 	border-radius: 3px;
 	border: 1px dotted var(--vscode-editorWidget-border);
-}
-
-.plot-thumbnail.selected img {
-	border-radius: 3px;
-	border: 1px solid transparent;
 }
 
 .plot-thumbnail.selected .image-wrapper {
