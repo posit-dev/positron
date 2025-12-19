@@ -38,7 +38,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
-			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.WORKBENCH]
 		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
@@ -352,7 +352,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Verify basic plot functionality', {
-			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.WORKBENCH]
 		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);

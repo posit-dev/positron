@@ -64,7 +64,7 @@ test.describe('R Debugging', {
 
 		await debug.expectBrowserModeFrame(1);
 
-		// Verify call stack order
+		// Verify call stack orderπ
 		await debug.expectCallStackAtIndex(0, 'inner()inner(x)');
 		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)');
 		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
