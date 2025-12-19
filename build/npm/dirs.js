@@ -6,7 +6,7 @@
 const fs = require('fs');
 
 // Complete list of directories where npm should be executed to install node modules
-const dirs = [
+let dirs = [
 	'',
 	'build',
 	'extensions',
@@ -102,5 +102,46 @@ if (fs.existsSync(`${__dirname}/../../.build/distro/npm`)) {
 	dirs.push('.build/distro/npm/remote');
 	dirs.push('.build/distro/npm/remote/web');
 }
+
+// --- Start Positron ---
+// CI Cache optimization: Support filtered installation based on change frequency
+// This enables split caching strategy where volatile extensions (that change frequently)
+// can be cached separately from stable extensions (that change rarely).
+//
+// Volatile extensions: Change frequently (71% of extension commits over 6 months)
+// THIS IS THE SINGLE SOURCE OF TRUTH for volatile extension list
+const volatileExtensions = [
+	'extensions/positron-python',
+	'extensions/positron-assistant',
+	'extensions/positron-r'
+];
+
+// Usage: Set POSITRON_EXTENSIONS_FILTER=volatile|stable to install subset
+//   - volatile: Install only frequently-changed extensions (python, assistant, r)
+//   - stable: Install all other extensions
+//   - unset/empty: Install all extensions (default behavior)
+const POSITRON_EXTENSIONS_FILTER = process.env.POSITRON_EXTENSIONS_FILTER;
+
+if (POSITRON_EXTENSIONS_FILTER) {
+
+	if (POSITRON_EXTENSIONS_FILTER === 'volatile') {
+		// allow-any-unicode-next-line
+		console.log('🔥 Installing volatile extensions only (python, assistant, r)');
+		// Keep base dirs + parent 'extensions' + volatile extensions
+		const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
+		dirs = [...baseDirs, ...volatileExtensions];
+	} else if (POSITRON_EXTENSIONS_FILTER === 'stable') {
+		// allow-any-unicode-next-line
+		console.log('🧊 Installing stable extensions only (all except python, assistant, r)');
+		// Keep base dirs + parent 'extensions' + stable extensions
+		const allExtensions = dirs.filter(d => d.startsWith('extensions/') && d !== 'extensions');
+		const stableExtensions = allExtensions.filter(d => !volatileExtensions.includes(d));
+		const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
+		dirs = [...baseDirs, ...stableExtensions];
+	}
+}
+
+exports.volatileExtensions = volatileExtensions;
+// --- End Positron ---
 
 exports.dirs = dirs;

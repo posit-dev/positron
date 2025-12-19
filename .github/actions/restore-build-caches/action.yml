@@ -38,15 +38,21 @@ outputs:
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
     value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-npm-extensions-hit:
-    description: "Whether npm extensions cache was restored"
-    value: ${{ steps.cache-npm-extensions.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-volatile-hit:
+    description: "Whether npm volatile extensions cache (python, assistant, r) was restored"
+    value: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-stable-hit:
+    description: "Whether npm stable extensions cache (all except python, assistant, r) was restored"
+    value: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  extensions-hash:
-    description: "Generated hash of all extension package-lock.json files"
-    value: ${{ steps.extensions-hash.outputs.hash }}
+  extensions-volatile-hash:
+    description: "Generated hash for volatile extensions (python, assistant, r)"
+    value: ${{ steps.extensions-volatile-hash.outputs.hash }}
+  extensions-stable-hash:
+    description: "Generated hash for stable extensions (all except python, assistant, r)"
+    value: ${{ steps.extensions-stable-hash.outputs.hash }}
   package-locks-hash:
     description: "Computed hash of all package-lock.json files (for DRY cache key generation)"
     value: ${{ steps.package-locks-hash.outputs.hash }}
@@ -97,16 +103,28 @@ runs:
         output_to_github_actions
         echo "::endgroup::"
 
-    - name: Generate extensions cache key
+    - name: Generate volatile extensions cache key
       if: ${{ inputs.restore-npm-extensions == 'true' }}
-      id: extensions-hash
+      id: extensions-volatile-hash
       continue-on-error: true
       shell: bash
       run: |
-        if ! .github/scripts/generate-extensions-hash.sh; then
-          echo "::warning::Extensions hash generation failed - caching will be degraded"
-          echo "⚠️ **Cache Warning**: Extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
-          echo "hash=fallback-extensions-$(date +%s)" >> "$GITHUB_OUTPUT"
+        if ! .github/scripts/generate-extensions-hash.sh --filter volatile; then
+          echo "::warning::Volatile extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Volatile extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-volatile-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Generate stable extensions cache key
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: extensions-stable-hash
+      continue-on-error: true
+      shell: bash
+      run: |
+        if ! .github/scripts/generate-extensions-hash.sh --filter stable; then
+          echo "::warning::Stable extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Stable extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-stable-$(date +%s)" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Generate package-locks cache key
@@ -130,14 +148,23 @@ runs:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
 
-    - name: Restore npm extensions cache
+    - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
-      id: cache-npm-extensions
+      id: cache-npm-extensions-volatile
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
-        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
-        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+        path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
+        key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
+
+    - name: Restore npm stable extensions cache
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: cache-npm-extensions-stable
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
+        key: npm-extensions-stable-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}

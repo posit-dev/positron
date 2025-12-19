@@ -49,7 +49,9 @@ jobs:
         uses: ./.github/actions/install-system-deps
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -61,6 +63,11 @@ jobs:
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
           DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
           timeout_minutes: 30
           max_attempts: 3
@@ -79,10 +86,13 @@ jobs:
       - name: Download binaries (Ark, Kallichore)
         uses: ./.github/actions/download-binaries
         with:
-          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
       - name: Check for uncached postinstall artifacts
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         run: |
           find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-after-npm-install.txt
           .github/scripts/check-uncached-artifacts.sh /tmp/files-before-npm-install.txt /tmp/files-after-npm-install.txt
@@ -102,9 +112,11 @@ jobs:
         uses: ./.github/actions/save-build-caches
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
-          cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+          cache-npm-extensions-volatile-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
+          cache-npm-extensions-stable-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+          extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
+          extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
 
       - name: Set permissions on SUID sandbox helper

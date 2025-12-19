@@ -32,16 +32,24 @@ inputs:
     description: "Whether npm core cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
-  cache-npm-extensions-hit:
-    description: "Whether npm extensions cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
+  cache-npm-extensions-volatile-hit:
+    description: "Whether npm volatile extensions cache was hit during restore. If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
+  cache-npm-extensions-stable-hit:
+    description: "Whether npm stable extensions cache was hit during restore. If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
   cache-builtins-hit:
     description: "Whether builtins cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
-  extensions-hash:
-    description: "Extensions hash from restore step (required only if saving npm extensions cache)"
+  extensions-volatile-hash:
+    description: "Volatile extensions hash from restore step (required only if saving volatile extensions cache)"
+    required: false
+    default: ''
+  extensions-stable-hash:
+    description: "Stable extensions hash from restore step (required only if saving stable extensions cache)"
     required: false
     default: ''
   package-locks-hash:
@@ -92,13 +100,21 @@ runs:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
         key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
 
-    - name: Save npm extensions cache
-      if: ${{ inputs.cache-npm-extensions-hit == 'false' }}
+    - name: Save npm volatile extensions cache
+      if: ${{ inputs.cache-npm-extensions-volatile-hit == 'false' }}
       continue-on-error: true
       uses: actions/cache/save@v4
       with:
-        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
-        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-hash }}
+        path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
+        key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-volatile-hash }}
+
+    - name: Save npm stable extensions cache
+      if: ${{ inputs.cache-npm-extensions-stable-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
+        key: npm-extensions-stable-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-stable-hash }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}
