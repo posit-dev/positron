@@ -91,8 +91,11 @@ runs:
         echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
         echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
         echo ""
-        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
-        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo "✅ npm-extensions-volatile: $(echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions-stable: $(echo "$NPM_EXTENSIONS_STABLE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_STABLE_PATHS" | sed 's/^/  → /'
         echo ""
         echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
         echo "$BUILTINS_PATHS" | sed 's/^/  → /'

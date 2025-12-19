@@ -104,8 +104,11 @@ runs:
         echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
         echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
         echo ""
-        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
-        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo "✅ npm-extensions-volatile: $(echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions-stable: $(echo "$NPM_EXTENSIONS_STABLE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_STABLE_PATHS" | sed 's/^/  → /'
         echo ""
         echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
         echo "$BUILTINS_PATHS" | sed 's/^/  → /'
@@ -213,60 +216,24 @@ runs:
         # Detect if restore-key matched (cache-hit: false but cache was restored)
         # Check if cache directories have content when cache-hit is false
 
-        npm_core_partial="false"
-        npm_extensions_volatile_partial="false"
-        npm_extensions_stable_partial="false"
-        builtins_partial="false"
-        playwright_partial="false"
+        check_partial() {
+          local cache_hit="$1"
+          local dir="$2"
+          local output_name="$3"
 
-        # Check npm-core: if cache-hit is false but .npm-cache has content
-        if [[ "${{ steps.cache-npm-core.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d ".npm-cache" ]] && [[ -n "$(ls -A .npm-cache 2>/dev/null)" ]]; then
-          npm_core_partial="true"
-        fi
-
-        # Check npm-extensions-volatile: if cache-hit is false but volatile extension node_modules exist
-        if [[ "${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}" == "false" ]]; then
-          if [[ -d "extensions/positron-python/node_modules" ]] || \
-             [[ -d "extensions/positron-assistant/node_modules" ]] || \
-             [[ -d "extensions/positron-r/node_modules" ]]; then
-            npm_extensions_volatile_partial="true"
+          if [[ "$cache_hit" == "false" ]] && [[ -d "$dir" ]] && [[ -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            echo "${output_name}=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${output_name}=false" >> "$GITHUB_OUTPUT"
           fi
-        fi
+        }
 
-        # Check npm-extensions-stable: if cache-hit is false but any stable extension node_modules exist
-        if [[ "${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}" == "false" ]]; then
-          # Check for any extension node_modules that isn't volatile
-          for dir in extensions/*/node_modules; do
-            if [[ -d "$dir" ]]; then
-              ext_name=$(echo "$dir" | sed 's|extensions/\(.*\)/node_modules|\1|')
-              if [[ "$ext_name" != "positron-python" ]] && \
-                 [[ "$ext_name" != "positron-assistant" ]] && \
-                 [[ "$ext_name" != "positron-r" ]]; then
-                npm_extensions_stable_partial="true"
-                break
-              fi
-            fi
-          done
-        fi
-
-        # Check builtins: if cache-hit is false but .build/builtInExtensions exists
-        if [[ "${{ steps.cache-builtins.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d ".build/builtInExtensions" ]] && [[ -n "$(ls -A .build/builtInExtensions 2>/dev/null)" ]]; then
-          builtins_partial="true"
-        fi
-
-        # Check Playwright: if cache-hit is false but ~/.cache/ms-playwright exists
-        if [[ "${{ steps.cache-playwright.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d "$HOME/.cache/ms-playwright" ]] && [[ -n "$(ls -A $HOME/.cache/ms-playwright 2>/dev/null)" ]]; then
-          playwright_partial="true"
-        fi
-
-        echo "npm-core-partial=$npm_core_partial" >> "$GITHUB_OUTPUT"
-        echo "npm-extensions-volatile-partial=$npm_extensions_volatile_partial" >> "$GITHUB_OUTPUT"
-        echo "npm-extensions-stable-partial=$npm_extensions_stable_partial" >> "$GITHUB_OUTPUT"
-        echo "builtins-partial=$builtins_partial" >> "$GITHUB_OUTPUT"
-        echo "playwright-partial=$playwright_partial" >> "$GITHUB_OUTPUT"
+        # Check each cache type for partial hits
+        check_partial "${{ steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
+        check_partial "${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}" "extensions/positron-python" "npm-extensions-volatile-partial"
+        check_partial "${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}" "extensions/positron-duckdb" "npm-extensions-stable-partial"
+        check_partial "${{ steps.cache-builtins.outputs.cache-hit }}" ".build/builtInExtensions" "builtins-partial"
+        check_partial "${{ steps.cache-playwright.outputs.cache-hit }}" "$HOME/.cache/ms-playwright" "playwright-partial"
 
     - name: Log cache results
       if: always()

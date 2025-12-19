@@ -32,11 +32,18 @@ else
 	echo "  ✅ NPM_CORE_PATHS defined ($(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths)"
 fi
 
-if [ -z "$NPM_EXTENSIONS_PATHS" ]; then
-	echo "  ❌ NPM_EXTENSIONS_PATHS is empty"
+if [ -z "$NPM_EXTENSIONS_VOLATILE_PATHS" ]; then
+	echo "  ❌ NPM_EXTENSIONS_VOLATILE_PATHS is empty"
 	EXIT_CODE=1
 else
-	echo "  ✅ NPM_EXTENSIONS_PATHS defined ($(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths)"
+	echo "  ✅ NPM_EXTENSIONS_VOLATILE_PATHS defined ($(echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | wc -l | tr -d ' ') paths)"
+fi
+
+if [ -z "$NPM_EXTENSIONS_STABLE_PATHS" ]; then
+	echo "  ❌ NPM_EXTENSIONS_STABLE_PATHS is empty"
+	EXIT_CODE=1
+else
+	echo "  ✅ NPM_EXTENSIONS_STABLE_PATHS defined ($(echo "$NPM_EXTENSIONS_STABLE_PATHS" | wc -l | tr -d ' ') paths)"
 fi
 
 if [ -z "$BUILTINS_PATHS" ]; then
@@ -54,7 +61,8 @@ GITHUB_OUTPUT="$TEMP_OUTPUT" output_to_github_actions
 
 if [ -s "$TEMP_OUTPUT" ]; then
 	if grep -q "npm-core-paths<<EOF" "$TEMP_OUTPUT" && \
-	   grep -q "npm-extensions-paths<<EOF" "$TEMP_OUTPUT" && \
+	   grep -q "npm-extensions-volatile-paths<<EOF" "$TEMP_OUTPUT" && \
+	   grep -q "npm-extensions-stable-paths<<EOF" "$TEMP_OUTPUT" && \
 	   grep -q "builtins-paths<<EOF" "$TEMP_OUTPUT"; then
 		echo "  ✅ GITHUB_OUTPUT export works correctly"
 	else
