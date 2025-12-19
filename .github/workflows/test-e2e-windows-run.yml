@@ -166,7 +166,7 @@ jobs:
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
         with:
-          timeout_minutes: 35
+          timeout_minutes: 45
           max_attempts: 3
           retry_wait_seconds: 5
           shell: bash

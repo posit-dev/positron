@@ -17,9 +17,12 @@ set -euo pipefail
 #     - RESTORE_NPM_CORE: "true" if npm core restore is enabled
 #     - RESTORE_NPM_EXTENSIONS: "true" if npm extensions restore is enabled
 #     - RESTORE_BUILTINS: "true" if builtins restore is enabled
-#     - CACHE_NPM_CORE_HIT: "true" if npm-core cache hit
-#     - CACHE_NPM_EXTENSIONS_HIT: "true" if npm-extensions cache hit
-#     - CACHE_BUILTINS_HIT: "true" if builtins cache hit
+#     - CACHE_NPM_CORE_HIT: "true" if npm-core cache exact key matched
+#     - CACHE_NPM_EXTENSIONS_HIT: "true" if npm-extensions cache exact key matched
+#     - CACHE_BUILTINS_HIT: "true" if builtins cache exact key matched
+#     - CACHE_NPM_CORE_PARTIAL: "true" if npm-core restore-key matched (partial hit)
+#     - CACHE_NPM_EXTENSIONS_PARTIAL: "true" if npm-extensions restore-key matched (partial hit)
+#     - CACHE_BUILTINS_PARTIAL: "true" if builtins restore-key matched (partial hit)
 #
 #   For save operation:
 #     - CACHE_NPM_CORE_HIT: "true"/"false"/"" (empty means not restored)
@@ -41,11 +44,16 @@ log_restore_status() {
 	local cache_name="$1"
 	local enabled_var="$2"
 	local hit_var="$3"
+	local partial_var="$4"
 
 	if [[ "${!enabled_var:-false}" == "true" ]]; then
 		if [[ "${!hit_var:-false}" == "true" ]]; then
-			printf "%-16s %s\n" "$cache_name" "✅ hit"
+			printf "%-16s %s\n" "$cache_name" "✅ hit (exact key)"
+		elif [[ "${!partial_var:-false}" == "true" ]]; then
+			# cache-hit: false but cache was restored via restore-key
+			printf "%-16s %s\n" "$cache_name" "⚠️  partial (restore-key)"
 		else
+			# cache-hit: false and no cache content found - complete miss
 			printf "%-16s %s\n" "$cache_name" "❌ miss"
 		fi
 	else
@@ -83,9 +91,9 @@ log_save_status() {
 
 if [[ "$OPERATION" == "restore" ]]; then
 	# Restore operation logging
-	log_restore_status "npm-core" "RESTORE_NPM_CORE" "CACHE_NPM_CORE_HIT"
-	log_restore_status "npm-extensions" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_HIT"
-	log_restore_status "builtins" "RESTORE_BUILTINS" "CACHE_BUILTINS_HIT"
+	log_restore_status "npm-core" "RESTORE_NPM_CORE" "CACHE_NPM_CORE_HIT" "CACHE_NPM_CORE_PARTIAL"
+	log_restore_status "npm-extensions" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_HIT" "CACHE_NPM_EXTENSIONS_PARTIAL"
+	log_restore_status "builtins" "RESTORE_BUILTINS" "CACHE_BUILTINS_HIT" "CACHE_BUILTINS_PARTIAL"
 
 elif [[ "$OPERATION" == "save" ]]; then
 	# Save operation logging
