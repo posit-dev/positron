@@ -129,6 +129,7 @@ runs:
       shell: bash
       env:
         CACHE_NPM_CORE_HIT: ${{ inputs.cache-npm-core-hit }}
-        CACHE_NPM_EXTENSIONS_HIT: ${{ inputs.cache-npm-extensions-hit }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ inputs.cache-npm-extensions-volatile-hit }}
+        CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ inputs.cache-npm-extensions-stable-hit }}
         CACHE_BUILTINS_HIT: ${{ inputs.cache-builtins-hit }}
       run: .github/scripts/log-cache-status.sh save

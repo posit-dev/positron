@@ -186,7 +186,8 @@ runs:
         # Check if cache directories have content when cache-hit is false
 
         npm_core_partial="false"
-        npm_extensions_partial="false"
+        npm_extensions_volatile_partial="false"
+        npm_extensions_stable_partial="false"
         builtins_partial="false"
 
         # Check npm-core: if cache-hit is false but .npm-cache has content
@@ -195,10 +196,29 @@ runs:
           npm_core_partial="true"
         fi
 
-        # Check npm-extensions: if cache-hit is false but extensions/node_modules exists
-        if [[ "${{ steps.cache-npm-extensions.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d "extensions/node_modules" ]] && [[ -n "$(ls -A extensions/node_modules 2>/dev/null)" ]]; then
-          npm_extensions_partial="true"
+        # Check npm-extensions-volatile: if cache-hit is false but volatile extension node_modules exist
+        if [[ "${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}" == "false" ]]; then
+          if [[ -d "extensions/positron-python/node_modules" ]] || \
+             [[ -d "extensions/positron-assistant/node_modules" ]] || \
+             [[ -d "extensions/positron-r/node_modules" ]]; then
+            npm_extensions_volatile_partial="true"
+          fi
+        fi
+
+        # Check npm-extensions-stable: if cache-hit is false but any stable extension node_modules exist
+        if [[ "${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}" == "false" ]]; then
+          # Check for any extension node_modules that isn't volatile
+          for dir in extensions/*/node_modules; do
+            if [[ -d "$dir" ]]; then
+              ext_name=$(echo "$dir" | sed 's|extensions/\(.*\)/node_modules|\1|')
+              if [[ "$ext_name" != "positron-python" ]] && \
+                 [[ "$ext_name" != "positron-assistant" ]] && \
+                 [[ "$ext_name" != "positron-r" ]]; then
+                npm_extensions_stable_partial="true"
+                break
+              fi
+            fi
+          done
         fi
 
         # Check builtins: if cache-hit is false but .build/builtInExtensions exists
@@ -208,7 +228,8 @@ runs:
         fi
 
         echo "npm-core-partial=$npm_core_partial" >> "$GITHUB_OUTPUT"
-        echo "npm-extensions-partial=$npm_extensions_partial" >> "$GITHUB_OUTPUT"
+        echo "npm-extensions-volatile-partial=$npm_extensions_volatile_partial" >> "$GITHUB_OUTPUT"
+        echo "npm-extensions-stable-partial=$npm_extensions_stable_partial" >> "$GITHUB_OUTPUT"
         echo "builtins-partial=$builtins_partial" >> "$GITHUB_OUTPUT"
 
     - name: Log cache results
@@ -219,9 +240,11 @@ runs:
         RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
-        CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
         CACHE_NPM_CORE_PARTIAL: ${{ steps.detect-partials.outputs.npm-core-partial }}
-        CACHE_NPM_EXTENSIONS_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-partial }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-volatile-partial }}
+        CACHE_NPM_EXTENSIONS_STABLE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-stable-partial }}
         CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
       run: .github/scripts/log-cache-status.sh restore

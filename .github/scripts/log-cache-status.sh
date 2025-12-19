@@ -18,15 +18,18 @@ set -euo pipefail
 #     - RESTORE_NPM_EXTENSIONS: "true" if npm extensions restore is enabled
 #     - RESTORE_BUILTINS: "true" if builtins restore is enabled
 #     - CACHE_NPM_CORE_HIT: "true" if npm-core cache exact key matched
-#     - CACHE_NPM_EXTENSIONS_HIT: "true" if npm-extensions cache exact key matched
+#     - CACHE_NPM_EXTENSIONS_VOLATILE_HIT: "true" if npm-extensions-volatile cache exact key matched
+#     - CACHE_NPM_EXTENSIONS_STABLE_HIT: "true" if npm-extensions-stable cache exact key matched
 #     - CACHE_BUILTINS_HIT: "true" if builtins cache exact key matched
 #     - CACHE_NPM_CORE_PARTIAL: "true" if npm-core restore-key matched (partial hit)
-#     - CACHE_NPM_EXTENSIONS_PARTIAL: "true" if npm-extensions restore-key matched (partial hit)
+#     - CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL: "true" if npm-extensions-volatile restore-key matched (partial hit)
+#     - CACHE_NPM_EXTENSIONS_STABLE_PARTIAL: "true" if npm-extensions-stable restore-key matched (partial hit)
 #     - CACHE_BUILTINS_PARTIAL: "true" if builtins restore-key matched (partial hit)
 #
 #   For save operation:
 #     - CACHE_NPM_CORE_HIT: "true"/"false"/"" (empty means not restored)
-#     - CACHE_NPM_EXTENSIONS_HIT: "true"/"false"/"" (empty means not restored)
+#     - CACHE_NPM_EXTENSIONS_VOLATILE_HIT: "true"/"false"/"" (empty means not restored)
+#     - CACHE_NPM_EXTENSIONS_STABLE_HIT: "true"/"false"/"" (empty means not restored)
 #     - CACHE_BUILTINS_HIT: "true"/"false"/"" (empty means not restored)
 #
 # Exit Codes:
@@ -92,12 +95,14 @@ log_save_status() {
 if [[ "$OPERATION" == "restore" ]]; then
 	# Restore operation logging
 	log_restore_status "npm-core" "RESTORE_NPM_CORE" "CACHE_NPM_CORE_HIT" "CACHE_NPM_CORE_PARTIAL"
-	log_restore_status "npm-extensions" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_HIT" "CACHE_NPM_EXTENSIONS_PARTIAL"
+	log_restore_status "npm-ext-volatile" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_VOLATILE_HIT" "CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL"
+	log_restore_status "npm-ext-stable" "RESTORE_NPM_EXTENSIONS" "CACHE_NPM_EXTENSIONS_STABLE_HIT" "CACHE_NPM_EXTENSIONS_STABLE_PARTIAL"
 	log_restore_status "builtins" "RESTORE_BUILTINS" "CACHE_BUILTINS_HIT" "CACHE_BUILTINS_PARTIAL"
 
 elif [[ "$OPERATION" == "save" ]]; then
 	# Save operation logging
 	log_save_status "npm-core" "CACHE_NPM_CORE_HIT"
-	log_save_status "npm-extensions" "CACHE_NPM_EXTENSIONS_HIT"
+	log_save_status "npm-ext-volatile" "CACHE_NPM_EXTENSIONS_VOLATILE_HIT"
+	log_save_status "npm-ext-stable" "CACHE_NPM_EXTENSIONS_STABLE_HIT"
 	log_save_status "builtins" "CACHE_BUILTINS_HIT"
 fi
