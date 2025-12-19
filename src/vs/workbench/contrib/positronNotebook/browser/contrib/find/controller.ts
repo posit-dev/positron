@@ -123,9 +123,6 @@ export class PositronNotebookFindController extends Disposable implements IPosit
 			if (!this._notebook.overlayContainer) {
 				throw new Error('Notebook overlay container not available for Find Widget rendering');
 			}
-			if (!this._notebook.scopedContextKeyService) {
-				throw new Error('Scoped context key service not available for Find Widget');
-			}
 
 			// Bind context keys
 			const findWidgetVisible = CONTEXT_FIND_WIDGET_VISIBLE.bindTo(this._notebook.scopedContextKeyService);

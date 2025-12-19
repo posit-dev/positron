@@ -13,11 +13,10 @@ import React from 'react';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { PositronFindInput } from './PositronFindInput.js';
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
-import { IObservable, ISettableObservable, transaction } from '../../../../../../base/common/observable.js';
+import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
 import { useObservedValue } from '../../useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
-import { KeyCode, KeyMod } from '../../../../../../base/common/keyCodes.js';
 import { localize } from '../../../../../../nls.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IContextViewService } from '../../../../../../platform/contextview/browser/contextView.js';
@@ -86,24 +85,6 @@ export const PositronFindWidget = ({
 				value={_findText}
 				onInputBlur={() => inputFocused.set(false, undefined)}
 				onInputFocus={() => inputFocused.set(true, undefined)}
-				onKeyDown={(e) => {
-					if (e.equals(KeyCode.Enter)) {
-						onNextMatch();
-						e.preventDefault();
-						return;
-					} else if (e.equals(KeyMod.Shift | KeyCode.Enter)) {
-						onPreviousMatch();
-						e.preventDefault();
-						return;
-					} else if (e.equals(KeyCode.Escape)) {
-						transaction((tx) => {
-							inputFocused.set(false, tx);
-							isVisible.set(false, tx);
-						})
-						e.preventDefault();
-						return;
-					}
-				}}
 				onMatchCaseChange={(value) => matchCase.set(value, undefined)}
 				onMatchWholeWordChange={(value) => matchWholeWord.set(value, undefined)}
 				onUseRegexChange={(value) => useRegex.set(value, undefined)}
