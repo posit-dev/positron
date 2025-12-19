@@ -91,6 +91,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// State to track metadata updates and trigger re-renders
 	const [metadataVersion, setMetadataVersion] = React.useState(0);
 
+	// State to track session name updates and trigger re-renders
+	const [sessionNameVersion, setSessionNameVersion] = React.useState(0);
+
 	// Listen for metadata updates from the plots service (service-level event)
 	useEffect(() => {
 		const disposable = services.positronPlotsService.onDidUpdatePlotMetadata((plotId) => {
@@ -102,6 +105,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		return () => disposable.dispose();
 	}, [services.positronPlotsService, positronPlotsContext.selectedInstanceId]);
 
+	// Listen for session name updates to update the displayed session name
+	useEffect(() => {
+		const disposable = services.runtimeSessionService.onDidUpdateSessionName((session) => {
+			// Only trigger re-render if the updated session is the current plot's session
+			if (currentPlotInstance && session.sessionId === currentPlotInstance.metadata.session_id) {
+				setSessionNameVersion(v => v + 1);
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.runtimeSessionService, currentPlotInstance]);
+
 	// Get the session name for the current plot
 	const sessionName = useMemo(() => {
 		if (!currentPlotInstance) {
@@ -110,12 +124,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const sessionId = currentPlotInstance.metadata.session_id;
 		const session = services.runtimeSessionService.getSession(sessionId);
 		if (session) {
-			return session.runtimeMetadata.runtimeName;
+			// Use dynState.sessionName to get the current (possibly renamed) session name
+			return session.dynState.sessionName;
 		}
 		// Fallback to the language name from metadata if session is not found
 		return currentPlotInstance.metadata.language;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentPlotInstance, services.runtimeSessionService, metadataVersion]);
+	}, [currentPlotInstance, services.runtimeSessionService, metadataVersion, sessionNameVersion]);
 
 	// Get the plot name from metadata (reactive to metadata updates)
 	const plotName = useMemo(() => {
