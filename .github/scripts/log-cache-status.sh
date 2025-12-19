@@ -54,7 +54,7 @@ log_restore_status() {
 			printf "%-16s %s\n" "$cache_name" "✅ hit (exact key)"
 		elif [[ "${!partial_var:-false}" == "true" ]]; then
 			# cache-hit: false but cache was restored via restore-key
-			printf "%-16s %s\n" "$cache_name" "⚠️  partial (restore-key)"
+			printf "%-16s %s\n" "$cache_name" "⚠️ partial (restore-key)"
 		else
 			# cache-hit: false and no cache content found - complete miss
 			printf "%-16s %s\n" "$cache_name" "❌ miss"

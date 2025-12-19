@@ -153,7 +153,9 @@ jobs:
           npx patch-package
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64
@@ -165,6 +167,11 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
           timeout_minutes: 45
           max_attempts: 3
