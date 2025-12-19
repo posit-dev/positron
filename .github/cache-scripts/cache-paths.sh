@@ -1,27 +1,67 @@
 #!/usr/bin/env bash
-# cache-paths.sh
+# ============================================================================
+# cache-paths.sh - CI Cache Configuration (Single Source of Truth)
+# ============================================================================
 #
-# Single source of truth for cache path configuration.
-# This file is used by:
-#   - restore-build-caches/action.yml
-#   - save-build-caches/action.yml
-#   - check-uncached-artifacts.sh (to ignore already-cached paths)
+# WHAT THIS FILE DOES:
+# Defines what directories/files are cached in CI to speed up builds.
+# All cache paths are configured HERE and loaded dynamically by workflows.
 #
-# When adding new cache paths, update this file only.
+# CACHING STRATEGY (Directory-Level Caching):
+# • npm-core: Root dependencies, build tools, npm/node-gyp caches
+# • npm-extensions-volatile: Frequently-changing extensions (python, assistant, r)
+# • npm-extensions-stable: All other extensions (change rarely)
+# • builtins: Pre-built VS Code extensions from marketplace
+# • playwright: Browser binaries for E2E testing
+#
+# ADDING/MODIFYING CACHES:
+# 1. For core/build paths: Edit NPM_CORE_PATHS below
+# 2. For volatile extensions: Edit build/npm/dirs.js (volatileExtensions array)
+# 3. For stable extensions: Automatic (all non-volatile extensions)
+# 4. Run: .github/cache-scripts/verify-cache-paths.sh to validate changes
+#
+# USED BY:
+# • .github/actions/restore-build-caches/action.yml
+# • .github/actions/save-build-caches/action.yml
+# • .github/cache-scripts/check-uncached-artifacts.sh
+#
+# ============================================================================
 
-# npm core dependencies cache paths
-# "The main stuff we need" - All the JavaScript packages for building and testing Positron
-# Includes: root node_modules, build packages, remote packages, test packages, and npm cache
-# Invalidates when: any core package-lock.json changes
-# Note: node-gyp cache location varies by platform - set dynamically below
+set -euo pipefail
+
+# ============================================================================
+# SECTION 1: Platform Detection
+# ============================================================================
+# Cache locations vary by OS. Detect platform and set appropriate paths.
+
+# Detect Windows
+IS_WINDOWS=false
 if [[ "${RUNNER_OS:-}" == "Windows" ]] || [[ "${OS:-}" == "Windows_NT" ]]; then
-	# Windows: node-gyp cache is in LOCALAPPDATA
-	NODE_GYP_CACHE="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/node-gyp"
-else
-	# Linux/macOS: node-gyp cache is in ~/.cache
-	NODE_GYP_CACHE="$HOME/.cache/node-gyp"
+	IS_WINDOWS=true
 fi
 
+# Set platform-specific cache directories
+if [[ "$IS_WINDOWS" == "true" ]]; then
+	# Windows paths
+	NODE_GYP_CACHE="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/node-gyp"
+	PLAYWRIGHT_CACHE="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/ms-playwright"
+else
+	# Linux/macOS paths
+	NODE_GYP_CACHE="$HOME/.cache/node-gyp"
+	PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+fi
+
+# ============================================================================
+# SECTION 2: Cache Path Definitions
+# ============================================================================
+# Define what gets cached. Paths are relative to repo root unless absolute.
+
+# ----------------------------------------------------------------------------
+# npm-core: Core build dependencies (~500MB-1GB)
+# ----------------------------------------------------------------------------
+# What: Root node_modules, build tools, test dependencies, npm/node-gyp caches
+# Invalidates: When any core package-lock.json changes
+# Why cache node-gyp: Avoids downloading Node.js headers (saves 10-30s, more reliable)
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
@@ -35,45 +75,45 @@ test/monaco/node_modules
 test/mcp/node_modules
 EOF
 
-
-# Built-in extensions cache paths
-# "The built-in VS Code extensions we download" - Pre-made extensions from the VS Code marketplace
-# Includes: Downloaded built-in extensions specified in product.json
-# Invalidates when: product.json changes (which lists what extensions to download)
+# ----------------------------------------------------------------------------
+# builtins: Pre-built VS Code extensions (~50-100MB)
+# ----------------------------------------------------------------------------
+# What: Downloaded extensions from VS Code marketplace (defined in product.json)
+# Invalidates: When product.json changes
+# Note: Uses restore-keys for partial hits (common use case)
 read -r -d '' BUILTINS_PATHS << 'EOF' || true
 .build/builtInExtensions
 EOF
 
-# Playwright browsers cache paths
-# "Playwright browser binaries" - Chromium, Firefox, WebKit browsers for E2E testing
-# Invalidates when: @playwright/test version changes in package.json
-# Note: We cache all browsers (~900MB) but could reduce to just Chromium (~450MB) if needed
-# Location varies by platform - set dynamically below
-PLAYWRIGHT_PATHS=""
-if [[ "${RUNNER_OS:-}" == "Windows" ]] || [[ "${OS:-}" == "Windows_NT" ]]; then
-	# Windows: Use LOCALAPPDATA or USERPROFILE
-	PLAYWRIGHT_CACHE_DIR="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/ms-playwright"
-	PLAYWRIGHT_PATHS="$PLAYWRIGHT_CACHE_DIR"
-else
-	# Linux/macOS: Use ~/.cache
-	PLAYWRIGHT_PATHS="$HOME/.cache/ms-playwright"
-fi
+# ----------------------------------------------------------------------------
+# playwright: Browser binaries (~900MB)
+# ----------------------------------------------------------------------------
+# What: Chromium, Firefox, WebKit browsers for E2E testing
+# Invalidates: When @playwright/test version changes
+# Note: Browsers are large but rarely change, big time saver
+PLAYWRIGHT_PATHS="$PLAYWRIGHT_CACHE"
 
-# npm extensions volatile cache paths (generated dynamically from dirs.js SSOT)
-# "The frequently-changing extensions" - Entire directories for python, assistant, r
-# Strategy: Cache ENTIRE extension directories (source code + node_modules + resources)
-# Invalidates when: ANY file in these extensions changes
-# Why entire directories? Simpler, no overlap with stable cache, includes all resources
+# ============================================================================
+# SECTION 3: Extension Caching (Volatile/Stable Split)
+# ============================================================================
+# Extensions are split into two caches based on change frequency.
+# This optimizes cache hit rates and reduces unnecessary invalidation.
+
+# ----------------------------------------------------------------------------
+# npm-extensions-volatile: Frequently-changing extensions (~1GB)
+# ----------------------------------------------------------------------------
+# What: Entire directories for python, assistant, r extensions
+# Why: These change in 71% of PRs, so cache them separately
+# Includes: node_modules, source code, resources (python_files, copilot, etc.)
+# Invalidates: When ANY file in these extensions changes
+# SSOT: build/npm/dirs.js (volatileExtensions array)
 generate_npm_extensions_volatile_paths() {
-	# Read volatile extension list from SSOT (build/npm/dirs.js)
 	local volatile_exts
 	volatile_exts=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
 
-	# Generate entire directory paths for each volatile extension
 	local paths=""
 	while IFS= read -r ext; do
 		if [ -n "$ext" ]; then
-			# Cache entire directory (includes node_modules, resources, source code, everything)
 			paths="${paths}${ext}"$'\n'
 		fi
 	done <<< "$volatile_exts"
@@ -81,21 +121,22 @@ generate_npm_extensions_volatile_paths() {
 	echo "$paths"
 }
 
-# npm extensions stable cache paths (all extensions except volatile)
-# "The rarely-changing extensions" - Entire directories for all non-volatile extensions
-# Strategy: Cache ENTIRE extension directories (source code + node_modules + resources)
-# Invalidates when: ANY file in non-volatile extensions changes
-# Why entire directories? Simpler, clean separation from volatile, no wildcard overlap
+# ----------------------------------------------------------------------------
+# npm-extensions-stable: Rarely-changing extensions (~2-3GB)
+# ----------------------------------------------------------------------------
+# What: Entire directories for all non-volatile extensions
+# Why: These change in only 29% of PRs, big cache but worth it
+# Includes: All extensions not in volatileExtensions array
+# Invalidates: When ANY file in non-volatile extensions changes
+# Note: Automatically discovers extensions (no manual list needed)
 generate_npm_extensions_stable_paths() {
-	# Read volatile extension list from SSOT (build/npm/dirs.js)
 	local volatile_exts
 	volatile_exts=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
 
-	# Convert to grep pattern for exclusion
+	# Build exclusion pattern from volatile extensions
 	local volatile_pattern=""
 	while IFS= read -r ext; do
 		if [ -n "$ext" ]; then
-			# Extract just the extension name (e.g., "extensions/positron-python" -> "positron-python")
 			local ext_name="${ext##*/}"
 			if [ -z "$volatile_pattern" ]; then
 				volatile_pattern="$ext_name"
@@ -105,20 +146,18 @@ generate_npm_extensions_stable_paths() {
 		fi
 	done <<< "$volatile_exts"
 
-	# Find all extension directories except volatile ones
+	# Find all extensions except volatile ones
 	local paths=""
 	for ext_dir in extensions/*/; do
-		ext_dir="${ext_dir%/}"  # Remove trailing slash
+		ext_dir="${ext_dir%/}"
 		local ext_name="${ext_dir##*/}"
 
-		# Check if this extension is volatile (skip if it is)
 		if ! echo "$ext_name" | grep -qE "^($volatile_pattern)$"; then
-			# Cache entire directory
 			paths="${paths}${ext_dir}"$'\n'
 		fi
 	done
 
-	# Add .vscode extensions (cache entire directories)
+	# Include .vscode extensions
 	for vscode_ext_dir in .vscode/extensions/*/; do
 		if [ -d "$vscode_ext_dir" ]; then
 			vscode_ext_dir="${vscode_ext_dir%/}"
@@ -129,34 +168,24 @@ generate_npm_extensions_stable_paths() {
 	echo "$paths"
 }
 
-# Export for use in scripts
+# ============================================================================
+# SECTION 4: Exports & GitHub Actions Integration
+# ============================================================================
+
+# Generate dynamic paths
+NPM_EXTENSIONS_VOLATILE_PATHS=$(generate_npm_extensions_volatile_paths)
+NPM_EXTENSIONS_STABLE_PATHS=$(generate_npm_extensions_stable_paths)
+
+# Export all cache paths for use in other scripts
 export NPM_CORE_PATHS
+export NPM_EXTENSIONS_VOLATILE_PATHS
+export NPM_EXTENSIONS_STABLE_PATHS
 export BUILTINS_PATHS
 export PLAYWRIGHT_PATHS
 
-# Generate and export split cache paths
-NPM_EXTENSIONS_VOLATILE_PATHS=$(generate_npm_extensions_volatile_paths)
-NPM_EXTENSIONS_STABLE_PATHS=$(generate_npm_extensions_stable_paths)
-export NPM_EXTENSIONS_VOLATILE_PATHS
-export NPM_EXTENSIONS_STABLE_PATHS
-
-# Function to get paths as YAML-formatted multiline string (for direct use in actions)
-get_npm_core_paths_yaml() {
-	echo "$NPM_CORE_PATHS"
-}
-
-get_builtins_paths_yaml() {
-	echo "$BUILTINS_PATHS"
-}
-
-get_playwright_paths_yaml() {
-	echo "$PLAYWRIGHT_PATHS"
-}
-
-# Function to output all paths to GITHUB_OUTPUT (for use in GitHub Actions)
+# Output paths to GITHUB_OUTPUT for use in workflows
 output_to_github_actions() {
 	if [ -n "${GITHUB_OUTPUT:-}" ]; then
-		# Use delimiter to handle multiline strings safely
 		{
 			echo "npm-core-paths<<EOF"
 			echo "$NPM_CORE_PATHS"
@@ -177,8 +206,11 @@ output_to_github_actions() {
 	fi
 }
 
+# ============================================================================
+# SECTION 5: Debug Output
+# ============================================================================
+# When executed directly (not sourced), print all paths for debugging
 
-# If sourced, just export variables. If executed, print for debugging.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	echo "=== NPM Core Paths ==="
 	echo "$NPM_CORE_PATHS"

@@ -1,105 +1,144 @@
-#!/bin/bash
-set -e
-
-# Detect uncached postinstall artifacts
+#!/usr/bin/env bash
+# ============================================================================
+# check-uncached-artifacts.sh - Detect Missing Cache Entries
+# ============================================================================
 #
-# WHY THIS EXISTS:
-# npm install runs postinstall scripts that download/build artifacts (Python libs, vendored
-# packages, etc.). We cache npm_modules + some postinstall artifacts to speed up CI. If a
-# postinstall creates artifacts that aren't in our cache paths, they'll be missing when the
-# cache hits on the next run, causing mysterious test failures.
+# WHAT THIS DOES:
+# Finds files created by npm postinstall scripts that aren't cached.
+# If these files aren't cached, they'll be missing when cache hits on next run,
+# causing mysterious test failures.
+#
+# THE PROBLEM WE'RE SOLVING:
+# npm install runs postinstall scripts that can:
+# • Download binaries (Ark, Kallichore, pet)
+# • Generate files (Python bytecode, vendored packages)
+# • Build native modules (node-gyp)
+#
+# If these artifacts aren't in cache-paths.sh, they vanish when caches hit!
 #
 # HOW IT WORKS:
-# 1. Before npm install: Capture file tree snapshot (excludes node_modules/)
-# 2. After npm install: Capture file tree snapshot
-# 3. This script: Diff the snapshots to find files added outside node_modules
-# 4. Report them so you can decide if they need caching
+# 1. Workflow captures file tree BEFORE npm install → before.txt
+# 2. Workflow runs npm install (postinstall scripts run)
+# 3. Workflow captures file tree AFTER npm install → after.txt
+# 4. This script diffs them and checks against cache-paths.sh
+# 5. Reports any files that should probably be cached
 #
 # WHAT TO DO IF FILES ARE DETECTED:
-# Option A: Add to cache (if tests need these files)
-#   - Edit .github/scripts/cache-paths.sh (add path to appropriate cache section)
-#   - Run .github/scripts/verify-cache-paths.sh to verify
 #
-# Option B: Ignore (if tests don't need these files)
-#   - Add pattern to IGNORE_PATTERNS array below
+# Option A - Add to cache (if tests need these files):
+#   • Core/build paths: Edit .github/cache-scripts/cache-paths.sh
+#   • Volatile extensions: Edit build/npm/dirs.js (volatileExtensions array)
+#   • Stable extensions: Already cached automatically!
+#   • Verify: Run .github/cache-scripts/verify-cache-paths.sh
 #
-# Usage: check-uncached-artifacts.sh <before-file> <after-file>
+# Option B - Ignore (if tests don't need these files):
+#   • Add pattern to IGNORE_PATTERNS below (Section 3)
+#
+# USAGE:
+# check-uncached-artifacts.sh <before-file> <after-file>
+#
+# ============================================================================
+
+set -euo pipefail
+
+# ============================================================================
+# SECTION 1: Input Validation
+# ============================================================================
 
 BEFORE_FILE="$1"
 AFTER_FILE="$2"
 
 if [[ ! -f "$BEFORE_FILE" ]] || [[ ! -f "$AFTER_FILE" ]]; then
-  echo "Error: File tree snapshots not found"
-  echo "Usage: $0 <before-file> <after-file>"
-  exit 1
+	echo "❌ Error: File tree snapshots not found"
+	echo "Usage: $0 <before-file> <after-file>"
+	exit 1
 fi
 
 echo "🔍 Checking for uncached postinstall artifacts..."
 
-# Find files added by npm install (excluding node_modules and npm cache)
+# ============================================================================
+# SECTION 2: Find Files Added by npm install
+# ============================================================================
+# Compare before/after snapshots to see what postinstall scripts created.
+# Exclude node_modules and npm cache (already handled by caching system).
+
 ADDED_FILES=$(comm -13 "$BEFORE_FILE" "$AFTER_FILE" | grep -v "\.npm-cache" | grep -v "node_modules" || true)
 
-# Load cache path configuration (single source of truth)
+# ============================================================================
+# SECTION 3: Build Ignore Patterns from Cache Configuration
+# ============================================================================
+# Load cache paths from single source of truth and build ignore list.
+# Anything already in cache-paths.sh doesn't need a warning.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/cache-paths.sh"
 
-# Build ignore patterns from cache configuration
-# These files are already covered by our cache config, so no warning needed
 IGNORE_PATTERNS=()
 
-# Add NPM core paths to ignore
+# Add all cached paths to ignore list
+# (These are already covered by cache-paths.sh, so no warning needed)
+
 while IFS= read -r path; do
-  [ -z "$path" ] && continue
-  IGNORE_PATTERNS+=("$path")
+	[ -z "$path" ] && continue
+	IGNORE_PATTERNS+=("$path")
 done <<< "$NPM_CORE_PATHS"
 
-# Add volatile extension directories to ignore (entire directories are cached)
 while IFS= read -r path; do
-  [ -z "$path" ] && continue
-  IGNORE_PATTERNS+=("$path")
+	[ -z "$path" ] && continue
+	IGNORE_PATTERNS+=("$path")
 done <<< "$NPM_EXTENSIONS_VOLATILE_PATHS"
 
-# Add stable extension directories to ignore (entire directories are cached)
 while IFS= read -r path; do
-  [ -z "$path" ] && continue
-  IGNORE_PATTERNS+=("$path")
+	[ -z "$path" ] && continue
+	IGNORE_PATTERNS+=("$path")
 done <<< "$NPM_EXTENSIONS_STABLE_PATHS"
 
-# Add builtins to ignore
 while IFS= read -r path; do
-  [ -z "$path" ] && continue
-  IGNORE_PATTERNS+=("$path")
+	[ -z "$path" ] && continue
+	IGNORE_PATTERNS+=("$path")
 done <<< "$BUILTINS_PATHS"
 
-# Additional patterns for specific artifacts
-# Note: Extension directory contents are already ignored via the patterns above,
-# but we add these for clarity and to catch edge cases
+# ----------------------------------------------------------------------------
+# Additional Ignore Patterns
+# ----------------------------------------------------------------------------
+# Files that are safe to ignore even if not explicitly in cache-paths.sh.
+# Add patterns here if you're confident tests don't need them.
+
 IGNORE_PATTERNS+=(
-  # Python bytecode (auto-generated, safe to regenerate)
-  ".pyc"
-  "__pycache__"
-  ".cpython-"
+	# Python bytecode (auto-generated by Python, harmless to regenerate)
+	".pyc"
+	"__pycache__"
+	".cpython-"
 )
 
-# Filter out ignored patterns
+# ============================================================================
+# SECTION 4: Filter Out Ignored Files
+# ============================================================================
+# Check each added file against ignore patterns.
+# Files matching any pattern are considered "handled" and don't need warnings.
+
 UNCACHED_FILES=""
 while IFS= read -r file; do
-  [ -z "$file" ] && continue
+	[ -z "$file" ] && continue
 
-  IS_IGNORED=false
-  for pattern in "${IGNORE_PATTERNS[@]}"; do
-    if [[ "$file" == *"$pattern"* ]]; then
-      IS_IGNORED=true
-      break
-    fi
-  done
+	IS_IGNORED=false
+	for pattern in "${IGNORE_PATTERNS[@]}"; do
+		if [[ "$file" == *"$pattern"* ]]; then
+			IS_IGNORED=true
+			break
+		fi
+	done
 
-  if [[ "$IS_IGNORED" == false ]]; then
-    UNCACHED_FILES="$UNCACHED_FILES$file\n"
-  fi
+	if [[ "$IS_IGNORED" == false ]]; then
+		UNCACHED_FILES="$UNCACHED_FILES$file\n"
+	fi
 done <<< "$ADDED_FILES"
 
-# Report results
+# ============================================================================
+# SECTION 5: Report Results
+# ============================================================================
+# Show summary and detailed instructions if uncached files are found.
+
 TOTAL_ADDED=$(echo "$ADDED_FILES" | grep -v '^$' | wc -l | tr -d ' ')
 UNCACHED_COUNT=$(echo -e "$UNCACHED_FILES" | grep -v '^$' | wc -l | tr -d ' ')
 
@@ -107,47 +146,66 @@ echo "Files added outside node_modules: $TOTAL_ADDED"
 echo "Files ignored by IGNORE_PATTERNS: $((TOTAL_ADDED - UNCACHED_COUNT))"
 
 if [[ $UNCACHED_COUNT -gt 0 ]]; then
-  echo ""
-  echo "⚠️ WARNING: npm install created $UNCACHED_COUNT files outside node_modules/"
-  echo ""
-  echo "These files are NOT cached and will be missing when caches hit."
-  echo ""
-  echo "Files (first 50):"
-  echo -e "$UNCACHED_FILES" | grep -v '^$' | head -50
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "ACTION REQUIRED: Choose one of the following:"
-  echo ""
-  echo "✅ Option A: Add to cache (if tests need these files)"
-  echo ""
-  echo "   For core/build/test paths:"
-  echo "     → Edit .github/scripts/cache-paths.sh (NPM_CORE_PATHS or BUILTINS_PATHS)"
-  echo ""
-  echo "   For extension paths:"
-  echo "     → Volatile extensions (python/assistant/r): Edit build/npm/dirs.js"
-  echo "       Add to volatileExtensions array - entire directory will be cached"
-  echo "     → Stable extensions: Already cached automatically!"
-  echo "       All extension directories not in volatileExtensions are cached"
-  echo ""
-  echo "   That's it! The action files load paths dynamically."
-  echo "   Optionally verify: .github/scripts/verify-cache-paths.sh"
-  echo ""
-  echo "❌ Option B: Ignore (if tests don't need these files)"
-  echo "   Add pattern to IGNORE_PATTERNS in this file (~line 60):"
-  echo "   - .github/scripts/check-uncached-artifacts.sh"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo ""
+	# Found uncached files - show detailed warning with actionable instructions
 
-  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-    echo "⚠️ Uncached Postinstall Artifacts Detected" >> $GITHUB_STEP_SUMMARY
-    echo "" >> $GITHUB_STEP_SUMMARY
-    echo "npm install created $UNCACHED_COUNT files outside node_modules/" >> $GITHUB_STEP_SUMMARY
-    echo "" >> $GITHUB_STEP_SUMMARY
-    echo "Check the \"uncached postinstall artifacts\" step for more details." >> $GITHUB_STEP_SUMMARY
-  fi
+	echo ""
+	echo "⚠️  WARNING: npm install created $UNCACHED_COUNT files outside node_modules/"
+	echo ""
+	echo "These files are NOT cached and will be missing when caches hit."
+	echo ""
+	echo "Files (first 50):"
+	echo -e "$UNCACHED_FILES" | grep -v '^$' | head -50
+	echo ""
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	echo "ACTION REQUIRED: Choose one of the following:"
+	echo ""
+	echo "✅ Option A: Add to cache (if tests need these files)"
+	echo ""
+	echo "   For core/build/test paths:"
+	echo "     → Edit .github/cache-scripts/cache-paths.sh"
+	echo "       Add to NPM_CORE_PATHS or BUILTINS_PATHS section"
+	echo ""
+	echo "   For extension paths:"
+	echo "     → Volatile extensions (python/assistant/r):"
+	echo "       Edit build/npm/dirs.js → Add to volatileExtensions array"
+	echo "       Entire directory will be cached automatically"
+	echo ""
+	echo "     → Stable extensions:"
+	echo "       Already cached automatically! No action needed."
+	echo "       All extension directories not in volatileExtensions are cached"
+	echo ""
+	echo "   Verify your changes:"
+	echo "     → Run: .github/cache-scripts/verify-cache-paths.sh"
+	echo ""
+	echo "❌ Option B: Ignore (if tests don't need these files)"
+	echo ""
+	echo "   Add pattern to IGNORE_PATTERNS in this file:"
+	echo "     → .github/cache-scripts/check-uncached-artifacts.sh (Section 3, line ~100)"
+	echo ""
+	echo "   Common patterns to ignore:"
+	echo "     • Temporary files: \".tmp\", \".log\""
+	echo "     • Generated docs: \"docs/generated\""
+	echo "     • Test fixtures: \"test/fixtures/generated\""
+	echo ""
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	echo ""
 
-  # Don't fail - just warn. Let humans decide if it's critical.
-  exit 0
+	# Also write to GitHub Step Summary for visibility
+	if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+		{
+			echo "## ⚠️ Uncached Postinstall Artifacts Detected"
+			echo ""
+			echo "npm install created **$UNCACHED_COUNT files** outside node_modules/ that aren't cached."
+			echo ""
+			echo "See the \"Check for uncached postinstall artifacts\" step for details and next steps."
+		} >> "$GITHUB_STEP_SUMMARY"
+	fi
+
+	# Don't fail the build - just warn
+	# Humans should decide if these files are critical
+	exit 0
 else
-  echo "✅ No uncached artifacts detected"
+	echo "✅ No uncached artifacts detected"
+	echo ""
+	echo "All files created by postinstall scripts are properly cached or ignored."
 fi
