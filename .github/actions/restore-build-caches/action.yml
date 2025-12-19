@@ -239,15 +239,20 @@ runs:
       if: always()
       shell: bash
       env:
+        # restore inputs
         RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
         RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
         RESTORE_PLAYWRIGHT: ${{ inputs.restore-playwright }}
+
+        # cache - exact hits (from GitHub Actions)
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
         CACHE_PLAYWRIGHT_HIT: ${{ steps.cache-playwright.outputs.cache-hit }}
+
+        # cache - partial hits (our detection: cache-hit=false but content exists)
         CACHE_NPM_CORE_PARTIAL: ${{ steps.detect-partials.outputs.npm-core-partial }}
         CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-volatile-partial }}
         CACHE_NPM_EXTENSIONS_STABLE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-stable-partial }}

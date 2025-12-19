@@ -28,6 +28,9 @@ export const MIN_TOKEN_LIMIT = 512;
 /** Tag used by tools to indicate a workspace must be open in order to use the tool */
 export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 
+/** Default patterns for selectable models */
+export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt'];
+
 /**
  * Tag used by tools to indicate that a session must be active in order to use the tool
  *
