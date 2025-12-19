@@ -43,7 +43,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 		const emptyNotebook = instance.cells.get().length === 0;
 
 		// Use the notebook-specific scoped context key service instead of the global one
-		const scopedContextKeyService = instance.contextManager.getScopedContextKeyService();
+		const { scopedContextKeyService } = instance;
 		if (!scopedContextKeyService) {
 			// Fallback to global context service if scoped service is not available
 			// This shouldn't happen in normal operation, but provides a safety net

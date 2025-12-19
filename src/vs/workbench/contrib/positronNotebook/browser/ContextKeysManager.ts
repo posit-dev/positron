@@ -122,7 +122,6 @@ export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | un
  */
 export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Private Properties
-	private _scopedContextKeyService?: IScopedContextKeyService;
 	private _scopedInstantiationService?: IInstantiationService;
 	private readonly _containerDisposables = this._register(new DisposableStore());
 	//#endregion Private Properties
@@ -142,16 +141,16 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	//#endregion Constructor & Dispose
 
 	//#region Public Methods
-	setContainer(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
+	setContainer(container: HTMLElement) {
 		this._containerDisposables.clear();
 		this.positronEditorFocus?.reset();
 
 		const disposables = this._containerDisposables;
 
-		this._scopedContextKeyService = scopedContextKeyService;
-		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, this._scopedContextKeyService])));
+		const { scopedContextKeyService } = this._notebookInstance;
+		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])));
 
-		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
+		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(scopedContextKeyService);
 
 		// Create the manager for VSCode notebook editor context keys
 		// Extensions may depend on these familiar context keys
@@ -165,15 +164,6 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		disposables.add(focusTracker.onDidBlur(() => {
 			this.positronEditorFocus?.set(false);
 		}));
-	}
-
-	/**
-	 * Gets the scoped context key service for this notebook editor.
-	 * This is the context service that has access to notebook-specific context keys.
-	 * @returns The scoped context key service, or undefined if no container has been set
-	 */
-	getScopedContextKeyService(): IContextKeyService | undefined {
-		return this._scopedContextKeyService;
 	}
 
 	/**
