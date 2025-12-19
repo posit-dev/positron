@@ -9,7 +9,6 @@ import * as output from './output';
 import { ActivationFunction } from 'vscode-notebook-renderer';
 import { PositronWidgetManager } from './manager';
 import { Messaging } from './messaging';
-import * as jupyterReact from '@widgetti/jupyter-react';
 
 // Import CSS files required by the bundled widget packages.
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -17,7 +16,6 @@ import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
 import '@jupyter-widgets/base/css/index.css';
 import '@jupyter-widgets/controls/css/widgets.css';
 import '@lumino/widgets/style/index.css';
-import '@widgetti/jupyter-react/css/widget.css';
 import './reactable/reactable-py.esm.css';
 import './reactable/reactable-py.esm.js';
 
@@ -36,7 +34,6 @@ export const activate: ActivationFunction = async (context) => {
 	define('@jupyter-widgets/base', () => base);
 	define('@jupyter-widgets/controls', () => controls);
 	define('@jupyter-widgets/output', () => output);
-	define('@widgetti/jupyter-react', () => jupyterReact);
 
 	// Add the bundled stylesheet to the document head.
 	const link = document.createElement('link');
