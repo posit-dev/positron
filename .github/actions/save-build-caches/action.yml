@@ -144,7 +144,7 @@ runs:
         key: playwright-${{ runner.os }}-${{ inputs.playwright-version }}
 
     - name: Log cache save results
-      if: always()
+      if: ${{ always() }}
       shell: bash
       env:
         CACHE_NPM_CORE_HIT: ${{ inputs.cache-npm-core-hit }}
