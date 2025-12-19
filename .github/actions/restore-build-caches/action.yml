@@ -150,14 +150,46 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
+    - name: Detect partial cache hits (restore-key matches)
+      if: always()
+      id: detect-partials
+      shell: bash
+      run: |
+        # Detect if restore-key matched (cache-hit: false but cache was restored)
+        # Check if cache directories have content when cache-hit is false
+
+        check_partial() {
+          local cache_hit="$1"
+          local dir="$2"
+          local output_name="$3"
+
+          if [[ "$cache_hit" == "false" ]] && [[ -d "$dir" ]] && [[ -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            echo "${output_name}=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${output_name}=false" >> "$GITHUB_OUTPUT"
+          fi
+        }
+
+        check_partial "${{ steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
+        check_partial "${{ steps.cache-npm-extensions.outputs.cache-hit }}" "extensions/node_modules" "npm-extensions-partial"
+        check_partial "${{ steps.cache-builtins.outputs.cache-hit }}" ".build/builtInExtensions" "builtins-partial"
+
     - name: Log cache results
       if: always()
       shell: bash
       env:
+        # restore inputs
         RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
         RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
+
+        # cache - exact hits (from GitHub Actions)
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
+
+        # cache - partial hits (our detection: cache-hit=false but content exists)
+        CACHE_NPM_CORE_PARTIAL: ${{ steps.detect-partials.outputs.npm-core-partial }}
+        CACHE_NPM_EXTENSIONS_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-partial }}
+        CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
       run: .github/scripts/log-cache-status.sh restore
