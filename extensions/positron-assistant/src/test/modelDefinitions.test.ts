@@ -24,7 +24,7 @@ suite('Model Definitions', () => {
 	});
 
 	suite('getAllModelDefinitions', () => {
-		test('prioritizes user-configured models over built-in', () => {
+		test('prioritizes custom models over built-in', () => {
 			const userModels = [
 				{
 					name: 'User Claude',
@@ -64,8 +64,8 @@ suite('Model Definitions', () => {
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
 			// Call the function that verifies providers
-			const { verifyProvidersInCustomModels: verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
-			await verifyProvidersInConfiguredModels();
+			const { verifyProvidersInCustomModels: verifyProvidersInCustomModels } = await import('../modelDefinitions.js');
+			await verifyProvidersInCustomModels();
 
 			assert.strictEqual(showWarningMessageStub.calledOnce, true);
 			const warningMessage = showWarningMessageStub.getCall(0).args[0];
@@ -85,8 +85,8 @@ suite('Model Definitions', () => {
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
 			// Call the function that verifies providers
-			const { verifyProvidersInCustomModels: verifyProvidersInConfiguredModels } = await import('../modelDefinitions.js');
-			await verifyProvidersInConfiguredModels();
+			const { verifyProvidersInCustomModels: verifyProvidersInCustomModels } = await import('../modelDefinitions.js');
+			await verifyProvidersInCustomModels();
 
 			assert.strictEqual(showWarningMessageStub.notCalled, true);
 		});
