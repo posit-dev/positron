@@ -16,6 +16,7 @@ import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
@@ -107,15 +108,31 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const language = cell.model.language;
 
+		// Create a scoped context key service for this editor's DOM element
+		// This creates a child context of the notebook's context, maintaining hierarchy
+		// IMPORTANT: The provider returns a scope that Monaco's CodeEditorWidget will use as parent
+		const editorContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
+		disposables.add(editorContextKeyService);
+
+		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
+		// This tells Monaco it's part of a composite (notebook) and not a standalone editor
+		// Without this flag, certain standalone editor keybindings would still fire
+		EditorContextKeys.inCompositeEditor.bindTo(editorContextKeyService).set(true);
+
 		// We need to ensure the EditorProgressService (or a fake) is available
 		// in the service collection because monaco editors will try and access
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
 		//
-		// Note: We don't pass IContextKeyService here. Monaco will create its own
-		// scoped service as a child of the parent instantiation service. This avoids
-		// the double-scoping error that occurred when we explicitly created one.
+		// Monaco Context Key Service Configuration:
+		// We provide a scoped IContextKeyService to Monaco to ensure proper context hierarchy.
+		// This creates a chain: Global → Notebook → Cell → Editor
+		//
+		// Previous attempts to omit this caused keybinding leakage (notebook commands firing in editor).
+		// Previous naive implementations caused "double-scoping" by not setting inCompositeEditor flag.
+		//
+		// This implementation follows VSCode's pattern from cellRenderer.ts:282-285
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
@@ -130,7 +147,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					async showWhile(promise: Promise<any>): Promise<void> {
 						await promise;
 					}
-				}]
+				}],
+			[IContextKeyService, editorContextKeyService]
 		);
 
 		const editorInstaService = services.instantiationService.createChild(serviceCollection);
