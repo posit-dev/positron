@@ -31,6 +31,9 @@ outputs:
   cache-builtins-hit:
     description: "Whether builtins cache was restored"
     value: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+  cache-playwright-hit:
+    description: "Whether Playwright browsers cache was restored"
+    value: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
   extensions-volatile-hash:
     description: "Generated hash for volatile extensions (python, assistant, r)"
     value: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
@@ -40,6 +43,9 @@ outputs:
   package-locks-hash:
     description: "Computed hash of all package-lock.json files"
     value: ${{ steps.restore-caches.outputs.package-locks-hash }}
+  playwright-version:
+    description: "Detected Playwright version from package.json"
+    value: ${{ steps.restore-caches.outputs.playwright-version }}
 
 runs:
   using: "composite"
@@ -113,7 +119,6 @@ runs:
       uses: ./.github/actions/download-binaries
       with:
         # Download binaries if either volatile cache hit (since ark/kallichore are in positron-r/positron-supervisor)
-        # Note: positron-r is volatile, positron-supervisor could be either but typically stable
         # We need to download binaries if ANY extension cache was hit and we didn't do fresh install
         cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
                        steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}

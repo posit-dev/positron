@@ -45,6 +45,17 @@ read -r -d '' BUILTINS_PATHS << 'EOF' || true
 .build/builtInExtensions
 EOF
 
+# Playwright browsers cache paths
+# "Playwright browser binaries" - Chromium, Firefox, WebKit browsers for E2E testing
+# Invalidates when: @playwright/test version changes in package.json
+# Note: We cache all browsers (~900MB) but could reduce to just Chromium (~450MB) if needed
+# Location varies by platform:
+#   - Linux/macOS: ~/.cache/ms-playwright
+#   - Windows: %USERPROFILE%\AppData\Local\ms-playwright
+read -r -d '' PLAYWRIGHT_PATHS << 'EOF' || true
+~/.cache/ms-playwright
+EOF
+
 # npm extensions volatile cache paths (generated dynamically from dirs.js SSOT)
 # "The frequently-changing extensions" - python, assistant, r node_modules
 # Invalidates when: volatile extension package.json OR source code changes
@@ -79,6 +90,7 @@ generate_npm_extensions_stable_paths() {
 export NPM_CORE_PATHS
 export NPM_EXTENSIONS_PATHS
 export BUILTINS_PATHS
+export PLAYWRIGHT_PATHS
 
 # Generate and export split cache paths
 NPM_EXTENSIONS_VOLATILE_PATHS=$(generate_npm_extensions_volatile_paths)
@@ -97,6 +109,10 @@ get_npm_extensions_paths_yaml() {
 
 get_builtins_paths_yaml() {
 	echo "$BUILTINS_PATHS"
+}
+
+get_playwright_paths_yaml() {
+	echo "$PLAYWRIGHT_PATHS"
 }
 
 # Function to output all paths to GITHUB_OUTPUT (for use in GitHub Actions)
@@ -118,6 +134,9 @@ output_to_github_actions() {
 			echo "EOF"
 			echo "builtins-paths<<EOF"
 			echo "$BUILTINS_PATHS"
+			echo "EOF"
+			echo "playwright-paths<<EOF"
+			echo "$PLAYWRIGHT_PATHS"
 			echo "EOF"
 		} >> "$GITHUB_OUTPUT"
 	fi

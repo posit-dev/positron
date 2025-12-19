@@ -44,6 +44,10 @@ inputs:
     description: "Whether builtins cache was hit during restore (from restore-build-caches output). If 'false', will save. If 'true' or empty, will skip."
     required: false
     default: ''
+  cache-playwright-hit:
+    description: "Whether Playwright cache was hit during restore. If 'false', will save. If 'true' or empty, will skip."
+    required: false
+    default: ''
   extensions-volatile-hash:
     description: "Volatile extensions hash from restore step (required only if saving volatile extensions cache)"
     required: false
@@ -54,6 +58,10 @@ inputs:
     default: ''
   package-locks-hash:
     description: "Package-locks hash from restore step (required only if saving npm core cache)"
+    required: false
+    default: ''
+  playwright-version:
+    description: "Playwright version from restore step (required only if saving Playwright cache)"
     required: false
     default: ''
 
@@ -124,6 +132,14 @@ runs:
         path: ${{ steps.cache-paths.outputs.builtins-paths }}
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
 
+    - name: Save Playwright browsers cache
+      if: ${{ inputs.cache-playwright-hit == 'false' }}
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.playwright-paths }}
+        key: playwright-${{ runner.os }}-${{ inputs.playwright-version }}
+
     - name: Log cache save results
       if: always()
       shell: bash
@@ -132,4 +148,5 @@ runs:
         CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ inputs.cache-npm-extensions-volatile-hit }}
         CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ inputs.cache-npm-extensions-stable-hit }}
         CACHE_BUILTINS_HIT: ${{ inputs.cache-builtins-hit }}
+        CACHE_PLAYWRIGHT_HIT: ${{ inputs.cache-playwright-hit }}
       run: .github/scripts/log-cache-status.sh save
