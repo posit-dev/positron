@@ -158,42 +158,37 @@ runs:
         # Detect if restore-key matched (cache-hit: false but cache was restored)
         # Check if cache directories have content when cache-hit is false
 
-        npm_core_partial="false"
-        npm_extensions_partial="false"
-        builtins_partial="false"
+        check_partial() {
+          local cache_hit="$1"
+          local dir="$2"
+          local output_name="$3"
 
-        # Check npm-core: if cache-hit is false but .npm-cache has content
-        if [[ "${{ steps.cache-npm-core.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d ".npm-cache" ]] && [[ -n "$(ls -A .npm-cache 2>/dev/null)" ]]; then
-          npm_core_partial="true"
-        fi
+          if [[ "$cache_hit" == "false" ]] && [[ -d "$dir" ]] && [[ -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            echo "${output_name}=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${output_name}=false" >> "$GITHUB_OUTPUT"
+          fi
+        }
 
-        # Check npm-extensions: if cache-hit is false but extensions/node_modules exists
-        if [[ "${{ steps.cache-npm-extensions.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d "extensions/node_modules" ]] && [[ -n "$(ls -A extensions/node_modules 2>/dev/null)" ]]; then
-          npm_extensions_partial="true"
-        fi
-
-        # Check builtins: if cache-hit is false but .build/builtInExtensions exists
-        if [[ "${{ steps.cache-builtins.outputs.cache-hit }}" == "false" ]] && \
-           [[ -d ".build/builtInExtensions" ]] && [[ -n "$(ls -A .build/builtInExtensions 2>/dev/null)" ]]; then
-          builtins_partial="true"
-        fi
-
-        echo "npm-core-partial=$npm_core_partial" >> "$GITHUB_OUTPUT"
-        echo "npm-extensions-partial=$npm_extensions_partial" >> "$GITHUB_OUTPUT"
-        echo "builtins-partial=$builtins_partial" >> "$GITHUB_OUTPUT"
+        check_partial "${{ steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
+        check_partial "${{ steps.cache-npm-extensions.outputs.cache-hit }}" "extensions/node_modules" "npm-extensions-partial"
+        check_partial "${{ steps.cache-builtins.outputs.cache-hit }}" ".build/builtInExtensions" "builtins-partial"
 
     - name: Log cache results
       if: always()
       shell: bash
       env:
+        # restore inputs
         RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
         RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
+
+        # cache - exact hits (from GitHub Actions)
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
         CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
+
+        # cache - partial hits (our detection: cache-hit=false but content exists)
         CACHE_NPM_CORE_PARTIAL: ${{ steps.detect-partials.outputs.npm-core-partial }}
         CACHE_NPM_EXTENSIONS_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-partial }}
         CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
