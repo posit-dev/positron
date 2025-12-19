@@ -1401,8 +1401,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
 
+		// Get the most recent execution ID and code, if available.
+		const executionId = this._recentExecutionIds.length > 0
+			? this._recentExecutionIds[this._recentExecutionIds.length - 1]
+			: undefined;
+		const code = executionId ? this._recentExecutions.get(executionId) : undefined;
+
 		// Create the plot client.
-		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event);
+		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event, executionId, code);
 
 		// Register the new plot client
 		this.registerWebviewPlotClient(plotClient);
