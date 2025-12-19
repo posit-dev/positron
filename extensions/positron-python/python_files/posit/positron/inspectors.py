@@ -1264,6 +1264,8 @@ class SQLServerConnectionInspector(BaseConnectionInspector):
     CLASS_QNAME = ("pyodbc.Connection", "pymssql.Connection", "pymssql._pymssql.Connection")
 
     def _is_active(self, value) -> bool:
+        # pyodbc can match multiple database, we only declare 'active', ie show the viewer
+        # icon if it's a SQL Server connection
         if self.get_type_info() == "pyodbc.Connection":
             # check this is a SQL Server connection
             try:
