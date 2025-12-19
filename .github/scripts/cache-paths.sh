@@ -13,8 +13,18 @@
 # "The main stuff we need" - All the JavaScript packages for building and testing Positron
 # Includes: root node_modules, build packages, remote packages, test packages, and npm cache
 # Invalidates when: any core package-lock.json changes
-read -r -d '' NPM_CORE_PATHS << 'EOF' || true
+# Note: node-gyp cache location varies by platform - set dynamically below
+if [[ "${RUNNER_OS:-}" == "Windows" ]] || [[ "${OS:-}" == "Windows_NT" ]]; then
+	# Windows: node-gyp cache is in LOCALAPPDATA
+	NODE_GYP_CACHE="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/node-gyp"
+else
+	# Linux/macOS: node-gyp cache is in ~/.cache
+	NODE_GYP_CACHE="$HOME/.cache/node-gyp"
+fi
+
+read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
+$NODE_GYP_CACHE
 node_modules
 build/node_modules
 remote/node_modules
@@ -38,12 +48,16 @@ EOF
 # "Playwright browser binaries" - Chromium, Firefox, WebKit browsers for E2E testing
 # Invalidates when: @playwright/test version changes in package.json
 # Note: We cache all browsers (~900MB) but could reduce to just Chromium (~450MB) if needed
-# Location varies by platform:
-#   - Linux/macOS: ~/.cache/ms-playwright
-#   - Windows: %USERPROFILE%\AppData\Local\ms-playwright
-read -r -d '' PLAYWRIGHT_PATHS << 'EOF' || true
-~/.cache/ms-playwright
-EOF
+# Location varies by platform - set dynamically below
+PLAYWRIGHT_PATHS=""
+if [[ "${RUNNER_OS:-}" == "Windows" ]] || [[ "${OS:-}" == "Windows_NT" ]]; then
+	# Windows: Use LOCALAPPDATA or USERPROFILE
+	PLAYWRIGHT_CACHE_DIR="${LOCALAPPDATA:-${USERPROFILE}/AppData/Local}/ms-playwright"
+	PLAYWRIGHT_PATHS="$PLAYWRIGHT_CACHE_DIR"
+else
+	# Linux/macOS: Use ~/.cache
+	PLAYWRIGHT_PATHS="$HOME/.cache/ms-playwright"
+fi
 
 # npm extensions volatile cache paths (generated dynamically from dirs.js SSOT)
 # "The frequently-changing extensions" - Entire directories for python, assistant, r
