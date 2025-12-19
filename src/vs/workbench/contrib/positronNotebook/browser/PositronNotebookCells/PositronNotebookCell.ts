@@ -42,7 +42,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
-	public readonly editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	public readonly editorObservable: IObservable<ICodeEditor | undefined> = this._editor;
+	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
 	protected readonly _internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
@@ -119,7 +121,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	get currentEditor(): ICodeEditor | undefined {
-		return this.editor.get();
+		return this._editor.get();
 	}
 
 	get uri(): URI {
@@ -192,11 +194,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	attachEditor(editor: CodeEditorWidget): void {
-		this.editor.set(editor, undefined);
+		this._editor.set(editor, undefined);
 	}
 
 	detachEditor(): void {
-		this.editor.set(undefined, undefined);
+		this._editor.set(undefined, undefined);
 	}
 
 	deltaModelDecorations(oldDecorations: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
