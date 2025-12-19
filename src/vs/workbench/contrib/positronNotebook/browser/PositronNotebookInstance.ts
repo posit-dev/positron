@@ -1307,12 +1307,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Attaches the notebook view to a DOM container.
 	 * @param container The DOM element to render the notebook into
 	 */
-	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService, overlayContainer?: HTMLElement) {
+	async attachView(
+		container: HTMLElement,
+		scopedContextKeyService: IScopedContextKeyService,
+		overlayContainer: HTMLElement,
+		editorContainer: HTMLElement
+	) {
 		this.detachView();
 		this.container.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
 		this._overlayContainer = overlayContainer;
-		this.contextManager.setContainer(container, scopedContextKeyService);
+		this.contextManager.setContainer(editorContainer);
 
 		this._logService.debug(this._id, 'attachView');
 	}

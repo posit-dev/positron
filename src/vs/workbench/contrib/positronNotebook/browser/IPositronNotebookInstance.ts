@@ -11,7 +11,6 @@ import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
@@ -167,12 +166,6 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Indicates whether this notebook is read-only and cannot be edited.
 	 */
 	readonly isReadOnly: boolean;
-
-	/**
-	 * Context key manager for this notebook instance. Used to manage notebook-specific
-	 * context keys that are scoped to the notebook's DOM container.
-	 */
-	readonly contextManager: PositronNotebookContextKeyManager;
 
 	/**
 	 * Event that fires when the cells container is scrolled
