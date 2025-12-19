@@ -16,7 +16,6 @@ import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
@@ -32,6 +31,7 @@ import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
+import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
 /**
  *
@@ -65,7 +65,7 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// Focus the Monaco editor to enter edit mode
-			cell.editor?.focus();
+			cell.currentEditor?.focus();
 		}
 	};
 
@@ -108,14 +108,15 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const language = cell.model.language;
 
-		const scopedContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
-		disposables.add(scopedContextKeyService);
-
 		// We need to ensure the EditorProgressService (or a fake) is available
 		// in the service collection because monaco editors will try and access
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
+		//
+		// Note: We don't pass IContextKeyService here. Monaco will create its own
+		// scoped service as a child of the parent instantiation service. This avoids
+		// the double-scoping error that occurred when we explicitly created one.
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
@@ -130,8 +131,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 					async showWhile(promise: Promise<any>): Promise<void> {
 						await promise;
 					}
-				}],
-			[IContextKeyService, scopedContextKeyService]
+				}]
 		);
 
 		const editorInstaService = services.instantiationService.createChild(serviceCollection);
@@ -186,6 +186,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				InQuickPickContextKey.key,
 				// Other editor inputs (find widget, etc.)
 				EditorContextKeys.textInputFocus.key,
+				// Find input box
+				CONTEXT_FIND_INPUT_FOCUSED.key,
 				// Chat-related contexts (assistant inline or panel chat)
 				CTX_INLINE_CHAT_FOCUSED.key,
 				// Other editors like find widget etc..
@@ -202,8 +204,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 			// Check if focus is still within the notebook editor container
 			// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
-			const notebookContainer = instance.container;
-			if (notebookContainer?.contains(activeElement)) {
+			if (instance.currentContainer?.contains(activeElement)) {
 				return;
 			}
 
@@ -252,7 +253,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
 		const disposable = autorun(reader => {
 			cell.editorFocusRequested.read(reader);
-			const editor = cell.editor;
+			const editor = cell.currentEditor;
 			// Check if THIS cell is still the one being edited
 			// This prevents stale focus requests when user rapidly navigates between cells
 			const state = instance.selectionStateMachine.state.read(reader);

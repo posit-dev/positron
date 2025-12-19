@@ -24,6 +24,8 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { useContextKeyValue } from './useContextKeyValue.js';
+import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 
 
 export function PositronNotebookComponent() {
@@ -40,9 +42,11 @@ export function PositronNotebookComponent() {
 	// Track scroll position for scroll decoration
 	const [isScrolled, setIsScrolled] = React.useState(false);
 
-	// TODO: Track find widget visibility for scroll decoration
-	// When the find widget is implemented, add state here to track visibility
-	// and include it in the showDecoration condition below.
+	// Track find widget visibility for scroll decoration
+	const isFindWidgetVisible = useContextKeyValue(
+		notebookInstance.scopedContextKeyService,
+		CONTEXT_FIND_WIDGET_VISIBLE
+	);
 
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
@@ -74,11 +78,8 @@ export function PositronNotebookComponent() {
 		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));
 
-	// TODO: Observe find widget visibility from context key service
-	// When the find widget is implemented, add an effect here to observe
-
 	// Determine if scroll decoration should be shown
-	const showDecoration = isScrolled;
+	const showDecoration = isScrolled || isFindWidgetVisible;
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>

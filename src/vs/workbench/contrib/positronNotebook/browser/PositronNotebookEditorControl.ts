@@ -37,7 +37,7 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			const state = selectionStateMachine.state.read(reader);
-			this._activeCodeEditor = getActiveCell(state)?.editor;
+			this._activeCodeEditor = getActiveCell(state)?.currentEditor;
 		}));
 	}
 

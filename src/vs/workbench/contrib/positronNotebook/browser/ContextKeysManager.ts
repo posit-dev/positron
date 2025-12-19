@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
@@ -12,15 +13,15 @@ import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/note
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 /**
- * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
+ * Context key that is set when the Positron notebook editor container is focused.
  */
-export const POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorContainerFocused', false);
+export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorFocused', false, localize('positronNotebookFocused', "Whether a Positron notebook editor or a notebook editor widget (e.g. a cell editor or the find widget) has focus"));
 
 /**
  * Context key that is set when a cell editor (Monaco editor within a notebook cell) is focused.
  * This is more specific than EditorContextKeys.editorTextFocus which applies to ANY Monaco editor.
  */
-export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false);
+export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false, localize('positronNotebookCellEditorFocused', "Whether a code editor within a Positron notebook cell is focused"));
 
 // Cell state context keys
 export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
@@ -122,14 +123,9 @@ export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | un
  */
 export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Private Properties
-	private _scopedContextKeyService?: IScopedContextKeyService;
 	private _scopedInstantiationService?: IInstantiationService;
 	private readonly _containerDisposables = this._register(new DisposableStore());
 	//#endregion Private Properties
-
-	//#region Public Properties
-	positronEditorFocus?: IContextKey<boolean>;
-	//#endregion Public Properties
 
 	//#region Constructor & Dispose
 	constructor(
@@ -142,16 +138,16 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	//#endregion Constructor & Dispose
 
 	//#region Public Methods
-	setContainer(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
+	setContainer(container: HTMLElement) {
 		this._containerDisposables.clear();
-		this.positronEditorFocus?.reset();
-
 		const disposables = this._containerDisposables;
 
-		this._scopedContextKeyService = scopedContextKeyService;
-		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, this._scopedContextKeyService])));
+		const { scopedContextKeyService } = this._notebookInstance;
+		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, scopedContextKeyService])));
 
-		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
+		const positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(scopedContextKeyService);
+
+		disposables.add(toDisposable(() => positronEditorFocus.reset()));
 
 		// Create the manager for VSCode notebook editor context keys
 		// Extensions may depend on these familiar context keys
@@ -159,32 +155,12 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 		const focusTracker = disposables.add(DOM.trackFocus(container));
 		disposables.add(focusTracker.onDidFocus(() => {
-			this.positronEditorFocus?.set(true);
+			positronEditorFocus.set(true);
 		}));
 
 		disposables.add(focusTracker.onDidBlur(() => {
-			this.positronEditorFocus?.set(false);
+			positronEditorFocus.set(false);
 		}));
-	}
-
-	/**
-	 * Gets the scoped context key service for this notebook editor.
-	 * This is the context service that has access to notebook-specific context keys.
-	 * @returns The scoped context key service, or undefined if no container has been set
-	 */
-	getScopedContextKeyService(): IContextKeyService | undefined {
-		return this._scopedContextKeyService;
-	}
-
-	/**
-	 * Manually set the container focused state.
-	 * This is needed because DOM.trackFocus doesn't fire blur events when a child element
-	 * (like a Monaco editor) gets focus. We need to manually coordinate this with the
-	 * cell editing state to ensure the context key is accurate.
-	 * @param focused - Whether the container should be considered focused
-	 */
-	setContainerFocused(focused: boolean): void {
-		this.positronEditorFocus?.set(focused);
 	}
 
 	//#endregion Public Methods
