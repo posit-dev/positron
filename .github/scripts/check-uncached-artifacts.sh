@@ -46,21 +46,39 @@ source "$SCRIPT_DIR/cache-paths.sh"
 # Build ignore patterns from cache configuration
 # These files are already covered by our cache config, so no warning needed
 IGNORE_PATTERNS=()
-while IFS= read -r pattern; do
-  [ -z "$pattern" ] && continue
-  IGNORE_PATTERNS+=("$pattern")
-done < <(get_npm_extensions_patterns)
 
-# Additional one-off files that don't need caching (tests pass without them)
-# Ark and Kallichore binaries are intentionally NOT cached because:
-#   - They're platform-specific (can't share between Linux/Windows/Mac)
-#   - They're large (~50-100MB combined)
-#   - They're quick to download from GitHub
-#   - Workflows explicitly run 'npm rebuild --foreground-scripts' when cache hits
+# Add NPM core paths to ignore
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  IGNORE_PATTERNS+=("$path")
+done <<< "$NPM_CORE_PATHS"
+
+# Add volatile extension directories to ignore (entire directories are cached)
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  IGNORE_PATTERNS+=("$path")
+done <<< "$NPM_EXTENSIONS_VOLATILE_PATHS"
+
+# Add stable extension directories to ignore (entire directories are cached)
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  IGNORE_PATTERNS+=("$path")
+done <<< "$NPM_EXTENSIONS_STABLE_PATHS"
+
+# Add builtins to ignore
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  IGNORE_PATTERNS+=("$path")
+done <<< "$BUILTINS_PATHS"
+
+# Additional patterns for specific artifacts
+# Note: Extension directory contents are already ignored via the patterns above,
+# but we add these for clarity and to catch edge cases
 IGNORE_PATTERNS+=(
-  "extensions/positron-python/resources/pet/VERSION"
-  "extensions/positron-r/resources/ark"
-  "extensions/positron-supervisor/resources/kallichore"
+  # Python bytecode (auto-generated, safe to regenerate)
+  ".pyc"
+  "__pycache__"
+  ".cpython-"
 )
 
 # Filter out ignored patterns
@@ -90,7 +108,7 @@ echo "Files ignored by IGNORE_PATTERNS: $((TOTAL_ADDED - UNCACHED_COUNT))"
 
 if [[ $UNCACHED_COUNT -gt 0 ]]; then
   echo ""
-  echo "🚨 WARNING: npm install created $UNCACHED_COUNT files outside node_modules/"
+  echo "⚠️ WARNING: npm install created $UNCACHED_COUNT files outside node_modules/"
   echo ""
   echo "These files are NOT cached and will be missing when caches hit."
   echo ""
