@@ -27,7 +27,7 @@ dependencies = [
     "polars[timezone] ; sys_platform == 'win32'",
     "pyarrow",
     "pymssql ; python_full_version < '3.14'",
-    "pyodbc",
+    "pyodbc ; python_full_version < '3.14'",
     "pytest",
     "pytest-asyncio",
     "pytest-mock",
