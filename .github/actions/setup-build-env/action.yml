@@ -124,7 +124,7 @@ runs:
                        steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
     - name: Install Playwright browsers
-      if: ${{ inputs.install-playwright == 'true' }}
+      if: ${{ inputs.install-playwright == 'true' && steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
       shell: bash
       run: |
         echo "::group::🎭 Install Playwright browsers"

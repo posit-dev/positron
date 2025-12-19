@@ -263,7 +263,19 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Check if Playwright browsers are already installed
+        id: check-playwright
+        run: |
+          if [ -d "$HOME/.cache/ms-playwright" ] && [ -n "$(ls -A $HOME/.cache/ms-playwright 2>/dev/null)" ]; then
+            echo "browsers-installed=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Playwright browsers already installed"
+          else
+            echo "browsers-installed=false" >> "$GITHUB_OUTPUT"
+            echo "❌ Playwright browsers not found"
+          fi
+
       - name: Install Playwright browsers
+        if: steps.check-playwright.outputs.browsers-installed != 'true'
         run: npx playwright install --with-deps
 
       - name: Install Microsoft Edge for e2e-edge project

@@ -217,6 +217,7 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Install Playwright browsers
+        if: steps.restore-caches.outputs.cache-playwright-hit != 'true'
         run: npx playwright install --with-deps
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
