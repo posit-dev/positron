@@ -3,14 +3,14 @@ description: "Saves caches for npm dependencies and built-in extensions. Works o
 
 # Platform-Agnostic Design:
 # This action automatically detects the platform (Linux/Windows) and uses appropriate
-# cache paths. Cache configuration is centralized in .github/scripts/:
+# cache paths. Cache configuration is centralized in .github/cache-scripts/:
 # - log-cache-status.sh: Unified logging for cache operations
 # - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
 #
 # IMPORTANT: When adding new cache paths:
-# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 1. Edit .github/cache-scripts/cache-paths.sh ONLY (single source of truth)
 # 2. That's it! This action loads paths dynamically from cache-paths.sh
-# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+# 3. Run .github/cache-scripts/verify-cache-paths.sh to verify paths load correctly
 #
 # The paths are loaded at runtime via the "Load cache paths" step below,
 # eliminating the need to manually sync multiple files.
@@ -86,7 +86,7 @@ runs:
       shell: bash
       run: |
         echo "::group::📦 Loading cache paths from cache-paths.sh"
-        source .github/scripts/cache-paths.sh
+        source .github/cache-scripts/cache-paths.sh
 
         echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
         echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
@@ -152,4 +152,4 @@ runs:
         CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ inputs.cache-npm-extensions-stable-hit }}
         CACHE_BUILTINS_HIT: ${{ inputs.cache-builtins-hit }}
         CACHE_PLAYWRIGHT_HIT: ${{ inputs.cache-playwright-hit }}
-      run: .github/scripts/log-cache-status.sh save
+      run: .github/cache-scripts/log-cache-status.sh save
