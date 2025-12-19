@@ -1,0 +1,41 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Plot thumbnail name label - positioned to overlap the bottom of the thumbnail
+ * with half above and half below the thumbnail image.
+ */
+.plot-thumbnail-name {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translate(-50%, 50%);
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: 1px 4px;
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 3px;
+	font-size: 9px;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	z-index: 1;
+}
+
+.plot-thumbnail.selected .plot-thumbnail-name {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+	border-color: var(--vscode-focusBorder);
+}
+
+.plot-thumbnail-name-text {
+	display: block;
+	max-width: 72px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

@@ -3,8 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './plotGalleryThumbnail.css';
+
 // React.
-import React, { PropsWithChildren, useRef } from 'react';
+import React, { PropsWithChildren, useMemo, useRef } from 'react';
 
 // Other dependencies.
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
@@ -66,6 +69,11 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 		}
 	};
 
+	// Get the plot name from metadata
+	const plotName = useMemo(() => {
+		return props.plotClient.metadata.name;
+	}, [props.plotClient.metadata.name]);
+
 	return (
 		<div
 			className={'plot-thumbnail' + (props.selected ? ' selected' : '')}
@@ -75,11 +83,18 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 		>
 			<button
 				ref={plotThumbnailButtonRef}
-				className='image-wrapper'
+				className='plot-thumbnail-button'
 				tabIndex={props.selected ? 0 : -1}
 				onClick={selectPlot}
 			>
-				{props.children}
+				<div className='image-wrapper'>
+					{props.children}
+				</div>
+				{plotName && (
+					<div className='plot-thumbnail-name' title={plotName}>
+						<span className='plot-thumbnail-name-text'>{plotName}</span>
+					</div>
+				)}
 			</button>
 			<button
 				ref={plotRemoveButtonRef}

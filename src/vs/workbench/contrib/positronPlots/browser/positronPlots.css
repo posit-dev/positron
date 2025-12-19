@@ -54,11 +54,12 @@
 	height: fit-content;
 	margin-top: 10px;
 	margin-bottom: 10px;
+	padding-bottom: 10px;
 }
 
 .history-right .plot-thumbnail {
 	margin-top: 5px;
-	margin-bottom: 5px;
+	margin-bottom: 15px;
 }
 
 /*
@@ -81,11 +82,13 @@
 	width: fit-content;
 	margin-right: 10px;
 	margin-left: 10px;
+	padding-bottom: 10px;
 }
 
 .history-bottom .plot-thumbnail {
 	margin-left: 5px;
 	margin-right: 5px;
+	margin-bottom: 10px;
 }
 
 .selected-plot {
@@ -108,6 +111,20 @@
 	overflow: hidden;
 	margin: 0;
 	padding: 0;
+}
+
+.plot-thumbnail .plot-thumbnail-button {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	background: transparent;
+	border: none;
+	overflow: visible;
+}
+
+.plot-thumbnail .plot-thumbnail-button .image-wrapper {
+	width: 100%;
+	height: 100%;
 }
 
 .plot-thumbnail button:active img,
@@ -136,7 +153,13 @@
 
 .plot-thumbnail.selected img {
 	border-radius: 3px;
-	border: 1px solid var(--vscode-editorWidget-border);
+	border: 1px solid transparent;
+}
+
+.plot-thumbnail.selected .image-wrapper {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 /**
