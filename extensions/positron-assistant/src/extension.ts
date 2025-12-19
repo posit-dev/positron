@@ -27,7 +27,7 @@ import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
-import { verifyProvidersInConfiguredModels } from './modelDefinitions.js';
+import { verifyProvidersInCustomModels } from './modelDefinitions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -478,7 +478,7 @@ export async function activate(context: vscode.ExtensionContext) {
 					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
 				});
 			}
-			await verifyProvidersInConfiguredModels();
+			await verifyProvidersInCustomModels();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
