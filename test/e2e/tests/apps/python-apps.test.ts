@@ -22,7 +22,7 @@ test.describe('Python Applications', {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Basic Dash App', { tag: [tags.WIN] }, async function ({ app, openFile, python }) {
+	test('Python - Verify Basic Dash App', { tag: [tags.WIN] }, async function ({ app, openFile, python, page }) {
 		const viewer = app.workbench.viewer;
 
 		await openFile(join('workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
@@ -45,6 +45,18 @@ test.describe('Python Applications', {
 					? editorFrameLocator.frameLocator('iframe').getByText('Hello World')
 					: editorFrameLocator.getByText('Hello World')
 			).toBeVisible({ timeout: 30000 });
+		});
+
+		await test.step('Verify Clear Current URL clears Viewer', async () => {
+			await app.page.locator('.codicon-clear-all').click();
+
+			await expect(async () => {
+				const iframeLocator = app.web
+					? viewer.viewerFrame.locator('iframe')
+					: viewer.getViewerFrame().locator('iframe');
+				const count = await iframeLocator.count();
+				expect(count).toBe(0);
+			}).toPass({ timeout: 30000 });
 		});
 	});
 
