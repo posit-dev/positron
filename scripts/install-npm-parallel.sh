@@ -63,8 +63,21 @@ for pid in "${pids[@]}"; do
 done
 
 if [ $exit_code -ne 0 ]; then
-	echo "ERROR: One or more npm ci commands failed - check logs above for details"
+	echo ""
+	# allow-any-unicode-next-line
+	echo "❌ npm install failed"
+	echo ""
+	echo "One or more npm ci commands failed. This may be due to:"
+	echo "  • Network failures (transient - will retry automatically)"
+	echo "  • node-gyp build errors (check logs above for compilation failures)"
+	echo "  • Missing system dependencies (build tools, Visual Studio on Windows)"
+	echo "  • Package registry issues"
+	echo ""
+	echo "Check the logs above for specific error messages."
 	exit 1
 fi
 
-echo "✓ All npm dependencies installed successfully"
+echo ""
+# allow-any-unicode-next-line
+echo "✅ npm install completed successfully"
+echo ""
