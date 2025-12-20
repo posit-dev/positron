@@ -3056,7 +3056,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			code,
 			id,
 			mode,
-			errorBehavior);
+			errorBehavior,
+			attribution,
+		);
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
