@@ -125,7 +125,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
-        key: npm-extensions-stable-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-stable-hash }}
+        key: npm-extensions-stable-v2-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.extensions-stable-hash }}
 
     - name: Save built-in extensions cache
       if: ${{ inputs.cache-builtins-hit == 'false' }}

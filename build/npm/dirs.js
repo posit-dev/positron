@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 const fs = require('fs');
+const path = require('path');
 
 // Complete list of directories where npm should be executed to install node modules
 let dirs = [
@@ -127,9 +128,20 @@ if (POSITRON_EXTENSIONS_FILTER) {
 	if (POSITRON_EXTENSIONS_FILTER === 'volatile') {
 		// allow-any-unicode-next-line
 		console.log('🔥 Installing volatile extensions only (python, assistant, r)');
-		// Keep base dirs + parent 'extensions' + volatile extensions
-		const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
-		dirs = [...baseDirs, ...volatileExtensions];
+		// Keep base dirs + volatile extensions
+		// Optimization: If extensions/node_modules already exists (from stable cache),
+		// skip reinstalling it to avoid wasteful delete/recreate cycle
+		const extensionsNodeModulesPath = path.join(__dirname, '../../extensions/node_modules');
+		const extensionsNodeModulesExists = fs.existsSync(extensionsNodeModulesPath);
+
+		if (extensionsNodeModulesExists) {
+			console.log('  → Skipping extensions/ directory (node_modules already exists)');
+			const baseDirs = dirs.filter(d => !d.startsWith('extensions/') && d !== 'extensions');
+			dirs = [...baseDirs, ...volatileExtensions];
+		} else {
+			const baseDirs = dirs.filter(d => !d.startsWith('extensions/') || d === 'extensions');
+			dirs = [...baseDirs, ...volatileExtensions];
+		}
 	} else if (POSITRON_EXTENSIONS_FILTER === 'stable') {
 		// allow-any-unicode-next-line
 		console.log('🧊 Installing stable extensions only (all except python, assistant, r)');
