@@ -328,7 +328,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return;
 		}
 		const plotThumbnailElement = plotHistory.querySelector(
-			`.plot-thumbnail[data-plot-id="${plotId}"]`
+			`.plot-thumbnail-button[data-plot-id="${plotId}"]`
 		) as HTMLButtonElement;
 		if (plotThumbnailElement) {
 			plotThumbnailElement.focus();

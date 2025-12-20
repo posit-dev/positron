@@ -48,7 +48,7 @@ export class HtmlPlotClient extends WebviewPlotClient {
 			execution_id: executionId ?? '',
 			created: Date.now(),
 			session_id: _session.sessionId,
-			name: localize('positronPlots.htmlPlotClient.defaultName', "Interactive HTML"),
+			name: localize('positronPlots.htmlPlotClient.defaultName', "interactive {0}", HtmlPlotClient._nextId),
 			code: code ?? '',
 		});
 	}
