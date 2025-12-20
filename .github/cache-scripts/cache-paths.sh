@@ -162,9 +162,8 @@ generate_npm_extensions_stable_paths() {
 	done
 
 	# Include shared extensions/node_modules (contains shared deps like esbuild)
-	if [ -d "extensions/node_modules" ]; then
-		paths="${paths}extensions/node_modules"$'\n'
-	fi
+	# Always include this path, even if it doesn't exist yet (will be created during npm install)
+	paths="${paths}extensions/node_modules"$'\n'
 
 	# Include .vscode extensions
 	for vscode_ext_dir in .vscode/extensions/*/; do
