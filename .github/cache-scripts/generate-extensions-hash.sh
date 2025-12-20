@@ -109,14 +109,14 @@ echo "Hashing package.json files..."
 if [ "$FILTER" == "volatile" ]; then
 	echo "  → Filtering: volatile extensions only"
 	FILTER_PATTERN=$(IFS='|'; echo "${VOLATILE_EXTENSIONS[*]}")
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f $FIND_EXCLUDES 2>/dev/null" | grep -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | grep -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
 elif [ "$FILTER" == "stable" ]; then
 	echo "  → Filtering: stable extensions only"
 	FILTER_PATTERN=$(IFS='|'; echo "${VOLATILE_EXTENSIONS[*]}")
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f $FIND_EXCLUDES 2>/dev/null" | grep -v -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | grep -v -E "($FILTER_PATTERN)" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
 else
 	echo "  → No filter: all extensions"
-	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f $FIND_EXCLUDES 2>/dev/null" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+	FILES_HASH=$(eval "find extensions .vscode -maxdepth 3 -name \"package.json\" -type f -not -path \"*/node_modules/*\" $FIND_EXCLUDES 2>/dev/null" | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
 fi
 
 echo "  ✓ package.json hash: $FILES_HASH"
@@ -144,7 +144,7 @@ if [ "$FILTER" == "volatile" ]; then
 	GIT_TREE_HASH=$(echo "$GIT_TREE_HASH" | sha256sum | cut -d' ' -f1)
 elif [ "$FILTER" == "stable" ]; then
 	echo "  → Filtering: stable extensions only"
-	ALL_EXT_DIRS=$(find extensions -maxdepth 1 -type d | tail -n +2 | sort)
+	ALL_EXT_DIRS=$(find extensions -maxdepth 1 -type d -not -name "node_modules" | tail -n +2 | sort)
 	GIT_TREE_HASH=""
 	for ext_dir in $ALL_EXT_DIRS; do
 		# Check if this is a volatile extension (skip if it is)
@@ -174,6 +174,7 @@ elif [ "$FILTER" == "stable" ]; then
 	GIT_TREE_HASH=$(echo "$GIT_TREE_HASH" | sha256sum | cut -d' ' -f1)
 else
 	echo "  → No filter: entire extensions directory"
+	# Hash entire extensions directory, but git will naturally exclude node_modules from tree object
 	GIT_TREE_HASH=$(git rev-parse HEAD:extensions 2>/dev/null || echo "no-git-tree")
 fi
 
