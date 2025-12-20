@@ -51,15 +51,15 @@ def _detect_plotting_library() -> str:
     # Note: We don't include pandas here because pandas.plotting is auto-loaded
     # when pandas is imported, even if not used for plotting.
     library_priority = [
-        ("seaborn", "Seaborn"),
-        ("plotnine", "plotnine"),
+        "seaborn"
+        "plotnine"
     ]
 
-    for module_name, display_name in library_priority:
+    for module_name in library_priority:
         if module_name in sys.modules:
-            return display_name
+            return module_name
 
-    return "Matplotlib"
+    return "matplotlib"
 
 
 class FigureManagerPositron(FigureManagerBase):
