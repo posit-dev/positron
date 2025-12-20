@@ -75,12 +75,12 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 	}, [props.plotClient.metadata.name]);
 
 	return (
-		<>
+		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			<button
 				ref={plotThumbnailButtonRef}
-				className={'plot-thumbnail plot-thumbnail-button' + (props.selected ? ' selected' : '')}
-				onKeyDown={handleKeyDown}
+				className='plot-thumbnail-button'
 				onClick={selectPlot}
+				onKeyDown={handleKeyDown}
 			>
 				<div className='image-wrapper'>
 					{props.children}
@@ -98,6 +98,6 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 				onClick={removePlot}
 			>
 			</button>
-		</>
+		</div>
 	);
 };
