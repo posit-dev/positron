@@ -11,7 +11,6 @@ import React, { useEffect, useMemo, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
-import { localize } from '../../../../../nls.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
@@ -28,9 +27,6 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
-import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 /**
  * PlotContainerProps interface.
@@ -135,12 +131,6 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// Get the plot name from metadata (reactive to metadata updates)
 	const plotName = useMemo(() => {
 		return currentPlotInstance?.metadata.name;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentPlotInstance, metadataVersion]);
-
-	// Get the plot code from metadata (reactive to metadata updates)
-	const plotCode = useMemo(() => {
-		return currentPlotInstance?.metadata.code;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPlotInstance, metadataVersion]);
 
@@ -422,89 +412,17 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		}
 
 		// If no info to display, show a placeholder to maintain consistent height
-		if (!sessionName && !plotName && !plotCode) {
+		if (!sessionName && !plotName) {
 			return <div className='plot-info-header'>
 				<span className='plot-info-text'>&nbsp;</span>
 			</div>;
 		}
 
-		/**
-		 * Handles the click on the plot code button to show a dropdown menu.
-		 * @param e The mouse event.
-		 */
-		const handlePlotCodeClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-			e.preventDefault();
-			e.stopPropagation();
-
-			const targetElement = e.currentTarget as HTMLElement;
-			const executionId = currentPlotInstance?.metadata.execution_id;
-			const sessionId = currentPlotInstance?.metadata.session_id;
-
-			showCustomContextMenu({
-				anchorElement: targetElement,
-				popupPosition: 'bottom',
-				popupAlignment: 'left',
-				entries: [
-					new CustomContextMenuItem({
-						label: localize('positronPlots.copyCode', "Copy Code"),
-						icon: 'copy',
-						onSelected: () => {
-							if (plotCode) {
-								services.clipboardService.writeText(plotCode);
-							}
-						}
-					}),
-					new CustomContextMenuItem({
-						label: localize('positronPlots.revealInConsole', "Reveal Code in Console"),
-						icon: 'go-to-file',
-						disabled: !executionId || !sessionId,
-						onSelected: () => {
-							if (executionId && sessionId) {
-								services.positronConsoleService.revealExecution(sessionId, executionId);
-							}
-						}
-					}),
-					new CustomContextMenuItem({
-						label: localize('positronPlots.runCodeAgain', "Run Code Again"),
-						icon: 'run',
-						disabled: !plotCode || !sessionId,
-						onSelected: async () => {
-							if (plotCode && sessionId) {
-								const languageId = currentPlotInstance?.metadata.language;
-								if (languageId) {
-									await services.positronConsoleService.executeCode(
-										languageId,
-										sessionId,
-										plotCode,
-										{ source: CodeAttributionSource.Interactive },
-										true
-									);
-								}
-							}
-						}
-					})
-				]
-			});
-		};
-
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
-			{(sessionName || plotName) && (
-				<span className='plot-info-text'>
-					{sessionName && <span className='plot-session-name'>{sessionName}</span>}
-					{plotName && <span className='plot-name'>{plotName}</span>}
-				</span>
-			)}
-			{plotCode && (
-				<button
-					className='plot-code-button'
-					title={plotCode}
-					onClick={handlePlotCodeClick}
-				>
-					<span className='codicon codicon-code'></span>
-					<span className='plot-code-text'>{plotCode}</span>
-					<span className='codicon codicon-chevron-down'></span>
-				</button>
-			)}
+			<span className='plot-info-text'>
+				{sessionName && <span className='plot-session-name'>{sessionName}</span>}
+				{plotName && <span className='plot-name'>{plotName}</span>}
+			</span>
 		</div>;
 	};
 
