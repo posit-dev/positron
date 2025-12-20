@@ -149,13 +149,14 @@ generate_npm_extensions_stable_paths() {
 		fi
 	done <<< "$volatile_exts"
 
-	# Find all extensions except volatile ones
+	# Find all extensions except volatile ones and node_modules
 	local paths=""
 	for ext_dir in extensions/*/; do
 		ext_dir="${ext_dir%/}"
 		local ext_name="${ext_dir##*/}"
 
-		if ! echo "$ext_name" | grep -qE "^($volatile_pattern)$"; then
+		# Skip node_modules and volatile extensions
+		if [ "$ext_name" != "node_modules" ] && ! echo "$ext_name" | grep -qE "^($volatile_pattern)$"; then
 			paths="${paths}${ext_dir}"$'\n'
 		fi
 	done
