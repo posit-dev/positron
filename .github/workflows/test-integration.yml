@@ -58,6 +58,7 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'   # Use workspace-relative path for node-gyp cache (Docker compatibility)
           DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
           # Extension filter logic:
           #   volatile=hit, stable=miss  → filter=stable (install stable only)

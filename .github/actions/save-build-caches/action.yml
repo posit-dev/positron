@@ -109,7 +109,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
+        key: npm-core-v5-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm volatile extensions cache
       if: ${{ inputs.cache-npm-extensions-volatile-hit == 'false' }}
