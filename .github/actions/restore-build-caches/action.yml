@@ -207,9 +207,9 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.playwright-paths }}
-        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+        key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
         restore-keys: |
-          playwright-${{ runner.os }}-
+          playwright-v2-${{ runner.os }}-
 
     - name: Detect partial cache hits (restore-key matches)
       if: always()

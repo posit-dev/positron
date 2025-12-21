@@ -141,7 +141,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.cache-paths.outputs.playwright-paths }}
-        key: playwright-${{ runner.os }}-${{ inputs.playwright-version }}
+        key: playwright-v2-${{ runner.os }}-${{ inputs.playwright-version }}
 
     - name: Log cache save results
       if: ${{ always() }}
