@@ -51,7 +51,9 @@ if [[ "$IS_WINDOWS" == "true" ]]; then
 else
 	# Linux/macOS paths
 	NODE_GYP_CACHE="$HOME/.cache/node-gyp"
-	PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+	# Use workspace-relative path for Playwright to work in both host and Docker containers
+	# (Docker containers have different $HOME than host, breaking cache visibility)
+	PLAYWRIGHT_CACHE=".playwright-browsers"
 fi
 
 # ============================================================================

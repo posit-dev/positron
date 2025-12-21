@@ -37,7 +37,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      - name: Restore caches
+      - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
@@ -86,6 +86,8 @@ jobs:
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers and system dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
       - name: Set permissions on SUID sandbox helper
@@ -144,8 +146,10 @@ jobs:
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile
 
-      - name: Run Integration Tests (Electron)
+      - name: 🧪 Run Integration Tests (Electron)
         id: electron-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: |
           if [ "${{ inputs.pull_request }}" = "true" ]; then
             DISPLAY=:10 ./scripts/test-integration-pr.sh
@@ -153,12 +157,16 @@ jobs:
             DISPLAY=:10 ./scripts/test-integration.sh
           fi
 
-      - name: Run Integration Tests (Remote)
+      - name: 🧪 Run Integration Tests (Remote)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: electron-remote-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
-      - name: Run Integration Tests (Browser, Chromium)
+      - name: 🧪 Run Integration Tests (Browser, Chromium)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: browser-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium

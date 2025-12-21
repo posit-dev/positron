@@ -166,7 +166,7 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - name: Restore caches
+      - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
@@ -217,6 +217,8 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
@@ -250,6 +252,7 @@ jobs:
       - name: Run Playwright Tests
         shell: bash
         env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"

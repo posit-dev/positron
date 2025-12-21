@@ -142,7 +142,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Restore caches
+      - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
@@ -224,7 +224,7 @@ jobs:
       - shell: bash
         run: npm run prelaunch
 
-      - name: Save caches
+      - name: 💾 Save caches
         if: ${{ inputs.save_cache && matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches
         with:
@@ -371,7 +371,7 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Run Extensions Tests
+      - name: 🧪 Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
         id: extensions
         continue-on-error: true
@@ -398,7 +398,7 @@ jobs:
           fi
           exit 0
 
-      - name: Run Bootstrap Extensions Test
+      - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
         id: bootstrap
         shell: bash
@@ -410,7 +410,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
 
-      - name: Run Playwright E2E Tests
+      - name: 🧪 Run Playwright E2E Tests
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10

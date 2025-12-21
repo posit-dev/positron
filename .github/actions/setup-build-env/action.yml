@@ -50,7 +50,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Restore caches
+    - name: 📦 Restore caches
       id: restore-caches
       uses: ./.github/actions/restore-build-caches
       with:
