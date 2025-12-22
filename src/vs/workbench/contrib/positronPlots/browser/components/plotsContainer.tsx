@@ -50,7 +50,7 @@ export const HistoryPx = 100;
 /**
  * The number of pixels (height) to use for the plot info header row.
  */
-export const PlotInfoHeaderPx = 24;
+export const PlotInfoHeaderPx = 30;
 
 /**
  * PlotContainer component; holds the plot instances.

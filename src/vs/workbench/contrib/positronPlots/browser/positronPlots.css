@@ -46,7 +46,7 @@
 
 .history-right .plot-history-scroller {
 	border-left: 1px solid var(--vscode-statusBar-border);
-	width: 100px;
+	width: 110px;
 }
 
 .history-right .plot-history {
@@ -72,8 +72,8 @@
 
 .history-bottom .plot-history-scroller {
 	border-top: 1px solid var(--vscode-statusBar-border);
-	min-height: 100px;
-	height: 100px;
+	height: 110px;
+	min-width: 0;
 }
 
 .history-bottom .plot-history {
@@ -81,6 +81,7 @@
 	width: fit-content;
 	margin-right: 10px;
 	margin-left: 10px;
+	flex-shrink: 0;
 }
 
 .history-bottom .plot-thumbnail {
@@ -95,8 +96,6 @@
 }
 
 .plot-thumbnail {
-	height: 90px;
-	width: 90px;
 	padding: 0;
 	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;

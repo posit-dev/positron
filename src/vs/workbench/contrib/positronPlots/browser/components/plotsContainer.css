@@ -21,7 +21,6 @@
 	display: flex;
 	align-items: center;
 	padding: 0 4px;
-	min-height: 24px;
 	flex-shrink: 0;
 	overflow: hidden;
 	background-color: var(--vscode-editor-background);
@@ -43,7 +42,6 @@
 	padding: 0px 5px;
 	border-radius: 5px;
 	border: 1px solid var(--vscode-panel-border);
-	margin-top: 3px;
 	margin-right: 4px;
 }
 
@@ -51,6 +49,7 @@
 	font-size: 12px;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
+	margin-right: 5px;
 }
 
 .plots-container .plot-info-header .plot-code-button {
