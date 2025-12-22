@@ -149,7 +149,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const selectedPlot = plotHistory.querySelector('.selected');
 		if (selectedPlot) {
 			// If there is a selected plot, scroll it into view.
-			selectedPlot.scrollIntoView({ behavior: 'smooth' });
+			selectedPlot.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 		} else {
 			// If there isn't a selected plot, scroll the history to the end to
 			// show the most recently generated plot.
