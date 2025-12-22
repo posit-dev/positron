@@ -137,8 +137,18 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		// allow-any-unicode-next-line
 		console.log('🔥 Installing volatile extensions only (python, assistant, r)');
 		// Keep base dirs + volatile extensions
-		// Optimization: If extensions/node_modules already exists (from stable cache),
-		// skip reinstalling it to avoid wasteful delete/recreate cycle
+		//
+		// OPTIMIZATION: Skip reinstalling extensions/node_modules if it already exists
+		//
+		// This branch only executes when the stable extensions cache had an EXACT key match
+		// (cache-hit = 'true' in GitHub Actions). An exact match guarantees that:
+		//   1. extensions/package.json hasn't changed (it's part of the cache key hash)
+		//   2. extensions/node_modules is valid for the current extensions/package.json
+		//   3. Safe to skip reinstalling to avoid wasteful delete/recreate cycle
+		//
+		// SAFETY: Partial cache hits via restore-keys return cache-hit = 'false', which
+		// sets POSITRON_EXTENSIONS_FILTER = '' (empty), causing full reinstall of all
+		// directories including extensions/. No stale dependencies can occur.
 		const extensionsNodeModulesPath = path.join(__dirname, '../../extensions/node_modules');
 		const extensionsNodeModulesExists = fs.existsSync(extensionsNodeModulesPath);
 
