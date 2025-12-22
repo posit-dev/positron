@@ -166,23 +166,31 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - name: Restore caches
+      - name: 📦 Restore caches
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_PARALLEL_INSTALL: '0'
           POSITRON_NPM_CONCURRENCY: '10'
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'   # Use workspace-relative path for node-gyp cache (Docker compatibility)
           DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
           timeout_minutes: 30
           max_attempts: 3
@@ -193,7 +201,8 @@ jobs:
       - name: Download binaries (Ark, Kallichore)
         uses: ./.github/actions/download-binaries
         with:
-          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
       - name: Install E2E test dependencies
         run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
@@ -209,6 +218,8 @@ jobs:
           stat $ELECTRON_ROOT/chrome-sandbox
 
       - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
@@ -242,6 +253,7 @@ jobs:
       - name: Run Playwright Tests
         shell: bash
         env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"

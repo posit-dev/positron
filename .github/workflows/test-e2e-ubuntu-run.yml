@@ -264,10 +264,14 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: |
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge
@@ -275,6 +279,7 @@ jobs:
       - name: Run Playwright Tests
         shell: bash
         env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"

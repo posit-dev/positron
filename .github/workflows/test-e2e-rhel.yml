@@ -181,7 +181,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Run Playwright Tests
+      - name: 🧪 Run Playwright Tests
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
