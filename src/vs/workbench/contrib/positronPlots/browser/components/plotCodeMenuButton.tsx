@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -14,6 +14,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 // Localized strings.
 const plotCodeActionsTooltip = localize('positronPlotCodeActions', "Plot code actions");
@@ -37,11 +38,22 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
-	// Get metadata from the plot client.
-	const plotCode = props.plotClient.metadata.code;
-	const executionId = props.plotClient.metadata.execution_id;
-	const sessionId = props.plotClient.metadata.session_id;
-	const languageId = props.plotClient.metadata.language;
+	// State to track metadata changes.
+	const [metadata, setMetadata] = useState<IPositronPlotMetadata>(props.plotClient.metadata);
+
+	// Subscribe to metadata updates.
+	useEffect(() => {
+		const disposable = props.plotClient.onDidUpdateMetadata?.(newMetadata => {
+			setMetadata(newMetadata);
+		});
+		return () => disposable?.dispose();
+	}, [props.plotClient]);
+
+	// Get metadata from state.
+	const plotCode = metadata.code;
+	const executionId = metadata.execution_id;
+	const sessionId = metadata.session_id;
+	const languageId = metadata.language;
 
 	// Builds the actions.
 	const actions = (): IAction[] => {
