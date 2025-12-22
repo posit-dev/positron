@@ -161,6 +161,7 @@ export interface IPositronConsoleService {
 	 *
 	 * @param sessionId The session ID of the console instance.
 	 * @param executionId The execution ID of the input to reveal.
+	 * @throws an error if the console instance or execution cannot be found.
 	 */
 	revealExecution(sessionId: string, executionId: string): void;
 }

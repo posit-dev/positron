@@ -53,9 +53,11 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 				class: 'codicon codicon-copy',
 				enabled: !!plotCode,
 				run: () => {
-					if (plotCode) {
-						services.clipboardService.writeText(plotCode);
-					}
+					services.clipboardService.writeText(plotCode);
+					const trimmedCode = plotCode.substring(0, 20) + (plotCode.length > 20 ? '...' : '');
+					services.notificationService.info(
+						localize('positronPlots.copyCodeInfo', "Plot code copied to clipboard: {0}", trimmedCode)
+					);
 				}
 			},
 			{
@@ -65,8 +67,19 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 				class: 'codicon codicon-go-to-file',
 				enabled: !!executionId && !!sessionId,
 				run: () => {
-					if (executionId && sessionId) {
-						services.positronConsoleService.revealExecution(sessionId, executionId);
+					try {
+						services.positronConsoleService.revealExecution(sessionId!, executionId!);
+					} catch (error) {
+						// It's very possible that the code that generated this
+						// plot has been removed from the console (e.g. if the
+						// console was cleared). In that case, just log a
+						// warning and show a notification.
+						if (error instanceof Error) {
+							services.logService.warn(error.message);
+						}
+						services.notificationService.warn(
+							localize('positronPlots.revealInConsoleError', "The code that generated this plot is no longer present in the console.")
+						);
 					}
 				}
 			},
@@ -75,17 +88,15 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 				label: runCodeAgain,
 				tooltip: '',
 				class: 'codicon codicon-run',
-				enabled: !!plotCode && !!sessionId,
+				enabled: !!plotCode && !!sessionId && !!languageId,
 				run: async () => {
-					if (plotCode && sessionId && languageId) {
-						await services.positronConsoleService.executeCode(
-							languageId,
-							sessionId,
-							plotCode,
-							{ source: CodeAttributionSource.Interactive },
-							true
-						);
-					}
+					await services.positronConsoleService.executeCode(
+						languageId!,
+						sessionId,
+						plotCode,
+						{ source: CodeAttributionSource.Interactive },
+						true
+					);
 				}
 			}
 		];

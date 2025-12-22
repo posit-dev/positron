@@ -961,7 +961,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Find the console instance with the given session ID.
 		const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
 		if (!consoleInstance) {
-			return;
+			throw new Error(`Cannot reveal execution: no Positron console instance found for session ID ${sessionId}.`);
 		}
 
 		// Open the console view to ensure it's visible.
@@ -971,7 +971,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this.setActivePositronConsoleInstance(consoleInstance);
 
 		// Ask the console instance to reveal the execution.
-		consoleInstance.revealExecution(executionId);
+		if (!consoleInstance.revealExecution(executionId)) {
+			throw new Error(`Cannot reveal execution: execution ID ${executionId} not found in session ID ${sessionId}.`);
+		}
 	}
 
 	/**
