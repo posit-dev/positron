@@ -132,7 +132,7 @@ def test_mpl_get_intrinsic_size(shell: PositronShell, plots_service: PlotsServic
                 "width": intrinsic_size[0],
                 "height": intrinsic_size[1],
                 "unit": PlotUnit.Inches.value,
-                "source": "Matplotlib",
+                "source": "matplotlib",
             }
         )
     ]
@@ -152,8 +152,8 @@ def test_mpl_get_metadata(shell: PositronShell, plots_service: PlotsService) -> 
     result = response["data"]["result"]
 
     # Verify the metadata structure
-    assert result["kind"] == "Matplotlib"
-    assert result["name"] == "Matplotlib Figure 1"
+    assert result["kind"] == "matplotlib"
+    assert result["name"] == "matplotlib Figure 1"
     # execution_id and code may be empty in test context since there's no real execute_request
     assert "execution_id" in result
     assert "code" in result

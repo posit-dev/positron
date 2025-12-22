@@ -20,7 +20,7 @@ import hashlib
 import io
 import logging
 import sys
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
 from matplotlib.backend_bases import FigureManagerBase
@@ -50,10 +50,7 @@ def _detect_plotting_library() -> str:
     # Order matters - check more specific libraries first
     # Note: We don't include pandas here because pandas.plotting is auto-loaded
     # when pandas is imported, even if not used for plotting.
-    library_priority = [
-        "seaborn"
-        "plotnine"
-    ]
+    library_priority = ["seaborn", "plotnine"]
 
     for module_name in library_priority:
         if module_name in sys.modules:
@@ -90,10 +87,10 @@ class FigureManagerPositron(FigureManagerBase):
 
         # Get the execution context from the current shell message
         parent = kernel.get_parent("shell")
-        header = parent.get("header", {})
-        content = parent.get("content", {})
-        execution_id = header.get("msg_id", "")
-        code = content.get("code", "")
+        header: dict[str, Any] = parent.get("header", {})
+        content: dict[str, Any] = parent.get("content", {})
+        execution_id: str = header.get("msg_id", "")
+        code: str = content.get("code", "")
 
         # Detect which plotting library was used
         kind = _detect_plotting_library()
