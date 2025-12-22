@@ -87,8 +87,8 @@ class FigureManagerPositron(FigureManagerBase):
 
         # Get the execution context from the current shell message
         parent = kernel.get_parent("shell")
-        header: dict[str, Any] = cast(dict[str, Any], parent.get("header", {}))
-        content: dict[str, Any] = cast(dict[str, Any], parent.get("content", {}))
+        header: dict[str, Any] = cast("dict[str, Any]", parent.get("header", {}))
+        content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
         execution_id: str = header.get("msg_id", "")
         code: str = content.get("code", "")
 
