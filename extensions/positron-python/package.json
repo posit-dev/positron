@@ -1,4 +1,5 @@
 {
+    "_comment": "Test volatile cache bust - 2025-12-22",
     "name": "python",
     "displayName": "Python",
     "description": "Python Language Pack for Positron",
