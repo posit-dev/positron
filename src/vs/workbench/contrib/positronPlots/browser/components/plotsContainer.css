@@ -39,10 +39,12 @@
 	font-size: 11px;
 	color: var(--vscode-foreground);
 	opacity: 0.8;
-	padding: 0px 5px;
+	padding: 3px 5px;
 	border-radius: 5px;
 	border: 1px solid var(--vscode-panel-border);
 	margin-right: 4px;
+	background: none;
+	cursor: pointer;
 }
 
 .plots-container .plot-info-header .plot-name {

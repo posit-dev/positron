@@ -45,7 +45,7 @@ interface PlotContainerProps {
  * The number of pixels (height or width) to use for the history portion of the
  * plots container.
  */
-export const HistoryPx = 100;
+export const HistoryPx = 110;
 
 /**
  * The number of pixels (height) to use for the plot info header row.
@@ -74,7 +74,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
 	// Account for the plot info header when calculating plot dimensions
 	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx - PlotInfoHeaderPx : props.height - PlotInfoHeaderPx;
-	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
+	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - (historyPx + 1);
 
 	// Get the current plot instance
 	const currentPlotInstance = useMemo(() =>
@@ -362,6 +362,27 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	}
 
 	/**
+	 * Navigates to the code that generated the current plot.
+	 */
+	const navigateToCode = () => {
+		if (!currentPlotInstance) {
+			return;
+		}
+		// If we have an execution ID, reveal the execution in the Positron
+		// Console; otherwise, just activate the session.
+		if (currentPlotInstance.metadata.execution_id) {
+			services.positronConsoleService.revealExecution(
+				currentPlotInstance.metadata.session_id,
+				currentPlotInstance.metadata.execution_id
+			);
+		} else {
+			services.positronConsoleService.setActivePositronConsoleSession(
+				currentPlotInstance.metadata.session_id
+			);
+		}
+	};
+
+	/**
 	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
 	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
 	 * (interactive HTML plot) depending on the type of plot instance.
@@ -420,7 +441,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
 			<span className='plot-info-text'>
-				{sessionName && <span className='plot-session-name'>{sessionName}</span>}
+				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
 				{plotName && <span className='plot-name'>{plotName}</span>}
 			</span>
 		</div>;
