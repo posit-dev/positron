@@ -65,8 +65,9 @@ fi
 # npm-core: Core build dependencies (~500MB-1GB)
 # ----------------------------------------------------------------------------
 # What: Root node_modules, build tools, test dependencies, npm/node-gyp caches
-# Invalidates: When any core package-lock.json changes
+# Invalidates: When any core package-lock.json changes OR Node.js version changes
 # Why cache node-gyp: Avoids downloading Node.js headers (saves 10-30s, more reliable)
+# Node.js version: Included in cache key to prevent ABI incompatibilities with native modules
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE

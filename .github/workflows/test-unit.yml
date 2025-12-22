@@ -122,6 +122,7 @@ jobs:
           extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
           extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+          node-version: ${{ steps.restore-caches.outputs.node-version }}
           playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
 
       - name: Set permissions on SUID sandbox helper

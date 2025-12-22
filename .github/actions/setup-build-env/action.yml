@@ -43,6 +43,9 @@ outputs:
   package-locks-hash:
     description: "Computed hash of all package-lock.json files"
     value: ${{ steps.restore-caches.outputs.package-locks-hash }}
+  node-version:
+    description: "Detected Node.js version"
+    value: ${{ steps.restore-caches.outputs.node-version }}
   playwright-version:
     description: "Detected Playwright version from package.json"
     value: ${{ steps.restore-caches.outputs.playwright-version }}

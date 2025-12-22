@@ -109,6 +109,14 @@ if (fs.existsSync(`${__dirname}/../../.build/distro/npm`)) {
 // This enables split caching strategy where volatile extensions (that change frequently)
 // can be cached separately from stable extensions (that change rarely).
 //
+// DEPENDENCY ISOLATION:
+// Each extension has its own package.json and node_modules/ directory.
+// Volatile and stable extensions have zero shared dependencies (except parent-level
+// devDependencies like esbuild). This means:
+//   - Caching volatile separately does NOT affect stable extensions
+//   - npm ci in one extension cannot corrupt another
+//   - Cache invalidation is fully independent
+//
 // Volatile extensions: Change frequently (71% of extension commits over 6 months)
 // THIS IS THE SINGLE SOURCE OF TRUTH for volatile extension list
 const volatileExtensions = [

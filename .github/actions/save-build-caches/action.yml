@@ -60,6 +60,10 @@ inputs:
     description: "Package-locks hash from restore step (required only if saving npm core cache)"
     required: false
     default: ''
+  node-version:
+    description: "Node.js version from restore step (required only if saving npm core cache)"
+    required: false
+    default: ''
   playwright-version:
     description: "Playwright version from restore step (required only if saving Playwright cache)"
     required: false
@@ -109,7 +113,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v5-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
+        key: npm-core-v6-${{ inputs.node-version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ inputs.package-locks-hash }}
 
     - name: Save npm volatile extensions cache
       if: ${{ inputs.cache-npm-extensions-volatile-hit == 'false' }}

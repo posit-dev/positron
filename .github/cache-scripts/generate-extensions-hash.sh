@@ -21,6 +21,7 @@
 #   • Extensions: python, assistant, r
 #   • Change frequency: 71% of PRs (1,282 changes / 6 months)
 #   • Invalidates often but fast to rebuild
+#   • NOTE: Extension list defined in build/npm/dirs.js (single source of truth)
 #
 # STABLE CACHE (~2-3GB):
 #   • Extensions: All others (~25+ extensions)
@@ -30,6 +31,12 @@
 # SINGLE SOURCE OF TRUTH:
 # Volatile extension list: build/npm/dirs.js (volatileExtensions array)
 # This script reads from that file - never modify the list here!
+#
+# NODE.JS VERSION:
+# Extension caches do NOT include Node.js version in keys (unlike npm-core).
+# Why? They already invalidate on ANY source code change (git tree hash),
+# so stale node-gyp artifacts are automatically cleared. npm-core needs explicit
+# Node.js version protection because it only invalidates on package-lock changes.
 #
 # USAGE:
 # ./generate-extensions-hash.sh [--filter volatile|stable]
