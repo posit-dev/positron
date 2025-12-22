@@ -173,7 +173,7 @@ jobs:
           #   both hit OR both miss      → filter='' (install all or skip via parent condition)
           POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
-          timeout_minutes: 45
+          timeout_minutes: 60
           max_attempts: 3
           retry_wait_seconds: 5
           shell: bash
