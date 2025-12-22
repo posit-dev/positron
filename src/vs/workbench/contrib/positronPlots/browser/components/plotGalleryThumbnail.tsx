@@ -12,6 +12,7 @@ import React, { PropsWithChildren, useMemo, useRef } from 'react';
 // Other dependencies.
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { localize } from '../../../../../nls.js';
 
 /**
  * PlotGalleryThumbnailProps interface.
@@ -22,6 +23,8 @@ interface PlotGalleryThumbnailProps {
 	focusPreviousPlotThumbnail: (currentPlotId: string) => void;
 	focusNextPlotThumbnail: (currentPlotId: string) => void;
 }
+
+const removePlotTitle = localize('positronRemovePlot', "Remove plot");
 
 /**
  * PlotGalleryThumbnail component. This component renders a thumbnail of a plot
@@ -99,6 +102,7 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 				ref={plotRemoveButtonRef}
 				className='plot-close codicon codicon-close'
 				tabIndex={props.selected ? 0 : -1}
+				title={removePlotTitle}
 				onClick={removePlot}
 			>
 			</button>
