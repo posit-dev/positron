@@ -38,6 +38,32 @@ export interface IntrinsicSize {
 }
 
 /**
+ * The plot's metadata
+ */
+export interface PlotMetadata {
+	/**
+	 * A human-readable name for the plot
+	 */
+	name: string;
+
+	/**
+	 * The kind of plot e.g. 'Matplotlib', 'ggplot2', etc.
+	 */
+	kind: string;
+
+	/**
+	 * The ID of the code fragment that produced the plot
+	 */
+	execution_id: string;
+
+	/**
+	 * The code fragment that produced the plot
+	 */
+	code: string;
+
+}
+
+/**
  * A rendered plot
  */
 export interface PlotResult {
@@ -169,6 +195,7 @@ export enum PlotFrontendEvent {
 
 export enum PlotBackendRequest {
 	GetIntrinsicSize = 'get_intrinsic_size',
+	GetMetadata = 'get_metadata',
 	Render = 'render'
 }
 
@@ -193,6 +220,18 @@ export class PositronPlotComm extends PositronBaseComm {
 	 */
 	getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
 		return super.performRpc('get_intrinsic_size', [], []);
+	}
+
+	/**
+	 * Get metadata for the plot
+	 *
+	 * Get metadata for the plot
+	 *
+	 *
+	 * @returns The plot's metadata
+	 */
+	getMetadata(): Promise<PlotMetadata> {
+		return super.performRpc('get_metadata', [], []);
 	}
 
 	/**

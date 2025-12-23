@@ -12,6 +12,7 @@ import { PreviewHtml } from '../../positronPreview/browser/previewHtml.js';
 import { WebviewExtensionDescription } from '../../webview/browser/webview.js';
 import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { localize } from '../../../../nls.js';
 
 /**
  * A Positron plot instance that contains content from an HTML file.
@@ -31,19 +32,24 @@ export class HtmlPlotClient extends WebviewPlotClient {
 	 * @param _positronPreviewService The preview service.
 	 * @param _session The runtime session that emitted the output.
 	 * @param _event The event that triggered the preview.
+	 * @param executionId The ID of the execution that generated this HTML (if known).
+	 * @param code The code that generated this HTML (if known).
 	 */
 	constructor(
 		private readonly _positronPreviewService: IPositronPreviewService,
 		private readonly _openerService: IOpenerService,
 		private readonly _session: ILanguageRuntimeSession,
-		private readonly _event: IShowHtmlUriEvent) {
+		private readonly _event: IShowHtmlUriEvent,
+		executionId?: string,
+		code?: string) {
 		// Create the metadata for the plot.
 		super({
 			id: `plot-${HtmlPlotClient._nextId++}`,
-			parent_id: '',
+			execution_id: executionId ?? '',
 			created: Date.now(),
 			session_id: _session.sessionId,
-			code: '',
+			name: localize('positronPlots.htmlPlotClient.defaultName', "interactive {0}", HtmlPlotClient._nextId),
+			code: code ?? '',
 		});
 	}
 

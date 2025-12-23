@@ -28,6 +28,7 @@ import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PlotCodeMenuButton } from './plotCodeMenuButton.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -92,6 +93,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableEditorPlot = hasPlots
 		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
+
+	// Enable code actions when the plot has code metadata
+	const enableCodeActions = hasPlots && !!selectedPlot?.metadata.code;
 
 	// Only show the "Open in editor" button when in the main window
 	const showOpenInEditorButton = enableEditorPlot
@@ -208,6 +212,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								defaultGroup={services.positronPlotsService.getPreferredEditorGroup()}
 								tooltip={openInEditorTab}
 							/>
+						}
+						{enableCodeActions &&
+							<PlotCodeMenuButton plotClient={selectedPlot} />
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

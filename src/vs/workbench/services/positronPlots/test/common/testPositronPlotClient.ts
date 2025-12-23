@@ -23,7 +23,6 @@ export class TestPositronPlotClient extends Disposable implements IPositronPlotC
 			id: generateUuid(),
 			session_id: 'test-session',
 			created: Date.now(),
-			parent_id: '',
 			code: 'test code',
 			zoom_level: ZoomLevel.Fit,
 		}

@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Protocol
 
 from .plot_comm import (
     GetIntrinsicSizeRequest,
+    GetMetadataRequest,
     IntrinsicSize,
     PlotBackendMessageContent,
     PlotFrontendEvent,
+    PlotMetadata,
     PlotResult,
     PlotSize,
     PlotUnit,
@@ -50,6 +52,14 @@ class Plot:
         A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
     intrinsic_size
         The intrinsic size of the plot in inches.
+    kind
+        The kind of plot, e.g., 'Matplotlib', 'Seaborn', 'plotnine'.
+    execution_id
+        The ID of the execute_request that produced the plot.
+    code
+        The code fragment that produced the plot.
+    figure_num
+        The matplotlib figure number, used for generating plot names.
     """
 
     def __init__(
@@ -57,10 +67,18 @@ class Plot:
         comm: PositronComm,
         render: Renderer,
         intrinsic_size: tuple[int, int],
+        kind: str,
+        execution_id: str,
+        code: str,
+        figure_num: int | str,
     ) -> None:
         self._comm = comm
         self._render = render
         self._intrinsic_size = intrinsic_size
+        self._kind = kind
+        self._execution_id = execution_id
+        self._code = code
+        self._figure_num = figure_num
 
         self._closed = False
 
@@ -115,6 +133,8 @@ class Plot:
             )
         elif isinstance(request, GetIntrinsicSizeRequest):
             self._handle_get_intrinsic_size()
+        elif isinstance(request, GetMetadataRequest):
+            self._handle_get_metadata()
         else:
             logger.warning(f"Unhandled request: {request}")
 
@@ -137,8 +157,19 @@ class Plot:
                 width=self._intrinsic_size[0],
                 height=self._intrinsic_size[1],
                 unit=PlotUnit.Inches,
-                source="Matplotlib",
+                source=self._kind,
             ).dict()
+        self._comm.send_result(data=result)
+
+    def _handle_get_metadata(self) -> None:
+        # Generate a short but meaningful name for the plot
+        name = f"{self._kind} {self._figure_num}"
+        result = PlotMetadata(
+            name=name,
+            kind=self._kind,
+            execution_id=self._execution_id,
+            code=self._code,
+        ).dict()
         self._comm.send_result(data=result)
 
     def _handle_close(self, _msg: JsonRecord) -> None:
@@ -169,7 +200,15 @@ class PlotsService:
 
         self._plots: list[Plot] = []
 
-    def create_plot(self, render: Renderer, intrinsic_size: tuple[int, int]) -> Plot:
+    def create_plot(
+        self,
+        render: Renderer,
+        intrinsic_size: tuple[int, int],
+        kind: str,
+        execution_id: str,
+        code: str,
+        figure_num: int | str,
+    ) -> Plot:
         """
         Create a plot.
 
@@ -179,6 +218,14 @@ class PlotsService:
             A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
         intrinsic_size
             The intrinsic size of the plot in inches.
+        kind
+            The kind of plot, e.g., 'Matplotlib', 'Seaborn', 'plotnine'.
+        execution_id
+            The ID of the execute_request that produced the plot.
+        code
+            The code fragment that produced the plot.
+        figure_num
+            The matplotlib figure number, used for generating plot names.
 
         See Also
         --------
@@ -187,7 +234,7 @@ class PlotsService:
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
         plot_comm = PositronComm.create(self._target_name, comm_id)
-        plot = Plot(plot_comm, render, intrinsic_size)
+        plot = Plot(plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num)
         self._plots.append(plot)
         return plot
 

@@ -292,6 +292,34 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setRuntimeAttached(!!runtime);
 		}));
 
+		// Add the onDidRequestRevealExecution event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidRequestRevealExecution((executionId) => {
+			// Find the element with the matching data-execution-id attribute.
+			const element = consoleInstanceRef.current.querySelector(
+				`[data-execution-id="${executionId}"]`
+			);
+			if (!element) {
+				return;
+			}
+
+			// Find the activity-input element within this activity.
+			const activityInput = element.querySelector('.activity-input');
+			if (!activityInput) {
+				return;
+			}
+
+			// Scroll the element into view.
+			element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+			// Add the 'revealed' class to trigger the highlight animation.
+			activityInput.classList.add('revealed');
+
+			// Remove the 'revealed' class after the animation completes (2 seconds).
+			disposableTimeout(() => {
+				activityInput.classList.remove('revealed');
+			}, 2000, disposableStore);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, services.configurationService, services.positronPlotsService, services.runtimeSessionService, services.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);

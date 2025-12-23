@@ -37,7 +37,7 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 		// Create the metadata for the plot.
 		super({
 			id: _message.id,
-			parent_id: _message.parent_id,
+			execution_id: _message.parent_id,
 			created: Date.parse(_message.when),
 			session_id: _session.sessionId,
 			code: code ? code : '',

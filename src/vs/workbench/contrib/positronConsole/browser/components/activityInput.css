@@ -13,6 +13,7 @@
 	position: absolute;
 	top: 0;
 	left: -10px;
+	opacity: 0;
 }
 
 @keyframes positronActivityInput-fadeIn {
@@ -20,10 +21,23 @@
 	100% { opacity: 1; }
 }
 
+@keyframes positronActivityInput-revealFadeInOut {
+	0% { opacity: 0; }
+	15% { opacity: 1; }
+	85% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
 .activity-input.executing .progress-bar {
 	background-color: var(--vscode-positronConsole-ansiGreen);
 	opacity: 0;
 	animation: positronActivityInput-fadeIn 0.25s ease-in 0.25s 1 forwards;
+}
+
+.activity-input.revealed .progress-bar {
+	background-color: var(--vscode-focusBorder);
+	opacity: 0;
+	animation: positronActivityInput-revealFadeInOut 2s ease-in-out 1 forwards;
 }
 
 .activity-input .prompt {

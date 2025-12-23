@@ -14,6 +14,13 @@
 	flex-direction: row;
 }
 
+.plots-container .plot-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	overflow: hidden;
+}
+
 .plots-container.history-bottom {
 	flex-direction: column;
 }
@@ -39,7 +46,7 @@
 
 .history-right .plot-history-scroller {
 	border-left: 1px solid var(--vscode-statusBar-border);
-	width: 100px;
+	width: 110px;
 }
 
 .history-right .plot-history {
@@ -47,11 +54,11 @@
 	height: fit-content;
 	margin-top: 10px;
 	margin-bottom: 10px;
+	padding-bottom: 10px;
 }
 
 .history-right .plot-thumbnail {
 	margin-top: 5px;
-	margin-bottom: 5px;
 }
 
 /*
@@ -65,8 +72,8 @@
 
 .history-bottom .plot-history-scroller {
 	border-top: 1px solid var(--vscode-statusBar-border);
-	min-height: 100px;
-	height: 100px;
+	height: 110px;
+	min-width: 0;
 }
 
 .history-bottom .plot-history {
@@ -74,11 +81,11 @@
 	width: fit-content;
 	margin-right: 10px;
 	margin-left: 10px;
+	flex-shrink: 0;
 }
 
 .history-bottom .plot-thumbnail {
-	margin-left: 5px;
-	margin-right: 5px;
+	width: 100px;
 }
 
 .selected-plot {
@@ -89,18 +96,19 @@
 }
 
 .plot-thumbnail {
-	height: 80px;
-	width: 80px;
 	padding: 0;
 	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;
 }
 
-.plot-thumbnail button {
-	cursor: pointer;
-	overflow: hidden;
-	margin: 0;
-	padding: 0;
+.history-bottom .plot-thumbnail,
+.history-right .plot-thumbnail {
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+
+.plot-thumbnail-button{
+	border: 1px solid transparent;
 }
 
 .plot-thumbnail button:active img,
@@ -127,9 +135,8 @@
 	border: 1px dotted var(--vscode-editorWidget-border);
 }
 
-.plot-thumbnail.selected img {
-	border-radius: 3px;
-	border: 1px solid var(--vscode-editorWidget-border);
+.plot-thumbnail.selected .image-wrapper {
+	border: none;
 }
 
 /**
@@ -141,7 +148,7 @@
 }
 
 .plot-thumbnail:hover .plot-close {
-	opacity: 1;
+	opacity: 0.75;
 	transition: opacity 0.2s ease-in-out;
 }
 
@@ -157,8 +164,7 @@
 	position: relative;
 }
 
-.plot-instance .image-wrapper img,
-.plot-thumbnail .image-wrapper img {
+.plot-instance .image-wrapper img {
 	display: block;
 	max-width: 100%;
 	max-height: 100%;
@@ -167,6 +173,11 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
+}
+
+.plot-thumbnail .image-wrapper img {
+	max-width: 100%;
+	max-height: 100%;
 }
 
 .plot-instance {
@@ -187,11 +198,24 @@
 
 .plot-close {
 	position: absolute;
-	top: 0;
-	right: 0;
+	top: 3px;
+	right: 3px;
 	padding: 2px;
 	cursor: pointer;
 	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
+	border: 1px solid;
+	border-radius: 3px;
+}
+
+.plot-history .plot-thumbnail .plot-close {
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+	border-color: var(--vscode-button-border);
+}
+
+.plot-history .plot-thumbnail .plot-close:hover {
+	opacity: 1;
 }
 
 .monaco-pane-view .pane .plots-container .monaco-progress-container {

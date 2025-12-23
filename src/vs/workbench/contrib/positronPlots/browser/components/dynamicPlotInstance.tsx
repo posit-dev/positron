@@ -46,6 +46,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
+	const plotName = props.plotClient.metadata.name ? props.plotClient.metadata.name : 'Plot ' + props.plotClient.id;
 
 	useEffect(() => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
@@ -176,9 +177,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// Render method for the plot image.
 	const renderedImage = () => {
 		return <PanZoomImage
-			description={props.plotClient.metadata.code ?
-				props.plotClient.metadata.code :
-				'Plot ' + props.plotClient.id}
+			description={plotName}
 			height={props.height}
 			imageUri={uri}
 			width={props.width}

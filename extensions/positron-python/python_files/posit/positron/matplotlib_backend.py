@@ -19,7 +19,8 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
-from typing import TYPE_CHECKING, cast
+import sys
+from typing import TYPE_CHECKING, Any, cast
 
 import matplotlib
 from matplotlib.backend_bases import FigureManagerBase
@@ -36,6 +37,26 @@ logger = logging.getLogger(__name__)
 # Enable interactive mode (i.e. redraw after every plotting command).
 # This is expected to run when the backend is selected. See the note at the top of the file.
 matplotlib.interactive(True)  # noqa: FBT003
+
+
+def _detect_plotting_library() -> str:
+    """
+    Detect the most likely high-level plotting library in use.
+
+    Checks sys.modules for known plotting libraries that build on matplotlib,
+    returning the most specific library name found.
+    """
+    # Check for high-level libraries that build on matplotlib
+    # Order matters - check more specific libraries first
+    # Note: We don't include pandas here because pandas.plotting is auto-loaded
+    # when pandas is imported, even if not used for plotting.
+    library_priority = ["seaborn", "plotnine"]
+
+    for module_name in library_priority:
+        if module_name in sys.modules:
+            return module_name
+
+    return "matplotlib"
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -62,9 +83,23 @@ class FigureManagerPositron(FigureManagerBase):
 
         super().__init__(canvas, num)
 
+        kernel = cast("PositronIPyKernel", PositronIPyKernel.instance())
+
+        # Get the execution context from the current shell message
+        parent = kernel.get_parent("shell")
+        header: dict[str, Any] = cast("dict[str, Any]", parent.get("header", {}))
+        content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
+        execution_id: str = header.get("msg_id", "")
+        code: str = content.get("code", "")
+
+        # Detect which plotting library was used
+        kind = _detect_plotting_library()
+
         # Create the plot instance via the plots service.
-        self._plots_service = cast("PositronIPyKernel", PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size)
+        self._plots_service = kernel.plots_service
+        self._plot = self._plots_service.create_plot(
+            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num
+        )
 
     @property
     def closed(self) -> bool:

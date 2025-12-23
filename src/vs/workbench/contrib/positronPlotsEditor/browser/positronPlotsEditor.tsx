@@ -147,7 +147,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 		await super.setInput(input, options, context, token);
 
-		input.setName(this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
+		input.setName(this._plotClient.metadata.name ?? this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 
 		if (isZoomablePlotClient(this._plotClient)) {
 			this._register(this._plotClient.onDidChangeZoomLevel((zoomLevel: ZoomLevel) => {

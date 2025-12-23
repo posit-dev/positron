@@ -34,6 +34,7 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	const [width, setWidth] = useState<number>(1);
 	const [height, setHeight] = useState<number>(1);
 	const resizeObserver = useRef<ResizeObserver>(null!);
+	const plotName = props.plotClient.metadata.name ? props.plotClient.metadata.name : 'Plot ' + props.plotClient.id;
 
 	useEffect(() => {
 		resizeObserver.current = new ResizeObserver((entries: ResizeObserverEntry[]) => {
@@ -55,7 +56,7 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	return (
 		<div ref={ref} className='plot-instance static-plot-instance'>
 			<PanZoomImage
-				description={props.plotClient.code ? props.plotClient.code : 'Plot ' + props.plotClient.id}
+				description={plotName}
 				height={height}
 				imageUri={props.plotClient.uri}
 				width={width}
