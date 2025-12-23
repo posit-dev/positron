@@ -172,6 +172,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		this.onDidCompleteStartup = this._startupEmitter.event;
 		this.onDidEncounterStartupFailure = this._startupFailureEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
+		this.onDidUpdateResourceUsage = this._onDidUpdateResourceUsageEmitter.event;
 
 		// Listen to state changes and track the current state
 		this._register(this.onDidChangeRuntimeState((state) => {
@@ -377,6 +378,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	emitExit(exit: ILanguageRuntimeExit): void {
 		this._exitEmitter.fire(exit);
+	}
+
+	emitResourceUsage(usage: ILanguageRuntimeResourceUsage): void {
+		this._onDidUpdateResourceUsageEmitter.fire(usage);
 	}
 
 	/**
@@ -1531,6 +1536,10 @@ export class MainThreadLanguageRuntime
 
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void {
 		this.findSession(sessionId).emitExit(exit);
+	}
+
+	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void {
+		this.findSession(sessionId).emitResourceUsage(usage);
 	}
 
 	// Called by the extension host to register a language runtime
