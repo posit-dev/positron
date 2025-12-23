@@ -213,7 +213,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.14.1",
+			"version": "2025.18.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -229,7 +229,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.27.7",
+			"version": "1.27.9",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
