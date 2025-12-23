@@ -146,4 +146,12 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * The onDidChangeFileHasHeaderRow event.
 	 */
 	readonly onDidChangeFileHasHeaderRow: Event<boolean>;
+
+	/**
+	 * Sets the visibility state of the data explorer.
+	 * When not visible, expensive operations like data fetching and profile computation
+	 * are deferred until the explorer becomes visible again.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	setVisible(visible: boolean): void;
 }

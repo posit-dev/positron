@@ -164,7 +164,8 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Create the table data data grid instance.
 		this._register(this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._dataExplorerClientInstance,
-			this._tableDataCache
+			this._tableDataCache,
+			this._tableSummaryCache
 		));
 		// Add the onDidClose event handler.
 		this._register(this._dataExplorerClientInstance.onDidClose(() => {
@@ -482,6 +483,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 				)
 			);
 		}
+	}
+
+	/**
+	 * Sets the visibility state of the data explorer.
+	 * When not visible, expensive operations are deferred until visible again.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	setVisible(visible: boolean): void {
+		// Propagate visibility to both data grid instances.
+		this._tableSchemaDataGridInstance.setVisible(visible);
+		this._tableDataDataGridInstance.setVisible(visible);
 	}
 
 	/**

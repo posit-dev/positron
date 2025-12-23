@@ -22,6 +22,7 @@ import { CustomContextMenuSeparator } from '../../../browser/positronComponents/
 import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
+import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -65,6 +66,33 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
+	/**
+	 * Whether the data explorer is currently visible.
+	 * When not visible, expensive operations are deferred.
+	 */
+	private _visible = true;
+
+	/**
+	 * Whether a schema update is pending because we were not visible when it occurred.
+	 */
+	private _pendingSchemaUpdate = false;
+
+	/**
+	 * Whether a data update is pending because we were not visible when it occurred.
+	 */
+	private _pendingDataUpdate = false;
+
+	/**
+	 * Whether the initial data load has been completed.
+	 * Used to trigger initial load when first becoming visible.
+	 */
+	private _initialLoadComplete = false;
+
+	/**
+	 * Reference to the updateLayoutEntries function for use in setVisible().
+	 */
+	private _updateLayoutEntries!: (state?: BackendState) => Promise<void>;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -73,10 +101,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableDataCache The table data cache.
+	 * @param _tableSummaryCache The table summary cache.
 	 */
 	constructor(
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
+		private readonly _tableSummaryCache: TableSummaryCache,
 	) {
 		// Call the base class's constructor.
 		super({
@@ -114,7 +144,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		 * Updates the layout entries.
 		 * @param state The backend state, if known; otherwise, undefined.
 		 */
-		const updateLayoutEntries = async (state?: BackendState) => {
+		this._updateLayoutEntries = async (state?: BackendState) => {
 			// Get the backend state, if was not provided.
 			if (!state) {
 				state = await this._dataExplorerClientInstance.getBackendState();
@@ -178,43 +208,36 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Perform a soft reset.
-			this.softReset();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.All);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingSchemaUpdate = true;
+				return;
+			}
+			// Clear pending flags since we're doing the work now.
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.handleSchemaUpdate();
 		}));
 
 		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Update the layout entries.
-			await updateLayoutEntries();
-
-			// Update the cache.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Clear pending flag since we're doing the work now.
+			this._pendingDataUpdate = false;
+			await this.handleDataUpdate();
 		}));
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await updateLayoutEntries(state);
+			await this._updateLayoutEntries(state);
+			this.rebuildSortKeysFromCache();
 
-			// Clear column sort keys.
-			this._columnSortKeys.clear();
-
-			// Update the column sort keys from the state.
-			state.sort_keys.forEach((key, sortIndex) => {
-				this._columnSortKeys.set(
-					key.column_index,
-					new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
-				);
-			});
-
-			// Fetch data.
-			await this.fetchData(InvalidateCacheFlags.Data);
+			// DISABLED: Fetching data here causes double-fetching in some scenarios.
+			// await this.fetchData(InvalidateCacheFlags.Data);
 		}));
 
 		// Add the table data cache onDidUpdate event handler.
@@ -304,18 +327,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Get the first column layout entry and the first row layout entry. If they were found,
-		// update the cache.
+		// Update the cache with the visible data range, or invalidate with empty arrays
+		// if there's no visible data (e.g., zero rows after filtering).
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
-			});
-		}
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			columnIndices: columnDescriptor && rowDescriptor
+				? this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR)
+				: [],
+			rowIndices: columnDescriptor && rowDescriptor
+				? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				: []
+		});
 	}
 
 	/**
@@ -841,18 +865,31 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Get the first column layout entry and the first row layout entry. If they were found,
-		// update the cache.
+		// Update layout entries to reflect the new row count after filtering.
+		// Note: The onDidUpdateBackendState handler also does this, but since the
+		// handler runs asynchronously we need to ensure it's done before we proceed.
+		await this._updateLayoutEntries();
+
+		// Update the data cache with the visible data range, or invalidate with empty arrays
+		// if there's no visible data (e.g., zero rows after filtering).
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
-			});
-		}
+		const columnIndices = columnDescriptor && rowDescriptor
+			? this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR)
+			: [];
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			columnIndices,
+			rowIndices: columnDescriptor && rowDescriptor
+				? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				: []
+		});
+
+		// Update the summary cache to refresh column profiles after filtering.
+		await this._tableSummaryCache.update({
+			invalidateCache: true,
+			columnIndices
+		});
 	}
 
 	/**
@@ -860,6 +897,83 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
 		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Sets the visibility state.
+	 * When becoming visible with pending updates, triggers deferred refresh operations.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	async setVisible(visible: boolean): Promise<void> {
+		const wasHidden = !this._visible;
+		this._visible = visible;
+
+		if (!visible) {
+			return;
+		}
+
+		// Initial load: first time becoming visible, no data loaded yet.
+		if (!this._initialLoadComplete) {
+			this._initialLoadComplete = true;
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this._updateLayoutEntries();
+			this.rebuildSortKeysFromCache();
+			await this.fetchData(InvalidateCacheFlags.All);
+			return;
+		}
+
+		// Deferred updates: becoming visible after being hidden with pending updates.
+		// Schema updates take precedence since they're more comprehensive.
+		if (wasHidden) {
+			if (this._pendingSchemaUpdate) {
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+				await this.handleSchemaUpdate();
+			} else if (this._pendingDataUpdate) {
+				this._pendingDataUpdate = false;
+				await this.handleDataUpdate();
+			}
+		}
+	}
+
+	/**
+	 * Handles a schema update from the backend.
+	 */
+	private async handleSchemaUpdate(): Promise<void> {
+		await this._updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
+		this.softReset();
+		await this.fetchData(InvalidateCacheFlags.All);
+	}
+
+	/**
+	 * Handles a data update from the backend.
+	 */
+	private async handleDataUpdate(): Promise<void> {
+		await this._updateLayoutEntries();
+		this.rebuildSortKeysFromCache();
+		await this.fetchData(InvalidateCacheFlags.Data);
+	}
+
+	/**
+	 * Rebuilds the column sort keys from the cached backend state.
+	 * Called after schema/data updates to sync sort keys with backend state.
+	 */
+	private rebuildSortKeysFromCache(): void {
+		const state = this._dataExplorerClientInstance.cachedBackendState;
+		if (!state) {
+			return;
+		}
+
+		// Clear and rebuild column sort keys from the cached state.
+		this._columnSortKeys.clear();
+		state.sort_keys.forEach((key, sortIndex) => {
+			this._columnSortKeys.set(
+				key.column_index,
+				new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+			);
+		});
 	}
 
 	/**
