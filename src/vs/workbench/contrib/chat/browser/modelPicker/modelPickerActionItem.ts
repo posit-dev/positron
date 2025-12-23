@@ -104,6 +104,15 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					run: () => { /* separator - no action */ }
 				} satisfies IActionWidgetDropdownAction);				// Add all models for this vendor
 				for (const model of vendorModels) {
+					// Check if this model is marked as the default for its provider
+					const isDefault = model.metadata.isDefault;
+					// Add "(default)" suffix to label if this is the default model
+					const label = isDefault ? `${model.metadata.name} (default)` : model.metadata.name;
+					// Add "(default)" to tooltip if this is the default model
+					const tooltip = isDefault
+						? localize('chat.defaultModel', "{0} (default)", model.metadata.tooltip ?? model.metadata.name)
+						: (model.metadata.tooltip ?? model.metadata.name);
+
 					actions.push({
 						id: model.metadata.id,
 						enabled: true,
@@ -112,8 +121,8 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 						category: { label: `vendor_${vendor}`, order: vendorOrder * 1000 },
 						class: undefined,
 						description: model.metadata.detail,
-						tooltip: model.metadata.tooltip ?? model.metadata.name,
-						label: model.metadata.name,
+						tooltip: tooltip,
+						label: label,
 						run: () => {
 							const previousModel = delegate.getCurrentModel();
 							telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
