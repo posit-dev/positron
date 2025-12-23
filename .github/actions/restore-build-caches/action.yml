@@ -274,3 +274,12 @@ runs:
         CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
         CACHE_PLAYWRIGHT_PARTIAL: ${{ steps.detect-partials.outputs.playwright-partial }}
       run: .github/cache-scripts/log-cache-status.sh restore
+
+    - name: Clean compiled output (force fresh compilation)
+      shell: bash
+      run: |
+        echo "Removing cached compiled output to prevent stale state..."
+        find extensions -maxdepth 2 -name "out" -type d -exec rm -rf {} + 2>/dev/null || true
+        find extensions -maxdepth 2 -name "dist" -type d -exec rm -rf {} + 2>/dev/null || true
+        find extensions -maxdepth 2 -name ".build" -type d -exec rm -rf {} + 2>/dev/null || true
+        echo "✓ Cleanup complete - fresh compilation will be forced"
