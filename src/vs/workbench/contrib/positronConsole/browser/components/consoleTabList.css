@@ -21,8 +21,7 @@
 	border-left: 1px solid transparent;
 	color: var(--vscode-foreground);
 	cursor: pointer;
-	height: 22px;
-	padding: 0 10px;
+	padding: 4px 10px;
 	width: 100%;
 	text-align: left;
 	white-space: nowrap;
@@ -32,7 +31,14 @@
 	/* Use this property to take padding into account when sizing (prevents overflow) */
 	box-sizing: border-box;
 	display: flex;
+	flex-direction: column;
+}
+
+.tabs-container .tab-button .tab-header {
+	display: flex;
 	align-items: center;
+	height: 22px;
+	width: 100%;
 }
 
 .tabs-container .tab-button:hover {
@@ -109,4 +115,42 @@
 	height: 15px;
 	width: 15px;
 	vertical-align: text-bottom;
+}
+
+/* Resource usage section */
+.tabs-container .tab-button .resource-usage-section {
+	width: 100%;
+	margin-top: 4px;
+}
+
+/* Resource usage graph */
+.tabs-container .tab-button .resource-usage-graph {
+	display: block;
+}
+
+.tabs-container .tab-button .resource-usage-line {
+	fill: none;
+	stroke: var(--vscode-charts-lines, var(--vscode-foreground));
+	stroke-width: 1.5;
+}
+
+.tabs-container .tab-button .resource-usage-fill {
+	fill: var(--vscode-charts-lines, var(--vscode-foreground));
+	opacity: 0.2;
+}
+
+/* Resource usage stats */
+.tabs-container .tab-button .resource-usage-stats {
+	display: flex;
+	justify-content: space-between;
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+.tabs-container .tab-button .resource-usage-cpu,
+.tabs-container .tab-button .resource-usage-memory {
+	white-space: nowrap;
 }

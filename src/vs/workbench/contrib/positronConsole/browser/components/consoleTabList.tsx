@@ -20,9 +20,11 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeResourceUsage, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { basename } from '../../../../../base/common/path.js';
 import { RuntimeIcon } from './runtimeIcon.js';
+import { ResourceUsageGraph } from './resourceUsageGraph.js';
+import { ResourceUsageStats } from './resourceUsageStats.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -30,6 +32,17 @@ import { RuntimeIcon } from './runtimeIcon.js';
  * session name (truncated), and the delete button.
  */
 const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
+
+/**
+ * The maximum number of resource usage data points to keep in history.
+ * At typical 1 sample/sec, this represents 60 seconds of data.
+ */
+const MAX_RESOURCE_USAGE_HISTORY = 60;
+
+/**
+ * The height of the resource usage graph in pixels.
+ */
+const RESOURCE_GRAPH_HEIGHT = 32;
 
 interface ConsoleTabProps {
 	positronConsoleInstance: IPositronConsoleInstance;
@@ -62,6 +75,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
+	const [resourceUsageHistory, setResourceUsageHistory] = useState<ILanguageRuntimeResourceUsage[]>([]);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
@@ -102,7 +116,32 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 		// Return cleanup function to dispose of the store when effect cleans up.
 		return () => disposableStore.dispose();
-	}, [services.runtimeSessionService, positronConsoleInstance.sessionId])
+	}, [services.runtimeSessionService, positronConsoleInstance.sessionId]);
+
+	// Subscribe to resource usage updates
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+
+		// Get the active session for this console instance
+		const activeSession = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
+		if (activeSession) {
+			// Subscribe to resource usage events
+			disposableStore.add(
+				activeSession.session.onDidUpdateResourceUsage((usage) => {
+					setResourceUsageHistory(prev => {
+						// Add new data point and keep only the most recent entries
+						const updated = [...prev, usage];
+						if (updated.length > MAX_RESOURCE_USAGE_HISTORY) {
+							return updated.slice(-MAX_RESOURCE_USAGE_HISTORY);
+						}
+						return updated;
+					});
+				})
+			);
+		}
+
+		return () => disposableStore.dispose();
+	}, [services.runtimeSessionService, positronConsoleInstance.sessionId]);
 
 	/**
 	 * Handles the click event for the console tab.
@@ -365,6 +404,14 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 	};
 
+	// Get the latest resource usage data point for the stats display
+	const latestResourceUsage = resourceUsageHistory.length > 0
+		? resourceUsageHistory[resourceUsageHistory.length - 1]
+		: null;
+
+	// Calculate the graph width (tab width minus padding)
+	const graphWidth = Math.max(0, width - 20);
+
 	return (
 		<div
 			ref={tabRef}
@@ -378,41 +425,59 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onClick={handleClick}
 			onMouseDown={handleMouseDown}
 		>
-			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			<RuntimeIcon
-				base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
-				sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
-			/>
-			{isRenamingSession ? (
-				<input
-					ref={inputRef}
-					className='session-name-input'
-					type='text'
-					value={sessionName}
-					onBlur={handleRenameSubmit}
-					onChange={e => setSessionName(e.target.value)}
-					onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
-					onKeyDown={handleInputKeyDown}
-					onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
+			{/* Header row with session info */}
+			<div className='tab-header'>
+				<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+				<RuntimeIcon
+					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
+					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 				/>
-			) : (
-				<>
-					<p className='session-name'>{sessionName}</p>
-					{/* Show the delete button only if the width of the tab is greater than the minimum width */
-						width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
-						<button
-							className='delete-button'
-							data-testid='trash-session'
-							disabled={deleteDisabled}
-							onClick={handleDeleteClick}
-							onKeyDown={handleDeleteKeyDown}
-							onMouseDown={handleDeleteMouseDown}
-						>
-							<span className='codicon codicon-trash' />
-						</button>
-					}
-				</>
-			)}
+				{isRenamingSession ? (
+					<input
+						ref={inputRef}
+						className='session-name-input'
+						type='text'
+						value={sessionName}
+						onBlur={handleRenameSubmit}
+						onChange={e => setSessionName(e.target.value)}
+						onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
+						onKeyDown={handleInputKeyDown}
+						onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
+					/>
+				) : (
+					<>
+						<p className='session-name'>{sessionName}</p>
+						{/* Show the delete button only if the width of the tab is greater than the minimum width */
+							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
+							<button
+								className='delete-button'
+								data-testid='trash-session'
+								disabled={deleteDisabled}
+								onClick={handleDeleteClick}
+								onKeyDown={handleDeleteKeyDown}
+								onMouseDown={handleDeleteMouseDown}
+							>
+								<span className='codicon codicon-trash' />
+							</button>
+						}
+					</>
+				)}
+			</div>
+
+			{/* Resource usage section */}
+			<div className='resource-usage-section'>
+				<ResourceUsageGraph
+					data={resourceUsageHistory}
+					height={RESOURCE_GRAPH_HEIGHT}
+					width={graphWidth}
+				/>
+				{latestResourceUsage && (
+					<ResourceUsageStats
+						cpuPercent={latestResourceUsage.cpu_percent}
+						memoryBytes={latestResourceUsage.memory_bytes}
+					/>
+				)}
+			</div>
 		</div>
 	)
 }

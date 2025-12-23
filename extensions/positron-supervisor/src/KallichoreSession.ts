@@ -34,7 +34,7 @@ import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { SocketSession } from './ws/SocketSession';
-import { KernelOutputMessage, KernelResourceUsageMessage } from './ws/KernelMessage';
+import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { AdoptedSession } from './AdoptedSession';
@@ -1717,7 +1717,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._kernelChannel.append(output.output[1]);
 		} else if (data.hasOwnProperty('resourceUsage')) {
 			const resourceUsage = data.resourceUsage as positron.RuntimeResourceUsage;
-
+			this._resourceUsage.fire(resourceUsage);
 		} else if (data.hasOwnProperty('clientDisconnected')) {
 			// Log the disconnection and close the socket
 			this._kernelChannel.append(`Client disconnected: ${data.clientDisconnected}`);

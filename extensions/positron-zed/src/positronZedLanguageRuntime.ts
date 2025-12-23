@@ -133,6 +133,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
 	/**
+	 * The onDidUpdateResourceUsage event emitter.
+	 */
+	private readonly _onDidUpdateResourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+
+	/**
 	 * A history of executed commands
 	 */
 	private readonly _history: string[][] = [];
@@ -262,6 +267,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * An object that emits exit events.
 	 */
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
+
+	/**
+	 * An object that emits resource usage updates.
+	 */
+	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage> = this._onDidUpdateResourceUsage.event;
 
 	/** Information about the runtime that is only available after starting */
 	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
