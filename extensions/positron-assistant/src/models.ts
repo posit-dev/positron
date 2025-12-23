@@ -19,7 +19,7 @@ import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
@@ -128,11 +128,6 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	get providerName(): string {
 		return EchoLanguageModel.source.provider.displayName;
@@ -234,7 +229,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			isDefault: true,
 			isUserSelectable: true,
 		}, {
@@ -244,7 +239,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			isUserSelectable: true,
 		}];
 		this.modelListing = models;
@@ -301,11 +296,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	protected modelListing?: vscode.LanguageModelChatInformation[];
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	constructor(
 		protected readonly _config: ModelConfig,
@@ -661,7 +651,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				version: this.aiProvider(model.identifier).specificationVersion,
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
@@ -680,7 +670,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			version: aiModel.specificationVersion,
 			provider: this._config.provider,
 			providerName: this.providerName,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			defaultMaxInput: this._config.maxInputTokens,
 			defaultMaxOutput: this._config.maxOutputTokens
 		});
@@ -819,7 +809,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 				version: modelDef.identifier,
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: modelDef.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
@@ -845,7 +835,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 					version: model.id,
 					provider: this.provider,
 					providerName: this.providerName,
-					capabilities: this.capabilities,
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 					defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 				})
@@ -1447,7 +1437,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				version: '',
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: modelDef.maxInputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
 			})
@@ -1495,7 +1485,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 					version: '',
 					provider: this.provider,
 					providerName: this.providerName,
-					capabilities: this.capabilities,
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					defaultMaxInput: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
 					defaultMaxOutput: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
 				});

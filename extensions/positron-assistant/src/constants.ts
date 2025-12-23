@@ -70,3 +70,20 @@ export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
  * Determines if the Posit Web environment is detected.
  */
 export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
+
+/**
+ * Extended capabilities interface for Positron language models.
+ * Extends the standard VSCode LanguageModelChatCapabilities with agentMode.
+ */
+export interface PositronLanguageModelCapabilities extends vscode.LanguageModelChatCapabilities {
+	readonly agentMode?: boolean;
+}
+
+/**
+ * Default capabilities for language models supporting image input, tool calling, and agent mode.
+ */
+export const DEFAULT_MODEL_CAPABILITIES: PositronLanguageModelCapabilities = {
+	imageInput: true,
+	toolCalling: true,
+	agentMode: true,
+} as const;
