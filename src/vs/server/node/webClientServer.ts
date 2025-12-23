@@ -413,6 +413,12 @@ export class WebClientServer {
 			proxyEndpointTemplate: base + `/p/{{port}}/${process.env.RS_PORT_TOKEN}`,
 			extensionsGallery: this._productService.extensionsGallery,
 			// --- End PWB ---
+			// --- Start Positron ---
+			// Pass the rules for trusted extension auth access (allows Positron
+			// Assistant and Copilot Chat to work with Github authenticaiton out
+			// of the box)
+			trustedExtensionAuthAccess: this._productService.trustedExtensionAuthAccess,
+			// --- End Positron ---
 		} satisfies Partial<IProductConfiguration>;
 
 		const proposedApi = this._environmentService.args['enable-proposed-api'];

@@ -15,6 +15,10 @@ import { ISecretStorageService } from '../../../../../platform/secrets/common/se
 import { AuthenticationSessionInfo, getCurrentAuthenticationSessionInfo } from '../../../../services/authentication/browser/authenticationService.js';
 import { IAuthenticationProvider, IAuthenticationService } from '../../../../services/authentication/common/authentication.js';
 
+// --- Start Positron ---
+import { INTERNAL_AUTH_PROVIDER_PREFIX } from '../../../../services/authentication/common/authentication.js';
+// --- End Positron ---
+
 export class ManageAccountsAction extends Action2 {
 	constructor() {
 		super({
@@ -73,6 +77,12 @@ class ManageAccountsActionImpl {
 		for (const providerId of this.authenticationService.getProviderIds()) {
 			const provider = this.authenticationService.getProvider(providerId);
 			for (const { label, id } of await this.authenticationService.getAccounts(providerId)) {
+				// --- Start Positron ---
+				// Don't show internal auth providers in the manage accounts UI
+				if (id.startsWith(INTERNAL_AUTH_PROVIDER_PREFIX)) {
+					continue;
+				}
+				// --- End Positron ---
 				accounts.push({
 					label,
 					description: provider.label,

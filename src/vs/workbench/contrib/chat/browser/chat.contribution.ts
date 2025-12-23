@@ -783,7 +783,12 @@ configurationRegistry.registerConfiguration({
 		'chat.extensionUnification.enabled': {
 			type: 'boolean',
 			description: nls.localize('chat.extensionUnification.enabled', "Enables the unification of GitHub Copilot extensions. When enabled, all GitHub Copilot functionality is served from the GitHub Copilot Chat extension. When disabled, the GitHub Copilot and GitHub Copilot Chat extensions operate independently."),
-			default: false,
+			// --- Start Positron ---
+			// default: false,
+			// The Github Copilot extension is closed source and doesn't exist
+			// in Positron, so we always enable unification.
+			default: true,
+			// --- End Positron ---
 			tags: ['experimental'],
 			experiment: {
 				mode: 'auto'

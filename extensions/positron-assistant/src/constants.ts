@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import { DocumentSelector } from 'vscode-languageclient';
 import * as vscode from 'vscode';
 
 /** The extension root directory. */
@@ -14,7 +13,7 @@ export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 export const MARKDOWN_DIR = path.join(EXTENSION_ROOT_DIR, 'src', 'md');
 
 /** Selects all documents. */
-export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];
+export const ALL_DOCUMENTS_SELECTOR = [{ scheme: '*' }];
 
 /** The default max token input if a model's maximum is unknown */
 export const DEFAULT_MAX_TOKEN_INPUT = 100_000;
