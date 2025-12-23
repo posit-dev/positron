@@ -249,7 +249,7 @@ jobs:
 
       - name: Restore Python packages cache
         id: cache-python
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -265,7 +265,7 @@ jobs:
       - name: Save Python packages cache
         if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -305,7 +305,7 @@ jobs:
 
       - name: Restore R packages cache
         id: cache-r
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -322,7 +322,7 @@ jobs:
       - name: Save R packages cache
         if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~\AppData\Local\R\cache
