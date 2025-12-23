@@ -67,6 +67,65 @@ from .utils import json_rpc_request, json_rpc_response
 TARGET_NAME = "positron.connections"
 
 
+SQLSERVER_ENDPOINT = os.environ.get("SQLSERVER_ENDPOINT")
+SQLSERVER_PASSWORD = os.environ.get("SQLSERVER_PASSWORD")
+SQLSERVER_USERNAME = os.environ.get("SQLSERVER_USERNAME")
+SQLSERVER_DATABASE = os.environ.get("SQLSERVER_DATABASE")
+SQLSERVER_ODBC_DRIVER = os.environ.get("SQLSERVER_ODBC_DRIVER", "ODBC Driver 18 for SQL Server")
+
+try:
+    import pyodbc
+
+    HAS_SQLSERVER_PYODBC = SQLSERVER_ENDPOINT is not None and SQLSERVER_PASSWORD is not None
+except ImportError:
+    pyodbc = None  # type: ignore[assignment]
+    HAS_SQLSERVER_PYODBC = False
+
+try:
+    import pymssql
+
+    HAS_SQLSERVER_PYMSSQL = SQLSERVER_ENDPOINT is not None and SQLSERVER_PASSWORD is not None
+except ImportError:
+    pymssql = None  # type: ignore[assignment]
+    HAS_SQLSERVER_PYMSSQL = False
+
+
+def get_sqlserver_pyodbc_connection():
+    if not HAS_SQLSERVER_PYODBC:
+        pytest.skip("SQL Server pyodbc connection not available")
+
+    assert pyodbc is not None
+    if SQLSERVER_ENDPOINT is None or SQLSERVER_PASSWORD is None:
+        pytest.skip("SQL Server endpoint/password not configured")
+    conn_str = (
+        f"DRIVER={{{SQLSERVER_ODBC_DRIVER}}};"
+        f"SERVER={SQLSERVER_ENDPOINT};"
+        f"DATABASE={SQLSERVER_DATABASE};"
+        f"UID={SQLSERVER_USERNAME};"
+        f"PWD={SQLSERVER_PASSWORD};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
+    )
+    return pyodbc.connect(conn_str)
+
+
+def get_sqlserver_pymssql_connection():
+    if not HAS_SQLSERVER_PYMSSQL:
+        pytest.skip("SQL Server pymssql connection not available")
+
+    assert pymssql is not None
+    if SQLSERVER_ENDPOINT is None or SQLSERVER_PASSWORD is None:
+        pytest.skip("SQL Server endpoint/password not configured")
+    kwargs = {
+        "server": SQLSERVER_ENDPOINT,
+        "user": SQLSERVER_USERNAME,
+        "password": SQLSERVER_PASSWORD,
+        "database": SQLSERVER_DATABASE,
+    }
+
+    return pymssql.connect(**kwargs)
+
+
 def add_default_data(execute):
     execute("CREATE TABLE movie(title TEXT, year INTEGER, score NUMERIC)")
     execute("INSERT INTO movie VALUES('The Shawshank Redemption', 1994, 9.3)")
@@ -443,6 +502,7 @@ class TestGoogleBigQueryConnectionsService:
         msg = _make_msg(params={"path": path}, method="list_fields", comm_id=comm_id)
         dummy_comm.handle_msg(msg)
         result = dummy_comm.messages[0]["data"]["result"]
+        assert len(result) > 0
         field_names = [field["name"] for field in result]
         for expected_field in ["name", "gender", "state", "year", "number"]:
             assert expected_field in field_names
@@ -579,6 +639,135 @@ class TestDatabricksConnectionsService:
         connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
         result = dummy_comm.messages[0]["data"]["result"]
         assert result is None
+
+
+class _SQLServerConnectionsTestBase:
+    schema_name = "dbo"
+    table_name = "flights"
+
+    def _get_connection(self):
+        raise NotImplementedError
+
+    def _get_database_name(self, conn):
+        cursor = conn.cursor()
+        cursor.execute("SELECT DB_NAME()")
+        database_name = cursor.fetchone()[0]
+        cursor.close()
+        return database_name
+
+    def _resolve_path(self, database_name: str, kind: str):
+        if kind == "root":
+            return []
+        if kind == "database":
+            return [{"kind": "database", "name": database_name}]
+        if kind == "schema":
+            return [
+                {"kind": "database", "name": database_name},
+                {"kind": "schema", "name": self.schema_name},
+            ]
+        if kind == "table":
+            return [
+                {"kind": "database", "name": database_name},
+                {"kind": "schema", "name": self.schema_name},
+                {"kind": "table", "name": self.table_name},
+            ]
+        raise ValueError(f"Unknown path kind: {kind}")
+
+    def _open_comm(self, connections_service: ConnectionsService):
+        con = self._get_connection()
+        database_name = self._get_database_name(con)
+        comm_id = connections_service.register_connection(con)
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+        return dummy_comm, comm_id, database_name
+
+    def test_register_connection(self, connections_service: ConnectionsService):
+        con = self._get_connection()
+        comm_id = connections_service.register_connection(con)
+        assert comm_id in connections_service.comms
+
+    @pytest.mark.parametrize(
+        "path_kind",
+        ["root", "database", "schema", "table"],
+    )
+    def test_contains_data(self, connections_service: ConnectionsService, path_kind: str):
+        dummy_comm, comm_id, database_name = self._open_comm(connections_service)
+        path = self._resolve_path(database_name, path_kind)
+
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is (path_kind == "table")
+
+    @pytest.mark.parametrize(
+        ("path_kind", "expected"),
+        [
+            ("database", ""),
+            ("schema", ""),
+            ("table", ""),
+        ],
+    )
+    def test_get_icon(self, connections_service: ConnectionsService, path_kind: str, expected: str):
+        dummy_comm, comm_id, database_name = self._open_comm(connections_service)
+        path = self._resolve_path(database_name, path_kind)
+
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result == expected
+
+    @pytest.mark.parametrize("path_kind", ["root", "database", "schema"])
+    def test_list_objects(self, connections_service: ConnectionsService, path_kind: str):
+        dummy_comm, comm_id, database_name = self._open_comm(connections_service)
+        path = self._resolve_path(database_name, path_kind)
+
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        names = [item["name"] for item in result]
+        if path_kind == "root":
+            assert database_name in names
+        elif path_kind == "database":
+            assert self.schema_name in names
+        else:
+            assert self.table_name in names
+
+    def test_list_fields(self, connections_service: ConnectionsService):
+        dummy_comm, comm_id, database_name = self._open_comm(connections_service)
+        path = self._resolve_path(database_name, "table")
+
+        msg = _make_msg(params={"path": path}, method="list_fields", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert len(result) > 0
+        field_names = [field["name"] for field in result]
+        assert "air_time" in field_names
+        assert "carrier" in field_names
+        assert "distance" in field_names
+
+    def test_preview_object(self, connections_service: ConnectionsService):
+        pytest.importorskip("pandas", reason="pandas required for SQL Server preview")
+        dummy_comm, comm_id, database_name = self._open_comm(connections_service)
+        path = self._resolve_path(database_name, "table")
+
+        msg = _make_msg(params={"path": path}, method="preview_object", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is None
+
+
+@pytest.mark.skipif(not HAS_SQLSERVER_PYODBC, reason="SQL Server pyodbc connection not available")
+class TestSQLServerPyodbcConnectionsService(_SQLServerConnectionsTestBase):
+    def _get_connection(self):
+        return get_sqlserver_pyodbc_connection()
+
+
+@pytest.mark.skipif(not HAS_SQLSERVER_PYMSSQL, reason="SQL Server pymssql connection not available")
+class TestSQLServerPymssqlConnectionsService(_SQLServerConnectionsTestBase):
+    def _get_connection(self):
+        return get_sqlserver_pymssql_connection()
 
 
 @pytest.mark.skipif(not HAS_SNOWFLAKE, reason="Snowflake not available")

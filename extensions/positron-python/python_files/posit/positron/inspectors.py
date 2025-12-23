@@ -40,7 +40,7 @@ from typing import (
     cast,
 )
 
-from .third_party import _numpy, _pandas, _torch
+from .third_party import _numpy, _pandas, _pyodbc, _torch
 from .utils import (
     JsonData,
     get_qualname,
@@ -1260,6 +1260,31 @@ class RedshiftConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class SQLServerConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("pyodbc.Connection", "pymssql.Connection", "pymssql._pymssql.Connection")
+
+    def _is_active(self, value) -> bool:
+        # pyodbc can match multiple database, we only declare 'active', ie show the viewer
+        # icon if it's a SQL Server connection
+        if self.get_type_info() == "pyodbc.Connection":
+            # check this is a SQL Server connection
+            try:
+                dbms_name = value.getinfo(_pyodbc().SQL_DBMS_NAME).upper()
+                if all(x not in dbms_name for x in ("SQL SERVER", "AZURE SQL")):
+                    return False
+            except Exception:
+                # unable to get the driver name or pyodbc not installed
+                return False
+
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1303,6 +1328,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(DatabricksConnectionInspector.CLASS_QNAME, DatabricksConnectionInspector),
     **dict.fromkeys(BigQueryConnectionInspector.CLASS_QNAME, BigQueryConnectionInspector),
     **dict.fromkeys(RedshiftConnectionInspector.CLASS_QNAME, RedshiftConnectionInspector),
+    **dict.fromkeys(SQLServerConnectionInspector.CLASS_QNAME, SQLServerConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
