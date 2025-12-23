@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, getEnabledProviders, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -19,7 +19,7 @@ import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MAX_STEPS } from './constants.js';
 import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
@@ -29,7 +29,7 @@ import { PositronAssistantApi } from './api.js';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS, SNOWFLAKE_MANAGED_CREDENTIALS } from './pwb';
 import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
-import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, getSnowflakeConnectionsTomlPath, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
+import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
 
 /**
@@ -140,7 +140,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		const models = this.modelListing ?? (await this.resolveModels(token)) ?? [];
 
 		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
@@ -255,7 +255,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return applyModelFilters(models, this.provider, this.providerName);
 	}
 
-	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+	private getUserPrompt(messages: ai.ModelMessage[]): ai.ModelMessage | undefined {
 		if (messages.length === 0) {
 			return undefined;
 		}
@@ -296,7 +296,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly name;
 	public readonly provider;
 	public readonly id;
-	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	protected abstract aiProvider: (id: string, options?: Record<string, any>) => any;
 	protected aiOptions: Record<string, any> = {};
 
 	protected modelListing?: vscode.LanguageModelChatInformation[];
@@ -341,7 +342,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		const maxModelsToTest = getMaxConnectionAttempts();
-		const modelsToTest = models.slice(0, maxModelsToTest);
+		const modelsToTest = models
+			.filter(m => m.id.includes('free')) // try to find free models
+			.slice(0, maxModelsToTest);
+
+		if (modelsToTest.length === 0) {
+			modelsToTest.push(...models.slice(0, maxModelsToTest));
+		}
 
 		log.debug(`[${this.providerName}] Testing up to ${modelsToTest.length} models for connectivity...`);
 
@@ -371,7 +378,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} catch (error) {
 				const messagePrefix = `[${this.providerName}] '${model}'`;
 				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-				const errorMsg = await this.parseProviderError(error) ||
+				const errorMsg = (await this.parseProviderError(error)) ||
 					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
 				errors.push(errorMsg);
 			}
@@ -385,7 +392,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = this.modelListing ?? await this.resolveModels(token) ?? [];
+		const models = this.modelListing ?? (await this.resolveModels(token)) ?? [];
 		return this.filterModels(models);
 	}
 
@@ -407,10 +414,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		// Ensure all messages have content
 		const processedMessages = processMessages(messages);
-		// Only Anthropic currently supports experimental_content in tool
-		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
-			aiModel.modelId.includes('anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -418,7 +421,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
-			!aiModel.modelId.includes('anthropic.claude-3-5');
+			!model.id.includes('anthropic.claude-3-5');
 
 		// Add system prompt from `modelOptions.system`, if provided.
 		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
@@ -431,9 +434,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		// Convert all messages to the Vercel AI format.
-		const aiMessages: ai.CoreMessage[] = toAIMessage(
+		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent,
 			bedrockCacheBreakpoint
 		);
 
@@ -454,7 +456,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				}
 				acc[tool.name] = ai.tool({
 					description: tool.description,
-					parameters: ai.jsonSchema(input_schema),
+					inputSchema: ai.jsonSchema(input_schema),
 				});
 				return acc;
 			}, {});
@@ -463,7 +465,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		log.debug(`[${this.providerName}] [${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
 			log.trace(`[${this.providerName}] tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
@@ -479,10 +481,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
-			maxSteps: modelOptions.maxSteps ?? 50,
+			stopWhen: ai.stepCountIs(modelOptions.maxSteps ?? DEFAULT_MAX_STEPS),
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: getMaxTokens(aiModel.modelId, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
+			maxOutputTokens: getMaxTokens(model.id, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -500,28 +502,31 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				break;
 			}
 
-			if (part.type === 'reasoning') {
+			// Log ALL part types for debugging
+			log.debug(`[${this.providerName}] [${this._config.name}] RECV part type: ${part.type}`);
+
+			if (part.type === 'reasoning-delta') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.text}`);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'text-delta') {
-				accumulatedTextDeltas.push(part.textDelta);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				accumulatedTextDeltas.push(part.text);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.input)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
 			}
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
 				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
-				const errorMsg = await this.parseProviderError(part.error) ||
+				const errorMsg = (await this.parseProviderError(part.error)) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
 				throw new Error(`${messagePrefix} Error in chat response: ${errorMsg}`);
 			}
@@ -534,7 +539,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const warnings = await result.warnings;
 		if (warnings) {
 			for (const warning of warnings) {
-				log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
+				log.warn(`[${this.providerName}] [${model.id}] warn: ${warning}`);
 			}
 		}
 
@@ -542,8 +547,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const usage = await result.usage;
 		const metadata = await result.providerMetadata;
 		const tokens: TokenUsage = {
-			inputTokens: usage.promptTokens,
-			outputTokens: usage.completionTokens,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
 			cachedTokens: 0,
 			providerMetadata: metadata,
 		};
@@ -658,7 +663,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				id: model.identifier,
 				name: model.name,
 				family: this.provider,
-				version: this.aiProvider(model.identifier).specificationVersion,
+				version: 'v2',
 				provider: this.provider,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
@@ -672,12 +677,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	protected createDefaultModel(): vscode.LanguageModelChatInformation[] {
 		log.info(`[${this.providerName}] No models available; returning default model information.`);
-		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
 		const modelInfo = createModelInfo({
-			id: aiModel.modelId,
+			id: this._config.model,
 			name: this.name,
-			family: aiModel.provider,
-			version: aiModel.specificationVersion,
+			family: this._config.provider,
+			version: 'v2',
 			provider: this._config.provider,
 			providerName: this.providerName,
 			capabilities: this.capabilities,
@@ -779,7 +783,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.debug(`[${this.providerName}] Preparing language model chat information...`);
-		const models = await this.resolveModels(token) ?? [];
+		const models = (await this.resolveModels(token)) ?? [];
 
 		log.debug(`[${this.providerName}] Resolved ${models.length} models.`);
 		return this.filterModels(models);
@@ -928,6 +932,30 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 		},
 	};
 
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
+		this.updateAiProvider();
+	}
+
+	/**
+	 * Creates a wrapped OpenAI provider that uses the Chat Completions API
+	 * instead of the Responses API. Snowflake Cortex only supports v1/chat/completions.
+	 */
+	protected updateAiProvider(): void {
+		const baseProvider = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
+		});
+		// Create a callable wrapper that routes to .chat() for the default call
+		// This ensures Snowflake uses v1/chat/completions instead of v1/responses
+		const chatWrapper = ((modelId: string, options?: any) => baseProvider.chat(modelId)) as OpenAIProvider;
+		// Copy over any additional properties/methods from the base provider
+		Object.assign(chatWrapper, baseProvider);
+		// Override the callable to always use chat
+		this.aiProvider = chatWrapper;
+	}
+
 	override get providerName(): string {
 		return OpenAICompatibleLanguageModel.source.provider.displayName;
 	}
@@ -937,8 +965,7 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 	}
 }
 
-class SnowflakeLanguageModel extends OpenAILanguageModel {
-	protected aiProvider: OpenAIProvider;
+class SnowflakeLanguageModel extends OpenAICompatibleLanguageModel {
 	private lastConnectionsTomlCheck?: number; // Timestamp of last file check
 
 	static source: positron.ai.LanguageModelSource = {
@@ -982,12 +1009,8 @@ class SnowflakeLanguageModel extends OpenAILanguageModel {
 				this._config.baseUrl = result.credentials.baseUrl;
 			}
 
-			// Recreate the provider with updated credentials
-			this.aiProvider = createOpenAI({
-				apiKey: result.credentials.token,
-				baseURL: this.baseUrl,
-				fetch: createOpenAICompatibleFetch(this.providerName)
-			});
+			// Recreate the provider with updated credentials using Chat Completions API
+			this.updateAiProvider();
 
 			log.info(`[${this.providerName}] Refreshed credentials for account: ${result.credentials.account}`);
 		}
