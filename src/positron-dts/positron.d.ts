@@ -280,6 +280,36 @@ declare module 'positron' {
 	}
 
 	/**
+	 * RuntimeResourceUsage represents resource usage information for a language runtime.
+	 */
+	export interface RuntimeResourceUsage {
+		/**
+		 * CPU usage percentage for the kernel and its children.
+		 */
+		cpu_percent: number;
+
+		/**
+		 * Memory usage in bytes for the kernel and its children.
+		 */
+		memory_bytes: number;
+
+		/**
+		 * Number of threads used by the kernel and its children.
+		 */
+		thread_count: number;
+
+		/**
+		 * Sampling period in milliseconds for the resource usage data.
+		 */
+		sampling_period_ms: number;
+
+		/**
+		 * Timestamp of the resource usage data in milliseconds since epoch.
+		 */
+		timestamp: number;
+	}
+
+	/**
 	 * LanguageRuntimeClearOutput is a LanguageRuntimeMessage instructing the frontend to clear the
 	 * output of a runtime execution. */
 	export interface LanguageRuntimeClearOutput extends LanguageRuntimeMessage {
@@ -1112,6 +1142,9 @@ declare module 'positron' {
 
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
+
+		/** An object that emits an event when the runtime's resource usage is updated */
+		onDidUpdateResourceUsage: vscode.Event<RuntimeResourceUsage>;
 
 		/**
 		 * Opens a resource in the runtime.

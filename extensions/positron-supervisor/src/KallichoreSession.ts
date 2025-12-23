@@ -34,7 +34,7 @@ import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { SocketSession } from './ws/SocketSession';
-import { KernelOutputMessage } from './ws/KernelMessage';
+import { KernelOutputMessage, KernelResourceUsageMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { AdoptedSession } from './AdoptedSession';
@@ -90,6 +90,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** Emitter for runtime exit events */
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
+
+	/** Emitter for resource usage updates */
+	private readonly _resourceUsage: vscode.EventEmitter<positron.RuntimeResourceUsage>;
 
 	/** Emitter for disconnection events  */
 	readonly disconnected: vscode.EventEmitter<DisconnectedEvent>;
@@ -199,6 +202,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+		this._resourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
@@ -212,6 +216,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidChangeRuntimeState = this._state.event;
 
 		this.onDidEndSession = this._exit.event;
+
+		this.onDidUpdateResourceUsage = this._resourceUsage.event;
 
 		// Establish log channels for the console and kernel we're connecting to
 		this._consoleChannel = new LogOutputChannelFormatted(
@@ -677,6 +683,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
+
+	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>;
 
 	/**
 	 * Sends a Debug Adapter Protocol request to the runtime's debugger.
@@ -1707,6 +1715,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} else if (data.hasOwnProperty('output')) {
 			const output = data as KernelOutputMessage;
 			this._kernelChannel.append(output.output[1]);
+		} else if (data.hasOwnProperty('resourceUsage')) {
+			const resourceUsage = data.resourceUsage as positron.RuntimeResourceUsage;
+
 		} else if (data.hasOwnProperty('clientDisconnected')) {
 			// Log the disconnection and close the socket
 			this._kernelChannel.append(`Client disconnected: ${data.clientDisconnected}`);
