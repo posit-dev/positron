@@ -312,7 +312,8 @@ export interface ILanguageRuntimeClientCreatedEvent {
 	message: ILanguageRuntimeMessageCommOpen;
 
 	/** The client that was created */
-	client: IRuntimeClientInstance<unknown, unknown>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	client: IRuntimeClientInstance<any, any>;
 }
 
 /**
@@ -804,7 +805,8 @@ export interface ILanguageRuntimeMetadata {
 	readonly extensionId: ExtensionIdentifier;
 
 	/** Extra data supplied by the extension; not read by Positron */
-	readonly extraRuntimeData: unknown;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	readonly extraRuntimeData: any;
 
 	/**
 	 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
@@ -871,7 +873,8 @@ export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 /**
  * A provider for local resource roots.
  */
-export type RuntimeResourceRootProvider = (mimeType: string, data: unknown) => Promise<URI[]>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
 /**
  * LanguageRuntimeSessionMode is an enum representing the set of possible

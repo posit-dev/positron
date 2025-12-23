@@ -119,8 +119,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _lastUsed: number = 0;
-	private _clients: Map<string, ExtHostRuntimeClientInstance<unknown, unknown>> =
-		new Map<string, ExtHostRuntimeClientInstance<unknown, unknown>>();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
 	/** Lamport clock, used for event ordering */
 	private _eventClock = 0;
@@ -666,7 +668,8 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					// There are multiple errors (AggregateError)
 					this._startupFailureEmitter.fire({
 						message: err.message,
-						details: err.errors.map((e: unknown) => e.toString()).join('\n\n')
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						details: err.errors.map((e: any) => e.toString()).join('\n\n')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.name && err.message) {
@@ -1121,7 +1124,8 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private readonly _dataEmitter = new Emitter<IRuntimeClientOutput<Output>>();
 
-	private readonly _pendingRpcs = new Map<string, PendingRpc<unknown>>();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private readonly _pendingRpcs = new Map<string, PendingRpc<any>>();
 
 	/**
 	 * An observable value that tracks the number of messages sent and received
@@ -1188,10 +1192,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		let messageId;
-		if ((request as unknown)?.id) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		if ((request as any)?.id) {
 			// If the request already has an id field, use it as id. This is typically
 			// the case with nested JSON-RPC messages.
-			messageId = (request as unknown).id;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			messageId = (request as any).id;
 		} else {
 			messageId = generateUuid();
 		}
