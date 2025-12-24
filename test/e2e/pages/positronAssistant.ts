@@ -11,8 +11,8 @@ import { Toasts } from './dialog-toasts';
 import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
+const CONFIGURE_PROVIDERS_LINK = 'a[data-href="command:positron-assistant.configureProviders"]';
+const CONFIGURE_PROVIDERS_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -68,27 +68,26 @@ export class Assistant {
 		});
 	}
 
-	async clickAddModelLink() {
-		await this.code.driver.page.locator(CONFIGURE_MODELS_LINK).click();
+	async runConfigureProviders() {
+		await this.quickaccess.runCommand('positron-assistant.configureProviders');
+	}
+
+	async clickConfigureProvidersLink() {
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_LINK).click();
 	}
 
 	async clickAddModelButton() {
-		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
+		const addModelLinkIsVisible = await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).isVisible();
 		if (!addModelLinkIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
+		await this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON).click({ force: true });
 	}
 
-	async verifyAddModelLinkVisible() {
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toBeVisible();
-		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toHaveText('Add a Language Model.');
-	}
-
-	async verifyAddModelButtonVisible() {
+	async verifyConfigureProvidersButtonVisible() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toBeVisible();
+		await expect(this.code.driver.page.locator(CONFIGURE_PROVIDERS_BUTTON)).toHaveText('Configure Model Providers...');
 	}
 
 	async verifyInlineChatInputsVisible() {

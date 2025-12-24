@@ -23,7 +23,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	 */
 	test('Verify Positron Assistant enabled', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.verifyAddModelButtonVisible();
+		await app.workbench.assistant.verifyConfigureProvidersButtonVisible();
 	});
 
 
@@ -93,7 +93,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 		await app.workbench.assistant.verifyInlineChatInputsVisible();
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -117,7 +117,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
@@ -130,7 +130,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		await expect(async () => {
-			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.runConfigureProviders();
 			await app.workbench.assistant.selectModelProvider('echo');
 			await app.workbench.assistant.clickSignOutButton();
 			await app.workbench.assistant.clickCloseButton();
@@ -182,7 +182,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -195,7 +195,7 @@ test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSI
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.clickCloseButton();

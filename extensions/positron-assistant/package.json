@@ -162,8 +162,8 @@
         "enablement": "config.positron.assistant.enable"
       },
       {
-        "command": "positron-assistant.configureModels",
-        "title": "%commands.configureModels.title%",
+        "command": "positron-assistant.configureProviders",
+        "title": "%commands.configureProviders.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
       },
@@ -755,37 +755,37 @@
       {
         "vendor": "echo",
         "displayName": "Echo",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "anthropic-api",
         "displayName": "Anthropic",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "openai-api",
         "displayName": "OpenAI",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "openai-compatible",
         "displayName": "Custom Provider",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "posit-ai",
         "displayName": "Posit AI",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       },
       {
         "vendor": "snowflake-cortex",
         "displayName": "Snowflake Cortex",
-        "managementCommand": "positron-assistant.configureModels"
+        "managementCommand": "positron-assistant.configureProviders"
       }
     ],
     "languageModelTools": [
