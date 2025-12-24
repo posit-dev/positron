@@ -8,8 +8,8 @@
   "positron.importSettings.enable": false,
   "positron.assistant.enable": true,
   "positron.assistant.testModels": true,
-  "positron.assistant.enabledProviders": [
-    "openai-api"
-  ],
+	"positron.assistant.providers": {
+		"OpenAI": true
+	},
   "posit.workbench.showWorkbenchFlaskHint": false
 }
