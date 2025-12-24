@@ -12,6 +12,8 @@ import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
+import { getLanguageModels } from './models';
+import { getEnabledProviders } from './providerConfiguration.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -105,32 +107,6 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 	);
 
 	return fullConfigs;
-}
-
-export async function getEnabledProviders(): Promise<string[]> {
-	// Get the configuration option listing enabled providers
-	let enabledProviders: string[] =
-		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
-	const supportedProviders = await positron.ai.getSupportedProviders();
-	enabledProviders.push(...supportedProviders);
-
-	// Ensure an array was specified; coerce other values
-	if (!Array.isArray(enabledProviders)) {
-		if (typeof enabledProviders === 'string') {
-			// Be nice and allow a single string to be used to enable a single provider
-			enabledProviders = [enabledProviders];
-		} else if (enabledProviders) {
-			// Log an error if the value is not a string or array
-			console.log('Invalid value for positron.assistant.enabledProviders, ignoring: ',
-				JSON.stringify(enabledProviders)
-			);
-			enabledProviders = [];
-		} else {
-			enabledProviders = [];
-		}
-	}
-
-	return enabledProviders;
 }
 
 export function getProviderTimeoutMs(): number {

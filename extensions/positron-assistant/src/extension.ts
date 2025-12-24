@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
+import { EncryptedSecretStorage, expandConfigToSource, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
+import { getEnabledProviders, registerSupportedProviders, validateByProviderPreferences, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -26,7 +27,8 @@ import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
-import { verifyProvidersInCustomModels } from './modelDefinitions.js';
+import { performProviderMigration } from './providerMigration.js';
+import { validateProvidersInCustomModels } from './modelDefinitions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -392,6 +394,28 @@ async function toggleInlineCompletions() {
 	await config.update('inlineCompletions.enable', updatedSettings, vscode.ConfigurationTarget.Global);
 }
 
+/**
+ * Initialize provider configuration system.
+ * Must be called during extension activation before registering models.
+ */
+async function initializeProviderConfiguration(context: vscode.ExtensionContext): Promise<void> {
+	// 1. Register supported providers
+	registerSupportedProviders();
+
+	// 2. Perform one-time migration from old to new provider settings (non-blocking)
+	// This is non-blocking because getEnabledProviders() supports both old and new settings
+	performProviderMigration();
+
+	// 3. Validate that at least one provider is enabled
+	await validateProvidersEnabled();
+
+	// 4. Validate that custom models reference valid providers
+	await validateProvidersInCustomModels();
+
+	// 5. Validate that byProvider preferences reference valid providers
+	validateByProviderPreferences();
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize secret storage. In web mode, we currently need to use global
@@ -406,8 +430,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Register chat participants
 	const participantService = registerParticipants(context);
 
-	// Register configured language models
-	registerModels(context, storage);
+	// Initialize provider configuration system (registration, migration, validation)
+	initializeProviderConfiguration(context).then(() => {
+		// After initialization, register models
+		registerModels(context, storage);
+	});
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);
@@ -499,7 +526,6 @@ export async function activate(context: vscode.ExtensionContext) {
 					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
 				});
 			}
-			await verifyProvidersInCustomModels();
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
@@ -513,7 +539,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			vscode.commands.registerCommand('positron-assistant.enableAssistantSetting', async () => {
 				vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.enable');
 			}),
-			vscode.workspace.onDidChangeConfiguration(e => {
+			vscode.workspace.onDidChangeConfiguration(async e => {
 				if (e.affectsConfiguration('positron.assistant.enable')) {
 					const enabled =
 						vscode.workspace.getConfiguration('positron.assistant').get('enable');

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './config';
+import { getEnabledProviders } from './providerConfiguration.js';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
 import { AutoconfigureResult } from './providers/index.js';
@@ -58,20 +58,19 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	displayName: string
 ): Promise<AutoconfigureResult> {
 	// Configure automatically if:
-	// - We are on PWB, and
 	// - the provider is enabled in settings, and
+	// - we are on PWB, and
 	// - managed credentials are available
 
-	if (!IS_RUNNING_ON_PWB) {
-		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
+	const enabledProviders = await getEnabledProviders();
+	const providerEnabled = enabledProviders.includes(providerId);
+	if (!providerEnabled) {
+		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings, skipping autoconfigure`);
 		return { configured: false };
 	}
 
-	const providerEnabled = await getEnabledProviders().then(
-		providers => providers.includes(providerId)
-	);
-	if (!providerEnabled) {
-		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings`);
+	if (!IS_RUNNING_ON_PWB) {
+		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
 		return { configured: false };
 	}
 

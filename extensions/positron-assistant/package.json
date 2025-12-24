@@ -376,13 +376,34 @@
           "positron.assistant.models.preference.byProvider": {
             "type": "object",
             "default": {},
+            "markdownDescription": "%configuration.models.preference.byProvider.description%",
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.models.preference.byProvider.description%",
+            "properties": {
+              "Anthropic": {
+                "type": "string"
+              },
+              "GitHub Copilot": {
+                "type": "string"
+              },
+              "Amazon Bedrock": {
+                "type": "string"
+              },
+              "Snowflake Cortex": {
+                "type": "string"
+              },
+              "OpenAI": {
+                "type": "string"
+              },
+              "Custom Provider": {
+                "type": "string"
+              }
+            },
             "examples": [
               {
-                "anthropic-api": "Claude Sonnet 4.5"
+                "Anthropic": "Claude Sonnet 4.5",
+                "OpenAI": "gpt-4o"
               }
             ]
           },
@@ -420,20 +441,208 @@
                 ]
               }
             },
+            "properties": {
+              "Anthropic": {
+                "type": "array",
+                "description": "Custom models for Anthropic",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              },
+              "GitHub Copilot": {
+                "type": "array",
+                "description": "Custom models for GitHub Copilot",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              },
+              "Amazon Bedrock": {
+                "type": "array",
+                "description": "Custom models for Amazon Bedrock",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              },
+              "Snowflake Cortex": {
+                "type": "array",
+                "description": "Custom models for Snowflake Cortex",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              },
+              "OpenAI": {
+                "type": "array",
+                "description": "Custom models for OpenAI",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              },
+              "Custom Provider": {
+                "type": "array",
+                "description": "Custom models for custom OpenAI-compatible providers",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Display name for the model"
+                    },
+                    "identifier": {
+                      "type": "string",
+                      "description": "Model identifier for API calls"
+                    },
+                    "maxInputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum input tokens for this model"
+                    },
+                    "maxOutputTokens": {
+                      "type": "number",
+                      "minimum": 512,
+                      "description": "Maximum output tokens for this model"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "identifier"
+                  ]
+                }
+              }
+            },
             "examples": [
               {
-                "openai-compatible": [
+                "Anthropic": [
                   {
                     "name": "Claude Sonnet 4.5",
                     "identifier": "claude-sonnet-4-5",
                     "maxInputTokens": 200000,
-                    "maxOutputTokens": 64000
-                  },
+                    "maxOutputTokens": 8192
+                  }
+                ],
+                "Custom Provider": [
                   {
-                    "name": "GPT-4 Turbo",
-                    "identifier": "gpt-4-turbo",
-                    "maxInputTokens": 8192,
-                    "maxOutputTokens": 2048
+                    "name": "Custom Model",
+                    "identifier": "custom-model-id"
                   }
                 ]
               }
@@ -499,6 +708,45 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.alwaysEnableApplyInEditorAction.description%"
+          },
+          "positron.assistant.providers": {
+            "default": {
+              "Anthropic": true,
+              "GitHub Copilot": true,
+              "Amazon Bedrock": false,
+              "Snowflake Cortex": false,
+              "OpenAI": false,
+              "Custom Provider": false
+            },
+            "type": "object",
+            "markdownDescription": "%configuration.providers.description%",
+            "properties": {
+              "Anthropic": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.anthropic.description%"
+              },
+              "GitHub Copilot": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.copilot.description%"
+              },
+              "Amazon Bedrock": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.bedrock.description%"
+              },
+              "Snowflake Cortex": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.snowflake.description%"
+              },
+              "OpenAI": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.openai.description%"
+              },
+              "Custom Provider": {
+                "type": "boolean",
+                "markdownDescription": "%configuration.providers.custom.description%"
+              }
+            },
+            "additionalProperties": false
           }
         }
       }

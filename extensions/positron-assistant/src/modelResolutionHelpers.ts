@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './extension.js';
+import { providerIdToUiName } from './providerMapping.js';
 
 /**
  * Type definition for token limits configuration from user settings.
@@ -50,10 +51,12 @@ export function isDefaultUserModel(
 	defaultMatch?: string
 ): boolean {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const providerPreferences = config.get<Record<string, string>>('models.preference.byProvider');
+	const providerPreferences = config.get<Record<string, string>>('models.preference.byProvider') || {};
 
 	// Check user-configured default for this provider
-	const userDefault = providerPreferences[provider];
+	// Setting uses display names (e.g., "Anthropic"), so map provider ID to display name
+	const displayName = providerIdToUiName(provider);
+	const userDefault = (displayName && providerPreferences[displayName]) || providerPreferences[provider];
 	if (userDefault) {
 		if (id.includes(userDefault) || name?.includes(userDefault)) {
 			return true;
