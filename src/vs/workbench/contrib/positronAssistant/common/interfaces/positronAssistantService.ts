@@ -150,7 +150,9 @@ export interface IPositronAssistantService {
 	): void;
 
 	/**
-	 * Get the supported providers for Positron Assistant.
+	 * @deprecated This method is deprecated and will be removed in a future release.
+	 * Extensions should use VS Code's standard Language Model API (`vscode.lm.selectChatModels()`)
+	 * or read the `positron.assistant.providers` setting directly.
 	 */
 	getSupportedProviders(): string[];
 
