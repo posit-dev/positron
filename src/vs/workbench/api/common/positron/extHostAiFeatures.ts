@@ -35,7 +35,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
 		await this._proxy.$registerChatAgent({
 			...agentData,
-			modes: agentData.modes as any as ChatModeKind[],
+			modes: agentData.modes as unknown as ChatModeKind[],
 			extensionId: extension.identifier,
 			extensionVersion: extension.version,
 			extensionPublisherId: extension.publisher,
@@ -89,10 +89,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	$onCompleteLanguageModelConfig(id: string): void {
 		this._languageModelRequestRegistry.delete(id);
-	}
-
-	async getSupportedProviders(): Promise<string[]> {
-		return this._proxy.$getSupportedProviders();
 	}
 
 	async getChatExport(): Promise<object | undefined> {

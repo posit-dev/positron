@@ -334,9 +334,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
 				return extHostAiFeatures.getPositronChatContext(request);
 			},
-			getSupportedProviders(): Thenable<string[]> {
-				return extHostAiFeatures.getSupportedProviders();
-			},
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},

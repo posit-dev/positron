@@ -98,13 +98,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Get Positron's supported providers.
-	 */
-	async $getSupportedProviders(): Promise<string[]> {
-		return this._positronAssistantService.getSupportedProviders();
-	}
-
-	/**
 	 * Get the chat export as a JSON object (IExportableChatData).
 	 */
 	async $getChatExport(): Promise<IExportableChatData | undefined> {
