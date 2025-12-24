@@ -60,7 +60,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
-	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;
+	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
@@ -78,15 +78,15 @@ export interface ExtHostLanguageRuntimeShape {
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionId?: string): void;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
-	$createClient(handle: number, id: string, type: RuntimeClientType, params: any, metadata?: any): Promise<void>;
+	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;
 	$removeClient(handle: number, id: string): void;
-	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
+	$sendClientMessage(handle: number, client_id: string, message_id: string, message: unknown): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
-	$callMethod(handle: number, method: string, args: any[]): Thenable<any>;
+	$callMethod(handle: number, method: string, args: unknown[]): Thenable<unknown>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
@@ -162,7 +162,6 @@ export interface MainThreadAiFeaturesShape {
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
-	$getSupportedProviders(): Thenable<string[]>;
 	$getChatExport(): Thenable<object | undefined>;
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;

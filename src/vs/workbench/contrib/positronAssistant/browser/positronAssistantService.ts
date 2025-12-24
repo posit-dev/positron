@@ -188,21 +188,6 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		);
 	}
 
-	/**
-	 * @deprecated This method is deprecated and will be removed in a future release.
-	 * Extensions should use VS Code's standard Language Model API (`vscode.lm.selectChatModels()`)
-	 * or read the `positron.assistant.providers` setting directly.
-	 */
-	getSupportedProviders(): string[] {
-		const providers = ['anthropic-api', 'copilot'];
-		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
-
-		if (useTestModels) {
-			providers.push('amazon-bedrock', 'error', 'echo', 'google');
-		}
-		return providers;
-	}
-
 	getChatExport() {
 		const chatWidget = this._chatWidgetService.lastFocusedWidget;
 		if (!chatWidget || !chatWidget.viewModel) {

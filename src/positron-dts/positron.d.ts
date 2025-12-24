@@ -2312,15 +2312,6 @@ declare module 'positron' {
 		}): void;
 
 		/**
-		 * @deprecated This API is deprecated and will be removed in a future release.
-		 * Extensions should use VS Code's standard Language Model API instead:
-		 * - Use `vscode.lm.selectChatModels()` to discover available models with capabilities
-		 * - Read `positron.assistant.providers` setting directly if needed
-		 * This provides better abstraction and avoids coupling to provider implementation details.
-		 */
-		export function getSupportedProviders(): Thenable<string[]>;
-
-		/**
 		 * Get the chat export as a JSON object (IExportableChatData).
 		 */
 		export function getChatExport(): Thenable<object | undefined>;
