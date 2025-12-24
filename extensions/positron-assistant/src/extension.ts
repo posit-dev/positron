@@ -249,9 +249,9 @@ export async function registerModelWithAPI(modelConfig: ModelConfig, context: vs
 	}
 }
 
-function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
+function registerConfigureProvidersCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
+		vscode.commands.registerCommand('positron-assistant.configureProviders', async () => {
 			await showConfigurationDialog(context, storage);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
@@ -419,7 +419,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerHistoryTracking(context);
 
 	// Commands
-	registerConfigureModelsCommand(context, storage);
+	registerConfigureProvidersCommand(context, storage);
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);

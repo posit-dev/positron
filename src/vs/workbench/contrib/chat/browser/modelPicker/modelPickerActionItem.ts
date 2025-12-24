@@ -195,7 +195,7 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 				tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
 				class: undefined,
 				run: () => {
-					const commandId = 'positron-assistant.configureModels';
+					const commandId = 'positron-assistant.configureProviders';
 					commandService.executeCommand(commandId);
 				}
 			});
