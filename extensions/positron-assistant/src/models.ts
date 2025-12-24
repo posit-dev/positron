@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, getEnabledProviders, ModelConfig, SecretStorage } from './config';
+import { expandConfigToSource, getMaxConnectionAttempts, getProviderTimeoutMs, getStoredModels, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';

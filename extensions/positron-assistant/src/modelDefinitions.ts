@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './config.js';
+import { getEnabledProviders } from './providerConfiguration.js';
 import { log } from './extension.js';
+import { uiNameToProviderId, providerIdToUiName } from './providerMapping.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -16,24 +17,55 @@ export interface ModelDefinition {
 
 /**
  * Get custom models from VS Code settings for a specific provider.
+ * Handles both provider IDs (e.g., 'anthropic-api') and display names (e.g., 'Anthropic').
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	return customModels[providerId] || [];
+
+	// Try direct lookup with provider ID first
+	if (customModels[providerId]) {
+		return customModels[providerId];
+	}
+
+	// Fall back to display name lookup
+	const displayName = providerIdToUiName(providerId);
+	if (displayName && customModels[displayName]) {
+		return customModels[displayName];
+	}
+
+	return [];
 }
 
 /**
  * Check whether the provider IDs in the custom models are valid providers.
+ * Handles both provider IDs and display names in the configuration.
  */
-export async function verifyProvidersInCustomModels() {
+export async function validateProvidersInCustomModels() {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
 	const enabledProviders = await getEnabledProviders();
 
-	const invalidProviders = Object.keys(customModels)
+	const invalidProviders = Object.keys(customModels).filter(key => {
 		// Note: 'copilot' is a special case, where we don't support customModels
-		.filter(providerId => !enabledProviders.includes(providerId) || providerId === 'copilot');
+		if (key === 'copilot') {
+			return true;
+		}
+
+		// Check if key is a valid provider ID
+		if (enabledProviders.includes(key)) {
+			return false;
+		}
+
+		// Check if key is a valid display name by converting to provider ID
+		const providerId = uiNameToProviderId(key);
+		if (providerId && enabledProviders.includes(providerId)) {
+			return false;
+		}
+
+		return true;
+	});
+
 	if (invalidProviders.length === 0) {
 		return;
 	}
