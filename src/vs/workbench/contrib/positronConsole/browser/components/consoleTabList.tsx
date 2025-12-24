@@ -35,14 +35,15 @@ const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
 
 /**
  * The maximum number of resource usage data points to keep in history.
- * At typical 1 sample/sec, this represents 60 seconds of data.
+ * At typical 1 sample/sec and 2px per point, 600 points supports 1200px width.
+ * This allows revealing more history when the console tab list is widened.
  */
-const MAX_RESOURCE_USAGE_HISTORY = 60;
+const MAX_RESOURCE_USAGE_HISTORY = 600;
 
 /**
  * The height of the resource usage graph in pixels.
  */
-const RESOURCE_GRAPH_HEIGHT = 32;
+const RESOURCE_GRAPH_HEIGHT = 24;
 
 interface ConsoleTabProps {
 	positronConsoleInstance: IPositronConsoleInstance;
@@ -464,20 +465,22 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				)}
 			</div>
 
-			{/* Resource usage section */}
-			<div className='resource-usage-section'>
-				<ResourceUsageGraph
-					data={resourceUsageHistory}
-					height={RESOURCE_GRAPH_HEIGHT}
-					width={graphWidth}
-				/>
-				{latestResourceUsage && (
-					<ResourceUsageStats
-						cpuPercent={latestResourceUsage.cpu_percent}
-						memoryBytes={latestResourceUsage.memory_bytes}
+			{/* Resource usage section - only shown for the active session */}
+			{isActiveTab && (
+				<div className='resource-usage-section'>
+					<ResourceUsageGraph
+						data={resourceUsageHistory}
+						height={RESOURCE_GRAPH_HEIGHT}
+						width={graphWidth}
 					/>
-				)}
-			</div>
+					{latestResourceUsage && (
+						<ResourceUsageStats
+							cpuPercent={latestResourceUsage.cpu_percent}
+							memoryBytes={latestResourceUsage.memory_bytes}
+						/>
+					)}
+				</div>
+			)}
 		</div>
 	)
 }

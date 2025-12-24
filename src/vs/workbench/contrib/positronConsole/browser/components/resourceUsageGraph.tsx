@@ -10,6 +10,16 @@ import React, { useMemo } from 'react';
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
+ * Fixed spacing between data points in pixels.
+ */
+const PIXELS_PER_POINT = 2;
+
+/**
+ * Vertical padding to prevent stroke clipping at 0% and 100%.
+ */
+const VERTICAL_PADDING = 2;
+
+/**
  * ResourceUsageGraphProps interface.
  */
 interface ResourceUsageGraphProps {
@@ -32,28 +42,29 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 			return { linePath: '', fillPath: '' };
 		}
 
-		// Calculate time range
-		const timestamps = data.map(d => d.timestamp);
-		const minTime = Math.min(...timestamps);
-		const maxTime = Math.max(...timestamps);
-		const timeRange = maxTime - minTime || 1; // Avoid division by zero
+		// Calculate how many points can fit in the available width
+		const maxPointsForWidth = Math.floor(width / PIXELS_PER_POINT);
 
-		// Build path points
-		const points = data.map((d, i) => {
-			const x = ((d.timestamp - minTime) / timeRange) * width;
-			// Clamp CPU percentage to 0-100 range
-			const cpuPercent = Math.max(0, Math.min(100, d.cpu_percent));
-			// Y is inverted (0 at top, height at bottom)
-			const y = height - (cpuPercent / 100) * height;
-			return { x, y };
-		});
+		// Slice data to only show what fits, keeping the most recent data
+		const visibleData = data.slice(-maxPointsForWidth);
 
-		// Sort points by x coordinate to ensure proper line drawing
-		points.sort((a, b) => a.x - b.x);
-
-		if (points.length === 0) {
+		if (visibleData.length === 0) {
 			return { linePath: '', fillPath: '' };
 		}
+
+		// Calculate the drawable height (accounting for padding)
+		const drawableHeight = height - 2 * VERTICAL_PADDING;
+
+		// Build path points - draw from right edge, newest data on right
+		const points = visibleData.map((d, i) => {
+			// Position from right edge: last point at width, earlier points to the left
+			const x = width - (visibleData.length - 1 - i) * PIXELS_PER_POINT;
+			// Clamp CPU percentage to 0-100 range
+			const cpuPercent = Math.max(0, Math.min(100, d.cpu_percent));
+			// Y is inverted (0 at top, height at bottom) with padding
+			const y = VERTICAL_PADDING + ((100 - cpuPercent) / 100) * drawableHeight;
+			return { x, y };
+		});
 
 		// Build line path
 		const linePoints = points.map((p, i) =>
@@ -63,7 +74,9 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 		// Build fill path (closed polygon from line to bottom of graph)
 		const firstPoint = points[0];
 		const lastPoint = points[points.length - 1];
-		const fillPoints = `${linePoints} L ${lastPoint.x} ${height} L ${firstPoint.x} ${height} Z`;
+		// Use height - VERTICAL_PADDING for the bottom to stay within bounds
+		const bottomY = height - VERTICAL_PADDING;
+		const fillPoints = `${linePoints} L ${lastPoint.x} ${bottomY} L ${firstPoint.x} ${bottomY} Z`;
 
 		return { linePath: linePoints, fillPath: fillPoints };
 	}, [data, width, height]);
