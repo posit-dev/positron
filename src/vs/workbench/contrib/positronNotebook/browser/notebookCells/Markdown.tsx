@@ -18,6 +18,9 @@ import { IExtensionService } from '../../../../services/extensions/common/extens
 import { safeSetInnerHtml } from '../../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../../base/browser/markdownRenderer.js';
 import { MarkedKatexSupport } from '../../../markdown/browser/markedKatexSupport.js';
+import { convertDomChildrenToReact } from '../domToReact.js';
+import { DeferredImage } from './DeferredImage.js';
+import { NotebookLink } from './NotebookLink.js';
 
 /**
  * Component that render markdown content from a string.
@@ -70,6 +73,8 @@ function useMarkdown(content: string): MarkdownRenderResults {
 				});
 				return;
 			}
+
+			// Render using MarkdownContent which uses DOMPurify sanitization with React component overrides
 			setRenderedHtml({
 				status: 'success',
 				nodes: <MarkdownContent html={html} />
@@ -88,29 +93,61 @@ function useMarkdown(content: string): MarkdownRenderResults {
 }
 
 /**
- * Component that uses `domSanitize.safeSetInnerHtml` to render HTML.
- * Uses MarkedKatexSupport.getSanitizerOptions() to get the appropriate sanitizer configuration
- * that includes MathML and SVG tags/attributes required for KaTeX math rendering.
+ * Component that renders HTML with proper DOMPurify sanitization and React component overrides.
  *
- * This approach matches the chat pane markdown rendering approach.
+ * This implementation:
+ * 1. Uses safeSetInnerHtml with MarkedKatexSupport config to handle complex KaTeX math rendering
+ * 2. Converts the sanitized DOM to React elements using convertDomChildrenToReact
+ * 3. Injects React component overrides for images (DeferredImage) and links (NotebookLink)
  *
  * @param html: HTML string to render
- * @returns React element containing the sanitized HTML.
+ * @returns React element containing the sanitized and converted HTML.
  */
 function MarkdownContent({ html }: { html: string }) {
-	const containerRef = React.useRef<HTMLDivElement>(null);
+	const [reactElements, setReactElements] = React.useState<React.ReactElement[]>([]);
 
 	React.useEffect(() => {
-		if (containerRef.current) {
-			// Use MarkedKatexSupport helper to get sanitizer config with MathML/SVG support
-			const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
-				allowedTags: allowedMarkdownHtmlTags,
-				allowedAttributes: allowedMarkdownHtmlAttributes,
-			});
+		// Create a temporary container for DOM parsing
+		const tempContainer = document.createElement('div');
 
-			safeSetInnerHtml(containerRef.current, html, sanitizerConfig);
-		}
+		// Use MarkedKatexSupport helper to get sanitizer config options
+		// for MathML/SVG support.
+		const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
+			allowedTags: allowedMarkdownHtmlTags,
+			allowedAttributes: [
+				...allowedMarkdownHtmlAttributes,
+				'id'  // Allow id attribute for anchor link targets
+			],
+		});
+
+		// Configure to allow relative paths for images and local links.
+		// This is critical for notebook markdown which uses relative image paths
+		const notebookSanitizerConfig = {
+			...sanitizerConfig,
+			allowedLinkProtocols: {
+				override: ['http', 'https'] as readonly string[]
+			},
+			allowedMediaProtocols: {
+				override: ['http', 'https', 'data'] as readonly string[]
+			},
+			allowRelativeLinkPaths: true,
+			allowRelativeMediaPaths: true
+		};
+
+		// Render HTML with DOMPurify sanitization
+		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
+
+		// Convert the DOM tree to React elements with component overrides
+		const elements = convertDomChildrenToReact(
+			tempContainer,
+			{
+				img: DeferredImage,  // Enable local image conversion and remote SVG handling
+				a: NotebookLink,     // Enable proper link handling and anchor navigation
+			}
+		);
+
+		setReactElements(elements);
 	}, [html]);
 
-	return <div ref={containerRef} />;
+	return <>{reactElements}</>;
 }
