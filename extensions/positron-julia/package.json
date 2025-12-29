@@ -21,7 +21,11 @@
 	},
 	"icon": "icon.png",
 	"activationEvents": [
-		"onStartupFinished"
+		"onLanguageRuntime:julia",
+		"onLanguage:julia",
+		"onCommand:julia.createNewFile",
+		"onCommand:julia.selectInterpreter",
+		"onCommand:julia.sourceCurrentFile"
 	],
 	"extensionDependencies": [
 		"positron.positron-supervisor"
@@ -143,6 +147,11 @@
 			}
 		]
 	},
+	"languageRuntimes": [
+		{
+			"languageId": "julia"
+		}
+	],
 	"scripts": {
 		"compile": "gulp compile-extension:positron-julia",
 		"watch": "gulp watch-extension:positron-julia",

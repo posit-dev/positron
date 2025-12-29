@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as semver from 'semver';
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 
 import { LOGGER } from './extension';
 import {
@@ -16,6 +16,99 @@ import {
 	MIN_JULIA_VERSION,
 	isValidJuliaInstallation
 } from './julia-installation';
+
+interface CommandResult {
+	stdout: string;
+	stderr: string;
+	exitCode: number | null;
+	timedOut: boolean;
+}
+
+const COMMAND_TIMEOUT_MS = 5000;
+const JULIA_QUERY_TIMEOUT_MS = 10000;
+
+function runCommand(
+	command: string,
+	args: string[],
+	options: { timeout?: number; env?: NodeJS.ProcessEnv } = {}
+): Promise<CommandResult> {
+	return new Promise((resolve) => {
+		let stdout = '';
+		let stderr = '';
+		let finished = false;
+		let timeoutId: NodeJS.Timeout | undefined;
+
+		const finish = (result: CommandResult) => {
+			if (finished) {
+				return;
+			}
+			finished = true;
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			resolve(result);
+		};
+
+		let proc;
+		try {
+			proc = spawn(command, args, {
+				env: options.env,
+				stdio: ['ignore', 'pipe', 'pipe'],
+				windowsHide: true,
+			});
+		} catch (error) {
+			finish({
+				stdout,
+				stderr: String(error),
+				exitCode: null,
+				timedOut: false,
+			});
+			return;
+		}
+
+		proc.stdout?.on('data', (data) => {
+			stdout += data.toString();
+		});
+		proc.stderr?.on('data', (data) => {
+			stderr += data.toString();
+		});
+
+		timeoutId = options.timeout ? setTimeout(() => {
+			proc.kill();
+			finish({ stdout, stderr, exitCode: null, timedOut: true });
+		}, options.timeout) : undefined;
+
+		proc.on('error', (error) => {
+			finish({
+				stdout,
+				stderr: `${stderr}${String(error)}`,
+				exitCode: null,
+				timedOut: false,
+			});
+		});
+
+		proc.on('close', (code) => {
+			finish({ stdout, stderr, exitCode: code, timedOut: false });
+		});
+	});
+}
+
+async function resolveCommandPath(command: string): Promise<string | undefined> {
+	const lookupCommand = process.platform === 'win32' ? 'where' : 'which';
+	const result = await runCommand(lookupCommand, [command], { timeout: COMMAND_TIMEOUT_MS });
+	if (result.timedOut) {
+		LOGGER.debug(`Timed out resolving ${command} in PATH`);
+		return undefined;
+	}
+	if (result.exitCode !== 0 || !result.stdout) {
+		return undefined;
+	}
+	const firstLine = result.stdout
+		.split(/\r?\n/)
+		.map(line => line.trim())
+		.find(line => line.length > 0);
+	return firstLine || undefined;
+}
 
 /**
  * Discovers all Julia installations on the system.
@@ -57,9 +150,8 @@ export async function* juliaRuntimeDiscoverer(): AsyncGenerator<JuliaInstallatio
  */
 async function discoverFromPath(): Promise<JuliaInstallation | undefined> {
 	try {
-		const result = spawnSync('which', ['julia'], { encoding: 'utf-8' });
-		if (result.status === 0 && result.stdout) {
-			const binpath = result.stdout.trim();
+		const binpath = await resolveCommandPath('julia');
+		if (binpath) {
 			return await createJuliaInstallation(binpath, ReasonDiscovered.PATH, true);
 		}
 	} catch (error) {
@@ -76,13 +168,17 @@ async function* discoverFromJuliaup(): AsyncGenerator<JuliaInstallation> {
 	let foundViaCommand = false;
 	try {
 		// Check if juliaup is available
-		const juliaupResult = spawnSync('which', ['juliaup'], { encoding: 'utf-8' });
-		if (juliaupResult.status === 0) {
+		const juliaupPath = await resolveCommandPath('juliaup');
+		if (juliaupPath) {
 			foundViaCommand = true;
 
 			// Get juliaup status
-			const statusResult = spawnSync('juliaup', ['status'], { encoding: 'utf-8' });
-			if (statusResult.status === 0) {
+			const statusResult = await runCommand(juliaupPath, ['status'], { timeout: COMMAND_TIMEOUT_MS });
+			if (statusResult.timedOut) {
+				LOGGER.debug('Timed out running juliaup status');
+				return;
+			}
+			if (statusResult.exitCode === 0) {
 				// Parse juliaup status output
 				// Format: " Default  Channel  Version  Update"
 				//         "       *  1.10     1.10.10+0.aarch64.apple.darwin14"
@@ -100,8 +196,12 @@ async function* discoverFromJuliaup(): AsyncGenerator<JuliaInstallation> {
 
 						// Get the actual binary path for this channel
 						try {
-							const pathResult = spawnSync('juliaup', ['which', channel], { encoding: 'utf-8' });
-							if (pathResult.status === 0 && pathResult.stdout) {
+							const pathResult = await runCommand(juliaupPath, ['which', channel], { timeout: COMMAND_TIMEOUT_MS });
+							if (pathResult.timedOut) {
+								LOGGER.debug(`Timed out running juliaup which ${channel}`);
+								continue;
+							}
+							if (pathResult.exitCode === 0 && pathResult.stdout) {
 								const binpath = pathResult.stdout.trim();
 								const installation = await createJuliaInstallation(
 									binpath,
@@ -330,12 +430,16 @@ async function createJuliaInstallation(
 			println(Sys.ARCH)
 		`;
 
-		const result = spawnSync(binpath, ['-e', versionScript], {
-			encoding: 'utf-8',
-			timeout: 10000,
+		const result = await runCommand(binpath, ['-e', versionScript], {
+			timeout: JULIA_QUERY_TIMEOUT_MS,
 		});
 
-		if (result.status !== 0) {
+		if (result.timedOut) {
+			LOGGER.debug(`Timed out getting Julia info from ${binpath}`);
+			return undefined;
+		}
+
+		if (result.exitCode !== 0) {
 			LOGGER.debug(`Failed to get Julia info from ${binpath}: ${result.stderr}`);
 			return undefined;
 		}

@@ -43,12 +43,7 @@ function createRuntimeName(installation: JuliaInstallation): string {
  * Determines the startup behavior for a Julia installation.
  */
 function getStartupBehavior(installation: JuliaInstallation): positron.LanguageRuntimeStartupBehavior {
-	// If this is the current/default Julia, start it immediately
-	if (installation.current) {
-		return positron.LanguageRuntimeStartupBehavior.Immediate;
-	}
-
-	// Otherwise, start implicitly (when needed)
+	// Only auto-start when Julia is actually needed (e.g., a Julia file is opened).
 	return positron.LanguageRuntimeStartupBehavior.Implicit;
 }
 
