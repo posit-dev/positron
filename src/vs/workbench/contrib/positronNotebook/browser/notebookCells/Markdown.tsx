@@ -93,7 +93,8 @@ function useMarkdown(content: string): MarkdownRenderResults {
 }
 
 /**
- * Component that renders HTML with proper DOMPurify sanitization and React component overrides.
+ * Component that renders HTML with proper sanitization (via DOMPurify through safeSetInnerHtml)
+ * and support for React component overrides.
  *
  * This implementation:
  * 1. Uses safeSetInnerHtml with MarkedKatexSupport config to handle complex KaTeX math rendering
@@ -104,9 +105,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
  * @returns React element containing the sanitized and converted HTML.
  */
 function MarkdownContent({ html }: { html: string }) {
-	const [reactElements, setReactElements] = React.useState<React.ReactElement[]>([]);
-
-	React.useEffect(() => {
+	const reactElements = React.useMemo(() => {
 		// Create a temporary container for DOM parsing
 		const tempContainer = document.createElement('div');
 
@@ -138,15 +137,13 @@ function MarkdownContent({ html }: { html: string }) {
 		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
 
 		// Convert the DOM tree to React elements with component overrides
-		const elements = convertDomChildrenToReact(
+		return convertDomChildrenToReact(
 			tempContainer,
 			{
 				img: DeferredImage,  // Enable local image conversion and remote SVG handling
 				a: NotebookLink,     // Enable proper link handling and anchor navigation
 			}
 		);
-
-		setReactElements(elements);
 	}, [html]);
 
 	return <>{reactElements}</>;

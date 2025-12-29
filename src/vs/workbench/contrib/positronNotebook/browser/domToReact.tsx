@@ -39,9 +39,8 @@ export function convertDomChildrenToReact(
 		const child = container.childNodes[i];
 		const converted = convertDomToReactWithCounter(child, componentOverrides);
 		if (converted !== null) {
-			// Wrap strings in a span to ensure we return React elements
 			if (typeof converted === 'string') {
-				elements.push(React.createElement('span', { key: `text-${keyCounter++}` }, converted));
+				elements.push(React.createElement(React.Fragment, { key: `text-${keyCounter++}` }, converted));
 			} else {
 				elements.push(converted);
 			}
@@ -137,10 +136,7 @@ function convertAttributesToProps(element: Element): Record<string, any> {
 		} else if (propName === 'style') {
 			// Parse inline style string into object
 			propValue = parseStyleString(attr.value);
-		} else if (propName.startsWith('data-') || propName.startsWith('aria-')) {
-			// Keep data- and aria- attributes as-is
-			propName = propName;
-		} else if (propName.includes('-')) {
+		} else if (propName.includes('-') && !propName.startsWith('data-') && !propName.startsWith('aria-')) {
 			// Convert kebab-case to camelCase for other attributes
 			propName = kebabToCamelCase(propName);
 		}
@@ -164,22 +160,25 @@ function parseStyleString(styleString: string): Record<string, string> {
 		return style;
 	}
 
-	// Split by semicolon and parse each property
-	const declarations = styleString.split(';');
-	for (const declaration of declarations) {
-		const colonIndex = declaration.indexOf(':');
-		if (colonIndex === -1) {
-			continue;
-		}
+	try {
+		// Split by semicolon and parse each property
+		const declarations = styleString.split(';');
+		for (const declaration of declarations) {
+			const colonIndex = declaration.indexOf(':');
+			if (colonIndex === -1) {
+				continue;
+			}
 
-		const property = declaration.substring(0, colonIndex).trim();
-		const value = declaration.substring(colonIndex + 1).trim();
-
-		if (property && value) {
-			// Convert CSS property names to camelCase (e.g., font-size -> fontSize)
-			const camelProperty = kebabToCamelCase(property);
-			style[camelProperty] = value;
+			const property = declaration.substring(0, colonIndex).trim();
+			const value = declaration.substring(colonIndex + 1).trim();
+			if (property && value) {
+				// Convert CSS property names to camelCase (e.g., font-size -> fontSize)
+				const camelProperty = kebabToCamelCase(property);
+				style[camelProperty] = value;
+			}
 		}
+	} catch (error) {
+		console.warn('Failed to parse style string:', styleString, error);
 	}
 
 	return style;
