@@ -236,14 +236,12 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         destination = ShowHtmlFileDestination.Viewer
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
-            # Send bokeh plots to the plots pane.
-            # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
-            # This is not great but currently the only information we have.
-            destination = (
-                ShowHtmlFileDestination.Plot
-                if self._is_module_function("bokeh.io.showing", "show")
-                else ShowHtmlFileDestination.Viewer
-            )
+            # Send bokeh and plotly plots to the plots pane.
+            # Identify them by checking the stack for their respective modules/functions.
+            if self._is_module_function("bokeh.io.showing", "show") or self._is_module_function(
+                "plotly.basedatatypes"
+            ):
+                destination = ShowHtmlFileDestination.Plot
 
             return self._send_show_html_event(url, destination)
 
