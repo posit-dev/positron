@@ -3,8 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-import os
 import tempfile
+from pathlib import Path
 
 from positron.patch.plotly import patch_plotly_browser_renderer
 from positron.session_mode import SessionMode
@@ -29,9 +29,7 @@ def test_patch_plotly_browser_renderer():
 
 
 def test_patch_writes_temp_file():
-    """
-    Test that the patched function actually writes HTML to a temp file.
-    """
+    """Test that the patched function actually writes HTML to a temp file."""
     # Apply the patch
     patch_plotly_browser_renderer(SessionMode.CONSOLE)
 
@@ -42,6 +40,7 @@ def test_patch_writes_temp_file():
 
     # Mock webbrowser.open to capture what URL is opened
     import webbrowser
+
     opened_urls = []
     original_open = webbrowser.open
 
@@ -63,38 +62,25 @@ def test_patch_writes_temp_file():
         assert url.startswith("file://"), f"Expected file:// URL, got: {url}"
 
         # Extract and verify the file exists
-        file_path = url.replace("file://", "")
-        assert os.path.isfile(file_path), f"Temp file should exist: {file_path}"
+        file_path = Path(url.replace("file://", ""))
+        assert file_path.is_file(), f"Temp file should exist: {file_path}"
 
         # Verify the content
-        with open(file_path, encoding="utf-8") as f:
-            content = f.read()
+        content = file_path.read_text(encoding="utf-8")
         assert content == test_html
 
         # Verify it's in the temp directory
-        assert tempfile.gettempdir() in file_path or "/var/folders" in file_path
+        assert tempfile.gettempdir() in str(file_path) or "/var/folders" in str(file_path)
 
     finally:
         webbrowser.open = original_open
 
 
 def test_patch_skipped_in_notebook_mode():
-    """
-    Test that the patch is not applied in notebook mode.
-    """
-    try:
-        from plotly.io import _base_renderers
+    """Test that the patch is not applied in notebook mode."""
+    import contextlib
 
-        # Get the original function name
-        original_name = _base_renderers.open_html_in_browser.__name__
-
-        # Apply the patch in notebook mode
+    # Apply the patch in notebook mode - should not raise an error
+    # Use suppress in case Plotly is not installed
+    with contextlib.suppress(ImportError):
         patch_plotly_browser_renderer(SessionMode.NOTEBOOK)
-
-        # Function should be unchanged (or at least not our patched version if
-        # a previous test already patched it in console mode)
-        # Note: This test may pass trivially if run after other tests that patch in console mode
-        # The important thing is that notebook mode doesn't cause errors
-    except ImportError:
-        # Plotly not installed, skip
-        pass

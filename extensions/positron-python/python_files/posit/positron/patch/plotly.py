@@ -57,7 +57,7 @@ def patch_plotly_browser_renderer(session_mode: "SessionMode") -> None:
         )
         return
 
-    def positron_open_html_in_browser(html: str, using=None, new=0, autoraise=True) -> None:
+    def positron_open_html_in_browser(html: str, using=None, new=0, autoraise=True) -> None:  # noqa: ARG001, FBT002
         """
         Replacement for Plotly's open_html_in_browser that writes to a temp file.
 
