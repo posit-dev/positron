@@ -299,10 +299,7 @@ fig
         assert path.endswith(".html"), f"Expected .html file, got: {path}"
         # On Windows, the path is a raw file path (e.g., C:\...), while on other
         # platforms it's a file:// URL. Extract the actual file path accordingly.
-        if path.startswith("file://"):
-            file_path = Path(path.replace("file://", ""))
-        else:
-            file_path = Path(path)
+        file_path = Path(path.replace("file://", "")) if path.startswith("file://") else Path(path)
         assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
