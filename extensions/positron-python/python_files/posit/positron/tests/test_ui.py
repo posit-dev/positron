@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
-from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -298,11 +297,13 @@ fig
         path = params["path"]
         assert not path.startswith("http"), f"Expected file path, got URL: {path}"
         assert path.endswith(".html"), f"Expected .html file, got: {path}"
-        # The path should be a file:// URL pointing to the temp file
-        assert path.startswith("file://"), f"Expected file:// URL, got: {path}"
-        # Extract the actual file path and verify it exists
-        file_path = path.replace("file://", "")
-        assert os.path.isfile(file_path), f"Cached HTML file should exist: {file_path}"
+        # On Windows, the path is a raw file path (e.g., C:\...), while on other
+        # platforms it's a file:// URL. Extract the actual file path accordingly.
+        if path.startswith("file://"):
+            file_path = Path(path.replace("file://", ""))
+        else:
+            file_path = Path(path)
+        assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
 def test_is_not_plot_url_events(
