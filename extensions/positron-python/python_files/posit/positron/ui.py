@@ -238,7 +238,9 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if is_local_html_file(url):
             # Send bokeh and plotly plots to the plots pane.
             # Identify them by checking the stack for their respective modules/functions.
-            if self._is_module_function("bokeh.io.showing", "show") or self._is_module_function("plotly.basedatatypes"):
+            if self._is_module_function("bokeh.io.showing", "show") or self._is_module_function(
+                "plotly.basedatatypes"
+            ):
                 destination = ShowHtmlFileDestination.Plot
 
             return self._send_show_html_event(url, destination)
