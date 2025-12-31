@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,13 +16,24 @@ export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPr
 
 /**
  * The results of a notebook output message that may have a webview preload. Either a preload
- * message or a display message. If it is a display message, the webview is a promise of a
- * disposable container of a webview.
+ * message, a display message, or a widget message. If it is a display or widget message, the
+ * webview is a promise of a disposable container of a webview.
  */
 export type NotebookPreloadOutputResults =
 	| { preloadMessageType: 'preload' }
 	| {
 		preloadMessageType: 'display';
+		// We stub out a basic approximation here to avoid jumping through hoops for import ordering
+		// rules.
+		webview: Promise<{
+			readonly id: string;
+			readonly sessionId: string;
+			dispose(): void;
+			readonly onDidRender: Event<void>;
+		}>;
+	}
+	| {
+		preloadMessageType: 'widget';
 		// We stub out a basic approximation here to avoid jumping through hoops for import ordering
 		// rules.
 		webview: Promise<{

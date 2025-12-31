@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -177,6 +177,14 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			RuntimeOutputKind.WebviewPreload
 		);
 
+		// Widget messages (e.g., ipywidgets) need to create a widget webview
+		if (messageType === 'widget') {
+			return {
+				preloadMessageType: messageType,
+				webview: this._createNotebookWidgetWebview(instance, runtimeOutput)
+			};
+		}
+
 		// Display messages (e.g., interactive plots) need to create a new webview immediately
 		// and return it for rendering
 		if (messageType === 'display') {
@@ -191,6 +199,36 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
 	}
+	/**
+	 * Create a webview for an IPyWidget output for a notebook.
+	 * @param instance The notebook instance the widget belongs to.
+	 * @param displayMessage The widget message to display.
+	 */
+	private async _createNotebookWidgetWebview(
+		instance: IPositronNotebookInstance,
+		displayMessage: ILanguageRuntimeMessageWebOutput
+	): Promise<INotebookOutputWebview> {
+		// Get the session for this notebook
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(instance.uri);
+		if (!session) {
+			throw new Error(`PositronWebviewPreloadService: No session found for notebook instance ${instance.uri.toString()}`);
+		}
+
+		// Create the webview for this widget output
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
+			id: displayMessage.id,
+			runtime: session,
+			output: displayMessage,
+			viewType: 'jupyter-notebook'
+		});
+
+		if (!webview) {
+			throw new Error(`PositronWebviewPreloadService: Failed to create webview for notebook widget output ${instance.uri.toString()}`);
+		}
+
+		return webview;
+	}
+
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.
 	 * Alerts the plots pane that a new plot is ready.
