@@ -174,6 +174,8 @@ module.exports.indentationFilter = [
 	'!extensions/positron-r/resources/testing/**',
 	'!scripts/positron/**/*',
 	'!extensions/positron-r/src/test/snapshots/*.R',
+	// Julia uses 4-space indentation by convention
+	'!extensions/positron-julia/**/*.jl',
 	// --- End Positron ---
 ];
 
