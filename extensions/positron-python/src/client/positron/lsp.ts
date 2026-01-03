@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+import * as path from 'path';
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -16,6 +17,9 @@ import { PromiseHandles } from './util';
 import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
+
+// Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
+const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
 /**
  * Global output channel for Python LSP sessions
@@ -133,6 +137,18 @@ export class PythonLsp implements vscode.Disposable {
 
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = this._outputChannel;
+
+        // Add middleware to filter diagnostics for Quarto virtual documents:
+        // https://github.com/quarto-dev/quarto/issues/855
+        this._clientOptions.middleware = {
+            handleDiagnostics(uri, diagnostics, next) {
+                const baseName = path.basename(uri.fsPath);
+                if (VDOC_PATTERN.test(baseName)) {
+                    return;
+                }
+                return next(uri, diagnostics);
+            },
+        };
 
         // Set Positron-specific server initialization options.
         // If this server is for a notebook, set the notebook path option.
