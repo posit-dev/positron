@@ -23,6 +23,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { NotebookProviderInfo } from '../../notebook/common/notebookProvider.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -112,7 +113,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Call the base class's constructor.
 		super();
 
-		this.notebookInstance = PositronNotebookInstance.getOrCreate(this, undefined, instantiationService);
+		this.notebookInstance = PositronNotebookInstance.getOrCreate(
+			this.uniqueId,
+			this.resource,
+			this.viewType,
+			undefined,
+			instantiationService
+		);
 	}
 
 	/**
@@ -300,7 +307,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		return await this._editorModelReference.object.saveAs(target);
 	}
 
-	private async _suggestName(provider: any, suggestedFilename: string): Promise<URI> {
+	private async _suggestName(provider: NotebookProviderInfo, suggestedFilename: string): Promise<URI> {
 		// Try to extract file extension from the provider's selector
 		const firstSelector = provider.selectors?.[0];
 		let selectorStr = firstSelector && typeof firstSelector === 'string' ? firstSelector : undefined;

@@ -19,7 +19,6 @@ import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionS
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
-import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
@@ -122,29 +121,37 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
 	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
-	 * @param input Positron Notebook input object for the notebook.
+	 * @param id Unique identifier for the notebook instance
+	 * @param uri URI of the notebook resource
+	 * @param viewType The view type of the notebook
 	 * @param creationOptions Options for opening notebook
 	 * @param instantiationService Instantiation service for creating instance with proper DI.
 	 * @returns Instance of the notebook, either retrieved from existing or created.
 	 */
 	static getOrCreate(
-		input: PositronNotebookEditorInput,
+		id: string,
+		uri: URI,
+		viewType: 'jupyter-notebook',
 		creationOptions: INotebookEditorCreationOptions | undefined,
 		instantiationService: IInstantiationService,
 	): PositronNotebookInstance {
 
-		const existingInstance = PositronNotebookInstance._instanceMap.get(input.resource);
+		const existingInstance = PositronNotebookInstance._instanceMap.get(uri);
 		if (existingInstance) {
-			// Update input
-			existingInstance._input = input;
 			// Make sure we're starting with a fresh view
 			existingInstance.detachView();
 			existingInstance._creationOptions = creationOptions;
 			return existingInstance;
 		}
 
-		const instance = instantiationService.createInstance(PositronNotebookInstance, input, creationOptions);
-		PositronNotebookInstance._instanceMap.set(input.resource, instance);
+		const instance = instantiationService.createInstance(
+			PositronNotebookInstance,
+			id,
+			uri,
+			viewType,
+			creationOptions
+		);
+		PositronNotebookInstance._instanceMap.set(uri, instance);
 		return instance;
 	}
 
@@ -282,11 +289,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Properties
 
 	/**
-	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
-	 */
-	private _id: string;
-
-	/**
 	 * Sets the DOM element that contains the entire notebook editor.
 	 * This is the top-level container used for focus tracking.
 	 * @param container The container element to set, or null to clear
@@ -388,10 +390,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return Boolean(this.currentContainer);
 	}
 
-	get uri(): URI {
-		return this._input.resource;
-	}
-
 	/**
 	 * Get the current `NotebookTextModel` for the editor.
 	 */
@@ -432,7 +430,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.debug(this._id, 'Generating new notebook options');
+		this._logService.debug(this.id, 'Generating new notebook options');
 
 		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
@@ -455,8 +453,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Lifecycle
 
+
+	/**
+	 * @param id Unique identifier for the notebook instance. Currently just the notebook URI as a string.
+	 * @param uri URI of the notebook resource.
+	 * @param viewType The view type of the notebook.
+	 * @param creationOptions Options for opening notebook.
+	 */
 	constructor(
-		private _input: PositronNotebookEditorInput,
+		public readonly id: string,
+		public readonly uri: URI,
+		public readonly viewType: 'jupyter-notebook',
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
 		@ICommandService private readonly _commandService: ICommandService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -476,7 +483,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
-		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
 		const { startupPhase } = this._languageRuntimeService;
@@ -516,13 +522,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				/** @description positronNotebookInstanceKernel */
 				const { selected } = this.notebookKernelService.getMatchingKernel({
 					uri: this.uri,
-					notebookType: this._input.viewType,
+					notebookType: this.viewType,
 				});
 				if (selected) {
 					if (selected instanceof RuntimeNotebookKernel) {
 						return selected;
 					} else {
-						this._logService.warn(this._id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
+						this._logService.warn(this.id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
 					}
 				}
 				return;
@@ -578,7 +584,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.debug(this._id, 'constructor');
+		this._logService.debug(this.id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -629,10 +635,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Event fired when the notebook's view cells changes.
 	 */
 	readonly onDidChangeViewCells = this._onDidChangeViewCells.event;
-
-	get viewType() {
-		return this._input.viewType;
-	}
 
 	/**
 	 * Gets the DOM node that contains the notebook editor.
@@ -911,7 +913,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.debug(this._id, 'dispose');
+		this._logService.debug(this.id, 'dispose');
 
 		this.cells.get().forEach(cell => cell.dispose());
 
@@ -929,7 +931,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Methods
 
 	getId(): string {
-		return this._id;
+		return this.id;
 	}
 
 	/**
@@ -1435,7 +1437,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
-		this._logService.debug(this._id, 'attachView');
+		this._logService.debug(this.id, 'attachView');
 	}
 
 	/**
@@ -1493,7 +1495,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this.container.set(undefined, undefined);
 		this._overlayContainer = undefined;
-		this._logService.debug(this._id, 'detachView');
+		this._logService.debug(this.id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 	}
@@ -1502,7 +1504,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.debug(this._id, 'Closing a notebook instance');
+		this._logService.debug(this.id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -1542,7 +1544,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const kernelRuntimeId = this.kernel.get()?.runtime.runtimeId;
 		const sessionRuntimeId = session.runtimeMetadata.runtimeId;
 		if (kernelRuntimeId !== session.runtimeMetadata.runtimeId) {
-			this._logService.warn(this._id,
+			this._logService.warn(this.id,
 				`Unexpected session started for notebook ${this.uri.fsPath}. ` +
 				`Expected runtime ${kernelRuntimeId}, found ${sessionRuntimeId}`);
 			return;
@@ -1594,7 +1596,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if the uri is the same as the notebook's uri, false otherwise.
 	 */
 	private _isThisNotebook(uri: URI): boolean {
-		return isEqual(uri, this._input.resource);
+		return isEqual(uri, this.uri);
 	}
 
 	/**
@@ -1697,13 +1699,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.debug(this._id, '_runCells');
+		this._logService.debug(this.id, '_runCells');
 
 		this._assertTextModel();
 
 		if (!this.kernel.get()) {
 			// Make sure we have a kernel to run the cells.
-			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this.id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
