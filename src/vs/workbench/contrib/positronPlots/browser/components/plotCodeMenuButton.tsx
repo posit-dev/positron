@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -14,7 +14,6 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 import { CodeAttributionSource } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 // Localized strings.
 const plotCodeActionsTooltip = localize('positronPlotCodeActions', "Plot code actions");
@@ -38,25 +37,14 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 
-	// State to track metadata changes.
-	const [metadata, setMetadata] = useState<IPositronPlotMetadata>(props.plotClient.metadata);
-
-	// Subscribe to metadata updates.
-	useEffect(() => {
-		const disposable = props.plotClient.onDidUpdateMetadata?.(newMetadata => {
-			setMetadata(newMetadata);
-		});
-		return () => disposable?.dispose();
-	}, [props.plotClient]);
-
-	// Get metadata from state.
-	const plotCode = metadata.code;
-	const executionId = metadata.execution_id;
-	const sessionId = metadata.session_id;
-	const languageId = metadata.language;
-
 	// Builds the actions.
 	const actions = (): IAction[] => {
+		const metadata = props.plotClient.metadata;
+		const plotCode = metadata.code;
+		const executionId = metadata.execution_id;
+		const sessionId = metadata.session_id;
+		const languageId = metadata.language;
+
 		return [
 			{
 				id: 'copyCode',
@@ -118,7 +106,7 @@ export const PlotCodeMenuButton = (props: PlotCodeMenuButtonProps) => {
 		<ActionBarMenuButton
 			actions={actions}
 			icon={ThemeIcon.fromId('code')}
-			tooltip={plotCode ?? plotCodeActionsTooltip}
+			tooltip={props.plotClient.metadata.code ?? plotCodeActionsTooltip}
 		/>
 	);
 };
