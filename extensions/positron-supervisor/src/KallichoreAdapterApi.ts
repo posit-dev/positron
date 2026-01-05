@@ -164,6 +164,15 @@ export class KCApi implements PositronSupervisorApi {
 			});
 			this._context.subscriptions.push(configListener);
 		}
+
+		// Listen for changes to the resource usage poll interval
+		this._context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration('kernelSupervisor.resourceUsagePollInterval')) {
+				if (this._started.isOpen()) {
+					this.updateResourceUsagePollInterval();
+				}
+			}
+		}));
 	}
 
 	/**
@@ -812,6 +821,9 @@ export class KCApi implements PositronSupervisorApi {
 			this.updateIdleTimeout();
 		}
 
+		// Update the resource usage poll interval from settings
+		this.updateResourceUsagePollInterval();
+
 		// Mark this a restored server
 		this._newSupervisor = false;
 
@@ -848,6 +860,22 @@ export class KCApi implements PositronSupervisorApi {
 			});
 		} catch (err) {
 			this.log(`Failed to update idle timeout: ${summarizeError(err)}`);
+		}
+	}
+
+	/**
+	 * Update the resource usage poll interval on the server. This is used to
+	 * set the poll interval on a server that has already started.
+	 */
+	async updateResourceUsagePollInterval() {
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const resourcePollInterval = config.get<number>('resourceUsagePollInterval', 1000);
+		try {
+			await this._api.api.setServerConfiguration({
+				resource_sample_interval_ms: resourcePollInterval
+			});
+		} catch (err) {
+			this.log(`Failed to update resource usage poll interval to ${resourcePollInterval}: ${summarizeError(err)}`);
 		}
 	}
 
