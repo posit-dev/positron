@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -276,7 +276,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _currentOperation: NotebookOperationType | undefined = undefined;
 
-	private _contributions = new Map<string, IPositronNotebookContribution>();
+	private readonly _contributions = this._register(new DisposableMap<string, IPositronNotebookContribution>());
 
 	/**
 	 * Observable list of deletion sentinels.
