@@ -57,8 +57,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [actions, setActions] = useState<readonly IAction[]>([]);
-	const [defaultAction, setDefaultAction] = useState<IAction | undefined>(undefined);
+	const [defaultActionId, setDefaultActionId] = useState<string | undefined>(undefined);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
 	useEffect(() => {
@@ -79,8 +78,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 		const actions = await getActions();
 		const defaultAction = actions.find(action => action.checked);
 
-		setDefaultAction(defaultAction);
-		setActions(actions);
+		setDefaultActionId(defaultAction?.id);
 
 		return actions;
 	}, [getActions]);
@@ -97,6 +95,7 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
+		const actions = await getActions()
 		// Get the actions. If there are no actions, return.
 		if (!actions.length) {
 			return;
@@ -142,6 +141,8 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 					await showMenu();
 				} else {
 					// Run the preferred action.
+					const actions = await getActions();
+					const defaultAction = actions.find(action => action.id === defaultActionId);
 					defaultAction ? defaultAction.run() : actions[0].run();
 				}
 			}}
