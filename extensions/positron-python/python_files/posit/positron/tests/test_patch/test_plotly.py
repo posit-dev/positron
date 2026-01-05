@@ -70,7 +70,7 @@ def test_patch_writes_temp_file():
         assert content == test_html
 
         # Verify it's in the temp directory
-        assert tempfile.gettempdir() in str(file_path) or "/var/folders" in str(file_path)
+        assert tempfile.gettempdir() in str(file_path)
 
     finally:
         webbrowser.open = original_open
