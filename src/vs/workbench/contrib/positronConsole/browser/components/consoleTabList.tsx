@@ -12,6 +12,7 @@ import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'r
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -77,6 +78,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
 	const [resourceUsageHistory, setResourceUsageHistory] = useState<ILanguageRuntimeResourceUsage[]>([]);
+	const [showResourceMonitor, setShowResourceMonitor] = useState(
+		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+	);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
@@ -88,6 +92,17 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Add listener for showResourceMonitor configuration changes
+		disposableStore.add(
+			services.configurationService.onDidChangeConfiguration((e: IConfigurationChangeEvent) => {
+				if (e.affectsConfiguration('console.showResourceMonitor')) {
+					setShowResourceMonitor(
+						services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+					);
+				}
+			})
+		);
 
 		// Add the onDidUpdateSessionName event handler.
 		disposableStore.add(
@@ -117,7 +132,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 		// Return cleanup function to dispose of the store when effect cleans up.
 		return () => disposableStore.dispose();
-	}, [services.runtimeSessionService, positronConsoleInstance.sessionId]);
+	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance.sessionId]);
 
 	// Subscribe to resource usage updates
 	useEffect(() => {
@@ -213,6 +228,22 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			class: undefined,
 			enabled: !deleteDisabled,
 			run: () => deleteSession()
+		});
+
+		// Add the show resource monitor toggle action
+		actions.push({
+			id: 'workbench.action.positronConsole.toggleShowResourceMonitor',
+			label: localize('positron.console.showResourceMonitor', "Show Resource Monitor"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: showResourceMonitor,
+			run: () => {
+				services.configurationService.updateValue(
+					'console.showResourceMonitor',
+					!showResourceMonitor
+				);
+			}
 		});
 
 		// Show the context menu.
@@ -465,8 +496,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				)}
 			</div>
 
-			{/* Resource usage section - only shown for the active session */}
-			{isActiveTab && (
+			{/* Resource usage section - only shown for the active session when showResourceMonitor is enabled */}
+			{isActiveTab && showResourceMonitor && resourceUsageHistory.length > 0 && (
 				<div className='resource-usage-section'>
 					<ResourceUsageGraph
 						data={resourceUsageHistory}
