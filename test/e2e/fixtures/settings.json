@@ -9,7 +9,8 @@
   "positron.assistant.enable": true,
   "positron.assistant.enabledProviders": [
     "openai-api",
-    "echo"
+    "echo",
+    "error"
   ],
   "posit.workbench.showWorkbenchFlaskHint": false
 }
