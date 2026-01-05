@@ -118,6 +118,14 @@
           "maximum": 2000,
           "description": "%configuration.maxBufferSizeMB.description%"
         },
+        "kernelSupervisor.resourceUsagePollInterval": {
+          "scope": "window",
+          "type": "number",
+          "default": 1000,
+          "minimum": 0,
+          "maximum": 60000,
+          "description": "%configuration.resourceUsagePollInterval.description%"
+        },
         "kernelSupervisor.transport": {
           "scope": "machine",
           "type": "string",

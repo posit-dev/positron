@@ -310,12 +310,16 @@ export class KCApi implements PositronSupervisorApi {
 		// Get the log level from the configuration
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
 
+		// Get the resource poll interval from the configuration
+		const resourcePollInterval = config.get<number>('resourceUsagePollInterval', 1000);
+
 		// Add the path to Kallichore itself
 		shellArgs.push(shellPath);
 		shellArgs.push(...[
 			'--log-level', logLevel,
 			'--log-file', logFile,
 			'--connection-file', connectionFile,
+			'--resource-sample-interval', resourcePollInterval.toString()
 		]);
 
 		// Add transport option
