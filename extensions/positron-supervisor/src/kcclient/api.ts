@@ -261,6 +261,10 @@ export interface ServerConfiguration {
      */
     'idle_shutdown_hours'?: number;
     /**
+     * The interval in milliseconds at which resource usage is sampled. A value of 0 disables resource usage sampling.
+     */
+    'resource_sample_interval_ms'?: number;
+    /**
      * The current log level
      */
     'log_level'?: ServerConfigurationLogLevelEnum;
