@@ -139,6 +139,11 @@
 	opacity: 0.2;
 }
 
+/* Resource usage section - enable container queries */
+.tabs-container .tab-button .resource-usage-section {
+	container-type: inline-size;
+}
+
 /* Resource usage stats */
 .tabs-container .tab-button .resource-usage-stats {
 	display: flex;
@@ -153,4 +158,11 @@
 .tabs-container .tab-button .resource-usage-cpu,
 .tabs-container .tab-button .resource-usage-memory {
 	white-space: nowrap;
+}
+
+/* Hide labels when container is too narrow */
+@container (max-width: 115px) {
+	.resource-usage-stats .resource-usage-label {
+		display: none;
+	}
 }

@@ -25,15 +25,21 @@ interface ResourceUsageStatsProps {
  */
 export const ResourceUsageStats = ({ cpuPercent, memoryBytes }: ResourceUsageStatsProps) => {
 	// Format CPU as integer percentage
-	const cpuDisplay = `CPU ${Math.round(cpuPercent)}%`;
+	const cpuValue = `${Math.round(cpuPercent)}%`;
 
 	// Format memory using ByteSize helper
-	const memoryDisplay = `MEM ${ByteSize.formatSize(memoryBytes)}`;
+	const memoryValue = ByteSize.formatSize(memoryBytes);
 
 	return (
 		<div className="resource-usage-stats">
-			<span className="resource-usage-cpu">{cpuDisplay}</span>
-			<span className="resource-usage-memory">{memoryDisplay}</span>
+			<span className="resource-usage-cpu">
+				<span className="resource-usage-label">CPU </span>
+				<span className="resource-usage-value">{cpuValue}</span>
+			</span>
+			<span className="resource-usage-memory">
+				<span className="resource-usage-label">MEM </span>
+				<span className="resource-usage-value">{memoryValue}</span>
+			</span>
 		</div>
 	);
 };
