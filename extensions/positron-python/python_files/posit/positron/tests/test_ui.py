@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
-from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -266,7 +265,6 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 def test_plotly_show_sends_events(
     shell: PositronShell,
     ui_comm: DummyComm,
-    mock_handle_request: Mock,
 ) -> None:
     """Test that showing a Plotly plot sends the expected UI events when using `fig.show()` and `fig`."""
     shell.run_cell(
@@ -286,16 +284,23 @@ fig.show()
 fig
 """
     )
-    mock_handle_request.assert_called()
     assert len(ui_comm.messages) == 2
-    params = ui_comm.messages[0]["data"]["params"]
-    assert params["title"] == ""
-    assert params["destination"] == "plot"
-    assert params["height"] == 0
-    params = ui_comm.messages[1]["data"]["params"]
-    assert params["title"] == ""
-    assert params["destination"] == "plot"
-    assert params["height"] == 0
+
+    # Both fig.show() and fig should send events with cached HTML files
+    for i in range(2):
+        params = ui_comm.messages[i]["data"]["params"]
+        assert params["title"] == ""
+        assert params["destination"] == "plot"
+        assert params["height"] == 0
+        # Plotly HTML should be cached to a temp file (not a localhost URL)
+        # so that "Open in Browser" works after Plotly's single-use server shuts down
+        path = params["path"]
+        assert not path.startswith("http"), f"Expected file path, got URL: {path}"
+        assert path.endswith(".html"), f"Expected .html file, got: {path}"
+        # On Windows, the path is a raw file path (e.g., C:\...), while on other
+        # platforms it's a file:// URL. Extract the actual file path accordingly.
+        file_path = Path(path.replace("file://", "")) if path.startswith("file://") else Path(path)
+        assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
 def test_is_not_plot_url_events(

@@ -190,11 +190,6 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	getSupportedProviders(): string[] {
 		const providers = ['anthropic-api', 'copilot-auth'];
-		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
-
-		if (useTestModels) {
-			providers.push('amazon-bedrock', 'error', 'echo', 'google');
-		}
 		return providers;
 	}
 
