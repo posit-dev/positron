@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Search', {
-	tag: [tags.SEARCH, tags.WEB, tags.WIN]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB, tags.WIN]
 }, () => {
 
 	test.beforeAll(async ({ app, settings }) => {
@@ -31,6 +31,24 @@ test.describe('Positron Notebooks: Search', {
 
 		await notebooksPositron.search('import');
 		await notebooksPositron.expectSearchCountToBe({ current: 1, total: 4 });
+		// await notebooksPositron.expectSearchDecorationsCountToBe(4);
+
+		// click next match
+		await notebooksPositron.searchNext('button');
+		await notebooksPositron.expectSearchCountToBe({ current: 2, total: 4 });
+
+		// enter for next match
+		await notebooksPositron.searchNext('keyboard');
+		await notebooksPositron.expectSearchCountToBe({ current: 3, total: 4 });
+
+		// click previous match
+		await notebooksPositron.searchPrevious();
+		await notebooksPositron.expectSearchCountToBe({ current: 2, total: 4 });
+
+		// close search
+		await notebooksPositron.searchClose('button'); // escape key
+		// await notebooksPositron.expectSearchDecorationsCountToBe(0);
+
 
 		// notes:
 		// open a notebook with a variety of cells e.g. code cells with/without output, and a few markdown cells

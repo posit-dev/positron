@@ -57,10 +57,13 @@ export class PositronNotebooks extends Notebooks {
 
 	// Search Widget
 	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
-	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' })
+	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' });
 	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
 	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace' });
 	private replaceAllButton = this.searchWidget.getByRole('button', { name: 'Replace All' });
+	private searchNextButton = this.searchWidget.getByRole('button', { name: 'Next Match' });
+	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
+	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
 
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
@@ -525,9 +528,9 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async search(
 		searchText: string,
-		options?: { replaceText?: string; replaceAll?: boolean }
+		options?: { replaceText?: string; replaceAll?: boolean; enterKey?: boolean }
 	): Promise<void> {
-		const { replaceText = undefined, replaceAll = false } = options ?? {};
+		const { replaceText = undefined, replaceAll = false, enterKey = true } = options ?? {};
 
 		await test.step(`Search notebook for: ${searchText}`, async () => {
 			// Open search
@@ -545,6 +548,45 @@ export class PositronNotebooks extends Notebooks {
 					? await this.replaceAllButton.click()
 					: await this.replaceButton.click();
 			}
+
+			if (enterKey) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+		});
+	}
+
+	/**
+	 * Action: Click the 'Next Match' button in the search widget.
+	 * @param mode - 'button' to click the button, 'keyboard' to press Enter key (default: 'button')
+	 */
+	async searchNext(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
+		await test.step('Search next match', async () => {
+			mode === 'keyboard'
+				? await this.code.driver.page.keyboard.press('Enter')
+				: await this.searchNextButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the 'Previous Match' button in the search widget.
+	 */
+	async searchPrevious(): Promise<void> {
+		await test.step('Search previous match', async () => {
+			await this.searchPreviousButton.click();
+		});
+	}
+
+	/**
+	 * Action: Close the search widget.
+	 * @param mode - 'button' to click the close button, 'keyboard' to press Escape key.
+	 */
+	async searchClose(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
+		await test.step('Close search widget', async () => {
+			mode === 'keyboard'
+				? await this.code.driver.page.keyboard.press('Escape')
+				: await this.searchCloseButton.click();
+
+			await expect(this.searchWidget).not.toBeVisible({ timeout: 2000 });
 		});
 	}
 
