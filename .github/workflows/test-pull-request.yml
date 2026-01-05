@@ -23,7 +23,7 @@ jobs:
       rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -38,7 +38,7 @@ jobs:
     needs: pr-tags
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
@@ -52,10 +52,11 @@ jobs:
     needs: pr-tags
     if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
     name: e2e
-    uses: ./.github/workflows/test-e2e-windows.yml
+    uses: ./.github/workflows/test-e2e-windows-run.yml
     with:
+      save_cache: true
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "electron (windows)"
+      display_name: "windows"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       upload_logs: false
@@ -69,7 +70,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
@@ -116,6 +117,8 @@ jobs:
     name: test
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
+    with:
+      save_cache: true  # Only this job saves cache to avoid race conditions
 
   integration-tests:
     name: test

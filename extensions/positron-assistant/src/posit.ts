@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration, ModelConfig, SecretStorage } from './config';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from './anthropic.js';
 import { getAllModelDefinitions } from './modelDefinitions.js';
@@ -32,11 +32,6 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 	/** The cancellation token for the current operation. */
 	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	private readonly _anthropicClient: Anthropic;
 
@@ -483,7 +478,7 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 				version: '',
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: modelDef.maxInputTokens,
 				defaultMaxOutput: modelDef.maxOutputTokens
 			})
@@ -509,7 +504,7 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 			version: this._context?.extension.packageJSON.version ?? '',
 			provider: this.provider,
 			providerName: this.providerName,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			defaultMaxInput: this.maxInputTokens,
 			defaultMaxOutput: this.maxOutputTokens
 		});

@@ -22,6 +22,7 @@ import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
 export function NotebookCellWrapper({ cell, children, hasError }: {
 	cell: IPositronNotebookCell;
@@ -56,16 +57,21 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 
 		/**
 		 * Focus the cell container element when this cell becomes the active cell,
-		 * except when:
-		 * 1. In editing mode (the Monaco editor should have focus then)
-		 * 2. Transitioning from Editing state for CODE cells only
-		 *    (markdown cells should still get container focus since their editor unmounts)
-		 */
+		 * except when:*/
 		const wasEditingCodeCell = prevStatus === CellSelectionStatus.Editing && cell.isCodeCell();
-		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing && !wasEditingCodeCell) {
+		const findWidgetFocused = notebookInstance.scopedContextKeyService &&
+			CONTEXT_FIND_INPUT_FOCUSED.getValue(notebookInstance.scopedContextKeyService);
+		if (isActiveCell &&
+			// 1. In editing mode (the Monaco editor should have focus then)
+			selectionStatus !== CellSelectionStatus.Editing &&
+			// 2. Transitioning from Editing state for CODE cells only
+			//    (markdown cells should still get container focus since their editor unmounts)
+			!wasEditingCodeCell &&
+			// 3. The find widget is focused (to keep focus in the find input)
+			!findWidgetFocused) {
 			cellRef.current.focus();
 		}
-	}, [isActiveCell, selectionStatus, cellRef, cell]);
+	}, [isActiveCell, selectionStatus, cellRef, cell, notebookInstance]);
 
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);

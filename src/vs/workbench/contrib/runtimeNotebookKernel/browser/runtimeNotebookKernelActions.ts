@@ -19,7 +19,7 @@ import { RuntimeExitReason } from '../../../services/languageRuntime/common/lang
 import { INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IActiveNotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
-import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
 import { PositronNotebookInstance } from '../../positronNotebook/browser/PositronNotebookInstance.js';
@@ -128,7 +128,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyChord(KeyCode.Digit0, KeyCode.Digit0),
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 			},
 			menu: [
 				// VSCode notebooks

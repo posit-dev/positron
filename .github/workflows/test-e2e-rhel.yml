@@ -113,6 +113,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      HOME: /root
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
@@ -131,7 +132,7 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -150,25 +151,14 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
+      - name: Setup build environment
+        id: setup-build
         uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
-
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+        with:
+          distro: rhel
+          install-playwright: 'true'
+          playwright-with-deps: 'false'
+          github-token: ${{ github.token }}
 
       - name: Move Positron License
         if: ${{ inputs.install_license }}
@@ -191,7 +181,7 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Run Playwright Tests
+      - name: 🧪 Run Playwright Tests
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
@@ -272,7 +262,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-rhel-json-results
           path: test-results/rhel.json
@@ -280,7 +270,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-logs
           path: test-logs

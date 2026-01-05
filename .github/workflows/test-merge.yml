@@ -32,18 +32,23 @@ jobs:
       max_failures: 5  # 10 max failures / 2 shards = 5
     secrets: inherit
 
-  e2e-windows-electron:
+  e2e-windows:
     name: e2e
-    uses: ./.github/workflows/test-e2e-windows.yml
-    with:
-      grep: ""
-      display_name: "electron (windows)"
-      currents_tags: "merge,electron/windows"
-      upload_logs: false
-      allow_soft_fail: true
+    uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
+    with:
+      save_cache: true
+      grep: ""
+      project: "e2e-windows"
+      display_name: "windows"
+      currents_tags: "merge,electron/windows"
+      allow_soft_fail: true
+      upload_logs: false
+      shards: 3
+      matrix: '{"shard":[1,2,3]}'
+      max_failures: 3  # 10 max failures / 3 shards = 3.33, rounded down to 3
 
-  e2e-linux-chromium:
+  e2e-ubuntu-chromium:
     name: e2e
     needs: [setup]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
@@ -66,6 +71,8 @@ jobs:
     name: test
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
+    with:
+      save_cache: true  # Saves Ubuntu caches for subsequent runs
 
   integration-tests:
     name: test
@@ -82,8 +89,8 @@ jobs:
         unit-tests,
         integration-tests,
         e2e-electron,
-        e2e-windows-electron,
-        e2e-linux-chromium,
+        e2e-windows,
+        e2e-ubuntu-chromium,
       ]
     runs-on: ubuntu-latest
     steps:
@@ -100,7 +107,7 @@ jobs:
   slack-notify-win-extensions:
     if: ${{ needs.e2e-windows-electron.outputs.extensions_failed == 'true' }}
     needs:
-      - e2e-windows-electron
+      - e2e-windows
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack

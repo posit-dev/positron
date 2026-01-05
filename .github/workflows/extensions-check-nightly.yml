@@ -28,27 +28,14 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
+      - name: Setup build environment
         uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
-
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+        with:
+          distro: ubuntu
+          install-playwright: 'true'
+          github-token: ${{ github.token }}
 
       - name: Setup Xvfb
         uses: ./.github/actions/setup-xvfb

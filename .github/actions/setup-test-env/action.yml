@@ -11,6 +11,8 @@ inputs:
 runs:
   using: "composite"
   steps:
+    # NOTE: E2E dependencies are installed by setup-build-env action
+    # This action only handles compilation and environment setup
     - name: Compile E2E Tests
       shell: bash
       run: npm --prefix test/e2e run compile

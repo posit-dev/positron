@@ -30,34 +30,85 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-unit-test-build-env
-        continue-on-error: true
+      - name: Install system dependencies
+        uses: ./.github/actions/install-system-deps
 
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-unit-test-build-env
-        continue-on-error: true
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v3
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'   # Use workspace-relative path for node-gyp cache (Docker compatibility)
+          DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            # Install node-gyp (required by some packages)
+            npm i --global node-gyp
 
-      - name: Attempt 3 - Setup Build and Compile
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-unit-test-build-env
+            # Run parallel npm install
+            bash scripts/install-npm-parallel.sh
 
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers and system dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+        run: npx playwright install --with-deps
+
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Configure xvfb Service
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Prelaunch
+        run: npm run prelaunch
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
@@ -66,7 +117,29 @@ jobs:
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one integration test needs this: Connections pane works for R
+      - name: Download R DESCRIPTION file
+        id: download-r-desc
+        run: |
+          curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          HASH=$(sha256sum DESCRIPTION | awk '{print $1}')
+          echo "description-hash=$HASH" >> $GITHUB_OUTPUT
+          echo "R DESCRIPTION hash: $HASH"
+
+      - name: Restore R installation and packages cache
+        id: cache-r
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.local/share/rig
+            ~/.cache/R
+            /usr/local/lib/R/site-library
+            /opt/R
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.4.0-
+
       - name: Setup R
+        if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/install-r
         with:
           version: "4.4.0"
@@ -74,8 +147,10 @@ jobs:
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile
 
-      - name: Run Integration Tests (Electron)
+      - name: 🧪 Run Integration Tests (Electron)
         id: electron-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: |
           if [ "${{ inputs.pull_request }}" = "true" ]; then
             DISPLAY=:10 ./scripts/test-integration-pr.sh
@@ -83,12 +158,16 @@ jobs:
             DISPLAY=:10 ./scripts/test-integration.sh
           fi
 
-      - name: Run Integration Tests (Remote)
+      - name: 🧪 Run Integration Tests (Remote)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: electron-remote-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
-      - name: Run Integration Tests (Browser, Chromium)
+      - name: 🧪 Run Integration Tests (Browser, Chromium)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: browser-integration-tests
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium

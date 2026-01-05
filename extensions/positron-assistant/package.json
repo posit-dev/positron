@@ -335,64 +335,50 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.filterModels": {
+          "positron.assistant.models.include": {
             "type": "array",
-            "default": [
-              "claude",
-              "gpt"
-            ],
-            "markdownDescription": "%configuration.filterModels.description%",
+            "default": [],
+            "markdownDescription": "%configuration.models.include.description%",
             "items": {
               "type": "string"
             },
             "examples": [
               [
-                "sonnet"
+                "claude",
+                "gpt"
               ],
               [
-                "Claude*",
-                "GPT-5"
-              ],
-              [
-                "**/google/gemini*"
+                "Claude Sonnet 4.5",
+                "GPT-4o"
               ]
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.preferredModel": {
+          "positron.assistant.models.preference.global": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.preferredModel.description%",
+            "markdownDescription": "%configuration.models.preference.global.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.defaultModels": {
+          "positron.assistant.models.preference.byProvider": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.defaultModels.description%",
+            "markdownDescription": "%configuration.models.preference.byProvider.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.configuredModels": {
+          "positron.assistant.models.custom": {
             "type": "object",
             "default": {},
-            "markdownDescription": "%configuration.configuredModels.description%",
+            "markdownDescription": "%configuration.models.custom.description%",
             "additionalProperties": {
               "type": "array",
               "items": {
@@ -440,9 +426,6 @@
                   }
                 ]
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.notebookSuggestions.model": {

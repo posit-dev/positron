@@ -64,6 +64,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J D', 'Select notebook kernel');
 	}
 
+	public async searchInNotebook() {
+		await this.pressHotKeys('Cmd+F', 'Search in notebook');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------
