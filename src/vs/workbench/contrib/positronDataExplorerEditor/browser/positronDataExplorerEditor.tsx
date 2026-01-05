@@ -29,6 +29,7 @@ import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInp
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -78,6 +79,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets or sets the identifier.
 	 */
 	private _identifier?: string;
+
+	/**
+	 * Gets the is focused context key.
+	 */
+	private readonly _isFocusedContextKey: IContextKey<boolean>;
 
 	/**
 	 * Gets the layout context key.
@@ -186,6 +192,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Notifies the React component container when focus changes.
 	 */
 	focusChanged(focused: boolean) {
+		this._isFocusedContextKey.set(focused)
 	}
 
 	/**
@@ -241,6 +248,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
 
 		// Create the context keys.
+		this._isFocusedContextKey = PositronDataExplorerFocused.bindTo(
+			this._group.scopedContextKeyService
+		);
 		this._layoutContextKey = POSITRON_DATA_EXPLORER_LAYOUT.bindTo(
 			this._group.scopedContextKeyService
 		);
@@ -262,6 +272,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._fileHasHeaderRowContextKey = POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW.bindTo(
 			this._group.scopedContextKeyService
 		);
+
+		// Create a focus tracker that updates the positronDataExplorerFocused context key.
+		const focusTracker = this._register(DOM.trackFocus(this._positronDataExplorerContainer));
+		this._register(focusTracker.onDidFocus(() => this.focusChanged(true)));
+		this._register(focusTracker.onDidBlur(() => this.focusChanged(false)));
 	}
 
 	/**

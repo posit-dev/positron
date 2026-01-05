@@ -213,7 +213,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.14.1",
+			"version": "2025.18.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -229,7 +229,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.27.4",
+			"version": "1.27.9",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -241,8 +241,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.126.0",
-			"sha256sum": "90e53ab8d278a7f4faf0f929caeeafbf69114f0bede849298c5a35a843d431a5",
+			"version": "1.127.0",
+			"sha256sum": "d7eb6a6777f0d57d8e362faa92b0a330d1996b26c49b1690b274fb6be7349577",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

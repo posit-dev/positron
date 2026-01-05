@@ -33,11 +33,16 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 	) {
 		super();
 
-		// Update the active code editor when the notebook selection state changes.
+		// Update the active code editor when the notebook selection state changes
+		// OR when the active cell's editor changes (e.g., when a markdown cell's editor is attached).
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			const state = selectionStateMachine.state.read(reader);
-			this._activeCodeEditor = getActiveCell(state)?.editor;
+			const activeCell = getActiveCell(state);
+			// Read from the editorObservable to track changes to the editor itself.
+			// This ensures we update when the editor is attached/detached (e.g., markdown cells
+			// entering edit mode) - not just when the selection state changes.
+			this._activeCodeEditor = activeCell?.editorObservable.read(reader);
 		}));
 	}
 

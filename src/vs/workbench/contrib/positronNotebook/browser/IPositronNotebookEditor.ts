@@ -80,6 +80,14 @@ export interface IExtensionApiActiveNotebookEditor extends IExtensionApiNotebook
 }
 //#endregion Extension API
 
+//#region Decorations
+export interface IDecorationsCellViewModel extends Pick<
+	ICellViewModel,
+	| 'deltaModelDecorations'
+	| 'getCellDecorationRange'
+> { }
+//#endregion Decorations
+
 //#region Context keys
 /**
  * Context Key Management Integration
@@ -272,7 +280,7 @@ export interface IPositronCellOutputViewModel extends IContextKeysCellOutputView
  * Unified cell view model combining Extension API and Context Keys capabilities.
  * Includes output view models for complete cell representation.
  */
-export interface IPositronCellViewModel extends IExtensionApiCellViewModel, IContextKeysCellViewModel {
+export interface IPositronCellViewModel extends IExtensionApiCellViewModel, IContextKeysCellViewModel, IDecorationsCellViewModel {
 	outputsViewModels: IPositronCellOutputViewModel[];
 }
 

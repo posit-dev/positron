@@ -61,12 +61,22 @@
 	}
 }
 
+.monaco-workbench .positron-notebook-editor {
+	/* Position relative to establish positioning context for absolutely positioned children (e.g., find widget) */
+	position: relative;
+}
+
+.monaco-workbench .positron-notebook-container {
+	/* Fill parent, otherwise there's no scroll bar */
+	height: 100%;
+}
+
 /**
 * Override the global keyoard focus outline style for notebook containers.
 * This prevents focus outline from showing when a user clicks on the notebook.
 * This prevents empty notebooks from showing an outline when they are focused.
 */
-.monaco-workbench .positron-notebook-container[tabindex="-1"]:focus {
+.monaco-workbench .positron-notebook-container[tabindex="-1"]:focus{
 	outline: none;
 }
 

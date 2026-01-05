@@ -1,0 +1,624 @@
+name: "Test: E2E (Windows) — Sharded"
+
+# Cache Save Strategy:
+# This workflow has a save_cache parameter to prevent race conditions when multiple jobs
+# try to save the same cache key simultaneously. Only ONE job per calling workflow should
+# set save_cache: true, and only shard 1 actually saves. Examples:
+# - test-pull-request.yml: windows e2e saves (save_cache: true, shard 1 only)
+# - test-merge.yml: windows e2e saves (save_cache: true, shard 1 only)
+# - test-full-suite.yml: only restores (save_cache: false or omitted)
+
+on:
+  workflow_call:
+    inputs:
+      save_cache:
+        required: false
+        description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
+        type: boolean
+        default: false
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "@:win"
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
+      shards:
+        required: false
+        description: "Total number of shards (for display purposes and shard argument)"
+        default: 1
+        type: number
+      matrix:
+        required: false
+        description: "Pre-calculated matrix JSON from caller workflow"
+        default: '{"shard":[1]}'
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-windows-run"
+        type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: "electron/windows"
+        type: string
+      report_currents:
+        required: false
+        description: "Whether or not to report results to Currents."
+        type: boolean
+        default: false
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      skip_extension_tests:
+        required: false
+        description: "Whether to skip the extensions tests."
+        type: boolean
+        default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+      max_failures:
+        required: false
+        description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
+        type: number
+        default: 10
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e-windows-run:
+    name: ${{ inputs.display_name || 'e2e-windows-run' }}-${{ matrix.shard }}
+    timeout-minutes: 90
+    runs-on: windows-latest-8x
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.matrix) }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      AWS_S3_BUCKET: positron-test-reports
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+    outputs:
+      extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "${{ inputs.project }}" "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Install System Level Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Apply patches when cache hits
+        if: steps.restore-caches.outputs.cache-npm-core-hit == 'true'
+        run: |
+          echo "Cache hit - applying patches to cached node_modules"
+          npx patch-package
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v3
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
+          POSITRON_NPM_CONCURRENCY: '30'         # Unused when parallel install is disabled
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          # Install strategy:
+          # 1. Pre-install build/ so postinstall can access gulp-merge-json
+          # 2. Run root npm ci which triggers postinstall (installs 60+ extensions in parallel, concurrency: 30)
+          # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
+          # Note: test/e2e is installed in separate step below (not cached, always runs)
+          # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
+          command: |
+            # Pre-install build directory (required by postinstall for gulp-merge-json)
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+
+            # Run root npm ci (triggers postinstall which installs all extensions)
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+
+            echo "npm ci completed successfully"
+
+      - name: Download binaries (Ark, Kallichore) with retry
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            # Download platform-specific binaries for Windows
+            # Wrapped in retry due to occasional GitHub API timeouts
+            cd extensions
+            echo "Downloading Ark binary..."
+            cd positron-r && npm rebuild --foreground-scripts
+            echo "Downloading Kallichore binary..."
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers
+        run: npm run playwright-install
+
+      - name: 💾 Save caches
+        if: ${{ inputs.save_cache && matrix.shard == 1 }}
+        uses: ./.github/actions/save-build-caches
+        with:
+          cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
+          cache-npm-extensions-volatile-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
+          cache-npm-extensions-stable-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
+          cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
+          extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
+          package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+          node-version: ${{ steps.restore-caches.outputs.node-version }}
+          playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
+
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - shell: bash
+        run: npm run prelaunch
+
+      - name: Download Python requirements file
+        id: download-python-reqs
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          $hash = (Get-FileHash requirements.txt -Algorithm SHA256).Hash
+          echo "requirements-hash=$hash" >> $env:GITHUB_OUTPUT
+          echo "Python requirements hash: $hash"
+
+      - name: Restore Python packages cache
+        id: cache-python
+        uses: actions/cache/restore@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install trcli
+
+      - name: Save Python packages cache
+        if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
+
+      # Alternate python version
+      - name: Install Python 3.13.0
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.0"
+
+      # Ensure Python 3.13.0 is used and only install ipykernel
+      - name: Install ipykernel for Python 3.13.0
+        run: |
+          python --version  # Verify it's 3.13.0
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel
+
+      # Install rig (R Installation Manager)
+      - name: Install rig
+        run: |
+          choco install rig
+
+      # Install R 4.4.0 using rig
+      - name: Install R 4.4.0
+        run: |
+          rig add 4.4.0
+          rig default 4.4.0
+          rig ls
+
+      - name: Download R DESCRIPTION file
+        id: download-r-desc
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
+          echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
+          echo "R DESCRIPTION hash: $hash"
+
+      - name: Restore R packages cache
+        id: cache-r
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-4.4.0\library
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.4.0-
+
+      - name: Install R packages for 4.4.0
+        run: |
+          Rscript -e "install.packages('pak')"
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      - name: Save R packages cache
+        if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-4.4.0\library
+          key: ${{ runner.os }}-r-4.4.0-${{ steps.download-r-desc.outputs.description-hash }}
+
+      # Install R 4.4.2 using rig
+      - name: Install R 4.4.2
+        run: |
+          rig add 4.4.2
+          rig ls
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Setup AWS S3 Access for .last-run.json download
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Download previous .last-run.json from S3
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p blob-report
+          # Download project-specific .last-run.json
+          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
+
+      - name: Restore AWS S3 Access to read-only role
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: 🧪 Run Extensions Tests
+        if: ${{ matrix.shard == 1 }}
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p extensions-tests-logs
+          npm run test-extension -- -l positron-r 2>&1 | tee extensions-tests-logs/runner.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Save Extensions Tests Logs
+        if: ${{ matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          # Save all VSCode integration test logs including output channels
+          if [ -d ".build/logs/integration-tests" ]; then
+            echo "Uploading VSCode integration test logs"
+            mkdir -p extensions-tests-logs
+            cp -r .build/logs/integration-tests/* extensions-tests-logs/ || true
+          else
+            echo "No VSCode logs directory found at .build/logs/integration-tests"
+          fi
+          exit 0
+
+      - name: 🧪 Run Bootstrap Extensions Test
+        if: ${{ inputs.skip_extension_tests != true }}
+        id: bootstrap
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
+
+      - name: 🧪 Run Playwright E2E Tests
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
+        run: |
+          # Build the --grep argument only if PW_TAGS is non-empty
+          if [ -z "${PW_TAGS}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${PW_TAGS}\""
+          fi
+
+          # Build the --shard argument if shards > 1
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
+          else
+            SHARD_ARG=""
+          fi
+
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --shard argument: $SHARD_ARG"
+
+          export SKIP_BOOTSTRAP=true
+          # Skip clone on qa-example-content if we already did the bootstrap test
+          if [ "${{ inputs.skip_extension_tests }}" != "true" ]; then
+            export SKIP_CLONE=true
+          else
+            export SKIP_CLONE=false
+          fi
+
+          CMD="npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }}"
+          echo "Running: $CMD"
+
+          # Always run with || true when using blob reporter (merge-reports determines pass/fail)
+          eval SKIP_BOOTSTRAP=true $CMD || true
+
+      - name: Upload Blob Report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
+
+      - name: Upload Extensions Test Logs If Failed
+        if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensions-tests-logs
+          path: extensions-tests-logs/
+          if-no-files-found: ignore
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-win-logs
+          path: test-logs
+          if-no-files-found: ignore
+
+  merge-reports:
+    name: ${{ inputs.display_name }}
+    timeout-minutes: 10
+    if: ${{ !cancelled() }}
+    needs: [e2e-windows-run]
+    runs-on: ubuntu-latest-4x
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install Playwright and apply patch
+        shell: bash
+        run: |
+          # Create clean directory for merge dependencies
+          mkdir -p playwright-merge
+          cd playwright-merge
+          npm init -y
+          # Install only what we need for merging
+          # We need the patch to capture test durations in .last-run.json for better shard balancing
+          npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
+          # Copy patch from repo and apply it
+          mkdir -p patches
+          cp ../patches/playwright+1.56.1.patch patches/
+          npx patch-package
+
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Download all blob reports
+        uses: actions/download-artifact@v6
+        with:
+          path: all-blob-reports
+          pattern: blob-report-${{ inputs.project }}-*
+          merge-multiple: true
+
+      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          # Create output directory
+          mkdir -p playwright-report
+
+          echo "Merging blob reports from all shards..."
+          # Merge all blob reports and generate HTML report
+          env PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
+            --reporter=@midleman/github-actions-reporter,html \
+            --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
+            ../all-blob-reports
+
+          # Generate JSON report separately with explicit output path
+          PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json npx playwright merge-reports \
+            --reporter=json \
+            ../all-blob-reports
+
+      - name: Verify generated reports
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          # List all generated files
+          echo "Generated report files:"
+          ls -laR playwright-report/
+
+          # Verify .last-run.json
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
+            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
+          else
+            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
+          fi
+
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
+
+      - name: Setup AWS S3 Access for .last-run.json upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Upload .last-run.json to fixed S3 location
+        if: always()
+        shell: bash
+        working-directory: playwright-merge
+        run: |
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
+            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
+            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
+          else
+            echo "⚠ No $LAST_RUN_FILE to upload"
+          fi
+
+      - name: Check test results
+        if: always()
+        shell: bash
+        run: |
+          JSON_REPORT="playwright-merge/playwright-report/results.json"
+          if [ ! -f "$JSON_REPORT" ]; then
+            echo "⚠ JSON report not found at $JSON_REPORT"
+            echo "Contents of playwright-merge/playwright-report:"
+            ls -la playwright-merge/playwright-report/ || true
+            exit 1
+          fi
+
+          EXTRA_ARGS=""
+          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
+            echo "SOFT-FAIL DISABLED: standard test failure behavior"
+            EXTRA_ARGS="--no-soft-fail"
+          else
+            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
+          fi
+
+          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+
+      - name: Clean up blob report artifacts
+        if: success()
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: blob-report-${{ inputs.project }}-*
+          failOnError: false

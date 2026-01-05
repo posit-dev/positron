@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { AnthropicLanguageModel, CacheControlOptions } from '../anthropic';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 import { mock } from './utils.js';
@@ -121,8 +122,20 @@ suite('AnthropicLanguageModel', () => {
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.ProvideLanguageModelChatResponseOptions = { requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
 	) {
+		const mockModelInfo: vscode.LanguageModelChatInformation = {
+			id: 'claude-3-5-sonnet-20241022',
+			name: 'Claude 3.5 Sonnet',
+			family: 'anthropic-api',
+			version: '',
+			maxInputTokens: 200_000,
+			maxOutputTokens: 64_000,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
+			isDefault: true,
+			isUserSelectable: true
+		};
+
 		await model.provideLanguageModelChatResponse(
-			model,
+			mockModelInfo,
 			messages,
 			options,
 			progress,
@@ -647,7 +660,7 @@ suite('AnthropicLanguageModel', () => {
 					version: '',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: true,
 					isUserSelectable: true
 				};
