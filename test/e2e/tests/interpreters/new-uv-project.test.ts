@@ -34,6 +34,9 @@ test.describe('New UV Environment', {
 
 		await app.workbench.terminal.clickTerminalTab();
 
+		// OpenSUSE workaround - make sure termainl is ready before typing to it
+		await app.code.wait(10000);
+
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
 		await app.workbench.terminal.waitForTerminalText('Initialized project');
