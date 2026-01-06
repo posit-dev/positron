@@ -325,11 +325,9 @@ suite('UV Installer Tests', () => {
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
-            (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml')
-                .resolves(true)
-                .withArgs('/workspace/requirements.txt')
-                .resolves(false);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
