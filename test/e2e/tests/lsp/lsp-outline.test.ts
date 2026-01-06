@@ -139,6 +139,16 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 	});
 
 	test.describe('Outline: Basic', () => {
+		test('R - Verify Outline Contents', {
+			tag: [tags.ARK]
+		}, async function ({ app, r, openFile }) {
+			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+			await app.workbench.outline.expectOutlineToContain([
+				'con',
+				'albums',
+				'df',
+			]);
+		});
 
 		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
