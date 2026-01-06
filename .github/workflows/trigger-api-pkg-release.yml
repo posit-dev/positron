@@ -1,0 +1,33 @@
+name: Trigger API Package Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-api-pkg-release:
+    runs-on: ubuntu-latest
+    # Only trigger for actual releases, not prereleases
+    if: ${{ !github.event.release.prerelease }}
+
+    steps:
+      - name: Trigger positron-api-pkg release
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.API_PKG_TRIGGER_TOKEN }}
+          repository: posit-dev/positron-api-pkg
+          event-type: positron-release
+          client-payload: >-
+            {
+              "ref": "${{ github.event.release.tag_name }}",
+              "positron_version": "${{ github.event.release.tag_name }}",
+              "release_url": "${{ github.event.release.html_url }}"
+            }
+
+      - name: Log trigger
+        run: |
+          echo "## API Package Release Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Triggered release build for Positron ${{ github.event.release.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check progress at: https://github.com/posit-dev/positron-api-pkg/actions" >> $GITHUB_STEP_SUMMARY
