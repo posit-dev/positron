@@ -73,10 +73,13 @@ export class UVInstaller extends ModuleInstaller {
         const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
         const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
         // ...or if requirements.txt does exist, because we don't want them to get out of sync
-        const requirementsPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'requirements.txt') : undefined;
+        const requirementsPath = workspaceFolder
+            ? path.join(workspaceFolder.uri.fsPath, 'requirements.txt')
+            : undefined;
         const requirementsExists = requirementsPath ? await fileSystem.fileExists(requirementsPath) : false;
 
-        const usePyprojectWorkflow = !isIpykernel && !isBreakingSystemPackages && pyprojectExists && !requirementsExists;
+        const usePyprojectWorkflow =
+            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && !requirementsExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);

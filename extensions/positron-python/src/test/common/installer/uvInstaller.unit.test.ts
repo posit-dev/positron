@@ -6,6 +6,7 @@
 'use strict';
 
 import { expect } from 'chai';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import { Uri } from 'vscode';
 import { UVInstaller } from '../../../client/common/installer/uvInstaller';
@@ -325,8 +326,10 @@ suite('UV Installer Tests', () => {
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
             (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml').resolves(true)
-                .withArgs('/workspace/requirements.txt').resolves(false);
+                .withArgs('/workspace/pyproject.toml')
+                .resolves(true)
+                .withArgs('/workspace/requirements.txt')
+                .resolves(false);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
@@ -359,8 +362,10 @@ suite('UV Installer Tests', () => {
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
             (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml').resolves(true)
-                .withArgs('/workspace/requirements.txt').resolves(true);
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(true)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt'))
+                .resolves(true);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
@@ -393,8 +398,10 @@ suite('UV Installer Tests', () => {
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
             (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml').resolves(false)
-                .withArgs('/workspace/requirements.txt').resolves(false);
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(false)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt'))
+                .resolves(false);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
@@ -427,8 +434,10 @@ suite('UV Installer Tests', () => {
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
             (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml').resolves(true)
-                .withArgs('/workspace/requirements.txt').resolves(false);
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(true)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt'))
+                .resolves(false);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
@@ -462,8 +471,10 @@ suite('UV Installer Tests', () => {
             (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(undefined);
             sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
             (fileSystem.fileExists as sinon.SinonStub)
-                .withArgs('/workspace/pyproject.toml').resolves(true)
-                .withArgs('/workspace/requirements.txt').resolves(false);
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(true)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt'))
+                .resolves(false);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
