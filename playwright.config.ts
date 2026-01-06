@@ -198,7 +198,7 @@ export default defineConfig<ExtendedTestOptions>({
 /**
  * Check if the current platform is openSUSE
  */
-export function isOpenSUSE(): boolean {
+function isOpenSUSE(): boolean {
 	try {
 		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
 		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
@@ -209,3 +209,7 @@ export function isOpenSUSE(): boolean {
 		return false;
 	}
 }
+
+// Set environment variable for tests to check
+const IS_OPENSUSE = isOpenSUSE();
+process.env.IS_OPENSUSE = IS_OPENSUSE ? 'true' : 'false';

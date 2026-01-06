@@ -12,7 +12,6 @@ import { fail } from 'assert';
 import { Application } from '../../infra';
 import { Locator, Page } from '@playwright/test';
 import { pythonDynamicPlot } from '../shared/plots.constants.js';
-import { isOpenSUSE } from '../../../../playwright.config';
 
 test.use({
 	suiteId: __filename
@@ -570,7 +569,7 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		if (process.env.GITHUB_ACTIONS && !app.web && !isOpenSUSE()) {
+		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true') {
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {
