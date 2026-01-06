@@ -14,6 +14,13 @@ import { IChatService } from '../../common/chatService.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolProgress } from '../../common/languageModelToolsService.js';
 import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
+// --- Start Positron ---
+import * as glob from '../../../../../base/common/glob.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+// eslint-disable-next-line no-duplicate-imports
+import { getAiExcludePatterns } from './utils.js';
+// --- End Positron ---
+
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
 `;
@@ -54,6 +61,9 @@ export const FileContentsToolData: IToolData = {
 export class FileContentsTool implements IToolImpl {
 	constructor(
 		@IChatService private readonly _chatService: IChatService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 		@ITextFileService private readonly _textFileService: ITextFileService,
 		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -71,6 +81,16 @@ export class FileContentsTool implements IToolImpl {
 		} catch (error) {
 			throw new Error(`Can't retrieve file contents: ${error.message}`);
 		}
+
+		// --- Start Positron ---
+		const pathToMatch = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
+		const globPatterns = getAiExcludePatterns(this._configurationService);
+		for (const pattern of globPatterns) {
+			if (glob.match(pattern, pathToMatch)) {
+				throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
+			}
+		}
+		// --- End Positron ---
 
 		// The file is in the workspace, so grab the file contents
 		// --- Start Positron ---
@@ -144,7 +164,7 @@ export class FileContentsTool implements IToolImpl {
 		// --- End Positron ---
 	}
 
-	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
+	async prepareToolInvocation(_parameters: unknown, _token: CancellationToken): Promise<IPreparedToolInvocation> {
 		return {
 			invocationMessage: localize('fileContentsTool.invocationMessage', "Retrieving file contents"),
 			pastTenseMessage: localize('fileContentsTool.pastTenseMessage', "Retrieved file contents"),

@@ -6,6 +6,7 @@
 import { isAbsolute } from '../../../../../base/common/path.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 
@@ -83,4 +84,18 @@ function fileIsOpenOrInsideWorkspace(
 			return isEqual(editor.resource, uri);
 		});
 	});
+}
+
+/**
+ * Gets AI exclusion patterns with fallback to deprecated inlineCompletionExcludes.
+ */
+export function getAiExcludePatterns(configurationService: IConfigurationService): string[] {
+	let patterns = configurationService.getValue<string[]>('positron.assistant.aiExcludes');
+	const inspect = configurationService.inspect<string[]>('positron.assistant.aiExcludes');
+
+	if (!inspect?.userValue && !inspect?.workspaceValue) {
+		patterns = configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+	}
+
+	return patterns ?? [];
 }

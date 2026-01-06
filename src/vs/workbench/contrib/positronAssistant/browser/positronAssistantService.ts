@@ -17,6 +17,7 @@ import { URI } from '../../../../base/common/uri.js';
 import * as glob from '../../../../base/common/glob.js';
 import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { getAiExcludePatterns } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 
 /**
@@ -157,7 +158,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		}
 
 		// Then, check the exclusion patterns
-		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+		const globPattern = getAiExcludePatterns(this._configurationService);
 
 		if (!globPattern || globPattern.length === 0) {
 			return true; // No glob patterns configured, so completions are enabled
