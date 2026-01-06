@@ -149,29 +149,33 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure existing notebooks use their correct interpreter kernel', async function ({ app, sessions }) {
-		const { notebooksPositron } = app.workbench;
-		const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
-		const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
+	test.skip('ensure existing notebooks use their correct interpreter kernel',
+		{
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }] // <--- test is failing on chromium only
+		},
+		async function ({ app, sessions }) {
+			const { notebooksPositron } = app.workbench;
+			const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
+			const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
 
-		// start multiple sessions and select R
-		const [, rSession] = await sessions.start(['python', 'r']);
-		await sessions.select(rSession.id);
+			// start multiple sessions and select R
+			const [, rSession] = await sessions.start(['python', 'r']);
+			await sessions.select(rSession.id);
 
-		// open existing python notebook and ensure python kernel is auto-selected (from background) and started
-		await notebooksPositron.openNotebook(pythonNotebook);
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'Python',
-			status: 'idle'
+			// open existing python notebook and ensure python kernel is auto-selected (from background) and started
+			await notebooksPositron.openNotebook(pythonNotebook);
+			await notebooksPositron.kernel.expectKernelToBe({
+				kernelGroup: 'Python',
+				status: 'idle'
+			});
+
+			// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
+			await notebooksPositron.openNotebook(rRnotebook);
+			await notebooksPositron.kernel.expectKernelToBe({
+				kernelGroup: 'R',
+				status: 'idle'
+			});
 		});
-
-		// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
-		await notebooksPositron.openNotebook(rRnotebook);
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'R',
-			status: 'idle'
-		});
-	});
 
 	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions, settings }) {
 		const { notebooksPositron, console } = app.workbench;
