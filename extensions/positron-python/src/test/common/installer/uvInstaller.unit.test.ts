@@ -15,6 +15,7 @@ import { ModuleInstallerType, PythonEnvironment } from '../../../client/pythonEn
 import { InterpreterUri } from '../../../client/common/installer/types';
 import { IWorkspaceService } from '../../../client/common/application/types';
 import { IInterpreterService } from '../../../client/interpreter/contracts';
+import { IFileSystem } from '../../../client/common/platform/types';
 import * as uvUtils from '../../../client/pythonEnvironments/common/environmentManagers/uv';
 
 // Test class to expose protected methods
@@ -30,6 +31,7 @@ suite('UV Installer Tests', () => {
     let configurationService: IConfigurationService;
     let interpreterService: IInterpreterService;
     let workspaceService: IWorkspaceService;
+    let fileSystem: IFileSystem;
     let isUvInstalledStub: sinon.SinonStub;
 
     setup(() => {
@@ -42,10 +44,18 @@ suite('UV Installer Tests', () => {
             getActiveInterpreter: sinon.stub(),
         } as any;
 
+        fileSystem = {
+            fileExists: sinon.stub().resolves(false),
+        } as any;
+
         workspaceService = {
             getConfiguration: sinon.stub().returns({
                 get: sinon.stub().returns(''),
             }),
+            getWorkspaceFolder: sinon.stub().returns(undefined),
+            get workspaceFolders() {
+                return undefined;
+            },
         } as any;
 
         // Create service container mock
@@ -60,7 +70,9 @@ suite('UV Installer Tests', () => {
             .withArgs(IInterpreterService)
             .returns(interpreterService)
             .withArgs(IWorkspaceService)
-            .returns(workspaceService);
+            .returns(workspaceService)
+            .withArgs(IFileSystem)
+            .returns(fileSystem);
 
         // Create stubs for external dependencies
         isUvInstalledStub = sinon.stub(uvUtils, 'isUvInstalled');
@@ -287,12 +299,184 @@ suite('UV Installer Tests', () => {
                 execPath: 'uv',
             });
         });
+    });
 
-        test('Should include proxy configuration when set', async () => {
+    suite('uv add workflow tests', () => {
+        test('Should use "uv add" when pyproject.toml exists and requirements.txt does not', async () => {
             const resource = Uri.file('/test/path');
             const pythonPath = '/path/to/python';
             const moduleName = 'numpy';
-            const proxyUrl = 'http://proxy.example.com:8080';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs('/workspace/pyproject.toml').resolves(true)
+                .withArgs('/workspace/requirements.txt').resolves(false);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['add', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv pip install" when both pyproject.toml and requirements.txt exist', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'pandas';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs('/workspace/pyproject.toml').resolves(true)
+                .withArgs('/workspace/requirements.txt').resolves(true);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv pip install" when pyproject.toml does not exist', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'requests';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs('/workspace/pyproject.toml').resolves(false)
+                .withArgs('/workspace/requirements.txt').resolves(false);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv pip install" for ipykernel even with pyproject.toml', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'ipykernel';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs('/workspace/pyproject.toml').resolves(true)
+                .withArgs('/workspace/requirements.txt').resolves(false);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv add" with first workspace folder when no resource workspace found', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'scipy';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(undefined);
+            sinon.stub(workspaceService, 'workspaceFolders').value([workspaceFolder]);
+            (fileSystem.fileExists as sinon.SinonStub)
+                .withArgs('/workspace/pyproject.toml').resolves(true)
+                .withArgs('/workspace/requirements.txt').resolves(false);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['add', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv pip install" when no workspace folder is available', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'matplotlib';
 
             const settings: IPythonSettings = {
                 pythonPath,
@@ -304,16 +488,13 @@ suite('UV Installer Tests', () => {
 
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
-
-            // Mock workspace service to return proxy configuration
-            (workspaceService.getConfiguration as sinon.SinonStub).returns({
-                get: sinon.stub().withArgs('proxy', '').returns(proxyUrl),
-            });
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(undefined);
+            sinon.stub(workspaceService, 'workspaceFolders').value(undefined);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--upgrade', '--python', pythonPath, '--proxy', proxyUrl, moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
                 execPath: 'uv',
             });
         });
