@@ -611,6 +611,10 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Verify: search decoration count matches expected count.
+	 * @param expectedCount - The expected number of search decorations.
+	 */
 	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
 		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
 			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
