@@ -84,6 +84,7 @@ export interface ActiveSession {
      * The kernel information, as returned by the kernel_info_request message
      */
     'kernel_info': object;
+    'resource_usage'?: ResourceUsage;
     /**
      * The number of seconds the session has been idle, or 0 if the session is busy
      */
@@ -244,6 +245,28 @@ export interface NewSession200Response {
      * A unique identifier for the session
      */
     'session_id': string;
+}
+export interface ResourceUsage {
+    /**
+     * The percentage of CPU used by the kernel process and its child processes
+     */
+    'cpu_percent': number;
+    /**
+     * The amount of memory used by the kernel process and all of its child processes in bytes
+     */
+    'memory_bytes': number;
+    /**
+     * The total number of threads used by the kernel process and its child processes (Linux only)
+     */
+    'thread_count': number;
+    /**
+     * The sampling period in milliseconds over which the resource usage was measured
+     */
+    'sampling_period_ms': number;
+    /**
+     * A Unix timestamp in milliseconds indicating when the resource usage was sampled
+     */
+    'timestamp': number;
 }
 export interface RestartSession {
     /**
