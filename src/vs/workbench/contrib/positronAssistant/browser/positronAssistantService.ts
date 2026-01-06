@@ -189,7 +189,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	getSupportedProviders(): string[] {
-		const providers = ['anthropic-api', 'copilot'];
+		const providers = ['anthropic-api', 'copilot-auth'];
 		return providers;
 	}
 

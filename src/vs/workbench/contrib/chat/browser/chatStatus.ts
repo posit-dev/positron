@@ -390,7 +390,15 @@ function isNewUser(chatEntitlementService: IChatEntitlementService): boolean {
 		chatEntitlementService.entitlement === ChatEntitlement.Available;	// not yet signed up to chat
 }
 
-function canUseChat(chatEntitlementService: IChatEntitlementService): boolean {
+// --- Start Positron ---
+// Add config service param and consider
+function canUseChat(configService: IConfigurationService, chatEntitlementService: IChatEntitlementService): boolean {
+	// If Assistant is explicitly enabled, allow chat usage
+	const result = !!configService.getValue<boolean>('positron.assistant.enable');
+	if (result) {
+		return true;
+	}
+
 	if (!chatEntitlementService.sentiment.installed || chatEntitlementService.sentiment.disabled || chatEntitlementService.sentiment.untrusted) {
 		return false; // chat not installed or not enabled
 	}
@@ -405,6 +413,7 @@ function canUseChat(chatEntitlementService: IChatEntitlementService): boolean {
 
 	return true;
 }
+// --- End Positron ---
 
 function isCompletionsEnabled(configurationService: IConfigurationService, modeId: string = '*'): boolean {
 	const result = configurationService.getValue<Record<string, boolean>>(defaultChat.completionsEnablementSetting);
@@ -511,7 +520,10 @@ class ChatStatusDashboard extends Disposable {
 			}
 
 			if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (Number(chatQuota?.percentRemaining) <= 25 || Number(completionsQuota?.percentRemaining) <= 25)) {
-				const upgradeProButton = disposables.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: canUseChat(this.chatEntitlementService) /* use secondary color when chat can still be used */ }));
+				// --- Start Positron ---
+				// Add configuration service param to `canUseChat` call
+				const upgradeProButton = disposables.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: canUseChat(this.configurationService, this.chatEntitlementService) /* use secondary color when chat can still be used */ }));
+				// --- End Positron ---
 				upgradeProButton.label = localize('upgradeToCopilotPro', "Upgrade to GitHub Copilot Pro");
 				disposables.add(upgradeProButton.onDidClick(() => this.runCommandAndClose('workbench.action.chat.upgradePlan')));
 			}
@@ -619,9 +631,11 @@ class ChatStatusDashboard extends Disposable {
 
 			// Next Edit Suggestions not currently supported in Positron.
 			// When enabled, remove the defaultChat.nextEditSuggestionsSetting check and use the setting directly.
+			// When the NES setting is not configured (empty string), don't filter out NES providers
+			// since that would incorrectly hide valid providers like Github Copilot
 			const nesEnabled = defaultChat.nextEditSuggestionsSetting
 				? this.configurationService.getValue<boolean>(defaultChat.nextEditSuggestionsSetting) ?? false
-				: false;
+				: true;
 
 			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
 			const details = new Array<HTMLDivElement>();
@@ -719,10 +733,13 @@ class ChatStatusDashboard extends Disposable {
 		}
 
 		// Completions Snooze
-		if (canUseChat(this.chatEntitlementService)) {
+		// --- Start Positron ---
+		// Add configuration service param to `canUseChat` call
+		if (canUseChat(this.configurationService, this.chatEntitlementService)) {
 			const snooze = append(this.element, $('div.snooze-completions'));
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), disposables);
 		}
+		// --- End Positron ---
 
 		// New to Chat / Signed out
 		// --- Start Positron ---
@@ -970,11 +987,14 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}));
 
-		if (!canUseChat(this.chatEntitlementService)) {
+		// --- Start Positron ---
+		// Add configuration service param to `canUseChat` call
+		if (!canUseChat(this.configurationService, this.chatEntitlementService)) {
 			container.classList.add('disabled');
 			checkbox.disable();
 			checkbox.checked = false;
 		}
+		// --- End Positron ---
 
 		return checkbox;
 	}
@@ -1037,13 +1057,16 @@ class ChatStatusDashboard extends Disposable {
 
 		disposables.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
-				if (completionsSettingAccessor.readSetting() && canUseChat(this.chatEntitlementService)) {
+				// --- Start Positron ---
+				// Add configuration service param to `canUseChat` call
+				if (completionsSettingAccessor.readSetting() && canUseChat(this.configurationService, this.chatEntitlementService)) {
 					checkbox.enable();
 					container.classList.remove('disabled');
 				} else {
 					checkbox.disable();
 					container.classList.add('disabled');
 				}
+				// --- End Positron ---
 			}
 		}));
 	}
