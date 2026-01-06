@@ -163,7 +163,7 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 		editor: 'positron' | 'default',
-		waitMs = 800,
+		waitMs = 1000,
 		enableNotebooks = true
 	) {
 		await settings.set({
