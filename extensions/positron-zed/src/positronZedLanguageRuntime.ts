@@ -210,6 +210,17 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 */
 	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
 
+	/**
+	 * Current resource usage.
+	 */
+	private _resourceUsage: positron.RuntimeResourceUsage = {
+		cpu_percent: 0,
+		memory_bytes: 0,
+		sampling_period_ms: 1000,
+		thread_count: 0,
+		timestamp: Date.now(),
+	};
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -917,6 +928,15 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				break;
 			}
 		}
+
+		// Every variable is assumed to take 1MB of memory for simulation purposes.
+		let mb = 0;
+		if (this._environments.size > 0) {
+			for (const environment of this._environments.values()) {
+				mb += environment.countVars();
+			}
+		}
+		this._resourceUsage.memory_bytes = mb * 1024 * 1024;
 	}
 
 	/**
@@ -1146,9 +1166,15 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 
+			// Start emitting resource usage events. Take CPU to 100% for
+			// simulation during startup.
+			this._resourceUsage.cpu_percent = 100;
+			this.startResourceUsageEvents();
+
 			// Zed takes 1 second to start. This allows UI to be seen.
 			setTimeout(() => {
 				// Zed is ready now.
+				this._resourceUsage.cpu_percent = 0;
 				this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 
 				// A lot of the time, a real runtime goes busy and then idle after it starts.
@@ -1169,6 +1195,23 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				resolve(this._runtimeInfo);
 			}, 1000);
 		});
+	}
+
+	/**
+	 * Start emitting resource usage events.
+	 */
+	startResourceUsageEvents(): void {
+		const timer = setInterval(() => {
+			// Stop emitting if we've exited.
+			if (this._state === positron.RuntimeState.Exited) {
+				clearInterval(timer);
+			}
+			const usage: positron.RuntimeResourceUsage = {
+				...this._resourceUsage,
+				timestamp: Date.now()
+			};
+			this._onDidUpdateResourceUsage.fire(usage);
+		}, 1000);
 	}
 
 	/**
@@ -2078,11 +2121,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		// Exit the busy state after the specified duration. We save the timer to a
 		// private field so that we can cancel it if the user interrupts the kernel.
 		this._busyOperationId = parentId;
+		this._resourceUsage.cpu_percent = 75;
 		this._busyTimer = setTimeout(() => {
 			// All done. Exit the busy state.
 			this.simulateIdleState(parentId);
 			this.simulateOutputMessage(parentId, `Exiting busy state.`);
 			this._busyTimer = undefined;
+			this._resourceUsage.cpu_percent = 0;
 
 			// Notify frontend that the computation is complete
 			if (this._ui) {
