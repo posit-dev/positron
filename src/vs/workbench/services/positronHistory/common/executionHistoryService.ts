@@ -32,6 +32,9 @@ export interface IExecutionHistoryEntry<T> {
 	/** The code that was executed, as a multi-line string */
 	input: string;
 
+	/** The debug state at the time the input was submitted, if any */
+	debug?: string;
+
 	/** The type of output that was returned when the code was executed */
 	outputType: string;
 
@@ -73,6 +76,9 @@ export interface IExecutionHistoryError {
 export interface IInputHistoryEntry {
 	/** Time that the input was submitted, in milliseconds since the Epoch */
 	when: number;
+
+	/** The debug state at the time the input was submitted, if any */
+	debug?: string;
 
 	/** The code that was submitted, as a multi-line string */
 	input: string;

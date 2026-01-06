@@ -19,6 +19,10 @@
       {
         "command": "positronNotebookHelpers.convertImageToBase64",
         "title": "Convert Image to Base64"
+      },
+      {
+        "command": "positronNotebookHelpers.fetchRemoteImage",
+        "title": "Fetch Remote Image"
       }
     ]
   },

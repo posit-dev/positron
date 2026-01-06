@@ -43,6 +43,7 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 - **UI Components**: `Please read .claude/ui-components.md` - For Positron-specific UI development
 - **Backend Services**: `Please read .claude/backend.md` - For kernel and service integration
 - **Build System**: `Please read .claude/build-system.md` - For build, packaging, and deployment
+- **PR Creation**: `Please use the positron-pr-helper skill` - For creating well-structured PR bodies with up-to-date e2e test tags
 
 ## Quick Start Commands
 
@@ -170,6 +171,12 @@ When you must modify upstream VSCode files:
 - **TypeScript files:** camelCase (`dataExplorer.ts`)
 - **React components:** PascalCase (`DataExplorerPanel.tsx`)
 - **Test files:** Match source with `.test.ts` suffix
+
+## Git Commit Practices
+
+- **Never amend commits** - Always create new commits for additional changes. This preserves history and makes it easier to review incremental changes.
+- Create focused, atomic commits with clear messages
+- When asked to commit, create a new commit even if the previous commit was recent
 
 ## GitHub Integration
 

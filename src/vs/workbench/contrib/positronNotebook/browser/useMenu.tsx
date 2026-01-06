@@ -60,5 +60,5 @@ export function useMenu(
 		return () => disposable.dispose();
 	}, [menuService, contextKeyService, menuId, options]);
 
-	return { current: menu, version };
+	return React.useMemo(() => ({ current: menu, version }), [menu, version]);
 }

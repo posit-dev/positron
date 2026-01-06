@@ -38,6 +38,7 @@ from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
+from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
@@ -534,6 +535,9 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
+
+        # Patch plotly to write HTML to temp file instead of starting a server
+        patch_plotly_browser_renderer(self.session_mode)
 
     @property
     def kernel_info(self):

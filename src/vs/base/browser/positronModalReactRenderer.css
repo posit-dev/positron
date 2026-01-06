@@ -15,7 +15,8 @@
 
 .positron-modal-overlay {
 	inset: 0;
-	z-index: 20000;
+	/* Below VS Code dialogs (z-index: 2575) so that vscode.window.showInformationMessage etc. appear above Positron modal dialogs */
+	z-index: 2500;
 	position: absolute;
 	/* Makes some devices run their hardware acceleration. */
 	transform: translate3d(0px, 0px, 0px);

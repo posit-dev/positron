@@ -286,6 +286,16 @@
             ],
             "markdownDescription": "%r.configuration.interpreters.condaDiscovery.markdownDescription%"
           },
+          "positron.r.interpreters.pixiDiscovery": {
+            "scope": "resource",
+            "type": "boolean",
+            "default": false,
+            "tags": [
+              "interpreterSettings",
+              "experimental"
+            ],
+            "markdownDescription": "%r.configuration.interpreters.pixiDiscovery.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
@@ -945,7 +955,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.220"
+      "ark": "0.1.222"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

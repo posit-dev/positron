@@ -14,6 +14,7 @@ import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Session
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
+const MARKDOWN_ARIA_LABEL = 'Markdown cell - Press Enter to edit';
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
 type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
@@ -26,10 +27,10 @@ export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget .native-edit-context');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
-	markdownCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Markdown cell"]');
+	markdownCell = this.code.driver.page.locator(`[data-testid="notebook-cell"][aria-label="${MARKDOWN_ARIA_LABEL}"]`);
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
 	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 
@@ -45,6 +46,7 @@ export class PositronNotebooks extends Notebooks {
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: 'Run Cell', exact: true });
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
+	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
@@ -52,6 +54,14 @@ export class PositronNotebooks extends Notebooks {
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
+
+	// Search Widget
+	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
+	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' })
+	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
+	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace' });
+	private replaceAllButton = this.searchWidget.getByRole('button', { name: 'Replace All' });
+
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -73,7 +83,6 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellContent(cellIndex: number): Promise<string[]> {
 		const cellType = await this.getCellType(cellIndex);
-
 		if (cellType === 'markdown') {
 			// Enter edit mode to ensure the monaco view-lines are present
 			const inEditMode = await this.cell.nth(cellIndex).getByRole('button', { name: 'View markdown' }).isVisible();
@@ -132,7 +141,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellType(cellIndex: number): Promise<'code' | 'markdown'> {
 		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-		return ariaLabel === 'Markdown cell' ? 'markdown' : 'code';
+		return ariaLabel === MARKDOWN_ARIA_LABEL ? 'markdown' : 'code';
 	}
 
 	// #endregion
@@ -190,7 +199,8 @@ export class PositronNotebooks extends Notebooks {
 
 	/**
 	 * Action: Create a new Positron notebook.
-	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
+	 * @param codeCells - Number of code cells to create
+	 * @param markdownCells - Number of markdown cells to create
 	 */
 	async newNotebook({ codeCells = 0, markdownCells = 0 }: { codeCells?: number; markdownCells?: number } = {}): Promise<void> {
 		await this.createNewNotebook();
@@ -343,7 +353,10 @@ export class PositronNotebooks extends Notebooks {
 
 			// Click the last "New Code Cell" button to add a cell at the end
 			await this.newCellButton.last().click();
-			await expect(this.cell).toHaveCount(newCellButtonCount + 1, { timeout: DEFAULT_TIMEOUT });
+			// The button count before adding the cell will match the new cell count after adding the cell.
+			// This is because there is one extra "New Code Cell" button at the beginning of the notebook.
+			// Ex: if there are 0 cells, there is 1 button; if there is 1 cell, there are 2 buttons, etc.
+			await expect(this.cell).toHaveCount(newCellButtonCount, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
@@ -371,6 +384,14 @@ export class PositronNotebooks extends Notebooks {
 		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.mouse.move(0, 0);
 		await expect(this.cellInfoToolTip).toHaveCount(0);
+	}
+
+	/**
+	 * Action: Hover over the execution status badge for a cell to trigger the execution info tooltip.
+	 * @param cellIndex - The index of the cell whose execution badge to hover.
+	 */
+	async hoverExecutionBadge(cellIndex: number): Promise<void> {
+		await this.executionStatusBadgeWrapperAtIndex(cellIndex).hover();
 	}
 
 	/**
@@ -418,11 +439,7 @@ export class PositronNotebooks extends Notebooks {
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
-			if (delay) {
-				await editor.pressSequentially(code, { delay });
-			} else {
-				await editor.fill(code);
-			}
+			await editor.pressSequentially(code, { delay });
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();
@@ -499,9 +516,57 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Search Notebook.
+	 * @param searchText - The text to search for.
+	 * @param options - Options to control behavior:
+	 * replaceText: Optional text to replace the search text with.
+	 * replaceAll: Whether to replace all occurrences (default: false).
+	 */
+	async search(
+		searchText: string,
+		options?: { replaceText?: string; replaceAll?: boolean }
+	): Promise<void> {
+		const { replaceText = undefined, replaceAll = false } = options ?? {};
+
+		await test.step(`Search notebook for: ${searchText}`, async () => {
+			// Open search
+			await this.hotKeys.searchInNotebook();
+			await expect(this.searchWidget).toBeVisible({ timeout: 2000 });
+
+			// Enter search text
+			await this.findInput.fill(searchText);
+
+			// If replace text is provided, perform replace
+			if (replaceText !== undefined) {
+				await this.replaceInput.fill(replaceText);
+
+				replaceAll
+					? await this.replaceAllButton.click()
+					: await this.replaceButton.click();
+			}
+		});
+	}
+
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: search count matches expected count.
+	 * @param total  - The expected number of search results.
+	 * @param current - The expected current search result index (1-based).
+	 */
+	async expectSearchCountToBe({ current, total }: { current?: number; total: number }): Promise<void> {
+		await test.step(`Expect search count to be: ${current ?? '_'} of ${total}`, async () => {
+			if (total === 0) {
+				await expect(this.searchWidget.getByText('No results')).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				const countText = current !== undefined ? `${current} of ${total}` : `of ${total}`;
+				await expect(this.searchWidget.getByText(countText)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
 
 	/**
 	 * Verify: a Positron notebook is visible on the page.
@@ -543,7 +608,7 @@ export class PositronNotebooks extends Notebooks {
 
 			expectedType === 'code'
 				? expect(ariaLabel).toBe('Code cell')
-				: expect(ariaLabel).toBe('Markdown cell');
+				: expect(ariaLabel).toBe(MARKDOWN_ARIA_LABEL);
 
 		});
 	}
@@ -569,22 +634,25 @@ export class PositronNotebooks extends Notebooks {
 				if (actualContent.length !== 1) {
 					throw new Error(`Expected single line content but got ${actualContent.length} lines: ${actualContent.join('\n')}`);
 				}
-				expect(actualContent[0]).toBe(expectedContent)
+				expect(actualContent[0]).toBe(expectedContent);
 			}
 		});
 	}
 
 	/**
 	 * Verify: Cell info tooltip contains expected content.
+	 * @param cellIndex - The index of the cell whose execution badge to hover for triggering the tooltip.
 	 * @param expectedContent - Object with expected content to verify.
 	 *                          Use RegExp for fields where exact match is not feasible (e.g., duration, completed time).
 	 * @param timeout - Optional timeout for the expectation.
 	 */
 	async expectToolTipToContain(
+		cellIndex: number,
 		expectedContent: { duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
 		timeout = DEFAULT_TIMEOUT
 	): Promise<void> {
 		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
+			await this.hoverExecutionBadge(cellIndex);
 			await expect(this.cellInfoToolTip).toBeVisible({ timeout });
 
 			const labelMap: Record<keyof typeof expectedContent, string> = {

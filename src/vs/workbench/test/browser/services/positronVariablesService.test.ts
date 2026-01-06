@@ -35,6 +35,9 @@ suite('Positron - PositronVariablesService', () => {
 		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 		variablesService = accessor.positronVariablesService;
 		notebookEditorService = accessor.notebookEditorService;
+
+		// Set the view as visible so that variables instances are created
+		variablesService.setViewVisible(true);
 	});
 
 	async function createNotebookInstance() {
@@ -92,6 +95,51 @@ suite('Positron - PositronVariablesService', () => {
 		// Both sessions should have variables instances
 		assert(variablesService.positronVariablesInstances.some(instance =>
 			instance.session.sessionId === notebookSession.sessionId));
+		assert(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === consoleSession.sessionId));
+	});
+
+	test('should dispose all instances when view becomes hidden', async () => {
+		// Create sessions while view is visible
+		const { session: notebookSession } = await createNotebookInstance();
+		const { session: consoleSession } = await createConsoleInstance();
+		await timeout(0);
+
+		// Verify instances exist
+		assert.strictEqual(variablesService.positronVariablesInstances.length, 2);
+		assert(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === notebookSession.sessionId));
+		assert(variablesService.positronVariablesInstances.some(instance =>
+			instance.session.sessionId === consoleSession.sessionId));
+
+		// Hide the view
+		variablesService.setViewVisible(false);
+		await timeout(0);
+
+		// All instances should be disposed
+		assert.strictEqual(variablesService.positronVariablesInstances.length, 0);
+		assert.strictEqual(variablesService.activePositronVariablesInstance, undefined);
+	});
+
+	test('should recreate instances when view becomes visible again', async () => {
+		// Create a session while view is visible
+		const { session: consoleSession } = await createConsoleInstance();
+		await timeout(0);
+
+		// Verify instance exists
+		assert.strictEqual(variablesService.positronVariablesInstances.length, 1);
+
+		// Hide the view - instances should be disposed
+		variablesService.setViewVisible(false);
+		await timeout(0);
+		assert.strictEqual(variablesService.positronVariablesInstances.length, 0);
+
+		// Show the view again - instances should be recreated for active sessions
+		variablesService.setViewVisible(true);
+		await timeout(0);
+
+		// Instance should be recreated for the existing session
+		assert.strictEqual(variablesService.positronVariablesInstances.length, 1);
 		assert(variablesService.positronVariablesInstances.some(instance =>
 			instance.session.sessionId === consoleSession.sessionId));
 	});

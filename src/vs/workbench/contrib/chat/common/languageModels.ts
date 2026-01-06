@@ -530,11 +530,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 		// Listen for changes to model configuration. The initial filtering and configuration
 		// is done in the Positron Assistant extension when models are resolved.
 		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('positron.assistant.filterModels')) {
-				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
+			if (e.affectsConfiguration('positron.assistant.models.include')) {
+				this._logService.trace('[LM] Included models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
-			} else if (e.affectsConfiguration('positron.assistant.configuredModels')) {
-				this._logService.trace('[LM] Configured models configuration changed, re-resolving language models');
+			} else if (e.affectsConfiguration('positron.assistant.models.custom')) {
+				this._logService.trace('[LM] Custom models configuration changed, re-resolving language models');
 				this._reResolveLanguageModels();
 			}
 		}));

@@ -335,64 +335,50 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.filterModels": {
+          "positron.assistant.models.include": {
             "type": "array",
-            "default": [
-              "claude",
-              "gpt"
-            ],
-            "markdownDescription": "%configuration.filterModels.description%",
+            "default": [],
+            "markdownDescription": "%configuration.models.include.description%",
             "items": {
               "type": "string"
             },
             "examples": [
               [
-                "sonnet"
+                "claude",
+                "gpt"
               ],
               [
-                "Claude*",
-                "GPT-5"
-              ],
-              [
-                "**/google/gemini*"
+                "Claude Sonnet 4.5",
+                "GPT-4o"
               ]
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.preferredModel": {
+          "positron.assistant.models.preference.global": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.preferredModel.description%",
+            "markdownDescription": "%configuration.models.preference.global.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.defaultModels": {
+          "positron.assistant.models.preference.byProvider": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.defaultModels.description%",
+            "markdownDescription": "%configuration.models.preference.byProvider.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.configuredModels": {
+          "positron.assistant.models.custom": {
             "type": "object",
             "default": {},
-            "markdownDescription": "%configuration.configuredModels.description%",
+            "markdownDescription": "%configuration.models.custom.description%",
             "additionalProperties": {
               "type": "array",
               "items": {
@@ -440,9 +426,6 @@
                   }
                 ]
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.notebookSuggestions.model": {
@@ -845,7 +828,7 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndex), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -860,9 +843,10 @@
               "enum": [
                 "add",
                 "update",
-                "delete"
+                "delete",
+                "reorder"
               ],
-              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell."
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell, 'reorder' moves cells to new positions."
             },
             "cellType": {
               "type": "string",
@@ -887,6 +871,21 @@
             "run": {
               "type": "boolean",
               "description": "Whether to execute the cell after adding it. Defaults to true for code cells. Ignored for markdown cells."
+            },
+            "fromIndex": {
+              "type": "number",
+              "description": "Current index of the cell to move (0-based). Required when operation is 'reorder' and not using newOrder."
+            },
+            "toIndex": {
+              "type": "number",
+              "description": "Target index to move the cell to (0-based). Required when operation is 'reorder' and not using newOrder."
+            },
+            "newOrder": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Array specifying new cell order. newOrder[i] is the original index of the cell that should be at position i. Must be a valid permutation containing each index 0 to cellCount-1 exactly once. Use this for full notebook reordering. Alternative to fromIndex/toIndex for operation='reorder'."
             }
           },
           "required": [
@@ -935,9 +934,7 @@
   "scripts": {
     "compile": "gulp compile-extension:positron-assistant",
     "vscode:prepublish": "npm run compile",
-    "pretest": "npm run compile",
-    "install-copilot-language-server": "ts-node scripts/install-copilot-language-server.ts",
-    "postinstall": "ts-node scripts/post-install.ts"
+    "pretest": "npm run compile"
   },
   "devDependencies": {
     "@ai-sdk/amazon-bedrock": "2.2.12",
@@ -967,9 +964,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1",
     "yaml": "^2.8.1"
   },
   "extensionDependencies": [

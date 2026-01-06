@@ -472,7 +472,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Attaches to a runtime.
 	 */
 	private async attachRuntime() {
-		// Add the onDidChangeRuntimeState event handler.
+		// Add the onDidChangeRuntimeState event handler, so that we create the
+		// client when the runtime is ready, and detach when it exits.
 		this._runtimeDisposableStore.add(
 			this._session.onDidChangeRuntimeState(async runtimeState => {
 				switch (runtimeState) {
@@ -490,6 +491,16 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 				}
 			})
 		);
+
+		// If the runtime was already started, create the client immediately.
+		const currentState = this._session.getRuntimeState();
+		if (currentState === RuntimeState.Ready ||
+			currentState === RuntimeState.Idle ||
+			currentState === RuntimeState.Busy) {
+			if (!this._variablesClient) {
+				await this.createRuntimeClient();
+			}
+		}
 	}
 
 	/**

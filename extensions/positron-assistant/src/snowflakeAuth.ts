@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as ai from 'ai';
@@ -51,6 +52,18 @@ export function isValidSnowflakeAccount(account: string): boolean {
 }
 
 /**
+ * Expands tilde (~) in file paths to the user's home directory
+ * @param filePath Path that may contain a tilde
+ * @returns Expanded path with tilde resolved to home directory
+ */
+function expandTildePath(filePath: string): string {
+	if (filePath.startsWith('~')) {
+		return path.join(os.homedir(), filePath.slice(1));
+	}
+	return filePath;
+}
+
+/**
  * Constructs a Snowflake Cortex API base URL from an account identifier
  * @param account Snowflake account identifier
  * @returns Base URL for Cortex API
@@ -70,6 +83,7 @@ export function constructSnowflakeBaseUrl(account: string): string {
 function extractCredentialsFromToml(connectionsTomlPath: string): { account: string; token: string } | null {
 	try {
 		if (!fs.existsSync(connectionsTomlPath)) {
+			log.error('[Snowflake Auth] connections.toml file does not exist. Please ensure SNOWFLAKE_HOME is set correctly.');
 			return null;
 		}
 
@@ -95,6 +109,7 @@ function extractCredentialsFromToml(connectionsTomlPath: string): { account: str
 			return { account, token };
 		}
 
+		log.error('[Snowflake Auth] Incomplete credentials in connections.toml');
 		return null;
 	} catch (error) {
 		log.debug(`[Snowflake Auth] Error extracting account and token from TOML: ${error}`);
@@ -124,7 +139,7 @@ export async function detectSnowflakeCredentials(): Promise<SnowflakeCredentialC
 		};
 	}
 
-	log.debug('[Snowflake Auth] No Posit Workbench managed credentials detected');
+	log.debug('[Snowflake Auth] Failed to extract valid Snowflake credentials from connections.toml');
 	return undefined;
 }
 
@@ -139,7 +154,8 @@ export function getSnowflakeConnectionsTomlPath(): string | undefined {
 		const snowflakeHome = configSettings.SNOWFLAKE_HOME || process.env.SNOWFLAKE_HOME;
 
 		if (snowflakeHome) {
-			return path.join(snowflakeHome, 'connections.toml');
+			const expandedHome = expandTildePath(snowflakeHome);
+			return path.join(expandedHome, 'connections.toml');
 		}
 
 		log.warn('[Snowflake Auth] No SNOWFLAKE_HOME configured - unable to determine connections.toml path');

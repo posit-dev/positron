@@ -43,6 +43,7 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [LSCommands.RestartLS]: [];
     // --- Start Positron ---
     [Commands.Show_Interpreter_Debug_Info]: [];
+    ['workbench.view.extensions']: [];
     // New command that opens the multisession interpreter picker
     ['workbench.action.language.runtime.selectSession']: [];
     // --- End Positron ---
