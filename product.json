@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2026.01.0",
+	"positronVersion": "2026.02.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -304,7 +304,8 @@
 		"publisherUrl": ""
 	},
 	"trustedExtensionAuthAccess": [
-		"GitHub.copilot-chat"
+		"GitHub.copilot-chat",
+		"positron.positron-assistant"
 	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
@@ -322,6 +323,12 @@
 		"extensionId": "positron.positron-assistant",
 		"chatExtensionId": "positron.positron-assistant",
 		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsRefreshTokenCommand": "github.copilot.signIn",
+		"chatRefreshTokenCommand": "github.copilot.refreshToken",
+		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
+		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
+		"completionsAdvancedSetting": "github.copilot.advanced",
+		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
 		"provider": {
 			"default": {
 				"id": "positron.assistant",

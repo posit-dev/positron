@@ -69,6 +69,8 @@ export enum TestTags {
 	// platform  tags
 	RHEL_ELECTRON = '@:rhel-electron',
 	RHEL_WEB = '@:rhel-web',
+	SUSE_ELECTRON = '@:suse-electron',
+	SUSE_WEB = '@:suse-web',
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',

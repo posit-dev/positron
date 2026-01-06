@@ -214,6 +214,16 @@ jobs:
       - name: Install Playwright browsers
         run: npm run playwright-install
 
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - shell: bash
+        run: npm run prelaunch
+
       - name: 💾 Save caches
         if: ${{ inputs.save_cache && matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches
@@ -228,16 +238,6 @@ jobs:
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
           node-version: ${{ steps.restore-caches.outputs.node-version }}
           playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
-
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --no-audit --no-fund
-
-      - name: Compile E2E Tests
-        run: npm --prefix test/e2e run compile
-
-      # Downloads Builtin Extensions (needed for integration & e2e testing)
-      - shell: bash
-        run: npm run prelaunch
 
       - name: Download Python requirements file
         id: download-python-reqs
@@ -490,7 +490,7 @@ jobs:
     timeout-minutes: 10
     if: ${{ !cancelled() }}
     needs: [e2e-windows-run]
-    runs-on: ubuntu-latest-4x
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
