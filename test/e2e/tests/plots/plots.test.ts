@@ -12,6 +12,7 @@ import { fail } from 'assert';
 import { Application } from '../../infra';
 import { Locator, Page } from '@playwright/test';
 import { pythonDynamicPlot } from '../shared/plots.constants.js';
+import { isOpenSUSE } from '../../../../playwright.config';
 
 test.use({
 	suiteId: __filename
@@ -553,18 +554,6 @@ async function verifyPlotInNewWindow(app: Application, language: 'Python' | 'R',
 		await plots.openPlotIn('new window');
 		await app.workbench.layouts.enterLayout('stacked');
 	});
-}
-
-function isOpenSUSE(): boolean {
-	try {
-		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
-		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
-		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
-
-		return id.startsWith('opensuse') || id.includes('opensuse-leap') || idLike.includes('opensuse');
-	} catch {
-		return false;
-	}
 }
 
 async function compareImages({

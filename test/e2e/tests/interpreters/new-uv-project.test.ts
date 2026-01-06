@@ -7,6 +7,7 @@ import path from 'path';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 import * as fs from 'fs/promises';
+import { isOpenSUSE } from '../../../../playwright.config';
 
 test.use({
 	suiteId: __filename
@@ -32,10 +33,9 @@ test.describe('New UV Environment', {
 	// This is skipped for windows because we can't get the text from the Terminal
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
-		await app.workbench.terminal.clickTerminalTab();
+		test.skip(isOpenSUSE(), 'Skip on openSuse');
 
-		// OpenSUSE workaround - make sure termainl is ready before typing to it
-		await app.code.wait(10000);
+		await app.workbench.terminal.clickTerminalTab();
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
