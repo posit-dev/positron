@@ -88,13 +88,12 @@ export class RSessionManager implements vscode.Disposable {
 	}
 
 	private async didChangeSessionRuntimeState(session: RSession, state: positron.RuntimeState): Promise<void> {
-		// Four `Ready` states to keep in mind:
+		// Three `Ready` states to keep in mind:
 		// - Fresh console sessions fall through and are activated by `didChangeForegroundSession()`.
-		// - Restarted console sessions are activated here if they were previously the
-		//   foreground session before their restart, as we won't get a foreground session
-		//   notification for them otherwise.
-		// - Restored console sessions (after extension host restart) are activated here if they
-		//   were the foreground session before the restart, using persisted state.
+		// - Restarted or restored (after extension host restart) console sessions are activated
+		//   here if they were previously the foreground session before their restart, as we
+		//   won't get a foreground session notification for them otherwise. Persistent state is
+		//   used in the extension host restart scenario to survive the restart.
 		// - Notebook sessions are activated immediately (Background sessions never have their LSP activated).
 		if (state === positron.RuntimeState.Ready) {
 			if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
