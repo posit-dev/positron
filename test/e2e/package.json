@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.722.0",
-    "canvas": "^3.0.0",
+    "canvas": "^3.2.0",
     "mkdirp": "^1.0.4",
     "ncp": "^2.0.0",
     "node-fetch": "^2.6.7",
