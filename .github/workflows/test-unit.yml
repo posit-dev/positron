@@ -156,7 +156,7 @@ jobs:
 
       - name: Restore R installation and packages cache
         id: cache-r
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.local/share/rig
@@ -176,7 +176,7 @@ jobs:
       - name: Save R installation and packages cache
         if: ${{ steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~/.local/share/rig
