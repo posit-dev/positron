@@ -40,20 +40,20 @@ export class RSessionManager implements vscode.Disposable {
 	 * Initialize the singleton instance with the extension context.
 	 * Must be called during extension activation before any sessions are created.
 	 */
-	static initialize(context: vscode.ExtensionContext): RSessionManager {
+	static initialize(context: vscode.ExtensionContext): void {
 		if (!RSessionManager._instance) {
 			RSessionManager._instance = new RSessionManager();
 		}
 		RSessionManager._instance._context = context;
-		return RSessionManager._instance;
 	}
 
 	/**
-	 * Accessor for the singleton instance; creates it if it doesn't exist.
+	 * Accessor for the singleton instance.
+	 * Throws if `initialize()` has not been called.
 	 */
 	static get instance(): RSessionManager {
 		if (!RSessionManager._instance) {
-			RSessionManager._instance = new RSessionManager();
+			throw new Error('RSessionManager has not been initialized. Call initialize() first.');
 		}
 		return RSessionManager._instance;
 	}
