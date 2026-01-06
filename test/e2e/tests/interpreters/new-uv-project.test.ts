@@ -36,6 +36,7 @@ test.describe('New UV Environment', {
 
 		// OpenSUSE workaround - make sure termainl is ready before typing to it
 		await app.code.wait(10000);
+		await app.code.driver.page.locator('#terminal .terminal-wrapper.active').click();
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
