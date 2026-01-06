@@ -64,6 +64,7 @@ export class PositronNotebooks extends Notebooks {
 	private searchNextButton = this.searchWidget.getByRole('button', { name: 'Next Match' });
 	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
 	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
+	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
 
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
@@ -607,6 +608,12 @@ export class PositronNotebooks extends Notebooks {
 				const countText = current !== undefined ? `${current} of ${total}` : `of ${total}`;
 				await expect(this.searchWidget.getByText(countText)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
 			}
+		});
+	}
+
+	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
+		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
+			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
