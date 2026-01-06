@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './extension.js';
 
 /**
@@ -143,7 +143,7 @@ export interface CreateModelInfoParams {
 	/** The provider display name for logging */
 	providerName: string;
 	/** Model capabilities */
-	capabilities?: vscode.LanguageModelChatInformation['capabilities'];
+	capabilities?: vscode.LanguageModelChatCapabilities;
 	/** Optional default max input tokens (overrides model definition defaults) */
 	defaultMaxInput?: number;
 	/** Optional default max output tokens (overrides model definition defaults) */
@@ -168,7 +168,7 @@ export function createModelInfo(params: CreateModelInfoParams): vscode.LanguageM
 		version,
 		provider,
 		providerName,
-		capabilities = { vision: true, toolCalling: true, agentMode: true },
+		capabilities = DEFAULT_MODEL_CAPABILITIES,
 		defaultMaxInput,
 		defaultMaxOutput
 	} = params;

@@ -15,9 +15,5 @@ export interface IConfig {
 // not really a secret... so we allow the client secret in code. It is brought in before we publish VS Code. Reference:
 // https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/best-practices-for-creating-an-oauth-app#client-secrets
 export const Config: IConfig = {
-	// --- Start Positron ---
-	// Replace the "GitHub for VS Code" client ID with Positron's client ID
-	// gitHubClientId: '01ab8ac9400c4e429b23'
-	gitHubClientId: 'Ov23lilj1d6nFMvW4QfI'
-	// --- End Positron ---
+	gitHubClientId: '01ab8ac9400c4e429b23'
 };

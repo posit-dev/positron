@@ -13,6 +13,7 @@ import {
 	getMaxTokens,
 	markDefaultModel
 } from '../modelResolutionHelpers.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 
 suite('Model Resolution Helpers', () => {
 	let mockGetConfiguration: sinon.SinonStub;
@@ -185,7 +186,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -196,7 +197,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
@@ -224,7 +225,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -235,7 +236,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
@@ -260,7 +261,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -271,7 +272,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
@@ -296,7 +297,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -307,7 +308,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -318,7 +319,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 32_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
@@ -350,7 +351,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 100_000,
 					maxOutputTokens: 4_096,
-					capabilities: { vision: false, toolCalling: true, agentMode: false },
+					capabilities: { imageInput: false, toolCalling: true, agentMode: false },
 					isDefault: false,
 					isUserSelectable: true
 				}
@@ -367,7 +368,7 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(model.version, '1.0');
 			assert.strictEqual(model.maxInputTokens, 100_000);
 			assert.strictEqual(model.maxOutputTokens, 4_096);
-			assert.deepStrictEqual(model.capabilities, { vision: false, toolCalling: true, agentMode: false });
+			assert.deepStrictEqual(model.capabilities, { imageInput: false, toolCalling: true, agentMode: false });
 			assert.strictEqual(model.isDefault, true); // Should be marked as default (first/only model)
 			assert.strictEqual(model.isUserSelectable, true);
 		});
@@ -381,7 +382,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -392,7 +393,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
