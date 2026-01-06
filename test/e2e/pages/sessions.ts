@@ -824,7 +824,8 @@ export class Sessions {
 	async expectSessionNameToBe(sessionId: string, expectedName: string) {
 		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
 			const sessionTab = this.getSessionTab(sessionId);
-			await expect(sessionTab).toHaveText(expectedName);
+			const tabHeader = sessionTab.locator('.tab-header');
+			await expect(tabHeader).toHaveText(expectedName);
 		});
 	}
 
