@@ -36,7 +36,7 @@ export default defineConfig<ExtendedTestOptions>({
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
-		: [...baseIgnore, '**/pyrefly/**'],
+		: [...baseIgnore, '**/lsp/**'],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
