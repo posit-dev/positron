@@ -8,6 +8,7 @@ import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { ILanguageRuntimeResourceUsage } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { localize } from '../../../../../nls.js';
 
 /**
  * Fixed spacing between data points in pixels.
@@ -30,6 +31,8 @@ interface ResourceUsageGraphProps {
 	/** The height of the graph in pixels */
 	height: number;
 }
+
+const title = localize('positronConsole.resourceUsageGraph.title', 'CPU usage');
 
 /**
  * ResourceUsageGraph component.
@@ -88,6 +91,7 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 			viewBox={`0 0 ${width} ${height}`}
 			width={width}
 		>
+			<title>{title}</title>
 			{/* Fill area beneath the line */}
 			{fillPath && (
 				<path
