@@ -29,11 +29,6 @@ export interface ComponentOverrides {
 }
 
 /**
- * Counter for generating unique keys across the entire conversion process.
- */
-let keyCounter = 0;
-
-/**
  * Converts a container's children to an array of React elements.
  * This is the main entry point for converting DOM from safeSetInnerHtml.
  *
@@ -45,14 +40,75 @@ export function convertDomChildrenToReact(
 	container: HTMLElement,
 	componentOverrides: ComponentOverrides = {}
 ): React.ReactElement[] {
-	// Reset key counter for each conversion
-	keyCounter = 0;
+	// Counter for generating unique React keys, scoped to this conversion
+	let keyCounter = 0;
 
+	/**
+	 * Recursively converts a DOM node to a React element.
+	 * This helper is scoped within convertDomChildrenToReact to ensure proper key counter management.
+	 */
+	function convertNode(node: Node): React.ReactElement | string | null {
+		// Handle text nodes
+		if (node.nodeType === Node.TEXT_NODE) {
+			return node.textContent || '';
+		}
+
+		// Handle comment nodes - skip them
+		if (node.nodeType === Node.COMMENT_NODE) {
+			return null;
+		}
+
+		// Handle element nodes
+		if (node.nodeType === Node.ELEMENT_NODE) {
+			const element = node as Element;
+			const tagName = element.tagName.toLowerCase();
+
+			// Convert HTML attributes to React props
+			const props = convertAttributesToProps(element);
+
+			// Convert child nodes recursively
+			const children: (React.ReactElement | string)[] = [];
+			for (let i = 0; i < element.childNodes.length; i++) {
+				const childNode = element.childNodes[i];
+				const converted = convertNode(childNode);
+				if (converted !== null) {
+					children.push(converted);
+				}
+			}
+
+			// Add key prop for React list rendering
+			const key = `${tagName}-${keyCounter++}`;
+			const propsWithKey = { ...props, key };
+
+			// Check if there's a component override for this tag
+			if (componentOverrides[tagName]) {
+				const Component = componentOverrides[tagName];
+				// Pass children as array if present, otherwise pass nothing
+				if (children.length > 0) {
+					return React.createElement(Component, propsWithKey, ...children);
+				} else {
+					return React.createElement(Component, propsWithKey);
+				}
+			}
+
+			// Create standard React element
+			if (children.length > 0) {
+				return React.createElement(tagName, propsWithKey, ...children);
+			} else {
+				return React.createElement(tagName, propsWithKey);
+			}
+		}
+
+		// Unknown node type - skip it
+		return null;
+	}
+
+	// Convert all child nodes to React elements
 	const elements: React.ReactElement[] = [];
 
 	for (let i = 0; i < container.childNodes.length; i++) {
 		const child = container.childNodes[i];
-		const converted = convertDomToReactWithCounter(child, componentOverrides);
+		const converted = convertNode(child);
 		if (converted !== null) {
 			if (typeof converted === 'string') {
 				elements.push(React.createElement(React.Fragment, { key: `text-${keyCounter++}` }, converted));
@@ -63,68 +119,6 @@ export function convertDomChildrenToReact(
 	}
 
 	return elements;
-}
-
-/**
- * Internal version of convertDomToReact that uses a global counter for unique keys.
- */
-function convertDomToReactWithCounter(
-	node: Node,
-	componentOverrides: ComponentOverrides = {}
-): React.ReactElement | string | null {
-	// Handle text nodes
-	if (node.nodeType === Node.TEXT_NODE) {
-		return node.textContent || '';
-	}
-
-	// Handle comment nodes - skip them
-	if (node.nodeType === Node.COMMENT_NODE) {
-		return null;
-	}
-
-	// Handle element nodes
-	if (node.nodeType === Node.ELEMENT_NODE) {
-		const element = node as Element;
-		const tagName = element.tagName.toLowerCase();
-
-		// Convert HTML attributes to React props
-		const props = convertAttributesToProps(element);
-
-		// Convert child nodes recursively
-		const children: (React.ReactElement | string)[] = [];
-		for (let i = 0; i < element.childNodes.length; i++) {
-			const childNode = element.childNodes[i];
-			const converted = convertDomToReactWithCounter(childNode, componentOverrides);
-			if (converted !== null) {
-				children.push(converted);
-			}
-		}
-
-		// Add key prop for React list rendering
-		const key = `${tagName}-${keyCounter++}`;
-		const propsWithKey = { ...props, key };
-
-		// Check if there's a component override for this tag
-		if (componentOverrides[tagName]) {
-			const Component = componentOverrides[tagName];
-			// Pass children as array if present, otherwise pass nothing
-			if (children.length > 0) {
-				return React.createElement(Component, propsWithKey, ...children);
-			} else {
-				return React.createElement(Component, propsWithKey);
-			}
-		}
-
-		// Create standard React element
-		if (children.length > 0) {
-			return React.createElement(tagName, propsWithKey, ...children);
-		} else {
-			return React.createElement(tagName, propsWithKey);
-		}
-	}
-
-	// Unknown node type - skip it
-	return null;
 }
 
 /**
