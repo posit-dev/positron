@@ -7,6 +7,21 @@
 import React from 'react';
 
 /**
+ * DOM to React Conversion Utilities
+ *
+ * This module converts sanitized DOM nodes (from DOMPurify/safeSetInnerHtml) into React elements,
+ * enabling component overrides for specific HTML tags. This is part of the positron notebook markdown
+ * rendering pipeline:
+ *
+ * Markdown -> HTML string -> Sanitized DOM (DOMPurify) -> React tree (this module) -> Rendered output
+ *
+ * Key features:
+ * - Converts HTML attributes to React props (class -> className, style strings -> objects, etc.)
+ * - Supports component overrides (e.g., replacing <img> with DeferredImage component)
+ * - Handles complex DOM structures from KaTeX math rendering (MathML, SVG)
+ */
+
+/**
  * Component override map - allows replacing specific HTML tags with React components.
  */
 export interface ComponentOverrides {

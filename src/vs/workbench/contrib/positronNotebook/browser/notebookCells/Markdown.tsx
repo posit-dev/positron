@@ -15,7 +15,7 @@ import { createCancelablePromise, raceTimeout } from '../../../../../base/common
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { renderNotebookMarkdown } from '../markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { safeSetInnerHtml } from '../../../../../base/browser/domSanitize.js';
+import { DomSanitizerConfig, safeSetInnerHtml } from '../../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../../base/browser/markdownRenderer.js';
 import { MarkedKatexSupport } from '../../../markdown/browser/markedKatexSupport.js';
 import { convertDomChildrenToReact } from '../domToReact.js';
@@ -96,19 +96,19 @@ function useMarkdown(content: string): MarkdownRenderResults {
  * Component that renders HTML with proper sanitization (via DOMPurify through safeSetInnerHtml)
  * and support for React component overrides.
  *
- * This implementation:
- * 1. Uses safeSetInnerHtml with MarkedKatexSupport config to handle complex KaTeX math rendering
- * 2. Converts the sanitized DOM to React elements using convertDomChildrenToReact
- * 3. Injects React component overrides for images (DeferredImage) and links (NotebookLink)
+ * Since React's dangerouslySetInnerHTML doesn't allow component overrides, we go through the following steps:
+ * HTML string -> Hidden DOM node (sanitized via DOMPurify) -> React tree -> Rendered DOM node
+ *
+ * This allows us to:
+ * 1. Sanitize untrusted HTML safely (including complex KaTeX math output with MathML/SVG)
+ * 2. Replace specific tags with custom React components (DeferredImage for lazy loading, NotebookLink for navigation)
+ * 3. Maintain full React lifecycle and behavior for those components
  *
  * @param html: HTML string to render
  * @returns React element containing the sanitized and converted HTML.
  */
 function MarkdownContent({ html }: { html: string }) {
 	const reactElements = React.useMemo(() => {
-		// Create a temporary container for DOM parsing
-		const tempContainer = document.createElement('div');
-
 		// Use MarkedKatexSupport helper to get sanitizer config options
 		// for MathML/SVG support.
 		const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
@@ -133,9 +133,8 @@ function MarkdownContent({ html }: { html: string }) {
 			allowRelativeMediaPaths: true
 		};
 
-		// Render HTML with DOMPurify sanitization
-		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
-
+		// Sanitize HTML into a temporary container element
+		const tempContainer = sanitizeHtmlToElement(html, notebookSanitizerConfig);
 		// Convert the DOM tree to React elements with component overrides
 		return convertDomChildrenToReact(
 			tempContainer,
@@ -147,4 +146,19 @@ function MarkdownContent({ html }: { html: string }) {
 	}, [html]);
 
 	return <>{reactElements}</>;
+}
+
+/**
+ * Sanitizes HTML string into a dom element.
+ *
+ * @param html - HTML string to sanitize
+ * @param config - DOMPurify sanitizer configuration options
+ * @returns A div element containing the sanitized HTML content
+ */
+function sanitizeHtmlToElement(html: string, config: DomSanitizerConfig): HTMLDivElement {
+	// Create a temporary container that holds the sanitized HTML
+	const tempContainer = document.createElement('div');
+	// Render HTML with DOMPurify sanitization into the temp container
+	safeSetInnerHtml(tempContainer, html, config);
+	return tempContainer;
 }
