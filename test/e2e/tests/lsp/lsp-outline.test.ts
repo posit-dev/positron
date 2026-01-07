@@ -81,14 +81,14 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyPythonOutline(outline);
 		});
 
-		test.skip('Verify outline after reload with Python in foreground and R in background', {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
+		test('Verify outline after reload with Python in foreground and R in background', {
+			tag: [tags.ARK],
 		}, async function ({ app, runCommand, sessions }) {
 			const { outline, editor } = app.workbench;
 
 			// Start sessions
 			await sessions.deleteAll();
-			const [, rSession] = await sessions.start(['python', 'r']);
+			await sessions.start(['python', 'r']);
 
 			// Verify outlines for both file types
 			await editor.selectTab(PY_FILE);
@@ -107,40 +107,48 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyPythonOutline(outline);
 
 			await editor.selectTab(R_FILE);
-			await sessions.select(rSession.id); // Issue 7052 - we shouldn't have to click the tab
 			await verifyROutline(outline);
 		});
 
-		test.skip('Verify outline after reload with R in foreground and Python in background', {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
-		},
-			async function ({ app, runCommand, sessions }) {
-				const { outline, editor } = app.workbench;
+		test('Verify outline after reload with R in foreground and Python in background', {
+			tag: [tags.ARK],
+		}, async function ({ app, runCommand, sessions }) {
+			const { outline, editor } = app.workbench;
 
-				// Start sessions
-				await sessions.deleteAll();
-				await sessions.start(['r', 'python']);
+			// Start sessions
+			await sessions.deleteAll();
+			await sessions.start(['r', 'python']);
 
-				// Verify outlines for both file types
-				await editor.selectTab(R_FILE);
-				await verifyROutline(outline);
+			// Verify outlines for both file types
+			await editor.selectTab(R_FILE);
+			await verifyROutline(outline);
 
-				await editor.selectTab(PY_FILE);
-				await verifyPythonOutline(outline);
+			await editor.selectTab(PY_FILE);
+			await verifyPythonOutline(outline);
 
-				// Reload window
-				await runCommand('workbench.action.reloadWindow');
+			// Reload window
+			await runCommand('workbench.action.reloadWindow');
 
-				// Verify outlines for both file types
-				await editor.selectTab(R_FILE);
-				await verifyROutline(outline);
+			// Verify outlines for both file types
+			await editor.selectTab(R_FILE);
+			await verifyROutline(outline);
 
-				await editor.selectTab(PY_FILE);
-				await verifyPythonOutline(outline);
-			});
+			await editor.selectTab(PY_FILE);
+			await verifyPythonOutline(outline);
+		});
 	});
 
 	test.describe('Outline: Basic', () => {
+		test('R - Verify Outline Contents', {
+			tag: [tags.ARK]
+		}, async function ({ app, r, openFile }) {
+			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+			await app.workbench.outline.expectOutlineToContain([
+				'con',
+				'albums',
+				'df',
+			]);
+		});
 
 		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));

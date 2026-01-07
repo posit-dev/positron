@@ -12,7 +12,6 @@ import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
@@ -45,6 +44,31 @@ const autoconfiguredModels: ModelConfig[] = [];
  */
 export function getAutoconfiguredModels(): ModelConfig[] {
 	return [...autoconfiguredModels];
+}
+
+/**
+ * Add a model to the autoconfigured models list.
+ * @param config The model configuration to add
+ */
+export function addAutoconfiguredModel(config: ModelConfig): void {
+	// Check if model already exists (by id or provider)
+	const existingIndex = autoconfiguredModels.findIndex(
+		c => c.id === config.id || c.provider === config.provider
+	);
+	if (existingIndex === -1) {
+		autoconfiguredModels.push(config);
+	}
+}
+
+/**
+ * Remove a model from the autoconfigured models list by provider.
+ * @param providerId The provider ID to remove
+ */
+export function removeAutoconfiguredModel(providerId: string): void {
+	const index = autoconfiguredModels.findIndex(c => c.provider === providerId);
+	if (index !== -1) {
+		autoconfiguredModels.splice(index, 1);
+	}
 }
 
 /** A chat or completion model provider disposable with associated configuration. */
@@ -378,9 +402,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register Copilot service
 	registerCopilotService(context);
-
-	// Register authentication provider that delegates to CopilotService
-	registerCopilotAuthProvider(context);
 
 	// Register chat participants
 	const participantService = registerParticipants(context);

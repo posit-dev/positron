@@ -600,8 +600,6 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			await this.console.focus();
-
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
 			if (!isSingleSession && sessionId) {

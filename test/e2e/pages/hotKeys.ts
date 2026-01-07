@@ -279,6 +279,13 @@ export class HotKeys {
 		return this.pressHotKeys('Cmd+L C', 'Clear Plots');
 	}
 
+	// -----------------------
+	// ---   Formatting	   ---
+	// -----------------------
+	public formatDocument() {
+		return this.pressHotKeys('Cmd+L F', 'Format Document');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

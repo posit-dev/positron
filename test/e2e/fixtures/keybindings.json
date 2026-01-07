@@ -108,5 +108,9 @@
     {
         "key": "cmd+l c",
         "command": "workbench.action.positronPlots.clear" // Clear Plots
+    },
+    {
+        "key": "cmd+l f",
+        "command": "editor.action.formatDocument" // Format Document
     }
 ]
