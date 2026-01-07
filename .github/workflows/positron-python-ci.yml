@@ -26,7 +26,7 @@ defaults:
 
 env:
   NODE_VERSION: '22.17.0'
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.14'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
