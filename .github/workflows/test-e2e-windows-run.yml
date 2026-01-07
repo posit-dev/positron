@@ -523,7 +523,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*
