@@ -23,6 +23,7 @@ jobs:
       rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
       suse_electron_tag_found: ${{ steps.pr-tags.outputs.suse_electron_tag_found }}
       suse_web_tag_found: ${{ steps.pr-tags.outputs.suse_web_tag_found }}
+      pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
 
     steps:
       - uses: actions/checkout@v6
@@ -146,6 +147,13 @@ jobs:
       install_license: true
       upload_logs: false
       allow_soft_fail: false
+    secrets: inherit
+
+  e2e-pyrefly:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.pyrefly_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-pyrefly.yml
     secrets: inherit
 
   unit-tests:
