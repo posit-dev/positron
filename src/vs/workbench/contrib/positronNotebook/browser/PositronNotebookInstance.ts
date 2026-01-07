@@ -26,7 +26,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
+import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -269,6 +269,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _currentOperation: NotebookOperationType | undefined = undefined;
 
 	private _contributions = new Map<string, IPositronNotebookContribution>();
+
+	/**
+	 * Observable list of deletion sentinels.
+	 * Sentinels are shown where cells were deleted and provide an undo button.
+	 */
+	private readonly _deletionSentinels = observableValue<IDeletionSentinel[]>('deletionSentinels', []);
+	readonly deletionSentinels = this._deletionSentinels;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -1877,7 +1884,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
-	async handleAssistantCellModification(cellIndex: number): Promise<void> {
+	async handleAssistantCellModification(cellIndex: number, operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return;
@@ -1890,21 +1897,63 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Check if cell is visible in viewport
 		const isVisible = cell.isInViewport();
+
 		if (isVisible) {
-			// Cell is already visible, no action needed
+			// Cell is visible - always highlight regardless of auto-follow
+			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.highlightTemporarily() returned false');
+			}
 			return;
 		}
 
-		// Check if auto-follow is enabled
+		// Cell is not visible - check auto-follow setting for scrolling behavior
 		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
 
 		if (autoFollow) {
-			const revealed = await cell.reveal();
-			const highlighted = await cell.highlightTemporarily();
-			if (!revealed || !highlighted) {
-				this._logService.debug(`Failed to reveal/highlight cell ${cellIndex} - container not available`);
+			// Reveal (scroll to) and highlight
+			if (!(await cell.reveal())) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.reveal() returned false');
+			}
+			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.highlightTemporarily() returned false');
 			}
 		}
+		// If auto-follow is off and cell is not visible, no visual feedback
+	}
+
+	/**
+	 * Add a deletion sentinel at the specified cell index.
+	 * @param cellIndex The index where the cell was deleted
+	 * @param cellContent The content of the deleted cell
+	 * @param cellKind The type of cell that was deleted
+	 * @param language The language of the cell (for code cells)
+	 */
+	addDeletionSentinel(cellIndex: number, cellContent: string, cellKind: CellKind, language?: string): void {
+		// Truncate content to first 3 lines for preview
+		const lines = cellContent.split('\n');
+		const previewContent = lines.slice(0, 3).join('\n');
+		const truncated = lines.length > 3;
+
+		const sentinel: IDeletionSentinel = {
+			id: `sentinel-${Date.now()}-${cellIndex}`,
+			originalIndex: cellIndex,
+			timestamp: Date.now(),
+			cellContent: truncated ? previewContent + '\n...' : previewContent,
+			cellKind,
+			language
+		};
+
+		const current = this._deletionSentinels.get();
+		this._deletionSentinels.set([...current, sentinel], undefined);
+	}
+
+	/**
+	 * Remove a deletion sentinel by its ID.
+	 * @param id The unique identifier of the sentinel to remove
+	 */
+	removeDeletionSentinel(id: string): void {
+		const current = this._deletionSentinels.get();
+		this._deletionSentinels.set(current.filter(s => s.id !== id), undefined);
 	}
 
 	// #endregion

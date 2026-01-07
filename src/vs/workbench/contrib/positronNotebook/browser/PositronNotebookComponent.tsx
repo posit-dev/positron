@@ -16,6 +16,7 @@ import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
+import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -31,8 +32,10 @@ import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/bro
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const services = usePositronReactServicesContext();
 
 	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
 	// These are rendered in a ScreenReaderOnly ARIA live region for screen reader users.
@@ -92,12 +95,35 @@ export function PositronNotebookComponent() {
 			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				<AddCellButtons index={0} />
-				{notebookCells.map((cell, index) =>
-					<React.Fragment key={cell.handle}>
-						<NotebookCell cell={cell as PositronNotebookCellGeneral} />
-						<AddCellButtons index={index + 1} />
-					</React.Fragment>
-				)}
+				{notebookCells.map((cell, index) => {
+					// Find sentinels that should appear before this cell
+					const sentinelsBeforeCell = deletionSentinels.filter(s => s.originalIndex === index);
+
+					return (
+						<React.Fragment key={cell.handle}>
+							{/* Render any sentinels that belong at this position */}
+							{sentinelsBeforeCell.map(sentinel => (
+								<DeletionSentinel
+									key={sentinel.id}
+									commandService={services.commandService}
+									configurationService={services.configurationService}
+									sentinel={sentinel}
+								/>
+							))}
+							<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+							<AddCellButtons index={index + 1} />
+						</React.Fragment>
+					);
+				})}
+				{/* Render sentinels at the end if cells were deleted from the end */}
+				{deletionSentinels.filter(s => s.originalIndex >= notebookCells.length).map(sentinel => (
+					<DeletionSentinel
+						key={sentinel.id}
+						commandService={services.commandService}
+						configurationService={services.configurationService}
+						sentinel={sentinel}
+					/>
+				))}
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}

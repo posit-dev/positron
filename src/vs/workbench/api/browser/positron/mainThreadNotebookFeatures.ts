@@ -18,6 +18,8 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -32,6 +34,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@ILogService private readonly _logService: ILogService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// No initialization needed
 	}
@@ -44,6 +47,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	private mapCellToDTO(cell: IPositronNotebookCell): INotebookCellDTO {
 		const cellId = cell.uri.toString();
 		const isCodeCell = cell.isCodeCell();
+		const isMarkdownCell = cell.isMarkdownCell();
 		const cellOutputs = isCodeCell ? cell.outputs.get() : [];
 
 		// Map selection status: 'editing' -> 'active', others map directly
@@ -71,6 +75,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			baseDTO.lastRunSuccess = codeCell.lastRunSuccess.get();
 			baseDTO.lastExecutionDuration = codeCell.lastExecutionDuration.get();
 			baseDTO.lastRunEndTime = codeCell.lastRunEndTime.get();
+		}
+
+		// Add editorShown for markdown cells
+		if (isMarkdownCell) {
+			baseDTO.editorShown = cell.editorShown.get();
 		}
 
 		return baseDTO;
@@ -207,7 +216,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		instance.addCell(cellKind, index, false, content);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(index);
+		await instance.handleAssistantCellModification(index, 'add');
 
 		return index;
 	}
@@ -228,7 +237,18 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		instance.deleteCell(cells[cellIndex]);
+		const cellToDelete = cells[cellIndex];
+
+		// Capture cell content before deletion
+		const cellContent = cellToDelete.getContent();
+		const cellKind = cellToDelete.kind;
+		const language = cellToDelete.isCodeCell() ? cellToDelete.model.language : undefined;
+
+		// Delete the cell immediately
+		instance.deleteCell(cellToDelete);
+
+		// Add sentinel with cell content for preview
+		instance.addDeletionSentinel(cellIndex, cellContent, cellKind, language);
 	}
 
 	/**
@@ -286,7 +306,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(cellIndex);
+		await instance.handleAssistantCellModification(cellIndex, 'modify');
 	}
 
 	/**
@@ -402,7 +422,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		}], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(toIndex);
+		await instance.handleAssistantCellModification(toIndex, 'modify');
 	}
 
 	/**
@@ -500,6 +520,42 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		// Notify about assistant cell modification for follow mode (use first cell as reference)
 		await instance.handleAssistantCellModification(0);
+	}
+
+	/**
+	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
+	 * Respects the `positron.notebook.assistant.autoFollow` setting.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndex The index of the cell to scroll to.
+	 */
+	async $scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			return;
+		}
+
+		const cells = instance.cells.get();
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			return;
+		}
+
+		const cell = cells[cellIndex];
+		if (!cell) {
+			return;
+		}
+
+		// Check if cell is visible
+		const isVisible = cell.isInViewport();
+		if (!isVisible) {
+			// Check auto-follow setting
+			const autoFollow = this._configurationService.getValue<boolean>(
+				POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY
+			) ?? true;
+
+			if (autoFollow) {
+				await cell.reveal();
+			}
+		}
 	}
 
 	/**

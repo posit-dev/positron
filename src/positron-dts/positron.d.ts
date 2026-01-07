@@ -2538,6 +2538,12 @@ declare module 'positron' {
 			 * Only present for code cells
 			 */
 			lastRunEndTime?: number;
+
+			/**
+			 * For markdown cells only: whether the editor is shown (true) or preview is shown (false).
+			 * This property is undefined for code cells.
+			 */
+			editorShown?: boolean;
 		}
 
 		/**
@@ -2632,5 +2638,13 @@ declare module 'positron' {
 		 *                 Must be a valid permutation containing each index from 0 to cellCount-1 exactly once.
 		 */
 		export function reorderCells(notebookUri: string, newOrder: number[]): Thenable<void>;
+
+		/**
+		 * Scroll to a cell if it's out of view and auto-follow is enabled.
+		 * Respects the `positron.notebook.assistant.autoFollow` setting.
+		 * @param notebookUri The notebook URI as a string
+		 * @param cellIndex The index of the cell to scroll to
+		 */
+		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
 	}
 }
