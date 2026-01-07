@@ -150,9 +150,12 @@ export class ArkLsp implements vscode.Disposable {
 					}
 					// Disable diagnostics for Quarto virtual documents:
 					// https://github.com/quarto-dev/quarto/issues/855
-					const baseName = path.basename(uri.fsPath);
-					if (VDOC_PATTERN.test(baseName)) {
-						return undefined;
+					// Only check file URIs because vdocs are files on disk
+					if (uri.scheme === 'file') {
+						const baseName = path.basename(uri.fsPath);
+						if (VDOC_PATTERN.test(baseName)) {
+							return undefined;
+						}
 					}
 					return next(uri, diagnostics);
 				},

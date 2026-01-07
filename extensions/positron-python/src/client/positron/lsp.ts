@@ -142,9 +142,12 @@ export class PythonLsp implements vscode.Disposable {
         // https://github.com/quarto-dev/quarto/issues/855
         this._clientOptions.middleware = {
             handleDiagnostics(uri, diagnostics, next) {
-                const baseName = path.basename(uri.fsPath);
-                if (VDOC_PATTERN.test(baseName)) {
-                    return;
+                // Only check file URIs because vdocs are files on disk
+                if (uri.scheme === 'file') {
+                    const baseName = path.basename(uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return;
+                    }
                 }
                 return next(uri, diagnostics);
             },
