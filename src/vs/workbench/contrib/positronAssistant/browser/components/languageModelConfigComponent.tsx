@@ -64,7 +64,7 @@ function getProviderTermsOfServiceLink(providerId: string) {
 			return 'https://www.anthropic.com/legal/consumer-terms';
 		case 'google':
 			return 'https://cloud.google.com/terms/service-terms';
-		case 'copilot':
+		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot';
 		default:
 			return undefined;
@@ -77,7 +77,7 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 			return 'https://www.anthropic.com/legal/privacy';
 		case 'google':
 			return 'https://policies.google.com/privacy';
-		case 'copilot':
+		case 'copilot-auth':
 			return 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect';
 		default:
 			return undefined;

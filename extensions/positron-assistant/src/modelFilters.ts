@@ -5,11 +5,10 @@
 
 import * as vscode from 'vscode';
 import { log } from './extension.js';
+import { DEFAULT_SELECTABLE_PATTERNS } from './constants.js';
 
 /**
  * Check if a model matches a user-defined filter pattern.
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
- * Please keep in sync!
  */
 function matchesModelFilter(pattern: string, id: string, name: string): boolean {
 	const normalizedPattern = pattern.toLowerCase().trim();
@@ -39,8 +38,6 @@ function matchesModelFilter(pattern: string, id: string, name: string): boolean 
 
 /**
  * Regex pattern matching with smart defaults for simple cases
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
- * Please keep in sync!
  */
 function regexMatch(pattern: string, text: string): boolean {
 	try {
@@ -72,9 +69,11 @@ function regexMatch(pattern: string, text: string): boolean {
 }
 
 /**
- * Apply user-defined model filters to a list of models
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts with adaptations.
- * Please keep in sync!
+ * Apply model filters to a list of models
+ * Filters are applied in two stages:
+ * 1. models.include (strict): Removes non-matching models entirely based on user config
+ * 2. Marks non-matching models as not user-selectable based on system defaults
+ *
  */
 export function applyModelFilters(
 	models: vscode.LanguageModelChatInformation[],
@@ -103,26 +102,54 @@ export function applyModelFilters(
 		return models;
 	}
 
-	// Get the filter patterns from workspace configuration
-	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${providerName}] Patterns from filterModels config: ${filterModels.join(', ')}`);
-	if (filterModels.length === 0) {
-		return models;
+	// Stage 1: Apply strict filtering (models.include)
+	const includePatterns = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('models.include', []);
+	log.debug(`[${providerName}] Patterns from models.include config: ${includePatterns.join(', ')}`);
+
+	let filteredModels = models;
+	if (includePatterns.length > 0) {
+		filteredModels = models.filter(model =>
+			includePatterns.some(pattern =>
+				matchesModelFilter(pattern, model.id, model.name)
+			)
+		);
+
+		const removedCount = models.length - filteredModels.length;
+		if (removedCount > 0) {
+			log.debug(`[${providerName}] Removed ${removedCount} models not in models.include`);
+		}
+		if (filteredModels.length === 0) {
+			log.warn(`[${providerName}] No models match models.include patterns.`);
+			return filteredModels;
+		}
 	}
 
-	// Filter models based on patterns
-	const filteredModels = models.filter(model =>
-		filterModels.some(pattern =>
+	// Stage 2: Apply soft filtering (Positron user selectable defaults)
+	filteredModels = filteredModels.map(model => {
+		const matches = DEFAULT_SELECTABLE_PATTERNS.some(pattern =>
 			matchesModelFilter(pattern, model.id, model.name)
-		)
-	);
+		);
 
-	if (filteredModels.length === 0) {
-		log.warn(`[${providerName}] No models remain after applying user settings.`);
-	} else if (filteredModels.length === 1) {
-		log.debug(`[${providerName}] 1 model after applying user settings: ${filteredModels[0].id}`);
+		if (!matches) {
+			// Clone the model info and set isUserSelectable to false
+			return {
+				...model,
+				isUserSelectable: false
+			};
+		}
+
+		return model;
+	});
+
+	const userSelectableCount = filteredModels.filter(m => m.isUserSelectable !== false).length;
+	const nonSelectableCount = filteredModels.length - userSelectableCount;
+
+	if (userSelectableCount === 0) {
+		log.warn(`[${providerName}] No user-selectable models remain after applying system defaults.`);
+	} else if (userSelectableCount === 1) {
+		log.debug(`[${providerName}] 1 user-selectable model after applying system defaults (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.isUserSelectable !== false)?.id}`);
 	} else {
-		log.debug(`[${providerName}] ${filteredModels.length} models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+		log.debug(`[${providerName}] ${userSelectableCount} user-selectable models after applying system defaults (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.isUserSelectable !== false).map(m => m.id).join(', ')}`);
 	}
 
 	return filteredModels;

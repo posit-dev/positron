@@ -12,7 +12,7 @@ from positron.positron_ipkernel import (
     PositronIPyKernel,
     PositronShell,
 )
-from positron.positron_jedilsp import POSITRON
+from positron.positron_lsp import POSITRON
 from positron.session_mode import SessionMode
 
 logger = logging.getLogger(__name__)

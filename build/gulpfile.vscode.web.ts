@@ -109,6 +109,7 @@ export const createVSCodeWebFileContentMapper = (extensionsRoot: string, product
 				const productConfiguration = JSON.stringify({
 					...product,
 					// --- Start Positron ---
+					positronVersion,
 					positronBuildNumber,
 					// --- End Positron ---
 					version,

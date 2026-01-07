@@ -22,8 +22,51 @@ import { disposableWindowInterval } from '../../../../../base/browser/dom.js';
 import { isNewUser, isCompletionsEnabled } from './chatStatus.js';
 import product from '../../../../../platform/product/common/product.js';
 
-export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+// --- Start Positron ---
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
+import { ChatContextKeys } from '../../common/chatContextKeys.js';
+// --- End Positron ---
 
+// --- Start Positron ---
+// This is a wrapper around the ChatStatus class
+// which creates a ChatStatus instance for each editor part (window)\
+// See src/vs/workbench/contrib/languageStatus/browser/languageStatus.ts for inspiration
+export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
+
+	constructor(
+		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
+	) {
+		super();
+
+		for (const part of editorGroupService.parts) {
+			this.createChatStatus(part);
+		}
+
+		this._register(editorGroupService.onDidCreateAuxiliaryEditorPart(part => this.createChatStatus(part)));
+	}
+
+	private createChatStatus(part: IEditorPart): void {
+		const disposables = new DisposableStore();
+		this._register(
+			part.onWillDispose(() => {
+				if (!disposables.isDisposed) {
+					disposables.dispose();
+				}
+			})
+		);
+
+		const scopedInstantiationService = this.editorGroupService.getScopedInstantiationService(part);
+		disposables.add(scopedInstantiationService.createInstance(ChatStatus));
+	}
+}
+
+// Rename this class to avoid needing to modify other files that import it
+
+// export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+export class ChatStatus extends Disposable {
+	// --- End Positron ---
 	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
 
 	private entry: IStatusbarEntryAccessor | undefined = undefined;
@@ -33,6 +76,9 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	private runningSessionsCount: number;
 
 	constructor(
+		// --- Start Positron ---
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		// --- End Positron ---
 		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
@@ -51,18 +97,26 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	}
 
 	private update(): void {
-		const sentiment = this.chatEntitlementService.sentiment;
-		if (!sentiment.hidden) {
-			const props = this.getEntryProps();
-			if (this.entry) {
-				this.entry.update(props);
-			} else {
-				this.entry = this.statusbarService.addEntry(props, 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
-			}
-		} else {
+		// --- Start Positron ---
+		// Remove the Chat status if the active editor is not a code editor
+		if (!this.shouldShowStatus()) {
 			this.entry?.dispose();
 			this.entry = undefined;
+			return;
 		}
+
+		// We only need the part that displays the status. No need to hide it based on the chat entitlement setting the right context keys
+		/*
+		const sentiment = this.chatEntitlementService.sentiment;
+		*/
+		// Removed outer if (!sentiment.hidden) ...
+		const props = this.getEntryProps();
+		if (this.entry) {
+			this.entry.update(props);
+		} else {
+			this.entry = this.statusbarService.addEntry(props, 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
+		}
+		// --- End Positron ---
 	}
 
 	private registerListeners(): void {
@@ -87,6 +141,14 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				this.update();
 			}
 		}));
+		// --- Start Positron ---
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			const expr = ChatContextKeys.inChatSession.isEqualTo(true);
+			if (e.affectsSome(new Set(expr.keys()))) {
+				this.update();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private onDidActiveEditorChange(): void {
@@ -103,9 +165,25 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		}
 	}
 
+	// --- Start Positron ---
+	private shouldShowStatus(): boolean {
+		// Hide the Chat status item if:
+		// - only plot or data explorer editors are open, and
+		// - the user is not in a chat session
+		const inChat = ChatContextKeys.inChatSession.getValue(this.contextKeyService);
+		const isEditor = !this.editorService.editors.every(editor => {
+			return editor.editorId === 'workbench.editor.positronPlots' ||
+				editor.editorId === 'workbench.editor.positronDataExplorer';
+		});
+		return inChat || isEditor;
+	}
+	// --- End Positron ---
+
 	private getEntryProps(): IStatusbarEntry {
-		let text = '$(copilot)';
-		let ariaLabel = localize('chatStatusAria', "Copilot status");
+		// --- Start Positron ---
+		let text = '$(positron-assistant)';
+		let ariaLabel = localize('chatStatus', "Assistant Status");
+		// --- End Positron ---
 		let kind: StatusbarEntryKind | undefined;
 
 		if (isNewUser(this.chatEntitlementService)) {
@@ -120,7 +198,9 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			) {
 				const finishSetup = localize('finishSetup', "Finish Setup");
 
-				text = `$(copilot) ${finishSetup}`;
+				// --- Start Positron ---
+				// text = `$(copilot) ${finishSetup}`;
+				// --- End Positron ---
 				ariaLabel = finishSetup;
 				kind = 'prominent';
 			}
@@ -130,13 +210,18 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 			// Disabled
 			if (this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
-				text = '$(copilot-unavailable)';
+				// --- Start Positron ---
+				// text = '$(copilot-unavailable)';
+				// --- End Positron ---
 				ariaLabel = localize('copilotDisabledStatus', "Copilot disabled");
 			}
 
 			// Sessions in progress
 			else if (this.runningSessionsCount > 0) {
-				text = '$(copilot-in-progress)';
+				// --- Start Positron ---
+				// text = '$(copilot-in-progress)';
+				text = '$(positron-assistant-in-progress)';
+				// --- End Positron ---
 				if (this.runningSessionsCount > 1) {
 					ariaLabel = localize('chatSessionsInProgressStatus', "{0} agent sessions in progress", this.runningSessionsCount);
 				} else {
@@ -144,14 +229,20 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				}
 			}
 
+			// --- Start Positron ---
+			// Dial back the treatment of 'signed out' a little bit, since
+			// everyone is going to be 'signed out' by default unless they are
+			// signed in to Copilot
 			// Signed out
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Unknown) {
 				const signedOutWarning = localize('notSignedIn', "Signed out");
 
-				text = `${this.chatEntitlementService.anonymous ? '$(copilot)' : '$(copilot-not-connected)'} ${signedOutWarning}`;
+				// text = `${this.chatEntitlementService.anonymous ? '$(copilot)' : '$(copilot-not-connected)'} ${signedOutWarning}`;
+				// text = `$(copilot-not-connected)`;
 				ariaLabel = signedOutWarning;
-				kind = 'prominent';
+				// kind = 'prominent';
 			}
+			// --- End Positron ---
 
 			// Free Quota Exceeded
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
@@ -164,30 +255,40 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 					quotaWarning = localize('chatAndCompletionsQuotaExceededStatus', "Quota reached");
 				}
 
-				text = `$(copilot-warning) ${quotaWarning}`;
+				// --- Start Positron ---
+				// text = `$(copilot-warning) ${quotaWarning}`;
+				// --- End Positron ---
 				ariaLabel = quotaWarning;
 				kind = 'prominent';
 			}
 
 			// Completions Disabled
 			else if (this.editorService.activeTextEditorLanguageId && !isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId)) {
-				text = '$(copilot-unavailable)';
+				// --- Start Positron ---
+				// text = '$(copilot-unavailable)';
+				// --- End Positron ---
 				ariaLabel = localize('completionsDisabledStatus', "Inline suggestions disabled");
 			}
 
 			// Completions Snoozed
 			else if (this.completionsService.isSnoozing()) {
-				text = '$(copilot-snooze)';
+				// --- Start Positron ---
+				// text = '$(copilot-snooze)';
+				// --- End Positron ---
 				ariaLabel = localize('completionsSnoozedStatus', "Inline suggestions snoozed");
 			}
 		}
 
 		const baseResult = {
-			name: localize('chatStatus', "Copilot Status"),
+			// --- Start Positron ---
+			name: localize('positronChatStatus', "Assistant Status"),
 			text,
 			ariaLabel,
 			command: ShowTooltipCommand,
-			showInAllWindows: true,
+			// Do not show status in all windows; allows us to create a new status item
+			// for each window manually
+			// showInAllWindows: true,
+			// --- End Positron ---
 			kind,
 			tooltip: {
 				element: (token: CancellationToken) => {

@@ -577,6 +577,13 @@ export class ExtensionEnablementService extends Disposable implements IWorkbench
 	}
 
 	private _isDisabledByUnification(identifier: IExtensionIdentifier): boolean {
+		// --- Start Positron ---
+		// Don't disable by unification if the extension is also the chat extension
+		// (i.e., extensionId and chatExtensionId are the same in product.json)
+		if (this._completionsExtensionId === this._chatExtensionId) {
+			return false;
+		}
+		// --- End Positron ---
 		return this._extensionUnificationEnabled && identifier.id.toLowerCase() === this._completionsExtensionId;
 	}
 

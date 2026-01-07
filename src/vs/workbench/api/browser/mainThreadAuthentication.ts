@@ -321,6 +321,14 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 	private async loginPrompt(provider: IAuthenticationProvider, extensionName: string, recreatingSession: boolean, options?: AuthenticationInteractiveOptions): Promise<boolean> {
 		let message: string;
 
+		// --- Start Positron ---
+		// Always allow Positron Assistant to use GitHub authentication, without
+		// prompting the user.
+		if (extensionName === 'Positron Assistant' && provider.label === 'GitHub') {
+			return true;
+		}
+		// --- End Positron ---
+
 		// Check if the provider has a custom confirmation message
 		const customMessage = provider.confirmation?.(extensionName, recreatingSession);
 		if (customMessage) {

@@ -16,6 +16,8 @@ import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
 import '@jupyter-widgets/base/css/index.css';
 import '@jupyter-widgets/controls/css/widgets.css';
 import '@lumino/widgets/style/index.css';
+import './reactable/reactable-py.esm.css';
+import './reactable/reactable-py.esm.js';
 
 function isDefineFn(x: unknown): x is (name: string, fn: () => any) => void {
 	return typeof x === 'function';

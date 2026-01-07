@@ -121,8 +121,6 @@ registerColor('gauge.errorBackground', {
 	hcLight: Color.white
 }, localize('gaugeErrorBackground', "Gauge error background color."));
 
-//#endregion
-
 export class ChatStatusDashboard extends DomWidget {
 
 	readonly element = $('div.chat-status-bar-entry-tooltip');
@@ -195,7 +193,10 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 
 			if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (Number(chatQuota?.percentRemaining) <= 25 || Number(completionsQuota?.percentRemaining) <= 25)) {
-				const upgradeProButton = this._store.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat() /* use secondary color when chat can still be used */ }));
+				// --- Start Positron ---
+				// Add configuration service param to `canUseChat` call
+				const upgradeProButton = this._store.add(new Button(this.element, { ...defaultButtonStyles, hoverDelegate: nativeHoverDelegate, secondary: this.canUseChat(this.configurationService, this.chatEntitlementService) /* use secondary color when chat can still be used */ }));
+				// --- End Positron ---
 				upgradeProButton.label = localize('upgradeToCopilotPro', "Upgrade to GitHub Copilot Pro");
 				this._store.add(upgradeProButton.onDidClick(() => this.runCommandAndClose('workbench.action.chat.upgradePlan')));
 			}
@@ -290,9 +291,11 @@ export class ChatStatusDashboard extends DomWidget {
 
 			// Next Edit Suggestions not currently supported in Positron.
 			// When enabled, remove the defaultChat.nextEditSuggestionsSetting check and use the setting directly.
+			// When the NES setting is not configured (empty string), don't filter out NES providers
+			// since that would incorrectly hide valid providers like Github Copilot
 			const nesEnabled = defaultChat.nextEditSuggestionsSetting
 				? this.configurationService.getValue<boolean>(defaultChat.nextEditSuggestionsSetting) ?? false
-				: false;
+				: true;
 
 			const providers = this.languageFeaturesService.inlineCompletionsProvider.allNoModel();
 			const details = new Array<HTMLDivElement>();
@@ -420,10 +423,13 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 
 		// Completions Snooze
-		if (this.canUseChat()) {
+		// --- Start Positron ---
+		// Add configuration service param to `canUseChat` call
+		if (this.canUseChat(this.configurationService, this.chatEntitlementService)) {
 			const snooze = append(this.element, $('div.snooze-completions'));
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), this._store);
 		}
+		// --- End Positron ---
 
 		// New to Chat / Signed out
 		// --- Start Positron ---
@@ -484,7 +490,15 @@ export class ChatStatusDashboard extends DomWidget {
 		}
 	}
 
-	private canUseChat(): boolean {
+	// --- Start Positron ---
+	// Add config service param and consider
+	private canUseChat(configService: IConfigurationService, chatEntitlementService: IChatEntitlementService): boolean {
+		// If Assistant is explicitly enabled, allow chat usage
+		const result = !!configService.getValue<boolean>('positron.assistant.enable');
+		if (result) {
+			return true;
+		}
+
 		if (!this.chatEntitlementService.sentiment.installed || this.chatEntitlementService.sentiment.disabled || this.chatEntitlementService.sentiment.untrusted) {
 			return false; // chat not installed or not enabled
 		}
@@ -499,6 +513,7 @@ export class ChatStatusDashboard extends DomWidget {
 
 		return true;
 	}
+	// --- End Positron ---
 
 	private renderHeader(container: HTMLElement, disposables: DisposableStore, label: string, action?: IAction): void {
 		const header = container.appendChild($('div.header', undefined, label ?? ''));
@@ -685,11 +700,12 @@ export class ChatStatusDashboard extends DomWidget {
 			}
 		}));
 
-		if (!this.canUseChat()) {
+		if (!this.canUseChat(this.configurationService, this.chatEntitlementService)) {
 			container.classList.add('disabled');
 			checkbox.disable();
 			checkbox.checked = false;
 		}
+		// --- End Positron ---
 
 		return checkbox;
 	}
@@ -751,13 +767,14 @@ export class ChatStatusDashboard extends DomWidget {
 
 		disposables.add(this.configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(completionsSettingId)) {
-				if (completionsSettingAccessor.readSetting() && this.canUseChat()) {
+				if (completionsSettingAccessor.readSetting() && this.canUseChat(this.configurationService, this.chatEntitlementService)) {
 					checkbox.enable();
 					container.classList.remove('disabled');
 				} else {
 					checkbox.disable();
 					container.classList.add('disabled');
 				}
+				// --- End Positron ---
 			}
 		}));
 	}

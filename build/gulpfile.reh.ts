@@ -38,6 +38,8 @@ import jsonEditor from 'gulp-json-editor';
 import { positronBuildNumber } from './utils.ts';
 // eslint-disable-next-line no-duplicate-imports
 import { copyExtensionBinariesTask } from './gulpfile.extensions.ts';
+// eslint-disable-next-line no-duplicate-imports
+import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import { getQuartoBinaries } from './lib/quarto.ts';
 // --- End Positron ---
 

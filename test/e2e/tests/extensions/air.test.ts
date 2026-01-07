@@ -16,16 +16,10 @@ test.describe('Extensions', {
 
 	test('Verify AIR extension basic functionality', {
 		tag: [tags.ARK]
-	}, async function ({ app, openFile, runCommand }) {
+	}, async function ({ app, openFile, hotKeys }) {
 
 		await openFile('workspaces/r-formatting/bad-formatting.r');
-
-		// hotKeys approach fails on Ubuntu as key combination is
-		// overriden by Positron
-		await runCommand('command:editor.action.formatDocument', { keepOpen: true });
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.selectQuickInputElementContaining('Air');
-		await app.workbench.quickInput.waitForQuickInputClosed();
+		await hotKeys.formatDocument(); // Air is default for R document formatting
 
 		await app.workbench.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
 			return contents.includes(formattedFile);

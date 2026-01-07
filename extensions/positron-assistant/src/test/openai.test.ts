@@ -11,6 +11,7 @@ import { OpenAILanguageModel } from '../models.js';
 import { ModelConfig } from '../config.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 
 suite('OpenAILanguageModel', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -38,7 +39,7 @@ suite('OpenAILanguageModel', () => {
 
 		// Mock the applyModelFilters import
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-		mockWorkspaceConfig.withArgs('filterModels', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.include', []).returns([]);
 
 		openAIModel = new OpenAILanguageModel(mockConfig);
 	});
@@ -150,7 +151,7 @@ suite('OpenAILanguageModel', () => {
 					version: 'gpt-4',
 					maxInputTokens: 8192,
 					maxOutputTokens: 4096,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: true,
 					isUserSelectable: true
 				};
