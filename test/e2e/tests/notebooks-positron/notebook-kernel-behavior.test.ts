@@ -185,6 +185,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
+		const sessionCountBefore = await sessions.getSessionCount();
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
@@ -195,7 +196,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// open notebook console and ensure appears in session list
 		await notebooksPositron.kernel.openNotebookConsole();
-		await sessions.expectSessionCountToBe(3);
+		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
 
 		// terminate notebook session
