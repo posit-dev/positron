@@ -73,13 +73,11 @@ export class MarkedKatexSupport {
 			const prop = style[i];
 			if (allowedProperties.includes(prop)) {
 				const value = style.getPropertyValue(prop);
-				// --- Start Positron ---
-				// Allow through lists of numbers with units (including %) or bare words like 'block'
+				// Allow through lists of numbers with units or bare words like 'block'
 				// Main goal is to block things like 'url()'.
-				if (/^(([\d\.\-]+[\w%]*\s?)+|\w+)$/.test(value)) {
+				if (/^(([\d\.\-]+\w*\s?)+|\w+)$/.test(value)) {
 					sanitizedProps.push(`${prop}: ${value}`);
 				}
-				// --- End Positron ---
 			}
 		}
 
