@@ -45,6 +45,7 @@ To use the tool effectively:
 2. Provide the `accessKeys` array with the path to the specific data objects
    - Each access key is an array of strings representing the path to the variable
    - If the user references a variable by name, determine the access key from context or previous tool results
+	- Do not substitute variable names directly; always use access keys
 3. Do not call this tool when:
    - The variables do not appear in the user context
    - There is no active session

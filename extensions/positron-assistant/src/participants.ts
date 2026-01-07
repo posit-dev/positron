@@ -436,7 +436,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return `${v.display_name}|${v.kind || ''}|${v.display_type}|${v.access_key}`;
 					}).join('\n');
 					sessionContent += '\n' + xml.node('variables', variablesSummary, {
-						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type|access_key`.',
+						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type|access_key`. \
+						Note: when accessing a variable using a tool call, always use the `access_key` value.',
 					});
 					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);
