@@ -3,21 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/**
- * Token-based Markdown Renderer
- *
- * Alternative implementation that converts Marked tokens directly to React elements,
- * avoiding the HTML → DOM → React conversion pipeline.
- *
- * Pipeline: Markdown → Tokens → React (with HTML parsing only for math/code blocks)
- *
- * Benefits:
- * - Most content goes directly from tokens to React (no HTML parsing)
- * - Component overrides are cleaner and more direct
- * - Only math expressions and code blocks require HTML rendering
- * - Easier to understand the rendering logic for notebook-specific use cases
- */
-
 // React.
 import React from 'react';
 
@@ -36,6 +21,7 @@ import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { allowedMarkdownHtmlTags, allowedMarkdownHtmlAttributes } from '../../../../base/browser/markdownRenderer.js';
 import { importAMDNodeModule } from '../../../../amdX.js';
 import { convertDomChildrenToReact } from './domToReact.js';
+import { MarkedKatexExtension } from '../../markdown/common/markedKatexExtension.js';
 
 /**
  * Decodes HTML entities in a string
@@ -45,7 +31,9 @@ function decodeHtmlEntities(text: string): string {
 	const entities: { [key: string]: string } = {
 		'&quot;': '"',
 		'&#34;': '"',
+		// eslint-disable-next-line local/code-no-unexternalized-strings
 		'&apos;': "'",
+		// eslint-disable-next-line local/code-no-unexternalized-strings
 		'&#39;': "'",
 		'&amp;': '&',
 		'&lt;': '<',
@@ -74,19 +62,24 @@ function decodeHtmlEntities(text: string): string {
 }
 
 /**
- * Custom token types created by extensions
+ * Type that supports both Marked tokens and KaTeX "tokens"
+ * for the purposes of rendering.
+ *
+ * KatexToken is created by MarkedKatexExtension.ts which
+ * parses LaTeX math expressions and creates these tokens.
  */
-interface KatexToken {
-	type: 'inlineKatex' | 'blockKatex';
-	raw: string;
-	text: string;  // Raw LaTeX
-	displayMode: boolean;
-}
-
-type ExtendedToken = marked.Token | KatexToken;
+type ExtendedToken = marked.Token | MarkedKatexExtension.KatexToken;
 
 /**
- * Component that renders KaTeX math from LaTeX source
+ * Component that renders LaTeX expressions.
+ *
+ * Since rendering LaTeX to HTML requires KaTeX which produces
+ * HTML/MathML/SVG, we need to use safeSetInnerHtml to render it
+ * which will parse the HTML string into the DOM.
+ *
+ * @param latex The raw LaTeX string to render
+ * @param displayMode Whether to render in display mode block or inline mode (default)
+ * @returns React element containing the rendered math
  */
 function KatexMath({ latex, displayMode }: { latex: string; displayMode?: boolean }) {
 	const containerRef = React.useRef<HTMLSpanElement | HTMLDivElement>(null);
@@ -99,34 +92,32 @@ function KatexMath({ latex, displayMode }: { latex: string; displayMode?: boolea
 
 		let cancelled = false;
 
-		// Load KaTeX using the same approach as MarkedKatexSupport
+		// TODO: why did I need to load katex this way? double check this!!
+		// Load KaTeX using the same approach as MarkedKatexSupport.ts
 		importAMDNodeModule<typeof import('katex').default>('katex', 'dist/katex.min.js').then(katex => {
 			if (cancelled) {
 				return;
 			}
 
 			try {
-				// KaTeX renders to HTML/MathML/SVG
+				// convert the raw latex into HTML/MathML/SVG
 				const html = katex.renderToString(latex, {
 					throwOnError: false,
 					displayMode: displayMode || false
 				});
-
-				// Use safeSetInnerHtml to comply with CSP
 				const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
 					allowedTags: allowedMarkdownHtmlTags,
 					allowedAttributes: allowedMarkdownHtmlAttributes,
 				});
+				// Parse the HTML into the container element safely
 				safeSetInnerHtml(container, html, sanitizerConfig);
 			} catch (e) {
-				console.error('KaTeX rendering error:', e);
-				container.textContent = latex; // Fallback
+				container.textContent = latex; // Fallback to raw LaTeX on error
 			}
 		}).catch((err) => {
 			if (!cancelled) {
-				console.error('Failed to load KaTeX:', err);
 				if (container) {
-					container.textContent = latex; // Fallback
+					container.textContent = latex; // Fallback to raw LaTeX on error
 				}
 			}
 		});
@@ -144,53 +135,17 @@ function KatexMath({ latex, displayMode }: { latex: string; displayMode?: boolea
 }
 
 /**
- * Component that renders raw HTML safely with component overrides
- * This ensures that raw HTML <img> tags get the DeferredImage behavior
- * and <a> tags get the NotebookLink behavior
- */
-function RawHtml({ html }: { html: string }) {
-	const reactElements = React.useMemo(() => {
-		// Use the same config as the current Markdown renderer
-		const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
-			allowedTags: allowedMarkdownHtmlTags,
-			allowedAttributes: [
-				...allowedMarkdownHtmlAttributes,
-				'id',  // Allow id attribute for anchor link targets
-				'style' // Allow style attribute for inline styles
-			],
-		});
-
-		// Configure to allow remote images and local links (same as Markdown.tsx)
-		const notebookSanitizerConfig = {
-			...sanitizerConfig,
-			allowedLinkProtocols: {
-				override: ['http', 'https'] as readonly string[]
-			},
-			allowedMediaProtocols: {
-				override: ['http', 'https', 'data'] as readonly string[]
-			},
-			allowRelativeLinkPaths: true,
-			allowRelativeMediaPaths: true
-		};
-
-		// Sanitize HTML into a temporary container
-		const tempContainer = document.createElement('div');
-		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
-
-		// Convert DOM to React with component overrides (same as Markdown.tsx)
-		// This ensures raw HTML <img> tags become DeferredImage components
-		return convertDomChildrenToReact(tempContainer, {
-			img: DeferredImage,
-			a: NotebookLink,
-		});
-	}, [html]);
-
-	return <>{reactElements}</>;
-}
-
-/**
- * Component that renders syntax-highlighted code
- * This handles the async syntax highlighting
+ * Component that renders syntax-highlighted code blocks.
+ *
+ * Since we don't have a way to directly create a react element, we
+ * take the raw code string and use the language service to get the
+ * syntax-highlighted HTML, then render that via safeSetInnerHtml.
+ *
+ * @param code The raw code string to highlight
+ * @param lang The language identifier (e.g., 'javascript', 'python')
+ * @param extensionService Extension service for loading language extensions
+ * @param languageService Language service for syntax highlighting
+ * @returns React element containing the syntax-highlighted code block
  */
 function SyntaxHighlightedCode({
 	code,
@@ -228,13 +183,14 @@ function SyntaxHighlightedCode({
 			const languageId = languageService.getLanguageIdByLanguageName(lang)
 				?? languageService.getLanguageIdByLanguageName(lang.split(/\s+|:|,|(?!^)\{|\?]/, 1)[0]);
 
+			// Get the syntax-highlighted HTML string
 			const highlighted = await tokenizeToString(languageService, code, languageId);
 			if (!cancelled && codeElement) {
-				// Use safeSetInnerHtml to comply with CSP
 				const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
 					allowedTags: allowedMarkdownHtmlTags,
 					allowedAttributes: allowedMarkdownHtmlAttributes,
 				});
+				// Parse the HTML into the container element safely
 				safeSetInnerHtml(codeElement, highlighted, sanitizerConfig);
 			}
 		})();
@@ -255,7 +211,76 @@ function SyntaxHighlightedCode({
 }
 
 /**
- * Custom React renderer for Marked tokens
+ * TODO: do we need this? should we turn html into tokens and then
+ * render via the TokenMarkdownRenderer? if we don't need to support
+ * this we can remove domToReact.tsx file as well.
+ *
+ * Component that renders raw html safely with component overrides.
+ *
+ * Sinde we aren't able to convert raw HTML to React elements directly,
+ * we need to parse the HTML into DOM nodes first.
+ *
+ * This uses safeSetInnerHtml to parse the HTML string into the DOM,
+ * and then converts the DOM nodes to React elements.
+ *
+ * @param code The raw code string to highlight
+ * @param lang The language identifier (e.g., 'javascript', 'python')
+ * @param extensionService Extension service for loading language extensions
+ * @param languageService Language service for syntax highlighting
+ * @returns React element containing the syntax-highlighted code block
+ */
+function RawHtml({ html }: { html: string }) {
+	const reactElements = React.useMemo(() => {
+		// Use the same config as the current Markdown renderer
+		const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
+			allowedTags: allowedMarkdownHtmlTags,
+			allowedAttributes: [
+				...allowedMarkdownHtmlAttributes,
+				'id',  // Allow id attribute for anchor link targets
+				'style' // Allow style attribute for inline styles
+			],
+		});
+
+		// Configure to allow remote images and local links (same as Markdown.tsx)
+		const notebookSanitizerConfig = {
+			...sanitizerConfig,
+			allowedLinkProtocols: {
+				override: ['http', 'https'] as readonly string[]
+			},
+			allowedMediaProtocols: {
+				override: ['http', 'https', 'data'] as readonly string[]
+			},
+			allowRelativeLinkPaths: true,
+			allowRelativeMediaPaths: true
+		};
+
+		const tempContainer = document.createElement('div');
+		// Parse the HTML into the container element safely
+		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
+
+		// Convert DOM to React with component overrides.
+		// This ensures that <img> tags become DeferredImage components
+		// and <a> tags become NotebookLink components.
+		return convertDomChildrenToReact(
+			tempContainer,
+			{
+				img: DeferredImage,
+				a: NotebookLink,
+			}
+		);
+	}, [html]);
+
+	return <>{reactElements}</>;
+}
+
+/**
+ * Renderer that converts Marked tokens to React elements.
+ * Uses component overrides to handle special cases (complex HTML):
+ * - Links: NotebookLink
+ * - Images: DeferredImage
+ * - Raw HTML: RawHtml
+ * - LaTeX math: KatexMath
+ * - Syntax-highlighted code blocks: SyntaxHighlightedCode
  */
 export class TokenMarkdownRenderer {
 	private keyCounter = 0;
@@ -280,75 +305,55 @@ export class TokenMarkdownRenderer {
 		switch (token.type) {
 			case 'space':
 				return <React.Fragment key={key} />;
-
 			case 'code':
 				return this.renderCode(token as marked.Tokens.Code, key);
-
 			case 'heading':
 				return this.renderHeading(token as marked.Tokens.Heading, key);
-
 			case 'table':
 				return this.renderTable(token as marked.Tokens.Table, key);
-
 			case 'hr':
 				return <hr key={key} />;
-
 			case 'blockquote':
 				return this.renderBlockquote(token as marked.Tokens.Blockquote, key);
-
 			case 'list':
 				return this.renderList(token as marked.Tokens.List, key);
-
 			case 'list_item':
 				return this.renderListItem(token as marked.Tokens.ListItem, key);
-
 			case 'paragraph':
 				return this.renderParagraph(token as marked.Tokens.Paragraph, key);
-
+			// TODO: review how to handle html
 			case 'html':
 				return this.renderHtml(token as marked.Tokens.HTML, key);
-
 			case 'text':
 				return this.renderText(token as marked.Tokens.Text, key);
-
 			case 'br':
 				return <br key={key} />;
-
 			case 'escape':
 				return <React.Fragment key={key}>{decodeHtmlEntities((token as marked.Tokens.Escape).text)}</React.Fragment>;
-
 			case 'link':
 				return this.renderLink(token as marked.Tokens.Link, key);
-
 			case 'image':
 				return this.renderImage(token as marked.Tokens.Image, key);
-
 			case 'strong':
 				return this.renderStrong(token as marked.Tokens.Strong, key);
-
 			case 'em':
 				return this.renderEm(token as marked.Tokens.Em, key);
-
 			case 'codespan':
-				// Decode HTML entities (Marked escapes text like &quot; for quotes)
 				return <code key={key}>{decodeHtmlEntities((token as marked.Tokens.Codespan).text)}</code>;
-
 			case 'del':
 				return this.renderDel(token as marked.Tokens.Del, key);
-
 			// Custom KaTeX tokens
 			case 'inlineKatex':
 			case 'blockKatex':
-				return this.renderKatex(token as KatexToken, key);
-
+				return this.renderKatex(token as MarkedKatexExtension.KatexToken, key);
 			default:
 				// Handle unknown token types gracefully
-				console.warn('Unknown token type:', (token as any).type);
 				return <React.Fragment key={key} />;
 		}
 	}
 
 	private renderCode(token: marked.Tokens.Code, key: string): React.ReactElement {
+		// Render syntax-highlighted code blocks
 		return (
 			<SyntaxHighlightedCode
 				key={key}
@@ -364,7 +369,7 @@ export class TokenMarkdownRenderer {
 		const children = this.renderInlineTokens(token.tokens);
 		const HeadingTag = `h${token.depth}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
-		// Generate slugified ID for anchor links (same logic as markdownRenderer.ts)
+		// Generate slugified ID for anchor links
 		const headingText = this.extractTextFromTokens(token.tokens);
 		let slug = slugify(headingText);
 
@@ -458,7 +463,7 @@ export class TokenMarkdownRenderer {
 			const children = this.renderInlineTokens(token.tokens);
 			return <React.Fragment key={key}>{children}</React.Fragment>;
 		}
-		// Decode HTML entities in text (e.g., &lt; → <, &#39; → ', &amp; → &)
+		// Decode HTML entities in text
 		return <React.Fragment key={key}>{decodeHtmlEntities(token.text)}</React.Fragment>;
 	}
 
@@ -499,8 +504,9 @@ export class TokenMarkdownRenderer {
 		);
 	}
 
-	private renderKatex(token: KatexToken, key: string): React.ReactElement {
-		// Token contains raw LaTeX text
+	private renderKatex(token: MarkedKatexExtension.KatexToken, key: string): React.ReactElement {
+		// Provide the raw LaTeX and display mode to the KatexMath component
+		// which will convert it to HTML using KaTeX and render it safely
 		return (
 			<KatexMath
 				key={key}
@@ -539,10 +545,23 @@ export class TokenMarkdownRenderer {
 }
 
 /**
- * Renders markdown tokens to React elements
- * This is the main entry point for the token-based renderer
+ * Renders markdown content to React elements using token-based rendering.
+ * Pipeline: Markdown → Tokens → React (with HTML parsing only for math/code blocks)
+ *
+ * The markdown string is converted to tokens using Marked, then tokens are rendered
+ * directly to React elements. There are some exceptions where HTML parsing is still
+ * required.
+ *
+ * LaTeX math expressions use KaTeX which returns HTML instead of tokens that can be
+ * passed to the React renderer. Therefore we still need to use `safeSetInnerHtml`
+ * which requires HTML parsing. Similarly, syntax-highlighted code blocks return HTML.
+ *
+ * @param content: Markdown content to render in string form
+ * @param extensionService: Extension service for loading language extensions
+ * @param languageService: Language service for syntax highlighting
+ * @returns Array of React elements containing the rendered markdown.
  */
-export async function renderNotebookMarkdownTokens(
+export async function renderNotebookMarkdown(
 	content: string,
 	extensionService: IExtensionService,
 	languageService: ILanguageService
@@ -553,7 +572,7 @@ export async function renderNotebookMarkdownTokens(
 		{ throwOnError: false }
 	);
 
-	// Create Marked instance with KaTeX extension
+	// Create Marked instance with KaTeX extension which handles LaTeX
 	const markedInstance = new marked.Marked().use(katexExtension);
 
 	// Tokenize markdown (KaTeX extension creates custom tokens)

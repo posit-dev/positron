@@ -13,7 +13,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { renderNotebookMarkdownTokens } from '../markdownRenderer.js';
+import { renderNotebookMarkdown } from '../markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
 /**
@@ -53,7 +53,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 
 	React.useEffect(() => {
 		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
-			renderNotebookMarkdownTokens(
+			renderNotebookMarkdown(
 				content,
 				services.get(IExtensionService),
 				services.languageService
