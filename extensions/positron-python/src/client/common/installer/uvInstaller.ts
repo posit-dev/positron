@@ -72,6 +72,18 @@ export class UVInstaller extends ModuleInstaller {
         }
         const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
         const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
+
+        // ...or if it doesn't have a [project] section
+        let hasProjectSection = false;
+        if (pyprojectExists && pyprojectPath) {
+            try {
+                const pyprojectContent = await fileSystem.readFile(pyprojectPath);
+                hasProjectSection = /^\[project\]/m.test(pyprojectContent);
+            } catch {
+                // If we can't read the file, assume it doesn't have a project section
+            }
+        }
+
         // ...or if requirements.txt does exist, because we don't want them to get out of sync
         const requirementsPath = workspaceFolder
             ? path.join(workspaceFolder.uri.fsPath, 'requirements.txt')
@@ -79,7 +91,7 @@ export class UVInstaller extends ModuleInstaller {
         const requirementsExists = requirementsPath ? await fileSystem.fileExists(requirementsPath) : false;
 
         const usePyprojectWorkflow =
-            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && !requirementsExists;
+            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && hasProjectSection && !requirementsExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
