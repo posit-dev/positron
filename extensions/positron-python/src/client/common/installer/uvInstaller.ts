@@ -17,6 +17,7 @@ import { isResource } from '../utils/misc';
 import { IWorkspaceService } from '../application/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IFileSystem } from '../platform/types';
+import { traceLog } from '../../logging';
 
 @injectable()
 export class UVInstaller extends ModuleInstaller {
@@ -96,7 +97,11 @@ export class UVInstaller extends ModuleInstaller {
         const requirementsExists = requirementsPath ? await fileSystem.fileExists(requirementsPath) : false;
 
         const usePyprojectWorkflow =
-            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && hasValidProjectSection && !requirementsExists;
+            !isIpykernel &&
+            !isBreakingSystemPackages &&
+            pyprojectExists &&
+            hasValidProjectSection &&
+            !requirementsExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -110,9 +115,26 @@ export class UVInstaller extends ModuleInstaller {
 
         if (usePyprojectWorkflow) {
             // Use 'uv add' for project-based workflow
+            traceLog(`Using 'uv add' for ${moduleName}: project-based workflow detected`);
             args.push('add');
         } else {
             // Use 'uv pip install' for environment-based workflow
+            const reasons: string[] = [];
+            if (isIpykernel) {
+                reasons.push('installing ipykernel');
+            }
+            if (isBreakingSystemPackages) {
+                reasons.push('breaking system packages');
+            }
+            if (!pyprojectExists) {
+                reasons.push('no pyproject.toml found');
+            } else if (!hasValidProjectSection) {
+                reasons.push('pyproject.toml missing valid [project] section with name and version');
+            }
+            if (requirementsExists) {
+                reasons.push('requirements.txt exists');
+            }
+            traceLog(`Using 'uv pip install' for ${moduleName}: ${reasons.join(', ')}`);
             args.push('pip', 'install');
 
             // Support the --break-system-packages flag to temporarily work around PEP 668.
