@@ -17,7 +17,8 @@ import * as formatter from './lib/formatter.ts';
 import gulpstylelint from './stylelint.ts';
 
 // --- Start Positron ---
-import colors from 'colors';
+import 'colors';
+import detectDotOnlyHook from './detect-dot-only-hook.ts';
 // --- End Positron ---
 
 const copyrightHeaderLines = [
@@ -51,10 +52,6 @@ const positCopyrightHeaderLinesHash = [
  */
 export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, runEslint = true): NodeJS.ReadWriteStream {
 	console.log('Starting hygiene...');
-
-	// --- Start Positron ---
-	const { default: detectDotOnlyHook } = await import('./detect-dot-only-hook.ts');
-	// --- End Positron ---
 
 	let errorCount = 0;
 
@@ -148,7 +145,7 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const copyrights = es.through(function (file: VinylFileWithLines) {
 		const lines = file.__lines;
 
-		const matchHeaderLines = (headerLines) => {
+		const matchHeaderLines = (headerLines: readonly string[]) => {
 			for (let i = 0; i < headerLines.length; i++) {
 				if (headerLines[i] !== lines[i]) {
 					return false;
@@ -158,7 +155,7 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 			return true;
 		};
 
-		const regexMatchHeaderLines = (headerLines) => {
+		const regexMatchHeaderLines = (headerLines: readonly RegExp[]) => {
 			for (let i = 0; i < headerLines.length; i++) {
 				if (!lines[i]?.match(headerLines[i])) {
 					return false;
@@ -263,7 +260,7 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 				} else {
 					console.warn(message);
 				}
-			}))
+			}) as (message: string, isError: boolean) => void)
 		);
 		// --- End Positron ---
 	}
