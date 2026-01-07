@@ -116,7 +116,7 @@ export class UVInstaller extends ModuleInstaller {
         if (usePyprojectWorkflow) {
             // Use 'uv add' for project-based workflow
             traceLog(`Using 'uv add' for ${moduleName}: project-based workflow detected`);
-            args.push('add');
+            args.push('add', '--active');
         } else {
             // Use 'uv pip install' for environment-based workflow
             const reasons: string[] = [];

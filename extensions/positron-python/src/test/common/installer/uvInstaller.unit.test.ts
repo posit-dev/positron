@@ -340,7 +340,7 @@ version = "0.1.0"`;
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['add', '--upgrade', '--python', pythonPath, moduleName],
+                args: ['add', '--active', '--upgrade', '--python', pythonPath, moduleName],
                 execPath: 'uv',
             });
         });
@@ -649,7 +649,7 @@ version = "0.1.0"`;
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['add', '--upgrade', '--python', pythonPath, moduleName],
+                args: ['add', '--active', '--upgrade', '--python', pythonPath, moduleName],
                 execPath: 'uv',
             });
         });
