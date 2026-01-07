@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -204,48 +204,6 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
 
         # Yield to parent implementation which handles workspace setup
         return (yield from super().lsp_initialize(params))
-
-    def _data_received(self, data: bytes) -> None:  # type: ignore[override]
-        """
-        Workaround for pygls performance issue where cancelled requests are still executed.
-
-        See: https://github.com/openlawlibrary/pygls/issues/517
-        """
-        self._messages_to_handle = []
-        super()._data_received(data)  # type: ignore[misc]
-
-        def is_request(msg):
-            return hasattr(msg, "method") and hasattr(msg, "id")
-
-        def is_cancel_notification(msg):
-            return getattr(msg, "method", None) == types.CANCEL_REQUEST
-
-        # First pass: find all requests that were cancelled in the same batch
-        request_ids = set()
-        cancelled_ids = set()
-        for msg in self._messages_to_handle:
-            if is_request(msg):
-                request_ids.add(msg.id)
-            elif is_cancel_notification(msg) and msg.params.id in request_ids:
-                cancelled_ids.add(msg.params.id)
-
-        # Second pass: filter out cancelled requests and their cancel notifications
-        self._messages_to_handle = [
-            msg
-            for msg in self._messages_to_handle
-            if not (
-                (is_cancel_notification(msg) and msg.params.id in cancelled_ids)
-                or (is_request(msg) and msg.id in cancelled_ids)
-            )
-        ]
-
-        # Now handle the filtered messages
-        for msg in self._messages_to_handle:
-            super()._procedure_handler(msg)  # type: ignore[misc]
-
-    def _procedure_handler(self, message) -> None:
-        """Queue messages for batch processing in _data_received."""
-        self._messages_to_handle.append(message)
 
 
 class PositronLanguageServer(LanguageServer):
