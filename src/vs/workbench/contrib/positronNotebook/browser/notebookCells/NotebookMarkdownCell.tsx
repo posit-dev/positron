@@ -12,7 +12,8 @@ import React from 'react';
 // Other dependencies.
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { Markdown } from './Markdown.js';
+//import { Markdown } from './Markdown.js';
+import { MarkdownToken as Markdown } from './MarkdownToken.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
 import { localize } from '../../../../../nls.js';
