@@ -156,7 +156,7 @@ function RawHtml({ html }: { html: string }) {
 			allowedAttributes: [
 				...allowedMarkdownHtmlAttributes,
 				'id',  // Allow id attribute for anchor link targets
-				// Note: 'style' is already handled by KaTeX sanitizer config
+				'style' // Allow style attribute for inline styles
 			],
 		});
 
