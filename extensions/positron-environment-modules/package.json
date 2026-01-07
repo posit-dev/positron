@@ -1,0 +1,91 @@
+{
+	"name": "positron-environment-modules",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"configuration": {
+			"title": "%configuration.title%",
+			"properties": {
+				"positron.environmentModules.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "%configuration.enabled.description%"
+				},
+				"positron.environmentModules.moduleCommand": {
+					"type": "string",
+					"default": "module",
+					"description": "%configuration.moduleCommand.description%"
+				},
+				"positron.environmentModules.initScript": {
+					"type": "string",
+					"default": "",
+					"description": "%configuration.initScript.description%"
+				},
+				"positron.environmentModules.environments": {
+					"type": "object",
+					"default": {},
+					"description": "%configuration.environments.description%",
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"languages": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "Target languages for this environment (e.g., 'r', 'python')"
+							},
+							"modules": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "List of modules to load (in order)"
+							}
+						},
+						"required": [
+							"languages",
+							"modules"
+						]
+					}
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "positron.environmentModules.refreshEnvironments",
+				"title": "%command.refreshEnvironments.title%",
+				"category": "Environment Modules"
+			},
+			{
+				"command": "positron.environmentModules.listAvailableModules",
+				"title": "%command.listAvailableModules.title%",
+				"category": "Environment Modules"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "18.x",
+		"@types/vscode": "^1.65.0",
+		"typescript": "^5.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/posit-dev/positron"
+	}
+}

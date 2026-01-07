@@ -1,0 +1,11 @@
+{
+	"displayName": "Positron Environment Modules",
+	"description": "Support for environment modules (Lmod, Environment Modules) in Positron",
+	"configuration.title": "Environment Modules",
+	"configuration.enabled.description": "Enable environment modules support for runtime discovery",
+	"configuration.moduleCommand.description": "The command used to interact with the module system (default: 'module')",
+	"configuration.initScript.description": "Path to module system initialization script (e.g., '/etc/profile.d/modules.sh'). Leave empty to use default detection.",
+	"configuration.environments.description": "Named environment configurations. Each key is an environment name, and the value specifies target languages and modules to load.",
+	"command.refreshEnvironments.title": "Refresh Module Environments",
+	"command.listAvailableModules.title": "List Available Modules"
+}

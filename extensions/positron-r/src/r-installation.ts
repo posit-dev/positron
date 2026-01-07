@@ -63,6 +63,7 @@ export enum ReasonDiscovered {
 	HQ = "HQ",
 	CONDA = "CONDA",
 	PIXI = "PIXI",
+	MODULE = "MODULE",
 
 	adHoc = "adHoc",
 	userSetting = "userSetting",
@@ -100,10 +101,24 @@ export interface PixiMetadata {
 }
 
 /**
- * Packager metadata - either Conda or Pixi.
- * Check ReasonDiscovered.CONDA or ReasonDiscovered.PIXI to determine which type.
+ * Metadata for an R installation from a module environment.
  */
-export type PackagerMetadata = CondaMetadata | PixiMetadata;
+export interface ModuleMetadata {
+	/** Identifies this as a module environment */
+	readonly type: 'module';
+	/** The environment name from settings */
+	readonly environmentName: string;
+	/** The modules to load */
+	readonly modules: string[];
+	/** Pre-computed startup command */
+	readonly startupCommand: string;
+}
+
+/**
+ * Packager metadata - Conda, Pixi, or Module.
+ * Check ReasonDiscovered.CONDA, ReasonDiscovered.PIXI, or ReasonDiscovered.MODULE to determine which type.
+ */
+export type PackagerMetadata = CondaMetadata | PixiMetadata | ModuleMetadata;
 
 /**
  * Type guard to check if packager metadata is from Pixi (has manifestPath).
@@ -113,10 +128,17 @@ export function isPixiMetadata(metadata: PackagerMetadata): metadata is PixiMeta
 }
 
 /**
- * Type guard to check if packager metadata is from Conda (no manifestPath).
+ * Type guard to check if packager metadata is from Conda (no manifestPath and no type).
  */
 export function isCondaMetadata(metadata: PackagerMetadata): metadata is CondaMetadata {
-	return !('manifestPath' in metadata);
+	return !('manifestPath' in metadata) && !('type' in metadata);
+}
+
+/**
+ * Type guard to check if packager metadata is from a Module environment (has type: 'module').
+ */
+export function isModuleMetadata(metadata: PackagerMetadata): metadata is ModuleMetadata {
+	return 'type' in metadata && metadata.type === 'module';
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
@@ -134,6 +156,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in a Conda environment';
 			case ReasonDiscovered.PIXI:
 				return 'Found in a Pixi environment';
+			case ReasonDiscovered.MODULE:
+				return 'Found via environment modules';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.userSetting:

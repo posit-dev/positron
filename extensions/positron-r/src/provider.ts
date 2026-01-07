@@ -12,13 +12,14 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
+import { discoverModuleBinaries } from './provider-module.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -51,6 +52,7 @@ export enum RRuntimeSource {
 	homebrew = 'Homebrew',
 	conda = 'Conda',
 	pixi = 'Pixi',
+	module = 'Module',
 }
 
 /**
@@ -170,6 +172,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
 	const pixiBinaries = await discoverPixiBinaries();
+	const moduleBinaries = await discoverModuleBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -186,6 +189,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 		...systemBinaries,
 		...condaBinaries,
 		...pixiBinaries,
+		...moduleBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -248,10 +252,13 @@ export async function makeMetadata(
 
 	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
 	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
+	const isModuleInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.MODULE);
 
-	// Be sure to check for pixi/conda installations first, as they can be installed via Homebrew
+	// Be sure to check for pixi/conda/module installations first, as they can be installed via Homebrew
 	let runtimeSource = RRuntimeSource.system;
-	if (isPixiInstallation) {
+	if (isModuleInstallation) {
+		runtimeSource = RRuntimeSource.module;
+	} else if (isPixiInstallation) {
 		runtimeSource = RRuntimeSource.pixi;
 	} else if (isCondaInstallation) {
 		runtimeSource = RRuntimeSource.conda;
@@ -266,7 +273,9 @@ export async function makeMetadata(
 
 	// Full name shown to users
 	let packagerAmendment = '';
-	if (isCondaInstallation && rInst.packagerMetadata) {
+	if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
+	} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
 		packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
 	} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
 		packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;
