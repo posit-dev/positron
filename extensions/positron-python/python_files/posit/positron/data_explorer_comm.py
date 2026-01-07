@@ -304,6 +304,17 @@ class FilterResult(BaseModel):
     )
 
 
+class SetDatasetImportOptionsResult(BaseModel):
+    """
+    Result of setting import options
+    """
+
+    error_message: Optional[StrictStr] = Field(
+        default=None,
+        description="An error message if setting the options failed",
+    )
+
+
 class BackendState(BaseModel):
     """
     The current backend state for the data explorer
@@ -1222,6 +1233,18 @@ class ColumnSelection(BaseModel):
     )
 
 
+class DatasetImportOptions(BaseModel):
+    """
+    Import options for file-based data sources. Currently supports options
+    for delimited text files (CSV, TSV).
+    """
+
+    has_header_row: Optional[StrictBool] = Field(
+        default=None,
+        description="Whether the first row contains column headers (for delimited text files)",
+    )
+
+
 # ColumnValue
 ColumnValue = Union[
     StrictInt,
@@ -1302,6 +1325,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Async request a batch of column profiles
     GetColumnProfiles = "get_column_profiles"
+
+    # Set import options for file-based data sources
+    SetDatasetImportOptions = "set_dataset_import_options"
 
     # Get the state
     GetState = "get_state"
@@ -1686,6 +1712,39 @@ class GetColumnProfilesRequest(BaseModel):
     )
 
 
+class SetDatasetImportOptionsParams(BaseModel):
+    """
+    Set import options for file-based data sources (like CSV files) and
+    reimport the data. This method is primarily used by file-based
+    backends like DuckDB.
+    """
+
+    options: DatasetImportOptions = Field(
+        description="Import options to apply",
+    )
+
+
+class SetDatasetImportOptionsRequest(BaseModel):
+    """
+    Set import options for file-based data sources (like CSV files) and
+    reimport the data. This method is primarily used by file-based
+    backends like DuckDB.
+    """
+
+    params: SetDatasetImportOptionsParams = Field(
+        description="Parameters to the SetDatasetImportOptions method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.SetDatasetImportOptions] = Field(
+        description="The JSON-RPC method name (set_dataset_import_options)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class GetStateRequest(BaseModel):
     """
     Request the current backend state (table metadata, explorer state, and
@@ -1717,6 +1776,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         SetRowFiltersRequest,
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
+        SetDatasetImportOptionsRequest,
         GetStateRequest,
     ] = Field(..., discriminator="method")
 
@@ -1766,6 +1826,8 @@ ConvertedCode.update_forward_refs()
 CodeSyntaxName.update_forward_refs()
 
 FilterResult.update_forward_refs()
+
+SetDatasetImportOptionsResult.update_forward_refs()
 
 BackendState.update_forward_refs()
 
@@ -1863,6 +1925,8 @@ DataSelectionIndices.update_forward_refs()
 
 ColumnSelection.update_forward_refs()
 
+DatasetImportOptions.update_forward_refs()
+
 OpenDatasetParams.update_forward_refs()
 
 OpenDatasetRequest.update_forward_refs()
@@ -1908,6 +1972,10 @@ SetSortColumnsRequest.update_forward_refs()
 GetColumnProfilesParams.update_forward_refs()
 
 GetColumnProfilesRequest.update_forward_refs()
+
+SetDatasetImportOptionsParams.update_forward_refs()
+
+SetDatasetImportOptionsRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
 

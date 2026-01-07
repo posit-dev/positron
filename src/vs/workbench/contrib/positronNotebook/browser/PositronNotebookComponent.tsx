@@ -14,7 +14,6 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
-import { localize } from '../../../../nls.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
@@ -25,6 +24,8 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { useContextKeyValue } from './useContextKeyValue.js';
+import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 
 
 export function PositronNotebookComponent() {
@@ -41,9 +42,11 @@ export function PositronNotebookComponent() {
 	// Track scroll position for scroll decoration
 	const [isScrolled, setIsScrolled] = React.useState(false);
 
-	// TODO: Track find widget visibility for scroll decoration
-	// When the find widget is implemented, add state here to track visibility
-	// and include it in the showDecoration condition below.
+	// Track find widget visibility for scroll decoration
+	const isFindWidgetVisible = useContextKeyValue(
+		notebookInstance.scopedContextKeyService,
+		CONTEXT_FIND_WIDGET_VISIBLE
+	);
 
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
@@ -75,11 +78,8 @@ export function PositronNotebookComponent() {
 		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));
 
-	// TODO: Observe find widget visibility from context key service
-	// When the find widget is implemented, add an effect here to observe
-
 	// Determine if scroll decoration should be shown
-	const showDecoration = isScrolled;
+	const showDecoration = isScrolled || isFindWidgetVisible;
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
@@ -91,15 +91,13 @@ export function PositronNotebookComponent() {
 				/>
 			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
-				{notebookCells.length ?
-					notebookCells.map((cell, index) =>
-						<React.Fragment key={cell.handle}>
-							<NotebookCell cell={cell as PositronNotebookCellGeneral} />
-							<AddCellButtons index={index + 1} />
-						</React.Fragment>
-					) :
-					<div>{localize('noCells', 'No cells')}</div>
-				}
+				<AddCellButtons index={0} />
+				{notebookCells.map((cell, index) =>
+					<React.Fragment key={cell.handle}>
+						<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+						<AddCellButtons index={index + 1} />
+					</React.Fragment>
+				)}
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}

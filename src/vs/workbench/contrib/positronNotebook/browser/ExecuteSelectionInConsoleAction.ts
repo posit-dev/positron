@@ -37,10 +37,13 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 			title: localize2('positronNotebookActions.executeSelectionInConsole', 'Execute Selection in Console'),
 			icon: executeIcon,
 			f1: true,
-			// Only enable if the active editor is a notebook (Positron or built-in)
-			precondition: ContextKeyExpr.or(
-				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-				ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+			// Only enable if the active editor is a notebook (Positron or built-in) and the notebook console actions setting is enabled
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.or(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+				),
+				ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
 			),
 			// Show in the cell context menu, but only for code cells and when there's a selection
 			menu: [
@@ -53,7 +56,8 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 					group: CELL_TITLE_CELL_GROUP_ID,
 					when: ContextKeyExpr.and(
 						NOTEBOOK_CELL_TYPE.isEqualTo('code'),
-						EditorContextKeys.hasNonEmptySelection
+						EditorContextKeys.hasNonEmptySelection,
+						ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
 					),
 				}
 			]

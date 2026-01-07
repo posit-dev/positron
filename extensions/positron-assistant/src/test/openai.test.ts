@@ -11,6 +11,7 @@ import { OpenAIModelProvider } from '../providers/openai/openaiProvider.js';
 import { ModelConfig } from '../config.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 
 suite('OpenAIModelProvider', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -30,7 +31,7 @@ suite('OpenAIModelProvider', () => {
 			type: positron.PositronLanguageModelType.Chat,
 			name: 'OpenAI Test',
 			model: 'gpt-4',
-			apiKey: 'test-api-key', // pragma: allowlist secret
+			apiKey: 'test-api-key',
 			baseUrl: 'https://api.openai.com/v1',
 			maxInputTokens: 8192,
 			maxOutputTokens: 4096
@@ -38,7 +39,7 @@ suite('OpenAIModelProvider', () => {
 
 		// Mock the applyModelFilters import
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-		mockWorkspaceConfig.withArgs('filterModels', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.include', []).returns([]);
 
 		openAIModel = new OpenAIModelProvider(mockConfig);
 	});
@@ -150,7 +151,7 @@ suite('OpenAIModelProvider', () => {
 					version: 'gpt-4',
 					maxInputTokens: 8192,
 					maxOutputTokens: 4096,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: true,
 					isUserSelectable: true
 				};

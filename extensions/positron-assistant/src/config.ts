@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './providers';
 import { completionModels } from './completion';
-import { clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel } from './extension';
+import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
@@ -157,50 +157,83 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
 	const autoconfiguredModels = getAutoconfiguredModels();
-	const sources: positron.ai.LanguageModelSource[] = [...getLanguageModels(), ...completionModels]
-		.map((provider) => {
-			// Get model data from `registeredModels` (for manually configured models; stored in persistent storage)
-			// or `autoconfiguredModels` (for auto-configured models; e.g., env var based or managed credentials)
-			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
-			// Update source data with actual model configuration status if found
-			// Otherwise, use defaults from provider
-			const source: positron.ai.LanguageModelSource = {
-				...provider.source,
-				signedIn: !!isRegistered,
-				defaults: isRegistered
-					? { ...provider.source.defaults, ...isRegistered }
-					: provider.source.defaults
-			};
-			return source;
-		})
-		.filter((source) => {
-			// If no specific set of providers was specified, include all
-			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
-		})
-		.map((source) => {
-			// Handle autoconfigurable providers
-			if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
-				// Resolve environment variables
-				if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
-					const envVarName = source.defaults.autoconfigure.key;
-					const envVarValue = process.env[envVarName];
+	const allProviders = [...getLanguageModels(), ...completionModels];
 
-					return {
-						...source,
-						defaults: {
-							...source.defaults,
-							autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
-						},
-					};
-				} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
-					// No special handling for custom autoconfiguration at this time
-					// The custom autoconfiguration logic should handle everything
-					// and is retrieved from `autoconfiguredModels` above
-					return source;
+	// Build a map of provider IDs to their autoconfigure functions
+	const providerAutoconfigureFns = new Map<string, () => Promise<{ signedIn: boolean; message?: string }>>();
+	for (const provider of allProviders) {
+		if ('autoconfigure' in provider && typeof provider.autoconfigure === 'function') {
+			providerAutoconfigureFns.set(provider.source.provider.id, provider.autoconfigure);
+		}
+	}
+
+	const sources: positron.ai.LanguageModelSource[] = await Promise.all(
+		allProviders
+			.map((provider) => {
+				// Get model data from `registeredModels` (for manually configured models; stored in persistent storage)
+				// or `autoconfiguredModels` (for auto-configured models; e.g., env var based or managed credentials)
+				const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
+
+				// Update source data with actual model configuration status if found
+				// Otherwise, use defaults from provider
+				const source: positron.ai.LanguageModelSource = {
+					...provider.source,
+					signedIn: !!isRegistered,
+					defaults: isRegistered
+						? { ...provider.source.defaults, ...isRegistered }
+						: provider.source.defaults
+				};
+				return source;
+			})
+			.filter((source) => {
+				// If no specific set of providers was specified, include all
+				return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
+			})
+			.map(async (source) => {
+				// Handle autoconfigurable providers
+				if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+					// Resolve environment variables
+					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
+						const envVarName = source.defaults.autoconfigure.key;
+						const envVarValue = process.env[envVarName];
+
+						return {
+							...source,
+							defaults: {
+								...source.defaults,
+								autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
+							},
+						};
+					} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
+						// Call autoconfigure() to refresh signed-in status for custom providers
+						const autoconfigureFn = providerAutoconfigureFns.get(source.provider.id);
+						if (autoconfigureFn) {
+							try {
+								const result = await autoconfigureFn();
+								return {
+									...source,
+									signedIn: result.signedIn,
+									defaults: {
+										...source.defaults,
+										autoconfigure: {
+											type: positron.ai.LanguageModelAutoconfigureType.Custom,
+											message: result.message ?? source.defaults.autoconfigure.message,
+											signedIn: result.signedIn
+										}
+									},
+								};
+							} catch (error) {
+								// If autoconfigure fails, return the source unchanged
+								log.warn(`Failed to autoconfigure provider ${source.provider.id}: ${error}`);
+								return source;
+							}
+						}
+						return source;
+					}
 				}
-			}
-			return source;
-		});
+				return source;
+			})
+	);
 
 	// Show a modal asking user for configuration details
 	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {
@@ -219,8 +252,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				break;
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
-				CopilotService.instance().cancelCurrentOperation();
-				PositModelProvider.cancelCurrentSignIn();
+				PositLanguageModel.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
@@ -238,6 +270,15 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 	// Create unique ID for the configuration
 	const id = randomUUID();
+
+	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
+	// Some models such as Anthropic can use either autoconfiguration or manual configuration;
+	// if an apiKey is provided, treat it as manual configuration
+	const providerSource = sources.find(source => source.provider.id === userConfig.provider);
+	const isAutoconfigured = !apiKey && providerSource?.defaults.autoconfigure !== undefined;
+
+	// Filter out sources that use autoconfiguration for required field validation
+	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
 
 	// Check for required fields
 	sources
@@ -273,16 +314,27 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	try {
 		await registerModel(newConfig, context, storage);
 
-		// Update global state
-		await context.globalState.update(
-			'positron.assistant.models',
-			[...existingConfigs, newConfig]
-		);
+		if (isAutoconfigured) {
+			// Track autoconfigured models in memory so they are returned by
+			// getAutoconfiguredModels()
+			addAutoconfiguredModel({
+				...newConfig,
+				apiKey: apiKey || ''
+			});
+		} else {
+			// Only save to persistent state for non-autoconfigured models
+			// Autoconfigured models (e.g., Copilot, env var based) are managed
+			// externally
+			await context.globalState.update(
+				'positron.assistant.models',
+				[...existingConfigs, newConfig]
+			);
+		}
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
 		// Refresh CopilotService signed-in state if this is a copilot model
-		if (newConfig.provider === 'copilot') {
+		if (newConfig.provider === 'copilot-auth') {
 			try {
 				CopilotService.instance().refreshSignedInState();
 			} catch (error) {
@@ -310,7 +362,10 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {
-		throw new Error(vscode.l10n.t('No configuration found for provider {0}', providerId));
+		// Provider may be autoconfigured and not in persistent state
+		// Remove from autoconfigured models list if present
+		removeAutoconfiguredModel(providerId);
+		return;
 	}
 	await deleteConfiguration(context, storage, targetConfig.id);
 }
@@ -318,7 +373,7 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
 	try {
 		switch (userConfig.provider) {
-			case 'copilot':
+			case 'copilot-auth':
 				await CopilotService.instance().signIn();
 				break;
 			case 'posit-ai':
@@ -346,7 +401,7 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 	let oauthCompleted = false;
 	try {
 		switch (userConfig.provider) {
-			case 'copilot':
+			case 'copilot-auth':
 				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			case 'posit-ai':
@@ -412,7 +467,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 
 	// Refresh CopilotService signed-in state if this was a copilot model
-	if (targetConfig.provider === 'copilot') {
+	if (targetConfig.provider === 'copilot-auth') {
 		try {
 			CopilotService.instance().refreshSignedInState();
 		} catch (error) {

@@ -37,7 +37,9 @@ export class PositModelProvider extends ModelProvider {
 	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
 
 	private _anthropicClient: Anthropic;
-	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT; static source: positron.ai.LanguageModelSource = {
+	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+
+	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'posit-ai',

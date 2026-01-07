@@ -128,6 +128,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      HOME: /root
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
@@ -146,7 +147,7 @@ jobs:
       DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
       DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -165,35 +166,65 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - name: Restore caches
+      - name: 📦 Restore caches
         id: restore-caches
-        uses: ./.github/actions/cache-multi-paths
+        uses: ./.github/actions/restore-build-caches
 
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v3
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
+          NPM_CONFIG_FUND: 'false'               # Skip funding messages
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'   # Use workspace-relative path for node-gyp cache (Docker compatibility)
+          DOCKER_CONFIG: /tmp/.docker            # Avoid Docker permission errors
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
 
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
+      - name: Download binaries (Ark, Kallichore)
+        uses: ./.github/actions/download-binaries
         with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
 
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
-        with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund
 
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
-        run: exit 1
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Set permissions on SUID sandbox helper
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+          stat $ELECTRON_ROOT/chrome-sandbox
+
+      - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
+        run: npx playwright install --with-deps
+
+      # Downloads Builtin Extensions (needed for integration & e2e testing)
+      - name: Prelaunch
+        run: npm run prelaunch
 
       - name: Move Positron License
         if: ${{ inputs.install_license }}
@@ -222,6 +253,7 @@ jobs:
       - name: Run Playwright Tests
         shell: bash
         env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
@@ -240,7 +272,6 @@ jobs:
           PW_JSON_FILE: test-results/ubuntu.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
-          HOME: /root # adding to ensure HOME is consistent across all workflows and Playwright will find its cached browsers
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
@@ -282,7 +313,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-logs
           path: test-logs
@@ -290,7 +321,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.project }}-ubuntu-json-results
           path: test-results/ubuntu.json
@@ -298,7 +329,7 @@ jobs:
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json

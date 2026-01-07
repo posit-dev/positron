@@ -133,12 +133,12 @@ export class Editor {
 	async waitForEditorFocus(filename: string, lineNumber: number, selectorPrefix = ''): Promise<void> {
 		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
 		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
-		const textarea = `${editor} textarea`;
+		const editContext = `${editor} .native-edit-context`;
 
 		await this.code.driver.page.locator(line).click();
 
 		await expect(async () => {
-			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+			await expect(this.code.driver.page.locator(editContext)).toBeFocused();
 		}).toPass();
 	}
 

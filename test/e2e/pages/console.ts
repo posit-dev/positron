@@ -299,11 +299,11 @@ export class Console {
 		text: string,
 		maxRetries = 3
 	): Promise<void> {
-		const textarea = locator.locator('textarea');
+		const editContext = locator.locator('.native-edit-context');
 
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			// Attempt paste
-			await textarea.evaluate(async (element, evalText) => {
+			await editContext.evaluate(async (element, evalText) => {
 				const clipboardData = new DataTransfer();
 				clipboardData.setData('text/plain', evalText);
 				const clipboardEvent = new ClipboardEvent('paste', {

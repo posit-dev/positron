@@ -6,6 +6,7 @@
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
+import * as fs from 'fs';
 
 // Merge Currents Fixtures into CustomTestOptions
 type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
@@ -36,7 +37,7 @@ export default defineConfig<ExtendedTestOptions>({
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
-		: [...baseIgnore, '**/pyrefly/**'],
+		: [...baseIgnore, '**/lsp/**'],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
@@ -193,3 +194,22 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 	],
 });
+
+/**
+ * Check if the current platform is openSUSE
+ */
+function isOpenSUSE(): boolean {
+	try {
+		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
+		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+
+		return id.startsWith('opensuse') || id.includes('opensuse-leap') || idLike.includes('opensuse');
+	} catch {
+		return false;
+	}
+}
+
+// Set environment variable for tests to check
+const IS_OPENSUSE = isOpenSUSE();
+process.env.IS_OPENSUSE = IS_OPENSUSE ? 'true' : 'false';

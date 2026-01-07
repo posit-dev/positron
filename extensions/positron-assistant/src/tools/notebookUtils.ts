@@ -532,6 +532,17 @@ function extractAttachedNotebookUris(request: vscode.ChatRequest): string[] {
 }
 
 /**
+ * Check if this request is from inline chat (not the chat pane).
+ * Chat pane has location2 === undefined, inline chat has location2 set.
+ *
+ * This is used to determine whether we should bypass the explicit notebook
+ * attachment check for inline chat within Positron notebooks.
+ */
+function isInlineChat(request: vscode.ChatRequest): boolean {
+	return request.location2 !== undefined;
+}
+
+/**
  * Checks if there is an attached notebook context without applying filtering or serialization.
  * Returns the raw notebook context if:
  * 1. Notebook mode feature is enabled
@@ -559,11 +570,22 @@ async function getRawAttachedNotebookContext(
 
 	// Extract attached notebook URIs
 	const attachedNotebookUris = extractAttachedNotebookUris(request);
+
+	// If no explicit references, check if this is inline chat in a Positron notebook
 	if (attachedNotebookUris.length === 0) {
+		// Only bypass reference check for inline chat (not chat pane)
+		// Chat pane requires explicit attachment even if notebook is open
+		if (isInlineChat(request)) {
+			const activeEditor = vscode.window.activeNotebookEditor;
+			if (activeEditor?.isPositronNotebook === true) {
+				// Inline notebook chat - no explicit attachment needed
+				return activeContext;
+			}
+		}
 		return undefined;
 	}
 
-	// Check if active notebook is in attached context
+	// Chat pane with explicit attachment - check if active notebook is attached
 	const isActiveNotebookAttached = attachedNotebookUris.includes(
 		activeContext.uri
 	);
@@ -604,11 +626,15 @@ export function hasAttachedNotebookContext(
 
 	// Extract attached notebook URIs
 	const attachedNotebookUris = extractAttachedNotebookUris(request);
+
+	// If no explicit references, check if this is inline chat in a Positron notebook
 	if (attachedNotebookUris.length === 0) {
-		return false;
+		// Only bypass reference check for inline chat (not chat pane)
+		// Chat pane requires explicit attachment even if notebook is open
+		return isInlineChat(request);
 	}
 
-	// Check if active notebook is in attached context
+	// Chat pane with explicit attachment - check if active notebook is attached
 	const activeNotebookUri = activeEditor.notebook.uri.toString();
 	return attachedNotebookUris.includes(activeNotebookUri);
 }

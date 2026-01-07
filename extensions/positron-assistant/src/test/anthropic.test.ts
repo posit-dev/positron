@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { AnthropicModelProvider, CacheControlOptions } from '../providers/anthropic/anthropicProvider';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 import { mock } from './utils.js';
@@ -96,7 +97,7 @@ suite('AnthropicModelProvider', () => {
 			name: 'Test Model',
 			provider: 'anthropic-api',
 			model: 'claude-test',
-			apiKey: 'test-api-key', // pragma: allowlist secret
+			apiKey: 'test-api-key',
 			type: positron.PositronLanguageModelType.Chat
 		};
 
@@ -133,6 +134,18 @@ suite('AnthropicModelProvider', () => {
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.ProvideLanguageModelChatResponseOptions = { requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
 	) {
+		const mockModelInfo: vscode.LanguageModelChatInformation = {
+			id: 'claude-3-5-sonnet-20241022',
+			name: 'Claude 3.5 Sonnet',
+			family: 'anthropic-api',
+			version: '',
+			maxInputTokens: 200_000,
+			maxOutputTokens: 64_000,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
+			isDefault: true,
+			isUserSelectable: true
+		};
+
 		await model.provideLanguageModelChatResponse(
 			mockModelInfo,
 			messages,
@@ -659,7 +672,7 @@ suite('AnthropicModelProvider', () => {
 					version: '',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: true,
 					isUserSelectable: true
 				};

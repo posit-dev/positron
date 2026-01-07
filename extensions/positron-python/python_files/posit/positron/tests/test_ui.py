@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -8,7 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
-from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -17,7 +16,7 @@ import pytest
 
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
-from positron.ui_comm import UiFrontendEvent
+from positron.ui_comm import ShowHtmlFileDestination, UiFrontendEvent
 from positron.utils import alias_home
 
 from .conftest import DummyComm
@@ -66,9 +65,9 @@ def show_url_event(url: str) -> Dict[str, Any]:
     return json_rpc_notification(UiFrontendEvent.ShowUrl, {"url": url, "source": None})
 
 
-def show_html_file_event(path: str, *, is_plot: bool) -> Dict[str, Any]:
+def show_html_file_event(path: str, *, destination: str) -> Dict[str, Any]:
     return json_rpc_notification(
-        "show_html_file", {"path": path, "is_plot": is_plot, "height": 0, "title": ""}
+        "show_html_file", {"path": path, "destination": destination, "height": 0, "title": ""}
     )
 
 
@@ -178,12 +177,21 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
         # Unix path
         (
             "file://hello/my/friend.html",
-            [show_html_file_event("file://hello/my/friend.html", is_plot=False)],
+            [
+                show_html_file_event(
+                    "file://hello/my/friend.html", destination=ShowHtmlFileDestination.Viewer
+                )
+            ],
         ),
         # Windows path
         (
             "file:///C:/Users/username/Documents/index.htm",
-            [show_html_file_event("file:///C:/Users/username/Documents/index.htm", is_plot=False)],
+            [
+                show_html_file_event(
+                    "file:///C:/Users/username/Documents/index.htm",
+                    destination=ShowHtmlFileDestination.Viewer,
+                )
+            ],
         ),
         # Not a local html file
         ("http://example.com/page.html", []),
@@ -233,7 +241,7 @@ show(p)
     assert len(ui_comm.messages) == 1
     params = ui_comm.messages[0]["data"]["params"]
     assert params["title"] == ""
-    assert params["is_plot"]
+    assert params["destination"] == "plot"
     assert params["height"] == 0
     # default behavior should be writing to temppath
     # not wherever the process is running (see patch.bokeh)
@@ -257,7 +265,6 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 def test_plotly_show_sends_events(
     shell: PositronShell,
     ui_comm: DummyComm,
-    mock_handle_request: Mock,
 ) -> None:
     """Test that showing a Plotly plot sends the expected UI events when using `fig.show()` and `fig`."""
     shell.run_cell(
@@ -277,16 +284,23 @@ fig.show()
 fig
 """
     )
-    mock_handle_request.assert_called()
     assert len(ui_comm.messages) == 2
-    params = ui_comm.messages[0]["data"]["params"]
-    assert params["title"] == ""
-    assert params["is_plot"]
-    assert params["height"] == 0
-    params = ui_comm.messages[1]["data"]["params"]
-    assert params["title"] == ""
-    assert params["is_plot"]
-    assert params["height"] == 0
+
+    # Both fig.show() and fig should send events with cached HTML files
+    for i in range(2):
+        params = ui_comm.messages[i]["data"]["params"]
+        assert params["title"] == ""
+        assert params["destination"] == "plot"
+        assert params["height"] == 0
+        # Plotly HTML should be cached to a temp file (not a localhost URL)
+        # so that "Open in Browser" works after Plotly's single-use server shuts down
+        path = params["path"]
+        assert not path.startswith("http"), f"Expected file path, got URL: {path}"
+        assert path.endswith(".html"), f"Expected .html file, got: {path}"
+        # On Windows, the path is a raw file path (e.g., C:\...), while on other
+        # platforms it's a file:// URL. Extract the actual file path accordingly.
+        file_path = Path(path.replace("file://", "")) if path.startswith("file://") else Path(path)
+        assert file_path.is_file(), f"Cached HTML file should exist: {file_path}"
 
 
 def test_is_not_plot_url_events(
@@ -296,7 +310,7 @@ def test_is_not_plot_url_events(
     """
     Test that opening a URL that is not a plot sends the expected UI events.
 
-    Checks that the `is_plot` parameter is not sent or is `False`.
+    Checks that the `destination` parameter is not set to "plot".
     """
     shell.run_cell(
         """\
@@ -311,8 +325,8 @@ webbrowser.open("file://file.html")
     assert len(ui_comm.messages) == 2
     params = ui_comm.messages[0]["data"]["params"]
     assert params["url"] == "http://127.0.0.1:8000"
-    assert "is_plot" not in params
+    assert "destination" not in params
 
     params = ui_comm.messages[1]["data"]["params"]
     assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
-    assert params["is_plot"] is False
+    assert params["destination"] != "plot"

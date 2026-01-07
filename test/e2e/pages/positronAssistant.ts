@@ -22,7 +22,7 @@ const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#be
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
-const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
+const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-auth-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
@@ -32,7 +32,7 @@ const COPY_BUTTON = 'a.action-label.codicon.codicon-copy[role="button"][aria-lab
 const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="button"][aria-label="Insert into New File"]';
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
-const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
+const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edit-context';
 const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
@@ -199,7 +199,7 @@ export class Assistant {
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.fill(message);
+		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
 		// It can take a moment for the loading locator to become visible.
 		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });

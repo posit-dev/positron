@@ -64,7 +64,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// Construct the list of providers from the sources, which are defined in the extension. See extensions/positron-assistant/src/models.ts
 	const allProviders = props.sources;
 	const providers = props.sources
-		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
+		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot-auth'))
 		.sort((a, b) => {
 			if (a.provider.id === 'echo' || a.provider.id === 'error') {
 				return 1;

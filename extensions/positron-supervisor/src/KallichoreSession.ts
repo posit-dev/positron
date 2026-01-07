@@ -47,6 +47,7 @@ import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
+import { OutputChannelFormatted, LogOutputChannelFormatted } from './OutputChannelFormatted';
 
 /**
  * The reason for a disconnection event.
@@ -135,12 +136,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
 	 */
-	private readonly _kernelChannel: vscode.OutputChannel;
+	private readonly _kernelChannel: OutputChannelFormatted;
 
 	/**
 	 * The channel to which output for this specific console is logged
 	 */
-	private readonly _consoleChannel: vscode.LogOutputChannel;
+	private readonly _consoleChannel: LogOutputChannelFormatted;
 
 	/**
 	 * The channel to which profile output for this specific kernel is logged, if any
@@ -213,14 +214,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidEndSession = this._exit.event;
 
 		// Establish log channels for the console and kernel we're connecting to
-		this._consoleChannel = vscode.window.createOutputChannel(
-			metadata.notebookUri ?
-				`${runtimeMetadata.runtimeName}: Notebook: (${path.basename(metadata.notebookUri.path)})` :
-				`${runtimeMetadata.runtimeName}: Console`,
-			{ log: true });
+		this._consoleChannel = new LogOutputChannelFormatted(
+			vscode.window.createOutputChannel(
+				`${runtimeMetadata.languageName} Supervisor`,
+				{ log: true }
+			),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
 
-		this._kernelChannel = positron.window.createRawLogOutputChannel(
-			`${runtimeMetadata.runtimeName}: Kernel`);
+		this._kernelChannel = new OutputChannelFormatted(
+			positron.window.createRawLogOutputChannel(`${runtimeMetadata.languageName} Kernel`),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 
 		// Open the established barrier immediately if we're restoring an
