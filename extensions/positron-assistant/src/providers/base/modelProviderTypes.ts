@@ -19,36 +19,11 @@ import * as vscode from 'vscode';
 /**
  * Model capabilities that can be supported by a provider.
  */
-export interface ModelCapabilities {
-	/**
-	 * Whether the model supports vision/image inputs.
-	 */
-	vision: boolean;
-
-	/**
-	 * Whether the model supports tool/function calling.
-	 */
-	toolCalling: boolean;
-
+export interface ModelCapabilities extends vscode.LanguageModelChatCapabilities {
 	/**
 	 * Whether the model supports agent mode.
 	 */
-	agentMode: boolean;
-
-	/**
-	 * Whether the model supports streaming responses.
-	 */
-	streaming?: boolean;
-
-	/**
-	 * Whether the model supports system messages.
-	 */
-	systemMessages?: boolean;
-
-	/**
-	 * Whether the model supports caching.
-	 */
-	caching?: boolean;
+	agentMode?: boolean;
 }
 
 /**

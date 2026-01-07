@@ -8,8 +8,7 @@ import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
 import { ModelConfig } from './config.js';
-import { LanguageModel } from 'ai';
-import { AutoconfigureResult } from './models.js';
+import { AutoconfigureResult } from './providers/index.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -209,12 +208,12 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 
 		if (CopilotService.instance().isSignedIn) {
 			return {
-				signedIn: true,
+				configured: true,
 				message: vscode.l10n.t('the Accounts menu.')
 			};
 		} else {
 			return {
-				signedIn: false,
+				configured: false,
 			}
 		}
 	}

@@ -37,7 +37,9 @@ export class PositModelProvider extends ModelProvider {
 	private static _cancellationToken: vscode.CancellationTokenSource | null = null;
 
 	private _anthropicClient: Anthropic;
-	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT; static source: positron.ai.LanguageModelSource = {
+	public readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+
+	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'posit-ai',
@@ -247,12 +249,6 @@ export class PositModelProvider extends ModelProvider {
 	 * Initializes the Posit AI provider with OAuth-authenticated Anthropic client.
 	 */
 	protected override initializeProvider() {
-		this.capabilities = {
-			vision: true,
-			toolCalling: true,
-			agentMode: true,
-		};
-
 		const params = PositModelProvider.getOAuthParameters();
 		this._anthropicClient = new Anthropic({
 			authToken: '_', // Actual token is set in authFetch

@@ -87,17 +87,6 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		this._client = client ?? new Anthropic({ apiKey: _config.apiKey });
 	}
 
-	/**
-	 * Initializes provider-specific capabilities.
-	 */
-	protected override initializeProvider() {
-		this.capabilities = {
-			vision: true,
-			toolCalling: true,
-			agentMode: true,
-		};
-	}
-
 	protected override async validateCredentials() {
 		// Validate Anthropic API key format
 		return !!this._config.apiKey && this._config.apiKey.startsWith('sk-ant-');

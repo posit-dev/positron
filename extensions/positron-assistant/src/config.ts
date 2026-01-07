@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { getLanguageModels } from './providers';
+import { AutoconfigureResult, getLanguageModels } from './providers';
 import { completionModels } from './completion';
 import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
 import { CopilotService } from './copilot.js';
@@ -160,7 +160,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const allProviders = [...getLanguageModels(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
-	const providerAutoconfigureFns = new Map<string, () => Promise<{ signedIn: boolean; message?: string }>>();
+	const providerAutoconfigureFns = new Map<string, () => Promise<AutoconfigureResult>>();
 	for (const provider of allProviders) {
 		if ('autoconfigure' in provider && typeof provider.autoconfigure === 'function') {
 			providerAutoconfigureFns.set(provider.source.provider.id, provider.autoconfigure);
@@ -212,13 +212,13 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 								const result = await autoconfigureFn();
 								return {
 									...source,
-									signedIn: result.signedIn,
+									signedIn: result.configured,
 									defaults: {
 										...source.defaults,
 										autoconfigure: {
 											type: positron.ai.LanguageModelAutoconfigureType.Custom,
 											message: result.message ?? source.defaults.autoconfigure.message,
-											signedIn: result.signedIn
+											signedIn: result.configured
 										}
 									},
 								};
@@ -252,7 +252,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				break;
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
-				PositLanguageModel.cancelCurrentSignIn();
+				PositModelProvider.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));

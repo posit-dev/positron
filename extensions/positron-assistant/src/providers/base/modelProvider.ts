@@ -11,10 +11,10 @@ import { isAuthorizationError } from '../../utils';
 import { applyModelFilters } from '../../modelFilters';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from '../../constants';
 import { ModelProviderLogger } from './modelProviderLogger';
 import { AuthenticationError, ModelRetrievalError } from './modelProviderErrors';
-import { AutoconfigureResult } from './modelProviderTypes';
+import { AutoconfigureResult, ModelCapabilities } from './modelProviderTypes';
 
 /**
  * Abstract base class for all model providers in the Positron Assistant extension.
@@ -103,11 +103,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * Default model capabilities supported by this provider.
 	 * Subclasses can override to specify different capabilities.
 	 */
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
+	capabilities: ModelCapabilities = DEFAULT_MODEL_CAPABILITIES;
 
 	/**
 	 * Creates a new model provider instance.
