@@ -6,6 +6,7 @@
 import { execSync, exec } from 'child_process';
 import * as fs from 'fs';
 import { ModuleSystemInfo } from './types.js';
+import { getLog } from './logger.js';
 
 /**
  * Common locations for module system initialization scripts
@@ -161,6 +162,7 @@ export async function executeWithModules(
 	command: string,
 	initScript?: string
 ): Promise<string> {
+	const logger = getLog();
 	const loadCommand = buildModuleLoadCommand(modules, initScript);
 	// Use double quotes around the full command and escape single quotes in the command
 	const escapedCommand = command.replace(/'/g, "'\\''");
@@ -169,10 +171,17 @@ export async function executeWithModules(
 		: `bash -l -c '${escapedCommand}'`;
 
 	return new Promise((resolve, reject) => {
+		logger.debug(`Executing: ${fullCommand}`);
 		exec(fullCommand, {
 			encoding: 'utf8',
 			timeout: 30000
 		}, (error, stdout, stderr) => {
+			if (stdout) {
+				logger.debug(stdout);
+			}
+			if (stderr) {
+				logger.warn(stderr);
+			}
 			if (error) {
 				reject(new Error(`Module command failed: ${stderr || error.message}`));
 			} else {

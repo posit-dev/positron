@@ -6,16 +6,8 @@
 import * as vscode from 'vscode';
 import { ModuleEnvironmentConfig, ModuleResolvedInterpreter, ResolveInterpreterOptions } from './types.js';
 import { executeWithModules, buildModuleLoadCommand } from './module-system.js';
+import { getLog } from './logger.js';
 
-// Output channel for logging
-let log: vscode.LogOutputChannel | undefined;
-
-function getLog(): vscode.LogOutputChannel {
-	if (!log) {
-		log = vscode.window.createOutputChannel('Environment Modules', { log: true });
-	}
-	return log;
-}
 
 /**
  * Resolve an interpreter from a module environment configuration.
