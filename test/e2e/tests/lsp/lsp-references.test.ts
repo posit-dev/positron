@@ -23,7 +23,6 @@ test.describe('References', {
 
 	});
 
-	// skipping until we have pyrefly back on for tests
 	test('Python - Verify References Pane Lists All Function References Across Files', async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
 
