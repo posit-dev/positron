@@ -93,7 +93,7 @@ export class Terminal {
 
 	async runCommandInTerminal(commandText: string): Promise<void> {
 		await this.sendTextToTerminal(commandText);
-
+		await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 

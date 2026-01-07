@@ -555,18 +555,6 @@ async function verifyPlotInNewWindow(app: Application, language: 'Python' | 'R',
 	});
 }
 
-function isOpenSUSE(): boolean {
-	try {
-		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
-		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
-		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
-
-		return id.startsWith('opensuse') || id.includes('opensuse-leap') || idLike.includes('opensuse');
-	} catch {
-		return false;
-	}
-}
-
 async function compareImages({
 	app,
 	buffer,
@@ -581,7 +569,7 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		if (process.env.GITHUB_ACTIONS && !app.web && !isOpenSUSE()) {
+		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true') {
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {
