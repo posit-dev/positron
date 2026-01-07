@@ -247,7 +247,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * @throws {Error} If an error part is received in the stream
 	 */
 	protected async handleStreamResponse(
-		result: any,
+		result: ReturnType<typeof ai.streamText>,
 		model: vscode.LanguageModelChatInformation,
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken,
@@ -324,7 +324,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * @returns A promise that resolves when usage tracking is complete
 	 */
 	protected async handleTokenUsage(
-		result: any,
+		result: ReturnType<typeof ai.streamText>,
 		model: vscode.LanguageModelChatInformation,
 		requestId?: string
 	): Promise<void> {
