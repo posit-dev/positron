@@ -46,7 +46,8 @@ export const ResourceUsageGraph = ({ data, width, height }: ResourceUsageGraphPr
 		}
 
 		// Calculate how many points can fit in the available width
-		const maxPointsForWidth = Math.floor(width / PIXELS_PER_POINT);
+		// Add 1 extra point to ensure the line extends to the left edge
+		const maxPointsForWidth = Math.floor(width / PIXELS_PER_POINT) + 1;
 
 		// Slice data to only show what fits, keeping the most recent data
 		const visibleData = data.slice(-maxPointsForWidth);
