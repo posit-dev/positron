@@ -73,14 +73,19 @@ export class UVInstaller extends ModuleInstaller {
         const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
         const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
 
-        // ...or if it doesn't have a [project] section
-        let hasProjectSection = false;
+        // ...or if it doesn't have a valid [project] section with name and version
+        let hasValidProjectSection = false;
         if (pyprojectExists && pyprojectPath) {
             try {
                 const pyprojectContent = await fileSystem.readFile(pyprojectPath);
-                hasProjectSection = /^\[project\]/m.test(pyprojectContent);
+                // Check for [project] section, a name field, and a version field.
+                // This may fail if name and version are outside the [project] section, but it's a reasonable heuristic.
+                const hasProjectSection = /^\[project\]/m.test(pyprojectContent);
+                const hasName = /^name\s*=/m.test(pyprojectContent);
+                const hasVersion = /^version\s*=/m.test(pyprojectContent);
+                hasValidProjectSection = hasProjectSection && hasName && hasVersion;
             } catch {
-                // If we can't read the file, assume it doesn't have a project section
+                // If we can't read the file, assume it doesn't have a valid project section
             }
         }
 
@@ -91,7 +96,7 @@ export class UVInstaller extends ModuleInstaller {
         const requirementsExists = requirementsPath ? await fileSystem.fileExists(requirementsPath) : false;
 
         const usePyprojectWorkflow =
-            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && hasProjectSection && !requirementsExists;
+            !isIpykernel && !isBreakingSystemPackages && pyprojectExists && hasValidProjectSection && !requirementsExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);

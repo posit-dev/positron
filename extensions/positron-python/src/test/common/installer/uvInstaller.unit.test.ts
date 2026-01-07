@@ -385,6 +385,86 @@ requires = ["setuptools"]`;
             });
         });
 
+        test('Should use "uv pip install" when pyproject.toml has [project] section but missing name', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'numpy';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            const pyprojectContent = `[project]
+version = "0.1.0"`;
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should use "uv pip install" when pyproject.toml has [project] section but missing version', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'numpy';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            const workspaceFolder = {
+                uri: Uri.file('/workspace'),
+                name: 'test',
+                index: 0,
+            };
+
+            const pyprojectContent = `[project]
+name = "test-project"`;
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+            (workspaceService.getWorkspaceFolder as sinon.SinonStub).returns(workspaceFolder);
+            const fileExistsStub = fileSystem.fileExists as sinon.SinonStub;
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml')).resolves(true);
+            fileExistsStub.withArgs(path.join(workspaceFolder.uri.fsPath, 'requirements.txt')).resolves(false);
+            (fileSystem.readFile as sinon.SinonStub)
+                .withArgs(path.join(workspaceFolder.uri.fsPath, 'pyproject.toml'))
+                .resolves(pyprojectContent);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
         test('Should use "uv pip install" when pyproject.toml readFile throws error', async () => {
             const resource = Uri.file('/test/path');
             const pythonPath = '/path/to/python';
@@ -550,7 +630,8 @@ requires = ["setuptools"]`;
             };
 
             const pyprojectContent = `[project]
-name = "test-project"`;
+name = "test-project"
+version = "0.1.0"`;
 
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
             (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
