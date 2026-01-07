@@ -352,65 +352,6 @@ def is_local_html_file(url: str) -> bool:
         return False
 
 
-# Limits the number of concurrent calls allowed by the debounce decorator.
-_debounce_semaphore = threading.Semaphore(10)
-
-
-def debounce(interval_s: int, keyed_by: Optional[str] = None):
-    """
-    Debounce calls to a function until `interval_s` seconds have passed.
-
-    Adapted from https://github.com/python-lsp/python-lsp-server.
-    """
-
-    def wrapper(func: Callable):
-        # Dict of Timers, keyed by call values of the keyed_by argument.
-        timers: Dict[Any, threading.Timer] = {}
-
-        # Lock to synchronise mutating the timers dict.
-        lock = threading.Lock()
-
-        @functools.wraps(func)
-        def debounced(*args, **kwargs) -> None:
-            _debounce_semaphore.acquire()
-
-            # Get the value of the keyed_by argument, if any.
-            sig = inspect.signature(func)
-            call_args = sig.bind(*args, **kwargs)
-            key = call_args.arguments[keyed_by] if keyed_by else None
-
-            def run() -> None:
-                try:
-                    # Remove the timer and call the function.
-                    with lock:
-                        del timers[key]
-                    func(*args, **kwargs)
-                finally:
-                    _debounce_semaphore.release()
-
-            with lock:
-                # Cancel any existing timer for the same key.
-                old_timer = timers.get(key)
-                if old_timer:
-                    old_timer.cancel()
-                    _debounce_semaphore.release()
-
-                # Create a new timer and start it.
-                timer = threading.Timer(debounced.interval_s, run)  # type: ignore
-                timers[key] = timer
-                timer.start()
-
-        # Store the interval on the debounced function; we lower the interval for faster tests.
-        debounced.interval_s = interval_s  # type: ignore
-
-        # Store timers on the debounced function; we wait for them to finish in tests.
-        debounced.timers = timers  # type: ignore
-
-        return debounced
-
-    return wrapper
-
-
 def with_logging(func: Callable):
     """Decorator to log the execution of a function."""
     name = get_qualname(func)
