@@ -7,14 +7,18 @@ import assert from 'assert';
 import sinon from 'sinon';
 import { MenuId } from '../../../actions/common/actions.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../contextkey/common/contextkey.js';
-import { PositronActionBarWidgetRegistry, IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
+import { PositronActionBarWidgetRegistryImpl, IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 
 suite('PositronActionBarWidgetRegistry', () => {
+	let registry: PositronActionBarWidgetRegistryImpl;
 	let contextKeyService: IContextKeyService;
 	let contextMatchesRulesStub: sinon.SinonStub;
 
 	setup(() => {
+		// Create a fresh registry instance for each test to ensure isolation
+		registry = new PositronActionBarWidgetRegistryImpl();
+
 		// Create a mock context key service
 		contextMatchesRulesStub = sinon.stub().returns(true);
 		contextKeyService = {
@@ -34,9 +38,9 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable = PositronActionBarWidgetRegistry.registerWidget(descriptor);
+		const disposable = registry.registerWidget(descriptor);
 
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -55,10 +59,10 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable = PositronActionBarWidgetRegistry.registerWidget(descriptor);
+		const disposable = registry.registerWidget(descriptor);
 
 		// Widget should be present
-		let widgets = PositronActionBarWidgetRegistry.getWidgets(
+		let widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -66,7 +70,7 @@ suite('PositronActionBarWidgetRegistry', () => {
 
 		// Dispose and verify it's gone
 		disposable.dispose();
-		widgets = PositronActionBarWidgetRegistry.getWidgets(
+		widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -88,11 +92,11 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable1 = PositronActionBarWidgetRegistry.registerWidget(leftWidget);
-		const disposable2 = PositronActionBarWidgetRegistry.registerWidget(rightWidget);
+		const disposable1 = registry.registerWidget(leftWidget);
+		const disposable2 = registry.registerWidget(rightWidget);
 
 		// Should only get left widget
-		const leftWidgets = PositronActionBarWidgetRegistry.getWidgets(
+		const leftWidgets = registry.getWidgets(
 			MenuId.EditorActionsLeft,
 			contextKeyService
 		);
@@ -100,7 +104,7 @@ suite('PositronActionBarWidgetRegistry', () => {
 		assert.strictEqual(leftWidgets[0].id, 'left.widget');
 
 		// Should only get right widget
-		const rightWidgets = PositronActionBarWidgetRegistry.getWidgets(
+		const rightWidgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -127,15 +131,15 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable1 = PositronActionBarWidgetRegistry.registerWidget(alwaysVisible);
-		const disposable2 = PositronActionBarWidgetRegistry.registerWidget(conditionalWidget);
+		const disposable1 = registry.registerWidget(alwaysVisible);
+		const disposable2 = registry.registerWidget(conditionalWidget);
 
 		// Mock context key service to return false for conditional widget
 		contextMatchesRulesStub.callsFake((expr: any) => {
 			return expr === undefined; // Only match widgets without 'when' clause
 		});
 
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -157,12 +161,12 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable = PositronActionBarWidgetRegistry.registerWidget(descriptor);
+		const disposable = registry.registerWidget(descriptor);
 
 		// Mock context key service to return true (context matches)
 		contextMatchesRulesStub.returns(true);
 
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -195,11 +199,11 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable1 = PositronActionBarWidgetRegistry.registerWidget(widget300);
-		const disposable2 = PositronActionBarWidgetRegistry.registerWidget(widget100);
-		const disposable3 = PositronActionBarWidgetRegistry.registerWidget(widget200);
+		const disposable1 = registry.registerWidget(widget300);
+		const disposable2 = registry.registerWidget(widget100);
+		const disposable3 = registry.registerWidget(widget200);
 
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -236,11 +240,11 @@ suite('PositronActionBarWidgetRegistry', () => {
 			componentFactory: () => () => null
 		};
 
-		const disposable1 = PositronActionBarWidgetRegistry.registerWidget(widget1);
-		const disposable2 = PositronActionBarWidgetRegistry.registerWidget(widget2);
-		const disposable3 = PositronActionBarWidgetRegistry.registerWidget(widget3);
+		const disposable1 = registry.registerWidget(widget1);
+		const disposable2 = registry.registerWidget(widget2);
+		const disposable3 = registry.registerWidget(widget3);
 
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);
@@ -253,7 +257,7 @@ suite('PositronActionBarWidgetRegistry', () => {
 	});
 
 	test('getWidgets returns empty array for menuId with no widgets', () => {
-		const widgets = PositronActionBarWidgetRegistry.getWidgets(
+		const widgets = registry.getWidgets(
 			MenuId.EditorActionsRight,
 			contextKeyService
 		);

@@ -170,8 +170,9 @@ export interface IPositronActionBarWidgetRegistry {
 
 /**
  * Implementation of the Positron action bar widget registry.
+ * Exported for testing purposes - use the singleton `PositronActionBarWidgetRegistry` in production.
  */
-class PositronActionBarWidgetRegistryImpl implements IPositronActionBarWidgetRegistry {
+export class PositronActionBarWidgetRegistryImpl implements IPositronActionBarWidgetRegistry {
 	private widgets: IPositronActionBarWidgetDescriptor[] = [];
 
 	registerWidget(descriptor: IPositronActionBarWidgetDescriptor): IDisposable {
