@@ -19,7 +19,7 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 		await app.workbench.viewer.refreshViewer();
 	});
 
-	test('Python - Verify Basic Shiny App', async function ({ app, python }) {
+	test('Python - Verify Basic Shiny App', async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.web
@@ -34,6 +34,12 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 			}
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
 		}).toPass({ timeout: 60000 });
+
+		// Verify the interrupt button is visible and works
+		const interruptButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Interrupt execution' });
+		await expect(interruptButton).toBeVisible({ timeout: 10000 });
+		await interruptButton.click();
+		await expect(interruptButton).not.toBeVisible({ timeout: 5000 });
 	});
 
 	test('R - Verify Basic Shiny App', {

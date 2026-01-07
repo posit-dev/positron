@@ -43,6 +43,7 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 - **UI Components**: `Please read .claude/ui-components.md` - For Positron-specific UI development
 - **Backend Services**: `Please read .claude/backend.md` - For kernel and service integration
 - **Build System**: `Please read .claude/build-system.md` - For build, packaging, and deployment
+- **PR Creation**: `Please use the positron-pr-helper skill` - For creating well-structured PR bodies with up-to-date e2e test tags
 
 ## Quick Start Commands
 

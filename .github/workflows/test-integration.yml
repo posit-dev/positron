@@ -127,7 +127,7 @@ jobs:
 
       - name: Restore R installation and packages cache
         id: cache-r
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.local/share/rig
