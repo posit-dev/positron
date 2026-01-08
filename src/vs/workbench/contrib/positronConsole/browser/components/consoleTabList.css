@@ -176,9 +176,12 @@
 	}
 }
 
-/* Hide memory usage when it's even narrower */
+/* Hide CPU usage when it's even narrower */
 @container (max-width: 65px) {
-	.tabs-container .tab-button .resource-usage-stats .resource-usage-memory {
+	.tabs-container .tab-button .resource-usage-stats .resource-usage-cpu {
 		display: none;
+	}
+	.tabs-container .tab-button .resource-usage-stats {
+		justify-content: flex-end;
 	}
 }
