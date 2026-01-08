@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { AutoconfigureResult, getLanguageModels } from './providers';
+import { AutoconfigureResult, getModelProviders } from './providers';
 import { completionModels } from './completion';
 import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
 import { CopilotService } from './copilot.js';
@@ -157,7 +157,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
 	const autoconfiguredModels = getAutoconfiguredModels();
-	const allProviders = [...getLanguageModels(), ...completionModels];
+	const allProviders = [...getModelProviders(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
 	const providerAutoconfigureFns = new Map<string, () => Promise<AutoconfigureResult>>();

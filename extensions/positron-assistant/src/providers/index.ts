@@ -48,8 +48,8 @@ interface ConcreteModelProviderConstructor {
  *
  * @returns Array of all provider classes that can be instantiated
  */
-export function getLanguageModels(): ConcreteModelProviderConstructor[] {
-	const testLanguageModels = [
+export function getModelProviders(): ConcreteModelProviderConstructor[] {
+	const testProviders = [
 		AWSModelProvider,
 		EchoModelProvider,
 		ErrorModelProvider,
@@ -59,8 +59,8 @@ export function getLanguageModels(): ConcreteModelProviderConstructor[] {
 	const useAnthropicSdk = vscode.workspace.getConfiguration('positron.assistant').get('useAnthropicSdk', true);
 	const anthropicClass = useAnthropicSdk ? AnthropicModelProvider : AnthropicAIModelProvider;
 
-	const languageModels = [
-		...testLanguageModels,
+	const providers = [
+		...testProviders,
 		anthropicClass,
 		AzureModelProvider,
 		GoogleModelProvider,
@@ -73,7 +73,7 @@ export function getLanguageModels(): ConcreteModelProviderConstructor[] {
 		SnowflakeModelProvider,
 		VertexModelProvider,
 	];
-	return languageModels;
+	return providers;
 }
 
 /**
@@ -83,7 +83,7 @@ export function getLanguageModels(): ConcreteModelProviderConstructor[] {
  * @returns The model configurations that are configured by the environment.
  */
 export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
-	const models = getLanguageModels();
+	const models = getModelProviders();
 	const modelConfigs: ModelConfig[] = [];
 
 	for (const model of models) {
@@ -151,7 +151,7 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
  * This is used to instantiate the appropriate provider class.
  */
 export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): positron.ai.LanguageModelChatProvider {
-	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
+	const providerClass = getModelProviders().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
