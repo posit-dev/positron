@@ -436,6 +436,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._store.add(languageModelChatProviderExtensionPoint.setHandler((extensions) => {
 
 			this._vendors.clear();
+			// --- Start Positron ---
+			// Clear vendor-to-extension mapping when reloading vendors
+			this._providerExtensions.clear();
+			// --- End Positron ---
 
 			for (const extension of extensions) {
 				for (const item of Iterable.wrap(extension.value)) {
@@ -452,6 +456,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 						continue;
 					}
 					this._vendors.set(item.vendor, item);
+					// --- Start Positron ---
+					// Track which extension contributed this vendor
+					// This is needed for filtering providers by extension (e.g., filtering out non-copilot
+					// vendors from the Copilot extension's BYOK feature)
+					this._providerExtensions.set(item.vendor, extension.description.identifier);
+					// --- End Positron ---
 					// Have some models we want from this vendor, so activate the extension
 					if (this._hasStoredModelForVendor(item.vendor)) {
 						this._extensionService.activateByEvent(`onLanguageModelChatProvider:${item.vendor}`);
@@ -755,9 +765,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	// --- Start Positron ---
-	// Include the extensionId when registering the provider
+	// Include the extensionId parameter in the signature for API compatibility.
+	// Note: The extension mapping is tracked from package.json contributions (see setHandler above)
+	// rather than at runtime registration, so this parameter is not used in the implementation.
 	// --- End Positron ---
-	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
+	registerLanguageModelProvider(vendor: string, _extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		this._logService.trace('[LM] registering language model provider', vendor, provider);
 
 		if (!this._vendors.has(vendor)) {
@@ -768,11 +780,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 
 		this._providers.set(vendor, provider);
-
-		// --- Start Positron ---
-		// Track the extension that registered this provider vendor
-		this._providerExtensions.set(vendor, extensionId);
-		// --- End Positron ---
 
 		// --- Start Positron ---
 		// Fire the provider change event after models are resolved so UI knows usable providers are available

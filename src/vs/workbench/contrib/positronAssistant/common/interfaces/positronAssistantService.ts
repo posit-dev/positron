@@ -112,6 +112,18 @@ export interface IPositronAssistantConfigurationService {
 	 */
 	readonly onChangeCopilotEnabled: Event<boolean>;
 
+	/**
+	 * Gets the list of enabled provider IDs from configuration.
+	 *
+	 * Reads from 'positron.assistant.providers' setting (and deprecated
+	 * 'positron.assistant.enabledProviders' array) and maps UI display names
+	 * (e.g., "GitHub Copilot", "Anthropic") to provider IDs
+	 * (e.g., "copilot", "anthropic-api").
+	 *
+	 * @returns Array of enabled provider IDs
+	 */
+	getEnabledProviders(): string[];
+
 }
 //#endregion
 //#region Assistant Service

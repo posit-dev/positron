@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { getStoredModels, GlobalSecretStorage } from './config';
-import { disposeModels, log } from './extension';
+import { log } from './extension';
+import { disposeModels } from './modelRegistration';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

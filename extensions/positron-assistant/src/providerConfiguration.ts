@@ -1,9 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { getLanguageModels } from './models';
 import { log } from './extension.js';
 import { configureProvider, uiNameToProviderId } from './providerMapping.js';
@@ -115,40 +116,16 @@ export function validateByProviderPreferences(): void {
 /**
  * Gets the list of enabled provider IDs from user configuration.
  *
- * Enabled providers are based on the 'positron.assistant.providers' setting,
- * and also must be a supported provider.
+ * Uses the Positron API which provides a single source of truth for provider configuration,
+ * handling both the new 'positron.assistant.providers' setting and the deprecated
+ * 'positron.assistant.enabledProviders' setting.
  *
  * @returns Array of enabled provider IDs (e.g., ["anthropic-api", "copilot"])
  */
 export async function getEnabledProviders(): Promise<string[]> {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-
-	if (!supportedProviderIds) {
-		// This shouldn't happen if registerSupportedProviders() is called during extension activation
-		throw new Error('Positron Assistant was unable to determine supported providers. Please try reloading the window or restarting Positron.');
-	}
-
-	// Get enabled providers
-	const providersConfig = config.get<Record<string, boolean>>('providers') || {};
-	const enabledProviderKeys = Object.keys(providersConfig).filter(key => providersConfig[key]);
-	const validFromProviders = validateProviders(
-		enabledProviderKeys,
-		'positron.assistant.providers'
-	);
-
-	// DEPRECATED: Get providers from legacy enabledProviders setting
-	// TODO: Remove this when the enabledProviders setting is fully deprecated
-	const enabledFromLegacySetting = config.get<string[]>('enabledProviders') || [];
-	const validFromLegacy = validateProviders(
-		enabledFromLegacySetting,
-		'positron.assistant.enabledProviders'
-	);
-
-	const allEnabledProviders = [
-		...validFromProviders,
-		...validFromLegacy
-	];
-	return Array.from(new Set(allEnabledProviders));
+	// Use the Positron API which calls the core service
+	// This provides a unified implementation shared with chatInputPart.ts
+	return positron.ai.getEnabledProviders();
 }
 
 /**

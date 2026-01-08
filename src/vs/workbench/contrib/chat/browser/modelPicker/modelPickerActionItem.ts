@@ -34,6 +34,9 @@ import { getProviderIcon } from './providerIcons.js';
 
 export interface IModelPickerDelegate {
 	readonly onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
+	// --- Start Positron ---
+	readonly onDidChangeModelList: Event<void>;
+	// --- End Positron ---
 	getCurrentModel(): ILanguageModelChatMetadataAndIdentifier | undefined;
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
@@ -246,6 +249,18 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 				this.renderLabel(this.element);
 			}
 		}));
+
+		// --- Start Positron ---
+		// Listen for model list changes (e.g., when provider settings change)
+		this._register(delegate.onDidChangeModelList(() => {
+			// Update the label in case the current model changed
+			if (this.element) {
+				this.renderLabel(this.element);
+			}
+			// Note: The dropdown will automatically get fresh models from getModels()
+			// when it's opened, so no need to force refresh here
+		}));
+		// --- End Positron ---
 	}
 
 	protected override renderLabel(element: HTMLElement): IDisposable | null {

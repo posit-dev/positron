@@ -2415,6 +2415,16 @@ declare module 'positron' {
 		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
 
 		/**
+		 * Gets the list of enabled provider IDs from user configuration.
+		 *
+		 * Reads from 'positron.assistant.providers' setting and maps UI display names
+		 * (e.g., "GitHub Copilot", "Anthropic") to provider IDs (e.g., "copilot", "anthropic-api").
+		 *
+		 * @returns A Thenable that resolves to an array of enabled provider IDs
+		 */
+		export function getEnabledProviders(): Thenable<string[]>;
+
+		/**
 		 * Checks if completions are enabled for the given file.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.

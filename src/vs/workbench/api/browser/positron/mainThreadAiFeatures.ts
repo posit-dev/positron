@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -27,6 +27,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
+		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		@IChatService private readonly _chatService: IChatService,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
@@ -156,5 +157,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		const provider = this._languageModelsService.getLanguageModelProviders().find(p => p.id === id);
 		this._languageModelsService.currentProvider = provider;
 		return provider;
+	}
+
+	/**
+	 * Get the list of enabled provider IDs from configuration.
+	 */
+	async $getEnabledProviders(): Promise<string[]> {
+		return this._positronAssistantConfigurationService.getEnabledProviders();
 	}
 }

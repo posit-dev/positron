@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,6 +18,7 @@ import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 
 /**
  * PositronAssistantConfigurationService class.
@@ -31,6 +32,12 @@ export class PositronAssistantConfigurationService extends Disposable implements
 
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
 
+	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
+	) {
+		super();
+	}
 
 	get copilotEnabled(): boolean {
 		return this._copilotEnabled;
@@ -39,6 +46,52 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	set copilotEnabled(value: boolean) {
 		this._copilotEnabled = value;
 		this._copilotEnabledEmitter.fire(this._copilotEnabled);
+	}
+
+	getEnabledProviders(): string[] {
+		// Read new providers setting (object with boolean values)
+		const providersConfig = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.providers') || {};
+		const enabledFromProviders = Object.keys(providersConfig).filter(key => providersConfig[key]);
+
+		// DEPRECATED: Read legacy enabledProviders setting (array of strings)
+		// TODO: Remove this when positron.assistant.enabledProviders is fully deprecated
+		const enabledFromLegacy = this._configurationService.getValue<string[]>('positron.assistant.enabledProviders') || [];
+
+		// Build UI name to provider ID mapping from extension package.json contributions
+		// This uses the languageModelChatProviders contribution point which extensions
+		// declare in their package.json with both vendor (provider ID) and displayName (UI name).
+		// This mapping is available immediately when extensions are loaded, unlike registered
+		// language models which may not be available yet (e.g., if API keys aren't configured).
+		const uiNameToId = new Map<string, string>();
+		const vendors = this._languageModelsService.getVendors();
+		for (const vendor of vendors) {
+			// Filter out non-copilot vendors from the Copilot extension
+			// The Copilot extension declares vendors like 'anthropic', 'openai', 'azure', etc.
+			// for its BYOK (Bring Your Own Key) feature, but Positron Assistant provides
+			// its own implementations of these providers with different vendor IDs
+			// (e.g., 'anthropic-api' vs 'anthropic')
+			const extensionId = this._languageModelsService.getExtensionIdentifierForProvider(vendor.vendor);
+			if (extensionId?._lower === 'github.copilot-chat' && vendor.vendor !== 'copilot') {
+				continue; // Skip non-copilot vendors from Copilot extension
+			}
+
+			// Special case: GitHub Copilot extension declares displayName as "Copilot" in package.json,
+			// but Positron's settings use "GitHub Copilot" for clarity
+			if (vendor.vendor === 'copilot') {
+				uiNameToId.set('GitHub Copilot', 'copilot');
+			} else {
+				uiNameToId.set(vendor.displayName, vendor.vendor);
+			}
+		}
+
+		// Map UI names to provider IDs (fallback to original if not found)
+		const mapToId = (name: string) => uiNameToId.get(name) || name;
+
+		// Merge and deduplicate
+		return Array.from(new Set([
+			...enabledFromProviders.map(mapToId),
+			...enabledFromLegacy.map(mapToId)
+		]));
 	}
 }
 

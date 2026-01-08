@@ -171,6 +171,7 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentChatMode(): Thenable<string | undefined>;
 	$getProviders(): Thenable<IPositronChatProvider[]>;
 	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
+	$getEnabledProviders(): Thenable<string[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

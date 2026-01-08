@@ -123,4 +123,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$setCurrentProvider(id);
 	}
 
+	async getEnabledProviders(): Promise<string[]> {
+		return this._proxy.$getEnabledProviders();
+	}
+
 }

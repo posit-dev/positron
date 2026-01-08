@@ -7,12 +7,12 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { AutoconfigureResult, getModelProviders } from './providers';
 import { completionModels } from './completion';
-import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
+import { clearTokenUsage, log } from './extension';
+import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfiguredModel } from './modelRegistration';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
-import { getLanguageModels } from './models';
 import { getEnabledProviders } from './providerConfiguration.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
