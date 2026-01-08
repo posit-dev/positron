@@ -153,6 +153,7 @@
 	letter-spacing: 0.5px;
 	color: var(--vscode-descriptionForeground);
 	margin-top: 2px;
+	margin-bottom: 0px;
 }
 
 .tabs-container .tab-button .resource-usage-cpu,

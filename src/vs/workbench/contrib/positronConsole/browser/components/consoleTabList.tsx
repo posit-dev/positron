@@ -15,7 +15,7 @@ import { DisposableStore, IDisposable } from '../../../../../base/common/lifecyc
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
@@ -73,6 +73,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
 	const [resourceUsageHistory, setResourceUsageHistory] = useState<ILanguageRuntimeResourceUsage[]>([]);
+	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 	const [showResourceMonitor, setShowResourceMonitor] = useState(
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
@@ -130,7 +131,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					setSessionName(session.getLabel());
 				}
 			})
+		);
 
+		// Add the onDidChangeState event handler.
+		disposableStore.add(
+			positronConsoleInstance.onDidChangeState(state => {
+				setConsoleState(state)
+			})
 		);
 
 		// Add the onDidUpdateNotebookSessionUri event handler.
@@ -508,22 +515,26 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				)}
 			</div>
 
-			{/* Resource usage section - only shown for the active session when showResourceMonitor is enabled */}
-			{isActiveTab && showResourceMonitor && resourceUsageHistory.length > 0 && (
-				<div className='resource-usage-section'>
-					<ResourceUsageGraph
-						data={resourceUsageHistory}
-						height={RESOURCE_GRAPH_HEIGHT}
-						width={graphWidth}
-					/>
-					{latestResourceUsage && (
-						<ResourceUsageStats
-							cpuPercent={latestResourceUsage.cpu_percent}
-							memoryBytes={latestResourceUsage.memory_bytes}
+			{/* Resource usage section */}
+			{isActiveTab && // Only show resource usage for the active tab
+				showResourceMonitor && // Only show resource usage if enabled in settings
+				resourceUsageHistory.length > 0 && // Only show resource usage if we have data
+				consoleState !== PositronConsoleState.Exited && // Only show resource usage if the console is not exited
+				(
+					<div className='resource-usage-section'>
+						<ResourceUsageGraph
+							data={resourceUsageHistory}
+							height={RESOURCE_GRAPH_HEIGHT}
+							width={graphWidth}
 						/>
-					)}
-				</div>
-			)}
+						{latestResourceUsage && (
+							<ResourceUsageStats
+								cpuPercent={latestResourceUsage.cpu_percent}
+								memoryBytes={latestResourceUsage.memory_bytes}
+							/>
+						)}
+					</div>
+				)}
 		</div>
 	)
 }
