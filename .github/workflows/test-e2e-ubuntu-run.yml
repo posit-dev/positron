@@ -418,11 +418,34 @@ jobs:
             --reporter=json \
             ../all-blob-reports
 
+      - name: Verify generated reports
+        working-directory: playwright-merge
+        run: |
+          # List all generated files
+          echo "Generated report files:"
+          ls -laR playwright-report/
+
+          # Verify .last-run.json
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
+            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
+            if command -v jq &> /dev/null; then
+              TEST_COUNT=$(jq '.testDurations | length' "$LAST_RUN_FILE")
+              TOTAL_DURATION=$(jq '[.testDurations[]] | add' "$LAST_RUN_FILE")
+              TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
+              echo "  • Tests with duration data: $TEST_COUNT"
+              echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
+            fi
+          else
+            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
+          fi
+
       - name: Upload JSON report artifact
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-json-report-${{ inputs.project }}
+          name: ${{ inputs.project }}-json
           path: playwright-merge/playwright-report/results.json
           retention-days: 7
           if-no-files-found: warn
