@@ -395,30 +395,4 @@ export abstract class VercelModelProvider extends ModelProvider {
 
 		return markDefaultModel(models, this.providerId, this._config.model);
 	}
-
-	/**
-	 * Creates a default model when no other models are available.
-	 *
-	 * Overrides the base implementation to extract model information from
-	 * the Vercel AI SDK provider.
-	 *
-	 * @returns An array containing a single default model descriptor
-	 */
-	protected override createDefaultModel() {
-		this.logger.info('No models available; returning default model information.');
-
-		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
-		const modelInfo = createModelInfo({
-			id: aiModel.modelId,
-			name: this.displayName,
-			family: aiModel.provider,
-			version: aiModel.specificationVersion,
-			provider: this._config.provider,
-			providerName: this.providerName,
-			capabilities: this.capabilities,
-			defaultMaxInput: this._config.maxInputTokens,
-			defaultMaxOutput: this._config.maxOutputTokens
-		});
-		return [{ ...modelInfo, isDefault: true }];
-	}
 }

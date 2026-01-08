@@ -526,8 +526,10 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 
 		// Fallback to default model if no configured models available
 		const defaultModel = this.createDefaultModel();
-		this.modelListing = defaultModel;
-		return defaultModel;
+		if (defaultModel) {
+			this.modelListing = defaultModel;
+			return defaultModel;
+		}
 	}
 
 	/**
@@ -613,21 +615,9 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 *
 	 * @see {@link createModelInfo} for model information creation
 	 */
-	protected createDefaultModel(): vscode.LanguageModelChatInformation[] {
-		this.logger.info('No models available; returning default model information.');
-
-		const modelInfo = createModelInfo({
-			id: this._config.model,
-			name: this.displayName,
-			family: this.providerId,
-			version: '1.0',
-			provider: this._config.provider,
-			providerName: this.providerName,
-			capabilities: this.capabilities,
-			defaultMaxInput: this._config.maxInputTokens,
-			defaultMaxOutput: this._config.maxOutputTokens
-		});
-		return [{ ...modelInfo, isDefault: true }];
+	protected createDefaultModel(): vscode.LanguageModelChatInformation[] | undefined {
+		this.logger.info('No models available.');
+		return undefined;
 	}
 
 	/**
