@@ -55,6 +55,7 @@ import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -164,6 +165,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	public readonly container = observableValue<HTMLElement | undefined>('positronNotebookContainer', undefined);
 
 	private _scopedContextKeyService: IContextKeyService | undefined;
+
+	private _scopedInstantiationService = this._register(new MutableDisposable<IInstantiationService>());
 
 	/**
 	 * Disposables for the editor container event listeners
@@ -307,6 +310,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
 		}
 		return this._scopedContextKeyService;
+	}
+
+	get scopedInstantiationService(): IInstantiationService {
+		if (!this._scopedInstantiationService.value) {
+			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
+		}
+		return this._scopedInstantiationService.value;
 	}
 
 	/**
@@ -1314,6 +1324,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.detachView();
 		this.container.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
+		this._scopedInstantiationService.value = this._instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, scopedContextKeyService]));
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 

@@ -175,6 +175,15 @@ export class Debug {
 	}
 
 	/**
+	 * Verify: The debug variable pane is visible
+	 */
+	async expectDebugVariablePaneVisible(): Promise<void> {
+		await test.step('Verify debug variable pane is visible', async () => {
+			await expect(this.debugVariablesSection).toBeVisible();
+		});
+	}
+
+	/**
 	 * Verify: The call stack is visible and contains the specified item at the specified position
 	 *
 	 * @param stackPosition The expected position (data-index) of the item in the call stack

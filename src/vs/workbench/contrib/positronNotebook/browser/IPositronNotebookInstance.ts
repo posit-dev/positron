@@ -15,6 +15,7 @@ import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runti
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -100,6 +101,11 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable of the DOM element that contains the entire notebook editor.
 	 */
 	readonly container: IObservable<HTMLElement | undefined>;
+
+	/**
+	 * Instantiation service scoped to this notebook instance.
+	 */
+	readonly scopedInstantiationService: IInstantiationService;
 
 	/**
 	 * The DOM element that contributions (such as the find widget) can render into.
