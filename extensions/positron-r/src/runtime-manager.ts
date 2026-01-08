@@ -14,6 +14,7 @@ import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { dirname } from 'path';
+import { pendingModuleRuntimeRegistrations, getEnvironmentModulesApi } from './provider-module.js';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -34,6 +35,42 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
 		this.onDidDiscoverRuntimeEmitter.fire(runtime);
+
+		// If this is a module environment runtime, register it with the environment-modules API
+		const extraData = runtime.extraRuntimeData as RMetadataExtra;
+		if (extraData?.binpath) {
+			const pendingRegistration = pendingModuleRuntimeRegistrations.get(extraData.binpath);
+			if (pendingRegistration) {
+				this.registerModuleRuntimeWithApi(
+					pendingRegistration.environmentName,
+					runtime.runtimeId,
+					extraData.binpath
+				);
+				// Remove from pending registrations
+				pendingModuleRuntimeRegistrations.delete(extraData.binpath);
+			}
+		}
+	}
+
+	/**
+	 * Register a module runtime with the environment-modules API for tracking.
+	 */
+	private async registerModuleRuntimeWithApi(
+		environmentName: string,
+		runtimeId: string,
+		interpreterPath: string
+	): Promise<void> {
+		try {
+			const api = await getEnvironmentModulesApi();
+			if (api) {
+				api.registerDiscoveredRuntime(environmentName, runtimeId, 'r', interpreterPath);
+				LOGGER.info(
+					`Registered module runtime ${runtimeId} for environment "${environmentName}" with environment-modules API`
+				);
+			}
+		} catch (error) {
+			LOGGER.warn(`Failed to register module runtime with environment-modules API: ${error}`);
+		}
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {

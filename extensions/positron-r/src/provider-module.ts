@@ -33,16 +33,31 @@ interface ResolveInterpreterOptions {
 	parseVersion: (output: string) => string | undefined;
 }
 
-interface EnvironmentModulesApi {
+export interface EnvironmentModulesApi {
 	isAvailable(): Promise<boolean>;
 	getEnvironmentsForLanguage(language: string): Promise<Map<string, ModuleEnvironmentConfig>>;
 	resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
+	registerDiscoveredRuntime(
+		environmentName: string,
+		runtimeId: string,
+		language: string,
+		interpreterPath: string
+	): void;
 }
+
+/**
+ * Map from interpreter path to pending module runtime registration info.
+ * This is used to track which environments need to be registered when runtimes are discovered.
+ */
+export const pendingModuleRuntimeRegistrations = new Map<string, {
+	environmentName: string;
+	interpreterPath: string;
+}>();
 
 /**
  * Get the Environment Modules API if available.
  */
-async function getEnvironmentModulesApi(): Promise<EnvironmentModulesApi | undefined> {
+export async function getEnvironmentModulesApi(): Promise<EnvironmentModulesApi | undefined> {
 	const ext = vscode.extensions.getExtension<EnvironmentModulesApi>(
 		'positron.positron-environment-modules'
 	);
@@ -111,6 +126,12 @@ export async function discoverModuleBinaries(): Promise<RBinary[]> {
 				modules: resolved.modules,
 				startupCommand: resolved.startupCommand
 			};
+
+			// Store pending registration for when runtime is registered with Positron
+			pendingModuleRuntimeRegistrations.set(resolved.interpreterPath, {
+				environmentName: resolved.environmentName,
+				interpreterPath: resolved.interpreterPath
+			});
 
 			binaries.push({
 				path: resolved.interpreterPath,

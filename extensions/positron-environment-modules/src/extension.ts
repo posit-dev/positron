@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { EnvironmentModulesApi } from './api.js';
 import {
+	DiscoveredRuntimeInfo,
 	ModuleEnvironmentConfig,
 	ModuleResolvedInterpreter,
 	ModuleSystemInfo,
@@ -13,6 +14,7 @@ import {
 } from './types.js';
 import { detectModuleSystem, buildModuleLoadCommand } from './module-system.js';
 import { resolveModuleInterpreter } from './environment-resolver.js';
+import { manageEnvironmentsCommand } from './manage-environments-command.js';
 
 let _log: vscode.LogOutputChannel | undefined;
 export const log = {
@@ -39,6 +41,7 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 
 	private _moduleSystemInfo: ModuleSystemInfo | undefined;
 	private _resolverCache = new Map<string, ModuleResolvedInterpreter>();
+	private _discoveredRuntimes = new Map<string, DiscoveredRuntimeInfo[]>();
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		// Watch for configuration changes
@@ -47,6 +50,7 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 				if (e.affectsConfiguration('positron.environmentModules')) {
 					this._resolverCache.clear();
 					this._moduleSystemInfo = undefined;
+					this._discoveredRuntimes.clear();
 					this._onDidChangeConfiguration.fire();
 				}
 			})
@@ -151,6 +155,38 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		const initScript = this._moduleSystemInfo?.initPath;
 		return buildModuleLoadCommand(modules, initScript);
 	}
+
+	/**
+	 * Register a runtime that was discovered in a module environment.
+	 */
+	registerDiscoveredRuntime(
+		environmentName: string,
+		runtimeId: string,
+		language: string,
+		interpreterPath: string
+	): void {
+		const existing = this._discoveredRuntimes.get(environmentName) || [];
+		// Avoid duplicates
+		if (!existing.some(r => r.runtimeId === runtimeId)) {
+			existing.push({ runtimeId, language, interpreterPath });
+			this._discoveredRuntimes.set(environmentName, existing);
+			log.info(`Registered runtime ${runtimeId} for environment "${environmentName}"`);
+		}
+	}
+
+	/**
+	 * Get all runtimes discovered in a specific environment.
+	 */
+	getDiscoveredRuntimes(environmentName: string): DiscoveredRuntimeInfo[] {
+		return this._discoveredRuntimes.get(environmentName) || [];
+	}
+
+	/**
+	 * Get all environments and their discovered runtimes.
+	 */
+	getAllDiscoveredRuntimes(): Map<string, DiscoveredRuntimeInfo[]> {
+		return new Map(this._discoveredRuntimes);
+	}
 }
 
 /**
@@ -185,6 +221,15 @@ export async function activate(
 			},
 			buildStartupCommand() {
 				return '';
+			},
+			registerDiscoveredRuntime() {
+				// No-op on Windows
+			},
+			getDiscoveredRuntimes(): DiscoveredRuntimeInfo[] {
+				return [];
+			},
+			getAllDiscoveredRuntimes(): Map<string, DiscoveredRuntimeInfo[]> {
+				return new Map();
 			}
 		};
 	}
@@ -235,6 +280,13 @@ export async function activate(
 					'Module listing not yet implemented'
 				);
 			}
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron.environmentModules.manageEnvironments',
+			() => manageEnvironmentsCommand(api)
 		)
 	);
 

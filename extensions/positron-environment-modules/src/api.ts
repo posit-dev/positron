@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import {
+	DiscoveredRuntimeInfo,
 	ModuleEnvironmentConfig,
 	ModuleResolvedInterpreter,
 	ModuleSystemInfo,
@@ -66,4 +67,35 @@ export interface EnvironmentModulesApi {
 	 * Event fired when the module environments configuration changes.
 	 */
 	onDidChangeConfiguration: vscode.Event<void>;
+
+	/**
+	 * Register a runtime that was discovered in a module environment.
+	 * Called by language extensions (positron-r, positron-python) after discovering a runtime.
+	 *
+	 * @param environmentName The name of the module environment
+	 * @param runtimeId The Positron runtime ID
+	 * @param language The language identifier
+	 * @param interpreterPath The path to the interpreter
+	 */
+	registerDiscoveredRuntime(
+		environmentName: string,
+		runtimeId: string,
+		language: string,
+		interpreterPath: string
+	): void;
+
+	/**
+	 * Get all runtimes discovered in a specific environment.
+	 *
+	 * @param environmentName The name of the module environment
+	 * @returns Array of discovered runtime info, or empty array if none
+	 */
+	getDiscoveredRuntimes(environmentName: string): DiscoveredRuntimeInfo[];
+
+	/**
+	 * Get all environments and their discovered runtimes.
+	 *
+	 * @returns Map of environment names to their discovered runtimes
+	 */
+	getAllDiscoveredRuntimes(): Map<string, DiscoveredRuntimeInfo[]>;
 }

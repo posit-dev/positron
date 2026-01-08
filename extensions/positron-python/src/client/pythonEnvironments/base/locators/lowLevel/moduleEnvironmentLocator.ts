@@ -43,16 +43,22 @@ interface ResolveInterpreterOptions {
 	parseVersion: (output: string) => string | undefined;
 }
 
-interface EnvironmentModulesApi {
+export interface EnvironmentModulesApi {
 	isAvailable(): Promise<boolean>;
 	getEnvironmentsForLanguage(language: string): Promise<Map<string, ModuleEnvironmentConfig>>;
 	resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
+	registerDiscoveredRuntime(
+		environmentName: string,
+		runtimeId: string,
+		language: string,
+		interpreterPath: string
+	): void;
 }
 
 /**
  * Get the Environment Modules API if available.
  */
-async function getEnvironmentModulesApi(): Promise<EnvironmentModulesApi | undefined> {
+export async function getEnvironmentModulesApi(): Promise<EnvironmentModulesApi | undefined> {
 	const ext = vscode.extensions.getExtension<EnvironmentModulesApi>(
 		'positron.positron-environment-modules',
 	);
@@ -82,6 +88,15 @@ function parsePythonVersion(output: string): string | undefined {
  * This is used to store metadata that can be retrieved later when creating the runtime.
  */
 export const moduleMetadataMap = new Map<string, ModuleMetadata>();
+
+/**
+ * Map from interpreter path to pending module runtime registration info.
+ * This is used to track which environments need to be registered when runtimes are discovered.
+ */
+export const pendingModuleRuntimeRegistrations = new Map<string, {
+	environmentName: string;
+	interpreterPath: string;
+}>();
 
 /**
  * Locator for Python environments provided by environment modules.
@@ -141,6 +156,12 @@ export class ModuleEnvironmentLocator extends Locator<BasicEnvInfo> {
 					version: resolved.version,
 				};
 				moduleMetadataMap.set(resolved.interpreterPath, metadata);
+
+				// Store pending registration for when runtime is registered with Positron
+				pendingModuleRuntimeRegistrations.set(resolved.interpreterPath, {
+					environmentName: resolved.environmentName,
+					interpreterPath: resolved.interpreterPath,
+				});
 
 				yield {
 					kind: PythonEnvKind.Module, // Using Module kind for module environments

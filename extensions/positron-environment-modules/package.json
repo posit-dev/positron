@@ -71,6 +71,12 @@
 				"command": "positron.environmentModules.listAvailableModules",
 				"title": "%command.listAvailableModules.title%",
 				"category": "Environment Modules"
+			},
+			{
+				"command": "positron.environmentModules.manageEnvironments",
+				"title": "%command.manageEnvironments.title%",
+				"category": "Environment Modules",
+				"enablement": "!isWindows && config.positron.environmentModules.enabled"
 			}
 		]
 	},

@@ -85,6 +85,18 @@ export interface ResolveInterpreterOptions {
 }
 
 /**
+ * Information about a runtime discovered in a module environment
+ */
+export interface DiscoveredRuntimeInfo {
+	/** The unique runtime ID from Positron */
+	runtimeId: string;
+	/** The language (e.g., 'r', 'python') */
+	language: string;
+	/** The interpreter path */
+	interpreterPath: string;
+}
+
+/**
  * Public API exposed by the positron-environment-modules extension.
  */
 export interface EnvironmentModulesApi {
@@ -119,4 +131,35 @@ export interface EnvironmentModulesApi {
 	 * Event fired when the module environments configuration changes.
 	 */
 	onDidChangeConfiguration: vscode.Event<void>;
+
+	/**
+	 * Register a runtime that was discovered in a module environment.
+	 * Called by language extensions (positron-r, positron-python) after discovering a runtime.
+	 *
+	 * @param environmentName The name of the module environment
+	 * @param runtimeId The Positron runtime ID
+	 * @param language The language identifier
+	 * @param interpreterPath The path to the interpreter
+	 */
+	registerDiscoveredRuntime(
+		environmentName: string,
+		runtimeId: string,
+		language: string,
+		interpreterPath: string
+	): void;
+
+	/**
+	 * Get all runtimes discovered in a specific environment.
+	 *
+	 * @param environmentName The name of the module environment
+	 * @returns Array of discovered runtime info, or empty array if none
+	 */
+	getDiscoveredRuntimes(environmentName: string): DiscoveredRuntimeInfo[];
+
+	/**
+	 * Get all environments and their discovered runtimes.
+	 *
+	 * @returns Map of environment names to their discovered runtimes
+	 */
+	getAllDiscoveredRuntimes(): Map<string, DiscoveredRuntimeInfo[]>;
 }
