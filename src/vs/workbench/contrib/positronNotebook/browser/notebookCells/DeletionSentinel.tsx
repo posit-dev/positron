@@ -69,9 +69,6 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 		<div className="deletion-sentinel positron-notebook-cell">
 			<div className="deletion-sentinel-flash" />
 			<div className="deletion-sentinel-content">
-				{/* Left selection bar area */}
-				<div className="deletion-sentinel-selection-bar" />
-
 				{/* Main cell content */}
 				<div className="deletion-sentinel-cell-container">
 					{/* Header with cell info and actions */}

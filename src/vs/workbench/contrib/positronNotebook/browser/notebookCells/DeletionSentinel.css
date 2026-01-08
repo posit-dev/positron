@@ -5,7 +5,7 @@
 
 .deletion-sentinel {
 	position: relative;
-	margin-left: 12px; /* Match cell left margin */
+	margin-left: 19px; /* 12px base + 7px to align with cell content area (no selection bar) */
 	/* Match spacing that AddCellButtons provides between live cells */
 	margin-bottom: calc(
 		var(--_positron-notebook-add-cell-buttons-height) +
@@ -41,24 +41,12 @@
 	z-index: 2;
 }
 
-/* Left selection bar - greyed out version */
-.deletion-sentinel-selection-bar {
-	width: 7px;
-	background-color: var(--vscode-editorWidget-border);
-	opacity: 0.5;
-	border-top-left-radius: var(--vscode-positronNotebook-cell-radius);
-	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
-	flex-shrink: 0;
-}
-
 /* Main cell container */
 .deletion-sentinel-cell-container {
 	flex: 1;
 	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
 	border: var(--vscode-positronNotebook-border);
-	border-left: none;
-	border-top-right-radius: var(--vscode-positronNotebook-cell-radius);
-	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 	opacity: 0.6; /* Make the whole cell look faded */
 	overflow: hidden;
 }
