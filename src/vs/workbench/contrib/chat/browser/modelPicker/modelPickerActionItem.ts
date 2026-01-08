@@ -70,6 +70,23 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 				modelsByVendor.get(vendor)!.push(model);
 			}
 
+			// Sort each vendor's models to place the default model first
+			// This improves UX by making the default model immediately visible
+			// without scrolling, especially for providers with long model lists
+			for (const [vendor, vendorModels] of modelsByVendor.entries()) {
+				// Find the default model for this vendor
+				const defaultModel = vendorModels.find(m => m.metadata.isDefault);
+
+				if (defaultModel) {
+					// Separate default from non-default models
+					const nonDefaultModels = vendorModels.filter(m => !m.metadata.isDefault);
+
+					// Place default first, followed by remaining models in original order
+					modelsByVendor.set(vendor, [defaultModel, ...nonDefaultModels]);
+				}
+				// If no default, keep original order
+			}
+
 			// Sort vendors for consistent ordering
 			const sortedVendors = Array.from(modelsByVendor.entries())
 				.sort((a, b) => {
