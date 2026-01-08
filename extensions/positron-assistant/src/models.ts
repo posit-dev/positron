@@ -235,7 +235,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
 			capabilities: this.capabilities,
-			isDefault: true,
+			isDefault: false,
 			isUserSelectable: true,
 		}, {
 			id: 'echo-language-model-v2',
@@ -245,10 +245,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
 			capabilities: this.capabilities,
+			isDefault: false,
 			isUserSelectable: true,
 		}];
-		this.modelListing = models;
-		return models;
+		// Apply user preference for default model
+		this.modelListing = markDefaultModel(models, this.provider);
+		return this.modelListing;
 	}
 
 	filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
