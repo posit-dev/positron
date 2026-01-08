@@ -6,7 +6,7 @@
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellKind as NotebookCellKind } from '../../notebook/common/notebookCommon.js';
+import { CellKind as NotebookCellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -20,7 +20,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 
 /**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
- * Sentinels display a red fade animation and provide an undo button.
+ * Sentinels display a red fade animation and provide a restore button.
  */
 export interface IDeletionSentinel {
 	/** Unique identifier for the sentinel */
@@ -29,12 +29,14 @@ export interface IDeletionSentinel {
 	originalIndex: number;
 	/** Timestamp when the sentinel was created */
 	timestamp: number;
-	/** The content of the deleted cell (first few lines for preview) */
-	cellContent: string;
+	/** Preview content for display (first few lines) */
+	previewContent: string;
 	/** The type of cell that was deleted */
 	cellKind: NotebookCellKind;
 	/** The language of the cell (for code cells) */
 	language?: string;
+	/** Complete cell data for restoration (outputs omitted to save memory) */
+	cellData: ICellDto2;
 }
 
 /**
@@ -405,11 +407,15 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	/**
 	 * Add a deletion sentinel at the specified cell index.
 	 * @param cellIndex The index where the cell was deleted
-	 * @param cellContent The content of the deleted cell
-	 * @param cellKind The type of cell that was deleted
-	 * @param language The language of the cell (for code cells)
+	 * @param cellData The complete cell data for potential restoration
 	 */
-	addDeletionSentinel(cellIndex: number, cellContent: string, cellKind: NotebookCellKind, language?: string): void;
+	addDeletionSentinel(cellIndex: number, cellData: ICellDto2): void;
+
+	/**
+	 * Restores a deleted cell from its sentinel data.
+	 * @param sentinel The deletion sentinel containing cell data to restore
+	 */
+	restoreCell(sentinel: IDeletionSentinel): void;
 
 	/**
 	 * Remove a deletion sentinel by its ID.

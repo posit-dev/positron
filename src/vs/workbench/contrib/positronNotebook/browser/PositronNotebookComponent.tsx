@@ -105,7 +105,6 @@ export function PositronNotebookComponent() {
 							{sentinelsBeforeCell.map(sentinel => (
 								<DeletionSentinel
 									key={sentinel.id}
-									commandService={services.commandService}
 									configurationService={services.configurationService}
 									sentinel={sentinel}
 								/>
@@ -119,7 +118,6 @@ export function PositronNotebookComponent() {
 				{deletionSentinels.filter(s => s.originalIndex >= notebookCells.length).map(sentinel => (
 					<DeletionSentinel
 						key={sentinel.id}
-						commandService={services.commandService}
 						configurationService={services.configurationService}
 						sentinel={sentinel}
 					/>

@@ -6,6 +6,19 @@ The "Undo" button on the deletion sentinel (visual feedback for deleted notebook
 
 **Key Insight**: The VS Code undo/redo service only supports undoing the most recent operation (`undo(resource)`), not targeting specific elements. This means if the user deletes multiple cells or performs other operations after deletion, clicking "undo" on a specific sentinel won't restore that particular cell.
 
+## Known Bug: Restored Cell Ordering Issue (FIXED)
+
+**Bug Description**: When multiple cells are deleted sequentially and then one is restored, the restored cell appears in the wrong position relative to remaining deletion sentinels. Specifically, the restored cell appears beneath sentinels for cells that were deleted after it.
+
+**Example**:
+1. Delete cell 2 (creates sentinel at position 1)
+2. Delete cell 3 (now at position 1, creates another sentinel at position 1)
+3. Restore cell 2 → Cell appears beneath cell 3's sentinel instead of above it
+
+**Root Cause**: The `originalIndex` property of sentinels determines where they render in the UI (before which cell). When a cell is restored, it shifts subsequent cells down, but the `originalIndex` values of remaining sentinels weren't being updated to reflect this shift.
+
+**Fix**: The `restoreCell` method now adjusts the `originalIndex` of all remaining sentinels that have `originalIndex >= insertIndex`, incrementing them by 1 to account for the newly inserted cell. This ensures sentinels maintain their correct visual position after restoration.
+
 ## Solution: "Restore" Instead of "Undo"
 
 We will change the approach from "undo" to "restore":
@@ -264,8 +277,23 @@ restoreCell(sentinel: IDeletionSentinel): void {
 
 	this._onDidChangeContent.fire();
 
-	// Remove the sentinel after successful restoration
-	this.removeDeletionSentinel(sentinel.id);
+	// CRITICAL FIX: Adjust originalIndex of remaining sentinels
+	// When we restore a cell at position N, all sentinels with originalIndex >= N
+	// need to shift down by 1 to maintain correct visual ordering
+	const remainingSentinels = this._deletionSentinels.get().map(s => {
+		if (s.id === sentinel.id) {
+			// This sentinel will be removed, skip it
+			return null;
+		}
+		if (s.originalIndex >= insertIndex) {
+			// Shift sentinels at or after the insertion point
+			return { ...s, originalIndex: s.originalIndex + 1 };
+		}
+		return s;
+	}).filter(s => s !== null) as IDeletionSentinel[];
+
+	// Update sentinels with adjusted indices
+	this._deletionSentinels.set(remainingSentinels, undefined);
 }
 ```
 
@@ -315,8 +343,8 @@ async $deleteCell(notebookUri: string, cellIndex: number): Promise<void> {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] TypeScript compilation passes: `npm run compile`
-- [ ] No linting errors: `npm run lint`
+- [x] TypeScript compilation passes: `npm run compile`
+- [x] No linting errors: `npm run lint`
 
 #### Manual Verification:
 - [ ] Deletion sentinels still appear when AI assistant deletes cells
@@ -374,8 +402,8 @@ const handleRestore = () => {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] TypeScript compilation passes: `npm run compile`
-- [ ] Component renders without errors
+- [x] TypeScript compilation passes: `npm run compile`
+- [x] Component renders without errors
 
 #### Manual Verification:
 - [ ] Button displays "Restore" label
@@ -383,6 +411,7 @@ const handleRestore = () => {
 - [ ] Sentinel is removed after restore
 - [ ] Multiple sentinels can be restored in any order
 - [ ] Restore works correctly even after other operations
+- [ ] **BUG FIX VERIFICATION**: Delete cells 2 and 3 sequentially, then restore cell 2 → cell 2 appears ABOVE the sentinel for cell 3 (not below it)
 
 ---
 
@@ -445,8 +474,8 @@ private _cleanupSentinelsForRestoredCells(restoredCells: IPositronNotebookCell[]
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] TypeScript compilation passes: `npm run compile`
-- [ ] Existing notebook tests still pass
+- [x] TypeScript compilation passes: `npm run compile`
+- [x] Existing notebook tests still pass
 
 #### Manual Verification:
 - [ ] Delete cell via AI, use Ctrl+Z → cell restored AND sentinel removed
@@ -468,6 +497,7 @@ private _cleanupSentinelsForRestoredCells(restoredCells: IPositronNotebookCell[]
 7. Verify sentinels for cells 3 and 7 are still present
 8. Delete a cell, use Ctrl+Z → verify automatic sentinel cleanup
 9. Delete a cell, perform other edits, click restore → verify cell still restores correctly
+10. **Ordering Bug Test**: Delete cells 2 and 3 sequentially → verify both sentinels appear at the same position → restore cell 2 → verify cell 2 appears above cell 3's sentinel (not below)
 
 ## Performance Considerations
 

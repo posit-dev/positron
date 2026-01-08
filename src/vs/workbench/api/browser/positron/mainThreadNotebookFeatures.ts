@@ -14,6 +14,7 @@ import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positr
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
+import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/browser/cellClipboardUtils.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -239,16 +240,14 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const cellToDelete = cells[cellIndex];
 
-		// Capture cell content before deletion
-		const cellContent = cellToDelete.getContent();
-		const cellKind = cellToDelete.kind;
-		const language = cellToDelete.isCodeCell() ? cellToDelete.model.language : undefined;
+		// Capture complete cell data before deletion (outputs omitted for memory)
+		const cellData = cellToCellDtoForRestore(cellToDelete);
 
-		// Delete the cell immediately
+		// Delete the cell
 		instance.deleteCell(cellToDelete);
 
-		// Add sentinel with cell content for preview
-		instance.addDeletionSentinel(cellIndex, cellContent, cellKind, language);
+		// Add sentinel with complete cell data
+		instance.addDeletionSentinel(cellIndex, cellData);
 	}
 
 	/**

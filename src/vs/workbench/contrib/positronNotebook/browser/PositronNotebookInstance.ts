@@ -1530,6 +1530,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const currentOp = this.getAndResetCurrentOperation();
 
+		// Check for sentinel cleanup when cells are added during undo
+		if (currentOp === NotebookOperationType.Undo) {
+			this._cleanupSentinelsForRestoredCells(newlyAddedCells);
+		}
+
 		// Skip auto-selection for assistant-added and assistant-edited cells - the follow mode will handle reveal behavior
 		if (currentOp !== NotebookOperationType.AssistantAdd && currentOp !== NotebookOperationType.AssistantEdit && newlyAddedCells.length === 1) {
 			const newCell = newlyAddedCells[0];
@@ -1557,6 +1562,33 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// after an operation.
 		if (!wasEmpty && willBeEmpty && this.currentContainer) {
 			this.currentContainer.focus();
+		}
+	}
+
+	/**
+	 * Cleans up sentinels for cells that have been restored via undo.
+	 * Matches by comparing cell content since handles change on restoration.
+	 */
+	private _cleanupSentinelsForRestoredCells(restoredCells: IPositronNotebookCell[]): void {
+		if (restoredCells.length === 0) {
+			return;
+		}
+
+		const sentinels = this._deletionSentinels.get();
+		if (sentinels.length === 0) {
+			return;
+		}
+
+		// Build a set of restored cell contents for quick lookup
+		const restoredContents = new Set(restoredCells.map(cell => cell.getContent()));
+
+		// Remove sentinels whose cell content matches a restored cell
+		const remainingSentinels = sentinels.filter(sentinel => {
+			return !restoredContents.has(sentinel.cellData.source);
+		});
+
+		if (remainingSentinels.length < sentinels.length) {
+			this._deletionSentinels.set(remainingSentinels, undefined);
 		}
 	}
 
@@ -1923,28 +1955,90 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Add a deletion sentinel at the specified cell index.
-	 * @param cellIndex The index where the cell was deleted
-	 * @param cellContent The content of the deleted cell
-	 * @param cellKind The type of cell that was deleted
-	 * @param language The language of the cell (for code cells)
+	 * @param cellIndex The index where the cell was deleted (in the current notebook state)
+	 * @param cellData The complete cell data for potential restoration
 	 */
-	addDeletionSentinel(cellIndex: number, cellContent: string, cellKind: CellKind, language?: string): void {
-		// Truncate content to first 3 lines for preview
-		const lines = cellContent.split('\n');
+	addDeletionSentinel(cellIndex: number, cellData: ICellDto2): void {
+		// Calculate the true original index by accounting for previously deleted cells.
+		// When multiple cells are deleted sequentially, each deletion shifts indices down.
+		// We need to track where this cell was in the ORIGINAL notebook, not where it
+		// was at the moment of deletion.
+		//
+		// Example: Delete cells 2, then 3 (originally):
+		//   - Delete at index 2: no prior sentinels, originalIndex = 2
+		//   - Delete at index 2 (was cell 3): one sentinel at orig<=2, originalIndex = 2+1 = 3
+		const existingSentinels = this._deletionSentinels.get();
+		const priorDeletionsAtOrBefore = existingSentinels.filter(s => s.originalIndex <= cellIndex).length;
+		const trueOriginalIndex = cellIndex + priorDeletionsAtOrBefore;
+
+		// Generate preview content (first 3 lines)
+		const lines = cellData.source.split('\n');
 		const previewContent = lines.slice(0, 3).join('\n');
 		const truncated = lines.length > 3;
 
 		const sentinel: IDeletionSentinel = {
-			id: `sentinel-${Date.now()}-${cellIndex}`,
-			originalIndex: cellIndex,
+			id: `sentinel-${Date.now()}-${trueOriginalIndex}`,
+			originalIndex: trueOriginalIndex,
 			timestamp: Date.now(),
-			cellContent: truncated ? previewContent + '\n...' : previewContent,
-			cellKind,
-			language
+			previewContent: truncated ? previewContent + '\n...' : previewContent,
+			cellKind: cellData.cellKind,
+			language: cellData.language,
+			cellData  // Store complete data for restoration
 		};
 
 		const current = this._deletionSentinels.get();
 		this._deletionSentinels.set([...current, sentinel], undefined);
+	}
+
+	/**
+	 * Restores a deleted cell from its sentinel data.
+	 * @param sentinel The deletion sentinel containing cell data to restore
+	 */
+	restoreCell(sentinel: IDeletionSentinel): void {
+		this._assertTextModel();
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+
+		// Calculate the correct insertion index.
+		// Since originalIndex represents the cell's position in the ORIGINAL notebook,
+		// we need to subtract the count of still-deleted cells that were originally
+		// before this cell. This accounts for cells that haven't been restored yet.
+		//
+		// Example: Original [0,1,2,3,4], deleted cells 2 and 3 (sentinels with orig=2,3)
+		//   - Current notebook: [0,1,4]
+		//   - Restore cell with orig=3: sentinels with orig<3 = 1, so insertIndex = 3-1 = 2
+		//   - Result: [0,1,3,4] ✓
+		const otherSentinels = this._deletionSentinels.get().filter(s => s.id !== sentinel.id);
+		const deletedCellsBeforeThis = otherSentinels.filter(s => s.originalIndex < sentinel.originalIndex).length;
+		const calculatedIndex = sentinel.originalIndex - deletedCellsBeforeThis;
+
+		// Clamp to valid range (handles case where notebook was modified by user)
+		const maxIndex = textModel.cells.length;
+		const insertIndex = Math.min(calculatedIndex, maxIndex);
+
+		const focusRange = { start: insertIndex, end: insertIndex + 1 };
+
+		textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index: insertIndex,
+				count: 0,
+				cells: [sentinel.cellData]
+			}
+		],
+			true, // synchronous - ensures operations are serialized
+			{ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] },
+			() => ({ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }),
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+
+		// Remove the restored sentinel (no need to adjust other indices since
+		// originalIndex represents the true original position, not current position)
+		this._deletionSentinels.set(otherSentinels, undefined);
 	}
 
 	/**

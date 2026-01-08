@@ -85,7 +85,7 @@
 	gap: 8px;
 }
 
-.deletion-sentinel-undo,
+.deletion-sentinel-restore,
 .deletion-sentinel-dismiss {
 	min-width: 50px;
 	padding: 2px 8px;

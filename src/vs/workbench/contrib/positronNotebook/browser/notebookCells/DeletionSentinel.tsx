@@ -14,20 +14,17 @@ import { localize } from '../../../../../nls.js';
 import { IDeletionSentinel } from '../IPositronNotebookInstance.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY } from '../positronNotebookExperimentalConfig.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 
 interface DeletionSentinelProps {
 	sentinel: IDeletionSentinel;
-	commandService: ICommandService;
 	configurationService: IConfigurationService;
 }
 
 export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 	sentinel,
-	commandService,
 	configurationService
 }) => {
 	const instance = useNotebookInstance();
@@ -50,24 +47,23 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 		};
 	}, [sentinel.id, instance, configurationService]);
 
-	const handleUndo = async () => {
-		// Clear timeout
+	const handleRestore = () => {
+		// Clear auto-dismiss timeout
 		if (timeoutRef.current) {
 			clearTimeout(timeoutRef.current);
 		}
 
-		// Trigger undo command
-		await commandService.executeCommand('undo');
-
-		// Remove sentinel
-		instance.removeDeletionSentinel(sentinel.id);
+		// Restore the cell (this also removes the sentinel)
+		instance.restoreCell(sentinel);
 	};
 
 	const handleDismiss = () => {
 		instance.removeDeletionSentinel(sentinel.id);
 	};
 
-	const cellType = sentinel.cellKind === CellKind.Code ? 'Code' : 'Markdown';
+	const cellType = sentinel.cellKind === CellKind.Code
+		? localize('notebook.codeCell', "Code cell")
+		: localize('notebook.markdownCell', "Markdown cell");
 
 	return (
 		<div className="deletion-sentinel positron-notebook-cell">
@@ -81,15 +77,15 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 					{/* Header with cell info and actions */}
 					<div className="deletion-sentinel-header">
 						<span className="deletion-sentinel-message">
-							{localize('notebook.cellDeleted', "{0} cell {1} deleted", cellType, sentinel.originalIndex + 1)}
+							{localize('notebook.cellDeleted', "{0} deleted", cellType)}
 						</span>
 						<div className="deletion-sentinel-actions">
 							<ActionButton
-								ariaLabel={localize('notebook.undo', "Undo")}
-								className="deletion-sentinel-undo"
-								onPressed={handleUndo}
+								ariaLabel={localize('notebook.restore', "Restore")}
+								className="deletion-sentinel-restore"
+								onPressed={handleRestore}
 							>
-								{localize('notebook.undo', "Undo")}
+								{localize('notebook.restore', "Restore")}
 							</ActionButton>
 							<ActionButton
 								ariaLabel={localize('notebook.dismiss', "Dismiss")}
@@ -103,9 +99,9 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 
 					{/* Code preview - displayed as plain greyed-out text */}
 					<div className="deletion-sentinel-code-preview">
-						{sentinel.cellContent ? (
+						{sentinel.previewContent ? (
 							<pre className="deletion-sentinel-code-text">
-								{sentinel.cellContent}
+								{sentinel.previewContent}
 							</pre>
 						) : (
 							<div className="empty-cell-placeholder">
