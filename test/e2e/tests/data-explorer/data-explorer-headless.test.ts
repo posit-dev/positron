@@ -36,7 +36,9 @@ test.describe('Headless Data Explorer', {
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
-		await hotKeys.notebookLayout(); // Make data explorer larger
+		// Make data explorer larger
+		await hotKeys.notebookLayout();
+		await hotKeys.closeSecondarySidebar();
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
