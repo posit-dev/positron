@@ -76,7 +76,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Display name of the model instance.
 	 */
-	public readonly name: string;
+	public readonly displayName: string;
 
 	/**
 	 * Provider ID (e.g., 'anthropic-api', 'openai-api', 'ollama').
@@ -118,7 +118,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		protected readonly _storage?: SecretStorage,
 	) {
 		this.id = _config.id;
-		this.name = _config.name;
+		this.displayName = _config.name;
 		this.provider = _config.provider;
 		this.logger = new ModelProviderLogger(this.providerName);
 		this.initializeProvider();
@@ -618,7 +618,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 
 		const modelInfo = createModelInfo({
 			id: this._config.model,
-			name: this.name,
+			name: this.displayName,
 			family: this.provider,
 			version: '1.0',
 			provider: this._config.provider,

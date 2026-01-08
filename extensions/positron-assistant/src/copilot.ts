@@ -200,7 +200,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 
 	public provider: string;
 	public id: string;
-	public name: string;
+	public displayName: string;
 
 	static async autoconfigure(): Promise<AutoconfigureResult> {
 		// Refresh the signed-in state
@@ -221,7 +221,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	constructor(
 		private readonly _config: ModelConfig,
 	) {
-		this.name = _config.name;
+		this.displayName = _config.name;
 		this.provider = _config.provider;
 		this.id = _config.id;
 	}

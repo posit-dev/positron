@@ -142,7 +142,7 @@ export class EchoModelProvider extends ModelProvider {
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		const models = [{
 			id: this.id,
-			name: this.name,
+			name: this.displayName,
 			family: this.provider,
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,

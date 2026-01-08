@@ -410,7 +410,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const aiModel = this.aiProvider(this._config.model, this.aiOptions);
 		const modelInfo = createModelInfo({
 			id: aiModel.modelId,
-			name: this.name,
+			name: this.displayName,
 			family: aiModel.provider,
 			version: aiModel.specificationVersion,
 			provider: this._config.provider,
