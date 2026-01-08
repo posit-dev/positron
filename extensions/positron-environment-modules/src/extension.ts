@@ -14,7 +14,24 @@ import {
 import { detectModuleSystem, buildModuleLoadCommand } from './module-system.js';
 import { resolveModuleInterpreter } from './environment-resolver.js';
 
-export const log = vscode.window.createOutputChannel('Environment Modules', { log: true });
+let _log: vscode.LogOutputChannel | undefined;
+export const log = {
+	get channel(): vscode.LogOutputChannel {
+		if (!_log) {
+			_log = vscode.window.createOutputChannel('Environment Modules', { log: true });
+		}
+		return _log;
+	},
+	info(message: string) {
+		this.channel.info(message);
+	},
+	warn(message: string) {
+		this.channel.warn(message);
+	},
+	error(message: string) {
+		this.channel.error(message);
+	}
+};
 
 class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 	private _onDidChangeConfiguration = new vscode.EventEmitter<void>();
@@ -145,8 +162,37 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 export async function activate(
 	context: vscode.ExtensionContext
 ): Promise<EnvironmentModulesApi> {
-	context.subscriptions.push(log);
+	// Environment modules are not supported on Windows
+	if (process.platform === 'win32') {
+		// Return a stub API that reports as unavailable
+		return {
+			onDidChangeConfiguration: new vscode.EventEmitter<void>().event,
+			async isAvailable() {
+				return false;
+			},
+			async getModuleSystemInfo(): Promise<ModuleSystemInfo> {
+				return {
+					available: false,
+					command: '',
+					type: 'unknown'
+				};
+			},
+			async getEnvironmentsForLanguage(): Promise<Map<string, ModuleEnvironmentConfig>> {
+				return new Map();
+			},
+			async resolveInterpreter(): Promise<ModuleResolvedInterpreter | undefined> {
+				return undefined;
+			},
+			buildStartupCommand() {
+				return '';
+			}
+		};
+	}
+
 	log.info('Activating positron-environment-modules extension');
+	if (_log) {
+		context.subscriptions.push(_log);
+	}
 
 	const api = new EnvironmentModulesApiImpl(context);
 
@@ -196,5 +242,7 @@ export async function activate(
 }
 
 export function deactivate() {
-	log.info('Deactivating positron-environment-modules extension');
+	if (_log) {
+		log.info('Deactivating positron-environment-modules extension');
+	}
 }
