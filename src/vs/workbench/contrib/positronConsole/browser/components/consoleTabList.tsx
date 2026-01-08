@@ -27,6 +27,7 @@ import { RuntimeIcon } from './runtimeIcon.js';
 import { ResourceUsageGraph } from './resourceUsageGraph.js';
 import { ResourceUsageStats } from './resourceUsageStats.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { MAX_RESOURCE_USAGE_HISTORY } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -34,13 +35,6 @@ import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/com
  * session name (truncated), and the delete button.
  */
 const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
-
-/**
- * The maximum number of resource usage data points to keep in history.
- * At typical 1 sample/sec and 2px per point, 600 points supports 1200px width.
- * This allows revealing more history when the console tab list is widened.
- */
-const MAX_RESOURCE_USAGE_HISTORY = 600;
 
 /**
  * The height of the resource usage graph in pixels.
@@ -94,6 +88,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Track whether we've been cancelled (for async operations)
+		let cancelled = false;
+
 		// Function to add resource usage listener to a session
 		const addResourceUsageListener = (session: ILanguageRuntimeSession): IDisposable => {
 			return session.onDidUpdateResourceUsage((usage) => {
@@ -105,8 +102,15 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					}
 					return updated;
 				});
-			})
+			});
 		};
+
+		// Load historical resource usage data from the service
+		services.resourceUsageHistoryService.getHistory(positronConsoleInstance.sessionId).then(history => {
+			if (!cancelled && history.length > 0) {
+				setResourceUsageHistory(history);
+			}
+		});
 
 		// Add listener for showResourceMonitor configuration changes
 		disposableStore.add(
@@ -161,8 +165,11 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 
 		// Return cleanup function to dispose of the store when effect cleans up.
-		return () => disposableStore.dispose();
-	}, [services.configurationService, services.runtimeSessionService, positronConsoleInstance.sessionId]);
+		return () => {
+			cancelled = true;
+			disposableStore.dispose();
+		};
+	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance.sessionId]);
 
 	/**
 	 * Handles the click event for the console tab.
