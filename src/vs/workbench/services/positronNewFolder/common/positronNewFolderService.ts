@@ -167,6 +167,24 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	//#region Private Methods
 
 	/**
+	 * Applies the appropriate layout for the folder template.
+	 * This is called before awaiting trust since layout changes don't require trust.
+	 */
+	private async _applyLayout(): Promise<void> {
+		if (!this._newFolderConfig) {
+			return;
+		}
+
+		// Apply notebook layout if this is a Jupyter Notebook template opened in a new window.
+		// When opened in the current window, we preserve the user's existing layout.
+		if (this._newFolderConfig.folderTemplate === FolderTemplate.JupyterNotebook &&
+			this._newFolderConfig.openInNewWindow) {
+			this._logService.debug('[New folder startup] Applying notebook layout for Jupyter Notebook folder template in new window');
+			await this._commandService.executeCommand('workbench.action.positronNotebookLayout');
+		}
+	}
+
+	/**
 	 * Parses the new folder configuration from the storage service and returns it.
 	 * @returns The new folder configuration.
 	 */
@@ -915,6 +933,15 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		if (this._newFolderConfig) {
 			// We're in the new folder window, so we can clear the config from the storage service.
 			this.clearNewFolderConfig();
+
+			// Apply layout before awaiting trust since layout changes don't require trust.
+			this._startupPhase.set(
+				NewFolderStartupPhase.ApplyLayout,
+				undefined
+			);
+			this._applyLayout().catch((error) => {
+				this._logService.error('[New folder startup] Error applying layout:', error);
+			});
 
 			this._startupPhase.set(
 				NewFolderStartupPhase.AwaitingTrust,
