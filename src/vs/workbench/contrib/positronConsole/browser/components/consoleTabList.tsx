@@ -90,22 +90,23 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	// Variables
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
 
-	const addResourceUsageListener = (session: ILanguageRuntimeSession): IDisposable => {
-		return session.onDidUpdateResourceUsage((usage) => {
-			setResourceUsageHistory(prev => {
-				// Add new data point and keep only the most recent entries
-				const updated = [...prev, usage];
-				if (updated.length > MAX_RESOURCE_USAGE_HISTORY) {
-					return updated.slice(-MAX_RESOURCE_USAGE_HISTORY);
-				}
-				return updated;
-			});
-		})
-	};
-
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Function to add resource usage listener to a session
+		const addResourceUsageListener = (session: ILanguageRuntimeSession): IDisposable => {
+			return session.onDidUpdateResourceUsage((usage) => {
+				setResourceUsageHistory(prev => {
+					// Add new data point and keep only the most recent entries
+					const updated = [...prev, usage];
+					if (updated.length > MAX_RESOURCE_USAGE_HISTORY) {
+						return updated.slice(-MAX_RESOURCE_USAGE_HISTORY);
+					}
+					return updated;
+				});
+			})
+		};
 
 		// Add listener for showResourceMonitor configuration changes
 		disposableStore.add(
