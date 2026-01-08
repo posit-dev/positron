@@ -12,15 +12,6 @@ import { ModelConfig, SecretStorage } from '../../config';
 /**
  * Google Gemini model provider implementation.
  *
- * This provider integrates Google's Gemini models using the Vercel AI SDK's
- * Google Generative AI adapter. Supports:
- * - Gemini 2.0 Flash (latest)
- * - Gemini 1.5 Pro
- * - Gemini 1.5 Flash
- * - Vision capabilities
- * - Tool/function calling
- * - Streaming responses
- *
  * **Configuration:**
  * - Provider ID: `google`
  * - Display Name: `Gemini Code Assist`

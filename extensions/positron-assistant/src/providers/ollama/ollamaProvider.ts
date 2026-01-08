@@ -13,12 +13,6 @@ import { ModelConfig } from '../../config';
  * Ollama model provider implementation.
  *
  * This provider enables running open-source language models locally using Ollama.
- * Supports models like:
- * - Llama 3.x
- * - Qwen 2.5 Coder
- * - Mistral
- * - CodeGemma
- * - And many others available through Ollama
  *
  * **Configuration:**
  * - Provider ID: `ollama`

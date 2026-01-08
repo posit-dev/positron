@@ -17,14 +17,6 @@ import { applyModelFilters } from '../../modelFilters';
 /**
  * OpenAI model provider implementation.
  *
- * This provider integrates OpenAI's GPT models (GPT-4, GPT-3.5, o1, etc.) using
- * the Vercel AI SDK's OpenAI adapter. It supports:
- * - All GPT model variants including GPT-4o, GPT-4 Turbo, o1, o3
- * - Vision capabilities (GPT-4 Vision)
- * - Tool/function calling
- * - Streaming responses
- * - Dynamic model discovery via OpenAI's models API
- *
  * **Configuration:**
  * - Provider ID: `openai-api`
  * - Required: API key from OpenAI Platform
