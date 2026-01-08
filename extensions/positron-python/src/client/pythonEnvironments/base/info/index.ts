@@ -29,6 +29,7 @@ export enum PythonEnvKind {
     OtherVirtual = 'virt-other',
     // --- Start Positron ---
     Uv = 'uv',
+    Module = 'module',
     // --- End Positron ---
 }
 

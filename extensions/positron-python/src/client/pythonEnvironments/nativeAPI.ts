@@ -110,6 +110,8 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
         // --- Start Positron ---
         case PythonEnvKind.Uv:
             return 'uv';
+        case PythonEnvKind.Module:
+            return 'Module';
         // --- End Positron ---
         case PythonEnvKind.System:
         case PythonEnvKind.Unknown:
@@ -849,9 +851,11 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
         const version = metadata?.version ? parseVersion(metadata.version) : { major: -1, minor: -1, micro: -1 };
         const versionStr = version.major >= 0 ? `${version.major}.${version.minor}.${version.micro}` : '';
 
-        const displayName = metadata
-            ? (versionStr ? `Python ${versionStr} (${metadata.environmentName})` : `Python (${metadata.environmentName})`)
-            : 'Python (module)';
+        // Format display name as "Python X.Y.Z (Module: envName)"
+        const moduleLabel = metadata ? `Module: ${metadata.environmentName}` : 'Module';
+        const displayName = versionStr
+            ? `Python ${versionStr} (${moduleLabel})`
+            : `Python (${moduleLabel})`;
 
         return {
             name: metadata?.environmentName ?? '',

@@ -143,7 +143,7 @@ export class ModuleEnvironmentLocator extends Locator<BasicEnvInfo> {
 				moduleMetadataMap.set(resolved.interpreterPath, metadata);
 
 				yield {
-					kind: PythonEnvKind.Custom, // Using Custom kind for module environments
+					kind: PythonEnvKind.Module, // Using Module kind for module environments
 					executablePath: resolved.interpreterPath,
 					source: [PythonEnvSource.UserSettings], // Mark as user-configured
 					envPath: undefined,
