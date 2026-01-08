@@ -90,8 +90,7 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.expectCellContentAtIndexToBe(3, 'new cell content');
 	});
 
-	// @seeM unskip me
-	test.skip("Move cells up and down with keyboard shortcuts", async function ({ app, r, }) {
+	test('Move cells up and down with keyboard shortcuts', async function ({ app, r, }) {
 		const { notebooksPositron, debug } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
@@ -126,8 +125,7 @@ test.describe('Notebook Edit Mode', {
 		await debug.expectDebugToolbarVisible();
 	});
 
-	// @seeM unskip me
-	test.skip("Execute and debug cells with keyboard shortcuts", async function ({ app, r, }) {
+	test('Execute and debug cells with keyboard shortcuts', async function ({ app, r, }) {
 		const { notebooksPositron, debug } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
