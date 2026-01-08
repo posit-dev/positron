@@ -16,6 +16,7 @@ export interface ModuleMetadata {
 	environmentName: string;
 	modules: string[];
 	startupCommand: string;
+	version: string;
 }
 
 /**
@@ -137,6 +138,7 @@ export class ModuleEnvironmentLocator extends Locator<BasicEnvInfo> {
 					environmentName: resolved.environmentName,
 					modules: resolved.modules,
 					startupCommand: resolved.startupCommand,
+					version: resolved.version,
 				};
 				moduleMetadataMap.set(resolved.interpreterPath, metadata);
 

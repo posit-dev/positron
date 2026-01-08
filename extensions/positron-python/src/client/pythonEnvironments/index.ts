@@ -49,7 +49,6 @@ import { createEnvExtApi } from '../envExt/envExtApi';
 // --- Start Positron ---
 import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
 import { ModuleEnvironmentLocator } from './base/locators/lowLevel/moduleEnvironmentLocator';
-import { traceInfo } from '../logging';
 import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
 // --- End Positron ---
 

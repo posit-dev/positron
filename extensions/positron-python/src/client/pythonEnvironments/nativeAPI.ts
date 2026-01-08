@@ -844,8 +844,13 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
      */
     private basicEnvToPythonEnvInfo(basicEnv: { kind: PythonEnvKind; executablePath: string; source?: PythonEnvSource[]; envPath?: string }): PythonEnvInfo | undefined {
         const metadata = moduleMetadataMap.get(basicEnv.executablePath);
+
+        // Parse version from metadata (format: "3.11.3")
+        const version = metadata?.version ? parseVersion(metadata.version) : { major: -1, minor: -1, micro: -1 };
+        const versionStr = version.major >= 0 ? `${version.major}.${version.minor}.${version.micro}` : '';
+
         const displayName = metadata
-            ? `Python (${metadata.environmentName})`
+            ? (versionStr ? `Python ${versionStr} (${metadata.environmentName})` : `Python (${metadata.environmentName})`)
             : 'Python (module)';
 
         return {
@@ -860,9 +865,10 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
                 mtime: -1,
             },
             version: {
-                major: -1,
-                minor: -1,
-                micro: -1,
+                major: version.major,
+                minor: version.minor,
+                micro: version.micro,
+                sysVersion: metadata?.version,
             },
             arch: Architecture.Unknown,
             distro: {
