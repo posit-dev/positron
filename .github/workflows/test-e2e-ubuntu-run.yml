@@ -418,44 +418,6 @@ jobs:
             --reporter=json \
             ../all-blob-reports
 
-      - name: Verify generated reports
-        working-directory: playwright-merge
-        run: |
-          # List all generated files
-          echo "Generated report files:"
-          ls -laR playwright-report/
-
-          # Verify .last-run.json
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
-            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
-            if command -v jq &> /dev/null; then
-              TEST_COUNT=$(jq '.testDurations | length' "$LAST_RUN_FILE")
-              TOTAL_DURATION=$(jq '[.testDurations[]] | add' "$LAST_RUN_FILE")
-              TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
-              echo "  • Tests with duration data: $TEST_COUNT"
-              echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
-            fi
-          else
-            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
-          fi
-
-          # Verify JSON report
-          JSON_REPORT="playwright-report/results.json"
-          if [ -f "$JSON_REPORT" ]; then
-            FILE_SIZE=$(ls -lh "$JSON_REPORT" | awk '{print $5}')
-            echo "✓ Generated $JSON_REPORT ($FILE_SIZE)"
-            if command -v jq &> /dev/null; then
-              FAILED_COUNT=$(jq '[.. | .tests? // empty | .[] | select(.outcome == "unexpected")] | length' "$JSON_REPORT")
-              FLAKY_COUNT=$(jq '[.. | .tests? // empty | .[] | select(.outcome == "flaky")] | length' "$JSON_REPORT")
-              echo "  • Failed tests: $FAILED_COUNT"
-              echo "  • Flaky tests: $FLAKY_COUNT"
-            fi
-          else
-            echo "⚠ No $JSON_REPORT generated"
-          fi
-
       - name: Upload JSON report artifact
         if: always()
         uses: actions/upload-artifact@v6
