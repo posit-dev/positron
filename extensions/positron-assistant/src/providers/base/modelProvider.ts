@@ -81,7 +81,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	/**
 	 * Provider ID (e.g., 'anthropic-api', 'openai-api', 'ollama').
 	 */
-	public readonly provider: string;
+	public readonly providerId: string;
 
 	/**
 	 * Unique identifier for this model configuration.
@@ -119,7 +119,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	) {
 		this.id = _config.id;
 		this.displayName = _config.name;
-		this.provider = _config.provider;
+		this.providerId = _config.provider;
 		this.logger = new ModelProviderLogger(this.providerName);
 		this.initializeProvider();
 	}
@@ -187,7 +187,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * @see {@link applyModelFilters} for filter implementation details
 	 */
 	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
-		return applyModelFilters(models, this.provider, this.providerName);
+		return applyModelFilters(models, this.providerId, this.providerName);
 	}
 
 	/**
@@ -548,7 +548,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * @see {@link markDefaultModel} for default model selection
 	 */
 	protected retrieveModelsFromConfig(): vscode.LanguageModelChatInformation[] | undefined {
-		const configuredModels = getAllModelDefinitions(this.provider);
+		const configuredModels = getAllModelDefinitions(this.providerId);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
@@ -559,9 +559,9 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 			createModelInfo({
 				id: model.identifier,
 				name: model.name,
-				family: this.provider,
+				family: this.providerId,
 				version: '1.0',
-				provider: this.provider,
+				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
 				defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
@@ -569,7 +569,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 			})
 		);
 
-		return markDefaultModel(models, this.provider, this._config.model);
+		return markDefaultModel(models, this.providerId, this._config.model);
 	}
 
 	/**
@@ -619,7 +619,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 		const modelInfo = createModelInfo({
 			id: this._config.model,
 			name: this.displayName,
-			family: this.provider,
+			family: this.providerId,
 			version: '1.0',
 			provider: this._config.provider,
 			providerName: this.providerName,

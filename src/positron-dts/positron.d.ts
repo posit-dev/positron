@@ -2155,7 +2155,7 @@ declare module 'positron' {
 		 */
 		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
 			displayName: string;
-			provider: string;
+			providerId: string;
 			id: string;
 
 			providerName: string;

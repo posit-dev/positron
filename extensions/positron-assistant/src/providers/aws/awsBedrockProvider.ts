@@ -347,7 +347,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	 * @returns The configured models or undefined if none.
 	 */
 	protected override retrieveModelsFromConfig() {
-		const configuredModels = getAllModelDefinitions(this.provider);
+		const configuredModels = getAllModelDefinitions(this.providerId);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
@@ -360,7 +360,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 				name: modelDef.name,
 				family: 'Amazon Bedrock',
 				version: '',
-				provider: this.provider,
+				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
 				defaultMaxInput: modelDef.maxInputTokens ?? AWSModelProvider.DEFAULT_MAX_TOKENS_INPUT,
@@ -368,7 +368,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 			})
 		);
 
-		return markDefaultModel(modelListing, this.provider, this._config.model);
+		return markDefaultModel(modelListing, this.providerId, this._config.model);
 	}
 
 	/**
@@ -422,7 +422,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 					name: m.modelName ?? modelId,
 					family: 'Amazon Bedrock',
 					version: '',
-					provider: this.provider,
+					provider: this.providerId,
 					providerName: this.providerName,
 					capabilities: this.capabilities,
 					defaultMaxInput: AWSModelProvider.DEFAULT_MAX_TOKENS_INPUT,
@@ -439,7 +439,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 			this.logger.debug(`Available models after processing: ${models.map(m => m.name).join(', ')}`);
 
-			return markDefaultModel(models, this.provider, this._config.model);
+			return markDefaultModel(models, this.providerId, this._config.model);
 		} catch (error) {
 			this.logger.warn(`Failed to fetch models from Bedrock API: ${error}`);
 			this._lastError = error instanceof Error ? error : new Error(String(error));

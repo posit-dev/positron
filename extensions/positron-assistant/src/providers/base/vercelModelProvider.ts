@@ -146,11 +146,11 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const processedMessages = processMessages(messages);
 
 		// Only Anthropic currently supports experimental_content in tool results
-		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
+		const toolResultExperimentalContent = this.providerId === 'anthropic-api' ||
 			aiModel.modelId.includes('anthropic');
 
 		// Only select Bedrock models support cache breakpoints
-		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
+		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
 			!aiModel.modelId.includes('anthropic.claude-3-5');
 
 		// Add system prompt from modelOptions.system, if provided
@@ -353,11 +353,11 @@ export abstract class VercelModelProvider extends ModelProvider {
 		}
 
 		if (requestId) {
-			recordRequestTokenUsage(requestId, this.provider, tokens);
+			recordRequestTokenUsage(requestId, this.providerId, tokens);
 		}
 
 		if (this._context) {
-			recordTokenUsage(this._context, this.provider, tokens);
+			recordTokenUsage(this._context, this.providerId, tokens);
 		}
 
 		this.logger.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
@@ -372,7 +372,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * @returns An array of configured models, or undefined if no models are configured
 	 */
 	protected override retrieveModelsFromConfig() {
-		const configuredModels = getAllModelDefinitions(this.provider);
+		const configuredModels = getAllModelDefinitions(this.providerId);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
@@ -383,9 +383,9 @@ export abstract class VercelModelProvider extends ModelProvider {
 			createModelInfo({
 				id: model.identifier,
 				name: model.name,
-				family: this.provider,
+				family: this.providerId,
 				version: this.aiProvider ? this.aiProvider(model.identifier).specificationVersion : '1.0',
-				provider: this.provider,
+				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
 				defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
@@ -393,7 +393,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			})
 		);
 
-		return markDefaultModel(models, this.provider, this._config.model);
+		return markDefaultModel(models, this.providerId, this._config.model);
 	}
 
 	/**

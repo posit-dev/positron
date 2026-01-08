@@ -198,7 +198,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		},
 	};
 
-	public provider: string;
+	public providerId: string;
 	public id: string;
 	public displayName: string;
 
@@ -222,7 +222,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		private readonly _config: ModelConfig,
 	) {
 		this.displayName = _config.name;
-		this.provider = _config.provider;
+		this.providerId = _config.provider;
 		this.id = _config.id;
 	}
 }

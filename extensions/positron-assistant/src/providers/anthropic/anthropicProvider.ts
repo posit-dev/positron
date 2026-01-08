@@ -117,7 +117,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 	}
 
 	protected override retrieveModelsFromConfig() {
-		const configuredModels = getAllModelDefinitions(this.provider);
+		const configuredModels = getAllModelDefinitions(this.providerId);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
@@ -128,9 +128,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 			createModelInfo({
 				id: modelDef.identifier,
 				name: modelDef.name,
-				family: this.provider,
+				family: this.providerId,
 				version: '',
-				provider: this.provider,
+				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
 				defaultMaxInput: modelDef.maxInputTokens,
@@ -138,13 +138,13 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 			})
 		);
 
-		return markDefaultModel(modelListing, this.provider, DEFAULT_ANTHROPIC_MODEL_MATCH);
+		return markDefaultModel(modelListing, this.providerId, DEFAULT_ANTHROPIC_MODEL_MATCH);
 	}
 
 	protected override async retrieveModelsFromApi(token: vscode.CancellationToken) {
 		try {
 			const modelListing: vscode.LanguageModelChatInformation[] = [];
-			const knownAnthropicModels = getAllModelDefinitions(this.provider);
+			const knownAnthropicModels = getAllModelDefinitions(this.providerId);
 			let hasMore = true;
 			let nextPageToken: string | undefined;
 
@@ -162,9 +162,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 						createModelInfo({
 							id: model.id,
 							name: model.display_name,
-							family: this.provider,
+							family: this.providerId,
 							version: model.created_at,
-							provider: this.provider,
+							provider: this.providerId,
 							providerName: this.providerName,
 							capabilities: this.capabilities,
 							defaultMaxInput: knownModel?.maxInputTokens,
@@ -179,7 +179,7 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 				}
 			}
 
-			return markDefaultModel(modelListing, this.provider, DEFAULT_ANTHROPIC_MODEL_MATCH);
+			return markDefaultModel(modelListing, this.providerId, DEFAULT_ANTHROPIC_MODEL_MATCH);
 		} catch (error) {
 			this.logger.warn(`Failed to fetch models from Anthropic API: ${error}`);
 			return undefined;
@@ -304,12 +304,12 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		// Record token usage
 		if (message.usage && this._context) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.provider, tokens);
+			recordTokenUsage(this._context, this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, tokens);
+				recordRequestTokenUsage(requestId, this.providerId, tokens);
 			}
 		}
 	}

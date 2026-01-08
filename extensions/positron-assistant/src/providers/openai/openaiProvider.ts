@@ -164,7 +164,7 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 	 * Retrieves models from configuration.
 	 */
 	protected override retrieveModelsFromConfig() {
-		const configuredModels = getAllModelDefinitions(this.provider);
+		const configuredModels = getAllModelDefinitions(this.providerId);
 		if (configuredModels.length === 0) {
 			return undefined;
 		}
@@ -175,9 +175,9 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 			createModelInfo({
 				id: modelDef.identifier,
 				name: modelDef.name,
-				family: this.provider,
+				family: this.providerId,
 				version: modelDef.identifier,
-				provider: this.provider,
+				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
 				defaultMaxInput: modelDef.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
@@ -185,7 +185,7 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 			})
 		);
 
-		return markDefaultModel(modelListing, this.provider, this._config.model);
+		return markDefaultModel(modelListing, this.providerId, this._config.model);
 	}
 
 	/**
@@ -204,9 +204,9 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 				createModelInfo({
 					id: model.id,
 					name: model.id,
-					family: this.provider,
+					family: this.providerId,
 					version: model.id,
-					provider: this.provider,
+					provider: this.providerId,
 					providerName: this.providerName,
 					capabilities: this.capabilities,
 					defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
@@ -214,7 +214,7 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 				})
 			);
 
-			return markDefaultModel(models, this.provider, this._config.model);
+			return markDefaultModel(models, this.providerId, this._config.model);
 		} catch (error) {
 			this.logger.warn('Failed to fetch models from API', error);
 			return undefined;
@@ -235,7 +235,7 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 	 */
 	override filterModels(models: vscode.LanguageModelChatInformation[]) {
 		const removedModels: string[] = [];
-		const filteredModels = applyModelFilters(models, this.provider, this.providerName)
+		const filteredModels = applyModelFilters(models, this.providerId, this.providerName)
 			.filter((model: any) => {
 				const modelName = model.id.toLowerCase();
 				const shouldRemove = OpenAIModelProvider.FILTERED_MODEL_PATTERNS.some(pattern => {

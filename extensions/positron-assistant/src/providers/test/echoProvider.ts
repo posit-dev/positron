@@ -106,11 +106,11 @@ export class EchoModelProvider extends ModelProvider {
 			const inputTokens = await this.provideTokenCount(model, inputText, token);
 			const outputTokens = await this.provideTokenCount(model, response, token);
 			tokenUsage = { inputTokens, outputTokens, cachedTokens: 0 };
-			recordTokenUsage(this._context, this.provider, tokenUsage);
+			recordTokenUsage(this._context, this.providerId, tokenUsage);
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, tokenUsage);
+				recordRequestTokenUsage(requestId, this.providerId, tokenUsage);
 			}
 		}
 
@@ -143,7 +143,7 @@ export class EchoModelProvider extends ModelProvider {
 		const models = [{
 			id: this.id,
 			name: this.displayName,
-			family: this.provider,
+			family: this.providerId,
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
@@ -153,7 +153,7 @@ export class EchoModelProvider extends ModelProvider {
 		}, {
 			id: 'echo-language-model-v2',
 			name: 'Echo Language Model v2',
-			family: this.provider,
+			family: this.providerId,
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,

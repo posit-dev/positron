@@ -282,7 +282,7 @@ export class PositModelProvider extends ModelProvider {
 			this.logger.info('Access token has expired.');
 			const result = await PositModelProvider.refreshAccessToken(this._storage!);
 			if (!result.success) {
-				deleteConfiguration(this._context, this._storage, this.provider);
+				deleteConfiguration(this._context, this._storage, this.providerId);
 				throw new Error('Failed to refresh Posit AI access token. Please sign in again.');
 			}
 			accessToken = result.accessToken;
@@ -419,12 +419,12 @@ export class PositModelProvider extends ModelProvider {
 		// Record token usage
 		if (message.usage && this._context) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.provider, tokens);
+			recordTokenUsage(this._context, this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, tokens);
+				recordRequestTokenUsage(requestId, this.providerId, tokens);
 			}
 		}
 	}
