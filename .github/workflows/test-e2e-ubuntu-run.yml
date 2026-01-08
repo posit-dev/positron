@@ -441,6 +441,30 @@ jobs:
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
 
+          # Verify JSON report
+          JSON_REPORT="playwright-report/results.json"
+          if [ -f "$JSON_REPORT" ]; then
+            FILE_SIZE=$(ls -lh "$JSON_REPORT" | awk '{print $5}')
+            echo "✓ Generated $JSON_REPORT ($FILE_SIZE)"
+            if command -v jq &> /dev/null; then
+              FAILED_COUNT=$(jq '[.. | .tests? // empty | .[] | select(.outcome == "unexpected")] | length' "$JSON_REPORT")
+              FLAKY_COUNT=$(jq '[.. | .tests? // empty | .[] | select(.outcome == "flaky")] | length' "$JSON_REPORT")
+              echo "  • Failed tests: $FAILED_COUNT"
+              echo "  • Flaky tests: $FLAKY_COUNT"
+            fi
+          else
+            echo "⚠ No $JSON_REPORT generated"
+          fi
+
+      - name: Upload JSON report artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-json-report-${{ inputs.project }}
+          path: playwright-merge/playwright-report/results.json
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Upload HTML report to S3
         if: always()
         uses: ./.github/actions/upload-report-to-s3
