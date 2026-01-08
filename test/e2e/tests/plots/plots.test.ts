@@ -38,7 +38,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
-			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.WORKBENCH]
 		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
@@ -352,7 +352,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Verify basic plot functionality', {
-			tag: [tags.WEB, tags.WIN, tags.CRITICAL]
+			tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.WORKBENCH]
 		}, async function ({ app, logger, headless, hotKeys }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
@@ -543,7 +543,7 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
 }
 
-async function verifyPlotInNewWindow(app: Application, language: "Python" | "R", plotCode: string) {
+async function verifyPlotInNewWindow(app: Application, language: 'Python' | 'R', plotCode: string) {
 	const plots = app.workbench.plots;
 	await test.step(`Create a ${language} plot`, async () => {
 		await app.workbench.console.executeCode(language, plotCode);
@@ -569,8 +569,8 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		if (process.env.GITHUB_ACTIONS && !app.web) {
-			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
+		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true') {
+			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {
 				if (data.getBuffer) {

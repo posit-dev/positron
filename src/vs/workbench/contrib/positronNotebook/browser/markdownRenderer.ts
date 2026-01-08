@@ -9,6 +9,8 @@ import { tokenizeToString } from '../../../../editor/common/languages/textToHtml
 import * as marked from '../../../../base/common/marked/marked.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { slugify } from '../../markdown/browser/markedGfmHeadingIdPlugin.js';
+import { MarkedKatexSupport } from '../../markdown/browser/markedKatexSupport.js';
+import { getWindow } from '../../../../base/browser/dom.js';
 
 /**
  * Renders markdown with theme-aware syntax highlighting for Positron notebooks.
@@ -26,7 +28,14 @@ export async function renderNotebookMarkdown(
 	// This is scoped to each render call to ensure fresh state
 	const slugCounter = new Map<string, number>();
 
+	// Load KaTeX extension for LaTeX math rendering
+	const katexExtension = await MarkedKatexSupport.loadExtension(
+		getWindow(document),
+		{ throwOnError: false }
+	);
+
 	const m = new marked.Marked()
+		.use(katexExtension)  // Add KaTeX math support
 		.use(markedHighlight({
 			async: true,
 			async highlight(code: string, lang: string): Promise<string> {

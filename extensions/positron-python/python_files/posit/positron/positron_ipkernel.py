@@ -38,6 +38,7 @@ from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
+from .patch.plotly import patch_plotly_browser_renderer
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
@@ -535,6 +536,9 @@ class PositronIPyKernel(IPythonKernel):
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
 
+        # Patch plotly to write HTML to temp file instead of starting a server
+        patch_plotly_browser_renderer(self.session_mode)
+
     @property
     def kernel_info(self):
         kernel_info = super().kernel_info
@@ -638,6 +642,24 @@ class PositronIPyKernel(IPythonKernel):
         msg = warnings.WarningMessage(message, category, filename, lineno, file, line)  # type: ignore
 
         return original_showwarning(message, category, filename, lineno, file, line)  # type: ignore reportAttributeAccessIssue
+
+    def pre_handler_hook(self):
+        # Override the default pre_handler_hook to add debug logging.
+        # The default logging in Ipykernel adds the exc_info=True which is causing
+        # huge tracebacks, specially in reticulate sessions - the pre_handler_hook and
+        # post_handler_hook always fail because they can't signal from a different thread.
+        # See: https://github.com/posit-dev/positron/issues/10953
+        try:
+            super().pre_handler_hook()
+        except Exception as e:
+            self.log.debug("Error in super().pre_handler_hook(): %s", e, exc_info=False)
+
+    def post_handler_hook(self):
+        # see the pre_handler_hook for details
+        try:
+            super().post_handler_hook()
+        except Exception as e:
+            self.log.debug("Error in super().post_handler_hook(): %s", e, exc_info=False)
 
 
 class PositronIPKernelApp(IPKernelApp):

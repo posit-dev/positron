@@ -16,7 +16,6 @@ import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
@@ -32,6 +31,8 @@ import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
+import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
 /**
  *
@@ -65,7 +66,7 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// Focus the Monaco editor to enter edit mode
-			cell.editor?.focus();
+			cell.currentEditor?.focus();
 		}
 	};
 
@@ -108,14 +109,31 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const language = cell.model.language;
 
-		const scopedContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
-		disposables.add(scopedContextKeyService);
+		// Create a scoped context key service for this editor's DOM element
+		// This creates a child context of the notebook's context, maintaining hierarchy
+		// IMPORTANT: The provider returns a scope that Monaco's CodeEditorWidget will use as parent
+		const editorContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
+		disposables.add(editorContextKeyService);
+
+		// CRITICAL: Set the inCompositeEditor flag to change editor behavior
+		// This tells Monaco it's part of a composite (notebook) and not a standalone editor
+		// Without this flag, certain standalone editor keybindings would still fire
+		EditorContextKeys.inCompositeEditor.bindTo(editorContextKeyService).set(true);
 
 		// We need to ensure the EditorProgressService (or a fake) is available
 		// in the service collection because monaco editors will try and access
 		// it even though it's not available in the notebook context. This feels
 		// hacky but VSCode notebooks do the same thing so I guess it's easier
 		// than fixing it at the monaco level.
+		//
+		// Monaco Context Key Service Configuration:
+		// We provide a scoped IContextKeyService to Monaco to ensure proper context hierarchy.
+		// This creates a chain: Global → Notebook → Cell → Editor
+		//
+		// Previous attempts to omit this caused keybinding leakage (notebook commands firing in editor).
+		// Previous naive implementations caused "double-scoping" by not setting inCompositeEditor flag.
+		//
+		// This implementation follows VSCode's pattern from cellRenderer.ts:282-285
 		const serviceCollection = new ServiceCollection(
 			[
 				IEditorProgressService,
@@ -131,10 +149,10 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 						await promise;
 					}
 				}],
-			[IContextKeyService, scopedContextKeyService]
+			[IContextKeyService, editorContextKeyService]
 		);
 
-		const editorInstaService = services.instantiationService.createChild(serviceCollection);
+		const editorInstaService = instance.scopedInstantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
@@ -186,6 +204,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				InQuickPickContextKey.key,
 				// Other editor inputs (find widget, etc.)
 				EditorContextKeys.textInputFocus.key,
+				// Find input box
+				CONTEXT_FIND_INPUT_FOCUSED.key,
 				// Chat-related contexts (assistant inline or panel chat)
 				CTX_INLINE_CHAT_FOCUSED.key,
 				// Other editors like find widget etc..
@@ -202,8 +222,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 			// Check if focus is still within the notebook editor container
 			// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
-			const notebookContainer = instance.container;
-			if (notebookContainer?.contains(activeElement)) {
+			if (instance.currentContainer?.contains(activeElement)) {
 				return;
 			}
 
@@ -252,7 +271,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
 		const disposable = autorun(reader => {
 			cell.editorFocusRequested.read(reader);
-			const editor = cell.editor;
+			const editor = cell.currentEditor;
 			// Check if THIS cell is still the one being edited
 			// This prevents stale focus requests when user rapidly navigates between cells
 			const state = instance.selectionStateMachine.state.read(reader);
