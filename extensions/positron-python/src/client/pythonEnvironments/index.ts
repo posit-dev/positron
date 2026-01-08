@@ -49,6 +49,8 @@ import { createEnvExtApi } from '../envExt/envExtApi';
 // --- Start Positron ---
 import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
 import { ModuleEnvironmentLocator } from './base/locators/lowLevel/moduleEnvironmentLocator';
+import { traceInfo } from '../logging';
+import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
 // --- End Positron ---
 
 const PYTHON_ENV_INFO_CACHE_KEY = 'PYTHON_ENV_INFO_CACHEv2';
@@ -77,7 +79,13 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
 
 	if (shouldUseNativeLocator()) {
 		const finder = getNativePythonFinder(ext.context);
-		const api = createNativeEnvironmentsApi(finder);
+		// --- Start Positron ---
+		// On Unix-alike, use the wrapper that combines native locator with
+		// module environments
+		const api = getOSType() === OSType.Windows ?
+			createNativeEnvironmentsApi(finder) :
+			createNativeEnvironmentsApiWithModules(finder);
+		// --- End Positron ---
 		ext.disposables.push(api);
 		registerNewDiscoveryForIOC(
 			// These are what get wrapped in the legacy adapter.
