@@ -17,11 +17,13 @@ This document provides guidance for generating effective QA verification guides 
 
 **Format:**
 ```markdown
-**Issue:** #12345
-**Type:** Bug | Feature | Documentation | Maintenance
-**Primary PR:** #12346
-**Component:** [Component Name]
-**Generated:** [timestamp]
+# Verification Guide
+### [Issue Title]<br>
+**Issue:** #12345<br>
+**Type:** Bug | Feature | Documentation | Maintenance<br>
+**Primary PR:** #12346<br>
+**Component:** [Component Name]<br>
+**Generated:** [timestamp]<br>
 ```
 
 **Ticket Types:**
@@ -399,11 +401,13 @@ Or just skip it if too complex.
 
 **Good verification guide:**
 ```markdown
-# Verification Guide: Console crashes when printing None in Python
-
-**Issue:** #4567
-**PR:** #4589
-**Component:** Console
+# Verification Guide
+### Console crashes when printing None in Python<br>
+**Issue:** #4567<br>
+**Type:** Bug<br>
+**PR:** #4589<br>
+**Component:** Console<br>
+**Generated:** [timestamp]<br>
 
 ---
 
@@ -472,11 +476,13 @@ print(None, None, None)
 
 **Good verification guide:**
 ```markdown
-# Verification Guide: Add keyboard shortcut for running selected code
-
-**Issue:** #3456
-**PR:** #3478
-**Component:** Editor
+# Verification Guide
+### Add keyboard shortcut for running selected code<br>
+**Issue:** #3456<br>
+**Type:** Feature<br>
+**PR:** #3478<br>
+**Component:** Editor<br>
+**Generated:** [timestamp]<br>
 
 ---
 

@@ -210,12 +210,13 @@ The script:
 The generated guides follow this structure:
 
 ```markdown
-# Verification Guide: [Issue Title]
-
-**Issue:** #[number]
-**PR:** #[number]
-**Component:** [area label]
-**Generated:** [timestamp]
+# Verification Guide
+### [Issue Title]<br>
+**Issue:** #[number]<br>
+**Type:** Bug | Feature | Documentation | Maintenance<br>
+**PR:** #[number]<br>
+**Component:** [area label]<br>
+**Generated:** [timestamp]<br>
 
 ---
 
