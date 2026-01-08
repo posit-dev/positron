@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isAbsolute } from '../../../../../base/common/path.js';
+import * as glob from '../../../../../base/common/glob.js';
+import { basename, isAbsolute } from '../../../../../base/common/path.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -87,9 +88,14 @@ function fileIsOpenOrInsideWorkspace(
 }
 
 /**
- * Gets AI exclusion patterns with fallback to deprecated inlineCompletionExcludes.
+ * Checks if a file path should be excluded from AI features based on aiExcludes settings.
+ * Uses aiExcludes if explicitly configured, otherwise falls back to inlineCompletionExcludes.
+ * For patterns without '/', matches against basename only for intuitive behavior.
+ * @param configurationService The configuration service
+ * @param filePath The full file path to check (uri.path)
+ * @returns Whether the file is excluded from AI features
  */
-export function getAiExcludePatterns(configurationService: IConfigurationService): string[] {
+export function isFileExcludedFromAI(configurationService: IConfigurationService, filePath: string): boolean {
 	let patterns = configurationService.getValue<string[]>('positron.assistant.aiExcludes');
 	const inspect = configurationService.inspect<string[]>('positron.assistant.aiExcludes');
 
@@ -97,5 +103,14 @@ export function getAiExcludePatterns(configurationService: IConfigurationService
 		patterns = configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
 	}
 
-	return patterns ?? [];
+	if (!patterns || patterns.length === 0) {
+		return false;
+	}
+
+	return patterns.some(pattern => {
+		if (!pattern.includes('/')) {
+			return glob.match(pattern, basename(filePath));
+		}
+		return glob.match(pattern, filePath);
+	});
 }

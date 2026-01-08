@@ -14,10 +14,9 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
-import * as glob from '../../../../base/common/glob.js';
 import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
-import { getAiExcludePatterns } from '../../chat/browser/tools/utils.js';
+import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 
 /**
@@ -158,17 +157,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		}
 
 		// Then, check the exclusion patterns
-		const globPattern = getAiExcludePatterns(this._configurationService);
-
-		if (!globPattern || globPattern.length === 0) {
-			return true; // No glob patterns configured, so completions are enabled
-		}
-
-		// Check all of the glob patterns and return false if any match
-		for (const pattern of globPattern) {
-			if (glob.match(pattern, uri.path)) {
-				return false; // File matches an exclusion pattern, so it is excluded from completions
-			}
+		if (isFileExcludedFromAI(this._configurationService, uri.path)) {
+			return false; // File matches an exclusion pattern, so it is excluded from completions
 		}
 
 		return true; // No patterns matched, so completions are enabled

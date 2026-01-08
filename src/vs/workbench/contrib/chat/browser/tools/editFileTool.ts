@@ -42,11 +42,10 @@ import { ILanguageModelIgnoredFilesService } from '../../common/ignoredFiles.js'
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolInvocationPresentation } from '../../common/languageModelToolsService.js';
 
 // --- Start Positron ---
-import * as glob from '../../../../../base/common/glob.js';
 // eslint-disable-next-line no-duplicate-imports
 import { ToolProgress } from '../../common/languageModelToolsService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { getAiExcludePatterns, getUriForFileOpenOrInsideWorkspace } from './utils.js';
+import { getUriForFileOpenOrInsideWorkspace, isFileExcludedFromAI } from './utils.js';
 
 const codeInstructions = `
 The edits will be automatically merged into the document and presented as a diff to the user.
@@ -187,11 +186,8 @@ export class EditTool implements IToolImpl {
 		}
 
 		// --- Start Positron ---
-		const globPatterns = getAiExcludePatterns(this.configurationService);
-		for (const pattern of globPatterns) {
-			if (glob.match(pattern, uri.path)) {
-				throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
-			}
+		if (isFileExcludedFromAI(this.configurationService, uri.path)) {
+			throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
 		}
 		// --- End Positron ---
 

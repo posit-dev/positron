@@ -15,10 +15,9 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
 // --- Start Positron ---
-import * as glob from '../../../../../base/common/glob.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 // eslint-disable-next-line no-duplicate-imports
-import { getAiExcludePatterns } from './utils.js';
+import { isFileExcludedFromAI } from './utils.js';
 // --- End Positron ---
 
 const getFileContentsModelDescription = `
@@ -83,12 +82,8 @@ export class FileContentsTool implements IToolImpl {
 		}
 
 		// --- Start Positron ---
-		const pathToMatch = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
-		const globPatterns = getAiExcludePatterns(this._configurationService);
-		for (const pattern of globPatterns) {
-			if (glob.match(pattern, pathToMatch)) {
-				throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
-			}
+		if (isFileExcludedFromAI(this._configurationService, uri.path)) {
+			throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
 		}
 		// --- End Positron ---
 

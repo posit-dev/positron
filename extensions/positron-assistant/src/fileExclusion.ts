@@ -5,10 +5,12 @@
 
 import * as vscode from 'vscode';
 import minimatch from 'minimatch';
+import * as path from 'path';
 
 /**
  * Checks if a file URI should be excluded from AI features.
  * Uses aiExcludes if explicitly configured, otherwise falls back to inlineCompletionExcludes.
+ * For patterns without '/', matches against basename only for intuitive behavior.
  */
 export function isFileExcludedFromAI(uri: vscode.Uri): boolean {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
@@ -24,5 +26,10 @@ export function isFileExcludedFromAI(uri: vscode.Uri): boolean {
 		return false;
 	}
 
-	return patterns.some(pattern => minimatch(uri.path, pattern, { dot: true }));
+	return patterns.some(pattern => {
+		if (!pattern.includes('/')) {
+			return minimatch(path.basename(uri.path), pattern, { dot: true });
+		}
+		return minimatch(uri.path, pattern, { dot: true });
+	});
 }
