@@ -11,35 +11,75 @@ This document provides guidance for generating effective QA verification guides 
 
 ## Guide Structure
 
+### 0. Header with Ticket Type
+
+**Purpose:** Immediately identify what kind of issue this is to set expectations for testing approach.
+
+**Format:**
+```markdown
+**Issue:** #12345
+**Type:** Bug | Feature | Documentation | Maintenance
+**Primary PR:** #12346
+**Component:** [Component Name]
+**Generated:** [timestamp]
+```
+
+**Ticket Types:**
+- **Bug**: Something broken that needs fixing → Include Root Cause section
+- **Feature**: New functionality being added → Skip Root Cause section
+- **Documentation**: Docs updates → Adjust testing focus
+- **Maintenance**: Refactoring, tech debt → May have limited user-facing testing
+
 ### 1. Issue Summary
 
 **Purpose:** Give the tester immediate context about what they're verifying.
 
-**Should include:**
-- What was broken or missing
-- How it affects users
-- Which component/area is involved
+**Format:** Use H4 subsections for better readability:
 
-**Good example:**
-```
+**Bug fix example:**
+```markdown
+## Issue Summary
+
+#### What Was Broken
 The Data Explorer's scrollbars would snap back to position 0 when dragging on Safari.
-This made it impossible to navigate large dataframes on Safari, forcing users to use
-keyboard navigation or switch browsers. Affects the Data Explorer component.
+
+#### User Impact
+Users couldn't navigate large dataframes on Safari, forcing them to:
+- Use keyboard navigation instead
+- Switch to a different browser
+- Avoid working with large datasets
 ```
 
-**Bad example:**
-```
-There was a bug in the Data Explorer that needed to be fixed.
+**Feature example:**
+```markdown
+## Issue Summary
+
+#### What Changed
+Added support for Microsoft SQL Server databases to the Connections Pane using Python connectors.
+
+#### User Impact
+Python users working with SQL Server can now:
+- Inspect databases directly in Positron
+- Browse database objects without external tools
+- View table structures and schemas
 ```
 
-### 2. Root Cause (Optional)
+**Formatting rules:**
+- **Bugs**: Use "What Was Broken" to emphasize the problem
+- **Features**: Use "What Changed" to emphasize the addition
+- **Always use bullets** in User Impact for easy scanning
+- Keep it concise (2-4 bullets max)
+
+### 2. Root Cause (Bugs Only)
 
 **When to include:**
+- **Only for bug fixes** (Type: Bug)
 - PR explicitly states the cause
 - Small PR diff makes it obvious
 - Understanding the cause helps identify test scenarios
 
 **When to skip:**
+- **Always skip for Features, Documentation, or Maintenance**
 - Large refactors where cause is complex
 - PR doesn't clearly explain it
 - Not relevant to testing approach
@@ -67,24 +107,39 @@ The main reproduction steps from the issue. Always test this first.
 ```markdown
 ### Primary Scenario
 
-[Step-by-step reproduction from the issue]
+- [ ] **[Scenario title]**
 
-**Expected:** [What should happen now]
-**Previously:** [What was broken before the fix]
+   **Setup:** (if needed)
+   - Setup step one
+   - Setup step two
+
+   **Test Steps:**
+   - Step one
+   - Step two
+   - Step three
+
+   **Expected:** [What should happen now]
+   **Previously:** [What was broken before the fix]
 ```
 
 **Example:**
 ```markdown
 ### Primary Scenario
 
-1. Open Positron on Safari
-2. Create a large dataframe: `df = pd.DataFrame({'col': range(10000)})`
-3. View in Data Explorer
-4. Drag the scrollbar down to row 5000
-5. Release the scrollbar
+- [ ] **Scrollbar maintains position on Safari**
 
-**Expected:** Scrollbar stays at position, showing rows around 5000
-**Previously:** Scrollbar snapped back to 0, showing first rows
+   **Setup:**
+   - Open Positron on Safari
+   - Create a large dataframe: `df = pd.DataFrame({'col': range(10000)})`
+   - View in Data Explorer
+
+   **Test Steps:**
+   - Drag the scrollbar down to row 5000
+   - Release the scrollbar
+   - Verify scrollbar position
+
+   **Expected:** Scrollbar stays at position, showing rows around 5000
+   **Previously:** Scrollbar snapped back to 0, showing first rows
 ```
 
 #### Edge Cases
@@ -99,30 +154,35 @@ Additional scenarios from:
 ```markdown
 ### Edge Cases
 
-#### [Scenario name]
-[Steps]
+- [ ] **[Scenario name]**
 
-**Why test:** [Brief explanation of what this verifies]
+   **_Why test:_** [Brief explanation of what this verifies]
+
+   - Step one
+   - Step two
+   - Step three
 ```
 
 **Example:**
 ```markdown
 ### Edge Cases
 
-#### Horizontal scrollbar
-1. Create wide dataframe: `df = pd.DataFrame({f'col{i}': range(100) for i in range(50)})`
-2. View in Data Explorer
-3. Drag horizontal scrollbar
-4. Release
+- [ ] **Horizontal scrollbar**
 
-**Why test:** Ensures fix works for both scroll directions
+   **_Why test:_** Ensures fix works for both scroll directions
 
-#### Rapid scrolling
-1. Open large dataframe in Data Explorer
-2. Rapidly drag scrollbar up and down multiple times
-3. Release at various positions
+   - Create wide dataframe: `df = pd.DataFrame({f'col{i}': range(100) for i in range(50)})`
+   - View in Data Explorer
+   - Drag horizontal scrollbar
+   - Release
 
-**Why test:** Stress tests the event handler under rapid input
+- [ ] **Rapid scrolling**
+
+   **_Why test:_** Stress tests the event handler under rapid input
+
+   - Open large dataframe in Data Explorer
+   - Rapidly drag scrollbar up and down multiple times
+   - Release at various positions
 ```
 
 #### Regression Checks

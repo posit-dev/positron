@@ -82,29 +82,34 @@ I'll search comments for:
 
 I'll create a markdown file in `.claude/skills/positron-qa-verify/output/` with:
 
-1. **Issue Summary**
-   - Brief explanation of the problem
-   - User impact (why this matters)
-   - Affected component/area
+1. **Ticket Type** (Bug, Feature, Documentation, Maintenance)
+   - Helps set testing expectations
+   - Determines whether Root Cause section is included
 
-2. **Root Cause** (if identifiable)
+2. **Issue Summary**
+   - What changed or what was broken
+   - User impact (why this matters)
+   - Uses H4 subsections for readability
+
+3. **Root Cause** (Bugs only)
    - What was causing the issue
-   - Only included if clearly stated in PR or obvious from small diff
+   - Only included for bug fixes when clearly stated in PR
    - Helps understand what might break again
 
-3. **Test Scenarios**
+4. **Test Scenarios**
+   - Checkboxes for each scenario with nested bullets (not numbered steps)
    - Primary scenario (the main repro steps from the issue)
-   - Edge cases (from comments, PR review, code analysis)
+   - Edge cases (from comments, PR review, code analysis) with "Why test:" rationale
    - Regression checks (related functionality to verify still works)
    - Platform-specific scenarios if mentioned
 
-4. **Testing Context**
+5. **Testing Context**
    - Environment requirements (Python/R version, specific packages, etc.)
    - Setup steps (if any)
    - Expected vs actual behavior
    - Related PRs to be aware of
 
-5. **References**
+6. **References**
    - Link to original issue
    - Link to PR(s)
    - Links to related issues
