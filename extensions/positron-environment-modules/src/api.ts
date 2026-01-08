@@ -47,9 +47,6 @@ export interface EnvironmentModulesApi {
 	 * - The interpreter version
 	 * - The startup command for kernel launch
 	 *
-	 * Language-specific details are provided via the options parameter,
-	 * keeping this extension language-agnostic.
-	 *
 	 * @param options Options specifying how to find and parse the interpreter
 	 * @returns Resolved interpreter info, or undefined if resolution failed
 	 */

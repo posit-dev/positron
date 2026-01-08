@@ -43,14 +43,14 @@
 								"items": {
 									"type": "string"
 								},
-								"description": "Target languages for this environment (e.g., 'r', 'python')"
+								"description": "%configuration.environments.languages.description%"
 							},
 							"modules": {
 								"type": "array",
 								"items": {
 									"type": "string"
 								},
-								"description": "List of modules to load (in order)"
+								"description": "%configuration.environments.modules.description%"
 							}
 						},
 						"required": [

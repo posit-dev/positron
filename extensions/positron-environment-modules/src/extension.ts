@@ -36,6 +36,11 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		);
 	}
 
+	/**
+	 * Check if environment modules support is enabled and available.
+	 *
+	 * @returns A promise that resolves to true if environment modules are enabled and available, false otherwise.
+	 */
 	async isAvailable(): Promise<boolean> {
 		const config = vscode.workspace.getConfiguration('positron.environmentModules');
 		if (!config.get<boolean>('enabled', true)) {
@@ -46,6 +51,11 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		return systemInfo.available;
 	}
 
+	/**
+	 * Get information about the module system on this machine.
+	 *
+	 * @returns  A promise that resolves to module system information.
+	 */
 	async getModuleSystemInfo(): Promise<ModuleSystemInfo> {
 		if (!this._moduleSystemInfo) {
 			const config = vscode.workspace.getConfiguration('positron.environmentModules');
@@ -56,6 +66,12 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		return this._moduleSystemInfo;
 	}
 
+	/**
+	 * Get all configured environments that target a specific language.
+	 *
+	 * @param language The language to filter by (e.g., 'r', 'python', 'julia')
+	 * @returns Map of environment names to their configurations
+	 */
 	async getEnvironmentsForLanguage(language: string): Promise<Map<string, ModuleEnvironmentConfig>> {
 		const config = vscode.workspace.getConfiguration('positron.environmentModules');
 		const environments = config.get<Record<string, ModuleEnvironmentConfig>>('environments', {});
@@ -69,6 +85,12 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		return result;
 	}
 
+	/**
+	 * Resolve an interpreter path and version for a module environment.
+	 *
+	 * @param options Options specifying how to find and parse the interpreter
+	 * @returns The resolved interpreter info, or undefined if resolution failed.
+	 */
 	async resolveInterpreter(
 		options: ResolveInterpreterOptions
 	): Promise<ModuleResolvedInterpreter | undefined> {
@@ -103,12 +125,23 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 		return resolved;
 	}
 
+	/**
+	 * Build the startup command string for loading modules.
+	 * @param modules Array of module names to load
+	 * @returns Shell command string
+	 */
 	buildStartupCommand(modules: string[]): string {
 		const initScript = this._moduleSystemInfo?.initPath;
 		return buildModuleLoadCommand(modules, initScript);
 	}
 }
 
+/**
+ * Main activation function for the extension.
+ *
+ * @param context The extension context
+ * @returns The public API for the extension
+ */
 export async function activate(
 	context: vscode.ExtensionContext
 ): Promise<EnvironmentModulesApi> {
