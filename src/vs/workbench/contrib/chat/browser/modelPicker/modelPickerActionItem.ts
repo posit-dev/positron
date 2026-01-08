@@ -54,7 +54,7 @@ type ChatModelChangeEvent = {
 function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService): IActionWidgetDropdownActionProvider {
 	// --- Start Positron ---
 	// The entire body of this function has been replaced to group models by
-	// vendor with separators
+	// vendor with separators, and to indicate default models in the list.
 	return {
 		getActions: () => {
 			const models = delegate.getModels();
@@ -70,6 +70,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 				modelsByVendor.get(vendor)!.push(model);
 			}
 
+			// --- Start "Mark default model" ---
 			// Sort each vendor's models to place the default model first
 			// This improves UX by making the default model immediately visible
 			// without scrolling, especially for providers with long model lists
@@ -86,6 +87,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 				}
 				// If no default, keep original order
 			}
+			// --- End "Mark default model" ---
 
 			// Sort vendors for consistent ordering
 			const sortedVendors = Array.from(modelsByVendor.entries())
@@ -121,6 +123,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					run: () => { /* separator - no action */ }
 				} satisfies IActionWidgetDropdownAction);				// Add all models for this vendor
 				for (const model of vendorModels) {
+					// --- Start "Mark default model" ---
 					// Check if this model is marked as the default for its provider
 					const isDefault = model.metadata.isDefault;
 					// Add "(default)" suffix to label if this is the default model
@@ -129,6 +132,7 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 					const tooltip = isDefault
 						? localize('chat.defaultModel', "{0} (default)", model.metadata.tooltip ?? model.metadata.name)
 						: (model.metadata.tooltip ?? model.metadata.name);
+					// --- End "Mark default model" ---
 
 					actions.push({
 						id: model.metadata.id,
@@ -138,8 +142,10 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 						category: { label: `vendor_${vendor}`, order: vendorOrder * 1000 },
 						class: undefined,
 						description: model.metadata.detail,
+						// --- Start "Mark default model" ---
 						tooltip: tooltip,
 						label: label,
+						// --- End "Mark default model" ---
 						run: () => {
 							const previousModel = delegate.getCurrentModel();
 							telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
