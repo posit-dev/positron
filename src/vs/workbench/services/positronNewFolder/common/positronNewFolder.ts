@@ -101,6 +101,7 @@ export interface NewFolderConfiguration {
 	readonly condaPythonVersion: string | undefined;
 	readonly uvPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
+	readonly openInNewWindow: boolean;
 }
 
 /**
