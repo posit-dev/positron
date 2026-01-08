@@ -19,9 +19,9 @@ This document provides guidance for generating effective QA verification guides 
 ```markdown
 # Verification Guide
 ### [Issue Title]<br>
-**Issue:** #12345<br>
+**Issue:** [#12345](https://github.com/posit-dev/positron/issues/12345)<br>
 **Type:** Bug | Feature | Documentation | Maintenance<br>
-**Primary PR:** #12346<br>
+**Primary PR:** [#12346](https://github.com/posit-dev/positron/pull/12346)<br>
 **Component:** [Component Name]<br>
 **Generated:** [timestamp]<br>
 ```
@@ -403,9 +403,9 @@ Or just skip it if too complex.
 ```markdown
 # Verification Guide
 ### Console crashes when printing None in Python<br>
-**Issue:** #4567<br>
+**Issue:** [#4567](https://github.com/posit-dev/positron/issues/4567)<br>
 **Type:** Bug<br>
-**PR:** #4589<br>
+**Primary PR:** [#4589](https://github.com/posit-dev/positron/pull/4589)<br>
 **Component:** Console<br>
 **Generated:** [timestamp]<br>
 
@@ -478,9 +478,9 @@ print(None, None, None)
 ```markdown
 # Verification Guide
 ### Add keyboard shortcut for running selected code<br>
-**Issue:** #3456<br>
+**Issue:** [#3456](https://github.com/posit-dev/positron/issues/3456)<br>
 **Type:** Feature<br>
-**PR:** #3478<br>
+**Primary PR:** [#3478](https://github.com/posit-dev/positron/pull/3478)<br>
 **Component:** Editor<br>
 **Generated:** [timestamp]<br>
 

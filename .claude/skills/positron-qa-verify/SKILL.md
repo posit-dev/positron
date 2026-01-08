@@ -212,9 +212,9 @@ The generated guides follow this structure:
 ```markdown
 # Verification Guide
 ### [Issue Title]<br>
-**Issue:** #[number]<br>
+**Issue:** [#number](https://github.com/posit-dev/positron/issues/[number])<br>
 **Type:** Bug | Feature | Documentation | Maintenance<br>
-**PR:** #[number]<br>
+**Primary PR:** [#number](https://github.com/posit-dev/positron/pull/[number])<br>
 **Component:** [area label]<br>
 **Generated:** [timestamp]<br>
 
