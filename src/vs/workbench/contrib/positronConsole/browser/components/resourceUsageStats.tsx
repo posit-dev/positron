@@ -40,6 +40,15 @@ export const ResourceUsageStats = ({ cpuPercent, memoryBytes }: ResourceUsageSta
 				<span className="resource-usage-label">MEM </span>
 				<span className="resource-usage-value">{memoryValue}</span>
 			</span>
-		</div>
+<dl className="resource-usage-stats" aria-live="polite" aria-atomic="true">
+        <div className="resource-usage-cpu">
+                <dt className="resource-usage-label">CPU</dt>
+                <dd className="resource-usage-value">{cpuValue}</dd>
+        </div>
+        <div className="resource-usage-memory">
+                <dt className="resource-usage-label">MEM</dt>
+                <dd className="resource-usage-value">{memoryValue}</dd>
+        </div>
+</dl>
 	);
 };
