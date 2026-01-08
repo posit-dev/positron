@@ -14,6 +14,8 @@ import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.
 import { TokenUsage } from '../../tokens.js';
 import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
+import { LanguageModelDataPartMimeType } from '../../types.js';
+import { ModelProviderLogger } from '../base/modelProviderLogger.js';
 
 export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
 export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
@@ -452,8 +454,10 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 			if (isChatImagePart(part)) {
 				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
-				// Skip other data parts - only log if not a cache control part
-				// (cache control parts are expected and handled elsewhere)
+				// Skip other data parts.
+				if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
+					log.debug(`Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
+				}
 			}
 		} else {
 			throw new Error(`[Anthropic] Unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
@@ -511,8 +515,10 @@ function toAnthropicToolResultBlock(
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
 			if (isChatImagePart(resultPart)) {
 				content.push(chatImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
+			} else {
+				// Skip other data parts.
+				log.debug(`Skipping unsupported data part in tool result: ${JSON.stringify(resultPart, null, 2)}`);
 			}
-			// Skip other data parts - handled elsewhere
 		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
 			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
@@ -588,6 +594,7 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		required: []
 	};
 	if (!input_schema.type) {
+		log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 		input_schema.type = 'object';
 	}
 	return {
@@ -620,7 +627,7 @@ export function toAnthropicSystem(
 	messages: vscode.LanguageModelChatMessage2[],
 	cacheSystem = true,
 	system?: string | vscode.LanguageModelTextPart[],
-	logger?: any
+	logger?: ModelProviderLogger
 ): Anthropic.MessageCreateParams['system'] {
 	// Append system prompt from `modelOptions.system`, if provided.
 	// TODO: Once extensions such as databot no longer use `modelOptions.system`,
@@ -682,13 +689,16 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 
 	try {
 		const cacheBreakpoint = parseCacheBreakpoint(dataPart);
-		// Cache control added - could log debug here if logger available
+		// Cache control added
+		log.debug(`Adding cache breakpoint to ${part.type} part. Source: ${source}`);
 		return {
 			...part,
 			cache_control: cacheBreakpoint,
 		};
 	} catch (error) {
-		// Failed to parse cache breakpoint - could log error here if logger available
+		// Failed to parse cache breakpoint
+		log.error(`Failed to parse cache breakpoint: ${error}`);
+
 		return part;
 	}
 }
