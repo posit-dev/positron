@@ -13,6 +13,8 @@ test.use({
 	suiteId: __filename
 });
 
+// Currently not tagging WEB to avoid flaky test runs in CI web environment
+// After feature is enabled by default we can consider adding WEB tag back if necessary
 test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
@@ -29,7 +31,36 @@ test.describe('Positron Notebooks: Open & Save', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Positron notebooks can open new untitled notebooks and saving works properly', { tag: [tags.WEB] },
+	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
+		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
+
+		// Verify default behavior - VS Code notebook editor should be used when no association is set
+		// This tests the fallback behavior when positron.notebook.enabled=true but no explicit association exists
+		await notebooks.openNotebook(NOTEBOOK_PATH);
+		await notebooksVscode.expectToBeVisible();
+
+		// Configure Positron as the default notebook editor
+		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
+
+		// Verify that newly opened notebooks now use the Positron editor
+		// The same notebook file should now open with the Positron interface instead of VS Code
+		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
+		await notebooksPositron.expectToBeVisible();
+
+		// Reset to default configuration and verify VS Code editor is used again
+		// Close all editors first to ensure a clean state for the next test
+		await hotKeys.closeAllEditors();
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+
+		// Confirm that removing the association restores VS Code notebook editor
+		// This ensures the configuration change is properly applied and the fallback works
+		await notebooks.openNotebook(NOTEBOOK_PATH);
+		await notebooksVscode.expectToBeVisible();
+	});
+
+
+	test('Positron notebooks can open new untitled notebooks and saving works properly',
 		async function ({ app, settings, runCommand, cleanup }) {
 			const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
@@ -102,34 +133,5 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Additional verification: ensure the active tab is still the restored untitled notebook
 		await editors.waitForActiveTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
-	});
-
-	// Intentionally moving this test to the end of the suite, because I think it causes flakes in the next test not always switching to Positron Notebooks
-	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
-		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
-
-		// Verify default behavior - VS Code notebook editor should be used when no association is set
-		// This tests the fallback behavior when positron.notebook.enabled=true but no explicit association exists
-		await notebooks.openNotebook(NOTEBOOK_PATH);
-		await notebooksVscode.expectToBeVisible();
-
-		// Configure Positron as the default notebook editor
-		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
-
-		// Verify that newly opened notebooks now use the Positron editor
-		// The same notebook file should now open with the Positron interface instead of VS Code
-		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
-		await notebooksPositron.expectToBeVisible();
-
-		// Reset to default configuration and verify VS Code editor is used again
-		// Close all editors first to ensure a clean state for the next test
-		await hotKeys.closeAllEditors();
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
-
-		// Confirm that removing the association restores VS Code notebook editor
-		// This ensures the configuration change is properly applied and the fallback works
-		await notebooks.openNotebook(NOTEBOOK_PATH);
-		await notebooksVscode.expectToBeVisible();
 	});
 });
