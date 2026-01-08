@@ -132,7 +132,7 @@ if (existsSync(`${import.meta.dirname}/../../.build/distro/npm`)) {
 //
 // Volatile extensions: Change frequently (71% of extension commits over 6 months)
 // THIS IS THE SINGLE SOURCE OF TRUTH for volatile extension list
-const volatileExtensions = [
+export const volatileExtensions = [
 	'extensions/positron-python',
 	'extensions/positron-assistant',
 	'extensions/positron-r'
@@ -163,7 +163,7 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		// sets POSITRON_EXTENSIONS_FILTER = '' (empty), causing full reinstall of all
 		// directories including extensions/. No stale dependencies can occur.
 		const extensionsNodeModulesPath = path.join(__dirname, '../../extensions/node_modules');
-		const extensionsNodeModulesExists = fs.existsSync(extensionsNodeModulesPath);
+		const extensionsNodeModulesExists = existsSync(extensionsNodeModulesPath);
 
 		if (extensionsNodeModulesExists) {
 			console.log('  → Skipping extensions/ directory (node_modules already exists)');
@@ -183,8 +183,4 @@ if (POSITRON_EXTENSIONS_FILTER) {
 		dirs = [...baseDirs, ...stableExtensions];
 	}
 }
-
-exports.volatileExtensions = volatileExtensions;
 // --- End Positron ---
-
-exports.dirs = dirs;
