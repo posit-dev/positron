@@ -916,6 +916,16 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			// We're in the new folder window, so we can clear the config from the storage service.
 			this.clearNewFolderConfig();
 
+			// Apply notebook layout if this is a Jupyter Notebook template opened in a new window.
+			// When opened in the current window, we preserve the user's existing layout.
+			if (this._newFolderConfig.folderTemplate === FolderTemplate.JupyterNotebook &&
+				this._newFolderConfig.openInNewWindow) {
+				this._logService.debug('[New folder startup] Applying notebook layout for Jupyter Notebook folder template in new window');
+				this._commandService.executeCommand('workbench.action.positronNotebookLayout').catch((error) => {
+					this._logService.error('[New folder startup] Error applying notebook layout:', error);
+				});
+			}
+
 			this._startupPhase.set(
 				NewFolderStartupPhase.AwaitingTrust,
 				undefined
