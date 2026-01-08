@@ -8,6 +8,7 @@ import React from 'react';
 
 // Other dependencies.
 import { ByteSize } from '../../../../../platform/files/common/files.js';
+import { localize } from '../../../../../nls.js';
 
 /**
  * ResourceUsageStatsProps interface.
@@ -18,6 +19,9 @@ interface ResourceUsageStatsProps {
 	/** The memory usage in bytes */
 	memoryBytes: number;
 }
+
+const cpuLabel = localize('positronConsole.resourceUsageStats.cpuLabel', 'CPU');
+const memoryLabel = localize('positronConsole.resourceUsageStats.memoryLabel', 'MEM');
 
 /**
  * ResourceUsageStats component.
@@ -31,24 +35,15 @@ export const ResourceUsageStats = ({ cpuPercent, memoryBytes }: ResourceUsageSta
 	const memoryValue = ByteSize.formatSize(memoryBytes);
 
 	return (
-		<div className="resource-usage-stats">
-			<span className="resource-usage-cpu">
-				<span className="resource-usage-label">CPU </span>
-				<span className="resource-usage-value">{cpuValue}</span>
-			</span>
-			<span className="resource-usage-memory">
-				<span className="resource-usage-label">MEM </span>
-				<span className="resource-usage-value">{memoryValue}</span>
-			</span>
-<dl className="resource-usage-stats" aria-live="polite" aria-atomic="true">
-        <div className="resource-usage-cpu">
-                <dt className="resource-usage-label">CPU</dt>
-                <dd className="resource-usage-value">{cpuValue}</dd>
-        </div>
-        <div className="resource-usage-memory">
-                <dt className="resource-usage-label">MEM</dt>
-                <dd className="resource-usage-value">{memoryValue}</dd>
-        </div>
-</dl>
+		<dl className="resource-usage-stats" aria-live="polite" aria-atomic="true">
+			<div className="resource-usage-cpu">
+				<dt className="resource-usage-label">{cpuLabel}</dt>
+				<dd className="resource-usage-value">{cpuValue}</dd>
+			</div>
+			<div className="resource-usage-memory">
+				<dt className="resource-usage-label">{memoryLabel}</dt>
+				<dd className="resource-usage-value">{memoryValue}</dd>
+			</div>
+		</dl>
 	);
 };

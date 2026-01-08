@@ -158,11 +158,26 @@
 .tabs-container .tab-button .resource-usage-cpu,
 .tabs-container .tab-button .resource-usage-memory {
 	white-space: nowrap;
+	display: flex;
+	gap: 4px;
+	flex-direction: row;
+}
+
+
+.tabs-container .tab-button .resource-usage-value {
+	margin: 0px;
 }
 
 /* Hide labels when container is too narrow */
 @container (max-width: 115px) {
 	.resource-usage-stats .resource-usage-label {
+		display: none;
+	}
+}
+
+/* Hide memory usage when it's even narrower */
+@container (max-width: 65px) {
+	.tabs-container .tab-button .resource-usage-stats .resource-usage-memory {
 		display: none;
 	}
 }
