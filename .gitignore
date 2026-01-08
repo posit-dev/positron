@@ -33,6 +33,7 @@ pwb-version
 !.claude/skills/
 !.claude/hooks/
 !.claude/settings.json
+.claude/skills/positron-qa-verify/output/
 
 .Rproj.user
 /playwright-report/
