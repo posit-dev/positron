@@ -74,10 +74,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						renderer.services.workspaceTrustManagementService.setUrisTrust([folder], true);
 					}
 
-					// Any context-dependent work needs to be done before opening the folder
-					// because the extension host gets destroyed when a new folder is opened,
-					// whether the folder is opened in a new window or in the existing window.
-					// Ask the user where to open the new folder and open it.
+					// Ask the user where to open the new folder.
 					result.openInNewWindow = await showChooseNewFolderWindowModalDialog(
 						folder.path,
 						result.openInNewWindow,
@@ -105,6 +102,9 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 					// Store the new folder configuration.
 					renderer.services.positronNewFolderService.storeNewFolderConfig(newFolderConfig);
 
+					// Any context-dependent work needs to be done before opening the folder
+					// because the extension host gets destroyed when a new folder is opened,
+					// whether the folder is opened in a new window or in the existing window.
 					// Open the folder in the selected window.
 					await renderer.services.commandService.executeCommand(
 						'vscode.openFolder',
