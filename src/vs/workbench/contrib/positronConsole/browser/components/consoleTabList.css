@@ -176,8 +176,13 @@
 	}
 }
 
-/* Hide CPU usage when it's even narrower */
-@container (max-width: 65px) {
+/*
+ * Hide CPU usage when it's even narrower (at its minimum width).
+ *
+ * The 64px value corresponds to the MINIMUM_CONSOLE_TAB_LIST_WIDTH, and should be
+ * kept in sync with that constant.
+ */
+@container (max-width: 64px) {
 	.tabs-container .tab-button .resource-usage-stats .resource-usage-cpu {
 		display: none;
 	}
