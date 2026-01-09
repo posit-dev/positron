@@ -2592,6 +2592,13 @@ declare module 'positron' {
 		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
 
 		/**
+		 * Delete multiple cells from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Array of cell indices to delete
+		 */
+		export function deleteCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
+
+		/**
 		 * Update the content of a cell in a notebook
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell to update

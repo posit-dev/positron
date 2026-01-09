@@ -13,7 +13,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
+import { CellKind, CellEditType, ICellDto2 } from '../../../contrib/notebook/common/notebookCommon.js';
 import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/browser/cellClipboardUtils.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
@@ -248,6 +248,55 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		// Add sentinel with complete cell data
 		instance.addDeletionSentinel(cellIndex, cellData);
+	}
+
+	/**
+	 * Deletes multiple cells from a notebook.
+	 * Creates individual deletion sentinels for each deleted cell.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Array of cell indices to delete.
+	 */
+	async $deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		const cells = instance.cells.get();
+
+		// Validate all indices first
+		const cellsToDelete: IPositronNotebookCell[] = [];
+		const cellDataForSentinels: Array<{ index: number; data: ICellDto2 }> = [];
+
+		for (const cellIndex of cellIndices) {
+			if (cellIndex < 0 || cellIndex >= cells.length) {
+				throw new Error(`Cell not found at index: ${cellIndex}`);
+			}
+
+			const cell = cells[cellIndex];
+			cellsToDelete.push(cell);
+
+			// Capture complete cell data before deletion
+			const cellData = cellToCellDtoForRestore(cell);
+			cellDataForSentinels.push({ index: cellIndex, data: cellData });
+		}
+
+		// Sort indices in descending order for sentinel creation
+		// (higher indices first so they don't shift during deletion)
+		cellDataForSentinels.sort((a, b) => b.index - a.index);
+
+		// Delete all cells at once (more efficient)
+		instance.deleteCells(cellsToDelete);
+
+		// Create individual sentinels for each deleted cell
+		// Process in descending order to maintain correct positions
+		for (const { index, data } of cellDataForSentinels) {
+			instance.addDeletionSentinel(index, data);
+		}
+
+		// Notify about assistant modification
+		const lowestIndex = Math.min(...cellIndices);
+		await instance.handleAssistantCellModification(lowestIndex, 'delete');
 	}
 
 	/**

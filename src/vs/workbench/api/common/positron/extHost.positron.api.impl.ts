@@ -427,6 +427,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostNotebookFeatures.deleteCell(notebookUri, cellIndex);
 			},
 
+			async deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+				return extHostNotebookFeatures.deleteCells(notebookUri, cellIndices);
+			},
+
 			async updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
 				return extHostNotebookFeatures.updateCellContent(notebookUri, cellIndex, content);
 			},

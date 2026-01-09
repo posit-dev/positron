@@ -151,7 +151,8 @@ interface EditNotebookCellsInput {
 	cellType?: 'code' | 'markdown';
 	index?: number;
 	content?: string;
-	cellIndex?: number;
+	cellIndex?: number;           // For update operation
+	cellIndices?: number[];        // For delete operation (array)
 	run?: boolean;
 	fromIndex?: number;
 	toIndex?: number;
@@ -234,27 +235,39 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 				}
 
 				case 'delete': {
-					// Try to fetch cell type for better message
-					let cellTypeLabel = 'cell';
-					if (cellIndex !== undefined) {
+					const { cellIndices } = options.input;
+
+					// Build confirmation message for multiple cells
+					let message: string;
+					if (!cellIndices || cellIndices.length === 0) {
+						message = vscode.l10n.t('Delete cells');
+					} else if (cellIndices.length === 1) {
+						// Try to fetch cell type for single cell
+						let cellTypeLabel = 'cell';
 						try {
-							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
+							const cell = await positron.notebooks.getCell(context.uri, cellIndices[0]);
 							if (cell) {
 								cellTypeLabel = cell.type === 'code' ? 'code cell' : 'markdown cell';
 							}
 						} catch (error) {
 							// Use default label if fetch fails
 						}
+						message = vscode.l10n.t('Delete {0} {1}? This cannot be undone.', cellTypeLabel, cellIndices[0]);
+					} else {
+						// Multiple cells
+						const cellList = cellIndices.length <= 5
+							? cellIndices.join(', ')
+							: `${cellIndices.slice(0, 5).join(', ')}, and ${cellIndices.length - 5} more`;
+						message = vscode.l10n.t('Delete {0} cells ({1})? This cannot be undone.', cellIndices.length, cellList);
 					}
 
-					const message = vscode.l10n.t('Delete {0} {1}? This cannot be undone.', cellTypeLabel, cellIndex);
 					return {
-						invocationMessage: vscode.l10n.t('Deleting notebook cell'),
+						invocationMessage: vscode.l10n.t('Deleting notebook cells'),
 						confirmationMessages: {
-							title: vscode.l10n.t('Delete Notebook Cell'),
+							title: vscode.l10n.t('Delete Notebook Cells'),
 							message: message
 						},
-						pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
+						pastTenseMessage: vscode.l10n.t('Deleted notebook cells'),
 					};
 				}
 
@@ -482,25 +495,32 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 					}
 
 					case 'delete': {
-						// Validate required parameters for delete operation
-						if (cellIndex === undefined) {
+						const { cellIndices } = options.input;
+
+						// Validate required parameters
+						if (!cellIndices || cellIndices.length === 0) {
 							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart('Missing required parameter: cellIndex (index of cell to delete)')
+								new vscode.LanguageModelTextPart('Missing required parameter: cellIndices (array of cell indices to delete)')
 							]);
 						}
 
-						// Validate cell index
-						const validation = validateCellIndices([cellIndex], context.cellCount);
+						// Validate all cell indices
+						const validation = validateCellIndices(cellIndices, context.cellCount);
 						if (!validation.valid) {
 							return new vscode.LanguageModelToolResult([
 								new vscode.LanguageModelTextPart(validation.error!)
 							]);
 						}
 
-						await positron.notebooks.deleteCell(context.uri, cellIndex);
+						// Delete all cells
+						await positron.notebooks.deleteCells(context.uri, cellIndices);
+
+						const message = cellIndices.length === 1
+							? `Successfully deleted cell ${cellIndices[0]}`
+							: `Successfully deleted ${cellIndices.length} cells: ${cellIndices.join(', ')}`;
 
 						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart(`Successfully deleted cell ${cellIndex}`)
+							new vscode.LanguageModelTextPart(message)
 						]);
 					}
 
@@ -793,4 +813,3 @@ export function registerNotebookTools(
 		GetNotebookCellsTool
 	);
 }
-

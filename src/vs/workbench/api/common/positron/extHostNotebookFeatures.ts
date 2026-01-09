@@ -76,6 +76,15 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	}
 
 	/**
+	 * Deletes multiple cells from a notebook.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Array of cell indices to delete.
+	 */
+	async deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		return this._proxy.$deleteCells(notebookUri, cellIndices);
+	}
+
+	/**
 	 * Updates the content of a cell in a notebook.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell to update.
