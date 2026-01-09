@@ -7,6 +7,11 @@ import { readFileSync } from 'fs';
 import path = require('path');
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import {
+	PythonDatabricksPATDriver,
+	PythonDatabricksM2MDriver,
+	PythonDatabricksU2MDriver
+} from './drivers/databricks';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 
@@ -21,6 +26,9 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new PythonSQLiteDriver(context),
 		new PythonPostgreSQLDriver(context),
 		new PythonDuckDBDriver(context),
+		new PythonDatabricksPATDriver(context),
+		new PythonDatabricksM2MDriver(context),
+		new PythonDatabricksU2MDriver(context),
 	];
 
 	for (const driver of drivers) {
