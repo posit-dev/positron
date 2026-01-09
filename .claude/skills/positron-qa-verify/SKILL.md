@@ -21,6 +21,25 @@ Use this skill when:
 - Working in the Positron repository
 - Access to the posit-dev/positron repository
 
+## Execution Mode
+
+**CRITICAL: This skill MUST run non-interactively without ANY prompts.**
+
+- **NEVER use `AskUserQuestion`** - The skill always writes to a safe output directory (`.claude/skills/positron-qa-verify/output/`)
+- **Version auto-detection is best-effort** - If it fails, silently use empty values. The user can fill them in manually.
+- **All operations must complete quickly** - Fail fast if data cannot be retrieved within reasonable timeouts
+- **No permission requests** - Reading issue data, writing markdown files, and running version detection do not require special permissions
+
+**Performance requirements:**
+- Version detection must complete in ≤4 seconds total (enforced by script timeouts)
+- If version detection times out or fails, continue without error messages
+- Never attempt interactive detection methods (no manual path prompts, no user input)
+
+**Windows compatibility:**
+- The `detect_versions.sh` script handles Windows paths via Git Bash/MSYS/PowerShell
+- Falls back gracefully if Positron installation path cannot be found
+- Uses multiple detection methods to maximize success rate across platforms
+
 ## Input
 
 Provide an issue number or URL. Examples:
@@ -32,7 +51,19 @@ Provide an issue number or URL. Examples:
 
 I'll analyze the issue and generate a verification guide following these steps:
 
-### Step 1: Fetch Issue Details
+### Performance Optimization Strategy
+
+**CRITICAL: Use parallel execution wherever possible to minimize latency.**
+
+- **Step 1 & 2 run in parallel** - Issue details and PR search are independent
+- **Step 3 fetches run in parallel** - Related PRs/issues are fetched concurrently
+- **Step 4 checks size first** - Only fetch diff for small PRs (<500 lines)
+
+Total time savings: ~40-50% faster than sequential execution (5-8s vs 10-15s typical)
+
+### Step 1: Fetch Issue Details (Parallel with Step 2)
+
+**MUST RUN IN PARALLEL** with Step 2 using a single message with multiple Bash tool calls.
 
 Using `gh issue view`, I'll retrieve:
 - Issue title and description
@@ -41,7 +72,9 @@ Using `gh issue view`, I'll retrieve:
 - Labels and metadata
 - Linked issues
 
-### Step 2: Identify Related PR(s)
+### Step 2: Identify Related PR(s) (Parallel with Step 1)
+
+**MUST RUN IN PARALLEL** with Step 1 using a single message with multiple Bash tool calls.
 
 I'll automatically detect the PR that fixes this issue by:
 1. Looking for PR references in issue comments (e.g., "Fixed in #1234")
@@ -52,12 +85,19 @@ If multiple PRs are found, I'll analyze all of them.
 
 ### Step 3: Analyze PR Context
 
-For each PR, I'll fetch:
+**OPTIMIZATION:** Fetch primary PR details first, then fetch all related PRs/issues in parallel.
+
+For the primary PR, I'll fetch:
 - PR description and summary
 - All PR comments (often contain testing notes)
-- Related PRs mentioned (e.g., in ark or other repos)
+- **Additions and deletions counts** (needed for Step 4 size check)
+- Related PRs/issues mentioned in the body
+
+Then, for all related PRs/issues referenced, I'll fetch them **in parallel using multiple Bash tool calls in a single message**.
 
 ### Step 4: Review Code Changes (Conditionally)
+
+**OPTIMIZATION:** Check PR size from Step 3 data (additions + deletions) BEFORE fetching diff.
 
 **For small PRs (< 500 lines changed):**
 - I'll use `gh pr diff` to review actual code changes
@@ -67,8 +107,9 @@ For each PR, I'll fetch:
   - Whether the fix is focused or touches multiple areas
 
 **For large PRs (>= 500 lines):**
-- I'll skip detailed code review
+- I'll skip detailed code review (don't fetch diff at all)
 - Focus on PR description and comments instead
+- Saves 1-5 seconds by avoiding large diff download
 
 ### Step 5: Extract Linked Issues and Scenarios
 
@@ -97,7 +138,8 @@ I'll create a markdown file in `.claude/skills/positron-qa-verify/output/` with:
    - Helps understand what might break again
 
 4. **Test Scenarios**
-   - Checkboxes for each scenario with nested bullets (not numbered steps)
+   - Scenario titles use checkmarks (✓) for visual organization
+   - Test steps within scenarios use checkboxes (- [ ]) for tracking progress
    - Primary scenario (the main repro steps from the issue)
    - Edge cases (from comments, PR review, code analysis) with "Why test:" rationale
    - Regression checks (related functionality to verify still works)
@@ -114,9 +156,15 @@ I'll create a markdown file in `.claude/skills/positron-qa-verify/output/` with:
    - Link to PR(s)
    - Links to related issues
 
-### Step 7: Offer Verification Comment Template (Optional)
+### Step 7: Offer Verification Comment Template (User-Triggered)
 
-After generating the guide, I'll ask if you want help creating a verification comment to post on the issue after testing.
+After generating the guide, I'll offer to create a verification comment template. **Only if you accept** will I run the version detection script and generate the template.
+
+**Workflow:**
+1. Generate verification guide
+2. Offer: "Would you like me to generate a verification comment template?"
+3. If yes → Run `detect_versions.sh` to auto-detect versions
+4. Generate template and copy to clipboard
 
 For single scenario tests (only 1 test, no edge cases or regressions), I'll use a simple format:
 
@@ -156,16 +204,22 @@ OS Version(s): [OS]
 [links or paths to e2e tests, or n/a]
 ```
 
-**Note:** The verification comment uses plain bullets. Checkboxes are only in the verification guide for tracking during testing.
+**Note:** The verification comment uses plain bullets. Checkmarks (✓) and checkboxes (- [ ]) are only in the verification guide for visual organization and progress tracking during testing.
 
 The template will be pre-filled with:
 - Test scenarios extracted and condensed from the verification guide
 - Grouped format used by default for better readability (unless only 1 scenario)
-- **Positron Version automatically detected** from installed application
-- **OS Version automatically detected** from your system
+- **Positron Version automatically detected** from installed application (using `scripts/detect_versions.sh`)
+- **OS Version automatically detected** from your system (using `scripts/detect_versions.sh`)
 - Ready to paste - you can adjust versions if you tested on multiple systems
 
-**The template will be automatically copied to your clipboard** (on macOS/Linux using `pbcopy`/`xclip`, on Windows using `clip`), making it easy to paste directly into the GitHub issue after you complete testing.
+**Version detection is best-effort and silent:**
+- **Only runs when you request the comment template** (not during initial guide generation)
+- Uses the `detect_versions.sh` script with 3-second timeouts per detection
+- If detection fails, empty values are used (you can fill them in manually)
+- Never prompts or shows errors - fails fast and silent
+
+**The template will be automatically copied to your clipboard** (on macOS/Linux using `pbcopy`/`xclip`, on Windows using `clip`) when you accept the offer, making it easy to paste directly into the GitHub issue after you complete testing.
 
 ## Output Format
 
@@ -188,7 +242,53 @@ I'll respond with:
 2. Path to the generated verification guide
 3. Key highlights (number of scenarios, any blockers, etc.)
 
-## Helper Script
+## Implementation Examples
+
+### Example 1: Parallel Execution of Steps 1 & 2
+
+**Do this (FAST - ~2 seconds):**
+
+Single message with multiple Bash tool calls running in parallel:
+- `gh issue view <number>` fetches issue details
+- `gh pr list --search "<number>"` searches for related PRs
+
+**Saves ~1-2 seconds** compared to sequential execution.
+
+### Example 2: Parallel Fetch of Related PRs/Issues
+
+**Do this (FAST - ~2 seconds):**
+
+After identifying related PRs/issues from PR body (e.g., #10625, #10753), fetch them all in parallel with a single message containing multiple Bash tool calls.
+
+**Don't do this (SLOW - ~6 seconds):**
+
+Sequential fetches of each related PR/issue one at a time.
+
+**Saves ~2-4 seconds** depending on number of related items.
+
+### Example 3: Check PR Size Before Fetching Diff
+
+**Do this (FAST):**
+
+1. Get PR with `--json additions,deletions` in Step 3
+2. Calculate total: `additions + deletions`
+3. Only fetch diff if `< 500 lines`
+
+**Example:**
+```bash
+# Already have from Step 3:
+# "additions": 9, "deletions": 3
+# Total: 12 lines (< 500, so fetch diff)
+gh pr diff 11251
+```
+
+**Don't do this (SLOW):**
+
+Always fetch diff, then check size after.
+
+**Saves ~1-5 seconds** on large PRs by avoiding unnecessary diff downloads.
+
+## Helper Scripts
 
 ### `scripts/analyze_issue.sh`
 
@@ -204,6 +304,40 @@ The script:
 - Extracts linked issues from comments
 - Calculates PR size to determine if code review is needed
 - Outputs structured JSON for parsing
+
+### `scripts/detect_versions.sh`
+
+This script performs fast, silent version detection:
+
+```bash
+# Usage:
+./scripts/detect_versions.sh
+
+# With debug output:
+DEBUG=1 ./scripts/detect_versions.sh
+```
+
+The script:
+- Detects Positron version and build number from `product.json`
+- Detects OS version using platform-specific commands
+- Has 3-second timeout per detection (max 4 seconds total)
+- **Never prompts or shows errors** - always outputs valid JSON
+- Fails gracefully with empty values if detection fails
+
+Output format:
+```json
+{
+  "positronVersion": "2026.02.0",
+  "positronBuild": "10",
+  "osVersion": "macOS 26.2",
+  "detectionStatus": "success"
+}
+```
+
+Detection status values:
+- `"success"` - Both Positron and OS versions detected
+- `"partial"` - Only one version detected
+- `"failed"` - No versions detected
 
 ## Verification Guide Template
 
@@ -231,16 +365,33 @@ The generated guides follow this structure:
 ## Test Scenarios
 
 ### Primary Scenario
-[Main repro steps from issue]
+
+✓ **[Scenario title]**
+
+**Setup:** (if needed)
+- [ ] Setup step one
+- [ ] Setup step two
+
+**Test Steps:**
+- [ ] Step one
+- [ ] Step two
 
 **Expected:** [What should happen]
 **Previously:** [What was broken]
 
 ### Edge Cases
-[Additional scenarios from comments/analysis]
+
+✓ **[Edge case scenario title]**
+
+**_Why test:_** [Brief explanation]
+
+- [ ] Step one
+- [ ] Step two
 
 ### Regression Checks
-[Related functionality to verify]
+
+- [ ] [What to verify]
+- [ ] [Another thing to verify]
 
 ## Testing Context
 

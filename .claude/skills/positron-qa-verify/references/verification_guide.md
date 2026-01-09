@@ -9,6 +9,13 @@ This document provides guidance for generating effective QA verification guides 
 3. **Be complete** - Cover the main scenario, edge cases, and regressions
 4. **Be concise** - Respect the tester's time, no fluff
 
+## Formatting Convention
+
+- **Scenario titles** use checkmarks `✓ **Title**` for visual organization
+- **Test steps** use checkboxes `- [ ] Step` for tracking progress during testing
+- **Regression checks** use checkboxes `- [ ] Check` as they are individual items to verify
+- This format makes it easy to see the overall structure while checking off steps as you test
+
 ## Guide Structure
 
 ### 0. Header with Ticket Type
@@ -109,39 +116,39 @@ The main reproduction steps from the issue. Always test this first.
 ```markdown
 ### Primary Scenario
 
-- [ ] **[Scenario title]**
+✓ **[Scenario title]**
 
-   **Setup:** (if needed)
-   - Setup step one
-   - Setup step two
+**Setup:** (if needed)
+- [ ] Setup step one
+- [ ] Setup step two
 
-   **Test Steps:**
-   - Step one
-   - Step two
-   - Step three
+**Test Steps:**
+- [ ] Step one
+- [ ] Step two
+- [ ] Step three
 
-   **Expected:** [What should happen now]
-   **Previously:** [What was broken before the fix]
+**Expected:** [What should happen now]
+**Previously:** [What was broken before the fix]
 ```
 
 **Example:**
 ```markdown
 ### Primary Scenario
 
-- [ ] **Scrollbar maintains position on Safari**
+✓ **Scrollbar maintains position on Safari**
 
-   **Setup:**
-   - Open Positron on Safari
-   - Create a large dataframe: `df = pd.DataFrame({'col': range(10000)})`
-   - View in Data Explorer
+**Setup:**
+- [ ] Open Positron on Safari
+- [ ] Create a large dataframe: `df = pd.DataFrame({'col': range(10000)})`
+- [ ] View in Data Explorer
 
-   **Test Steps:**
-   - Drag the scrollbar down to row 5000
-   - Release the scrollbar
-   - Verify scrollbar position
+**Test Steps:**
+- [ ] Drag the scrollbar down to row 5000
+- [ ] Release the scrollbar
+- [ ] Verify scrollbar position
 
-   **Expected:** Scrollbar stays at position, showing rows around 5000
-   **Previously:** Scrollbar snapped back to 0, showing first rows
+**Expected:** Scrollbar stays at position, showing rows around 5000
+**Previously:** Scrollbar snapped back to 0, showing first rows
 ```
 
 #### Edge Cases
@@ -156,35 +163,35 @@ Additional scenarios from:
 ```markdown
 ### Edge Cases
 
-- [ ] **[Scenario name]**
+✓ **[Scenario name]**
 
-   **_Why test:_** [Brief explanation of what this verifies]
+**_Why test:_** [Brief explanation of what this verifies]
 
-   - Step one
-   - Step two
-   - Step three
+- [ ] Step one
+- [ ] Step two
+- [ ] Step three
 ```
 
 **Example:**
 ```markdown
 ### Edge Cases
 
-- [ ] **Horizontal scrollbar**
+✓ **Horizontal scrollbar**
 
-   **_Why test:_** Ensures fix works for both scroll directions
+**_Why test:_** Ensures fix works for both scroll directions
 
-   - Create wide dataframe: `df = pd.DataFrame({f'col{i}': range(100) for i in range(50)})`
-   - View in Data Explorer
-   - Drag horizontal scrollbar
-   - Release
+- [ ] Create wide dataframe: `df = pd.DataFrame({f'col{i}': range(100) for i in range(50)})`
+- [ ] View in Data Explorer
+- [ ] Drag horizontal scrollbar
+- [ ] Release
 
-- [ ] **Rapid scrolling**
+✓ **Rapid scrolling**
 
-   **_Why test:_** Stress tests the event handler under rapid input
+**_Why test:_** Stress tests the event handler under rapid input
 
-   - Open large dataframe in Data Explorer
-   - Rapidly drag scrollbar up and down multiple times
-   - Release at various positions
+- [ ] Open large dataframe in Data Explorer
+- [ ] Rapidly drag scrollbar up and down multiple times
+- [ ] Release at various positions
 ```
 
 #### Regression Checks
@@ -426,28 +433,34 @@ The console's output renderer didn't handle None values, attempting to call
 
 ### Primary Scenario
 
-1. Open Positron with Python
-2. In the console, type: `print(None)`
-3. Press Enter
+✓ **Print None in console**
+
+**Test Steps:**
+- [ ] Open Positron with Python
+- [ ] In the console, type: `print(None)`
+- [ ] Press Enter
 
 **Expected:** Console prints "None" and remains functional
 **Previously:** Positron crashed
 
 ### Edge Cases
 
-#### None in variables
+✓ **None in variables**
+
 ```python
 x = None
 print(x)
 ```
 
-#### None in lists
+✓ **None in lists**
+
 ```python
 items = [1, None, 3]
 print(items)
 ```
 
-#### Multiple None values
+✓ **Multiple None values**
+
 ```python
 print(None, None, None)
 ```
@@ -496,36 +509,47 @@ This makes running code snippets much faster.
 
 ### Primary Scenario
 
-1. Open a Python or R file
-2. Select a few lines of code
-3. Press Cmd+Enter (or Ctrl+Enter)
+✓ **Run selected code with keyboard shortcut**
+
+**Test Steps:**
+- [ ] Open a Python or R file
+- [ ] Select a few lines of code
+- [ ] Press Cmd+Enter (or Ctrl+Enter)
 
 **Expected:** Selected code runs in the console
 **Previously:** Shortcut was not available
 
 ### Edge Cases
 
-#### Single line selection
-1. Click in a line (cursor only, no selection)
-2. Press Cmd+Enter
+✓ **Single line selection**
+
+**Test Steps:**
+- [ ] Click in a line (cursor only, no selection)
+- [ ] Press Cmd+Enter
 
 **Expected:** Current line runs
 
-#### Multiple selections (from PR comments)
-1. Make multiple selections (Cmd+click)
-2. Press Cmd+Enter
+✓ **Multiple selections** (from PR comments)
+
+**Test Steps:**
+- [ ] Make multiple selections (Cmd+click)
+- [ ] Press Cmd+Enter
 
 **Expected:** All selections run in order
 
-#### Partial line selection
-1. Select part of a line (e.g., just the function name)
-2. Press Cmd+Enter
+✓ **Partial line selection**
+
+**Test Steps:**
+- [ ] Select part of a line (e.g., just the function name)
+- [ ] Press Cmd+Enter
 
 **Expected:** Only selected text runs
 
-#### No active console (from PR review)
-1. Close all console sessions
-2. Select code and press Cmd+Enter
+✓ **No active console** (from PR review)
+
+**Test Steps:**
+- [ ] Close all console sessions
+- [ ] Select code and press Cmd+Enter
 
 **Expected:** New console starts and code runs
 
@@ -625,8 +649,8 @@ OS Version(s): [OS]
 ```
 
 **Important distinction:**
-- **Verification guide** (`.md` file for testing): Uses checkboxes `- [ ]` so QA can track progress
-- **Verification comment** (posted to GitHub): Uses plain bullets `-` for the final report
+- **Verification guide** (`.md` file for testing): Uses checkmarks `- ✓` for scenario titles and checkboxes `- [ ]` for steps so QA can track progress
+- **Verification comment** (posted to GitHub): Uses plain bullets `-` for the final report (no checkmarks or checkboxes)
 
 ### Generating the Template
 
@@ -643,16 +667,22 @@ The skill should:
 - Everything else → Grouped format
 
 **Positron Version Detection:**
-- Look for `product.json` in standard installation paths
-- Extract `positronVersion` and `positronBuildNumber` fields
+- Use the `scripts/detect_versions.sh` helper script
+- Script checks standard installation paths for `product.json`
+- Extracts `positronVersion` and `positronBuildNumber` fields
 - Format as: `{version} build {buildNumber}` (e.g., "2026.02.0 build 10")
+- Has 3-second timeout - fails fast and silent if not found
 - If detection fails, leave blank for manual entry
 
 **OS Version Detection:**
-- macOS: Use `sw_vers -productVersion` (e.g., "macOS 14.5")
-- Linux: Parse `/etc/os-release` for distribution name and version
-- Windows: Use `ver` command output
-- Fallback: Use `uname` output if above methods fail
+- Use the `scripts/detect_versions.sh` helper script
+- macOS: Uses `sw_vers -productVersion` (e.g., "macOS 14.5")
+- Linux: Parses `/etc/os-release` for distribution name and version
+- Windows: Uses PowerShell or systeminfo
+- Has 3-second timeout - fails fast and silent
+- Fallback: Uses `uname` output if above methods fail
+
+**Important: Version detection must never prompt the user or block execution. If detection fails, silently use empty values.**
 
 ### Example 1: Single Scenario (Simple Format)
 
@@ -827,14 +857,21 @@ test/e2e/tests/data-explorer/scrolling.test.ts
 
 After generating the verification guide:
 
-1. User performs manual testing following the guide
-2. User asks for verification comment
-3. Skill generates comment template with **auto-detected Positron and OS versions** and **copies it to clipboard**
-4. User pastes into GitHub issue comment box (versions already filled in!)
-5. User adjusts versions if testing was done on multiple systems
-6. User adds e2e test links if applicable (usually pre-filled with "n/a" or detected test paths)
-7. User posts comment and updates issue status
+1. Skill offers to generate verification comment template
+2. User performs manual testing following the guide
+3. **When ready, user accepts the offer** (e.g., responds "yes" or "generate the verification comment")
+4. **Only then:** Skill runs `scripts/detect_versions.sh` to auto-detect Positron and OS versions (silent, 4-second max)
+5. Skill generates comment template with detected versions and **copies it to clipboard**
+6. User pastes into GitHub issue comment box (versions already filled in!)
+7. User adjusts versions if testing was done on multiple systems or if auto-detection failed
+8. User adds e2e test links if applicable (usually pre-filled with "n/a" or detected test paths)
+9. User posts comment and updates issue status
 
 This completes the QA verification workflow.
 
-**Note:** Testing notes (like "pay attention to X") should be included in the verification guide for manual testing, but should NOT be included in the verification comment template.
+**Important:**
+- Verification comment generation is **offered but user-triggered** - skill waits for explicit acceptance
+- Version detection **only runs after user accepts** - not during initial guide generation
+- Version detection is **best-effort, silent and fast** (max 4 seconds) - never prompts, never blocks
+- If version detection fails, empty values are used - user fills them in manually
+- Testing notes (like "pay attention to X") should be in the verification guide, NOT in the comment template
