@@ -160,6 +160,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract run(): void;
 
 	override dispose(): void {
+		// Clean up any animation classes if present
+		if (this._container) {
+			this._container.classList.remove('assistant-highlight', 'assistant-highlight-add', 'assistant-highlight-modify');
+		}
+
 		super.dispose();
 	}
 
@@ -288,21 +293,25 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return true;
 	}
 
-	async highlightTemporarily(): Promise<boolean> {
-		const hasContainer = await this._waitForContainer();
+	async highlightTemporarily(operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<boolean> {
+		// Default to longer timeout for add operations since React needs time to render new cells
+		const timeout = maxWaitMs ?? (operationType === 'add' ? 500 : 100);
+		const hasContainer = await this._waitForContainer(timeout);
 		if (!hasContainer || !this._container) {
 			return false;
 		}
 
 		const container = this._container;
 
-		// Remove class and wait for next frame to re-add. The animation ends
-		// with no visual change so we can leave the class on. The class hanging
-		// around is a tradeoff to avoid having to handle removing the class via
-		// javascript which makes this more complex and fragile.
-		container.classList.remove('assistant-highlight');
+		// Remove all highlight classes
+		container.classList.remove('assistant-highlight', 'assistant-highlight-add', 'assistant-highlight-delete', 'assistant-highlight-modify');
+
+		// Use requestAnimationFrame to defer re-adding (existing pattern)
 		DOM.getWindow(container).requestAnimationFrame(() => {
 			container.classList.add('assistant-highlight');
+			if (operationType) {
+				container.classList.add(`assistant-highlight-${operationType}`);
+			}
 		});
 
 		return true;

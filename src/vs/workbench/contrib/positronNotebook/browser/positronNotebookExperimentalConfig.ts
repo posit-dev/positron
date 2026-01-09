@@ -18,6 +18,9 @@ export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 // Configuration key for assistant auto-follow setting
 export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.notebook.assistant.autoFollow';
 
+// Configuration key for deletion sentinel timeout setting
+export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.notebook.deletionSentinel.timeout';
+
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
  * the Positron Notebook editor.
@@ -57,6 +60,16 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.notebook.assistant.autoFollow',
 				'Automatically scroll to cells modified by the AI assistant. When enabled, cells modified outside the viewport will be automatically scrolled into view and highlighted.'
+			),
+		},
+		[POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY]: {
+			type: 'number',
+			default: 10000,
+			minimum: 0,
+			maximum: 60000,
+			markdownDescription: localize(
+				'positron.notebook.deletionSentinel.timeout',
+				'Time in milliseconds before deletion sentinels auto-dismiss (0 to disable auto-dismiss).'
 			),
 		},
 	},
