@@ -7,7 +7,7 @@
 import './listDriversState.css';
 
 // React.
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -28,13 +28,35 @@ interface ListDriversProps {
 
 export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	const services = usePositronReactServicesContext();
+	const driverManager = services.positronConnectionsService.driverManager;
+	const runtimeSessionService = services.runtimeSessionService;
+
+	// Use a counter to force re-render when drivers change
+	const [, setDriverVersion] = useState(0);
+
+	const { languageId, setLanguageId } = props;
+
+	// Subscribe to driver changes
+	useEffect(() => {
+		const disposable = driverManager.onDidChangeDrivers(() => {
+			setDriverVersion(v => v + 1);
+		});
+		return () => disposable.dispose();
+	}, [driverManager]);
+
+	// Auto-select language when a console starts and no language is selected
+	useEffect(() => {
+		const disposable = runtimeSessionService.onDidStartRuntime((session) => {
+			if (!languageId) {
+				setLanguageId(session.runtimeMetadata.languageId);
+			}
+		});
+		return () => disposable.dispose();
+	}, [runtimeSessionService, languageId, setLanguageId]);
 
 	const onDriverSelectedHandler = (drivers: IDriver[]) => {
 		props.onSelection(drivers);
 	};
-
-	const { languageId, setLanguageId } = props;
-	const driverManager = services.positronConnectionsService.driverManager;
 
 	const drivers = languageId
 		? driverManager

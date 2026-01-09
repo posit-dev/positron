@@ -3,11 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 
 export class PositronConnectionsDriverManager {
 	private readonly drivers: IDriver[] = [];
+
+	private readonly _onDidChangeDrivers = new Emitter<IDriver[]>();
+	readonly onDidChangeDrivers: Event<IDriver[]> = this._onDidChangeDrivers.event;
 
 	constructor(readonly service: IPositronConnectionsService) { }
 
@@ -19,12 +23,14 @@ export class PositronConnectionsDriverManager {
 		} else {
 			this.drivers.push(driver);
 		}
+		this._onDidChangeDrivers.fire(this.drivers);
 	}
 
 	removeDriver(driverId: string): void {
 		const index = this.drivers.findIndex(d => d.driverId === driverId);
 		if (index > 0) {
 			this.drivers.splice(index, 1);
+			this._onDidChangeDrivers.fire(this.drivers);
 		}
 	}
 
