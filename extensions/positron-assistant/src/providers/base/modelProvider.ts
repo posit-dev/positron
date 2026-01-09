@@ -84,7 +84,10 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	public readonly providerId: string;
 
 	/**
-	 * Unique identifier for this model configuration.
+	 * Unique identifier for the instance of this model configuration.
+	 *
+	 * Identifies the provider internally when it is registered & stored
+	 * with an API key or other credentials.
 	 */
 	public readonly id: string;
 
