@@ -7,7 +7,7 @@
 import './listDriversState.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -36,6 +36,12 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 
 	const { languageId, setLanguageId } = props;
 
+	// Use a ref to track languageId to avoid recreating the subscription on every change
+	const languageIdRef = useRef(languageId);
+	useEffect(() => {
+		languageIdRef.current = languageId;
+	}, [languageId]);
+
 	// Subscribe to driver changes
 	useEffect(() => {
 		const disposable = driverManager.onDidChangeDrivers(() => {
@@ -47,12 +53,12 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	// Auto-select language when a console starts and no language is selected
 	useEffect(() => {
 		const disposable = runtimeSessionService.onDidStartRuntime((session) => {
-			if (!languageId) {
+			if (!languageIdRef.current) {
 				setLanguageId(session.runtimeMetadata.languageId);
 			}
 		});
 		return () => disposable.dispose();
-	}, [runtimeSessionService, languageId, setLanguageId]);
+	}, [runtimeSessionService, setLanguageId]);
 
 	const onDriverSelectedHandler = (drivers: IDriver[]) => {
 		props.onSelection(drivers);
