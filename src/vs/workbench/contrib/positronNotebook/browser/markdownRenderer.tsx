@@ -231,19 +231,23 @@ function SyntaxHighlightedCode({
  */
 function RawHtml({ html }: { html: string }) {
 	const reactElements = React.useMemo(() => {
-		// Use the same config as the current Markdown renderer
-		const sanitizerConfig = MarkedKatexSupport.getSanitizerOptions({
-			allowedTags: allowedMarkdownHtmlTags,
-			allowedAttributes: [
-				...allowedMarkdownHtmlAttributes,
-				'id',  // Allow id attribute for anchor link targets
-				'style' // Allow style attribute for inline styles
-			],
-		});
+		// Filter out the restrictive style rule from default markdown attributes
+		const baseAttributes = allowedMarkdownHtmlAttributes.filter(attr =>
+			typeof attr === 'string' || attr.attributeName !== 'style'
+		);
 
 		// Configure to allow remote images and local links (same as Markdown.tsx)
 		const notebookSanitizerConfig = {
-			...sanitizerConfig,
+			allowedTags: {
+				override: allowedMarkdownHtmlTags
+			},
+			allowedAttributes: {
+				override: [
+					...baseAttributes,
+					'id',  // Allow id attribute for anchor link targets
+					'style' // Allow style attribute for inline styles
+				]
+			},
 			allowedLinkProtocols: {
 				override: ['http', 'https'] as readonly string[]
 			},
@@ -257,7 +261,6 @@ function RawHtml({ html }: { html: string }) {
 		const tempContainer = document.createElement('div');
 		// Parse the HTML into the container element safely
 		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
-
 		// Convert DOM to React with component overrides.
 		// This ensures that <img> tags become DeferredImage components
 		// and <a> tags become NotebookLink components.
