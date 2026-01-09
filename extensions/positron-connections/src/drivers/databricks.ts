@@ -133,7 +133,7 @@ export class PythonDatabricksM2MDriver extends PythonDatabricksDriverBase implem
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
 		name: 'Databricks',
-		description: 'OAuth (M2M)',
+		description: 'OAuth Machine-to-Machine (M2M)',
 		inputs: [
 			{
 				'id': 'server_hostname',
@@ -216,7 +216,7 @@ export class PythonDatabricksU2MDriver extends PythonDatabricksDriverBase implem
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
 		name: 'Databricks',
-		description: 'OAuth (U2M)',
+		description: 'OAuth User-to-Machine (U2M)',
 		inputs: [
 			{
 				'id': 'server_hostname',
