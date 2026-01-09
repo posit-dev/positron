@@ -13,14 +13,20 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 from positron.ui import UiService
 from positron.ui_comm import ShowHtmlFileDestination, UiFrontendEvent
 from positron.utils import alias_home
 
 from .conftest import DummyComm
-from .utils import (comm_open_message, json_rpc_notification, json_rpc_request,
-                    json_rpc_response, preserve_working_directory)
+from .utils import (
+    comm_open_message,
+    json_rpc_notification,
+    json_rpc_request,
+    json_rpc_response,
+    preserve_working_directory,
+)
 
 try:
     import torch
