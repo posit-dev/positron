@@ -1381,6 +1381,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 55, // After Ask Assistant (50)
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.has('config.positron.assistant.enable'),
 					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
 				)
 			}
