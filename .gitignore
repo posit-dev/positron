@@ -44,4 +44,6 @@ pwb-version
 !.env.e2e*.example
 vsix-cache/
 product.json.backup
+*.lic
+*.dylib
 # --- End Positron ---
