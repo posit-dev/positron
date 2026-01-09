@@ -397,5 +397,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	div:has(> .bk-notebook-logo) {
 		display: none;
 	}
+
+
+	/* Prevent inner scrollbar for ipywidgets by ensuring the container properly contains child margins */
+	.positron-output-container {
+		display: flow-root;
+	}
 </style>`;
 }
