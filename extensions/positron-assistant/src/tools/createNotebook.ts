@@ -62,10 +62,31 @@ export const createNotebookToolImpl = {
 			// assistant.
 			const hadNotebookBefore = !!(await positron.notebooks.getContext());
 
-			await vscode.commands.executeCommand('ipynb.newUntitledIpynb', lang);
+			// Set up event listener BEFORE executing command to avoid race conditions
+			const notebookReady = new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					disposable.dispose();
+					reject(new Error('Timeout waiting for notebook editor to become active'));
+				}, 5000); // 5 second safety timeout
 
-			// Brief wait for notebook to become active
-			await new Promise(resolve => setTimeout(resolve, 100));
+				const disposable = vscode.window.onDidChangeActiveNotebookEditor(editor => {
+					if (editor) {
+						clearTimeout(timeout);
+						disposable.dispose();
+						resolve();
+					}
+				});
+
+				// Check if already active (race condition protection)
+				if (vscode.window.activeNotebookEditor) {
+					clearTimeout(timeout);
+					disposable.dispose();
+					resolve();
+				}
+			});
+
+			await vscode.commands.executeCommand('ipynb.newUntitledIpynb', lang);
+			await notebookReady;
 
 			const context = await positron.notebooks.getContext();
 			if (!context) {
