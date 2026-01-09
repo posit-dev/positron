@@ -18,8 +18,14 @@ interface CreateNotebookInput {
 export const createNotebookToolImpl = {
 	prepareInvocation: async (options: { input: CreateNotebookInput }, _token: vscode.CancellationToken) => {
 		const { language } = options.input;
-		const langDisplay = language === 'python' ? 'Python' : 'R';
 
+		// Normalize and validate language for consistent behavior with invoke
+		const lang = language?.toLowerCase();
+		if (lang !== 'python' && lang !== 'r') {
+			throw new Error(`Invalid language: "${language}". Must be "python" or "r".`);
+		}
+
+		const langDisplay = lang === 'python' ? 'Python' : 'R';
 		return {
 			invocationMessage: vscode.l10n.t('Creating {0} notebook', langDisplay),
 			confirmationMessages: {
