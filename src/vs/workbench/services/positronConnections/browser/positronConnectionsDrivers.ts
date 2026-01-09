@@ -21,7 +21,7 @@ export class PositronConnectionsDriverManager extends Disposable {
 	registerDriver(driver: IDriver): void {
 		// Check that a driver with the same id does not already exist.
 		const index = this.drivers.findIndex(d => d.driverId === driver.driverId);
-		if (index > 0) {
+		if (index >= 0) {
 			this.drivers[index] = driver;
 		} else {
 			this.drivers.push(driver);
@@ -31,7 +31,7 @@ export class PositronConnectionsDriverManager extends Disposable {
 
 	removeDriver(driverId: string): void {
 		const index = this.drivers.findIndex(d => d.driverId === driverId);
-		if (index > 0) {
+		if (index >= 0) {
 			this.drivers.splice(index, 1);
 			this._onDidChangeDrivers.fire(this.drivers);
 		}
