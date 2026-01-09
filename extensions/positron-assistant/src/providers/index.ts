@@ -33,6 +33,7 @@ import { AWSModelProvider } from './aws/awsBedrockProvider';
 import { PositModelProvider } from './posit/positProvider';
 import { ModelProvider } from './base/modelProvider.js';
 import { AutoconfigureResult } from './base/modelProviderTypes.js';
+import { CopilotModelProvider } from '../copilot.js';
 
 /**
  * Type for a concrete (non-abstract) model provider constructor with static metadata.
@@ -63,6 +64,7 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 		...testProviders,
 		anthropicClass,
 		AzureModelProvider,
+		CopilotModelProvider,
 		GoogleModelProvider,
 		MistralModelProvider,
 		OllamaModelProvider,

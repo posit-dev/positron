@@ -9,6 +9,7 @@ import * as positron from 'positron';
 import { ExtensionContext } from 'vscode';
 import { ModelConfig } from './config.js';
 import { AutoconfigureResult } from './providers/index.js';
+import { ModelProvider } from './providers/base/modelProvider.js';
 
 const PROVIDER_ID = 'github';
 const GITHUB_SCOPE_USER_EMAIL = ['user:email'];
@@ -147,16 +148,16 @@ export class CopilotService implements vscode.Disposable {
  * UI. Once signed in/out, all the actual chat features are handled by the
  * Copilot Chat extension, so this is just a placeholder.
  */
-export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvider {
+export class CopilotModelProvider extends ModelProvider {
 
-	/** Stub for chat response. Always resolves immediately. */
-	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any> {
+	/** Stub for sending a test message. Always resolves immediately. */
+	protected sendTestMessage(modelId: string): Promise<any> {
 		return Promise.resolve();
 	}
 
-	/** Stub for chat information. Always returns an empty array. */
-	provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		return Promise.resolve([]);
+	/** Stub for chat response. Always resolves immediately. */
+	provideLanguageModelChatResponse(model: vscode.LanguageModelChatInformation, messages: vscode.LanguageModelChatMessage2[], options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Promise<void> {
+		return Promise.resolve();
 	}
 
 	/** Stub for token counting. Always returns 0. */
@@ -175,7 +176,7 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 	}
 
 	get providerName() {
-		return CopilotLanguageModel.source.provider.displayName;
+		return CopilotModelProvider.source.provider.displayName;
 	}
 
 	static source: positron.ai.LanguageModelSource = {
@@ -214,13 +215,14 @@ export class CopilotLanguageModel implements positron.ai.LanguageModelChatProvid
 		} else {
 			return {
 				configured: false,
-			}
+			};
 		}
 	}
 
 	constructor(
-		private readonly _config: ModelConfig,
+		readonly _config: ModelConfig,
 	) {
+		super(_config);
 		this.displayName = _config.name;
 		this.providerId = _config.provider;
 		this.id = _config.id;
