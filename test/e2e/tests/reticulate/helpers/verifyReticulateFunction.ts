@@ -3,96 +3,57 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { Application } from '../../../infra/index.js';
+import { expect } from '../../_test.setup.js';
+
+export const RETICULATE_SESSION = 'Python (reticulate)';
 
 export async function verifyReticulateFunctionality(
 	app: Application,
 	rSessionId: string,
 	pythonSessionId: string = 'Python (reticulate)',
-	value = '200',
-	value2 = '400',
-	value3 = '6'): Promise<void> {
-	// Verify that reticulate is installed
-	// Create a variable in Python and expect to be able to access it from R
-	await app.workbench.sessions.select(pythonSessionId);
+	xValue = '200',
+	yValue = '400',
+	zValue = '6'): Promise<void> {
+	const { console, sessions, variables } = app.workbench;
 
-	await app.code.wait(2000); // give ipykernel time to startup
-
-	await app.workbench.console.pasteCodeToConsole(`x=${value}`, true);
-
-	await ensureVariablePresent(app, 'x', value);
-
-	await app.workbench.console.clearButton.click();
-
-	await app.workbench.sessions.select(rSessionId);
-
-	await app.code.wait(2000); // wait a little for python var to get to R
-
-	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x', true);
-
-	await ensureVariablePresent(app, 'y', value);
-
-	await app.workbench.console.clearButton.click();
-
-	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-
-	await ensureVariablePresent(app, 'y', value);
-
-	await app.workbench.layouts.enterLayout('stacked');
-
-	// Create a variable in R and expect to be able to access it from Python
-	await app.workbench.console.pasteCodeToConsole(`y <- ${value2}L`, true);
-
-	await ensureVariablePresent(app, 'y', value2);
-
-	// Executing reticulate::repl_python() should not start a new interpreter
-	// but should move focus to the reticulate interpreter
-	await app.workbench.console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${value3}")`, true);
-
-	// Expect that focus changed to the reticulate console
+	// Create a variable x in Python session
 	await expect(async () => {
-		try {
-			await app.workbench.sessions.expectSessionPickerToBe(pythonSessionId);
-		} catch (e) {
-			await app.code.wait(1000); // a little time for session picker to be updated
-			throw e;
-		}
-	}).toPass({ timeout: 20000 });
+		await console.executeCode('Python', `x = ${xValue}`);
+		await variables.expectVariableToBe('x', xValue, 2000);
+	}, 'Can create variable in Python session').toPass();
 
-	await app.workbench.console.pasteCodeToConsole('print(r.y)', true);
-	await ensureConsoleDataPresent(app, value2);
-
-	await app.workbench.console.pasteCodeToConsole('print(z)', true);
-	await ensureConsoleDataPresent(app, value3);
-}
-
-async function ensureVariablePresent(app: Application, variableName: string, value: string) {
-
+	// Switch to the R session and create an R variable `y` by accessing the Python
+	// variable `x` through reticulate.
 	await expect(async () => {
-		try {
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get(variableName)).toStrictEqual({ value: value, type: 'int' });
-			await app.workbench.layouts.enterLayout('stacked');
-		} catch (e) {
-			await app.workbench.layouts.enterLayout('stacked');
-			console.log('Resending enter key');
-			await app.workbench.console.sendEnterKey();
-			throw e;
-		}
-	}).toPass({ timeout: 10000 });
-}
+		await console.executeCode('R', 'y<-reticulate::py$x');
+		await variables.expectVariableToBe('y', xValue, 2000);
+	}, 'Can access Python variable x from R').toPass();
 
-async function ensureConsoleDataPresent(app: Application, value: string) {
+	// Clear the console again and re-check to ensure the R-side variable persists.
+	await console.clearButton.click();
+	await variables.expectVariableToBe('y', xValue);
 
+	// Verify able to overwrite the R variable `y` with an integer literal on the R side.
 	await expect(async () => {
-		try {
-			await app.workbench.console.waitForConsoleContents(value);
-		} catch (e) {
-			console.log('Resending enter key');
-			await app.workbench.console.sendEnterKey();
-			throw e;
-		}
-	}).toPass({ timeout: 10000 });
+		await console.executeCode('R', `y <- ${yValue}L`);
+		await variables.expectVariableToBe('y', yValue, 2000);
+	}, 'Can overwrite the R variable').toPass();
+
+	// Verify executing reticulate::repl_python() moves focus to the reticulate session
+	await console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${zValue}")`, true);
+	await sessions.expectSessionPickerToBe(pythonSessionId, 20000);
+	await console.clearButton.click();
+
+	// Print the R variable r.y (should reflect the R-side value) and ensure it appears in the console
+	await expect(async () => {
+		await console.executeCode('Python', 'print(r.y)');
+		await console.waitForConsoleContents(yValue, { timeout: 5000 });
+	}, 'Can print the R variable r.y from Python').toPass();
+
+	// Print the Python variable z (created via repl_python) and ensure it appears as well
+	await expect(async () => {
+		await console.executeCode('Python', 'print(z)');
+		await console.waitForConsoleContents(zValue, { timeout: 5000 });
+	}, 'Can print the Python variable z from Python').toPass();
 }

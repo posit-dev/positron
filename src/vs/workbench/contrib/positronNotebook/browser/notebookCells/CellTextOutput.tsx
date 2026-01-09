@@ -17,6 +17,7 @@ import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
@@ -106,6 +107,11 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 		{
 			truncation.mode === 'scroll'
 				? <TruncationMessage commandService={services.commandService} truncationResult={truncation} />
+				: null
+		}
+		{
+			type === 'error'
+				? <NotebookCellQuickFix errorContent={content} />
 				: null
 		}
 	</>;

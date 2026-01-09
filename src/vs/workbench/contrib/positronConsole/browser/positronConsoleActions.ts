@@ -256,7 +256,7 @@ export function registerPositronConsoleActions() {
 					// Clear the active Positron console instance and the history for its language from the
 					// execution history service.
 					activePositronConsoleInstance.clearInputHistory();
-					executionHistoryService.clearInputEntries(
+					executionHistoryService.clearSessionInputEntries(
 						activePositronConsoleInstance.sessionMetadata.sessionId
 					);
 
@@ -1064,13 +1064,17 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				precondition: ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true),
 				menu: [
 					{
 						// Add an entry to the notebook toolbar to show the
 						// notebook console
 						id: MenuId.NotebookToolbar,
 						group: 'notebookConsole',
-						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+						when: ContextKeyExpr.and(
+							ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+							ContextKeyExpr.equals('config.console.showNotebookConsoleActions', true)
+						),
 						order: 1
 					}
 				]

@@ -19,7 +19,8 @@ Name | Type | Description | Notes
 **connection_timeout** | **number** | The number of seconds to wait for a connection to the session\&#39;s ZeroMQ sockets before timing out | [optional] [default to 30]
 **interrupt_mode** | [**InterruptMode**](InterruptMode.md) |  | [default to undefined]
 **protocol_version** | **string** | The Jupyter protocol version supported by the underlying kernel | [optional] [default to '5.3']
-**run_in_shell** | **boolean** | Whether to run the session inside a login shell; only relevant on POSIX systems | [optional] [default to false]
+**startup_environment** | [**StartupEnvironment**](StartupEnvironment.md) |  | [default to undefined]
+**startup_environment_arg** | **string** | The command or script to run before starting the session | [optional] [default to undefined]
 
 ## Example
 
@@ -41,7 +42,8 @@ const instance: NewSession = {
     connection_timeout,
     interrupt_mode,
     protocol_version,
-    run_in_shell,
+    startup_environment,
+    startup_environment_arg,
 };
 ```
 

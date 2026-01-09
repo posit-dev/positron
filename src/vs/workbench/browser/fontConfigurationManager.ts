@@ -14,8 +14,8 @@ import { createBareFontInfoFromRawSettings } from '../../editor/common/config/fo
 
 /**
  * Font options interface. Any component that needs to provide font options can define configuration settings
- * matching this interface. (Note that fontLigatures and fontVariations are simplified boolean options vs. the
- * more complex fontLigatures and fontVariations configuration options that are available in the editor.)
+ * matching this interface. Like the editor, fontLigatures and fontVariations can be either booleans for simple
+ * on/off control, or strings for fine-grained control of CSS font-feature-settings and font-variation-settings.
  */
 export interface IFontOptions {
 	/**
@@ -24,9 +24,10 @@ export interface IFontOptions {
 	fontFamily?: string;
 
 	/**
-	 * Enable font ligatures.
+	 * Configures font ligatures or font features. Can be either a boolean to enable/disable ligatures
+	 * or a string for the value of the CSS 'font-feature-settings' property.
 	 */
-	fontLigatures?: boolean;
+	fontLigatures?: boolean | string;
 
 	/**
 	 * The font size
@@ -34,9 +35,11 @@ export interface IFontOptions {
 	fontSize?: number;
 
 	/**
-	 * Enable font variations.
+	 * Configures font variations. Can be either a boolean to enable/disable the translation from
+	 * font-weight to font-variation-settings or a string for the value of the CSS
+	 * 'font-variation-settings' property.
 	 */
-	fontVariations?: boolean;
+	fontVariations?: boolean | string;
 
 	/**
 	 * The font weight

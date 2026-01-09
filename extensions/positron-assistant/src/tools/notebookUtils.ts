@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
-import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
+import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT, getOriginalContentLength } from '../notebookContextFilter.js';
 import { isRuntimeSessionReference } from '../utils.js';
 import { log } from '../extension.js';
 
@@ -68,6 +68,76 @@ export function validateCellIndices(
 	}
 
 	return { valid: true };
+}
+
+/**
+ * Validation result for permutation arrays
+ */
+export interface PermutationValidation {
+	valid: boolean;
+	error?: string;
+	isIdentity?: boolean;
+}
+
+/**
+ * Validates a permutation array for reordering cells.
+ * A valid permutation must contain each index from 0 to cellCount-1 exactly once.
+ *
+ * @param newOrder The proposed new order array
+ * @param cellCount The total number of cells in the notebook
+ * @returns Validation result with error message if invalid, and whether it's an identity permutation
+ */
+export function validatePermutation(
+	newOrder: number[],
+	cellCount: number
+): PermutationValidation {
+	// Check length matches
+	if (newOrder.length !== cellCount) {
+		return {
+			valid: false,
+			error: `Permutation length (${newOrder.length}) must match cell count (${cellCount})`
+		};
+	}
+
+	// Handle empty notebook case
+	if (cellCount === 0) {
+		return { valid: true, isIdentity: true };
+	}
+
+	// An identity permutation is just one where each index maps to itself. Aka a no-op.
+	let isIdentity = true;
+
+	// Check if any indices are outside of the valid range
+	for (const [i, index] of newOrder.entries()) {
+		if (!Number.isInteger(index) || index < 0 || index >= cellCount) {
+			return {
+				valid: false,
+				error: `Invalid index in permutation: ${index} (must be integer between 0 and ${cellCount - 1})`
+			};
+		}
+
+		// Check for identity at the same time
+		if (index !== i) {
+			isIdentity = false;
+		}
+	}
+
+	// If identity permutation, no need to check further
+	if (isIdentity) {
+		return { valid: true, isIdentity: true };
+	}
+
+	// Make sure there are no duplicates and all indices are present
+	const uniqueIndices = new Set(newOrder);
+
+	if (uniqueIndices.size !== cellCount) {
+		return {
+			valid: false,
+			error: 'Invalid permutation: must contain each index from 0 to cellCount-1 exactly once'
+		};
+	}
+
+	return { valid: true, isIdentity: false };
 }
 
 /**
@@ -169,11 +239,17 @@ export function formatCells(options: FormatCellsOptions): string {
 		const cellLabel = cells.length === 1
 			? prefix
 			: `${prefix} ${idx + 1}`;
+
+		// Check if cell content was truncated (has originalContentLength property)
+		const originalLength = getOriginalContentLength(cell);
+		const wasTruncated = originalLength !== undefined && originalLength > cell.content.length;
+
 		const parts = [
 			`<cell index="${cell.index}" type="${cell.type}">`,
 			`  <label>${cellLabel}</label>`,
 			`  <status>${statusInfo}</status>`,
 			includeContent ? `<content>${cell.content}</content>` : '',
+			wasTruncated ? `  <truncated original-length="${originalLength}" />` : '',
 			`</cell>`
 		];
 		return parts.filter(Boolean).join('\n');
@@ -250,6 +326,8 @@ export interface SerializedNotebookContext {
 	contextNote: string;
 	/** Full wrapped context (if wrapInNotebookContext is true) */
 	fullContext?: string;
+	/** Whether this serialized context represents a full notebook (true) or a windowed context (false). Undefined when allCellsInfo is not present. */
+	isFullNotebookContext?: boolean;
 }
 
 /**
@@ -272,6 +350,13 @@ export function serializeNotebookContext(
 	// Get all cells from context (may already be filtered)
 	const allCells = context.allCells || [];
 	const totalCells = context.cellCount;
+	const canIncludeFullNotebook = totalCells < MAX_CELLS_FOR_ALL_CELLS_CONTEXT;
+
+	// Helper function to find executed cells (used in multiple places)
+	const getExecutedCells = (cells: positron.notebooks.NotebookCell[]) => {
+		const codeCells = cells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
+		return codeCells.filter(c => c.executionOrder !== undefined);
+	};
 
 	// Determine anchor index for sliding window if not provided
 	let effectiveAnchorIndex: number;
@@ -282,8 +367,7 @@ export function serializeNotebookContext(
 		effectiveAnchorIndex = Math.max(...context.selectedCells.map(cell => cell.index));
 	} else {
 		// Try to find last executed cell
-		const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
-		const executedCells = codeCells.filter(c => c.executionOrder !== undefined);
+		const executedCells = getExecutedCells(allCells);
 		if (executedCells.length > 0) {
 			effectiveAnchorIndex = Math.max(...executedCells.map(c => c.index));
 		} else {
@@ -295,7 +379,7 @@ export function serializeNotebookContext(
 	// Apply filtering logic to determine which cells to include
 	let cellsToInclude: positron.notebooks.NotebookCell[];
 
-	if (totalCells < MAX_CELLS_FOR_ALL_CELLS_CONTEXT) {
+	if (canIncludeFullNotebook) {
 		// Small notebooks: include all cells
 		cellsToInclude = allCells.length > 0 ? allCells : [];
 	} else if (context.selectedCells.length === 0 && allCells.length === 0) {
@@ -303,13 +387,12 @@ export function serializeNotebookContext(
 		cellsToInclude = [];
 	} else if (context.selectedCells.length === 0) {
 		// Large notebooks without selection: use sliding window around executed cells
-		const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
-		const executedCells = codeCells.filter(c => c.executionOrder !== undefined);
+		const executedCells = getExecutedCells(allCells);
 		if (executedCells.length > 0 || effectiveAnchorIndex !== 0) {
 			const { startIndex, endIndex } = calculateSlidingWindow(allCells.length, effectiveAnchorIndex);
 			cellsToInclude = allCells.slice(startIndex, endIndex);
 		} else {
-			// No executed cells, use first 20 cells
+			// No executed cells, use first MAX_CELLS_FOR_ALL_CELLS_CONTEXT cells
 			cellsToInclude = allCells.slice(0, MAX_CELLS_FOR_ALL_CELLS_CONTEXT);
 		}
 	} else {
@@ -344,8 +427,7 @@ export function serializeNotebookContext(
 	let allCellsInfo: string | undefined;
 	let formattedCells: string | undefined;
 	if (cellsToInclude.length > 0) {
-		const isFullNotebook = context.cellCount < 20;
-		const description = isFullNotebook
+		const description = canIncludeFullNotebook
 			? 'All cells in notebook (notebook has fewer than 20 cells)'
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
 		// Format cells once and reuse
@@ -358,7 +440,7 @@ export function serializeNotebookContext(
 	// Generate context note XML
 	let contextNote: string;
 	if (cellsToInclude.length > 0) {
-		if (context.cellCount < 20) {
+		if (canIncludeFullNotebook) {
 			contextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
 		} else {
 			contextNote = xml.node('note', 'A context window around the selected/recent cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
@@ -373,13 +455,13 @@ export function serializeNotebookContext(
 		cellCountInfo,
 		selectedCellsInfo,
 		allCellsInfo,
-		contextNote
+		contextNote,
+		isFullNotebookContext: allCellsInfo ? canIncludeFullNotebook : undefined
 	};
 
 	// Optionally wrap in notebook-context node
 	if (wrapInNotebookContext) {
-		const isFullNotebook = context.cellCount < 20;
-		const contextMode = isFullNotebook
+		const contextMode = canIncludeFullNotebook
 			? 'Full notebook (< 20 cells, all cells provided below)'
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
 
@@ -450,6 +532,17 @@ function extractAttachedNotebookUris(request: vscode.ChatRequest): string[] {
 }
 
 /**
+ * Check if this request is from inline chat (not the chat pane).
+ * Chat pane has location2 === undefined, inline chat has location2 set.
+ *
+ * This is used to determine whether we should bypass the explicit notebook
+ * attachment check for inline chat within Positron notebooks.
+ */
+function isInlineChat(request: vscode.ChatRequest): boolean {
+	return request.location2 !== undefined;
+}
+
+/**
  * Checks if there is an attached notebook context without applying filtering or serialization.
  * Returns the raw notebook context if:
  * 1. Notebook mode feature is enabled
@@ -477,11 +570,22 @@ async function getRawAttachedNotebookContext(
 
 	// Extract attached notebook URIs
 	const attachedNotebookUris = extractAttachedNotebookUris(request);
+
+	// If no explicit references, check if this is inline chat in a Positron notebook
 	if (attachedNotebookUris.length === 0) {
+		// Only bypass reference check for inline chat (not chat pane)
+		// Chat pane requires explicit attachment even if notebook is open
+		if (isInlineChat(request)) {
+			const activeEditor = vscode.window.activeNotebookEditor;
+			if (activeEditor?.isPositronNotebook === true) {
+				// Inline notebook chat - no explicit attachment needed
+				return activeContext;
+			}
+		}
 		return undefined;
 	}
 
-	// Check if active notebook is in attached context
+	// Chat pane with explicit attachment - check if active notebook is attached
 	const isActiveNotebookAttached = attachedNotebookUris.includes(
 		activeContext.uri
 	);
@@ -522,11 +626,15 @@ export function hasAttachedNotebookContext(
 
 	// Extract attached notebook URIs
 	const attachedNotebookUris = extractAttachedNotebookUris(request);
+
+	// If no explicit references, check if this is inline chat in a Positron notebook
 	if (attachedNotebookUris.length === 0) {
-		return false;
+		// Only bypass reference check for inline chat (not chat pane)
+		// Chat pane requires explicit attachment even if notebook is open
+		return isInlineChat(request);
 	}
 
-	// Check if active notebook is in attached context
+	// Chat pane with explicit attachment - check if active notebook is attached
 	const activeNotebookUri = activeEditor.notebook.uri.toString();
 	return attachedNotebookUris.includes(activeNotebookUri);
 }
@@ -563,4 +671,74 @@ export async function getAttachedNotebookContext(
 		log.error('[getAttachedNotebookContext] Error getting notebook context:', err);
 		return undefined;
 	}
+}
+
+/**
+ * Serialize notebook context as a user message for injection into the chat.
+ *
+ * This function formats the notebook context as XML suitable for a user message,
+ * allowing the system prompt to remain static (and thus more cacheable) while
+ * the dynamic notebook state is provided separately.
+ *
+ * The output includes:
+ * - Notebook info (kernel, cell count)
+ * - Context mode (full notebook vs sliding window)
+ * - Selected cells (if any)
+ * - All/windowed cells content
+ * - Context note explaining what's included
+ *
+ * @param context The serialized notebook context from getAttachedNotebookContext()
+ * @returns XML-formatted string for use as a user message
+ */
+export function serializeNotebookContextAsUserMessage(
+	context: SerializedNotebookContext
+): string {
+	const parts: string[] = [];
+
+	// Header explaining what this message contains
+	parts.push('<notebook-state>');
+	parts.push('The following is the current state of the notebook you are assisting with:');
+	parts.push('');
+
+	// Notebook info section
+	parts.push('<notebook-info>');
+	parts.push(context.kernelInfo);
+	if (context.cellCountInfo) {
+		parts.push(context.cellCountInfo);
+	}
+
+	// Determine context mode based on whether allCellsInfo exists
+	if (context.allCellsInfo) {
+		// Use explicit isFullNotebookContext field instead of parsing XML
+		const isFullNotebookContext = context.isFullNotebookContext === true;
+		const contextMode = isFullNotebookContext
+			? 'Full notebook (< 20 cells, all cells provided below)'
+			: 'Context window around selected/recent cells (notebook has 20+ cells)';
+		parts.push(xml.node('context-mode', contextMode));
+	} else {
+		parts.push(xml.node('context-mode', 'Selected cells only (use GetNotebookCells for other cells)'));
+	}
+	parts.push('</notebook-info>');
+
+	// Selected cells section (if any selected)
+	if (context.selectedCellsInfo && context.selectedCellsInfo !== 'No cells currently selected') {
+		parts.push('');
+		parts.push('<selected-cells>');
+		parts.push(context.selectedCellsInfo);
+		parts.push('</selected-cells>');
+	}
+
+	// All cells section (if available)
+	if (context.allCellsInfo) {
+		parts.push('');
+		parts.push(context.allCellsInfo);
+	}
+
+	// Context note
+	parts.push('');
+	parts.push(context.contextNote);
+
+	parts.push('</notebook-state>');
+
+	return parts.join('\n');
 }

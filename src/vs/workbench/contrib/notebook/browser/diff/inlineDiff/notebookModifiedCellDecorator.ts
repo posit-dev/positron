@@ -5,7 +5,11 @@
 
 import { Disposable, DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { CellDiffInfo } from '../notebookDiffViewModel.js';
-import { INotebookEditor, NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+// --- Start Positron ---
+// Use IChatEditingNotebookEditor for compatibility with both VS Code and Positron notebooks
+import { NotebookOverviewRulerLane } from '../../notebookBrowser.js';
+import { IChatEditingNotebookEditor as INotebookEditor } from '../../../../positronNotebook/browser/IPositronNotebookEditor.js';
+// --- End Positron ---
 import { NotebookCellTextModel } from '../../../common/model/notebookCellTextModel.js';
 import { overviewRulerModifiedForeground } from '../../../../scm/common/quickDiff.js';
 

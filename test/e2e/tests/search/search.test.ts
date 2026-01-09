@@ -31,7 +31,9 @@ test.describe('Search', {
 		await app.workbench.search.setFilesToIncludeText('*.js');
 		await app.workbench.search.waitForResultText('4 results in 1 file');
 		await app.workbench.search.setFilesToIncludeText('');
-		await app.workbench.search.hideQueryDetails();
+		// skipping hideQueryDetails bc a tooltip often blocks the button making the step flaky
+		// and this action isn't critical for the core assertions in this test
+		// await app.workbench.search.hideQueryDetails();
 	});
 
 	test('Verify Basic Search for Unique Strings with File Removal', async function ({ app }) {

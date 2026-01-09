@@ -73,9 +73,27 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	getContent(): string;
 
 	/**
-	 * The cell's code editor widget.
+	 * The cell's current code editor widget.
 	 */
-	readonly editor: ICodeEditor | undefined;
+	readonly currentEditor: ICodeEditor | undefined;
+
+	/**
+	 * The cell's code editor as an observable.
+	 */
+	readonly editor: IObservable<ICodeEditor | undefined>;
+
+	/**
+	 * Observable for the cell's code editor widget.
+	 * Use this when you need to track changes to the editor (e.g., when the editor is attached/detached).
+	 */
+	readonly editorObservable: IObservable<ICodeEditor | undefined>;
+
+	/**
+	 * Current cell outputs as an observable.
+	 * Returns undefined for markdown cells (which have no outputs).
+	 * Code cells override this to return their outputs observable.
+	 */
+	readonly outputs: IObservable<NotebookCellOutputs[]> | undefined;
 
 	/**
 	 * Delete this cell
@@ -155,8 +173,17 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	/**
 	 * Reveal the cell in the viewport
 	 * @param type Reveal type.
+	 * @returns Promise that resolves to true if the cell was successfully revealed, false otherwise.
 	 */
-	reveal(type?: CellRevealType): void;
+	reveal(type?: CellRevealType): Promise<boolean>;
+
+	/**
+	 * Temporarily highlight the cell with a flash animation to draw attention.
+	 * The highlight animation is controlled by CSS and automatically completes.
+	 * Calling this method multiple times in quick succession will restart the animation.
+	 * @returns Promise that resolves to true if the highlight was successfully added, false otherwise.
+	 */
+	highlightTemporarily(): Promise<boolean>;
 
 	/**
 	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.
@@ -178,6 +205,13 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * Get the container that the cell is attached to
 	 */
 	get container(): HTMLElement | undefined;
+
+	/**
+	 * Check if this cell is currently visible in the viewport.
+	 * A cell is considered visible if at least {@link MIN_CELL_VISIBILITY_RATIO} of it is within the viewport.
+	 * @returns true if the cell is visible, false otherwise
+	 */
+	isInViewport(): boolean;
 
 	/**
 	 *

@@ -32,6 +32,8 @@ test.describe('New UV Environment', {
 	// This is skipped for windows because we can't get the text from the Terminal
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
+		test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
+
 		await app.workbench.terminal.clickTerminalTab();
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');

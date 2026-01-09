@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, Comm } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, StartupEnvironment, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -47,6 +47,7 @@ import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
+import { OutputChannelFormatted, LogOutputChannelFormatted } from './OutputChannelFormatted';
 
 /**
  * The reason for a disconnection event.
@@ -135,12 +136,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
 	 */
-	private readonly _kernelChannel: vscode.OutputChannel;
+	private readonly _kernelChannel: OutputChannelFormatted;
 
 	/**
 	 * The channel to which output for this specific console is logged
 	 */
-	private readonly _consoleChannel: vscode.LogOutputChannel;
+	private readonly _consoleChannel: LogOutputChannelFormatted;
 
 	/**
 	 * The channel to which profile output for this specific kernel is logged, if any
@@ -213,14 +214,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidEndSession = this._exit.event;
 
 		// Establish log channels for the console and kernel we're connecting to
-		this._consoleChannel = vscode.window.createOutputChannel(
-			metadata.notebookUri ?
-				`${runtimeMetadata.runtimeName}: Notebook: (${path.basename(metadata.notebookUri.path)})` :
-				`${runtimeMetadata.runtimeName}: Console`,
-			{ log: true });
+		this._consoleChannel = new LogOutputChannelFormatted(
+			vscode.window.createOutputChannel(
+				`${runtimeMetadata.languageName} Supervisor`,
+				{ log: true }
+			),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
 
-		this._kernelChannel = positron.window.createRawLogOutputChannel(
-			`${runtimeMetadata.runtimeName}: Kernel`);
+		this._kernelChannel = new OutputChannelFormatted(
+			positron.window.createRawLogOutputChannel(`${runtimeMetadata.languageName} Kernel`),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 
 		// Open the established barrier immediately if we're restoring an
@@ -415,6 +420,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Whether to run the kernel in a login shell. Kallichore ignores this
 		// on Windows.
 		const runInShell = config.get('runInShell', false);
+		let startup_environment_arg = '';
+		let startup_environment: StartupEnvironment = runInShell ?
+			StartupEnvironment.Shell : StartupEnvironment.None;
+
+		// If a startup command is specified in the kernel spec, we need to
+		// run the kernel in a login shell.
+		if (kernelSpec.startup_command) {
+			startup_environment = StartupEnvironment.Command;
+			startup_environment_arg = kernelSpec.startup_command;
+		}
 
 		// Create the session in the underlying API
 		const session: NewSession = {
@@ -428,7 +443,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			continuation_prompt: '',
 			env: varActions,
 			working_directory: workingDir,
-			run_in_shell: runInShell,
+			startup_environment,
+			startup_environment_arg,
 			username: os.userInfo().username,
 			interrupt_mode: interruptMode,
 			connection_timeout: connectionTimeout,
@@ -436,7 +452,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 		await this._api.newSession(session);
 
-		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
+		this.log(`Session ${session.display_name} (${this.metadata.sessionId}) created in ${workingDir} with command:`, vscode.LogLevel.Info);
 		this.log(args.join(' '), vscode.LogLevel.Info);
 
 		this._established.open();

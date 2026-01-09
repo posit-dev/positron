@@ -23,8 +23,7 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 registerSingleton(IPositronHistoryService, PositronHistoryService, InstantiationType.Delayed);
 
 // The Positron history view icon.
-// TODO@softwarenerd - Replace Codicon.positronPreviewView with Codicon.positronHistoryView.
-const positronHistoryViewIcon = registerIcon('positron-history-icon', Codicon.positronPreviewView, nls.localize('positronHistoryViewIcon', 'View icon of the Positron history view.'));
+const positronHistoryViewIcon = registerIcon('positron-history-icon', Codicon.history, nls.localize('positronHistoryViewIcon', 'View icon of the Positron history view.'));
 
 // Register the Positron history container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
@@ -34,11 +33,11 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 		original: 'History'
 	},
 	icon: positronHistoryViewIcon,
-	order: 2,
+	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_HISTORY_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: POSITRON_HISTORY_VIEW_ID,
-	hideIfEmpty: true,
-}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: true });
+	hideIfEmpty: false,
+}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: false, isDefault: false });
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_HISTORY_VIEW_ID,
@@ -50,6 +49,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canMoveView: true,
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronHistoryViewPane),
+	positronAlwaysOpenView: true,
 	openCommandActionDescriptor: {
 		id: 'workbench.action.positron.toggleHistory',
 		mnemonicTitle: nls.localize({ key: 'miToggleHistory', comment: ['&& denotes a mnemonic'] }, "&&History"),

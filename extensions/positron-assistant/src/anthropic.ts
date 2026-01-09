@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { getProviderTimeoutMs, ModelConfig, SecretStorage } from './config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { getAllModelDefinitions } from './modelDefinitions.js';
@@ -46,11 +46,6 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	tokenCount: number = 0;
 	modelListing: vscode.LanguageModelChatInformation[];
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	private readonly _client: Anthropic;
 
@@ -251,7 +246,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 				version: '',
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: modelDef.maxInputTokens,
 				defaultMaxOutput: modelDef.maxOutputTokens
 			})
@@ -285,7 +280,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 							version: model.created_at,
 							provider: this.provider,
 							providerName: this.providerName,
-							capabilities: this.capabilities,
+							capabilities: DEFAULT_MODEL_CAPABILITIES,
 							defaultMaxInput: knownModel?.maxInputTokens,
 							defaultMaxOutput: knownModel?.maxOutputTokens
 						})

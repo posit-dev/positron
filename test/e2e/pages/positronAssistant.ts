@@ -8,6 +8,7 @@ import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
+import { Modals } from './dialog-modals.js';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
@@ -21,7 +22,7 @@ const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#be
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
-const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
+const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-auth-provider-button)';
 const OPENAI_BUTTON = 'button.positron-button.language-model.button:has(#openai-api-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
@@ -31,11 +32,11 @@ const COPY_BUTTON = 'a.action-label.codicon.codicon-copy[role="button"][aria-lab
 const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="button"][aria-label="Insert into New File"]';
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
-const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
+const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edit-context';
 const SEND_MESSAGE_BUTTON = '.actions-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
-const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
+const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Agent"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
@@ -45,7 +46,7 @@ const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Lan
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts, private modals: Modals) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -104,10 +105,13 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
 	}
 
-	async verifyManageModelsOptionVisible() {
+	async pickModel() {
 		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
-		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
 	}
+
+	async expectManageModelsVisible() {
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
+	};
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
@@ -150,8 +154,17 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
 	}
 
-	async clickCloseButton() {
+	async clickCloseButton({ abandonChanges = true } = {}) {
 		await this.code.driver.page.locator(CLOSE_BUTTON).click();
+
+		const abandonModalisVisible = await this.modals.modalTitle.filter({ hasText: 'Authentication Incomplete' }).isVisible();
+		if (abandonModalisVisible) {
+			abandonChanges
+				? await this.modals.getButton('Yes').click()
+				: await this.modals.getButton('No').click();
+		}
+
+		await this.modals.expectToBeVisible(undefined, { visible: false });
 	}
 
 	async clickSignOutButton() {
@@ -186,8 +199,10 @@ export class Assistant {
 	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
-		await chatInput.fill(message);
+		await chatInput.pressSequentially(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// It can take a moment for the loading locator to become visible.
+		await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'visible' });
 		// Optionally wait for any loading state on the most recent response to finish
 		if (waitForResponse) {
 			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });

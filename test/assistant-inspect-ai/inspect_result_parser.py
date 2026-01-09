@@ -21,7 +21,6 @@ import json
 import sys
 import argparse
 from typing import Dict, List, Any, Optional
-from pathlib import Path
 
 
 def load_inspect_result(file_path: str) -> Dict[str, Any]:
@@ -53,11 +52,27 @@ def extract_sample_summary(sample: Dict[str, Any]) -> Dict[str, Any]:
 	metadata = sample.get('metadata', {})
 	original_question = metadata.get('original_question', 'N/A')
 
+	# Extract explanation from the graded_score
+	explanation_raw = graded_score.get('explanation', '')
+
+	# Parse the explanation to extract just the EXPLANATION part (skip the GRADE line)
+	if explanation_raw:
+		import re
+		# Extract just the explanation text after "EXPLANATION:"
+		explanation_match = re.search(r'EXPLANATION:\s*(.+)', explanation_raw, re.DOTALL)
+		if explanation_match:
+			explanation = explanation_match.group(1).strip()
+		else:
+			# Fall back to the full raw explanation if no EXPLANATION: marker found
+			explanation = explanation_raw.strip()
+	else:
+		explanation = 'No explanation provided'
+
 	return {
 		'sample_id': sample_id,
 		'grade': grade,
 		'original_question': original_question,
-		'explanation': graded_score.get('explanation', 'No explanation provided')
+		'explanation': explanation
 	}
 
 
@@ -111,7 +126,7 @@ def print_summary(result_data: Dict[str, Any], sample_summaries: List[Dict[str, 
 	print(f"\nAccuracy: {accuracy:.3f}" if accuracy is not None else "\nAccuracy: N/A")
 
 	# Grade distribution
-	print(f"\nGrade Distribution:")
+	print("\nGrade Distribution:")
 	total_graded = sum(grade_counts.values()) - grade_counts['Unknown']
 	for grade, count in grade_counts.items():
 		if grade != 'Unknown' or count > 0:
@@ -119,16 +134,18 @@ def print_summary(result_data: Dict[str, Any], sample_summaries: List[Dict[str, 
 			print(f"  {grade}: {count} ({percentage:.1f}%)")
 
 	# Individual sample results
-	print(f"\nSample Results:")
+	print("\nSample Results:")
 	print("-" * 40)
 	for sample in sample_summaries:
 		print(f"Sample: {sample['sample_id']}")
 		print(f"  Grade: {sample['grade']}")
 		print(f"  Question: {sample['original_question']}")
 		if sample['explanation'] and sample['explanation'] != 'No explanation provided':
-			# Show first line of explanation
-			first_line = sample['explanation'].split('\n')[0]
-			print(f"  Explanation: {first_line}")
+			# Show full explanation with proper formatting
+			print("  Explanation:")
+			# Indent each line of the explanation
+			for line in sample['explanation'].split('\n'):
+				print(f"    {line}")
 		print()
 
 
@@ -141,6 +158,8 @@ def main():
 		help='Accuracy threshold for pass/fail (default: 0.8)')
 	parser.add_argument('--quiet', '-q', action='store_true',
 		help='Suppress detailed output, only show pass/fail result')
+	parser.add_argument('--debug', '-d', action='store_true',
+		help='Print debug information including full score structure')
 
 	args = parser.parse_args()
 
@@ -149,6 +168,22 @@ def main():
 
 	# Extract sample summaries
 	samples = result_data.get('samples', [])
+
+	# Debug mode: print first sample's full score structure
+	if args.debug and samples:
+		import json as json_module
+		print("=" * 60)
+		print("DEBUG: First sample's score structure")
+		print("=" * 60)
+		first_sample = samples[0]
+		print("Sample ID:", first_sample.get('id'))
+		print("\nScores structure:")
+		print(json_module.dumps(first_sample.get('scores', {}), indent=2))
+		print("\nOutput structure:")
+		print(json_module.dumps(first_sample.get('output', {}), indent=2))
+		print("=" * 60)
+		print()
+
 	sample_summaries = [extract_sample_summary(sample) for sample in samples]
 
 	# Calculate grade counts

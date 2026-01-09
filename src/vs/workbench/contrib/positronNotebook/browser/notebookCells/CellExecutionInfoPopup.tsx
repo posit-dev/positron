@@ -115,9 +115,12 @@ export function CellExecutionInfoPopup({
 	const completedMoreThanAnHourAgo =
 		lastRunEndTime !== undefined && isMoreThanOneHourAgo(lastRunEndTime);
 
-	// Check if cell has never been run
+	// Check if cell has never been run (no execution order and no current session data)
 	const hasNeverBeenRun =
 		!hasExecutionOrder && !hasExecutionResult && !isCurrentlyRunning;
+
+	// Check if we have any current session content to display
+	const hasCurrentSessionContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
 
 	// If cell has never been run, show a simple message
 	if (hasNeverBeenRun) {
@@ -136,10 +139,26 @@ export function CellExecutionInfoPopup({
 		);
 	}
 
-	// Check if we have any content to display
-	// If we only have execution order but no other metadata, don't show the popup
-	const hasAnyContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
-	if (!hasAnyContent) {
+	// If we have an execution order but no current session data, show a message
+	// indicating the cell was run in a previous session
+	if (hasExecutionOrder && !hasCurrentSessionContent) {
+		return (
+			<div
+				aria-label='Cell execution details'
+				className='cell-execution-info-popup'
+				role='tooltip'
+			>
+				<div className='popup-row'>
+					<span className='popup-label'>
+						{localize('cellExecution.notRunThisSession', 'Not run this session')}
+					</span>
+				</div>
+			</div>
+		);
+	}
+
+	// If we still have no content somehow, don't show the popup
+	if (!hasCurrentSessionContent) {
 		return null;
 	}
 

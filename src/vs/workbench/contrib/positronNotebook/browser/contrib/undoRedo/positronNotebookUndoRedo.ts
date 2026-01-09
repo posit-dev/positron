@@ -6,9 +6,8 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
 import { UndoCommand, RedoCommand } from '../../../../../../editor/browser/editorExtensions.js';
-import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
-import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 import { NotebookOperationType } from '../../IPositronNotebookInstance.js';
@@ -20,7 +19,6 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 	constructor(
 		@IUndoRedoService private readonly undoRedoService: IUndoRedoService,
 		@IEditorService private readonly editorService: IEditorService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -43,18 +41,10 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 		const emptyNotebook = instance.cells.get().length === 0;
 
 		// Use the notebook-specific scoped context key service instead of the global one
-		const scopedContextKeyService = instance.contextManager.getScopedContextKeyService();
-		if (!scopedContextKeyService) {
-			// Fallback to global context service if scoped service is not available
-			// This shouldn't happen in normal operation, but provides a safety net
-			const containerFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
-			const cellEditorFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
-			// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty
-			return containerFocused || cellEditorFocused || emptyNotebook;
-		}
+		const { scopedContextKeyService } = instance;
 
 		// Read context keys from the scoped context service that actually has these keys bound
-		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
+		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_FOCUSED.key) ?? false;
 		const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
 
 		// Handle undo/redo if the container is focused OR a cell editor is focused OR the notebook is empty

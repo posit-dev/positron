@@ -96,6 +96,6 @@ export class Outline {
 			const outlineData = await this.getOutlineData();
 			const missingFromUI = expected.filter(item => !outlineData.includes(item));
 			expect(missingFromUI, `Missing from UI: ${missingFromUI}`).toHaveLength(0);
-		}).toPass();
+		}).toPass({ timeout: 10000 });
 	}
 }

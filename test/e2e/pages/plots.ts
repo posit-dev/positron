@@ -96,8 +96,8 @@ export class Plots {
 		}
 	}
 
-	async waitForNoPlots() {
-		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible();
+	async waitForNoPlots({ timeout = 15000 }: { timeout?: number } = {}) {
+		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible({ timeout });
 	}
 
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {

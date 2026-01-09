@@ -102,7 +102,12 @@ export class ReplaceSelectionProcessor {
 		const lines = text.split(/\r?\n/);
 		const lineDelta = lines.length - 1;
 		const characterDelta = lines.at(-1)!.length;
-		this._insertPosition = this._insertPosition!.translate(lineDelta, characterDelta);
+		if (lineDelta === 0) {
+			this._insertPosition = this._insertPosition!.translate(lineDelta, characterDelta);
+		} else {
+			// If we added new lines, reset the character position to the length of the last line.
+			this._insertPosition = this._insertPosition.translate({ lineDelta }).with({ character: characterDelta });
+		}
 	}
 
 	private onReplaceSelectionClose(): void {

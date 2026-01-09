@@ -466,6 +466,7 @@ import './contrib/positronConsole/browser/positronConsoleView.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution.js';
 import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.js';
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
+import './contrib/positronHistory/browser/positronHistory.contribution.js';
 import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
 import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
 import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';

@@ -15,6 +15,11 @@ export const POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR = ContextKeyExpr.equals(
 	PositronDataExplorerEditorInput.EditorID
 );
 
+export const POSITRON_DATA_EXPLORER_IS_FOCUSED = ContextKeyExpr.equals(
+	'positronDataExplorerFocused',
+	true
+);
+
 /**
  * Raw context keys.
  */
@@ -41,4 +46,13 @@ export const POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE = new RawContextKey<
 export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean>(
 	'positronDataExplorerIsRowFiltering',
 	false
+);
+
+/**
+ * Context key for whether has header row option is enabled (default true).
+ * Only meaningful for delimited text files (CSV/TSV) opened with DuckDB backend.
+ */
+export const POSITRON_DATA_EXPLORER_FILE_HAS_HEADER_ROW = new RawContextKey<boolean>(
+	'positronDataExplorerFileHasHeaderRow',
+	true
 );

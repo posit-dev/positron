@@ -37,6 +37,7 @@ export class Notebooks {
 	frameLocator: FrameLocator;
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
+	interruptButton: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		this.code = code;
@@ -49,6 +50,7 @@ export class Notebooks {
 		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
+		this.interruptButton = this.code.driver.page.getByRole('button', { name: 'Interrupt' });
 	}
 
 	async selectInterpreter(
@@ -60,6 +62,7 @@ export class Notebooks {
 		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 
 			try {
 				// 1. Try finding by text
@@ -141,14 +144,14 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string | RegExp, cellIndex?: number): Promise<void> {
+	async assertCellOutput(text: string | RegExp, cellIndex?: number, { timeout = 15000 } = {}): Promise<void> {
 		if (cellIndex !== undefined) {
 			// Target specific cell output
 			const cellOutput = this.frameLocator.locator('.output_container').nth(cellIndex);
-			await expect(cellOutput.getByText(text)).toBeVisible({ timeout: 15000 });
+			await expect(cellOutput.getByText(text)).toBeVisible({ timeout });
 		} else {
 			// Use nth(0) to get the first occurrence when multiple elements exist
-			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout: 15000 });
+			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout });
 		}
 	}
 
@@ -162,12 +165,12 @@ export class Notebooks {
 		await expect(markdownLocator).toHaveText(expectedText);
 	}
 
-	async runAllCells(timeout: number = 30000) {
+	async runAllCells({ timeout = 15000 } = {}): Promise<void> {
 		await test.step('Run all cells', async () => {
 			await this.code.driver.page.getByLabel('Run All').click();
 			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
-				await expect(stopExecutionLocator).toBeVisible();
+				await expect(stopExecutionLocator).toBeVisible({ timeout });
 				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
 			} catch { } // can be normal with very fast execution
 		});
@@ -191,12 +194,10 @@ export class Notebooks {
 
 			await this.code.driver.page.locator(editor).isVisible();
 
-			const textarea = `${editor} textarea`;
-			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+			const editContext = `${editor} .native-edit-context`;
+			await expect(this.code.driver.page.locator(editContext)).toBeFocused();
 
-			delay
-				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
-				: await this.code.driver.page.locator(textarea).fill(text);
+			await this.code.driver.page.locator(editContext).pressSequentially(text, { delay });
 		});
 	}
 

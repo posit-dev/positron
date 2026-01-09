@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
 import { IExecutionHistoryEntry, IInputHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -32,7 +34,9 @@ export class SessionInputHistory extends Disposable {
 	constructor(
 		private readonly _sessionId: string,
 		private readonly _storageService: IStorageService,
-		private readonly _logService: ILogService
+		private readonly _storageScope: StorageScope,
+		private readonly _logService: ILogService,
+		private readonly _contextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -40,9 +44,9 @@ export class SessionInputHistory extends Disposable {
 		this._storageKey = `${INPUT_HISTORY_STORAGE_PREFIX}.${_sessionId}`;
 
 		// Load existing history entries
-		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		try {
-			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<any>) => {
+			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<unknown>) => {
 				this._entries.push(entry);
 			});
 		} catch (err) {
@@ -65,7 +69,8 @@ export class SessionInputHistory extends Disposable {
 		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
 			this._entries.push({
 				when: Date.now(),
-				input: message.code
+				input: message.code,
+				debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService)
 			});
 			this._dirty = true;
 			this.delayedSave();
@@ -91,7 +96,7 @@ export class SessionInputHistory extends Disposable {
 		this._entries.length = 0;
 		this._storageService.store(this._storageKey,
 			null,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 	}
 
@@ -129,11 +134,11 @@ export class SessionInputHistory extends Disposable {
 			`Saving input history for session ${this._sessionId} ` +
 			`(${storageState.length} bytes)`);
 
-		// Write to machine/workspace specific storage so we can restore the
+		// Write to machine/workspace or profile specific storage so we can restore the
 		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 
 		// Successfully saved; state is no longer dirty

@@ -23,7 +23,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "search.test"
+        default: "/search.test"
         type: string
       notify_on:
         description: "Slack notification on:"
@@ -57,7 +57,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
 
   e2e-webkit:
     name: e2e
@@ -71,7 +71,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
 
   e2e-edge:
     name: e2e
@@ -85,7 +85,7 @@ jobs:
       allow_soft_fail: false
       shards: 1
       matrix: '{"shard":[1]}'
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+      grep: ${{ inputs.grep && inputs.grep || '/search.test' }}
 
   slack-notify:
     if: always()

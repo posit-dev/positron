@@ -19,7 +19,7 @@ import { processMessages, toAIMessage, isAuthorizationError } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MAX_STEPS } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MAX_STEPS, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { AssistantError, log, recordRequestTokenUsage, recordTokenUsage, registerModelWithAPI } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
@@ -31,6 +31,7 @@ import { getAllModelDefinitions } from './modelDefinitions';
 import { createModelInfo, getMaxTokens, markDefaultModel } from './modelResolutionHelpers.js';
 import { detectSnowflakeCredentials, extractSnowflakeError, getSnowflakeDefaultBaseUrl, checkForUpdatedSnowflakeCredentials } from './snowflakeAuth.js';
 import { createOpenAICompatibleFetch } from './openai-fetch-utils.js';
+import { CopilotLanguageModel } from './copilot.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -68,6 +69,8 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		defaults: {
 			name: 'Error Language Model',
 			model: 'error',
+			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -121,14 +124,11 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		defaults: {
 			name: 'Echo Language Model',
 			model: 'echo',
+			toolCalls: true,
+			completions: false,
 		},
 	};
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	get providerName(): string {
 		return EchoLanguageModel.source.provider.displayName;
@@ -230,7 +230,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			isDefault: true,
 			isUserSelectable: true,
 		}, {
@@ -240,7 +240,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			version: '1.0.0',
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			isUserSelectable: true,
 		}];
 		this.modelListing = models;
@@ -298,11 +298,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	protected modelListing?: vscode.LanguageModelChatInformation[];
 
-	capabilities = {
-		vision: true,
-		toolCalling: true,
-		agentMode: true,
-	};
 
 	constructor(
 		protected readonly _config: ModelConfig,
@@ -662,8 +657,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				version: 'v2',
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
-				defaultMaxInput: model.maxInputTokens ?? 0,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
+				defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
 		);
@@ -680,7 +675,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			version: 'v2',
 			provider: this._config.provider,
 			providerName: this.providerName,
-			capabilities: this.capabilities,
+			capabilities: DEFAULT_MODEL_CAPABILITIES,
 			defaultMaxInput: this._config.maxInputTokens,
 			defaultMaxOutput: this._config.maxOutputTokens
 		});
@@ -712,6 +707,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
+			completions: false,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
@@ -755,7 +751,7 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
-			completions: true,
+			completions: false,
 		},
 	};
 
@@ -818,8 +814,8 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 				version: modelDef.identifier,
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
-				defaultMaxInput: modelDef.maxInputTokens ?? 0,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
+				defaultMaxInput: modelDef.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 			})
 		);
@@ -844,8 +840,8 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 					version: model.id,
 					provider: this.provider,
 					providerName: this.providerName,
-					capabilities: this.capabilities,
-					defaultMaxInput: 0,
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
+					defaultMaxInput: model.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
 					defaultMaxOutput: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT
 				})
 			);
@@ -1110,6 +1106,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 			model: 'anthropic/claude-3.5-sonnet',
 			baseUrl: 'https://openrouter.ai/api/v1',
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1141,6 +1138,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			model: 'qwen2.5-coder:7b',
 			baseUrl: 'http://localhost:11434/api',
 			toolCalls: false,
+			completions: false,
 			numCtx: 2048,
 		},
 	};
@@ -1173,6 +1171,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 			model: 'gpt-4o',
 			resourceName: undefined,
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1205,6 +1204,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 			project: undefined,
 			location: undefined,
 			toolCalls: true,
+			completions: false,
 		},
 	};
 
@@ -1242,6 +1242,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			name: 'Claude 4 Sonnet Bedrock',
 			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
+			completions: false,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using AWS credentials', signedIn: false },
 		},
 	};
@@ -1460,7 +1461,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				version: '',
 				provider: this.provider,
 				providerName: this.providerName,
-				capabilities: this.capabilities,
+				capabilities: DEFAULT_MODEL_CAPABILITIES,
 				defaultMaxInput: modelDef.maxInputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
 				defaultMaxOutput: modelDef.maxOutputTokens ?? AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
 			})
@@ -1508,7 +1509,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 					version: '',
 					provider: this.provider,
 					providerName: this.providerName,
-					capabilities: this.capabilities,
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					defaultMaxInput: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
 					defaultMaxOutput: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT
 				});
@@ -1636,6 +1637,7 @@ export function getLanguageModels() {
 		...testLanguageModels,
 		anthropicClass,
 		AzureLanguageModel,
+		CopilotLanguageModel,
 		GoogleLanguageModel,
 		MistralLanguageModel,
 		OllamaLanguageModel,
@@ -1668,7 +1670,6 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 		if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 			// Handle environment variable based auto-configuration
 			const key = model.source.defaults.autoconfigure.key;
-			// pragma: allowlist nextline secret
 			const apiKey = key ? process.env[key] : undefined;
 
 			if (key && apiKey) {
@@ -1679,6 +1680,8 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 					name: model.source.provider.displayName,
 					model: model.source.defaults.model,
 					apiKey: apiKey,
+					toolCalls: model.source.defaults.toolCalls,
+					completions: model.source.defaults.completions,
 					autoconfigure: {
 						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
 						key: key,
@@ -1699,9 +1702,10 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 						name: model.source.provider.displayName,
 						model: model.source.defaults.model,
 						apiKey: result.token,
+						toolCalls: model.source.defaults.toolCalls,
+						completions: model.source.defaults.completions,
 						// Use baseUrl from autoconfigure result if available, otherwise fall back to defaults
 						...(result.baseUrl && { baseUrl: result.baseUrl }),
-						// pragma: allowlist nextline secret
 						autoconfigure: {
 							type: positron.ai.LanguageModelAutoconfigureType.Custom,
 							message: result.message,

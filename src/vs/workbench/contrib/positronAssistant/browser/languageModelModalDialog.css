@@ -141,4 +141,6 @@
 
 .language-model-error.error-msg {
 	word-break: break-word;
+	margin-right: 90px;
+	padding-bottom: 10px;
 }

@@ -10,7 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -190,22 +190,9 @@ export interface ExtHostPlotsServiceShape {
 	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
 }
 
-/**
- * Data transfer object for notebook cell information.
- */
-export interface INotebookCellDTO {
-	id: string;
-	index: number;
-	type: NotebookCellType;
-	content: string;
-	hasOutput: boolean;
-	selectionStatus: string;
-	executionStatus?: string;
-	executionOrder?: number;
-	lastRunSuccess?: boolean;
-	lastExecutionDuration?: number;
-	lastRunEndTime?: number;
-}
+// This is the same as the NotebookCell interface in the positron.d.ts file but
+// it's often co-imported with interfaces from here so we'll re-export it here.
+export type INotebookCellDTO = notebooks.NotebookCell;
 
 /**
  * Data transfer object for notebook context information.
@@ -235,13 +222,15 @@ export interface INotebookCellOutputDTO {
  */
 export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$getActiveNotebookContext(): Promise<INotebookContextDTO | undefined>;
-	$getCells(notebookUri: string): Promise<INotebookCellDTO[]>;
-	$getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined>;
+	$getCells(notebookUri: string): Promise<notebooks.NotebookCell[]>;
+	$getCell(notebookUri: string, cellIndex: number): Promise<notebooks.NotebookCell | undefined>;
 	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
 	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
 	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
 	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
 	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
+	$moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void>;
+	$reorderCells(notebookUri: string, newOrder: number[]): Promise<void>;
 }
 
 /**

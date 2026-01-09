@@ -6284,12 +6284,7 @@ export const EditorOptions = {
 	emptySelectionClipboard: register(new EditorEmptySelectionClipboard()),
 	dropIntoEditor: register(new EditorDropIntoEditor()),
 	editContext: register(new EditorBooleanOption(
-		// --- Start Positron ---
-		// Disable the edit context which is normally enabled.
-		// It causes test failures due to changes in the DOM.
-		// https://positpbc.slack.com/archives/C04FPQK3H9C/p1740750244836859
-		EditorOption.editContext, 'editContext', false,
-		// --- End Positron ---
+		EditorOption.editContext, 'editContext', true,
 		{
 			description: nls.localize('editContext', "Sets whether the EditContext API should be used instead of the text area to power input in the editor."),
 			included: platform.isChrome || platform.isEdge || platform.isNative

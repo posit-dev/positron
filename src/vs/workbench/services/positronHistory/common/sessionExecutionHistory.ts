@@ -9,6 +9,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { EXECUTION_HISTORY_STORAGE_PREFIX, ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryError } from './executionHistoryService.js';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * Represents a history of executions for a single language runtime session.
@@ -38,7 +40,8 @@ export class SessionExecutionHistory extends Disposable {
 		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
 		private readonly _storageScope: StorageScope,
-		private readonly _logService: ILogService
+		private readonly _logService: ILogService,
+		private readonly _contextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -83,6 +86,7 @@ export class SessionExecutionHistory extends Disposable {
 					when: Date.now(),
 					prompt: '',
 					input: '',
+					debug: 'inactive',
 					outputType: ExecutionEntryType.Startup,
 					output: info,
 					durationMs: 0
@@ -111,11 +115,27 @@ export class SessionExecutionHistory extends Disposable {
 			} else {
 				// This is the first time we've seen this execution; create
 				// a new entry.
+				let when = Date.now();
+
+				// If the input message has a timestamp, try to use that instead. Not all
+				// runtimes provide this, but if they do, it should be more accurate.
+				if (message.when) {
+					const parsedTime = Date.parse(message.when);
+					if (isNaN(parsedTime)) {
+						this._logService.warn(
+							`Invalid timestamp '${when}' on input message ${message.id}; ` +
+							`Using current time instead.`);
+					} else {
+						when = parsedTime;
+					}
+				}
+
 				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
-					when: Date.parse(message.when),
+					when: when,
 					prompt: session.dynState.inputPrompt,
 					input: message.code,
+					debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService),
 					outputType: ExecutionEntryType.Execution,
 					output: '',
 					durationMs: 0
@@ -207,6 +227,7 @@ export class SessionExecutionHistory extends Disposable {
 				when: Date.parse(message.when),
 				prompt: '',
 				input: '',
+				debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService),
 				outputType: ExecutionEntryType.Execution,
 				output,
 				durationMs: 0

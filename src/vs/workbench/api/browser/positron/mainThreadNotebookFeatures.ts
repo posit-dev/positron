@@ -7,7 +7,7 @@ import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensi
 import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
 import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
@@ -16,6 +16,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -29,6 +31,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		_extHostContext: IExtHostContext,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// No initialization needed
 	}
@@ -174,7 +177,12 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const lastCell = cellsToRun[cellsToRun.length - 1];
 		lastCell.select(CellSelectionType.Normal);
 
-		return instance.runCells(cellsToRun);
+		await instance.runCells(cellsToRun);
+
+		// Notify about assistant cell modification for follow mode
+		// Use the last cell that was actually run (from filtered cellsToRun),
+		// not the original cellIndices array which may contain invalid indices
+		await instance.handleAssistantCellModification(lastCell.index);
 	}
 
 	/**
@@ -193,8 +201,13 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const cellKind = type === NotebookCellType.Code ? CellKind.Code : CellKind.Markup;
 
-		// Add cell with content and enter edit mode
-		instance.addCell(cellKind, index, true, content);
+		// Mark this as an assistant operation to prevent automatic selection/scrolling.
+		// The follow mode will control reveal behavior based on user preferences.
+		instance.setCurrentOperation(NotebookOperationType.AssistantAdd);
+		instance.addCell(cellKind, index, false, content);
+
+		// Notify about assistant cell modification for follow mode
+		await instance.handleAssistantCellModification(index);
 
 		return index;
 	}
@@ -215,7 +228,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		return instance.deleteCell(cells[cellIndex]);
+		instance.deleteCell(cells[cellIndex]);
 	}
 
 	/**
@@ -242,12 +255,13 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		// Use the notebook text model's applyEdits to replace the cell content
 		// This preserves all other cell properties (language, outputs, metadata, etc.)
-		const textModel = instance.textModel;
-		if (!textModel) {
-			throw new Error(`No text model for notebook: ${notebookUri}`);
-		}
+		const textModel = this._getTextModel(instance, notebookUri);
 
 		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
+
+		// Mark this as an assistant operation to prevent automatic selection/scrolling.
+		// The follow mode will control reveal behavior based on user preferences.
+		instance.setCurrentOperation(NotebookOperationType.AssistantEdit);
 
 		textModel.applyEdits([
 			{
@@ -270,6 +284,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 				]
 			}
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+		// Notify about assistant cell modification for follow mode
+		await instance.handleAssistantCellModification(cellIndex);
 	}
 
 	/**
@@ -303,24 +320,36 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
 			for (const item of output.outputs) {
-				// Handle different MIME types
-				if (item.mime === 'text/plain' || item.mime === 'application/vnd.code.notebook.stdout') {
-					// Plain text outputs
+				const mimeType = item.mime;
+
+				// Handle stderr outputs with prefix
+				if (mimeType === 'application/vnd.code.notebook.stderr') {
 					outputDTOs.push({
-						mimeType: item.mime,
-						data: item.data.toString()
-					});
-				} else if (item.mime === 'application/vnd.code.notebook.stderr') {
-					// Stderr outputs with prefix
-					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
 						data: `[stderr] ${item.data.toString()}`
 					});
-				} else {
-					// Binary outputs (images, etc.) - convert to base64 using VS Code's browser-compatible encoding
+				}
+				// Handle image MIME types - base64 encode
+				else if (isImageMimeType(mimeType)) {
 					const base64Data = encodeBase64(item.data);
 					outputDTOs.push({
-						mimeType: item.mime,
+						mimeType: mimeType,
+						data: base64Data
+					});
+				}
+				// Handle text-based MIME types - convert to string
+				else if (isTextBasedMimeType(mimeType)) {
+					outputDTOs.push({
+						mimeType: mimeType,
+						data: item.data.toString()
+					});
+				}
+				// Unknown MIME type - log warning and default to base64 encoding (safer for unknown binary data)
+				else {
+					this._logService.warn(`Unknown MIME type "${mimeType}" in notebook cell output. Defaulting to base64 encoding.`);
+					const base64Data = encodeBase64(item.data);
+					outputDTOs.push({
+						mimeType: mimeType,
 						data: base64Data
 					});
 				}
@@ -328,6 +357,163 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		}
 
 		return outputDTOs;
+	}
+
+	/**
+	 * Moves a cell from one index to another in a notebook.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param fromIndex The current index of the cell to move.
+	 * @param toIndex The target index where the cell should be moved to.
+	 */
+	async $moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		const cells = instance.cells.get();
+		const cellCount = cells.length;
+
+		// Validate indices
+		if (fromIndex < 0 || fromIndex >= cellCount) {
+			throw new Error(`Invalid fromIndex: ${fromIndex}. Must be between 0 and ${cellCount - 1}`);
+		}
+		if (toIndex < 0 || toIndex >= cellCount) {
+			throw new Error(`Invalid toIndex: ${toIndex}. Must be between 0 and ${cellCount - 1}`);
+		}
+
+		// No-op if moving to same position
+		if (fromIndex === toIndex) {
+			return;
+		}
+
+		const textModel = this._getTextModel(instance, notebookUri);
+
+		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
+
+		// Mark this as an assistant operation
+		instance.setCurrentOperation(NotebookOperationType.AssistantEdit);
+
+		textModel.applyEdits([{
+			editType: CellEditType.Move,
+			index: fromIndex,
+			length: 1,
+			newIdx: toIndex
+		}], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+		// Notify about assistant cell modification for follow mode
+		await instance.handleAssistantCellModification(toIndex);
+	}
+
+	/**
+	 * Reorders all cells in a notebook according to a new order.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param newOrder Array representing the new order - newOrder[i] is the index of the cell
+	 *                 that should be at position i in the reordered notebook.
+	 */
+	async $reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		const cells = instance.cells.get();
+		const cellCount = cells.length;
+
+		// Validate the permutation
+		if (newOrder.length !== cellCount) {
+			throw new Error(`Invalid newOrder length: ${newOrder.length}. Must match cell count: ${cellCount}`);
+		}
+
+		// Check that it's a valid permutation (each index 0 to n-1 appears exactly once)
+		const seen = new Set<number>();
+		for (const index of newOrder) {
+			if (!Number.isInteger(index) || index < 0 || index >= cellCount) {
+				throw new Error(`Invalid index in newOrder: ${index}. Must be between 0 and ${cellCount - 1}`);
+			}
+			if (seen.has(index)) {
+				throw new Error(`Duplicate index in newOrder: ${index}. Each index must appear exactly once`);
+			}
+			seen.add(index);
+		}
+
+		// Check if this is a no-op (identity permutation)
+		let isIdentity = true;
+		for (let i = 0; i < cellCount; i++) {
+			if (newOrder[i] !== i) {
+				isIdentity = false;
+				break;
+			}
+		}
+		if (isIdentity) {
+			return;
+		}
+
+		const textModel = this._getTextModel(instance, notebookUri);
+
+		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
+
+		// Mark this as an assistant operation
+		instance.setCurrentOperation(NotebookOperationType.AssistantEdit);
+
+		// Apply the reordering as a series of move operations
+		// We use a cycle-based approach to minimize moves:
+		// For each cycle in the permutation, we perform cycle_length - 1 moves
+		const currentOrder = [...Array(cellCount).keys()]; // [0, 1, 2, ..., n-1]
+		const visited = new Set<number>();
+
+		for (let startPos = 0; startPos < cellCount; startPos++) {
+			if (visited.has(startPos) || newOrder[startPos] === currentOrder[startPos]) {
+				visited.add(startPos);
+				continue;
+			}
+
+			// Follow the cycle
+			let pos = startPos;
+			while (!visited.has(pos)) {
+				visited.add(pos);
+				const targetCellOriginalIndex = newOrder[pos];
+				const currentPosOfTargetCell = currentOrder.indexOf(targetCellOriginalIndex);
+
+				if (currentPosOfTargetCell !== pos) {
+					// Move the cell from currentPosOfTargetCell to pos
+					textModel.applyEdits([{
+						editType: CellEditType.Move,
+						index: currentPosOfTargetCell,
+						length: 1,
+						newIdx: pos
+					}], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+					// Update our tracking of current positions
+					const movedValue = currentOrder.splice(currentPosOfTargetCell, 1)[0];
+					currentOrder.splice(pos, 0, movedValue);
+				}
+
+				// Find the next position in the cycle
+				const nextPos = newOrder.indexOf(currentOrder[pos], pos + 1);
+				if (nextPos === -1 || visited.has(nextPos)) {
+					break;
+				}
+				pos = nextPos;
+			}
+		}
+
+		// Notify about assistant cell modification for follow mode (use first cell as reference)
+		await instance.handleAssistantCellModification(0);
+	}
+
+	/**
+	 * Helper method to ensure and return a notebook's text model.
+	 * Asserts the text model is defined and narrows the type for TypeScript.
+	 * @param instance The notebook instance.
+	 * @param notebookUri The URI of the notebook (for error messaging).
+	 * @returns The notebook's text model.
+	 */
+	private _getTextModel(instance: IPositronNotebookInstance, notebookUri: string) {
+		if (!instance.textModel) {
+			throw new Error(`No text model found for notebook: ${notebookUri}`);
+		}
+		return instance.textModel;
 	}
 
 	/**

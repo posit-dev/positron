@@ -69,6 +69,9 @@ export interface JupyterKernelSpec {
      */
     kernel_protocol_version: string; // eslint-disable-line
 
+    /** Optional preflight command to run before starting the kernel */
+    startup_command?: string;
+
     /** Function that starts the kernel given a JupyterSession object.
      *  This is used to start the kernel if it's provided. In this case `argv`
      *  is ignored.

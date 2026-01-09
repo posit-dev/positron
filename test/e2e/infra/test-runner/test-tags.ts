@@ -48,6 +48,7 @@ export enum TestTags {
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',
 	PUBLISHER = '@:publisher',
+	PYREFLY = '@:pyrefly',
 	REFERENCES = '@:references',
 	R_MARKDOWN = '@:r-markdown',
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
@@ -68,6 +69,8 @@ export enum TestTags {
 	// platform  tags
 	RHEL_ELECTRON = '@:rhel-electron',
 	RHEL_WEB = '@:rhel-web',
+	SUSE_ELECTRON = '@:suse-electron',
+	SUSE_WEB = '@:suse-web',
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',

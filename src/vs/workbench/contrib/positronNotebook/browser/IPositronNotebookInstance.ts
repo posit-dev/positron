@@ -11,10 +11,10 @@ import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
+import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -53,7 +53,11 @@ export enum NotebookOperationType {
 	/** Cells restored via undo operation */
 	Undo = 'Undo',
 	/** Cells restored via redo operation */
-	Redo = 'Redo'
+	Redo = 'Redo',
+	/** Cells added by the AI assistant - should not auto-select or scroll */
+	AssistantAdd = 'AssistantAdd',
+	/** Cells edited by the AI assistant - should not auto-select or scroll */
+	AssistantEdit = 'AssistantEdit'
 }
 
 /**
@@ -90,7 +94,19 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * The DOM element that contains the entire notebook editor (including toolbar, cells, etc.).
 	 * This is the top-level container for the notebook UI.
 	 */
-	readonly container: HTMLElement | undefined;
+	readonly currentContainer: HTMLElement | undefined;
+
+	/**
+	 * Observable of the DOM element that contains the entire notebook editor.
+	 */
+	readonly container: IObservable<HTMLElement | undefined>;
+
+	/**
+	 * The DOM element that contributions (such as the find widget) can render into.
+	 * This container is a sibling to the main notebook content and inherits the notebook's
+	 * scoped context keys, allowing contributions to access notebook-specific context.
+	 */
+	readonly overlayContainer: HTMLElement | undefined;
 
 	/**
 	 * Sets the DOM element that contains the entire notebook editor.
@@ -134,6 +150,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly selectionStateMachine: SelectionStateMachine;
 
 	/**
+	 * Find the cell that currently has DOM focus within the notebook container.
+	 * Useful for keyboard navigation where Tab moves focus but doesn't change selection.
+	 * @returns The focused cell, or null if no cell has focus
+	 */
+	getFocusedCell(): IPositronNotebookCell | null;
+
+	/**
 	 * Indicates whether this notebook instance has been disposed.
 	 * Used to prevent operations on destroyed instances.
 	 */
@@ -143,12 +166,6 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Indicates whether this notebook is read-only and cannot be edited.
 	 */
 	readonly isReadOnly: boolean;
-
-	/**
-	 * Context key manager for this notebook instance. Used to manage notebook-specific
-	 * context keys that are scoped to the notebook's DOM container.
-	 */
-	readonly contextManager: PositronNotebookContextKeyManager;
 
 	/**
 	 * Event that fires when the cells container is scrolled
@@ -332,14 +349,32 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
 
 	/**
+	 * Gets a registered notebook contribution by its ID.
+	 * @param id The unique identifier of the contribution.
+	 * @returns The contribution instance, or undefined if not found.
+	 */
+	getContribution<T extends IPositronNotebookContribution>(id: string): T | undefined;
+
+	/**
 	 * Fire the scroll event for the cells container.
 	 * Called by React when scroll or DOM mutations occur.
 	 */
 	fireScrollEvent(): void;
 
+	/**
+	 * Handle assistant cell modification by showing notifications or auto-following
+	 * when cells are modified outside the viewport.
+	 * @param cellIndex The index of the cell that was modified
+	 */
+	handleAssistantCellModification(cellIndex: number): Promise<void>;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
 	 */
 	readonly onDidFocusWidget: Event<void>;
+
+	/**
+	 * Grabs focus for this notebook based on the current selection state.
+	 */
+	grabFocus(): void;
 }

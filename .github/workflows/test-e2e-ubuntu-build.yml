@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: build
+    name: build-ubuntu
     timeout-minutes: 25
     runs-on: ubuntu-latest-8x
     container:
@@ -54,7 +54,7 @@ jobs:
       HOME: /root
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -64,67 +64,26 @@ jobs:
           mkdir -p /tmp/.docker
           chmod 700 /tmp/.docker
 
-      - name: Restore caches
-        id: restore-caches
-        uses: ./.github/actions/cache-multi-paths
-
-      - name: Attempt 1 - Setup Build and Compile
-        id: attempt1
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-        with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-        env:
-          NODE_ENV: ${{ env.NODE_ENV }}
-
-      - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
-        id: attempt2
-        uses: ./.github/actions/setup-build-env
-        continue-on-error: true
-        with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-
-      - name: Attempt 3 - Setup Build and Compile
-        id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
+      - name: Setup build environment
+        id: setup-build
         uses: ./.github/actions/setup-build-env
         with:
-          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-
-      - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure'  }}
-        run: exit 1
+          distro: ubuntu
+          install-playwright: 'true'
+          github-token: ${{ github.token }}
 
       - name: Move Positron License
         run: |
           mv /positron-license /__w/positron || true
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
-      - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        run: |
-          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
-          npx playwright install --with-deps
-
-      - name: Cache QA example content
-        id: cache-qa-content
-        uses: actions/cache@v4
-        with:
-          path: /tmp/qa-example-content-cache
-          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-ubuntu-build.yml') }}-v1
-          restore-keys: |
-            qa-content-
-
       - name: Clone QA example content
-        if: steps.cache-qa-content.outputs.cache-hit != 'true'
         run: |
-          echo "Cache miss - Cloning QA example content"
-          rm -rf /tmp/qa-example-content-cache || true
-          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache || true
-          if [ -d /tmp/qa-example-content-cache ]; then
-            (cd /tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
-          fi
+          echo "Cloning QA example content (always fresh)..."
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache
+          COMMIT_SHA=$(cd /tmp/qa-example-content-cache && git rev-parse HEAD)
+          echo "$COMMIT_SHA" > /tmp/qa-example-content-cache/.cached-commit
+          echo "Cloned QA content at commit: $COMMIT_SHA"
 
       - name: Create Build Artifact
         run: |
@@ -140,12 +99,6 @@ jobs:
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
-          # Write the Positron license into the workspace
-            echo "Installing Positron license into workspace for artifact inclusion"
-            mkdir -p /__w/positron/positron-license/pdol/target/debug
-            # Write the secret file. Use printf to avoid trailing newline issues.
-            printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
-
           mkdir -p /tmp/artifacts
           # Install zstd and pigz if apt is available so we can produce fast zstd archives.
           if command -v apt-get >/dev/null 2>&1; then
@@ -185,7 +138,7 @@ jobs:
           fi
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "positron-build"
           path: /tmp/artifacts

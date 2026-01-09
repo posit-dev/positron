@@ -18,7 +18,6 @@
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
-import { autorun } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 // --- Start Positron ---
 // Remove unused import.
@@ -35,6 +34,7 @@ import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/c
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { CellUri } from '../../../notebook/common/notebookCommon.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { IChatWidgetService } from '../chat.js';
 import { ICodeMapperService } from '../../common/chatCodeMapperService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
@@ -121,6 +121,7 @@ export class EditTool implements IToolImpl {
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@INotebookService private readonly notebookService: INotebookService,
 		@IEditorGroupsService private readonly editorGroupsService: IEditorGroupsService,
+		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 	) { }
 
 	// --- Start Positron ---
@@ -250,27 +251,55 @@ export class EditTool implements IToolImpl {
 			throw new Error(result.errorMessage);
 		}
 
-		let dispose: IDisposable;
-		await new Promise((resolve) => {
-			// The file will not be modified until the first edits start streaming in,
-			// so wait until we see that it _was_ modified before waiting for it to be done.
-			let wasFileBeingModified = false;
-
-			dispose = autorun((r) => {
-
-				const entries = editSession.entries.read(r);
-				const currentFile = entries?.find((e) => e.modifiedURI.toString() === uri.toString());
-				if (currentFile) {
-					if (currentFile.isCurrentlyBeingModifiedBy.read(r)) {
-						wasFileBeingModified = true;
-					} else if (wasFileBeingModified) {
-						resolve(true);
+		let userActionDispose: IDisposable | undefined;
+		const editResult = await new Promise<'accepted' | 'rejected'>((resolve) => {
+			userActionDispose = this.chatService.onDidPerformUserAction((event) => {
+				if (event.action.kind === 'chatEditingSessionAction' &&
+					event.action.uri.toString() === uri.toString()) {
+					if (event.action.outcome === 'rejected') {
+						resolve('rejected');
+					} else if (event.action.outcome === 'accepted') {
+						resolve('accepted');
 					}
 				}
 			});
 		}).finally(() => {
-			dispose.dispose();
+			userActionDispose?.dispose();
 		});
+
+		if (editResult === 'rejected') {
+			const request = model.getRequests().at(-1)!;
+
+			model.acceptResponseProgress(request, {
+				kind: 'markdownContent',
+				content: new MarkdownString('_The edit was rejected._')
+			});
+
+			const chatWidget = this.chatWidgetService.getWidgetBySessionResource(model.sessionResource);
+			if (chatWidget) {
+				chatWidget.setInputPlaceholder('Provide feedback on the proposed edit...');
+			}
+
+			const feedbackDisposable = this.chatService.onDidSubmitRequest((event) => {
+				if (event.chatSessionResource.toString() === model.sessionResource.toString()) {
+					feedbackDisposable.dispose();
+
+					if (chatWidget) {
+						chatWidget.resetInputPlaceholder();
+					}
+				}
+			});
+
+			const result: IToolResult = {
+				content: [{ kind: 'text' as const, value: 'The user rejected the edit and might provide feedback.' }]
+			};
+
+			setTimeout(() => {
+				this.chatService.cancelCurrentRequestForSession(model.sessionResource);
+			}, 0);
+
+			return result;
+		}
 
 		await this.textFileService.save(uri, {
 			reason: SaveReason.AUTO,

@@ -25,6 +25,10 @@ import { WorkbenchStateContext } from '../../../common/contextkeys.js';
 import { Extensions, IViewDescriptorService, IViewsRegistry, ViewContentGroups } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CONTEXT_DEBUGGERS_AVAILABLE, CONTEXT_DEBUG_EXTENSION_AVAILABLE, IDebugService } from '../common/debug.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH } from '../common/debug.js';
+// --- End Positron ---
 import { DEBUG_CONFIGURE_COMMAND_ID, DEBUG_START_COMMAND_ID } from './debugCommands.js';
 
 const debugStartLanguageKey = 'debugStartLanguage';
@@ -38,6 +42,9 @@ export class WelcomeView extends ViewPane {
 
 	private debugStartLanguageContext: IContextKey<string | undefined>;
 	private debuggerInterestedContext: IContextKey<boolean>;
+	// --- Start Positron ---
+	private debuggerSupportsUiLaunchContext: IContextKey<boolean>;
+	// --- End Positron ---
 
 	constructor(
 		options: IViewletViewOptions,
@@ -58,6 +65,9 @@ export class WelcomeView extends ViewPane {
 
 		this.debugStartLanguageContext = CONTEXT_DEBUG_START_LANGUAGE.bindTo(contextKeyService);
 		this.debuggerInterestedContext = CONTEXT_DEBUGGER_INTERESTED_IN_ACTIVE_EDITOR.bindTo(contextKeyService);
+		// --- Start Positron ---
+		this.debuggerSupportsUiLaunchContext = CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH.bindTo(contextKeyService);
+		// --- End Positron ---
 		const lastSetLanguage = storageSevice.get(debugStartLanguageKey, StorageScope.WORKSPACE);
 		this.debugStartLanguageContext.set(lastSetLanguage);
 
@@ -70,14 +80,25 @@ export class WelcomeView extends ViewPane {
 			if (isCodeEditor(editorControl)) {
 				const model = editorControl.getModel();
 				const language = model ? model.getLanguageId() : undefined;
+
 				if (language && this.debugService.getAdapterManager().someDebuggerInterestedInLanguage(language)) {
 					this.debugStartLanguageContext.set(language);
 					this.debuggerInterestedContext.set(true);
 					storageSevice.store(debugStartLanguageKey, language, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+					// --- Start Positron ---
+					// Check if any debugger interested in this language supports UI launch
+					const supportsUiLaunch = this.debugService.getAdapterManager().someDebuggerInterestedInLanguageSupportsUiLaunch(language);
+					this.debuggerSupportsUiLaunchContext.set(supportsUiLaunch);
+					// --- End Positron ---
 					return;
 				}
+
 			}
 			this.debuggerInterestedContext.set(false);
+			// --- Start Positron ---
+			this.debuggerSupportsUiLaunchContext.set(true); // Default to true when no debugger
+			this.debugStartLanguageContext.reset(); // Clear the language context when no debugger is interested
+			// --- End Positron ---
 		};
 
 		const disposables = new DisposableStore();
@@ -133,7 +154,10 @@ viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 let debugKeybindingLabel = '';
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: `[${localize('runAndDebugAction', "Run and Debug")}${debugKeybindingLabel}](command:${DEBUG_START_COMMAND_ID})`,
-	when: CONTEXT_DEBUGGERS_AVAILABLE,
+	// --- Start Positron ---
+	// when: CONTEXT_DEBUGGERS_AVAILABLE,
+	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH),
+	// --- End Positron ---
 	group: ViewContentGroups.Debug,
 	// Allow inserting more buttons directly after this one (by setting order to 1).
 	order: 1
@@ -142,7 +166,10 @@ viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 viewsRegistry.registerViewWelcomeContent(WelcomeView.ID, {
 	content: localize({ key: 'customizeRunAndDebug2', comment: ['{Locked="launch.json"}', '{Locked="["}', '{Locked="]({0})"}'] },
 		"To customize Run and Debug [create a launch.json file]({0}).", `${createCommandUri(DEBUG_CONFIGURE_COMMAND_ID, { addNew: true }).toString()}`),
-	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, WorkbenchStateContext.notEqualsTo('empty')),
+	// --- Start Positron ---
+	// when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, WorkbenchStateContext.notEqualsTo('empty')),
+	when: ContextKeyExpr.and(CONTEXT_DEBUGGERS_AVAILABLE, WorkbenchStateContext.notEqualsTo('empty'), CONTEXT_DEBUGGER_SUPPORTS_UI_LAUNCH),
+	// --- End Positron ---
 	group: ViewContentGroups.Debug
 });
 

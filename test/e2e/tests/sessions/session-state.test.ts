@@ -62,8 +62,9 @@ test.describe('Sessions: State', {
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
 		await sessions.restart(rSessionId, { waitForIdle: false });
-		await sessions.expectStatusToBe(rSessionId, 'active');
-		await sessions.expectStatusToBe(rSessionId, 'idle', { timeout: 60000 });
+		// await sessions.expectStatusToBe(rSessionId, 'active'); // sometimes we miss the active state since it occurs very quickly, checking console text to confirm restart
+		await console.waitForConsoleContents('restarted.', { timeout: 20000 });
+		await sessions.expectStatusToBe(rSessionId, 'idle');
 		await sessions.expectStatusToBe(pySessionId, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state

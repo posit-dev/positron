@@ -22,25 +22,21 @@ test.describe('Reticulate', {
 			await settings.set({
 				'positron.reticulate.enabled': true,
 				'kernelSupervisor.transport': 'tcp'
-			});
+			}, { reload: true });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
-
-		await app.restart();
 	});
 
 	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions, logger }) {
+		const { console } = app.workbench;
 
+		// start new reticulate session and verify functionality
 		const rSessionMetaData = await sessions.start('r');
-
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
-
-		await app.workbench.console.waitForReadyAndStarted('>>>');
-
+		await console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await console.waitForReadyAndStarted('>>>');
 		await verifyReticulateFunctionality(app, rSessionMetaData.id);
-
 	});
 });

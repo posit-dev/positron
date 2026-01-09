@@ -13,7 +13,7 @@ export class Extensions {
 
 	async searchForExtension(id: string): Promise<void> {
 		await this.quickaccess.runCommand('Extensions: Focus on Extensions View', { exactLabelMatch: true });
-		await this.code.driver.page.locator('div.extensions-viewlet[id="workbench.view.extensions"] .monaco-editor textarea').fill(`@id:${id}`);
+		await this.code.driver.page.locator('div.extensions-viewlet[id="workbench.view.extensions"] .monaco-editor .native-edit-context').pressSequentially(`@id:${id}`);
 		await expect(this.code.driver.page.locator(`div.part.sidebar div.composite.title h2`)).toHaveText('Extensions: Marketplace');
 
 		let retrials = 1;

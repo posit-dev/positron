@@ -31,6 +31,10 @@ import { IHoverService, WorkbenchHoverDelegate } from '../../../../platform/hove
 import { AsyncIterableProducer } from '../../../../base/common/async.js';
 import { LanguageFeatureRegistry } from '../../../common/languageFeatureRegistry.js';
 import { getHoverProviderResultsAsAsyncIterable } from './getHover.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { HoverProviderResult } from './getHover.js';
+// --- End Positron ---
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { HoverStartSource } from './hoverOperation.js';
 import { ScrollEvent } from '../../../../base/common/scrollable.js';
@@ -168,13 +172,29 @@ export class MarkdownHoverParticipant implements IEditorHoverParticipant<Markdow
 		const position = anchor.range.getStartPosition();
 		const hoverProviderResults = getHoverProviderResultsAsAsyncIterable(hoverProviderRegistry, model, position, token);
 
+		// --- Start Positron ---
+		// Collect all hover results first so we can filter out Python extension hovers when other hovers exist
+		// (to avoid redundant hover content from other Python LSP extensions)
+		const allResults: { item: HoverProviderResult; hover: MarkdownHover }[] = [];
 		for await (const item of hoverProviderResults) {
 			if (!isEmptyMarkdownString(item.hover.contents)) {
 				const range = item.hover.range ? Range.lift(item.hover.range) : anchor.range;
 				const hoverSource = new HoverSource(item.hover, item.provider, position);
-				yield new MarkdownHover(this, range, item.hover.contents, false, item.ordinal, hoverSource);
+				const markdownHover = new MarkdownHover(this, range, item.hover.contents, false, item.ordinal, hoverSource);
+				allResults.push({ item, hover: markdownHover });
 			}
 		}
+
+		const msPythonExtensionId = 'ms-python.python';
+		const hasNonMsPythonHovers = allResults.some(r => r.item.hover.extensionId !== msPythonExtensionId);
+		const hasMsPythonHovers = allResults.some(r => r.item.hover.extensionId === msPythonExtensionId);
+		for (const result of allResults) {
+			if (hasNonMsPythonHovers && hasMsPythonHovers && result.item.hover.extensionId === msPythonExtensionId) {
+				continue;
+			}
+			yield result.hover;
+		}
+		// --- End Positron ---
 	}
 
 	public renderHoverParts(context: IEditorHoverRenderContext, hoverParts: MarkdownHover[]): IRenderedHoverParts<MarkdownHover> {

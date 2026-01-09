@@ -23,244 +23,148 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
-/**
- * 
- * @export
- * @interface ActiveSession
- */
 export interface ActiveSession {
     /**
      * A unique identifier for the session
-     * @type {string}
-     * @memberof ActiveSession
      */
     'session_id': string;
     /**
      * The program and command-line parameters for the session
-     * @type {Array<string>}
-     * @memberof ActiveSession
      */
     'argv': Array<string>;
     /**
      * The underlying process ID of the session, if the session is running.
-     * @type {number}
-     * @memberof ActiveSession
      */
     'process_id'?: number;
     /**
      * The username of the user who owns the session
-     * @type {string}
-     * @memberof ActiveSession
      */
     'username': string;
     /**
      * A human-readable name for the session
-     * @type {string}
-     * @memberof ActiveSession
      */
     'display_name': string;
     /**
      * The interpreter language
-     * @type {string}
-     * @memberof ActiveSession
      */
     'language': string;
-    /**
-     * 
-     * @type {InterruptMode}
-     * @memberof ActiveSession
-     */
     'interrupt_mode': InterruptMode;
     /**
      * The environment variables set when the session was started
-     * @type {{ [key: string]: string; }}
-     * @memberof ActiveSession
      */
     'initial_env'?: { [key: string]: string; };
     /**
      * Whether the session is connected to a client
-     * @type {boolean}
-     * @memberof ActiveSession
      */
     'connected': boolean;
     /**
      * An ISO 8601 timestamp of when the session was started
-     * @type {string}
-     * @memberof ActiveSession
      */
     'started': string;
-    /**
-     * 
-     * @type {SessionMode}
-     * @memberof ActiveSession
-     */
     'session_mode': SessionMode;
     /**
      * The session\'s current working directory
-     * @type {string}
-     * @memberof ActiveSession
      */
     'working_directory': string;
     /**
      * For notebook sessions, the URI of the notebook file
-     * @type {string}
-     * @memberof ActiveSession
      */
     'notebook_uri'?: string;
     /**
      * The text to use to prompt for input
-     * @type {string}
-     * @memberof ActiveSession
      */
     'input_prompt': string;
     /**
      * The text to use to prompt for input continuations
-     * @type {string}
-     * @memberof ActiveSession
      */
     'continuation_prompt': string;
-    /**
-     * 
-     * @type {ExecutionQueue}
-     * @memberof ActiveSession
-     */
     'execution_queue': ExecutionQueue;
-    /**
-     * 
-     * @type {Status}
-     * @memberof ActiveSession
-     */
     'status': Status;
     /**
      * The kernel information, as returned by the kernel_info_request message
-     * @type {object}
-     * @memberof ActiveSession
      */
     'kernel_info': object;
     /**
      * The number of seconds the session has been idle, or 0 if the session is busy
-     * @type {number}
-     * @memberof ActiveSession
      */
     'idle_seconds': number;
     /**
      * The number of seconds the session has been busy, or 0 if the session is idle
-     * @type {number}
-     * @memberof ActiveSession
      */
     'busy_seconds': number;
     /**
      * The path to the Unix domain socket used to send/receive data from the session, if applicable
-     * @type {string}
-     * @memberof ActiveSession
      */
     'socket_path'?: string;
 }
 
 
-/**
- * 
- * @export
- * @interface ClientHeartbeat
- */
 export interface ClientHeartbeat {
     /**
      * The process ID of the client sending the heartbeat
-     * @type {number}
-     * @memberof ClientHeartbeat
      */
     'process_id'?: number;
 }
 /**
  * Connection information for an existing session
- * @export
- * @interface ConnectionInfo
  */
 export interface ConnectionInfo {
     /**
      * The port for control messages
-     * @type {number}
-     * @memberof ConnectionInfo
      */
     'control_port': number;
     /**
      * The port for shell messages
-     * @type {number}
-     * @memberof ConnectionInfo
      */
     'shell_port': number;
     /**
      * The port for stdin messages
-     * @type {number}
-     * @memberof ConnectionInfo
      */
     'stdin_port': number;
     /**
      * The port for heartbeat messages
-     * @type {number}
-     * @memberof ConnectionInfo
      */
     'hb_port': number;
     /**
      * The port for IOPub messages
-     * @type {number}
-     * @memberof ConnectionInfo
      */
     'iopub_port': number;
     /**
      * The signature scheme for messages
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     'signature_scheme': string;
     /**
      * The key for messages
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     'key': string;
     /**
      * The transport protocol
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     'transport': string;
     /**
      * The IP address for the connection
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     'ip': string;
 }
 /**
  * The execution queue for a session
- * @export
- * @interface ExecutionQueue
  */
 export interface ExecutionQueue {
     /**
      * The execution request currently being evaluated, if any
-     * @type {object}
-     * @memberof ExecutionQueue
      */
     'active'?: object;
     /**
      * The number of items in the pending queue
-     * @type {number}
-     * @memberof ExecutionQueue
      */
     'length': number;
     /**
      * The queue of pending execution requests
-     * @type {Array<object>}
-     * @memberof ExecutionQueue
      */
     'pending': Array<object>;
 }
 /**
  * The mechansim for interrupting the session
- * @export
- * @enum {string}
  */
 
 export const InterruptMode = {
@@ -271,178 +175,93 @@ export const InterruptMode = {
 export type InterruptMode = typeof InterruptMode[keyof typeof InterruptMode];
 
 
-/**
- * 
- * @export
- * @interface ModelError
- */
 export interface ModelError {
-    /**
-     * 
-     * @type {string}
-     * @memberof ModelError
-     */
     'code': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof ModelError
-     */
     'message': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof ModelError
-     */
     'details'?: string;
 }
-/**
- * 
- * @export
- * @interface NewSession
- */
 export interface NewSession {
     /**
      * A unique identifier for the session
-     * @type {string}
-     * @memberof NewSession
      */
     'session_id': string;
     /**
      * A human-readable name for the session
-     * @type {string}
-     * @memberof NewSession
      */
     'display_name': string;
     /**
      * The interpreter language
-     * @type {string}
-     * @memberof NewSession
      */
     'language': string;
     /**
      * The username of the user who owns the session
-     * @type {string}
-     * @memberof NewSession
      */
     'username': string;
     /**
      * The text to use to prompt for input
-     * @type {string}
-     * @memberof NewSession
      */
     'input_prompt': string;
     /**
      * The text to use to prompt for input continuations
-     * @type {string}
-     * @memberof NewSession
      */
     'continuation_prompt': string;
     /**
      * The program and command-line parameters for the session
-     * @type {Array<string>}
-     * @memberof NewSession
      */
     'argv': Array<string>;
-    /**
-     * 
-     * @type {SessionMode}
-     * @memberof NewSession
-     */
     'session_mode': SessionMode;
     /**
      * The working directory in which to start the session.
-     * @type {string}
-     * @memberof NewSession
      */
     'working_directory': string;
     /**
      * For notebook sessions, the URI of the notebook file
-     * @type {string}
-     * @memberof NewSession
      */
     'notebook_uri'?: string;
     /**
      * A list of environment variable actions to perform
-     * @type {Array<VarAction>}
-     * @memberof NewSession
      */
     'env': Array<VarAction>;
     /**
      * The number of seconds to wait for a connection to the session\'s ZeroMQ sockets before timing out
-     * @type {number}
-     * @memberof NewSession
      */
     'connection_timeout'?: number;
-    /**
-     * 
-     * @type {InterruptMode}
-     * @memberof NewSession
-     */
     'interrupt_mode': InterruptMode;
     /**
      * The Jupyter protocol version supported by the underlying kernel
-     * @type {string}
-     * @memberof NewSession
      */
     'protocol_version'?: string;
+    'startup_environment': StartupEnvironment;
     /**
-     * Whether to run the session inside a login shell; only relevant on POSIX systems
-     * @type {boolean}
-     * @memberof NewSession
+     * The command or script to run before starting the session
      */
-    'run_in_shell'?: boolean;
+    'startup_environment_arg'?: string;
 }
 
 
-/**
- * 
- * @export
- * @interface NewSession200Response
- */
 export interface NewSession200Response {
     /**
      * A unique identifier for the session
-     * @type {string}
-     * @memberof NewSession200Response
      */
     'session_id': string;
 }
-/**
- * 
- * @export
- * @interface RestartSession
- */
 export interface RestartSession {
     /**
      * The desired working directory for the session after restart, if different from the session\'s working directory at startup
-     * @type {string}
-     * @memberof RestartSession
      */
     'working_directory'?: string;
     /**
      * A list of environment variable actions to perform
-     * @type {Array<VarAction>}
-     * @memberof RestartSession
      */
     'env'?: Array<VarAction>;
 }
-/**
- * 
- * @export
- * @interface ServerConfiguration
- */
 export interface ServerConfiguration {
     /**
      * The number of hours the server will wait before shutting down idle sessions (-1 if idle shutdown is disabled)
-     * @type {number}
-     * @memberof ServerConfiguration
      */
     'idle_shutdown_hours'?: number;
     /**
      * The current log level
-     * @type {string}
-     * @memberof ServerConfiguration
      */
     'log_level'?: ServerConfigurationLogLevelEnum;
 }
@@ -457,90 +276,41 @@ export const ServerConfigurationLogLevelEnum = {
 
 export type ServerConfigurationLogLevelEnum = typeof ServerConfigurationLogLevelEnum[keyof typeof ServerConfigurationLogLevelEnum];
 
-/**
- * 
- * @export
- * @interface ServerStatus
- */
 export interface ServerStatus {
-    /**
-     * 
-     * @type {number}
-     * @memberof ServerStatus
-     */
     'sessions': number;
-    /**
-     * 
-     * @type {number}
-     * @memberof ServerStatus
-     */
     'active': number;
-    /**
-     * 
-     * @type {boolean}
-     * @memberof ServerStatus
-     */
     'busy': boolean;
     /**
      * The number of seconds all sessions have been idle, or 0 if any session is busy
-     * @type {number}
-     * @memberof ServerStatus
      */
     'idle_seconds': number;
     /**
      * The number of seconds any session has been busy, or 0 if all sessions are idle
-     * @type {number}
-     * @memberof ServerStatus
      */
     'busy_seconds': number;
     /**
      * The number of seconds the server has been running
-     * @type {number}
-     * @memberof ServerStatus
      */
     'uptime_seconds': number;
     /**
      * The version of the server
-     * @type {string}
-     * @memberof ServerStatus
      */
     'version': string;
     /**
      * The server\'s operating system process identifier
-     * @type {number}
-     * @memberof ServerStatus
      */
     'process_id': number;
     /**
      * An ISO 8601 timestamp of when the server was started
-     * @type {string}
-     * @memberof ServerStatus
      */
     'started': string;
 }
-/**
- * 
- * @export
- * @interface SessionList
- */
 export interface SessionList {
-    /**
-     * 
-     * @type {number}
-     * @memberof SessionList
-     */
     'total': number;
-    /**
-     * 
-     * @type {Array<ActiveSession>}
-     * @memberof SessionList
-     */
     'sessions': Array<ActiveSession>;
 }
 /**
  * The mode in which the session is running
- * @export
- * @enum {string}
  */
 
 export const SessionMode = {
@@ -553,34 +323,32 @@ export type SessionMode = typeof SessionMode[keyof typeof SessionMode];
 
 
 /**
- * 
- * @export
- * @interface StartupError
+ * The kernel\'s startup environment: \'none\' for normal startup, \'shell\' for a login shell, \'command\' for a preflight command, \'script\' to run a script. Only relevant on POSIX-like systems.
  */
+
+export const StartupEnvironment = {
+    None: 'none',
+    Shell: 'shell',
+    Command: 'command',
+    Script: 'script'
+} as const;
+
+export type StartupEnvironment = typeof StartupEnvironment[keyof typeof StartupEnvironment];
+
+
 export interface StartupError {
     /**
      * The exit code of the process, if it exited
-     * @type {number}
-     * @memberof StartupError
      */
     'exit_code'?: number;
     /**
      * The output of the process (combined stdout and stderr) emitted during startup, if any
-     * @type {string}
-     * @memberof StartupError
      */
     'output'?: string;
-    /**
-     * 
-     * @type {ModelError}
-     * @memberof StartupError
-     */
     'error': ModelError;
 }
 /**
  * The status of the session
- * @export
- * @enum {string}
  */
 
 export const Status = {
@@ -596,28 +364,14 @@ export const Status = {
 export type Status = typeof Status[keyof typeof Status];
 
 
-/**
- * 
- * @export
- * @interface VarAction
- */
 export interface VarAction {
-    /**
-     * 
-     * @type {VarActionType}
-     * @memberof VarAction
-     */
     'action': VarActionType;
     /**
      * The name of the variable to act on
-     * @type {string}
-     * @memberof VarAction
      */
     'name': string;
     /**
      * The value to replace, append, or prepend
-     * @type {string}
-     * @memberof VarAction
      */
     'value': string;
 }
@@ -625,8 +379,6 @@ export interface VarAction {
 
 /**
  * The type of action to perform on the environment variable
- * @export
- * @enum {string}
  */
 
 export const VarActionType = {
@@ -641,7 +393,6 @@ export type VarActionType = typeof VarActionType[keyof typeof VarActionType];
 
 /**
  * DefaultApi - axios parameter creator
- * @export
  */
 export const DefaultApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
@@ -1194,7 +945,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
 /**
  * DefaultApi - functional programming interface
- * @export
  */
 export const DefaultApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = DefaultApiAxiosParamCreator(configuration)
@@ -1410,7 +1160,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
 
 /**
  * DefaultApi - factory interface
- * @export
  */
 export const DefaultApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
     const localVarFp = DefaultApiFp(configuration)
@@ -1578,9 +1327,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
 
 /**
  * DefaultApi - object-oriented interface
- * @export
- * @class DefaultApi
- * @extends {BaseAPI}
  */
 export class DefaultApi extends BaseAPI {
     /**
@@ -1590,7 +1336,6 @@ export class DefaultApi extends BaseAPI {
      * @param {ConnectionInfo} connectionInfo 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public adoptSession(sessionId: string, connectionInfo: ConnectionInfo, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).adoptSession(sessionId, connectionInfo, options).then((request) => request(this.axios, this.basePath));
@@ -1602,7 +1347,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public channelsUpgrade(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).channelsUpgrade(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1614,7 +1358,6 @@ export class DefaultApi extends BaseAPI {
      * @param {ClientHeartbeat} clientHeartbeat 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public clientHeartbeat(clientHeartbeat: ClientHeartbeat, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).clientHeartbeat(clientHeartbeat, options).then((request) => request(this.axios, this.basePath));
@@ -1626,7 +1369,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public connectionInfo(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).connectionInfo(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1638,7 +1380,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public deleteSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).deleteSession(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1649,7 +1390,6 @@ export class DefaultApi extends BaseAPI {
      * @summary Get the server configuration
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public getServerConfiguration(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getServerConfiguration(options).then((request) => request(this.axios, this.basePath));
@@ -1661,7 +1401,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public getSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getSession(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1673,7 +1412,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public interruptSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).interruptSession(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1685,7 +1423,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public killSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).killSession(sessionId, options).then((request) => request(this.axios, this.basePath));
@@ -1696,7 +1433,6 @@ export class DefaultApi extends BaseAPI {
      * @summary List active sessions
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public listSessions(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).listSessions(options).then((request) => request(this.axios, this.basePath));
@@ -1708,7 +1444,6 @@ export class DefaultApi extends BaseAPI {
      * @param {NewSession} newSession 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public newSession(newSession: NewSession, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).newSession(newSession, options).then((request) => request(this.axios, this.basePath));
@@ -1721,7 +1456,6 @@ export class DefaultApi extends BaseAPI {
      * @param {RestartSession} [restartSession] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public restartSession(sessionId: string, restartSession?: RestartSession, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).restartSession(sessionId, restartSession, options).then((request) => request(this.axios, this.basePath));
@@ -1732,7 +1466,6 @@ export class DefaultApi extends BaseAPI {
      * @summary Get server status and information
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public serverStatus(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).serverStatus(options).then((request) => request(this.axios, this.basePath));
@@ -1744,7 +1477,6 @@ export class DefaultApi extends BaseAPI {
      * @param {ServerConfiguration} serverConfiguration 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public setServerConfiguration(serverConfiguration: ServerConfiguration, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).setServerConfiguration(serverConfiguration, options).then((request) => request(this.axios, this.basePath));
@@ -1755,7 +1487,6 @@ export class DefaultApi extends BaseAPI {
      * @summary Shut down all sessions and the server itself
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public shutdownServer(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).shutdownServer(options).then((request) => request(this.axios, this.basePath));
@@ -1767,7 +1498,6 @@ export class DefaultApi extends BaseAPI {
      * @param {string} sessionId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
-     * @memberof DefaultApi
      */
     public startSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).startSession(sessionId, options).then((request) => request(this.axios, this.basePath));

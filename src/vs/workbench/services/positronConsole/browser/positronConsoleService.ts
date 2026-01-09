@@ -197,9 +197,18 @@ configurationRegistry.registerConfiguration({
 		},
 		// Font ligatures.
 		'console.fontLigatures': {
-			type: 'boolean',
-			default: false,
-			description: localize('console.fontLigatures.markdownDescription', "Enable font ligatures ('calt' and 'liga' font features)."),
+			anyOf: [
+				{
+					type: 'boolean',
+					description: localize('console.fontLigatures', "Enables/Disables font ligatures ('calt' and 'liga' font features). Change this to a string for fine-grained control of the 'font-feature-settings' CSS property."),
+				},
+				{
+					type: 'string',
+					description: localize('console.fontFeatureSettings', "Explicit 'font-feature-settings' CSS property. A boolean can be passed instead if one only needs to turn on/off ligatures.")
+				}
+			],
+			description: localize('console.fontLigaturesGeneral', "Configures font ligatures or font features. Can be either a boolean to enable/disable ligatures or a string for the value of the CSS 'font-feature-settings' property."),
+			default: false
 		},
 		// Font size.
 		'console.fontSize': {
@@ -211,9 +220,18 @@ configurationRegistry.registerConfiguration({
 		},
 		// Font variations.
 		'console.fontVariations': {
-			type: 'boolean',
-			default: false,
-			description: localize('console.fontVariations', "Enable the translation from font-weight to font-variation-settings."),
+			anyOf: [
+				{
+					type: 'boolean',
+					description: localize('console.fontVariations', "Enables/Disables the translation from font-weight to font-variation-settings. Change this to a string for fine-grained control of the 'font-variation-settings' CSS property."),
+				},
+				{
+					type: 'string',
+					description: localize('console.fontVariationSettings', "Explicit 'font-variation-settings' CSS property. A boolean can be passed instead if one only needs to translate font-weight to font-variation-settings.")
+				}
+			],
+			description: localize('console.fontVariationsGeneral', "Configures font variations. Can be either a boolean to enable/disable the translation from font-weight to font-variation-settings or a string for the value of the CSS 'font-variation-settings' property."),
+			default: false
 		},
 		// Font weight.
 		'console.fontWeight': {
@@ -251,11 +269,19 @@ configurationRegistry.registerConfiguration({
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
 		},
-		// Whether to show notebook consoles
+		// Whether to automatically create consoles for notebook sessions
 		'console.showNotebookConsoles': {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('console.showNotebookConsoles', "Whether to show consoles for open notebooks."),
+			markdownDescription: localize('console.showNotebookConsoles', "Controls whether consoles are automatically shown for open notebooks."),
+			tags: ['experimental'],
+		},
+		// Whether to show the notebook console actions in menus
+		'console.showNotebookConsoleActions': {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize('console.showNotebookConsoleActions', "Controls whether notebook console actions are visible in notebook toolbars. When enabled, you can manually show or focus a notebook console using the 'Show Notebook Console' menu item."),
+			tags: ['experimental'],
 		}
 	}
 });
@@ -1697,7 +1723,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 *
 	 * @param entries The execution history entries to replay.
 	 */
-	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void {
+	replayExecutions(entries: IExecutionHistoryEntry<unknown>[]): void {
 		for (const entry of entries) {
 			if (entry.outputType === ExecutionEntryType.Execution) {
 				// Create the activity and the first item (the input)
@@ -1723,7 +1749,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							entry.id + '-output',
 							entry.id,
 							new Date(entry.when),
-							{ 'text/plain': entry.output }
+							{ 'text/plain': entry.output as string }
 						);
 					inputItem.addActivityItem(outputActivityItem);
 				}

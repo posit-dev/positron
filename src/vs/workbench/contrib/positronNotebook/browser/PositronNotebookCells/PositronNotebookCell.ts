@@ -3,17 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { disposableTimeout } from '../../../../../base/common/async.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { ITextModel } from '../../../../../editor/common/model.js';
+import { IModelDeltaDecoration, ITextModel } from '../../../../../editor/common/model.js';
 import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { Range } from '../../../../../editor/common/core/range.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellDecorationManager } from './CellDecorationManager.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+
+/**
+ * Minimum visibility ratio required for a cell to be considered visible in the viewport.
+ * A cell is considered visible if at least this percentage of its height is within
+ * the visible area of the notebook container.
+ *
+ * This value is also used to determine when a cell should be scrolled into view:
+ * if a cell's visibility ratio is below this threshold, it will be scrolled to center.
+ *
+ * Value of 0.5 means 50% of the cell must be visible.
+ */
+const MIN_CELL_VISIBILITY_RATIO = 0.5;
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -27,9 +43,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	public readonly editorObservable: IObservable<ICodeEditor | undefined> = this._editor;
+	public readonly editor: IObservable<ICodeEditor | undefined> = this._editor;
 	protected readonly _internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
+
+	/** Decoration manager that handles mount/unmount automatically */
+	private readonly _decorationManager: CellDecorationManager;
 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
@@ -43,6 +64,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		@ITextModelService private readonly _textModelService: ITextModelService,
 	) {
 		super();
+
+		// Initialize decoration manager with editor observable
+		this._decorationManager = this._register(new CellDecorationManager(this.editor));
 
 		// Observable of internal metadata to derive execution status and timing info
 		// e.g. as used in PositronNotebookCodeCell
@@ -84,11 +108,19 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return [];
 	}
 
+	/**
+	 * Current cell outputs as an observable.
+	 * Base implementation returns undefined; code cells override this.
+	 */
+	get outputs(): IObservable<NotebookCellOutputs[]> | undefined {
+		return undefined;
+	}
+
 	get index(): number {
 		return this._instance.cells.get().indexOf(this);
 	}
 
-	get editor(): ICodeEditor | undefined {
+	get currentEditor(): ICodeEditor | undefined {
 		return this._editor.get();
 	}
 
@@ -169,20 +201,111 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._editor.set(undefined, undefined);
 	}
 
-	reveal(type?: CellRevealType): void {
-		// TODO: We may want to support type, but couldn't find any issues without it
+	deltaModelDecorations(oldDecorations: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
+		return this._decorationManager.deltaModelDecorations(oldDecorations, newDecorations);
+	}
+
+	getCellDecorationRange(id: string): Range | null {
+		return this._decorationManager.getCellDecorationRange(id);
+	}
+
+	/**
+	 * Waits for the container to be available by polling.
+	 * This handles the case where reveal/highlight is called before React mounts the cell.
+	 * Uses disposableTimeout to ensure timeouts are cleaned up if the cell is disposed.
+	 * @param maxWaitMs Maximum time to wait in milliseconds. Defaults to 100ms.
+	 * @param intervalMs Polling interval in milliseconds. Defaults to 10ms.
+	 * @returns Promise that resolves to true if container became available, false if timed out or disposed.
+	 */
+	private async _waitForContainer(maxWaitMs = 100, intervalMs = 10): Promise<boolean> {
+		// Return early if already available
 		if (this._container && this._instance.cellsContainer) {
-			// If the cell is less than 50% visible, scroll it to center
-			const rect = this._container.getBoundingClientRect();
-			const parentRect = this._instance.cellsContainer.getBoundingClientRect();
-			const visibleTop = Math.max(parentRect.top, rect.top);
-			const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
-			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-			const visibilityRatio = visibleHeight / rect.height;
-			if (visibilityRatio < 0.5) {
-				this._container.scrollIntoView({ behavior: 'instant', block: 'center' });
-			}
+			return true;
 		}
+
+		// Return early if already disposed
+		if (this._store.isDisposed) {
+			return false;
+		}
+
+		const startTime = Date.now();
+		return new Promise(resolve => {
+			const check = () => {
+				// Check if disposed before continuing the polling loop
+				if (this._store.isDisposed) {
+					resolve(false);
+					return;
+				}
+
+				if (this._container && this._instance.cellsContainer) {
+					resolve(true);
+				} else if (Date.now() - startTime >= maxWaitMs) {
+					resolve(false);
+				} else {
+					// Use disposableTimeout registered with this._store so it's cancelled on disposal
+					disposableTimeout(check, intervalMs, this._store);
+				}
+			};
+			// Start the first poll using disposableTimeout
+			disposableTimeout(check, intervalMs, this._store);
+		});
+	}
+
+	/**
+	 * Check if this cell is currently visible in the viewport.
+	 * A cell is considered visible if at least {@link MIN_CELL_VISIBILITY_RATIO} of it is within the viewport.
+	 * @returns true if the cell is visible, false otherwise
+	 */
+	isInViewport(): boolean {
+		if (!this._container || !this._instance.cellsContainer) {
+			return false;
+		}
+
+		const cellRect = this._container.getBoundingClientRect();
+		const containerRect = this._instance.cellsContainer.getBoundingClientRect();
+
+		const visibleTop = Math.max(containerRect.top, cellRect.top);
+		const visibleBottom = Math.min(containerRect.bottom, cellRect.bottom);
+		const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+		const visibilityRatio = visibleHeight / cellRect.height;
+
+		return visibilityRatio >= MIN_CELL_VISIBILITY_RATIO;
+	}
+
+	async reveal(type?: CellRevealType): Promise<boolean> {
+		// TODO: We may want to support type, but couldn't find any issues without it
+		// Wait for container if not immediately available
+		const hasContainer = await this._waitForContainer();
+		if (!hasContainer || !this._container || !this._instance.cellsContainer) {
+			return false;
+		}
+
+		// If the cell is not sufficiently visible, scroll it to center
+		if (!this.isInViewport()) {
+			// Use smooth scrolling for better UX when revealing cells
+			this._container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+		return true;
+	}
+
+	async highlightTemporarily(): Promise<boolean> {
+		const hasContainer = await this._waitForContainer();
+		if (!hasContainer || !this._container) {
+			return false;
+		}
+
+		const container = this._container;
+
+		// Remove class and wait for next frame to re-add. The animation ends
+		// with no visual change so we can leave the class on. The class hanging
+		// around is a tradeoff to avoid having to handle removing the class via
+		// javascript which makes this more complex and fragile.
+		container.classList.remove('assistant-highlight');
+		DOM.getWindow(container).requestAnimationFrame(() => {
+			container.classList.add('assistant-highlight');
+		});
+
+		return true;
 	}
 
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
@@ -191,7 +314,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 
 		// Scroll the cell into view
-		this.reveal(options.cellRevealType);
+		await this.reveal(options.cellRevealType);
 
 		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);
@@ -224,7 +347,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	async showEditor(): Promise<ICodeEditor | undefined> {
 		// Returns the current editor (may be undefined if not yet mounted)
 		// Focus is managed by React through the editorFocusRequested observable
-		return this._editor.get();
+		return this.currentEditor;
 	}
 
 	deselect(): void {
@@ -247,3 +370,4 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.insertMarkdownCellAndFocusContainer('below', this);
 	}
 }
+

@@ -18,6 +18,7 @@ import { CreateConnection } from './newConnectionModalDialog/createConnectionSta
 import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
 import { IDriver } from '../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { ListDriversDetails } from './newConnectionModalDialog/listDriversDetailsState.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;
@@ -36,9 +37,22 @@ interface NewConnectionModalDialogProps {
 	readonly renderer: PositronModalReactRenderer;
 }
 
+
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
-	const [selectedDriver, setSelectedDriver] = useState<IDriver | undefined>();
-	// If threre is a foreground session, use its language ID as the preferred language id.
+
+	enum ModalStateKind {
+		ListDrivers,
+		CreateConnection,
+		SelectDriverDetails
+	}
+
+	type ModalState = { kind: ModalStateKind.ListDrivers } |
+	{ kind: ModalStateKind.CreateConnection, driver: IDriver, previous: ModalState } |
+	{ kind: ModalStateKind.SelectDriverDetails, drivers: IDriver[], previous: ModalState };
+
+	const [modalState, setModalState] = useState<ModalState>({ kind: ModalStateKind.ListDrivers });
+
+	// If there is a foreground session, use its language ID as the preferred language id.
 	const [languageId, setLanguageId] = useState<string | undefined>(
 		props.renderer.services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId
 	);
@@ -49,8 +63,19 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 
 	const backHandler = () => {
 		// When hitting back, reset the language ID to the previously selected language id
-		setLanguageId(selectedDriver?.metadata.languageId);
-		setSelectedDriver(undefined);
+		switch (modalState.kind) {
+			case ModalStateKind.CreateConnection:
+				setLanguageId(modalState.driver.metadata.languageId);
+				setModalState(modalState.previous);
+				break;
+			case ModalStateKind.SelectDriverDetails:
+				setLanguageId(modalState.drivers[0].metadata.languageId);
+				setModalState(modalState.previous);
+				break;
+			case ModalStateKind.ListDrivers:
+				// no-op
+				break;
+		}
 	};
 
 	return <PositronModalDialog
@@ -62,19 +87,39 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	>
 		<div className='connections-new-connection-modal'>
 			<ContentArea>
-				{
-					selectedDriver ?
-						<CreateConnection
-							renderer={props.renderer}
-							selectedDriver={selectedDriver}
-							onBack={backHandler}
-							onCancel={cancelHandler} /> :
-						<ListDrivers
-							languageId={languageId}
-							setLanguageId={setLanguageId}
-							onCancel={cancelHandler}
-							onSelection={(driver) => setSelectedDriver(driver)}
-						/>}
+				{(() => {
+					switch (modalState.kind) {
+						case ModalStateKind.CreateConnection:
+							return <CreateConnection
+								renderer={props.renderer}
+								selectedDriver={modalState.driver}
+								onBack={backHandler}
+								onCancel={cancelHandler} />;
+						case ModalStateKind.ListDrivers:
+							return <ListDrivers
+								languageId={languageId}
+								setLanguageId={setLanguageId}
+								onCancel={cancelHandler}
+								onSelection={(drivers) => {
+									if (drivers.length === 1) {
+										// if there's a single driver with that name, we don't need to filter out
+										// anything
+										setModalState({ kind: ModalStateKind.CreateConnection, driver: drivers[0], previous: modalState });
+									} else {
+										// otherwise we set the state the user to the user select the driver details
+										setModalState({ kind: ModalStateKind.SelectDriverDetails, drivers, previous: modalState });
+									}
+								}} />;
+						case ModalStateKind.SelectDriverDetails:
+							return <ListDriversDetails
+								drivers={modalState.drivers}
+								onBack={backHandler}
+								onCancel={cancelHandler}
+								onDriverSelected={(driver) => {
+									setModalState({ kind: ModalStateKind.CreateConnection, driver, previous: modalState });
+								}} />;
+					}
+				})()}
 			</ContentArea>
 		</div>
 	</PositronModalDialog>;

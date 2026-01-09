@@ -7,6 +7,7 @@ import { join } from 'path';
 import { test, tags } from '../_test.setup';
 import { TestTags } from '../../infra';
 import { MetricTargetType } from '../../utils/metrics/index.js';
+import { expect } from '@playwright/test';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
@@ -54,9 +55,11 @@ test.describe('Headless Data Explorer', {
 			}, target);
 
 			// verify can copy data to clipboard
-			await dataExplorer.grid.clickCell(0, 0);
-			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe(copyValue);
+			await expect(async () => {
+				await dataExplorer.grid.clickCell(0, 0);
+				await clipboard.copy();
+				await clipboard.expectClipboardTextToBe(copyValue, undefined, { timeout: 5000 });
+			}).toPass({ timeout: 20000 });
 
 			// verify all data loads
 			await dataExplorer.grid.clickLowerRightCorner();

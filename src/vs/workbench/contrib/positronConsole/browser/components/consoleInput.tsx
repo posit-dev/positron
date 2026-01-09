@@ -49,6 +49,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../serv
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { CONTEXT_DEBUG_STATE } from '../../../debug/common/debug.js';
 
 // Position enumeration.
 const enum Position {
@@ -90,9 +91,26 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setSupressCompletions, suppressCompletionsRef] = useStateRef<IDisposable | undefined>(undefined);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
+	const [, setDebugHistoryNavigator, debugHistoryNavigatorRef] =
+		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
 	const shouldExecuteOnStartRef = useRef(false);
+
+	/**
+	 * Gets the appropriate history navigator based on the current debug state.
+	 * Uses the default navigator when debug state is 'inactive' or undefined,
+	 * and debug navigator for all other debug states.
+	 *
+	 * @returns The appropriate HistoryNavigator2 or undefined if none exists.
+	 */
+	const getHistoryNavigator = () => {
+		const debugState = CONTEXT_DEBUG_STATE.getValue(services.contextKeyService);
+		if (!debugState || debugState === 'inactive') {
+			return historyNavigatorRef.current;
+		}
+		return debugHistoryNavigatorRef.current;
+	};
 
 	/**
 	 * Determines whether it is OK to take focus.
@@ -347,19 +365,20 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 
 			// If there are history entries, process the event.
-			if (historyNavigatorRef.current) {
+			const historyNavigator = getHistoryNavigator();
+			if (historyNavigator) {
 				// When the user moves up from the end, and we don't have a current code editor
 				// fragment, set the current code fragment. Otherwise, move to the previous
 				// entry.
-				if (historyNavigatorRef.current.isAtEnd() &&
+				if (historyNavigator.isAtEnd() &&
 					currentCodeFragmentRef.current === undefined) {
 					setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
 				} else {
-					historyNavigatorRef.current.previous();
+					historyNavigator.previous();
 				}
 
 				// Get the current history entry, set it as the value of the code editor widget.
-				const inputHistoryEntry = historyNavigatorRef.current.current();
+				const inputHistoryEntry = historyNavigator.current();
 				codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 
 				// Position the code editor widget.
@@ -401,10 +420,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 
 			// If there are history entries, process the event.
-			if (historyNavigatorRef.current) {
+			const historyNavigator = getHistoryNavigator();
+			if (historyNavigator) {
 				// When the user reaches the end of the history entries, restore the current
 				// code fragment.
-				if (historyNavigatorRef.current.isAtEnd()) {
+				if (historyNavigator.isAtEnd()) {
 					if (currentCodeFragmentRef.current !== undefined) {
 						codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
 						setCurrentCodeFragment(undefined);
@@ -412,7 +432,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				} else {
 					// Move to the next history entry and set it as the value of the code editor
 					// widget.
-					const inputHistoryEntry = historyNavigatorRef.current.next();
+					const inputHistoryEntry = historyNavigator.next();
 					codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 				}
 
@@ -538,7 +558,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						);
+						).filter(entry => {
+							// Filter out debug entries.
+							return !entry.debug || entry.debug === 'inactive';
+						});
 					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
 				}
@@ -604,7 +627,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						);
+						).filter(entry => {
+							// Filter out debug entries.
+							return !entry.debug || entry.debug === 'inactive';
+						});
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;
@@ -700,13 +726,24 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			props.positronConsoleInstance.sessionMetadata.sessionId
 		);
 		if (inputHistoryEntries.length) {
-			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
-			// inputHistoryEntries.forEach((inputHistoryEntry, index) => {
-			// 	console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
-			// });
+			// Partition entries into default (non-debug) and debug entries.
+			const entries = inputHistoryEntries.filter(
+				entry => !entry.debug || entry.debug === 'inactive'
+			);
+			const debugEntries = inputHistoryEntries.filter(
+				entry => entry.debug && entry.debug !== 'inactive'
+			);
 
-			// TODO@softwarenerd - Get 1000 from settings.
-			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000));
+			if (entries.length) {
+				setHistoryNavigator(
+					new HistoryNavigator2<IInputHistoryEntry>(entries.slice(-1000), 1000)
+				);
+			}
+			if (debugEntries.length) {
+				setDebugHistoryNavigator(
+					new HistoryNavigator2<IInputHistoryEntry>(debugEntries.slice(-1000), 1000)
+				);
+			}
 		}
 
 		/**
@@ -1017,8 +1054,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidClearInputHistory event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearInputHistory(() => {
-			// Discard the history navigator.
+			// Discard both history navigators.
 			setHistoryNavigator(undefined);
+			setDebugHistoryNavigator(undefined);
 
 			// Focus the code editor widget.
 			codeEditorWidget.focus();
@@ -1037,21 +1075,40 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// If the code isn't empty and run interactively or non-interactively, add it to the history.
 			if (trimmedCode.length && (mode === RuntimeCodeExecutionMode.Interactive || mode === RuntimeCodeExecutionMode.NonInteractive)) {
+				const debugState = CONTEXT_DEBUG_STATE.getValue(services.contextKeyService);
+				const isDebugMode = debugState && debugState !== 'inactive';
+
 				// Creates an IInputHistoryEntry.
 				const createInputHistoryEntry = (): IInputHistoryEntry => ({
 					when: new Date().getTime(),
 					input: trimmedCode,
+					debug: debugState
 				});
 
-				// Add the history entry, if it's not a duplicate.
-				if (!historyNavigatorRef.current) {
-					setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-						[createInputHistoryEntry()],
-						1000
-					));
+				// Add the history entry to the appropriate navigator based on debug state.
+				if (isDebugMode) {
+					// Add to debug history navigator.
+					if (!debugHistoryNavigatorRef.current) {
+						setDebugHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+							[createInputHistoryEntry()],
+							1000
+						));
+					} else {
+						if (debugHistoryNavigatorRef.current.last().input !== trimmedCode) {
+							debugHistoryNavigatorRef.current.add(createInputHistoryEntry());
+						}
+					}
 				} else {
-					if (historyNavigatorRef.current.last().input !== trimmedCode) {
-						historyNavigatorRef.current.add(createInputHistoryEntry());
+					// Add to default history navigator.
+					if (!historyNavigatorRef.current) {
+						setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+							[createInputHistoryEntry()],
+							1000
+						));
+					} else {
+						if (historyNavigatorRef.current.last().input !== trimmedCode) {
+							historyNavigatorRef.current.add(createInputHistoryEntry());
+						}
 					}
 				}
 			}

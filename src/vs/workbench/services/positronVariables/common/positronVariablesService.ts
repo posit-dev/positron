@@ -42,6 +42,12 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	private _activePositronVariablesInstance?: IPositronVariablesInstance;
 
 	/**
+	 * Whether the Variables pane is currently visible.
+	 * When false, no instances should be created or maintained.
+	 */
+	private _viewVisible = false;
+
+	/**
 	 * The onDidStartPositronVariablesInstance event emitter.
 	 */
 	private readonly _onDidStartPositronVariablesInstanceEmitter =
@@ -87,23 +93,8 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		// Call the disposable constructor.
 		super();
 
-		// Start a Positron variables instance for each running runtime.
-		this._runtimeSessionService.activeSessions.forEach((session, idx) => {
-			this.startPositronVariablesInstance(session, idx === 0);
-		});
-
-		// Get the foreground session. If there is one, set the active Positron variables instance.
-		if (this._runtimeSessionService.foregroundSession) {
-			const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
-				this._runtimeSessionService.foregroundSession.sessionId
-			);
-			if (positronVariablesInstance) {
-				this._setActivePositronVariablesInstance(positronVariablesInstance);
-			}
-		}
-
 		// Register the onWillStartSession event handler so we start a new Positron variables
-		// instance before a runtime starts up.
+		// instance before a runtime starts up (only if the view is visible).
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this.createOrAssignPositronVariablesInstance(e.session, e.activate);
 		}));
@@ -146,9 +137,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._syncToActiveEditor();
 		}));
-
-		// Sync to the active editor when the service is initialized
-		this._syncToActiveEditor();
 	}
 
 	//#endregion Constructor & Dispose
@@ -201,6 +189,51 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	}
 
 	/**
+	 * Sets whether the Variables pane is visible.
+	 * When the pane becomes hidden, all instances are disposed.
+	 * When the pane becomes visible, instances are created for all active sessions.
+	 *
+	 * @param visible Whether the Variables pane is visible.
+	 */
+	setViewVisible(visible: boolean): void {
+		// No-op if visibility hasn't changed
+		if (this._viewVisible === visible) {
+			return;
+		}
+
+		this._viewVisible = visible;
+
+		if (!visible) {
+			// Dispose all instances when the view is hidden
+			this._disposeAllInstances();
+		} else {
+			// Create instances for all active sessions
+			const activeSessions = this._runtimeSessionService.activeSessions;
+			const foregroundSession = this._runtimeSessionService.foregroundSession;
+
+			// Create instances for all sessions, activating only the foreground one
+			for (const session of activeSessions) {
+				const isActivate = foregroundSession?.sessionId === session.sessionId;
+				this.createOrAssignPositronVariablesInstance(session, isActivate);
+			}
+
+			// If we have a foreground session, ensure its instance is populated
+			if (foregroundSession) {
+				const activeInstance = this._positronVariablesInstancesBySessionId.get(
+					foregroundSession.sessionId
+				);
+				if (activeInstance) {
+					// Set as active (this will trigger a refresh)
+					this._setActivePositronVariablesInstance(activeInstance);
+				}
+			}
+
+			// Sync to the active editor to handle notebook scenarios
+			this._syncToActiveEditor();
+		}
+	}
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronVariablesService.
 	 */
 	initialize() {
@@ -226,6 +259,23 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._positronVariablesInstancesBySessionId.deleteAndDispose(sessionId);
 			this._onDidStopPositronVariablesInstanceEmitter.fire(instance);
 		}
+	}
+
+	/**
+	 * Disposes all variables instances.
+	 * Called when the Variables pane is hidden.
+	 */
+	private _disposeAllInstances(): void {
+		// Clear the active instance first
+		this._setActivePositronVariablesInstance(undefined);
+
+		// Fire stop events for all instances before disposing
+		for (const instance of this._positronVariablesInstancesBySessionId.values()) {
+			this._onDidStopPositronVariablesInstanceEmitter.fire(instance);
+		}
+
+		// Clear and dispose all instances
+		this._positronVariablesInstancesBySessionId.clearAndDisposeAll();
 	}
 
 	/**
@@ -289,6 +339,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	private createOrAssignPositronVariablesInstance(
 		session: ILanguageRuntimeSession,
 		activate: boolean) {
+
+		// Don't create instances if the view is not visible
+		if (!this._viewVisible) {
+			return;
+		}
 
 		// Ignore background sessions
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Background) {

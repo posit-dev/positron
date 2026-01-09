@@ -12,7 +12,7 @@ import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
-const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
+export const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
@@ -278,6 +278,10 @@ export class Console {
 		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
+	async sendInterrupt() {
+		await this.hotKeys.sendInterrupt();
+	}
+
 	async pasteCodeToConsole(code: string, sendEnterKey = false) {
 		await test.step(`Paste code to console: ${code}`, async () => {
 			const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
@@ -295,11 +299,11 @@ export class Console {
 		text: string,
 		maxRetries = 3
 	): Promise<void> {
-		const textarea = locator.locator('textarea');
+		const editContext = locator.locator('.native-edit-context');
 
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			// Attempt paste
-			await textarea.evaluate(async (element, evalText) => {
+			await editContext.evaluate(async (element, evalText) => {
 				const clipboardData = new DataTransfer();
 				clipboardData.setData('text/plain', evalText);
 				const clipboardEvent = new ClipboardEvent('paste', {

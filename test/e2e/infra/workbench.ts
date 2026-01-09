@@ -117,10 +117,10 @@ export class Workbench {
 		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts, this.console);
 		this.clipboard = new Clipboard(code, this.hotKeys);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console, this.contextMenu, this.modals);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
-		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
+		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu, this.sessions);
 		this.welcome = new Welcome(code);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
@@ -135,7 +135,7 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
-		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
+		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
 		this.positConnect = new PositConnect(code);
 	}
 }
