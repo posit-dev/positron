@@ -4,16 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 
-export class PositronConnectionsDriverManager {
+export class PositronConnectionsDriverManager extends Disposable {
 	private readonly drivers: IDriver[] = [];
 
-	private readonly _onDidChangeDrivers = new Emitter<IDriver[]>();
+	private readonly _onDidChangeDrivers = this._register(new Emitter<IDriver[]>());
 	readonly onDidChangeDrivers: Event<IDriver[]> = this._onDidChangeDrivers.event;
 
-	constructor(readonly service: IPositronConnectionsService) { }
+	constructor(readonly service: IPositronConnectionsService) {
+		super();
+	}
 
 	registerDriver(driver: IDriver): void {
 		// Check that a driver with the same id does not already exist.
