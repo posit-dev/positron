@@ -338,19 +338,52 @@ class TestCompletions:
         completion_list = _handle_completion(server, params)
         return [] if completion_list is None else list(completion_list.items)
 
-    @pytest.mark.xfail(reason="Notebook support needs verification after refactor")
     def test_notebook_completions(self) -> None:
-        """Test that completions work across notebook cells."""
-        server = create_test_server()
+        """Test that namespace completions work in notebooks."""
+        # Create server with a namespace of a few things already ran
+        server = create_test_server(namespace={"x": {"a": 0}, "y": {"b": 0}})
 
-        # Create a notebook which defines a variable in one cell and uses it in another
-        cell_uris = create_notebook_document(server, "uri", ["x = {'a': 0}", "x['"])
-        text_document = server.workspace.get_text_document(cell_uris[1])
+        # Create a notebook which overwrites one of the variables
+        cell_uris = create_notebook_document(server, "uri", ["y = {'a': 0}", "x['", "y['"])
 
+        # Completions should prefer what's in the namespace
+        for cell_index, expected_label in [(1, "a'"), (2, "b'")]:
+            text_document = server.workspace.get_text_document(cell_uris[cell_index])
+            completions = self._completions(server, text_document)
+            labels = {c.label for c in completions}
+            assert labels == {expected_label}
+
+    def test_dict_key_completion_with_closing_quote(self) -> None:
+        """Test that dict key completions don't duplicate closing quote when it already exists."""
+        server = create_test_server(namespace={"x": {"a": 0, "b": 1}})
+
+        # Test with single quotes - closing quote already exists
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "x['']")
+        completions = self._completions(server, text_document, character=3)
+        labels = {c.label for c in completions}
+        # Should suggest just "a" and "b" without closing quote
+        assert labels == {"a", "b"}
+
+        # Test with double quotes - closing quote already exists
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, 'x[""]')
+        completions = self._completions(server, text_document, character=3)
+        labels = {c.label for c in completions}
+        # Should suggest just "a" and "b" without closing quote
+        assert labels == {"a", "b"}
+
+        # Test with single quotes - no closing quote
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "x['")
         completions = self._completions(server, text_document)
-        labels = [c.label for c in completions]
+        labels = {c.label for c in completions}
+        # Should suggest "a'" and "b'" with closing quote
+        assert labels == {"a'", "b'"}
 
-        assert "a'" in labels or 'a"' in labels
+        # Test with double quotes - no closing quote
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, 'x["')
+        completions = self._completions(server, text_document)
+        labels = {c.label for c in completions}
+        # Should suggest 'a"' and 'b"' with closing quote
+        assert labels == {'a"', 'b"'}
 
     @pytest.mark.xfail(reason="Parameter sorting needs verification after refactor")
     def test_parameter_completions_appear_first(self) -> None:
