@@ -62,6 +62,14 @@
 							"uri"
 						]
 					}
+				},
+				{
+					"name": "pinned",
+					"description": "Whether to open the editor pinned (non-preview mode). If omitted, defaults to true.",
+					"required": false,
+					"schema": {
+						"type": "boolean"
+					}
 				}
 			]
 		},
