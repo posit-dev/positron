@@ -1,0 +1,28 @@
+name: "Download Binaries (Ark, Kallichore)"
+description: "Downloads R and Python kernel binaries when using cached node_modules"
+
+inputs:
+  cache-hit:
+    description: "Whether the extensions cache was hit (only download if true)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download Ark and Kallichore binaries
+      if: ${{ inputs.cache-hit == 'true' }}
+      shell: bash
+      working-directory: extensions
+      run: |
+        echo "Extensions cache hit detected - downloading binaries"
+        # WHY WE ONLY RUN THIS WHEN CACHE HITS (counterintuitive but correct):
+        # - When cache MISSES: npm install runs postinstall scripts that download binaries automatically
+        # - When cache HITS: npm install is skipped, so postinstall scripts never run
+        # - Solution: Use 'npm rebuild --foreground-scripts' to re-run postinstall and download binaries
+        # - Note: Platform-specific binaries (extensions/*/resources/ark, */kallichore) are intentionally
+        #   NOT included in cache paths, so they must be downloaded fresh on each platform
+        echo "Downloading Ark binary..."
+        cd positron-r && npm rebuild --foreground-scripts
+        echo "Downloading Kallichore binary..."
+        cd ../positron-supervisor && npm rebuild --foreground-scripts
+        echo "Binaries downloaded successfully"

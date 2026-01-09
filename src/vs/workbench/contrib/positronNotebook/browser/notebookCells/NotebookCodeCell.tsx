@@ -30,9 +30,11 @@ interface CellOutputsSectionProps {
 function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
 	return (
 		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? 'has-outputs' : 'no-outputs'}`} data-testid='cell-output'>
-			{outputs?.map((output) => (
-				<CellOutput key={output.outputId} {...output} />
-			))}
+			<div className='positron-notebook-code-cell-outputs-inner'>
+				{outputs?.map((output) => (
+					<CellOutput key={output.outputId} {...output} />
+				))}
+			</div>
 		</div>
 	);
 }

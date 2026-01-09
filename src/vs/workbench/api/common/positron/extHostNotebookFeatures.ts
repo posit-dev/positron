@@ -76,6 +76,15 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	}
 
 	/**
+	 * Deletes multiple cells from a notebook.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Array of cell indices to delete.
+	 */
+	async deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		return this._proxy.$deleteCells(notebookUri, cellIndices);
+	}
+
+	/**
 	 * Updates the content of a cell in a notebook.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell to update.
@@ -93,6 +102,36 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	 */
 	async getCellOutputs(notebookUri: string, cellIndex: number): Promise<extHostProtocol.INotebookCellOutputDTO[]> {
 		return this._proxy.$getCellOutputs(notebookUri, cellIndex);
+	}
+
+	/**
+	 * Moves a cell from one index to another in a notebook.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param fromIndex The current index of the cell to move.
+	 * @param toIndex The target index where the cell should be moved to.
+	 */
+	async moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void> {
+		return this._proxy.$moveCell(notebookUri, fromIndex, toIndex);
+	}
+
+	/**
+	 * Reorders all cells in a notebook according to a new order.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param newOrder Array representing the new order - newOrder[i] is the index of the cell
+	 *                 that should be at position i in the reordered notebook.
+	 */
+	async reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
+		return this._proxy.$reorderCells(notebookUri, newOrder);
+	}
+
+	/**
+	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
+	 * Respects the `positron.notebook.assistant.autoFollow` setting.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndex The index of the cell to scroll to.
+	 */
+	async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+		return this._proxy.$scrollToCellIfNeeded(notebookUri, cellIndex);
 	}
 }
 

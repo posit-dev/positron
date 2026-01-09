@@ -11,6 +11,13 @@
 	--_positron-notebook-selection-bar-inset: 0;
 }
 
+/* We need to overpower the upstream .monaco-workbench [tabindex="0"]:focus selector here */
+.monaco-workbench div.positron-notebook-cell.positron-notebook-code-cell[tabindex="0"]:focus {
+	/* When the cell is selected via tab navigation we need to move the focus
+	ring out so it's not covered up by the selection bar */
+	outline-offset: 0px;
+}
+
 /* Base styles for selected and editing states */
 .positron-notebook-cell.selected,
 .positron-notebook-cell.editing {
@@ -163,14 +170,15 @@
 	position: relative;
 }
 
-.positron-notebook-cell.assistant-highlight::before {
+.positron-notebook-cell.assistant-highlight::after {
 	content: "";
 	position: absolute;
 	inset: 0;
 	background-color: var(--vscode-button-background);
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	pointer-events: none;
-	z-index: 0;
+	/* Must be higher than cell content (action bar is z-index: 10) to be visible as overlay */
+	z-index: 15;
 	opacity: 0;
 	animation: assistant-flash 1.5s ease-in-out;
 	animation-fill-mode: forwards;
@@ -181,13 +189,29 @@
 	25%, 75% { opacity: 0.2; }
 }
 
-/* Use border-based highlight for high contrast themes instead of background overlay */
-.hc-black .positron-notebook-cell.assistant-highlight::before,
-.hc-light .positron-notebook-cell.assistant-highlight::before {
+/* Operation-specific highlight colors - all use the same animation */
+.positron-notebook-cell.assistant-highlight.assistant-highlight-add::after {
+	background-color: var(--vscode-diffEditor-insertedLineBackground, var(--vscode-diffEditor-insertedTextBackground));
+}
+
+.positron-notebook-cell.assistant-highlight.assistant-highlight-modify::after {
+	background-color: var(--vscode-button-background);
+}
+
+/* Note: Delete animation moved to sentinel implementation in Phase 5 */
+
+/* High contrast theme variants - use border instead of background overlay */
+.hc-black .positron-notebook-cell.assistant-highlight::after,
+.hc-light .positron-notebook-cell.assistant-highlight::after {
 	background-color: transparent;
 	border: 2px solid var(--vscode-focusBorder);
 	animation: assistant-flash-hc 1.5s ease-in-out;
 	animation-fill-mode: forwards;
+}
+
+.hc-black .positron-notebook-cell.assistant-highlight.assistant-highlight-add::after,
+.hc-light .positron-notebook-cell.assistant-highlight.assistant-highlight-add::after {
+	border-color: var(--vscode-diffEditor-insertedLineBackground, var(--vscode-editorOverviewRuler-addedForeground));
 }
 
 @keyframes assistant-flash-hc {
@@ -195,8 +219,9 @@
 	25%, 75% { opacity: 1; }
 }
 
+/* Accessibility - disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.positron-notebook-cell.assistant-highlight::before {
+	.positron-notebook-cell.assistant-highlight::after {
 		animation: none;
 		opacity: 0;
 	}

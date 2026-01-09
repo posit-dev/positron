@@ -110,7 +110,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		}
 
 		storedConnections.forEach((metadata) => {
-			if (metadata === null) {
+			if (metadata === null || metadata === undefined) {
 				return;
 			}
 

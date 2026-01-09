@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
 import { LOGGER } from './extension';
@@ -20,9 +21,27 @@ import {
 
 import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
-import { RLspOutputChannelManager } from './lsp-output-channel-manager';
 import { R_DOCUMENT_SELECTORS } from './provider';
 import { VirtualDocumentProvider } from './virtual-documents';
+
+// Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
+const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
+
+/**
+ * Global output channel for R LSP sessions
+ *
+ * Since we only have one LSP session active at any time, and since the start of
+ * a new session is logged with a session ID, we use a single output channel for
+ * all LSP sessions. Watch out for session start log messages to find the
+ * relevant section of the log.
+ */
+let _lspOutputChannel: vscode.OutputChannel | undefined;
+function getLspOutputChannel(): vscode.OutputChannel {
+	if (!_lspOutputChannel) {
+		_lspOutputChannel = positron.window.createRawLogOutputChannel('R Language Server');
+	}
+	return _lspOutputChannel;
+}
 
 /**
  * The state of the language server.
@@ -107,12 +126,6 @@ export class ArkLsp implements vscode.Disposable {
 
 		const { notebookUri } = this._metadata;
 
-		// Persistant output channel, used across multiple sessions of the same name + mode combination
-		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._dynState.sessionName,
-			this._metadata.sessionMode
-		);
-
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
@@ -126,7 +139,7 @@ export class ArkLsp implements vscode.Disposable {
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
 			errorHandler: new RErrorHandler(this._version, port),
-			outputChannel: outputChannel,
+			outputChannel: getLspOutputChannel(),
 			revealOutputChannelOn: RevealOutputChannelOn.Never,
 			middleware: {
 				handleDiagnostics(uri, diagnostics, next) {
@@ -134,6 +147,15 @@ export class ArkLsp implements vscode.Disposable {
 					// https://github.com/posit-dev/positron/issues/7750
 					if (uri.scheme === 'assistant-code-confirmation-widget') {
 						return undefined;
+					}
+					// Disable diagnostics for Quarto virtual documents:
+					// https://github.com/quarto-dev/quarto/issues/855
+					// Only check file URIs because vdocs are files on disk
+					if (uri.scheme === 'file') {
+						const baseName = path.basename(uri.fsPath);
+						if (VDOC_PATTERN.test(baseName)) {
+							return undefined;
+						}
 					}
 					return next(uri, diagnostics);
 				},
@@ -146,7 +168,7 @@ export class ArkLsp implements vscode.Disposable {
 		const message = `Creating language client ${this._dynState.sessionName} for session ${this._metadata.sessionId} on port ${port}`;
 
 		LOGGER.info(message);
-		outputChannel.appendLine(message);
+		getLspOutputChannel().appendLine(message);
 
 		this.client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
 
@@ -319,10 +341,6 @@ export class ArkLsp implements vscode.Disposable {
 	}
 
 	public showOutput() {
-		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._dynState.sessionName,
-			this._metadata.sessionMode
-		);
-		outputChannel.show();
+		getLspOutputChannel().show();
 	}
 }

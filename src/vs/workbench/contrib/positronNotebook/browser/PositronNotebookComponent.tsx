@@ -14,9 +14,9 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
-import { localize } from '../../../../nls.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
+import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -25,21 +25,40 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { useContextKeyValue } from './useContextKeyValue.js';
+import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
+import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { IDeletionSentinel } from './IPositronNotebookInstance.js';
 
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
+	const deletionSentinels = useObservedValue(notebookInstance.deletionSentinels);
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const services = usePositronReactServicesContext();
 
 	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
 	// These are rendered in a ScreenReaderOnly ARIA live region for screen reader users.
 	const [globalAnnouncement, setGlobalAnnouncement] = React.useState<string>('');
 	const previousCellCount = React.useRef<number>(notebookCells.length);
 
+	// Track scroll position for scroll decoration
+	const [isScrolled, setIsScrolled] = React.useState(false);
+
+	// Track find widget visibility for scroll decoration
+	const isFindWidgetVisible = useContextKeyValue(
+		notebookInstance.scopedContextKeyService,
+		CONTEXT_FIND_WIDGET_VISIBLE
+	);
+
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
+		// Initial scroll check
+		if (containerRef.current) {
+			setIsScrolled(containerRef.current.scrollTop > 0);
+		}
 	}, [notebookInstance]);
 
 	// Track cell count changes and announce to screen readers
@@ -58,23 +77,27 @@ export function PositronNotebookComponent() {
 		previousCellCount.current = currentCount;
 	}, [notebookCells.length]);
 
-	// Observe scroll events and fire to notebook instance
+	// Observe scroll events and fire to notebook instance, also track scroll position
 	useScrollObserver(containerRef, React.useCallback(() => {
 		notebookInstance.fireScrollEvent();
+		setIsScrolled((containerRef.current?.scrollTop ?? 0) > 0);
 	}, [notebookInstance]));
+
+	// Determine if scroll decoration should be shown
+	const showDecoration = isScrolled || isFindWidgetVisible;
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
+			{showDecoration && (
+				<div
+					aria-hidden='true'
+					className='scroll-decoration'
+					role='presentation'
+				/>
+			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
-				{notebookCells.length ?
-					notebookCells.map((cell, index) =>
-						<React.Fragment key={cell.handle}>
-							<NotebookCell cell={cell as PositronNotebookCellGeneral} />
-							<AddCellButtons index={index + 1} />
-						</React.Fragment>
-					) :
-					<div>{localize('noCells', 'No cells')}</div>
-				}
+				<AddCellButtons index={0} />
+				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}
@@ -82,6 +105,78 @@ export function PositronNotebookComponent() {
 		</div>
 	);
 }
+
+/**
+ * Renders cells and sentinels in the correct order.
+ * Sentinels are positioned based on their originalIndex relative to
+ * the cumulative position in the rendered notebook.
+ *
+ * Algorithm:
+ * 1. Sort sentinels by originalIndex for efficient processing
+ * 2. Track currentOriginalIndex as we iterate through cells
+ * 3. Before rendering each cell, insert all sentinels with originalIndex <= currentOriginalIndex
+ * 4. Increment currentOriginalIndex for both cells and sentinels
+ * 5. After all cells, render any remaining sentinels
+ *
+ * Example: If cells 2 and 3 are deleted from [0, 1, 2, 3, 4]:
+ * - Remaining cells: [0, 1, 4]
+ * - Sentinels: [{originalIndex: 2}, {originalIndex: 3}]
+ * - Result: 0, 1, sentinel(2), sentinel(3), 4
+ */
+function renderCellsAndSentinels(
+	cells: IPositronNotebookCell[],
+	sentinels: readonly IDeletionSentinel[],
+	services: any
+): React.ReactElement[] {
+	const elements: React.ReactElement[] = [];
+	let currentOriginalIndex = 0;
+
+	// Sort sentinels by originalIndex for efficient processing
+	const sortedSentinels = [...sentinels].sort((a, b) => a.originalIndex - b.originalIndex);
+	let sentinelIndex = 0;
+
+	cells.forEach((cell, cellArrayIndex) => {
+		// Render all sentinels that should appear before this cell
+		while (sentinelIndex < sortedSentinels.length &&
+			sortedSentinels[sentinelIndex].originalIndex <= currentOriginalIndex) {
+			const sentinel = sortedSentinels[sentinelIndex];
+			elements.push(
+				<DeletionSentinel
+					key={sentinel.id}
+					configurationService={services.configurationService}
+					sentinel={sentinel}
+				/>
+			);
+			sentinelIndex++;
+			currentOriginalIndex++;
+		}
+
+		// Render the cell
+		elements.push(
+			<React.Fragment key={cell.handle}>
+				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				<AddCellButtons index={cellArrayIndex + 1} />
+			</React.Fragment>
+		);
+		currentOriginalIndex++;
+	});
+
+	// Render any remaining sentinels at the end
+	while (sentinelIndex < sortedSentinels.length) {
+		const sentinel = sortedSentinels[sentinelIndex];
+		elements.push(
+			<DeletionSentinel
+				key={sentinel.id}
+				configurationService={services.configurationService}
+				sentinel={sentinel}
+			/>
+		);
+		sentinelIndex++;
+	}
+
+	return elements;
+}
+
 /**
  * Get css properties for fonts in the notebook.
  * @returns A css properties object that sets css variables associated with fonts in the notebook.

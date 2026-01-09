@@ -19,7 +19,7 @@ import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
-	outputs;
+	private readonly _outputs;
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -36,7 +36,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	) {
 		super(cellModel, instance, _executionStateService, _textModelResolverService);
 
-		this.outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
+		this._outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
@@ -55,7 +55,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	}
 
 	override get outputsViewModels(): IPositronCellOutputViewModel[] {
-		return this.outputs.get();
+		return this._outputs.get();
+	}
+
+	override get outputs() {
+		return this._outputs;
 	}
 
 	/**

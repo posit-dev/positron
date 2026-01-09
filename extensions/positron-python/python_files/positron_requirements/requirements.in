@@ -5,11 +5,10 @@
 # 2) uv pip compile --python-version 3.9 --generate-hashes --upgrade python_files/positron_requirements/requirements.in > python_files/positron_requirements/requirements.txt
 
 docstring-to-markdown==0.13
-jedi-language-server>=0.44.0
 markdown-it-py
 # Stick to pydantic v1 since it has a pure Python implementation which is much easy to vendor.
 pydantic<2.0.0
-pygls>=0.10.3
+pygls>=2.0.0
 pygments
 # typing-extensions>=4.11.0 causes torch._dynamo to fail to import. We're not yet sure why,
 # so we're pinning the version for now. See: https://github.com/posit-dev/positron/issues/5879.

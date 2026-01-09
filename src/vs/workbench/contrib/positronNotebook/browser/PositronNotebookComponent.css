@@ -38,6 +38,8 @@
 	--vscode-positronNotebook-action-bar-inset: calc(
 		var(--vscode-positronNotebook-action-bar-h) / 2
 	);
+	--_positron-notebook-cell-gap: 4px;
+	--_positron-notebook-add-cell-buttons-height: 26px; /* Icon 18px + padding 8px */
 
 	/* Misc variables */
 	--vscode-positronNotebook-border: 1px solid
@@ -48,6 +50,7 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	position: relative;
 
 	p,
 	h1,
@@ -60,12 +63,22 @@
 	}
 }
 
+.monaco-workbench .positron-notebook-editor {
+	/* Position relative to establish positioning context for absolutely positioned children (e.g., find widget) */
+	position: relative;
+}
+
+.monaco-workbench .positron-notebook-container {
+	/* Fill parent, otherwise there's no scroll bar */
+	height: 100%;
+}
+
 /**
 * Override the global keyoard focus outline style for notebook containers.
 * This prevents focus outline from showing when a user clicks on the notebook.
 * This prevents empty notebooks from showing an outline when they are focused.
 */
-.monaco-workbench .positron-notebook-container[tabindex="-1"]:focus {
+.monaco-workbench .positron-notebook-container[tabindex="-1"]:focus{
 	outline: none;
 }
 
@@ -74,8 +87,19 @@
 	padding-inline: 1rem;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--_positron-notebook-cell-gap);
 
 	height: 100%;
 	overflow: auto;
+}
+
+.positron-notebook .scroll-decoration {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 6px;
+	z-index: 10;
+	pointer-events: none;
+	box-shadow: var(--vscode-scrollbar-shadow) 0 6px 6px -6px inset;
 }

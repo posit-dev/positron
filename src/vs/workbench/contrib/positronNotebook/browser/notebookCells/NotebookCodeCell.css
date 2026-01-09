@@ -9,16 +9,26 @@
 	}
 
 	.positron-notebook-cell-outputs {
+		overflow: hidden;
+
+		&.no-outputs {
+			/* Dont show empty outputs at all */
+			display: none;
+		}
+	}
+
+	.positron-notebook-code-cell-outputs-inner {
 		padding-inline: 1rem;
 		padding-block: 0.5rem;
+
+		/* Avoid overlap with border which is overlaid from another element so
+		the layout doesn't automatically avoid it*/
+		margin-inline: 1px;
+		overflow-x: auto;
+
 		& .notebook-error,
 		& .notebook-stderr {
 			color: var(--vscode-positronNotebook-error-color);
-		}
-
-		&:empty {
-			/* Dont show empty outputs at all */
-			display: none;
 		}
 
 		/*

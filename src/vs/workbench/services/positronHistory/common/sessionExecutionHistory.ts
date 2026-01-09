@@ -9,6 +9,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { EXECUTION_HISTORY_STORAGE_PREFIX, ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryError } from './executionHistoryService.js';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * Represents a history of executions for a single language runtime session.
@@ -38,7 +40,8 @@ export class SessionExecutionHistory extends Disposable {
 		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
 		private readonly _storageScope: StorageScope,
-		private readonly _logService: ILogService
+		private readonly _logService: ILogService,
+		private readonly _contextKeyService: IContextKeyService
 	) {
 		super();
 
@@ -83,6 +86,7 @@ export class SessionExecutionHistory extends Disposable {
 					when: Date.now(),
 					prompt: '',
 					input: '',
+					debug: 'inactive',
 					outputType: ExecutionEntryType.Startup,
 					output: info,
 					durationMs: 0
@@ -131,6 +135,7 @@ export class SessionExecutionHistory extends Disposable {
 					when: when,
 					prompt: session.dynState.inputPrompt,
 					input: message.code,
+					debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService),
 					outputType: ExecutionEntryType.Execution,
 					output: '',
 					durationMs: 0
@@ -222,6 +227,7 @@ export class SessionExecutionHistory extends Disposable {
 				when: Date.parse(message.when),
 				prompt: '',
 				input: '',
+				debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService),
 				outputType: ExecutionEntryType.Execution,
 				output,
 				durationMs: 0

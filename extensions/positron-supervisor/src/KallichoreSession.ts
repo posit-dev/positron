@@ -47,6 +47,7 @@ import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
+import { OutputChannelFormatted, LogOutputChannelFormatted } from './OutputChannelFormatted';
 
 /**
  * The reason for a disconnection event.
@@ -89,6 +90,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** Emitter for runtime exit events */
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
+
+	/** Emitter for resource usage updates */
+	private readonly _resourceUsage: vscode.EventEmitter<positron.RuntimeResourceUsage>;
 
 	/** Emitter for disconnection events  */
 	readonly disconnected: vscode.EventEmitter<DisconnectedEvent>;
@@ -135,12 +139,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
 	 */
-	private readonly _kernelChannel: vscode.OutputChannel;
+	private readonly _kernelChannel: OutputChannelFormatted;
 
 	/**
 	 * The channel to which output for this specific console is logged
 	 */
-	private readonly _consoleChannel: vscode.LogOutputChannel;
+	private readonly _consoleChannel: LogOutputChannelFormatted;
 
 	/**
 	 * The channel to which profile output for this specific kernel is logged, if any
@@ -198,6 +202,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+		this._resourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
@@ -212,15 +217,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this.onDidEndSession = this._exit.event;
 
-		// Establish log channels for the console and kernel we're connecting to
-		this._consoleChannel = vscode.window.createOutputChannel(
-			metadata.notebookUri ?
-				`${runtimeMetadata.runtimeName}: Notebook: (${path.basename(metadata.notebookUri.path)})` :
-				`${runtimeMetadata.runtimeName}: Console`,
-			{ log: true });
+		this.onDidUpdateResourceUsage = this._resourceUsage.event;
 
-		this._kernelChannel = positron.window.createRawLogOutputChannel(
-			`${runtimeMetadata.runtimeName}: Kernel`);
+		// Establish log channels for the console and kernel we're connecting to
+		this._consoleChannel = new LogOutputChannelFormatted(
+			vscode.window.createOutputChannel(
+				`${runtimeMetadata.languageName} Supervisor`,
+				{ log: true }
+			),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
+
+		this._kernelChannel = new OutputChannelFormatted(
+			positron.window.createRawLogOutputChannel(`${runtimeMetadata.languageName} Kernel`),
+			(msg) => `${metadata.sessionId} ${msg}`
+		);
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 
 		// Open the established barrier immediately if we're restoring an
@@ -672,6 +683,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
+
+	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>;
 
 	/**
 	 * Sends a Debug Adapter Protocol request to the runtime's debugger.
@@ -1702,6 +1715,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} else if (data.hasOwnProperty('output')) {
 			const output = data as KernelOutputMessage;
 			this._kernelChannel.append(output.output[1]);
+		} else if (data.hasOwnProperty('resourceUsage')) {
+			const resourceUsage = data.resourceUsage as positron.RuntimeResourceUsage;
+			this._resourceUsage.fire(resourceUsage);
 		} else if (data.hasOwnProperty('clientDisconnected')) {
 			// Log the disconnection and close the socket
 			this._kernelChannel.append(`Client disconnected: ${data.clientDisconnected}`);

@@ -33,7 +33,7 @@ export interface EnvVar {
 // locale to also be present here, such as LC_CTYPE or LC_TIME. These can vary by OS, so this
 // interface doesn't attempt to enumerate them.
 interface Locale {
-	// eslint-disable-next-line @typescript-eslint/naming-convention
+
 	LANG: string;
 	[key: string]: string;
 }
@@ -84,6 +84,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _exitEmitter =
 		new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
+	/** The emitter for resource usage updates */
+	private _resourceUsageEmitter =
+		new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+
 	/** The Positron Supervisor extension API */
 	private adapterApi?: PositronSupervisorApi;
 
@@ -124,6 +128,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
+		this.onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
 
 		// Timestamp the session creation
 		this._created = Date.now();
@@ -139,6 +144,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
+	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>;
 
 	/**
 	 * Accessor for the current state of the runtime.
@@ -677,6 +683,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		});
 		kernel.onDidEndSession((exit) => {
 			this._exitEmitter.fire(exit);
+		});
+		kernel.onDidUpdateResourceUsage((usage) => {
+			this._resourceUsageEmitter.fire(usage);
 		});
 
 		return kernel;

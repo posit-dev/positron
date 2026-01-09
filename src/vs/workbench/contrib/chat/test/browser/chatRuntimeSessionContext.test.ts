@@ -80,6 +80,7 @@ class MockRuntimeSession implements ILanguageRuntimeSession {
 	onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;
 	onDidReceiveRuntimeMessageIPyWidget = new Emitter<any>().event;
+	onDidUpdateResourceUsage = new Emitter<any>().event;
 
 	clientInstances: any[] = [];
 	lastUsed = Date.now();
@@ -316,6 +317,7 @@ suite('ChatRuntimeSessionContext', () => {
 				prompt: '>>> ',
 				input: 'print("hello")',
 				output: 'hello',
+				debug: 'inactive',
 				outputType: ExecutionEntryType.Execution,
 				when: Date.now(),
 				durationMs: 50
@@ -385,6 +387,7 @@ suite('ChatRuntimeSessionContext', () => {
 				prompt: '>>> ',
 				input: 'undefined_variable',
 				output: '',
+				debug: 'inactive',
 				error: { name: 'NameError', message: 'name "undefined_variable" is not defined', traceback: ['Traceback: ...'] },
 				outputType: ExecutionEntryType.Execution,
 				when: Date.now(),

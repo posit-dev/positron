@@ -73,9 +73,27 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	getContent(): string;
 
 	/**
-	 * The cell's code editor widget.
+	 * The cell's current code editor widget.
 	 */
-	readonly editor: ICodeEditor | undefined;
+	readonly currentEditor: ICodeEditor | undefined;
+
+	/**
+	 * The cell's code editor as an observable.
+	 */
+	readonly editor: IObservable<ICodeEditor | undefined>;
+
+	/**
+	 * Observable for the cell's code editor widget.
+	 * Use this when you need to track changes to the editor (e.g., when the editor is attached/detached).
+	 */
+	readonly editorObservable: IObservable<ICodeEditor | undefined>;
+
+	/**
+	 * Current cell outputs as an observable.
+	 * Returns undefined for markdown cells (which have no outputs).
+	 * Code cells override this to return their outputs observable.
+	 */
+	readonly outputs: IObservable<NotebookCellOutputs[]> | undefined;
 
 	/**
 	 * Delete this cell
@@ -163,9 +181,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	 * Temporarily highlight the cell with a flash animation to draw attention.
 	 * The highlight animation is controlled by CSS and automatically completes.
 	 * Calling this method multiple times in quick succession will restart the animation.
+	 * @param operationType Optional type of operation for specific styling ('add', 'delete', or 'modify')
+	 * @param maxWaitMs Maximum time to wait for container in milliseconds. Defaults to 100ms for modify, 500ms for add.
 	 * @returns Promise that resolves to true if the highlight was successfully added, false otherwise.
 	 */
-	highlightTemporarily(): Promise<boolean>;
+	highlightTemporarily(operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<boolean>;
 
 	/**
 	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.

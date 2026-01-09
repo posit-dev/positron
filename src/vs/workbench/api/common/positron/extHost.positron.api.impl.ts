@@ -92,7 +92,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, any>> {
+			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId);
 			},
@@ -231,7 +231,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
-			call(method: string, params: Record<string, any>): Thenable<any> {
+			call(method: string, params: Record<string, unknown>): Thenable<unknown> {
 				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params);
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
@@ -372,29 +372,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					return undefined;
 				}
 
-				// Helper function to map DTO cell to public API cell
-				const mapCell = (cell: positron.notebooks.NotebookCell): positron.notebooks.NotebookCell => ({
-					id: cell.id,
-					index: cell.index,
-					type: cell.type,
-					content: cell.content,
-					hasOutput: cell.hasOutput,
-					selectionStatus: cell.selectionStatus,
-					executionStatus: cell.executionStatus,
-					executionOrder: cell.executionOrder,
-					lastRunSuccess: cell.lastRunSuccess,
-					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
-				});
-
 				// Convert DTO to public API types
 				return {
 					uri: context.uri,
 					kernelId: context.kernelId,
 					kernelLanguage: context.kernelLanguage,
 					cellCount: context.cellCount,
-					selectedCells: context.selectedCells.map(mapCell),
-					allCells: context.allCells?.map(mapCell)
+					selectedCells: context.selectedCells,
+					allCells: context.allCells
 				};
 			},
 
@@ -411,7 +396,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					executionOrder: cell.executionOrder,
 					lastRunSuccess: cell.lastRunSuccess,
 					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
+					lastRunEndTime: cell.lastRunEndTime,
+					editorShown: cell.editorShown
 				}));
 			},
 
@@ -420,19 +406,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				if (!cell) {
 					return undefined;
 				}
-				return {
-					id: cell.id,
-					index: cell.index,
-					type: cell.type,
-					content: cell.content,
-					hasOutput: cell.hasOutput,
-					selectionStatus: cell.selectionStatus,
-					executionStatus: cell.executionStatus,
-					executionOrder: cell.executionOrder,
-					lastRunSuccess: cell.lastRunSuccess,
-					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
-				};
+				return cell;
 			},
 
 			async runCells(notebookUri: string, cellIndices: number[]): Promise<void> {
@@ -453,12 +427,28 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostNotebookFeatures.deleteCell(notebookUri, cellIndex);
 			},
 
+			async deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+				return extHostNotebookFeatures.deleteCells(notebookUri, cellIndices);
+			},
+
 			async updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
 				return extHostNotebookFeatures.updateCellContent(notebookUri, cellIndex, content);
 			},
 
 			async getCellOutputs(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCellOutput[]> {
 				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellIndex);
+			},
+
+			async moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void> {
+				return extHostNotebookFeatures.moveCell(notebookUri, fromIndex, toIndex);
+			},
+
+			async reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
+				return extHostNotebookFeatures.reorderCells(notebookUri, newOrder);
+			},
+
+			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
 			}
 		};
 

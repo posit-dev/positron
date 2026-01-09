@@ -47,6 +47,18 @@ if echo "$PR_BODY" | grep -q "@:rhel-web"; then
 	echo "Found RHEL web tag in PR body. Setting to run RHEL web tests."
 	echo "rhel_web_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:suse-electron"; then
+	echo "Found SUSE electron tag in PR body. Setting to run RHEL electron tests."
+	echo "suse_electron_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:suse-web"; then
+	echo "Found SUSE web tag in PR body. Setting to run RHEL web tests."
+	echo "suse_web_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:pyrefly"; then
+	echo "Found pyrefly tag in PR body. Setting to run pyrefly tests."
+	echo "pyrefly_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then

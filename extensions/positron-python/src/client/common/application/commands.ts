@@ -43,6 +43,7 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [LSCommands.RestartLS]: [];
     // --- Start Positron ---
     [Commands.Show_Interpreter_Debug_Info]: [];
+    ['workbench.view.extensions']: [];
     // New command that opens the multisession interpreter picker
     ['workbench.action.language.runtime.selectSession']: [];
     // --- End Positron ---
@@ -103,6 +104,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
     // --- Start Positron ---
+    ['workbench.extensions.search']: [string];
     [Commands.Exec_Dash_In_Terminal]: [];
     [Commands.Exec_FastAPI_In_Terminal]: [];
     [Commands.Exec_Flask_In_Terminal]: [];

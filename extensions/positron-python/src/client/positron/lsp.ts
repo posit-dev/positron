@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+import * as path from 'path';
 import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -16,7 +17,25 @@ import { PromiseHandles } from './util';
 import { PythonErrorHandler } from './errorHandler';
 import { PythonHelpTopicProvider } from './help';
 import { PythonStatementRangeProvider } from './statementRange';
-import { PythonLspOutputChannelManager } from './lspOutputChannelManager';
+
+// Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
+const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
+
+/**
+ * Global output channel for Python LSP sessions
+ *
+ * Since we only have one LSP session active at any time, and since the start of
+ * a new session is logged with a session ID, we use a single output channel for
+ * all LSP sessions. Watch out for session start log messages to find the
+ * relevant section of the log.
+ */
+let _lspOutputChannel: vscode.OutputChannel | undefined;
+function getLspOutputChannel(): vscode.OutputChannel {
+    if (!_lspOutputChannel) {
+        _lspOutputChannel = positron.window.createRawLogOutputChannel('Python Language Server');
+    }
+    return _lspOutputChannel;
+}
 
 /**
  * The state of the language server.
@@ -50,13 +69,9 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _metadata: positron.RuntimeSessionMetadata,
-        private readonly _dynState: positron.LanguageRuntimeDynState,
     ) {
         // Persistant output channel, used across multiple sessions of the same name + mode combination
-        this._outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
-            this._dynState.sessionName,
-            this._metadata.sessionMode,
-        );
+        this._outputChannel = getLspOutputChannel();
     }
 
     /**
@@ -122,6 +137,21 @@ export class PythonLsp implements vscode.Disposable {
 
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = this._outputChannel;
+
+        // Add middleware to filter diagnostics for Quarto virtual documents:
+        // https://github.com/quarto-dev/quarto/issues/855
+        this._clientOptions.middleware = {
+            handleDiagnostics(uri, diagnostics, next) {
+                // Only check file URIs because vdocs are files on disk
+                if (uri.scheme === 'file') {
+                    const baseName = path.basename(uri.fsPath);
+                    if (VDOC_PATTERN.test(baseName)) {
+                        return;
+                    }
+                }
+                return next(uri, diagnostics);
+            },
+        };
 
         // Set Positron-specific server initialization options.
         // If this server is for a notebook, set the notebook path option.

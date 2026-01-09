@@ -7,9 +7,10 @@
   "files.simpleDialog.enable": true,
   "positron.importSettings.enable": false,
   "positron.assistant.enable": true,
-  "positron.assistant.testModels": true,
   "positron.assistant.enabledProviders": [
-    "openai-api"
+    "openai-api",
+    "echo",
+    "error"
   ],
   "posit.workbench.showWorkbenchFlaskHint": false
 }

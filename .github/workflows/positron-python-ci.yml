@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v6
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
@@ -113,7 +113,8 @@ jobs:
       - name: Install other Python requirements
         run: |
           uv run pip --disable-pip-version-check install -t ./python_files/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
-          uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
+          uv pip install --upgrade -r build/test-requirements.txt
+          uv sync --active --inexact --frozen --project python_files/posit
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e # v2.3.3
@@ -137,7 +138,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -189,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
@@ -205,7 +206,7 @@ jobs:
         run: uv run scripts/vendor.py
 
       - name: Install Positron IPyKernel test requirements
-        run: uv pip install --upgrade -r python_files/posit/pinned-test-requirements.txt
+        run: uv sync --active --inexact --frozen --project python_files/posit
 
       - name: Run Positron IPyKernel unit tests
         run: uv run pytest python_files/posit
@@ -221,7 +222,7 @@ jobs:
             python: '3.9'
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v7
@@ -272,7 +273,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -357,10 +358,12 @@ jobs:
           }
 
       - name: Install miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        shell: bash
         if: matrix.os == 'macos-latest' && matrix.test-suite == 'venv'
-        with:
-          python-version: "3.11"
+        run: |
+          curl -fsSLo Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-$(uname -m).sh"
+          bash Miniforge3.sh -b -p "${HOME}/conda"
+          source "${HOME}/conda/etc/profile.d/conda.sh"
 
       - name: Prepare conda for venv tests
         env:

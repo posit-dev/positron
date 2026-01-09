@@ -280,6 +280,36 @@ declare module 'positron' {
 	}
 
 	/**
+	 * RuntimeResourceUsage represents resource usage information for a language runtime.
+	 */
+	export interface RuntimeResourceUsage {
+		/**
+		 * CPU usage percentage for the kernel and its children.
+		 */
+		cpu_percent: number;
+
+		/**
+		 * Memory usage in bytes for the kernel and its children.
+		 */
+		memory_bytes: number;
+
+		/**
+		 * Number of threads used by the kernel and its children.
+		 */
+		thread_count: number;
+
+		/**
+		 * Sampling period in milliseconds for the resource usage data.
+		 */
+		sampling_period_ms: number;
+
+		/**
+		 * Timestamp of the resource usage data in milliseconds since epoch.
+		 */
+		timestamp: number;
+	}
+
+	/**
 	 * LanguageRuntimeClearOutput is a LanguageRuntimeMessage instructing the frontend to clear the
 	 * output of a runtime execution. */
 	export interface LanguageRuntimeClearOutput extends LanguageRuntimeMessage {
@@ -1113,6 +1143,9 @@ declare module 'positron' {
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
+		/** An object that emits an event when the runtime's resource usage is updated */
+		onDidUpdateResourceUsage: vscode.Event<RuntimeResourceUsage>;
+
 		/**
 		 * Opens a resource in the runtime.
 		 * @param resource The resource to open.
@@ -1508,8 +1541,15 @@ declare module 'positron' {
 		languageId: string;
 		/**
 		 * A human-readable name for the driver.
+		 * The name is also used to group drivers for the same database provider. For instance,
+		 * if there are multiple different ways to connect to the same database.
 		 */
 		name: string;
+		/**
+		 * A human-readable description for the driver.
+		 * Used specially when disambiguating drivers with the same name.
+		 */
+		description?: string;
 		/**
 		 * The base64-encoded SVG icon for the driver.
 		 */
@@ -2498,6 +2538,12 @@ declare module 'positron' {
 			 * Only present for code cells
 			 */
 			lastRunEndTime?: number;
+
+			/**
+			 * For markdown cells only: whether the editor is shown (true) or preview is shown (false).
+			 * This property is undefined for code cells.
+			 */
+			editorShown?: boolean;
 		}
 
 		/**
@@ -2546,6 +2592,13 @@ declare module 'positron' {
 		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
 
 		/**
+		 * Delete multiple cells from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Array of cell indices to delete
+		 */
+		export function deleteCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
+
+		/**
 		 * Update the content of a cell in a notebook
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell to update
@@ -2575,5 +2628,30 @@ declare module 'positron' {
 		 * @returns Array of output objects with MIME type and data
 		 */
 		export function getCellOutputs(notebookUri: string, cellIndex: number): Thenable<NotebookCellOutput[]>;
+
+		/**
+		 * Move a cell from one index to another in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param fromIndex The current index of the cell to move
+		 * @param toIndex The target index where the cell should be moved to
+		 */
+		export function moveCell(notebookUri: string, fromIndex: number, toIndex: number): Thenable<void>;
+
+		/**
+		 * Reorder all cells in a notebook according to a new order
+		 * @param notebookUri URI of the notebook
+		 * @param newOrder Array representing the new order - newOrder[i] is the index of the cell
+		 *                 that should be at position i in the reordered notebook.
+		 *                 Must be a valid permutation containing each index from 0 to cellCount-1 exactly once.
+		 */
+		export function reorderCells(notebookUri: string, newOrder: number[]): Thenable<void>;
+
+		/**
+		 * Scroll to a cell if it's out of view and auto-follow is enabled.
+		 * Respects the `positron.notebook.assistant.autoFollow` setting.
+		 * @param notebookUri The notebook URI as a string
+		 * @param cellIndex The index of the cell to scroll to
+		 */
+		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
 	}
 }

@@ -75,6 +75,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The emitter for language runtime exits */
     private _exitEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
+    /** The emitter for resource usage updates */
+    private _resourceUsageEmitter = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+
     /** The Positron Supervisor extension API */
     private adapterApi?: PositronSupervisorApi;
 
@@ -125,6 +128,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     onDidChangeRuntimeState = this._stateEmitter.event;
 
     onDidEndSession = this._exitEmitter.event;
+
+    onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
 
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -247,7 +252,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callMethod(method: string, ...args: any[]): Thenable<any> {
         if (this._kernel) {
             return this._kernel.callMethod(method, ...args);
@@ -264,7 +268,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Thenable<void> {
         if (this._kernel) {
             return this._kernel.createClient(id, type, params, metadata);
@@ -289,7 +292,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sendClientMessage(clientId: string, messageId: string, message: any): void {
         if (this._kernel) {
             this._kernel.sendClientMessage(clientId, messageId, message);
@@ -546,7 +548,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.runtimeMetadata.languageVersion,
             languageClientOptions,
             this.metadata,
-            this.dynState,
         );
     }
 
@@ -781,7 +782,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // for more.
             if (message.type === positron.LanguageRuntimeMessageType.CommData) {
                 const commMessage = message as positron.LanguageRuntimeCommMessage;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
                 const data = commMessage.data as any;
                 if (
                     'method' in data &&
@@ -823,6 +824,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             if (exit.exit_code !== 0) {
                 await this.showExitMessageWithLogs(kernel);
             }
+        });
+        kernel.onDidUpdateResourceUsage((usage) => {
+            this._resourceUsageEmitter.fire(usage);
         });
         return kernel;
     }

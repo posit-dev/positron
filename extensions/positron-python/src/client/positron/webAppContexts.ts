@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { executeCommand } from '../common/vscodeApis/commandApis';
+import { traceInfo } from '../logging';
 
 function getSupportedLibraries(): string[] {
     const libraries: string[] = ['streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
@@ -23,20 +24,43 @@ export function detectWebApp(document: vscode.TextDocument): void {
 
 export function getFramework(text: string): string | undefined {
     const libraries = getSupportedLibraries();
-    const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
-    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
-    const importMatch = importPattern.exec(text);
 
-    if (importMatch) {
-        return importMatch[1];
+    // Define patterns for app creation for each framework
+    const appCreationPatterns: Record<string, RegExp> = {
+        streamlit: /st\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
+        dash: /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
+        gradio: /\w+\s*=\s*(?:gr\.|gradio\.)/i,
+        flask: /\w+\s*=\s*(?:Flask|flask\.Flask)\(/i,
+        fastapi: /\w+\s*=\s*(?:FastAPI|fastapi\.FastAPI)\(/i,
+    };
+
+    const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'i');
+    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})(?:\\S*)?\\s+import`, 'i');
+
+    // Check for imports
+    const importMatch = (importPattern.exec(text)?.[1] || fromImportPattern.exec(text)?.[1])?.toLowerCase();
+
+    // Not a Python web app if no imports found
+    if (!importMatch) {
+        traceInfo('No web app imports detected in the document.');
+        return undefined;
     }
 
-    const fromImportMatch = fromImportPattern.exec(text);
-    if (fromImportMatch) {
-        return fromImportMatch[1];
+    // Check for app creation
+    for (const lib of libraries) {
+        // Check for app creation
+        const hasAppCreation = appCreationPatterns[lib].test(text);
+
+        // If we have both app creation and import, return immediately (highest priority)
+        if (hasAppCreation && importMatch) {
+            traceInfo(`Detected web app framework: ${lib} (with app creation)`);
+            return lib;
+        }
     }
 
-    return undefined;
+    // Fall back to import detection
+    traceInfo(`Detected web app framework: ${importMatch} (import only)`);
+    return importMatch;
 }
 
 export function activateAppDetection(disposables: vscode.Disposable[]): void {

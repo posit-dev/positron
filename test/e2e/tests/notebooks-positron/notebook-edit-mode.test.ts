@@ -89,4 +89,53 @@ test.describe('Notebook Edit Mode', {
 		await keyboard.type('new cell content');
 		await notebooksPositron.expectCellContentAtIndexToBe(3, 'new cell content');
 	});
+
+	test('Move cells up and down with keyboard shortcuts', async function ({ app, r, }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create a new notebook with 2 cells
+		await notebooksPositron.newNotebook({ codeCells: 2 });
+
+		// Enter edit mode in cell 0
+		await notebooksPositron.selectCellAtIndex(0);
+		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1']);
+
+		// Test: Move cell down: Alt+Down
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0']);
+
+		// Test: Move cell up: Alt+Up
+		await keyboard.press('Alt+ArrowUp');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1']);
+	});
+
+	test('Execute and debug cells with keyboard shortcuts', async function ({ app, r, }) {
+		const { notebooksPositron, debug } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Create a new notebook with 2 cells
+		await notebooksPositron.newNotebook({ codeCells: 2 });
+
+		// Enter edit mode in cell 0
+		await notebooksPositron.selectCellAtIndex(0);
+		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+
+		// Test: Execute cell and select below: Shift+Enter
+		await keyboard.press('Shift+Enter');
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
+		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+
+		// Test: Execute cell or toggle editor: Cmd+Enter
+		await notebooksPositron.selectCellAtIndex(1);
+		const executeShortcut = process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter';
+		await keyboard.press(executeShortcut);
+		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }, { index: 1, order: 2 }]);
+
+		// Test: Debug cell: Alt+Shift+Enter
+		await notebooksPositron.selectCellAtIndex(0);
+		await keyboard.press('Alt+Shift+Enter');
+		await debug.expectDebugVariablePaneVisible();
+	});
 });
