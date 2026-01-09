@@ -88,4 +88,28 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	protected override initializeProvider() {
 		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
 	}
+
+	override async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	): Promise<void> {
+		const aiModel = this.aiProvider(model.id);
+
+		// Only Anthropic currently supports experimental_content in tool results
+		const toolResultExperimentalContent = this.providerId === 'anthropic-api' ||
+			aiModel.modelId.includes('anthropic');
+
+		// Provide the response using the base class implementation
+		return super.provideVercelResponse(
+			model,
+			messages,
+			options,
+			progress,
+			token,
+			{ toolResultExperimentalContent }
+		);
+	}
 }

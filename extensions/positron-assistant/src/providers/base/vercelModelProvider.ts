@@ -114,11 +114,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * This is the core implementation for Vercel AI SDK-based providers.
 	 * Handles message processing, tool setup, streaming, and token usage tracking.
 	 *
-	 * Special handling is included for:
-	 * - Anthropic models: Support for experimental_content in tool results
-	 * - Bedrock models: Cache breakpoint support
-	 * - System prompts: Injected from modelOptions.system
-	 *
 	 * @param model - Information about the model to use
 	 * @param messages - Conversation history to send to the model
 	 * @param options - Generation options including tools and model parameters
@@ -131,7 +126,11 @@ export abstract class VercelModelProvider extends ModelProvider {
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.ProvideLanguageModelChatResponseOptions,
 		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
-		token: vscode.CancellationToken
+		token: vscode.CancellationToken,
+		providerOptions?: {
+			toolResultExperimentalContent?: boolean;
+			bedrockCacheBreakpoint?: boolean;
+		}
 	): Promise<void> {
 		const aiModel = this.aiProvider(model.id);
 		const modelOptions = options.modelOptions ?? {};
@@ -145,14 +144,6 @@ export abstract class VercelModelProvider extends ModelProvider {
 		// Ensure all messages have content
 		const processedMessages = processMessages(messages);
 
-		// Only Anthropic currently supports experimental_content in tool results
-		const toolResultExperimentalContent = this.providerId === 'anthropic-api' ||
-			aiModel.modelId.includes('anthropic');
-
-		// Only select Bedrock models support cache breakpoints
-		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
-			!aiModel.modelId.includes('anthropic.claude-3-5');
-
 		// Add system prompt from modelOptions.system, if provided
 		if (modelOptions.system) {
 			processedMessages.unshift(new vscode.LanguageModelChatMessage(
@@ -160,6 +151,9 @@ export abstract class VercelModelProvider extends ModelProvider {
 				modelOptions.system
 			));
 		}
+
+		// Extract provider-specific options
+		const { bedrockCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
 
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.CoreMessage[] = toAIMessage(

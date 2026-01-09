@@ -153,6 +153,30 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		});
 	}
 
+	override async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
+		messages: vscode.LanguageModelChatMessage2[],
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
+		token: vscode.CancellationToken
+	): Promise<void> {
+		const aiModel = this.aiProvider(model.id);
+
+		// Only select Bedrock models support cache breakpoints
+		const bedrockCacheBreakpoint = this.providerId === 'amazon-bedrock' &&
+			!aiModel.modelId.includes('anthropic.claude-3-5');
+
+		// Provide the response using the base class implementation
+		return super.provideVercelResponse(
+			model,
+			messages,
+			options,
+			progress,
+			token,
+			{ bedrockCacheBreakpoint }
+		);
+	}
+
 	/**
 	 * Parses Bedrock-specific errors and returns user-friendly messages.
 	 * Handles SSO authentication errors with automatic login prompts.
