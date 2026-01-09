@@ -273,7 +273,7 @@ function RawHtml({ html }: { html: string }) {
 		);
 	}, [html]);
 
-	return <>{reactElements}</>;
+	return <div className='raw-html-content'>{reactElements}</div>;
 }
 
 /**
