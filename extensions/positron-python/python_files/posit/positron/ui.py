@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -17,17 +17,10 @@ from comm.base_comm import BaseComm
 
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
-from .ui_comm import (
-    CallMethodParams,
-    CallMethodRequest,
-    OpenEditorParams,
-    ShowHtmlFileDestination,
-    ShowHtmlFileParams,
-    ShowUrlParams,
-    UiBackendMessageContent,
-    UiFrontendEvent,
-    WorkingDirectoryParams,
-)
+from .ui_comm import (CallMethodParams, CallMethodRequest, OpenEditorParams,
+                      ShowHtmlFileDestination, ShowHtmlFileParams,
+                      ShowUrlParams, UiBackendMessageContent, UiFrontendEvent,
+                      WorkingDirectoryParams)
 from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
 
 if TYPE_CHECKING:
@@ -169,8 +162,8 @@ class UiService:
                 event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
                 self._send_event(name=UiFrontendEvent.WorkingDirectory, payload=event)
 
-    def open_editor(self, file: str, line: int, column: int) -> None:
-        event = OpenEditorParams(file=file, line=line, column=column)
+    def open_editor(self, file: str, line: int, column: int, pinned: bool = True) -> None:
+        event = OpenEditorParams(file=file, line=line, column=column, pinned=pinned)
         self._send_event(name=UiFrontendEvent.OpenEditor, payload=event)
 
     def clear_console(self) -> None:
