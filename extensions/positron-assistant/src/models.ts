@@ -930,8 +930,12 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 
 	/**
 	 * Creates a wrapped OpenAI provider that uses the Chat Completions API
-	 * instead of the Responses API. Snowflake Cortex only supports v1/chat/completions.
-	 */
+	 * instead of the Responses API.
+	 * At this time, providers like Snowflake and OpenRouter need
+	 * to use v1/chat/completions, and we are making the assumption
+	 * that other custom OpenAI-compatible providers also use the
+	 * old endpoint.
+	*/
 	protected updateAiProvider(): void {
 		const baseProvider = createOpenAI({
 			apiKey: this._config.apiKey,

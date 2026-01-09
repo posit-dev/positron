@@ -206,7 +206,7 @@ suite('Snowflake Provider', () => {
 		});
 
 		test('transforms empty role fields in streaming response', async () => {
-			const mockStreamingData = `data: {"choices":[{"delta":{"content":"Hi","role":"","tool_calls":null},"index":0}],"id":"test-id","model":"openai-gpt-5","object":"chat.completion.chunk"}
+			const mockStreamingData = `data: {"choices":[{"delta":{"content":"Hi","role":"","tool_calls":null},"index":0}],"created":1234567890,"id":"test-id","model":"openai-gpt-5","object":"chat.completion.chunk"}
 
 data: [DONE]
 
@@ -242,6 +242,7 @@ data: [DONE]
 
 			const transformedText = chunks.join('');
 
+			console.log('Transformed Stream Text:', transformedText);
 			// Verify that empty role field was transformed to "assistant"
 			assert.ok(transformedText.includes('"role":"assistant"'), 'Empty role should be transformed to "assistant"');
 			assert.ok(!transformedText.includes('"role":""'), 'Should not contain empty role field');
