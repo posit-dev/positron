@@ -9,6 +9,12 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { createNotebookToolImpl } from '../../tools/createNotebook.js';
 
+class FakeDisposable implements vscode.Disposable {
+	public dispose() {
+		// Do nothing
+	}
+}
+
 suite('CreateNotebook Tool', () => {
 	let sandbox: sinon.SinonSandbox;
 
@@ -19,6 +25,21 @@ suite('CreateNotebook Tool', () => {
 	teardown(() => {
 		sandbox.restore();
 	});
+
+	/**
+	 * Helper to mock the notebook editor activation event and property.
+	 * Fires the event on next tick to allow disposable variable assignment.
+	 */
+	function mockNotebookEditorActivation() {
+		const stub = sandbox.stub(vscode.window, 'onDidChangeActiveNotebookEditor');
+		stub.callsFake((callback) => {
+			setImmediate(() => {
+				callback({ notebook: { uri: vscode.Uri.parse('test://notebook.ipynb') } } as vscode.NotebookEditor);
+			});
+			return new FakeDisposable();
+		});
+		sandbox.stub(vscode.window, 'activeNotebookEditor').value(null);
+	}
 
 	suite('prepareInvocation', () => {
 		test('prepares confirmation message for Python', async () => {
@@ -84,8 +105,8 @@ suite('CreateNotebook Tool', () => {
 		});
 
 		test('includes EditNotebookCells guidance when no prior notebook exists', async () => {
-			const executeCommandStub = sandbox.stub(vscode.commands, 'executeCommand');
-			executeCommandStub.resolves();
+			sandbox.stub(vscode.commands, 'executeCommand').resolves();
+			mockNotebookEditorActivation();
 
 			// Mock positron.notebooks.getContext to return null initially (no notebook),
 			// then return context after creation
@@ -106,13 +127,12 @@ suite('CreateNotebook Tool', () => {
 		});
 
 		test('returns simple result when prior notebook exists', async () => {
-			const executeCommandStub = sandbox.stub(vscode.commands, 'executeCommand');
-			executeCommandStub.resolves();
+			sandbox.stub(vscode.commands, 'executeCommand').resolves();
+			mockNotebookEditorActivation();
 
 			// Mock positron.notebooks.getContext to return context both times
 			// (notebook existed before and after creation)
-			const getContextStub = sandbox.stub(positron.notebooks, 'getContext');
-			getContextStub.resolves({ uri: 'test://notebook.ipynb' } as any);
+			sandbox.stub(positron.notebooks, 'getContext').resolves({ uri: 'test://notebook.ipynb' } as any);
 
 			const result = await createNotebookToolImpl.invoke(
 				{ input: { language: 'python' } },
@@ -127,12 +147,11 @@ suite('CreateNotebook Tool', () => {
 		});
 
 		test('handles context unavailable after creation', async () => {
-			const executeCommandStub = sandbox.stub(vscode.commands, 'executeCommand');
-			executeCommandStub.resolves();
+			sandbox.stub(vscode.commands, 'executeCommand').resolves();
+			mockNotebookEditorActivation();
 
 			// Mock positron.notebooks.getContext to return null both times
-			const getContextStub = sandbox.stub(positron.notebooks, 'getContext');
-			getContextStub.resolves(null);
+			sandbox.stub(positron.notebooks, 'getContext').resolves(null);
 
 			const result = await createNotebookToolImpl.invoke(
 				{ input: { language: 'python' } },
