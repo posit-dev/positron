@@ -93,7 +93,7 @@
       contentReferences: [  ],
       codeCitations: [  ],
       timeSpentWaiting: 0,
-	  tokenUsage: undefined
+      tokenUsage: undefined
     }
   ]
 }
