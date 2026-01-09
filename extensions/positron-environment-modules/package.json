@@ -35,6 +35,7 @@
 					"type": "object",
 					"default": {},
 					"description": "%configuration.environments.description%",
+					"scope": "machine",
 					"additionalProperties": {
 						"type": "object",
 						"properties": {

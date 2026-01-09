@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { EnvironmentModulesApi } from './api.js';
 import { ModuleEnvironmentConfig, ModuleSystemInfo } from './types.js';
 import { listAvailableModules } from './module-listing.js';
+import { log } from './extension.js';
 
 /**
  * Handle the "Manage Module Environments" command
@@ -33,18 +34,13 @@ export async function manageEnvironmentsCommand(api: EnvironmentModulesApi): Pro
 	for (const [name, envConfig] of Object.entries(environments)) {
 		const discoveredRuntimes = api.getDiscoveredRuntimes(name);
 		const runtimeCount = discoveredRuntimes.length;
-		const languages = envConfig.languages.join(', ');
 		const modules = envConfig.modules.join(', ');
+		const languages = envConfig.languages.join(', ');
 
 		items.push({
 			label: name,
-			description: vscode.l10n.t(
-				'{0} ({1}); {2} interpreter(s)',
-				modules,
-				languages,
-				runtimeCount.toString()
-			),
-			detail: undefined
+			description: modules,
+			detail: vscode.l10n.t('{0} discovered interpreters', runtimeCount)
 		});
 	}
 
@@ -184,31 +180,53 @@ async function createNewEnvironmentWizard(
 	const modules = selectedModules.map(item => item.label);
 
 	// Save the new environment to settings
-	await saveNewEnvironment(name.trim(), languages, modules);
+	const saved = await saveNewEnvironment(name.trim(), languages, modules);
 
-	// Trigger runtime discovery
-	await vscode.commands.executeCommand('workbench.action.language.runtime.discoverAllRuntimes');
-
-	// Show success notification
-	vscode.window.showInformationMessage(
-		vscode.l10n.t("Module environment '{0}' was added successfully.", name.trim())
-	);
+	// Only trigger discovery and show success if save succeeded
+	if (saved) {
+		// Trigger runtime discovery
+		await vscode.commands.executeCommand('workbench.action.language.runtime.discoverAllRuntimes');
+	}
 }
 
 /**
  * Save a new environment configuration to settings
+ * @returns true if saved successfully (with appropriate user notification), false otherwise
  */
 async function saveNewEnvironment(
 	name: string,
 	languages: string[],
 	modules: string[]
-): Promise<void> {
+): Promise<boolean> {
 	const config = vscode.workspace.getConfiguration('positron.environmentModules');
 	const environments = config.get<Record<string, ModuleEnvironmentConfig>>('environments', {});
 
 	// Add the new environment
 	environments[name] = { languages, modules };
 
-	// Update the setting at the User level (global)
-	await config.update('environments', environments, vscode.ConfigurationTarget.Global);
+	// Try to update at the User level first, fall back to Workspace if that fails
+	try {
+		await config.update('environments', environments, vscode.ConfigurationTarget.Global);
+		// Show success notification for global save
+		vscode.window.showInformationMessage(
+			vscode.l10n.t("Module environment '{0}' was added successfully.", name)
+		);
+		return true;
+	} catch (error) {
+		log.warn(`Failed to save module environment '${name}' to user settings: ${error instanceof Error ? error.message : String(error)}`);
+		// If Global fails (common in web/server mode), try Workspace
+		try {
+			await config.update('environments', environments, vscode.ConfigurationTarget.Workspace);
+			vscode.window.showInformationMessage(
+				vscode.l10n.t("Module environment '{0}' was saved to workspace settings (user settings not available in this environment): {1}", name, error instanceof Error ? error.message : String(error))
+			);
+			return true;
+		} catch (workspaceError) {
+			// If both fail, show error
+			vscode.window.showErrorMessage(
+				vscode.l10n.t("Failed to save module environment '{0}': {1}", name, workspaceError instanceof Error ? workspaceError.message : String(workspaceError))
+			);
+			return false;
+		}
+	}
 }

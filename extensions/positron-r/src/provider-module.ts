@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { RBinary } from './provider.js';
 import { ReasonDiscovered, ModuleMetadata } from './r-installation.js';
@@ -127,10 +128,13 @@ export async function discoverModuleBinaries(): Promise<RBinary[]> {
 				startupCommand: resolved.startupCommand
 			};
 
+			// Normalize the interpreter path to match how RInstallation normalizes it
+			const normalizedPath = path.normalize(resolved.interpreterPath);
+
 			// Store pending registration for when runtime is registered with Positron
-			pendingModuleRuntimeRegistrations.set(resolved.interpreterPath, {
+			pendingModuleRuntimeRegistrations.set(normalizedPath, {
 				environmentName: resolved.environmentName,
-				interpreterPath: resolved.interpreterPath
+				interpreterPath: normalizedPath
 			});
 
 			binaries.push({
