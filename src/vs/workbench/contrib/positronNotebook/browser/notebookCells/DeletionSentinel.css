@@ -127,6 +127,27 @@
 	color: var(--vscode-foreground);
 }
 
+/* Truncation indicator for longer cells */
+.deletion-sentinel-truncation-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 16px 8px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-line {
+	flex: 1;
+	height: 1px;
+	background: var(--vscode-widget-border);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-text {
+	white-space: nowrap;
+	font-style: italic;
+}
+
 @keyframes sentinel-slide-in {
 	from {
 		opacity: 0;

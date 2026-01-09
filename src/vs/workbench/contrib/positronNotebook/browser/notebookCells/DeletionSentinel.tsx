@@ -65,6 +65,12 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 		? localize('notebook.codeCell', "Code cell")
 		: localize('notebook.markdownCell', "Markdown cell");
 
+	// Calculate truncation info from full cell content
+	const totalLines = sentinel.cellData.source.split('\n').length;
+	const previewLines = 3;
+	const isTruncated = totalLines > previewLines;
+	const hiddenLines = totalLines - previewLines;
+
 	return (
 		<div className="deletion-sentinel positron-notebook-cell">
 			<div className="deletion-sentinel-flash" />
@@ -106,6 +112,17 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 							</div>
 						)}
 					</div>
+
+					{/* Truncation indicator for longer cells */}
+					{isTruncated && (
+						<div className="deletion-sentinel-truncation-indicator">
+							<span className="truncation-line" />
+							<span className="truncation-text">
+								{localize('notebook.moreLines', "+{0} more lines", hiddenLines)}
+							</span>
+							<span className="truncation-line" />
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
