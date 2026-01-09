@@ -454,7 +454,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				// Ensure the Python interpreter path is available. This is the global Python
 				// interpreter to use for the new environment. This is only required if we are not
 				// using a conda or uv environment.
-				const interpreterPath = runtimeMetadata?.extraRuntimeData?.pythonPath;
+				const interpreterPath = (runtimeMetadata?.extraRuntimeData as { pythonPath?: string } | undefined)?.pythonPath;
 				if (!interpreterPath && !condaPythonVersion && !uvPythonVersion) {
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new folder.');
 					this._logService.error(message);
@@ -616,6 +616,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		const notebookEditors = this._notebookEditorService.listNotebookEditors();
 
 		// Prefer the active notebook editor if available
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const activeEditor = (this._notebookEditorService as any).activeNotebookEditor as { textModel?: INotebookTextModel } | undefined;
 		const editor = activeEditor?.textModel
 			? activeEditor
@@ -755,6 +756,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			if (!hasExecuted) {
 				this._logService.debug('[New folder startup] Overriding pre-selected kernel because notebook has no execution history.');
 				// We simply clear the selection; the subsequent logic will select the correct kernel.
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				this._notebookKernelService.selectKernelForNotebook(undefined as any, notebookTextModel);
 			}
 		}
