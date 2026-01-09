@@ -159,6 +159,78 @@
 	}
 }
 
+/* Status bar at bottom of sentinel */
+.deletion-sentinel-status-bar {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end; /* Button on right when no countdown */
+	padding: 6px 12px;
+	background: var(--vscode-editorWidget-background);
+	border-top: 1px solid var(--vscode-widget-border);
+}
+
+.deletion-sentinel-countdown {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	margin-right: auto; /* Push button to right */
+	padding-right: 8px;
+}
+
+.countdown-progress-container {
+	flex: 1;
+	height: 4px;
+	background: var(--vscode-focusBorder);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.countdown-progress-bar {
+	height: 100%;
+	background: var(--vscode-editorWidget-border);
+	width: 100%;
+	transform-origin: right;
+	animation-name: countdown-progress;
+	animation-duration: 10s; /* Default; overridden by inline style */
+	animation-timing-function: linear;
+	animation-fill-mode: forwards;
+}
+
+@keyframes countdown-progress {
+	from { transform: scaleX(1); }
+	to { transform: scaleX(0); }
+}
+
+.countdown-progress-bar.paused {
+	animation-play-state: paused;
+}
+
+.deletion-sentinel-config-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	opacity: 0;
+	cursor: pointer;
+	padding: 2px;
+	font-size: 14px;
+	transition: opacity 200ms ease-in-out;
+}
+
+/* Show button on sentinel hover or focus */
+.deletion-sentinel:hover .deletion-sentinel-config-button,
+.deletion-sentinel-config-button:focus {
+	opacity: 0.6;
+}
+
+.deletion-sentinel-config-button:hover,
+.deletion-sentinel-config-button:focus {
+	opacity: 1 !important;
+	background: var(--vscode-toolbar-hoverBackground);
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
 /* High contrast theme support */
 .hc-black .deletion-sentinel-cell-container,
 .hc-light .deletion-sentinel-cell-container {
@@ -180,5 +252,9 @@
 	.deletion-sentinel-flash {
 		animation: none;
 		opacity: 0;
+	}
+	.countdown-progress-bar {
+		animation: none;
+		transform: scaleX(0.5); /* Show static 50% progress */
 	}
 }
