@@ -148,18 +148,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = await makeMetadata(rInst, startupBehavior, needsArch);
-		if (isModuleMetadata(rInst.packagerMetadata)) {
-			LOGGER.info(`Registering module runtime ${metadata.runtimeId} for environment "${rInst.packagerMetadata.environmentName}"`);
-			const moduleMetadata = rInst.packagerMetadata as ModuleMetadata;
-			await this.registerModuleRuntimeWithApi(
-				moduleMetadata.environmentName,
-				metadata.runtimeId,
-				metadata.runtimePath
-			);
-		} else {
-			LOGGER.info(`not a module metadata: ${JSON.stringify(rInst.packagerMetadata)}`);
-		}
+		const metadata = makeMetadata(rInst, startupBehavior, needsArch);
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
