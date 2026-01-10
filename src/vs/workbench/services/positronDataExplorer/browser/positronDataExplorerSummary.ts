@@ -19,6 +19,8 @@ export const USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
 	'dataExplorer.summaryCollapsed';
 export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
+export const USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY =
+	'dataExplorer.useLanguagePackFormatOptions';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
@@ -38,6 +40,14 @@ export function DefaultDataExplorerSummaryLayout(
 	} else {
 		return PositronDataExplorerLayout.SummaryOnRight;
 	}
+}
+
+export function UseLanguagePackFormatOptions(
+	configurationService: IConfigurationService
+) {
+	return Boolean(
+		configurationService.getValue(USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY)
+	);
 }
 
 // Register the configuration setting
@@ -69,6 +79,20 @@ configurationRegistry.registerConfiguration({ // for summary layout
 			markdownDescription: localize(
 				'positron.dataExplorerSummaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
+			),
+		},
+	},
+});
+configurationRegistry.registerConfiguration({ // for language pack format options
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.dataExplorerUseLanguagePackFormatOptions',
+				'Use formatting options from the R or Python language pack when displaying data values. When enabled, settings like R\'s scipen option will affect number formatting in the Data Explorer.'
 			),
 		},
 	},

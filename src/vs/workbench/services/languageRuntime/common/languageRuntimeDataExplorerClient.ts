@@ -217,8 +217,12 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * Creates a new data explorer client instance.
 	 * @param backendClient The data explorer backend client instance.
+	 * @param _useLanguagePackFormatOptions Whether to use format options from the language pack.
 	 */
-	constructor(backendClient: IDataExplorerBackendClient) {
+	constructor(
+		backendClient: IDataExplorerBackendClient,
+		private readonly _useLanguagePackFormatOptions: boolean
+	) {
 		// Call the disposable constructor.
 		super();
 
@@ -380,8 +384,8 @@ export class DataExplorerClientInstance extends Disposable {
 			this.status = DataExplorerClientStatus.Disconnected;
 		}
 
-		// Update format options from backend state if provided
-		if (this.cachedBackendState.format_options) {
+		// Update format options from backend state if provided and setting is enabled
+		if (this._useLanguagePackFormatOptions && this.cachedBackendState.format_options) {
 			const backendFormatOptions = this.cachedBackendState.format_options;
 
 			// Merge backend format options with data format options
