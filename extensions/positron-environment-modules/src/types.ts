@@ -90,8 +90,6 @@ export interface ResolveInterpreterOptions {
  * Information about a runtime discovered in a module environment
  */
 export interface DiscoveredRuntimeInfo {
-	/** The unique runtime ID from Positron */
-	runtimeId: string;
 	/** The language (e.g., 'r', 'python') */
 	language: string;
 	/** The interpreter path */

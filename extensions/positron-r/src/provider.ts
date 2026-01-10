@@ -12,14 +12,14 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
-import { discoverModuleBinaries } from './provider-module.js';
+import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -148,10 +148,41 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			}
 		}
 
-		const metadata = makeMetadata(rInst, startupBehavior, needsArch);
+		const metadata = await makeMetadata(rInst, startupBehavior, needsArch);
+		if (isModuleMetadata(rInst.packagerMetadata)) {
+			LOGGER.info(`Registering module runtime ${metadata.runtimeId} for environment "${rInst.packagerMetadata.environmentName}"`);
+			const moduleMetadata = rInst.packagerMetadata as ModuleMetadata;
+			await this.registerModuleRuntimeWithApi(
+				moduleMetadata.environmentName,
+				metadata.runtimeId,
+				metadata.runtimePath
+			);
+		} else {
+			LOGGER.info(`not a module metadata: ${JSON.stringify(rInst.packagerMetadata)}`);
+		}
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
+	}
+}
+
+/**
+ * Register a module runtime with the environment-modules API for tracking.
+ */
+export async function registerModuleRuntimeWithApi(
+	environmentName: string,
+	interpreterPath: string
+): Promise<void> {
+	try {
+		const api = await getEnvironmentModulesApi();
+		if (api) {
+			api.registerDiscoveredRuntime(environmentName, 'r', interpreterPath);
+			LOGGER.info(
+				`Registered module runtime ${interpreterPath} for environment "${environmentName}" with environment-modules API`
+			);
+		}
+	} catch (error) {
+		LOGGER.warn(`Failed to register module runtime with environment-modules API: ${error}`);
 	}
 }
 

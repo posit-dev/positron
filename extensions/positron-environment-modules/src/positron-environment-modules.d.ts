@@ -137,13 +137,11 @@ export interface EnvironmentModulesApi {
 	 * Called by language extensions (positron-r, positron-python) after discovering a runtime.
 	 *
 	 * @param environmentName The name of the module environment
-	 * @param runtimeId The Positron runtime ID
 	 * @param language The language identifier
 	 * @param interpreterPath The path to the interpreter
 	 */
 	registerDiscoveredRuntime(
 		environmentName: string,
-		runtimeId: string,
 		language: string,
 		interpreterPath: string
 	): void;

@@ -161,17 +161,16 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 	 */
 	registerDiscoveredRuntime(
 		environmentName: string,
-		runtimeId: string,
 		language: string,
 		interpreterPath: string
 	): void {
 		const existing = this._discoveredRuntimes.get(environmentName) || [];
-		// Avoid duplicates
-		if (!existing.some(r => r.runtimeId === runtimeId)) {
-			existing.push({ runtimeId, language, interpreterPath });
-			this._discoveredRuntimes.set(environmentName, existing);
-			log.info(`Registered runtime ${runtimeId} for environment "${environmentName}"`);
-		}
+		existing.push({
+			language,
+			interpreterPath
+		});
+		this._discoveredRuntimes.set(environmentName, existing);
+		log.info(`Registered runtime ${interpreterPath} for environment "${environmentName}"`);
 	}
 
 	/**

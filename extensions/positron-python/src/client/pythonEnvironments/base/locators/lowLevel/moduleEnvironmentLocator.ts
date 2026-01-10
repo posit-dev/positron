@@ -49,7 +49,6 @@ export interface EnvironmentModulesApi {
 	resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
 	registerDiscoveredRuntime(
 		environmentName: string,
-		runtimeId: string,
 		language: string,
 		interpreterPath: string
 	): void;

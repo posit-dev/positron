@@ -239,7 +239,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 		try {
 			const api = await getEnvironmentModulesApi();
 			if (api) {
-				api.registerDiscoveredRuntime(environmentName, runtimeId, 'python', interpreterPath);
+				api.registerDiscoveredRuntime(environmentName, 'python', interpreterPath);
 				traceInfo(
 					`Registered module runtime ${runtimeId} for environment "${environmentName}" with environment-modules API`,
 				);

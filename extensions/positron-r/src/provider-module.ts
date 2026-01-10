@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { RBinary } from './provider.js';
+import { RBinary, registerModuleRuntimeWithApi } from './provider.js';
 import { ReasonDiscovered, ModuleMetadata } from './r-installation.js';
 import { LOGGER } from './extension.js';
 
@@ -40,20 +40,10 @@ export interface EnvironmentModulesApi {
 	resolveInterpreter(options: ResolveInterpreterOptions): Promise<ModuleResolvedInterpreter | undefined>;
 	registerDiscoveredRuntime(
 		environmentName: string,
-		runtimeId: string,
 		language: string,
 		interpreterPath: string
 	): void;
 }
-
-/**
- * Map from interpreter path to pending module runtime registration info.
- * This is used to track which environments need to be registered when runtimes are discovered.
- */
-export const pendingModuleRuntimeRegistrations = new Map<string, {
-	environmentName: string;
-	interpreterPath: string;
-}>();
 
 /**
  * Get the Environment Modules API if available.
@@ -128,21 +118,16 @@ export async function discoverModuleBinaries(): Promise<RBinary[]> {
 				startupCommand: resolved.startupCommand
 			};
 
-			// Normalize the interpreter path to match how RInstallation normalizes it
-			const normalizedPath = path.normalize(resolved.interpreterPath);
-
-			// Store pending registration for when runtime is registered with Positron
-			pendingModuleRuntimeRegistrations.set(normalizedPath, {
-				environmentName: resolved.environmentName,
-				interpreterPath: normalizedPath
-			});
-
 			binaries.push({
 				path: resolved.interpreterPath,
 				reasons: [ReasonDiscovered.MODULE],
 				packagerMetadata: moduleMetadata
 			});
 			LOGGER.info(`Found R at ${resolved.interpreterPath} from module environment "${envName}"`);
+			registerModuleRuntimeWithApi(
+				envName,
+				resolved.interpreterPath
+			);
 		} else {
 			LOGGER.warn(`Failed to resolve R from module environment "${envName}"`);
 		}
