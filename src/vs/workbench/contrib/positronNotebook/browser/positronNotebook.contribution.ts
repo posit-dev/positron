@@ -56,7 +56,7 @@ import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
 
-const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
+export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
 	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),

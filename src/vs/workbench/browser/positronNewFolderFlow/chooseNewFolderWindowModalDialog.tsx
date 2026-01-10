@@ -3,47 +3,47 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// // CSS.
+// CSS.
 import './chooseNewFolderWindowModalDialog.css';
 
 // React.
-import React, { useRef } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
 import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
-import { URI } from '../../../base/common/uri.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 
+/**
+ * Shows the choose new folder window modal dialog and returns a promise that resolves
+ * with the user's selection of whether to open in a new window.
+ * @param folderName The name of the folder to display.
+ * @param preferNewWindow Whether to default to the "New Window" button.
+ * @returns A promise that resolves with `true` if the user selected "New Window", `false` otherwise.
+ */
 export const showChooseNewFolderWindowModalDialog = (
 	folderName: string,
-	folderUri: URI,
-	openInNewWindow: boolean,
-) => {
-	// Create the renderer.
-	const renderer = new PositronModalReactRenderer();
+	preferNewWindow: boolean,
+): Promise<boolean> => {
+	return new Promise<boolean>((resolve) => {
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer();
 
-	// Show the choose new folder window modal dialog.
-	renderer.render(
-		<ChooseNewFolderWindowModalDialog
-			chooseNewFolderWindowAction={async (openInNewWindow: boolean) => {
-				// Open the folder in the selected window.
-				await renderer.services.commandService.executeCommand(
-					'vscode.openFolder',
-					folderUri,
-					{
-						forceNewWindow: openInNewWindow,
-						forceReuseWindow: !openInNewWindow
-					}
-				);
-			}}
-			folderName={folderName}
-			openInNewWindow={openInNewWindow}
-			renderer={renderer}
-		/>
-	);
+		// Show the choose new folder window modal dialog.
+		renderer.render(
+			<ChooseNewFolderWindowModalDialog
+				folderName={folderName}
+				preferNewWindow={preferNewWindow}
+				renderer={renderer}
+				onWindowSelected={(openInNewWindow: boolean) => {
+					renderer.dispose();
+					resolve(openInNewWindow);
+				}}
+			/>
+		);
+	});
 };
 
 /**
@@ -52,8 +52,8 @@ export const showChooseNewFolderWindowModalDialog = (
 interface ChooseNewFolderWindowModalDialogProps {
 	renderer: PositronModalReactRenderer;
 	folderName: string;
-	openInNewWindow: boolean;
-	chooseNewFolderWindowAction: (openInNewWindow: boolean) => Promise<void>;
+	preferNewWindow: boolean;
+	onWindowSelected: (openInNewWindow: boolean) => void;
 }
 
 /**
@@ -62,32 +62,17 @@ interface ChooseNewFolderWindowModalDialogProps {
  * @returns The component.
  */
 const ChooseNewFolderWindowModalDialog = (props: ChooseNewFolderWindowModalDialogProps) => {
-	// State.
-	const openInNewWindow = useRef(props.openInNewWindow);
-
 	// Button configuration.
 	const newWindowButtonConfig = {
 		title: localize('positron.newFolder.whereToOpen.newWindow', "New Window"),
-		onClick: () => setWindowAndAccept(true)
+		onClick: () => props.onWindowSelected(true)
 	};
 	const currentWindowButtonConfig = {
 		title: localize('positron.newFolder.whereToOpen.currentWindow', "Current Window"),
-		onClick: () => setWindowAndAccept(false)
+		onClick: () => props.onWindowSelected(false)
 	};
-	const defaultButtonConfig = props.openInNewWindow ? newWindowButtonConfig : currentWindowButtonConfig;
-	const otherButtonConfig = props.openInNewWindow ? currentWindowButtonConfig : newWindowButtonConfig;
-
-	// Handle setting where to open the new folder and accept.
-	const setWindowAndAccept = async (newWindow: boolean) => {
-		openInNewWindow.current = newWindow;
-		await accept();
-	};
-
-	// Handle accepting the dialog.
-	const accept = async () => {
-		props.renderer.dispose();
-		await props.chooseNewFolderWindowAction(openInNewWindow.current);
-	};
+	const defaultButtonConfig = props.preferNewWindow ? newWindowButtonConfig : currentWindowButtonConfig;
+	const otherButtonConfig = props.preferNewWindow ? currentWindowButtonConfig : newWindowButtonConfig;
 
 	// Render.
 	return (

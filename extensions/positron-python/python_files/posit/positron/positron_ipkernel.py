@@ -643,6 +643,24 @@ class PositronIPyKernel(IPythonKernel):
 
         return original_showwarning(message, category, filename, lineno, file, line)  # type: ignore reportAttributeAccessIssue
 
+    def pre_handler_hook(self):
+        # Override the default pre_handler_hook to add debug logging.
+        # The default logging in Ipykernel adds the exc_info=True which is causing
+        # huge tracebacks, specially in reticulate sessions - the pre_handler_hook and
+        # post_handler_hook always fail because they can't signal from a different thread.
+        # See: https://github.com/posit-dev/positron/issues/10953
+        try:
+            super().pre_handler_hook()
+        except Exception as e:
+            self.log.debug("Error in super().pre_handler_hook(): %s", e, exc_info=False)
+
+    def post_handler_hook(self):
+        # see the pre_handler_hook for details
+        try:
+            super().post_handler_hook()
+        except Exception as e:
+            self.log.debug("Error in super().post_handler_hook(): %s", e, exc_info=False)
+
 
 class PositronIPKernelApp(IPKernelApp):
     control_thread: ControlThread | None

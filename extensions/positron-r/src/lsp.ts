@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
 import { LOGGER } from './extension';
@@ -22,6 +23,9 @@ import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 import { R_DOCUMENT_SELECTORS } from './provider';
 import { VirtualDocumentProvider } from './virtual-documents';
+
+// Regex to match Quarto virtual document files: .vdoc.[uuid].[ext]
+const VDOC_PATTERN = /^\.vdoc\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/i;
 
 /**
  * Global output channel for R LSP sessions
@@ -143,6 +147,15 @@ export class ArkLsp implements vscode.Disposable {
 					// https://github.com/posit-dev/positron/issues/7750
 					if (uri.scheme === 'assistant-code-confirmation-widget') {
 						return undefined;
+					}
+					// Disable diagnostics for Quarto virtual documents:
+					// https://github.com/quarto-dev/quarto/issues/855
+					// Only check file URIs because vdocs are files on disk
+					if (uri.scheme === 'file') {
+						const baseName = path.basename(uri.fsPath);
+						if (VDOC_PATTERN.test(baseName)) {
+							return undefined;
+						}
 					}
 					return next(uri, diagnostics);
 				},
