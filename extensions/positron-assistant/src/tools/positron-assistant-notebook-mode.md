@@ -349,6 +349,7 @@ if (!context) {
 **All notebook tools use zero-based indices to reference cells:**
 - First cell = index 0, second cell = index 1, etc.
 - Tools accept `cellIndex` (single cell) or `cellIndices` (array of cells) parameters
+- Delete operations use `cellIndices` array (can delete single or multiple cells in one call)
 - The assistant must remember that indices shift when adding or deleting cells:
   - Adding cell at index N: cells N+ shift to N+1, N+2, etc.
   - Deleting cell at index N: cells N+1+ shift down to N, N+1, etc.

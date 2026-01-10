@@ -104,6 +104,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
     // --- Start Positron ---
+    ['workbench.extensions.search']: [string];
     [Commands.Exec_Dash_In_Terminal]: [];
     [Commands.Exec_FastAPI_In_Terminal]: [];
     [Commands.Exec_Flask_In_Terminal]: [];

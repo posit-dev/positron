@@ -36,7 +36,7 @@ const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, or
 // Quick pick item interfaces.
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
-interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
+interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<unknown, unknown> }
 
 // Action IDs
 export const LANGUAGE_RUNTIME_SELECT_SESSION_ID = 'workbench.action.language.runtime.selectSession';
@@ -364,10 +364,10 @@ const selectNewLanguageRuntime = async (
 						const bVersion = b.languageVersion.split('.').map(Number);
 
 						// Always list unsupported versions last
-						if (!a.extraRuntimeData.supported) {
+						if (!(a.extraRuntimeData as { supported?: boolean })?.supported) {
 							return 1;
 						}
-						if (!b.extraRuntimeData.supported) {
+						if (!(b.extraRuntimeData as { supported?: boolean })?.supported) {
 							return -1;
 						}
 						// Compare major version

@@ -97,7 +97,9 @@
 	min-width: 0;
 	margin-top: 0px;
 	background: transparent;
-	border: none;
+	border: 1px solid color-mix(in srgb, var(--vscode-input-border) 50%, transparent);
+	border-radius: 4px;
+	padding: 4px 8px;
 }
 
 .create-connection-inputs > .labeled-input > label > .radio-group {

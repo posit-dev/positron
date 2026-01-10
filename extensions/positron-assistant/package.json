@@ -250,12 +250,23 @@
             },
             "markdownDescription": "%configuration.inlineCompletions.enable.description%"
           },
+          "positron.assistant.aiExcludes": {
+            "type": "array",
+            "default": [
+              "**/.*"
+            ],
+            "markdownDescription": "%configuration.aiExcludes.description%",
+            "items": {
+              "type": "string"
+            }
+          },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
             "default": [
               "**/.*"
             ],
             "markdownDescription": "%configuration.inlineCompletionExcludes.description%",
+            "deprecationMessage": "Use positron.assistant.aiExcludes instead",
             "items": {
               "type": "string"
             }
@@ -832,8 +843,7 @@
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant",
-          "requires-notebook"
+          "positron-assistant"
         ],
         "inputSchema": {
           "type": "object",
@@ -900,8 +910,7 @@
         "toolReferenceName": "getNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant",
-          "requires-notebook"
+          "positron-assistant"
         ],
         "inputSchema": {
           "type": "object",
@@ -927,6 +936,27 @@
           "required": [
             "operation"
           ]
+        }
+      },
+      {
+        "name": "createNotebook",
+        "displayName": "Create Notebook",
+        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use EditNotebookCells to add content.",
+        "toolReferenceName": "createNotebook",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "enum": ["python", "r"],
+              "description": "The kernel language for the notebook"
+            }
+          },
+          "required": ["language"]
         }
       }
     ]

@@ -19,6 +19,7 @@ import { log, getRequestTokenUsage } from './extension.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
+import { isFileExcludedFromAI } from './fileExclusion.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
 import { getAttachedNotebookContext, serializeNotebookContextAsUserMessage } from './tools/notebookUtils.js';
@@ -450,6 +451,19 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
 
+					// Check if file is excluded from AI features
+					if (isFileExcludedFromAI(value.uri)) {
+						// Add as excluded reference with Omitted status (shows warning indicator)
+						response.reference2(value.uri, undefined, {
+							status: {
+								description: 'Excluded by AI exclusion settings',
+								kind: vscode.ChatResponseReferencePartStatusKind.Omitted
+							}
+						});
+						log.debug(`[context] skipping excluded file: ${value.uri.path}`);
+						continue;
+					}
+
 					const document = await vscode.workspace.openTextDocument(value.uri);
 					const path = uriToString(value.uri);
 					const documentText = document.getText();
@@ -479,6 +493,18 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					log.debug(`[context] adding file attachment context: ${documentAttachmentNode.length} characters`);
 				} else if (value instanceof vscode.Uri && value.scheme === 'file') {
 					const fileStat = await vscode.workspace.fs.stat(value);
+
+					if (isFileExcludedFromAI(value)) {
+						response.reference2(value, undefined, {
+							status: {
+								description: 'Excluded by AI exclusion settings',
+								kind: vscode.ChatResponseReferencePartStatusKind.Omitted
+							}
+						});
+						log.debug(`[context] skipping excluded file attachment: ${value.path}`);
+						continue;
+					}
+
 					if (fileStat.type === vscode.FileType.Directory) {
 						// The user attached a directory - usually a manually attached directory in the workspace.
 						// Format the directory contents for the prompt.
