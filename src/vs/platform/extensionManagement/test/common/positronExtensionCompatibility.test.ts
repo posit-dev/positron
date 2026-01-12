@@ -51,6 +51,27 @@ suite('Positron Extension Compatibility', () => {
 		assert.strictEqual(result.reason, undefined);
 	});
 
+	test('should reject extension that requires newer Positron version', () => {
+		const extensionManifest: IExtensionManifest = {
+			name: 'future-extension',
+			publisher: 'test-publisher',
+			displayName: 'Future Extension',
+			version: '1.0.0',
+			main: './main.js', // Must have main to trigger version validation
+			engines: {
+				positron: '^2027.01.0' // Requires newer version than 2026.02.0
+			}
+		} as IExtensionManifest;
+
+		const result = positronExtensionCompatibility(extensionManifest, mockProductService);
+
+		assert.strictEqual(result.compatible, false);
+		assert.ok(result.reason);
+		assert.ok(result.reason.includes('Extension is not compatible with Positron'));
+		assert.ok(result.reason.includes('2026.02.0'));
+		assert.ok(result.reason.includes('2027.01.0'));
+	});
+
 	test('should accept extension without engine requirements', () => {
 		const extension = {
 			name: 'simple-extension',
