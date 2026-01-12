@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
 import { generateDirectInjectionId, PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
@@ -186,6 +187,14 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 		vscode.commands.registerCommand('r.sourceCurrentFileWithEcho', async (resource?: vscode.Uri) => {
 			sourceCurrentFile(true, resource);
+		}),
+
+		// Commands used to load R data files
+		vscode.commands.registerCommand('r.loadRDataFile', async (resource?: vscode.Uri) => {
+			loadRDataFile(resource);
+		}),
+		vscode.commands.registerCommand('r.loadRdsFile', async (resource?: vscode.Uri) => {
+			loadRdsFile(resource);
 		}),
 
 		// Command used to source the current file
@@ -418,4 +427,90 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 		// https://github.com/posit-dev/positron/issues/780
 	}
 
+}
+
+/**
+ * Gets the file path for loading operations.
+ * Unlike getEditorFilePathForCommand, this doesn't save the file.
+ * @param resource Optional URI from context menu
+ */
+async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
+	let filePath: string | undefined;
+
+	if (resource) {
+		filePath = resource.fsPath;
+	} else {
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			filePath = editor.document.uri.fsPath;
+		}
+	}
+
+	if (!filePath) {
+		return undefined;
+	}
+
+	// Verify file exists
+	try {
+		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+		return filePath.replace(/\\/g, '/'); // POSIX separators for R
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Loads an R workspace file (.RData, .rda) into the R session.
+ * @param resource Optional URI from context menu click
+ */
+async function loadRDataFile(resource?: vscode.Uri) {
+	try {
+		const filePath = await getFilePathForLoad(resource);
+		if (filePath) {
+			const command = `load(${JSON.stringify(filePath)})`;
+			positron.runtime.executeCode('r', command, true); // focus=true to show result
+		}
+	} catch (e) {
+		// File doesn't exist or invalid path - silently ignore
+	}
+}
+
+/**
+ * Loads an RDS file into the R session, prompting for variable name.
+ * @param resource Optional URI from context menu click
+ */
+async function loadRdsFile(resource?: vscode.Uri) {
+	try {
+		const filePath = await getFilePathForLoad(resource);
+		if (!filePath) {
+			return;
+		}
+
+		// Extract suggested variable name from filename (without extension)
+		const suggestedName = path.basename(filePath, path.extname(filePath))
+			.replace(/[^a-zA-Z0-9_.]/g, '_'); // Sanitize for R variable name
+
+		const varName = await vscode.window.showInputBox({
+			prompt: vscode.l10n.t('Enter the variable name for the loaded object'),
+			placeHolder: vscode.l10n.t('Variable name'),
+			value: suggestedName,
+			validateInput: (value) => {
+				if (!value || value.trim().length === 0) {
+					return vscode.l10n.t('Variable name cannot be empty');
+				}
+				// Basic R variable name validation
+				if (!/^[a-zA-Z._][a-zA-Z0-9._]*$/.test(value)) {
+					return vscode.l10n.t('Invalid R variable name');
+				}
+				return undefined; // Valid
+			}
+		});
+
+		if (varName) {
+			const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
+			positron.runtime.executeCode('r', command, true);
+		}
+	} catch (e) {
+		// File doesn't exist or invalid path - silently ignore
+	}
 }

@@ -20,6 +20,8 @@
 	"r.command.selectInterpreter.title": "Select Interpreter",
 	"r.command.rmarkdownRender.title": "Render Document With R Markdown",
 	"r.command.interpreters.settingsInfo.title": "Print interpreter settings information to Output",
+	"r.command.loadRDataFile.title": "Load R Objects",
+	"r.command.loadRdsFile.title": "Load R Object",
 	"r.menu.createNewFile.title": "R File",
 	"r.menu.insertPipe.title": "Insert the pipe operator",
 	"r.menu.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
@@ -86,6 +88,5 @@
 	"r.walkthrough.migrateFromRStudio.workspaces.description": "  \n[Open an existing folder](command:workbench.action.files.openFolder)",
 	"r.walkthrough.migrateFromRStudio.formatting.title": "Formatting your R code",
 	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.formatOnSave)",
-  "r.welcome.views.debugger.content": "Positron currently provides limited debugging support for R code, but you can use R's native debugging features in Positron.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)"
-
+	"r.welcome.views.debugger.content": "Positron currently provides limited debugging support for R code, but you can use R's native debugging features in Positron.\n[Learn more](https://positron.posit.co/guide-r.html#debugging)"
 }

@@ -145,6 +145,16 @@
         "command": "r.interpreters.settingsInfo",
         "category": "R",
         "title": "%r.command.interpreters.settingsInfo.title%"
+      },
+      {
+        "command": "r.loadRDataFile",
+        "category": "R",
+        "title": "%r.command.loadRDataFile.title%"
+      },
+      {
+        "command": "r.loadRdsFile",
+        "category": "R",
+        "title": "%r.command.loadRdsFile.title%"
       }
     ],
     "configuration": [
@@ -535,6 +545,18 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "r.loadRDataFile",
+          "group": "R",
+          "when": "resourceExtname == '.RData' || resourceExtname == '.Rdata' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
+        },
+        {
+          "command": "r.loadRdsFile",
+          "group": "R",
+          "when": "resourceExtname == '.rds' || resourceExtname == '.RDS'"
+        }
+      ],
       "commandPalette": [
         {
           "category": "R",
@@ -611,6 +633,16 @@
           "category": "R",
           "command": "r.packageCheck",
           "when": "isRPackage"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRDataFile",
+          "when": "resourceExtname == '.RData' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRdsFile",
+          "when": "resourceExtname == '.rds' || resourceExtname == '.RDS'"
         }
       ],
       "file/newFile": [
@@ -706,6 +738,24 @@
         "label": "R Debugger",
         "languages": ["r"],
         "supportsUiLaunch": false
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "positron-r.rdataViewer",
+        "displayName": "R Workspace Loader",
+        "selector": [
+          {
+            "filenamePattern": "*.RData"
+          },
+          {
+            "filenamePattern": "*.rdata"
+          },
+          {
+            "filenamePattern": "*.rda"
+          }
+        ],
+        "priority": "option"
       }
     ],
     "notebookRenderer": [
