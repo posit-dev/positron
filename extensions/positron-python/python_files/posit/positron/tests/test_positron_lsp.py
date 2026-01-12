@@ -385,23 +385,28 @@ class TestCompletions:
         # Should suggest 'a"' and 'b"' with closing quote
         assert labels == {'a"', 'b"'}
 
-    @pytest.mark.xfail(reason="Parameter sorting needs verification after refactor")
-    def test_parameter_completions_appear_first(self) -> None:
-        """Test that parameter completions are sorted first."""
-        server = create_test_server()
-        text_document = create_text_document(
-            server,
-            TEST_DOCUMENT_URI,
-            """def f(x): pass
-f(""",
-        )
+    @pytest.mark.parametrize(
+        ("source", "expected_labels"),
+        [
+            ("f(", ["y=", "x=", "a", "f"]),
+            ("f(x", ["x=", "a", "f"]),
+            ("f(y", ["y=", "a", "f"]),
+            ("f(x=", ["a", "f"]),
+            ("f(y=", ["a", "f"]),
+            ("f(x=1,", ["y=", "a", "f"]),
+            ("f(y=1,", ["x=", "a", "f"]),
+        ],
+    )
+    def test_parameter_completions_sorting(self, source: str, expected_labels: list[str]) -> None:
+        """Test that parameter completions are sorted first when appropriate."""
+        server = create_test_server(namespace={"f": lambda y, x: y + x, "a": 1})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
         completions = self._completions(server, text_document)
         sorted_completions = sorted(completions, key=lambda c: c.sort_text or c.label)
         labels = [c.label for c in sorted_completions]
 
-        assert "x=" in labels
-        assert labels[0] == "x="
+        assert labels == expected_labels
 
     @pytest.mark.parametrize(
         ("source", "namespace", "character", "expected_labels"),
@@ -1057,35 +1062,3 @@ class TestNotebookFeatures:
         # Verify the basic structure - actual signature help may differ
         assert text_document.uri == cell_uris[1]
         assert len(cell_uris) == 2
-
-
-# --- Additional Completion Tests ---
-
-
-class TestAdditionalCompletions:
-    """Additional completion tests from the old test suite."""
-
-    def test_parameter_completions_appear_first(self) -> None:
-        """Test that parameter completions are sorted first."""
-        from positron.positron_lsp import _handle_completion
-
-        server = create_test_server()
-        text_document = create_text_document(
-            server,
-            TEST_DOCUMENT_URI,
-            "def f(x): pass\nf(",
-        )
-
-        line = len(text_document.lines) - 1
-        character = len(text_document.lines[line])
-        params = CompletionParams(
-            TextDocumentIdentifier(text_document.uri),
-            Position(line, character),
-        )
-        completion_list = _handle_completion(server, params)
-
-        if completion_list and completion_list.items:
-            sorted_completions = sorted(completion_list.items, key=lambda c: c.sort_text or c.label)
-            labels = [c.label for c in sorted_completions]
-            # Verify x= appears somewhere in the list
-            assert any("x" in label for label in labels)
