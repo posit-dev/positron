@@ -49,6 +49,37 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	opacity: 0.6; /* Make the whole cell look faded */
 	overflow: hidden;
+	position: relative; /* For pseudo-element positioning */
+}
+
+/* Progress bar as bottom border */
+.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background: var(--vscode-progressBar-background);
+	border-radius: 0 0 var(--vscode-positronNotebook-cell-radius) 0; /* Only round right side where bar starts */
+	transform-origin: right;
+	animation: border-shrink var(--_countdown-duration, 10s) linear forwards;
+}
+
+/* Pause animation when hovering */
+.deletion-sentinel-cell-container[data-is-paused="true"]::after {
+	animation-play-state: paused;
+}
+
+@keyframes border-shrink {
+	from {
+		transform: scaleX(1);
+		opacity: 0.8;
+	}
+	to {
+		transform: scaleX(0);
+		opacity: 0.4;
+	}
 }
 
 /* Header section with message and actions */
@@ -159,76 +190,29 @@
 	}
 }
 
-/* Status bar at bottom of sentinel */
-.deletion-sentinel-status-bar {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end; /* Button on right when no countdown */
-	padding: 6px 12px;
-	background: var(--vscode-editorWidget-background);
-	border-top: 1px solid var(--vscode-widget-border);
-}
-
-.deletion-sentinel-countdown {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	margin-right: auto; /* Push button to right */
-	padding-right: 8px;
-}
-
-.countdown-progress-container {
-	flex: 1;
-	height: 4px;
-	background: var(--vscode-focusBorder);
-	border-radius: 2px;
-	overflow: hidden;
-}
-
-.countdown-progress-bar {
-	height: 100%;
-	background: var(--vscode-editorWidget-border);
-	width: 100%;
-	transform-origin: right;
-	animation-name: countdown-progress;
-	animation-duration: 10s; /* Default; overridden by inline style */
-	animation-timing-function: linear;
-	animation-fill-mode: forwards;
-}
-
-@keyframes countdown-progress {
-	from { transform: scaleX(1); }
-	to { transform: scaleX(0); }
-}
-
-.countdown-progress-bar.paused {
-	animation-play-state: paused;
-}
-
 .deletion-sentinel-config-button {
 	background: transparent;
 	border: none;
 	color: var(--vscode-foreground);
-	opacity: 0;
 	cursor: pointer;
-	padding: 2px;
+	padding: 3px; /* Match other action buttons */
+	width: 22px; /* Square aspect ratio */
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	font-size: 14px;
-	transition: opacity 200ms ease-in-out;
-}
-
-/* Show button on sentinel hover or focus */
-.deletion-sentinel:hover .deletion-sentinel-config-button,
-.deletion-sentinel-config-button:focus {
-	opacity: 0.6;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	opacity: 0.8; /* Visible by default in header */
+	transition: opacity 200ms ease-in-out, background 200ms ease-in-out;
 }
 
 .deletion-sentinel-config-button:hover,
 .deletion-sentinel-config-button:focus {
-	opacity: 1 !important;
-	background: var(--vscode-toolbar-hoverBackground);
-	border-radius: 3px;
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 1px;
+	outline-offset: -1px;
 }
 
 /* High contrast theme support */
@@ -253,7 +237,7 @@
 		animation: none;
 		opacity: 0;
 	}
-	.countdown-progress-bar {
+	.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
 		animation: none;
 		transform: scaleX(0.5); /* Show static 50% progress */
 	}

@@ -29,7 +29,7 @@ interface DeletionSentinelProps {
  * Configuration quick pick item with an action identifier
  */
 interface ConfigQuickPickItem extends IQuickPickItem {
-	action: 'toggle' | 'adjust-timeout' | 'disable-auto-close';
+	action: 'toggle' | 'adjust-timeout' | 'disable-auto-close' | 'enable-auto-close';
 }
 
 export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
@@ -130,11 +130,18 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 				description: localize('notebook.currentTimeout', 'Currently: {0} seconds', Math.round(timeout / 1000)),
 				action: 'adjust-timeout'
 			},
-			{
-				label: localize('notebook.disableAutoClose', 'Disable auto-close'),
-				description: localize('notebook.keepSentinelsVisible', 'Sentinels remain until manually dismissed'),
-				action: 'disable-auto-close'
-			}
+			// Reactive: show enable/disable based on current state
+			timeout > 0
+				? {
+					label: localize('notebook.disableAutoClose', 'Disable auto-close'),
+					description: localize('notebook.keepSentinelsVisible', 'Sentinels remain until manually dismissed'),
+					action: 'disable-auto-close' as const
+				}
+				: {
+					label: localize('notebook.enableAutoClose', 'Enable auto-close'),
+					description: localize('notebook.enableAutoCloseDesc', 'Sentinels auto-dismiss after timeout'),
+					action: 'enable-auto-close' as const
+				}
 		];
 
 		quickPick.items = items;
@@ -158,6 +165,13 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 						configurationService.updateValue(
 							POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY,
 							0,
+							ConfigurationTarget.USER
+						);
+						break;
+					case 'enable-auto-close':
+						configurationService.updateValue(
+							POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY,
+							10000, // Default 10 seconds
 							ConfigurationTarget.USER
 						);
 						break;
@@ -214,7 +228,14 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 			<div className='deletion-sentinel-flash' />
 			<div className='deletion-sentinel-content'>
 				{/* Main cell content */}
-				<div className='deletion-sentinel-cell-container'>
+				<div
+					className='deletion-sentinel-cell-container'
+					data-has-timeout={timeout > 0}
+					data-is-paused={isPaused}
+					style={{
+						'--_countdown-duration': `${timeout}ms`
+					} as React.CSSProperties}
+				>
 					{/* Header with cell info and actions */}
 					<div className='deletion-sentinel-header'>
 						<span className='deletion-sentinel-message'>
@@ -235,6 +256,12 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 							>
 								{localize('notebook.dismiss', 'Dismiss')}
 							</ActionButton>
+							<button
+								aria-label={localize('notebook.configureAutoClose', 'Configure auto-close')}
+								className='deletion-sentinel-config-button codicon codicon-settings-gear'
+								title={localize('notebook.configureAutoClose', 'Configure auto-close')}
+								onClick={handleConfigClick}
+							/>
 						</div>
 					</div>
 
@@ -262,33 +289,6 @@ export const DeletionSentinel: React.FC<DeletionSentinelProps> = ({
 						</div>
 					)}
 
-					{/* Status bar with countdown progress */}
-					{timeout > 0 && (
-						<div className='deletion-sentinel-status-bar'>
-							<div className='deletion-sentinel-countdown'>
-								<div
-									aria-label={localize('notebook.autoCloseProgress', 'Auto-close progress')}
-									className='countdown-progress-container'
-									title={localize('notebook.autoCloseIn', 'Auto-closing in {0} seconds', Math.round(timeout / 1000))}
-								>
-									<div
-										className={`countdown-progress-bar ${isPaused ? 'paused' : ''}`}
-										style={{
-											animationDuration: `${timeout}ms`,
-											animationPlayState: isPaused ? 'paused' : 'running'
-										}}
-									/>
-								</div>
-							</div>
-							{/* Configuration button */}
-							<button
-								aria-label={localize('notebook.configureAutoClose', 'Configure auto-close')}
-								className='deletion-sentinel-config-button codicon codicon-settings-gear'
-								title={localize('notebook.configureAutoClose', 'Configure auto-close')}
-								onClick={handleConfigClick}
-							/>
-						</div>
-					)}
 				</div>
 			</div>
 		</div>
