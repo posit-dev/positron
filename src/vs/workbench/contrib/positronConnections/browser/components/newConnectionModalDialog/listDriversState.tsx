@@ -157,9 +157,9 @@ const DriverListItem = (props: DriverListItemProps) => {
 	const { name, drivers, onSelect } = props;
 	const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
 
-	const icon = baseIcon ?
-		<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
-		<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+	const icon = baseIcon 
+	    ? <img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> 
+	    : <div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
 	return <button
 		className='driver-list-item'
@@ -170,8 +170,7 @@ const DriverListItem = (props: DriverListItemProps) => {
 			<div className='driver-name'>
 				{name}
 			</div>
-			<div className='driver-button codicon codicon-chevron-right'>
-			</div>
+			<div className='driver-button codicon codicon-chevron-right'/>
 		</div>
 	</button>;
 };
