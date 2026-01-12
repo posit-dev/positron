@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -350,7 +350,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Add the user's prompt.
 		// The user's prompt is the last message in the chat messages.
-		// If this ordering changes, also update getUserPrompt for the EchoLanguageModel in extensions/positron-assistant/src/models.ts.
+		// If this ordering changes, also update getUserPrompt for the EchoModelProvider in extensions/positron-assistant/src/models.ts.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
