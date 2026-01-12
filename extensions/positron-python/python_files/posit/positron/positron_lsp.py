@@ -451,7 +451,15 @@ def _handle_completion(
     # Get text before cursor for context
     text_before_cursor = line[: params.position.character]
 
-    # Check for dict key access pattern first (e.g., x[" or x[')
+    # Check for parameter completion first (e.g., inside a function call like "f(")
+    param_items = _get_parameter_completions(server, text_before_cursor)
+    if param_items:
+        items.extend(param_items)
+
+    # Determine if we're inside a function call
+    inside_function_call = bool(param_items) or _is_inside_function_call(text_before_cursor)
+
+    # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
     dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*["\']([^"\']*)?$', text_before_cursor)
     if dict_key_match:
@@ -460,15 +468,20 @@ def _handle_completion(
                 server, dict_key_match.group(1), dict_key_match.group(2) or ""
             )
         )
-    elif "." in text_before_cursor:
-        # Attribute completion
+    elif "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
+        # Attribute completion (only if not inside a function call)
         items.extend(_get_attribute_completions(server, text_before_cursor))
     elif trimmed_line.startswith((_LINE_MAGIC_PREFIX, _CELL_MAGIC_PREFIX)):
         # Magic command completion only
         pass  # Will add magics below
     else:
-        # Namespace completions
-        items.extend(_get_namespace_completions(server, text_before_cursor))
+        # Namespace completions - always include these so users can use positional arguments
+        # When inside a function call, don't filter by prefix to allow any namespace item
+        items.extend(
+            _get_namespace_completions(
+                server, text_before_cursor, filter_prefix=not inside_function_call
+            )
+        )
 
     # Add magic completions if appropriate
     is_completing_attribute = "." in trimmed_line
@@ -480,10 +493,125 @@ def _handle_completion(
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
-def _get_namespace_completions(
+def _is_inside_function_call(text_before_cursor: str) -> bool:
+    """Check if the cursor is inside a function call (after an opening parenthesis)."""
+    # Count unmatched opening parentheses
+    paren_depth = 0
+    for c in text_before_cursor:
+        if c == "(":
+            paren_depth += 1
+        elif c == ")":
+            paren_depth -= 1
+    return paren_depth > 0
+
+
+def _get_parameter_completions(
     server: PositronLanguageServer, text_before_cursor: str
 ) -> list[types.CompletionItem]:
-    """Get completions from the shell's namespace."""
+    """Get parameter completions when inside a function call."""
+    if server.shell is None:
+        return []
+
+    # Find if we're inside a function call
+    # Look for pattern like "func(" or "obj.method("
+    paren_depth = 0
+    func_end = -1
+    for i in range(len(text_before_cursor) - 1, -1, -1):
+        c = text_before_cursor[i]
+        if c == ")":
+            paren_depth += 1
+        elif c == "(":
+            if paren_depth == 0:
+                func_end = i
+                break
+            paren_depth -= 1
+
+    if func_end < 0:
+        return []
+
+    # Extract function name/expression
+    func_expr = text_before_cursor[:func_end].rstrip()
+    match = re.search(r"([\w\.]+)$", func_expr)
+    if not match:
+        return []
+
+    func_name = match.group(1)
+
+    # Safely resolve the callable
+    obj = _safe_resolve_expression(server.shell.user_ns, func_name)
+    if obj is None or not callable(obj):
+        return []
+
+    # Parse arguments section to understand context
+    args_text = text_before_cursor[func_end + 1 :]
+
+    # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
+    # Pattern: look for "word=" at the end, possibly with a value started
+    if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
+        # Cursor is positioned after "=" where a value should go, don't suggest parameters
+        return []
+
+    # Find all keyword arguments already provided (param=value)
+    already_provided = set()
+    # Match keyword arguments: word followed by = (but not at the very end being typed)
+    for match in re.finditer(r"(\w+)\s*=", args_text):
+        param_name = match.group(1)
+        # Only add to already_provided if it's followed by something (value or comma)
+        # and not being currently typed
+        end_pos = match.end()
+        if end_pos < len(args_text):
+            already_provided.add(param_name)
+
+    # Check if we're currently typing a partial parameter name
+    # Look for a partial word at the end that doesn't have "=" after it
+    partial_match = re.search(r"(?:^|,\s*)(\w+)$", args_text)
+    partial_prefix = partial_match.group(1) if partial_match else ""
+
+    items = []
+    try:
+        sig = inspect.signature(obj)
+        for i, param in enumerate(sig.parameters.values()):
+            # Skip *args and **kwargs style parameters
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                continue
+
+            # Skip parameters already provided
+            if param.name in already_provided:
+                continue
+
+            # If there's a partial prefix, only include parameters that start with it
+            if partial_prefix and not param.name.startswith(partial_prefix):
+                continue
+
+            # Create completion for parameter name with "="
+            items.append(
+                types.CompletionItem(
+                    label=f"{param.name}=",
+                    kind=types.CompletionItemKind.Variable,
+                    # Use "0" prefix to sort before namespace completions (which use "a")
+                    sort_text=f"0{i:03d}_{param.name}",
+                    detail="parameter",
+                )
+            )
+    except (ValueError, TypeError):
+        # Can't get signature for this callable
+        pass
+
+    return items
+
+
+def _get_namespace_completions(
+    server: PositronLanguageServer, text_before_cursor: str, *, filter_prefix: bool = True
+) -> list[types.CompletionItem]:
+    """Get completions from the shell's namespace.
+
+    Args:
+        server: The language server instance
+        text_before_cursor: The text before the cursor position
+        filter_prefix: If True, filter completions by the partial word being typed.
+                      If False, return all namespace items (useful when inside function calls
+                      where user might want to use items as positional arguments).
+    """
     if server.shell is None:
         return []
 
@@ -496,8 +624,8 @@ def _get_namespace_completions(
         # Skip private names unless explicitly typing underscore
         if name.startswith("_") and not prefix.startswith("_"):
             continue
-        # Filter by prefix
-        if not name.startswith(prefix):
+        # Filter by prefix if requested
+        if filter_prefix and not name.startswith(prefix):
             continue
 
         kind = _get_completion_kind(obj)
@@ -505,7 +633,7 @@ def _get_namespace_completions(
             types.CompletionItem(
                 label=name,
                 kind=kind,
-                sort_text=f"a{name}",  # Sort before other completions
+                sort_text=f"a{name}",  # Sort after parameter completions
                 detail=type(obj).__name__,
             )
         )
