@@ -772,24 +772,6 @@
         "supportsUiLaunch": false
       }
     ],
-    "customEditors": [
-      {
-        "viewType": "positron-r.rdataViewer",
-        "displayName": "R Workspace Loader",
-        "selector": [
-          {
-            "filenamePattern": "*.RData"
-          },
-          {
-            "filenamePattern": "*.rdata"
-          },
-          {
-            "filenamePattern": "*.rda"
-          }
-        ],
-        "priority": "option"
-      }
-    ],
     "notebookRenderer": [
       {
         "id": "positron.r.htmlwidget",

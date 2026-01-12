@@ -17,7 +17,6 @@ import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
-import { RDataEditorProvider } from './rdata-editor';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -54,9 +53,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register R file paste and drop provider.
 	registerRFilePasteAndDropProvider(context);
-
-	// Register RData custom editor for "Open With" support.
-	context.subscriptions.push(RDataEditorProvider.register(context));
 
 	// Prepare to handle cli-produced hyperlinks that target the positron-r extension.
 	registerUriHandler();
