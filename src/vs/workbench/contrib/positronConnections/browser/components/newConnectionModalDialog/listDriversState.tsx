@@ -7,7 +7,7 @@
 import './listDriversState.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -64,8 +64,8 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		return () => disposable.dispose();
 	}, [runtimeSessionService, setLanguageId]);
 
-	// Compute filtered/grouped drivers during render
-	const driversByName = (() => {
+	// Compute filtered/grouped drivers, cached by drivers and languageId
+	const driversByName = useMemo(() => {
 		const filtered = languageId
 			? drivers.filter((driver) => driver.metadata.languageId === languageId)
 			: [];
@@ -80,7 +80,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 			}
 		}
 		return grouped;
-	})();
+	}, [drivers, languageId]);
 
 	const onDriverSelectedHandler = (drivers: IDriver[]) => {
 		props.onSelection(drivers);
@@ -157,9 +157,9 @@ const DriverListItem = (props: DriverListItemProps) => {
 	const { name, drivers, onSelect } = props;
 	const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
 
-	const icon = baseIcon 
-	    ? <img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> 
-	    : <div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+	const icon = baseIcon
+		? <img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} />
+		: <div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
 	return <button
 		className='driver-list-item'
@@ -170,7 +170,7 @@ const DriverListItem = (props: DriverListItemProps) => {
 			<div className='driver-name'>
 				{name}
 			</div>
-			<div className='driver-button codicon codicon-chevron-right'/>
+			<div className='driver-button codicon codicon-chevron-right' />
 		</div>
 	</button>;
 };
