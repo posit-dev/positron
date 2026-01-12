@@ -131,7 +131,6 @@ async function validateLicenseFile(
 /**
  * Locates the license-manager binary relative to the Positron installation.
  * @param installPath The root installation path of Positron
- * @param devMode Whether running in development mode
  * @returns The absolute path to the license-manager binary
  */
 function findLicenseManagerPath(installPath: string): string {

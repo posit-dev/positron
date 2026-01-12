@@ -137,7 +137,7 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 	// Read the contents of the license file into a string.
 	try {
 		const contents = fs.readFileSync(licenseFile, 'utf8');
-		// Check if this looks like a JSON file (starts with '{' or whitespace then '{')
+		// Check if this looks like a JSON file (trimmed content starts with '{')
 		const trimmedContents = contents.trim();
 		if (trimmedContents.startsWith('{')) {
 			return validateLicense(connectionToken, contents);
