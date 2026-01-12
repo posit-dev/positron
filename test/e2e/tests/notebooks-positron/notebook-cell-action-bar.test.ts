@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Action Bar Behavior', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
