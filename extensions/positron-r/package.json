@@ -454,6 +454,38 @@
           ".Rd"
         ],
         "configuration": "./language-configuration/r-docs-language-configuration.json"
+      },
+      {
+        "id": "rdata",
+        "aliases": [
+          "R Data",
+          "RData"
+        ],
+        "extensions": [
+          ".RData",
+          ".Rdata",
+          ".rdata",
+          ".rda"
+        ],
+        "icon": {
+          "light": "./resources/icons/r-data-light.svg",
+          "dark": "./resources/icons/r-data-dark.svg"
+        }
+      },
+      {
+        "id": "rds",
+        "aliases": [
+          "R Data Single",
+          "RDS"
+        ],
+        "extensions": [
+          ".rds",
+          ".RDS"
+        ],
+        "icon": {
+          "light": "./resources/icons/r-data-light.svg",
+          "dark": "./resources/icons/r-data-dark.svg"
+        }
       }
     ],
     "grammars": [
