@@ -26,13 +26,13 @@
       y="28"
       width="68"
       height="66"
-      fill="#3564A8"/>
+      fill="#5B8CCB"/>
     <ellipse
       cx="50"
       cy="94"
       rx="34"
       ry="12"
-      fill="#3564A8"/>
+      fill="#5B8CCB"/>
   </g>
 
   <!-- Top of cylinder (drawn last so it is fully visible) -->
@@ -41,5 +41,5 @@
     cy="28"
     rx="34"
     ry="12"
-    fill="#5B8CCB"/>
+    fill="#88a7cfff"/>
 </svg>
