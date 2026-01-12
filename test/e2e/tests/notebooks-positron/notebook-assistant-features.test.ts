@@ -61,13 +61,21 @@ test.describe('Notebook Assistant Features', {
 	});
 
 	test('Notebook AI features visible when assistant enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooks, notebooksPositron, assistant, quickaccess } = app.workbench;
 
 		// Enable assistant features (notebook mode requires master switch)
 		await settings.set({
 			'positron.assistant.enable': true,
 			'positron.assistant.notebookMode.enable': true
 		});
+
+		// Configure and enable the echo model provider to set hasChatModels context key
+		// This is required because the Fix/Explain buttons only show when a chat model is available
+		await assistant.openPositronAssistantChat();
+		await quickaccess.runCommand('positron-assistant.configureModels');
+		await assistant.selectModelProvider('echo');
+		await assistant.clickSignInButton();
+		await assistant.clickCloseButton();
 
 		// Create a new notebook with a cell that produces an error
 		await notebooks.createNewNotebook();
@@ -95,7 +103,7 @@ test.describe('Notebook Assistant Features', {
 	});
 
 	test('Follow Assistant toggle only visible when both assistant settings enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooks, notebooksPositron, assistant, quickaccess, hotKeys } = app.workbench;
 
 		// Test 1: Disable assistant - Follow Assistant should not be visible
 		await settings.set({
@@ -110,27 +118,38 @@ test.describe('Notebook Assistant Features', {
 		const followAssistantDisabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
 		await expect(followAssistantDisabled).not.toBeVisible();
 
+		// Close the notebook before changing settings
+		await hotKeys.closeAllEditors();
+
 		// Test 2: Enable master switch but not notebook mode - should still not be visible
 		await settings.set({
 			'positron.assistant.enable': true,
 			'positron.assistant.notebookMode.enable': false
 		});
 
-		// Reload to apply settings
-		await page.reload();
+		await notebooks.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 
 		const followAssistantPartial = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
 		await expect(followAssistantPartial).not.toBeVisible();
 
-		// Test 3: Enable both - should be visible
+		// Close the notebook before changing settings
+		await hotKeys.closeAllEditors();
+
+		// Test 3: Enable both settings AND configure echo model (required for hasChatModels context key)
 		await settings.set({
 			'positron.assistant.enable': true,
 			'positron.assistant.notebookMode.enable': true
 		});
 
-		// Reload to apply settings
-		await page.reload();
+		// Configure and enable the echo model provider to set hasChatModels context key
+		await assistant.openPositronAssistantChat();
+		await quickaccess.runCommand('positron-assistant.configureModels');
+		await assistant.selectModelProvider('echo');
+		await assistant.clickSignInButton();
+		await assistant.clickCloseButton();
+
+		await notebooks.createNewNotebook();
 		await notebooksPositron.expectToBeVisible();
 
 		const followAssistantEnabled = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
