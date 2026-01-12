@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -73,16 +73,26 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
 	}
 
-	hasInstance(id: string): boolean {
-		return this._notebookInstancesBySessionId.has(id) ||
-			this._consoleInstancesByMessageId.has(id) ||
-			this._positronNotebookInstancesByWidgetId.has(id);
+	/**
+	 * Checks if a built-in notebook ipywidgets instance exists for the given session ID.
+	 * @param sessionId The notebook session ID
+	 * @returns True if an instance exists for this session
+	 */
+	hasNotebookWidgetInstance(sessionId: string): boolean {
+		return this._notebookInstancesBySessionId.has(sessionId);
 	}
 
 	/**
-	 * Checks if a widget instance exists for the given widget ID.
-	 * Checks if a widget instance for a positron notebook exists for the given widget ID.
-	 *
+	 * Checks if a console ipywidgets instance exists for the given message ID.
+	 * @param messageId The language runtime output message ID
+	 * @returns True if an instance exists for this message
+	 */
+	hasConsoleWidgetInstance(messageId: string): boolean {
+		return this._consoleInstancesByMessageId.has(messageId);
+	}
+
+	/**
+	 * Checks if a positron notebook ipywidgets instance exists for the given widget ID.
 	 * @param widgetId The unique widget/output ID
 	 * @returns True if a widget instance exists for this ID
 	 */
