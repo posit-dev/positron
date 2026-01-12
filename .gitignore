@@ -46,5 +46,4 @@ pwb-version
 vsix-cache/
 product.json.backup
 *.lic
-*.dylib
 # --- End Positron ---
