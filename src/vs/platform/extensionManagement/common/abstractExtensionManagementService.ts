@@ -70,7 +70,7 @@ function isPositronExtensionCompatible(extension: { name: string; publisher: str
 
 /**
  * Check if an extension is compatible with Positron
- * @param extension Extension to check (gallery extension or manifest)
+ * @param extension Extension to check (gallery extension or manifest) - version checks are only done for manifests with Positron engine requirements
  * @param productService Product service to get current Positron version
  * @returns Compatibility result with optional reason if incompatible
  */
@@ -97,7 +97,7 @@ export function positronExtensionCompatibility(
 				productService.date,
 				URI.file(''), // extension not yet installed; pass empty URI
 				manifest,
-				false // extensionIsBuiltin is false, because installed extensions are always non-builtin
+				false // extensionIsBuiltin is set to false, because we are installing user requested extension, not a built-in one
 			);
 
 			// Return validation error if any exist (currently only one error is returned at a time)
