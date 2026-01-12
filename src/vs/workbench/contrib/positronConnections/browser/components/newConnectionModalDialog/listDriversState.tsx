@@ -123,29 +123,14 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		<div className='driver-list'>
 			{
 				driversByName.size > 0 ?
-					[...driversByName].map(([name, drivers]) => {
-						// find the first icon
-						const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
-
-						const icon = baseIcon ?
-							<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
-							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
-
-						return <button
+					[...driversByName].map(([name, drivers]) => (
+						<DriverListItem
 							key={name}
-							className='driver-list-item'
-							onClick={() => onDriverSelectedHandler(drivers)}
-						>
-							{icon}
-							<div className='driver-info'>
-								<div className='driver-name'>
-									{name}
-								</div>
-								<div className={`driver-button codicon codicon-chevron-right`}>
-								</div>
-							</div>
-						</button>;
-					}) :
+							drivers={drivers}
+							name={name}
+							onSelect={onDriverSelectedHandler}
+						/>
+					)) :
 					<div className='no-drivers'>
 						{(() => localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available"))()}
 					</div>
@@ -160,6 +145,35 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 			</PositronButton>
 		</div>
 	</div>;
+};
+
+interface DriverListItemProps {
+	readonly name: string;
+	readonly drivers: IDriver[];
+	readonly onSelect: (drivers: IDriver[]) => void;
+}
+
+const DriverListItem = (props: DriverListItemProps) => {
+	const { name, drivers, onSelect } = props;
+	const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
+
+	const icon = baseIcon ?
+		<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
+		<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+
+	return <button
+		className='driver-list-item'
+		onClick={() => onSelect(drivers)}
+	>
+		{icon}
+		<div className='driver-info'>
+			<div className='driver-name'>
+				{name}
+			</div>
+			<div className='driver-button codicon codicon-chevron-right'>
+			</div>
+		</div>
+	</button>;
 };
 
 const getRegisteredLanguages = (services: PositronReactServices) => {
