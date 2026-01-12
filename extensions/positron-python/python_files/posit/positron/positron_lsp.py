@@ -450,14 +450,22 @@ def _handle_completion(
 
     # Get text before cursor for context
     text_before_cursor = line[: params.position.character]
+    text_after_cursor = line[params.position.character :]
 
     # Check for dict key access pattern first (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*["\']([^"\']*)?$', text_before_cursor)
+    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$', text_before_cursor)
     if dict_key_match:
+        quote_char = dict_key_match.group(2)
+        # Check if there's already a closing quote after cursor
+        has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
         items.extend(
             _get_dict_key_completions(
-                server, dict_key_match.group(1), dict_key_match.group(2) or ""
+                server,
+                expr=dict_key_match.group(1),
+                prefix=dict_key_match.group(3) or "",
+                quote_char=quote_char,
+                has_closing_quote=has_closing_quote,
             )
         )
     elif "." in text_before_cursor:
@@ -514,7 +522,12 @@ def _get_namespace_completions(
 
 
 def _get_dict_key_completions(
-    server: PositronLanguageServer, expr: str, prefix: str
+    server: PositronLanguageServer,
+    *,
+    expr: str,
+    prefix: str,
+    quote_char: str,
+    has_closing_quote: bool,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -547,13 +560,14 @@ def _get_dict_key_completions(
     for key in keys:
         if not key.startswith(prefix):
             continue
-        # Include closing quote in label
+        # Include closing quote only if it doesn't already exist
+        completion_text = key if has_closing_quote else f"{key}{quote_char}"
         items.append(
             types.CompletionItem(
-                label=f'{key}"',
+                label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
-                insert_text=f'{key}"',
+                insert_text=completion_text,
             )
         )
 
