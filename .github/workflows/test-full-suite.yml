@@ -18,6 +18,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_e2e_debian:
+        description: "E2E Tests / Electron (Debian)"
+        required: false
+        default: false
+        type: boolean
       run_e2e_windows:
         description: "E2E Tests / Electron (Windows)"
         required: false
@@ -35,6 +40,11 @@ on:
         type: boolean
       run_e2e_browser_suse:
         description: "E2E Tests / Chromium (SUSE)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_browser_debian:
+        description: "E2E Tests / Chromium (Debian)"
         required: false
         default: false
         type: boolean
@@ -186,6 +196,36 @@ jobs:
       install_license: true
       allow_soft_fail: false
 
+  e2e-debian:
+    name: e2e
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_debian  }}
+    uses: ./.github/workflows/test-e2e-debian.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-electron"
+      display_name: "electron (debian)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/debian' || 'electron/debian' }}
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: false
+      allow_soft_fail: false
+
+  e2e-chromium-debian:
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser_debian }}
+    uses: ./.github/workflows/test-e2e-debian.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-chromium"
+      display_name: "chromium (debian)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/debian' || 'chromium/debian' }}
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+      allow_soft_fail: false
+
   unit-tests:
     name: test
     if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
@@ -203,7 +243,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
+      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-debian, e2e-chromium-debian, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
