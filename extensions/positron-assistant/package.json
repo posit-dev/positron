@@ -839,7 +839,7 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndex), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -876,7 +876,14 @@
             },
             "cellIndex": {
               "type": "number",
-              "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+              "description": "Index of the cell to modify (0-based). Required when operation is 'update'."
+            },
+            "cellIndices": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Array of cell indices to delete (0-based). Required when operation is 'delete'. Use [0] for single cell or [0,1,2] for multiple cells."
             },
             "run": {
               "type": "boolean",

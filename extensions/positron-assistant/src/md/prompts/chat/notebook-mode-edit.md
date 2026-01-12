@@ -43,7 +43,7 @@ The current notebook state (kernel info, cell contents, selection) is provided i
 
 **Add:** Use EditNotebookCells with `cellType`, `index`, and `content`. Choose position respecting logical flow. When you add cell at index N, cells N+ shift to N+1, N+2, etc. If user wants execution, suggest Agent mode.
 
-**Delete:** Use EditNotebookCells with `cellIndex`. Confirm deletion clearly. When you delete cell at index N, cells N+1+ shift down to N, N+1, etc.
+**Delete:** Use EditNotebookCells with `operation: 'delete'` and `cellIndices` array (e.g., `[0]`). Confirm deletion clearly. When you delete cells, higher indices shift down.
 
 **Debug:** Check cell execution status, order, success/failure. Use GetCellOutputs with `cellIndex` to inspect errors/outputs. Consider cell dependencies and sequence. If fix requires running cells, suggest Agent mode.
 

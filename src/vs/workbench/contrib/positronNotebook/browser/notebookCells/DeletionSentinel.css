@@ -49,6 +49,37 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	opacity: 0.6; /* Make the whole cell look faded */
 	overflow: hidden;
+	position: relative; /* For pseudo-element positioning */
+}
+
+/* Progress bar as bottom border */
+.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background: var(--vscode-progressBar-background);
+	border-radius: 0 0 var(--vscode-positronNotebook-cell-radius) 0; /* Only round right side where bar starts */
+	transform-origin: right;
+	animation: border-shrink var(--_countdown-duration, 10s) linear forwards;
+}
+
+/* Pause animation when hovering */
+.deletion-sentinel-cell-container[data-is-paused="true"]::after {
+	animation-play-state: paused;
+}
+
+@keyframes border-shrink {
+	from {
+		transform: scaleX(1);
+		opacity: 0.8;
+	}
+	to {
+		transform: scaleX(0);
+		opacity: 0.4;
+	}
 }
 
 /* Header section with message and actions */
@@ -127,6 +158,27 @@
 	color: var(--vscode-foreground);
 }
 
+/* Truncation indicator for longer cells */
+.deletion-sentinel-truncation-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 16px 8px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-line {
+	flex: 1;
+	height: 1px;
+	background: var(--vscode-widget-border);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-text {
+	white-space: nowrap;
+	font-style: italic;
+}
+
 @keyframes sentinel-slide-in {
 	from {
 		opacity: 0;
@@ -136,6 +188,31 @@
 		opacity: 1;
 		transform: translateY(0);
 	}
+}
+
+.deletion-sentinel-config-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 3px; /* Match other action buttons */
+	width: 22px; /* Square aspect ratio */
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	opacity: 0.8; /* Visible by default in header */
+	transition: opacity 200ms ease-in-out, background 200ms ease-in-out;
+}
+
+.deletion-sentinel-config-button:hover,
+.deletion-sentinel-config-button:focus {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 /* High contrast theme support */
@@ -159,5 +236,9 @@
 	.deletion-sentinel-flash {
 		animation: none;
 		opacity: 0;
+	}
+	.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
+		animation: none;
+		transform: scaleX(0.5); /* Show static 50% progress */
 	}
 }
