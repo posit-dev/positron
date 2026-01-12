@@ -69,9 +69,10 @@
 				"category": "Environment Modules"
 			},
 			{
-				"command": "positron.environmentModules.listAvailableModules",
-				"title": "%command.listAvailableModules.title%",
-				"category": "Environment Modules"
+				"command": "positron.environmentModules.diagnosticsReport",
+				"title": "%command.diagnosticsReport.title%",
+				"category": "Environment Modules",
+				"enablement": "!isWindows && config.positron.environmentModules.enabled"
 			},
 			{
 				"command": "positron.environmentModules.manageEnvironments",

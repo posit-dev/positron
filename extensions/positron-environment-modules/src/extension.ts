@@ -12,9 +12,10 @@ import {
 	ModuleSystemInfo,
 	ResolveInterpreterOptions
 } from './types.js';
-import { detectModuleSystem, buildModuleLoadCommand } from './module-system.js';
+import { detectModuleSystem, buildModuleLoadCommand, getModuleSystemVersion } from './module-system.js';
 import { resolveModuleInterpreter } from './environment-resolver.js';
 import { manageEnvironmentsCommand } from './manage-environments-command.js';
+import { listAvailableModules } from './module-listing.js';
 
 let _log: vscode.LogOutputChannel | undefined;
 export const log = {
@@ -265,19 +266,14 @@ export async function activate(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'positron.environmentModules.listAvailableModules',
+			'positron.environmentModules.diagnosticsReport',
 			async () => {
-				const info = await api.getModuleSystemInfo();
-				if (!info.available) {
-					vscode.window.showErrorMessage('No module system available');
-					return;
-				}
-
-				// This would open a QuickPick with available modules
-				// Implementation details depend on module system type
-				vscode.window.showInformationMessage(
-					'Module listing not yet implemented'
-				);
+				const report = await generateDiagnosticsReport(api);
+				const doc = await vscode.workspace.openTextDocument({
+					content: report,
+					language: 'markdown'
+				});
+				await vscode.window.showTextDocument(doc);
 			}
 		)
 	);
@@ -290,6 +286,118 @@ export async function activate(
 	);
 
 	return api;
+}
+
+/**
+ * Generate a diagnostic report about the environment modules system.
+ */
+async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promise<string> {
+	const lines: string[] = [];
+
+	lines.push('# Environment Modules Diagnostic Report');
+	lines.push('');
+	lines.push(`Generated: ${new Date().toISOString()}`);
+	lines.push('');
+
+	// Module System Detection
+	lines.push('## Module System');
+	lines.push('');
+
+	const systemInfo = await api.getModuleSystemInfo();
+	if (!systemInfo.available) {
+		lines.push('**Status:** Not available');
+		lines.push('');
+		lines.push('No environment module system was detected on this machine.');
+		lines.push('');
+	} else {
+		lines.push(`**Status:** Available`);
+		lines.push(`**Type:** ${systemInfo.type}`);
+		lines.push(`**Command:** ${systemInfo.command}`);
+		if (systemInfo.initPath) {
+			lines.push(`**Init Script:** ${systemInfo.initPath}`);
+		}
+
+		// Get version information
+		const version = await getModuleSystemVersion(systemInfo);
+		if (version) {
+			lines.push(`**Version:** ${version}`);
+		}
+		lines.push('');
+	}
+
+	// Configuration Settings
+	lines.push('## Configuration');
+	lines.push('');
+	const config = vscode.workspace.getConfiguration('positron.environmentModules');
+	lines.push(`**Enabled:** ${config.get<boolean>('enabled', true)}`);
+	const customInitScript = config.get<string>('initScript');
+	if (customInitScript) {
+		lines.push(`**Custom Init Script:** ${customInitScript}`);
+	}
+	lines.push('');
+
+	// Configured Environments
+	lines.push('## Configured Environments');
+	lines.push('');
+
+	const environments = config.get<Record<string, { languages: string[]; modules: string[] }>>('environments', {});
+	const envNames = Object.keys(environments);
+
+	if (envNames.length === 0) {
+		lines.push('No environments configured.');
+		lines.push('');
+		lines.push('Use the "Manage Module Environments" command to configure environments.');
+		lines.push('');
+	} else {
+		for (const envName of envNames) {
+			const envConfig = environments[envName];
+			lines.push(`### ${envName}`);
+			lines.push('');
+			lines.push(`**Languages:** ${envConfig.languages.join(', ')}`);
+			lines.push(`**Modules:** ${envConfig.modules.join(', ')}`);
+			lines.push('');
+
+			// Show discovered interpreters for this environment
+			const discoveredRuntimes = api.getDiscoveredRuntimes(envName);
+			if (discoveredRuntimes.length > 0) {
+				lines.push('**Discovered Interpreters:**');
+				lines.push('');
+				for (const runtime of discoveredRuntimes) {
+					lines.push(`- ${runtime.language}: \`${runtime.interpreterPath}\``);
+				}
+				lines.push('');
+			} else {
+				lines.push('**Discovered Interpreters:** None discovered yet');
+				lines.push('');
+			}
+		}
+	}
+
+	// Available Modules
+	if (systemInfo.available) {
+		lines.push('## Available Modules');
+		lines.push('');
+
+		try {
+			const modules = await listAvailableModules(systemInfo);
+			if (modules.length === 0) {
+				lines.push('No modules found or unable to list modules.');
+			} else {
+				lines.push(`Found ${modules.length} available modules:`);
+				lines.push('');
+				lines.push('```');
+				for (const mod of modules) {
+					lines.push(mod);
+				}
+				lines.push('```');
+			}
+		} catch (error) {
+			lines.push(`Error listing modules: ${error}`);
+		}
+		lines.push('');
+	}
+
+	return lines.join('\n');
 }
 
 export function deactivate() {

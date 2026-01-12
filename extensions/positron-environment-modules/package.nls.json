@@ -9,6 +9,6 @@
 	"configuration.environments.languages.description": "Target languages for this environment (e.g., 'r', 'python')",
 	"configuration.environments.modules.description": "List of modules to load (in order)",
 	"command.refreshEnvironments.title": "Refresh Module Environments",
-	"command.listAvailableModules.title": "List Available Modules",
+	"command.diagnosticsReport.title": "Generate Diagnostics Report",
 	"command.manageEnvironments.title": "Manage Module Environments"
 }

@@ -124,6 +124,55 @@ async function detectModuleTypeFromCommand(): Promise<'lmod' | 'environment-modu
 }
 
 /**
+ * Get the version string from the module system.
+ *
+ * @param systemInfo Information about the detected module system
+ * @returns Version string or undefined if unable to determine
+ */
+export async function getModuleSystemVersion(
+	systemInfo: ModuleSystemInfo
+): Promise<string | undefined> {
+	if (!systemInfo.available) {
+		return undefined;
+	}
+
+	try {
+		const initScript = systemInfo.initPath;
+		const command = 'module --version 2>&1';
+		const fullCommand = initScript
+			? `bash -l -c 'source "${initScript}" && ${command}'`
+			: `bash -l -c '${command}'`;
+
+		const result = execSync(fullCommand, {
+			encoding: 'utf8',
+			timeout: 5000,
+			stdio: ['pipe', 'pipe', 'pipe']
+		});
+
+		// Parse version from output
+		// Lmod typically outputs: "Modules based on Lua: Version 8.7.x  ..." or similar
+		// Environment Modules: "Modules Release 5.x.x ..." or similar
+		const lines = result.trim().split('\n');
+		for (const line of lines) {
+			// Look for version patterns
+			const versionMatch = line.match(/(?:version|release)\s+(\d+\.\d+(?:\.\d+)?)/i);
+			if (versionMatch) {
+				return versionMatch[1];
+			}
+			// Lmod often has version in format like "Lmod 8.7"
+			const lmodMatch = line.match(/lmod\s+(\d+\.\d+(?:\.\d+)?)/i);
+			if (lmodMatch) {
+				return lmodMatch[1];
+			}
+		}
+		// Return first non-empty line as fallback
+		return lines[0] || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
  * Build a shell command that initializes the module system and loads modules.
  *
  * @param modules Array of module names to load
