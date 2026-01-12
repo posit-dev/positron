@@ -26,14 +26,14 @@ export class PositronConnectionsDriverManager extends Disposable {
 		} else {
 			this.drivers.push(driver);
 		}
-		this._onDidChangeDrivers.fire(this.drivers);
+		this._onDidChangeDrivers.fire([...this.drivers]);
 	}
 
 	removeDriver(driverId: string): void {
 		const index = this.drivers.findIndex(d => d.driverId === driverId);
 		if (index >= 0) {
 			this.drivers.splice(index, 1);
-			this._onDidChangeDrivers.fire(this.drivers);
+			this._onDidChangeDrivers.fire([...this.drivers]);
 		}
 	}
 

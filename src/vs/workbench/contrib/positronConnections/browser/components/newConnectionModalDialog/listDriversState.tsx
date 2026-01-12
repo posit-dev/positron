@@ -31,9 +31,6 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	const driverManager = services.positronConnectionsService.driverManager;
 	const runtimeSessionService = services.runtimeSessionService;
 
-	// Use a counter to force re-render when drivers change
-	const [, setDriverVersion] = useState(0);
-
 	const { languageId, setLanguageId } = props;
 
 	// Use a ref to track languageId to avoid recreating the subscription on every change
@@ -42,11 +39,18 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		languageIdRef.current = languageId;
 	}, [languageId]);
 
+	// Store raw drivers list in state
+	// Note: We spread the array to create a new reference, since driverManager.getDrivers()
+	// may return the same mutable array, and React skips re-renders if the reference is unchanged.
+	const [drivers, setDrivers] = useState(() => [...driverManager.getDrivers()]);
+
 	// Subscribe to driver changes
 	useEffect(() => {
-		const disposable = driverManager.onDidChangeDrivers(() => {
-			setDriverVersion(v => v + 1);
+		const disposable = driverManager.onDidChangeDrivers((newDrivers) => {
+			setDrivers(newDrivers);
 		});
+		// Re-fetch after subscription to catch any changes we might have missed
+		setDrivers([...driverManager.getDrivers()]);
 		return () => disposable.dispose();
 	}, [driverManager]);
 
@@ -60,25 +64,27 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		return () => disposable.dispose();
 	}, [runtimeSessionService, setLanguageId]);
 
+	// Compute filtered/grouped drivers during render
+	const driversByName = (() => {
+		const filtered = languageId
+			? drivers.filter((driver) => driver.metadata.languageId === languageId)
+			: [];
+
+		const grouped = new Map<string, IDriver[]>();
+		for (const driver of filtered) {
+			const existing = grouped.get(driver.metadata.name);
+			if (existing) {
+				existing.push(driver);
+			} else {
+				grouped.set(driver.metadata.name, [driver]);
+			}
+		}
+		return grouped;
+	})();
+
 	const onDriverSelectedHandler = (drivers: IDriver[]) => {
 		props.onSelection(drivers);
 	};
-
-	const drivers = languageId
-		? driverManager
-			.getDrivers()
-			.filter((driver) => driver.metadata.languageId === languageId)
-		: [];
-
-	// group drivers by name such that we only display a single driver per name
-	const driversByName: Map<string, IDriver[]> = new Map();
-	for (const driver of drivers) {
-		if (!driversByName.get(driver.metadata.name)) {
-			driversByName.set(driver.metadata.name, [driver]);
-		} else {
-			driversByName.get(driver.metadata.name)?.push(driver);
-		}
-	}
 
 	const onLanguageChangeHandler = (lang: string) => {
 		setLanguageId(lang);
