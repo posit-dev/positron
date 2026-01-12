@@ -465,7 +465,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		// Check Positron compatibility for all extensions
 		for (let i = 0; i < extensions.length; i++) {
 			const { extension, options } = extensions[i];
-			const compat = positronExtensionCompatibility(extension, this.productService);
+			const compat = positronExtensionCompatibility(manifests[i], this.productService);
 			if (!compat.compatible) {
 				results.set(extension.identifier.id.toLowerCase(), {
 					identifier: extension.identifier,
@@ -540,16 +540,18 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 	}
 
 	async installFromGallery(gallery: IGalleryExtension, installOptions?: InstallOptions, servers?: IExtensionManagementServer[]): Promise<ILocalExtension> {
-		// --- Start Positron ---
-		const compat = positronExtensionCompatibility(gallery, this.productService);
-		if (!compat.compatible) {
-			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
-		}
-		// --- End Positron ---
 		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
 		if (!manifest) {
 			throw new Error(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
 		}
+
+		// --- Start Positron ---
+		// Check compatibility using the manifest (which includes engines.positron if specified)
+		const compat = positronExtensionCompatibility(manifest, this.productService);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
 
 		if (installOptions?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true) {
 			await this.checkForTrustedPublishers([{ extension: gallery, manifest, checkForPackAndDependencies: !installOptions?.donotIncludePackAndDependencies }],);
