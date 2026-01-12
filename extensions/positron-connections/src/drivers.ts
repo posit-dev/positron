@@ -12,6 +12,14 @@ import {
 	PythonDatabricksM2MDriver,
 	PythonDatabricksU2MDriver
 } from './drivers/databricks';
+import {
+	PythonSnowflakePasswordDriver,
+	PythonSnowflakeSSODriver,
+	PythonSnowflakeKeyPairDriver,
+	PythonSnowflakeOAuthM2MDriver,
+	PythonSnowflakePATDriver,
+	PythonSnowflakeDefaultConnectionDriver
+} from './drivers/snowflake';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 
@@ -29,6 +37,12 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new PythonDatabricksPATDriver(context),
 		new PythonDatabricksM2MDriver(context),
 		new PythonDatabricksU2MDriver(context),
+		new PythonSnowflakePasswordDriver(context),
+		new PythonSnowflakeSSODriver(context),
+		new PythonSnowflakeKeyPairDriver(context),
+		new PythonSnowflakeOAuthM2MDriver(context),
+		new PythonSnowflakePATDriver(context),
+		new PythonSnowflakeDefaultConnectionDriver(context),
 	];
 
 	for (const driver of drivers) {
