@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,7 +14,7 @@ import {
 	validateByProviderPreferences,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
-import * as modelsModule from '../models.js';
+import * as providersModule from '../providers';
 
 suite('Provider Configuration Tests', () => {
 	let mockGetConfiguration: sinon.SinonStub;
@@ -34,9 +34,9 @@ suite('Provider Configuration Tests', () => {
 		// Mock vscode.window methods
 		mockShowWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
-		// Mock getLanguageModels to return test providers
+		// Mock getModelProviders to return test providers
 		// eslint-disable-next-line local/code-no-any-casts
-		sinon.stub(modelsModule, 'getLanguageModels').returns([
+		sinon.stub(providersModule, 'getModelProviders').returns([
 			{
 				source: {
 					provider: {

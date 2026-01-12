@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
 import { registerSupportedProviders } from '../providerConfiguration.js';
-import * as modelsModule from '../models.js';
+import * as providersModule from '../providers';
 
 suite('Model Definitions', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -20,7 +20,7 @@ suite('Model Definitions', () => {
 			get: mockWorkspaceConfig
 		}) as unknown as vscode.WorkspaceConfiguration);
 
-		// Mock getLanguageModels to return test providers
+		// Mock getModelProviders to return test providers
 		// Note: We only mock the provider metadata needed for registerSupportedProviders()
 		const mockModels = [
 			{
@@ -41,7 +41,7 @@ suite('Model Definitions', () => {
 			}
 		];
 		// eslint-disable-next-line local/code-no-any-casts
-		sinon.stub(modelsModule, 'getLanguageModels').returns(mockModels as any);
+		sinon.stub(providersModule, 'getModelProviders').returns(mockModels as any);
 
 		// Register providers before running tests
 		registerSupportedProviders();

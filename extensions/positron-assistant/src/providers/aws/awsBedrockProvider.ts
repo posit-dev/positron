@@ -17,11 +17,12 @@ import {
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig, SecretStorage, getStoredModels, expandConfigToSource } from '../../config';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
-import { registerModelWithAPI, AssistantError } from '../../extension';
+import { AssistantError } from '../../extension';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
+import { registerModelWithAPI } from '../../modelRegistration';
 
 /**
  * Environment variables for AWS Bedrock configuration.

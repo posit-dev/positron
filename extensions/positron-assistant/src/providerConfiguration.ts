@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getLanguageModels } from './models';
+import { getModelProviders } from './providers';
 import { log } from './extension.js';
 import { configureProvider, uiNameToProviderId } from './providerMapping.js';
 
@@ -75,7 +75,7 @@ export function registerSupportedProviders(): void {
 	const registeredProviderIds: string[] = [];
 
 	// Register all providers defined in the Positron Assistant extension
-	const models = getLanguageModels();
+	const models = getModelProviders();
 	for (const model of models) {
 		if (model.source?.provider) {
 			configureProvider(model.source.provider.id, model.source.provider.displayName);
