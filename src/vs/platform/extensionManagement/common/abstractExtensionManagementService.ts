@@ -89,7 +89,7 @@ export function positronExtensionCompatibility(
 	}
 
 	// Check version compatibility for manifests with Positron engine requirements
-	if (productService?.positronVersion) {
+	if (productService?.positronVersion && extension.hasOwnProperty('engines')) {
 		const manifest = extension as IExtensionManifest;
 		if (manifest.engines?.positron) {
 			const validations = validatePositronExtensionManifest(
