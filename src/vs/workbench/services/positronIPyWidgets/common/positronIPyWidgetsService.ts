@@ -35,16 +35,16 @@ export interface IPositronIPyWidgetsService {
 	initialize(): void;
 
 	/**
-	 * Checks if a widget instance exists for the given widget ID.
-	 * Used to prevent duplicate widget creation during retry operations.
+	 * Checks if a widget instance from a positron notebook exists for the given widget ID.
+	 * Used to prevent duplicate widgets being created during retry operations.
 	 *
 	 * @param widgetId The unique widget/output ID
 	 * @returns True if a widget instance exists for this ID
 	 */
-	hasWidgetInstance(widgetId: string): boolean;
+	hasPositronNotebookWidgetInstance(widgetId: string): boolean;
 
 	/**
-	 * Creates an IPyWidgets instance for a specific notebook widget output.
+	 * Creates an IPyWidgets instance for a specific positron notebook widget output.
 	 * Each widget receives its own isolated messaging channel for proper
 	 * communication with the kernel.
 	 *
@@ -52,5 +52,5 @@ export interface IPositronIPyWidgetsService {
 	 * @param widgetId The unique widget/output ID
 	 * @returns Disposable that cleans up the widget instance
 	 */
-	createWidgetInstance(session: ILanguageRuntimeSession, widgetId: string): IDisposable;
+	createPositronNotebookWidgetInstance(session: ILanguageRuntimeSession, widgetId: string): IDisposable;
 }

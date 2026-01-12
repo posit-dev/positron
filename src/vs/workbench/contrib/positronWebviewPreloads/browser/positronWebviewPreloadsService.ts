@@ -206,7 +206,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			const existingWebview = this._widgetWebviewsByOutputId.get(runtimeOutput.id);
 			if (existingWebview) {
 				// Double-check that the widget instance was also successfully created
-				if (!this._positronIPyWidgetsService.hasWidgetInstance(runtimeOutput.id)) {
+				if (!this._positronIPyWidgetsService.hasPositronNotebookWidgetInstance(runtimeOutput.id)) {
 					this._widgetWebviewsByOutputId.delete(runtimeOutput.id);
 				} else {
 					return {
@@ -283,7 +283,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Create the per-widget messaging and IPyWidgets instance first.
 		// This must happen before the webview is created so the messaging channel
 		// is ready when the webview starts communicating with the kernel
-		const widgetDisposable = this._positronIPyWidgetsService.createWidgetInstance(
+		const widgetDisposable = this._positronIPyWidgetsService.createPositronNotebookWidgetInstance(
 			session,
 			displayMessage.id
 		);

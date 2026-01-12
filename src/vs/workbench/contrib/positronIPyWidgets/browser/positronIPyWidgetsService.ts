@@ -31,7 +31,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
 
 	/** Map of widget IPyWidgetsInstances keyed by widget/output ID for Positron notebooks. */
-	private readonly _widgetInstancesByWidgetId = new Map<string, IPyWidgetsInstance>();
+	private readonly _positronNotebookInstancesByWidgetId = new Map<string, IPyWidgetsInstance>();
 
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
@@ -75,17 +75,19 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	hasInstance(id: string): boolean {
 		return this._notebookInstancesBySessionId.has(id) ||
-			this._consoleInstancesByMessageId.has(id);
+			this._consoleInstancesByMessageId.has(id) ||
+			this._positronNotebookInstancesByWidgetId.has(id);
 	}
 
 	/**
 	 * Checks if a widget instance exists for the given widget ID.
+	 * Checks if a widget instance for a positron notebook exists for the given widget ID.
 	 *
 	 * @param widgetId The unique widget/output ID
 	 * @returns True if a widget instance exists for this ID
 	 */
-	hasWidgetInstance(widgetId: string): boolean {
-		return this._widgetInstancesByWidgetId.has(widgetId);
+	hasPositronNotebookWidgetInstance(widgetId: string): boolean {
+		return this._positronNotebookInstancesByWidgetId.has(widgetId);
 	}
 
 	/**
@@ -99,37 +101,56 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * @param widgetId The unique widget/output ID
 	 * @returns Disposable that cleans up the widget instance when called
 	 */
-	createWidgetInstance(
+	createPositronNotebookWidgetInstance(
 		session: ILanguageRuntimeSession,
 		widgetId: string
 	): IDisposable {
-		// Create per-widget messaging using the widget ID
+		// Create per-widget messaging and instance using the widget ID
+		const { messaging, instance } = this.createWidgetInstance(
+			session,
+			widgetId
+		);
+
+		// Track by widget ID for cleanup
+		this._positronNotebookInstancesByWidgetId.set(widgetId, instance);
+
+		// Return cleanup disposable
+		return toDisposable(() => {
+			messaging.dispose();
+			instance.dispose();
+			this._positronNotebookInstancesByWidgetId.delete(widgetId);
+		});
+	}
+
+	/**
+	 * Creates an IPyWidgets instance with its associated messaging channel.
+	 * This is the common pattern shared across console, notebook, and per-widget instances.
+	 *
+	 * @param session The language runtime session
+	 * @param messagingId The ID for scoping renderer messages (e.g., editor ID, widget ID, client ID)
+	 * @returns An object containing the messaging channel and IPyWidgets instance
+	 */
+	private createWidgetInstance(
+		session: ILanguageRuntimeSession,
+		messagingId: string
+	): { messaging: IPyWidgetsWebviewMessaging; instance: IPyWidgetsInstance } {
 		const messaging = new IPyWidgetsWebviewMessaging(
-			widgetId,
+			messagingId,
 			this._notebookRendererMessagingService
 		);
 
-		// Create per-widget IPyWidgets instance
-		const ipywidgetsInstance = new IPyWidgetsInstance(
+		const instance = new IPyWidgetsInstance(
 			session,
 			messaging,
 			this._notebookService,
 			this._logService
 		);
 
-		// Track by widget ID for cleanup
-		this._widgetInstancesByWidgetId.set(widgetId, ipywidgetsInstance);
-
-		// Return cleanup disposable
-		return toDisposable(() => {
-			messaging.dispose();
-			ipywidgetsInstance.dispose();
-			this._widgetInstancesByWidgetId.delete(widgetId);
-		});
+		return { messaging, instance };
 	}
 
 	/**
-	 * Map to disposeable stores for each session. Used to preventing memory leaks caused by
+	 * Map to disposable stores for each session. Used to preventing memory leaks caused by
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
@@ -172,14 +193,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				this._notebookOutputWebviewService, session, message
 			));
 
-			// Create the ipywidgets instance.
-			const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
-				client.id, this._notebookRendererMessagingService
-			));
-			const ipywidgetsInstance = disposables.add(
-				new IPyWidgetsInstance(session, messaging, this._notebookService, this._logService)
+			// Create the ipywidgets instance using the client ID for messaging.
+			const { messaging, instance } = this.createWidgetInstance(
+				session,
+				client.id
 			);
-			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
+			disposables.add(messaging);
+			disposables.add(instance);
+			this._consoleInstancesByMessageId.set(message.id, instance);
 
 			// Unregister the instance when the session is disposed.
 			disposables.add(toDisposable(() => {
@@ -214,13 +235,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
 
 		// We found a matching notebook editor, create an ipywidgets instance.
-		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
-			notebookEditor.getId(), this._notebookRendererMessagingService
-		));
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
-			session, messaging, this._notebookService, this._logService
-		));
-		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
+		const { messaging, instance } = this.createWidgetInstance(
+			session,
+			notebookEditor.getId()
+		);
+		disposables.add(messaging);
+		disposables.add(instance);
+		this._notebookInstancesBySessionId.set(session.sessionId, instance);
 
 		// Unregister the instance when the session is disposed.
 		disposables.add(toDisposable(() => {
@@ -403,7 +424,7 @@ export class IPyWidgetsInstance extends Disposable {
 		});
 	}
 
-	private createClient(client: IRuntimeClientInstance<any, any>) {
+	private createClient(client: IRuntimeClientInstance<unknown, unknown>) {
 		// Determine the list of RPC methods by client type.
 		let rpcMethods: string[];
 		switch (client.getClientType()) {
