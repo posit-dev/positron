@@ -722,28 +722,22 @@
             "markdownDescription": "%configuration.providers.description%",
             "properties": {
               "Anthropic": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.anthropic.description%"
+                "type": "boolean"
               },
               "GitHub Copilot": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.copilot.description%"
+                "type": "boolean"
               },
               "Amazon Bedrock": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.bedrock.description%"
+                "type": "boolean"
               },
               "Snowflake Cortex": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.snowflake.description%"
+                "type": "boolean"
               },
               "OpenAI": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.openai.description%"
+                "type": "boolean"
               },
               "Custom Provider": {
-                "type": "boolean",
-                "markdownDescription": "%configuration.providers.custom.description%"
+                "type": "boolean"
               }
             },
             "additionalProperties": false
