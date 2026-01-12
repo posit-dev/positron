@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Notebook Assistant Features', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB]
+	tag: [tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
