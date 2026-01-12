@@ -436,6 +436,20 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 			return Promise.reject(`Invalid location ${extension.location.toString()}`);
 		}
 
+		// --- Start Positron ---
+		// Fetch manifest to check version compatibility before updating
+		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
+		if (!manifest) {
+			throw new Error(localize('Manifest is not found for update', "Updating Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
+		}
+
+		// Check Positron compatibility using the manifest
+		const compat = positronExtensionCompatibility(manifest, this.productService);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
+
 		const servers: IExtensionManagementServer[] = [];
 
 		// Update Language pack on local and remote servers

@@ -768,7 +768,21 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 			],
 			icon: installWorkspaceRecommendedIcon,
 			run: async () => {
-				await this.extensionsWorkbenchService.updateAll();
+				// --- Start Positron ---
+				const results = await this.extensionsWorkbenchService.updateAll();
+
+				// Check for failures and report them
+				const failures = results.filter(r => r.error);
+				if (failures.length > 0) {
+					// Build error message showing which extensions failed and why
+					const failureMessages = failures
+						.map(f => `${f.identifier.id}: ${f.error?.message ?? 'Unknown error'}`)
+						.join('\n');
+
+					// Show error notification
+					throw new Error(localize('updateAllFailed', 'Failed to update some extensions:\n{0}', failureMessages));
+				}
+				// --- End Positron ---
 			}
 		});
 
