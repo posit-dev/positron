@@ -32,6 +32,7 @@ let dirs = [
 	'extensions/positron-supervisor',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
+	'extensions/positron-qmd',
 	'extensions/positron-viewer',
 	'extensions/positron-zed',
 	// --- End Positron ---

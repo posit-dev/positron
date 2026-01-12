@@ -1,0 +1,9 @@
+{
+	"displayName": "Positron .qmd Notebook Support",
+	"description": "Quarto Markdown notebook support for Positron native notebooks (experimental)",
+	"configuration.title": "Plaintext Notebooks",
+	"configuration.enable.description": "Enable experimental plaintext notebook support.",
+	"commands.category": "Quarto",
+	"commands.devCategory": "Developer",
+	"commands.parseQmd.title": "Parse .qmd Content"
+}
