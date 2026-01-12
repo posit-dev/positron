@@ -697,17 +697,6 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
 }
 
 /**
- * Creates a native environments API that also includes module environments.
- * This wraps the native API and adds environments discovered from the ModuleEnvironmentLocator.
- */
-export function createNativeEnvironmentsApiWithModules(finder: NativePythonFinder): IDiscoveryAPI & Disposable {
-    const native = new NativePythonEnvironments(finder);
-    const wrapper = new NativeWithModulesApi(native);
-    wrapper.triggerRefresh().ignoreErrors();
-    return wrapper;
-}
-
-/**
  * Wrapper that combines the native Python environments API with module environments.
  * Module environments are discovered using the ModuleEnvironmentLocator and merged
  * with the environments from the native API.
@@ -967,4 +956,16 @@ async function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo)
     // Result: replace the existing env with the new env.
     return { reason: ExistingEnvAction.ReplaceExistingEnv, existingEnv };
 }
+
+/**
+ * Creates a native environments API that also includes module environments.
+ * This wraps the native API and adds environments discovered from the ModuleEnvironmentLocator.
+ */
+export function createNativeEnvironmentsApiWithModules(finder: NativePythonFinder): IDiscoveryAPI & Disposable {
+    const native = new NativePythonEnvironments(finder);
+    const wrapper = new NativeWithModulesApi(native);
+    wrapper.triggerRefresh().ignoreErrors();
+    return wrapper;
+}
+
 // --- End Positron ---
