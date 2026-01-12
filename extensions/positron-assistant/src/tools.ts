@@ -11,6 +11,7 @@ import { ProjectTreeTool } from './tools/projectTreeTool.js';
 import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
 import { registerNotebookTools } from './tools/notebookTools.js';
+import { CreateNotebookTool } from './tools/createNotebook.js';
 
 
 /**
@@ -364,6 +365,9 @@ export function registerAssistantTools(
 	// - UpdateNotebookCell: Update existing cell content
 	// - GetCellOutputs: Retrieve outputs from executed cells
 	registerNotebookTools(context, participantService);
+
+	// Register the CreateNotebook tool for creating new notebooks
+	context.subscriptions.push(CreateNotebookTool);
 }
 
 /**

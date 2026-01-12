@@ -26,7 +26,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
+import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -55,6 +55,7 @@ import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -165,6 +166,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
+	private _scopedInstantiationService = this._register(new MutableDisposable<IInstantiationService>());
+
 	/**
 	 * Disposables for the editor container event listeners
 	 */
@@ -267,6 +270,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	private _contributions = new Map<string, IPositronNotebookContribution>();
 
+	/**
+	 * Observable list of deletion sentinels.
+	 * Sentinels are shown where cells were deleted and provide an undo button.
+	 */
+	private readonly _deletionSentinels = observableValue<IDeletionSentinel[]>('deletionSentinels', []);
+	readonly deletionSentinels = this._deletionSentinels;
+
 	// =============================================================================================
 	// #region Public Properties
 
@@ -307,6 +317,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			throw new Error('scopedContextKeyService is not available - attachView() must be called first');
 		}
 		return this._scopedContextKeyService;
+	}
+
+	get scopedInstantiationService(): IInstantiationService {
+		if (!this._scopedInstantiationService.value) {
+			throw new Error('scopedInstantiationService is not available - attachView() must be called first');
+		}
+		return this._scopedInstantiationService.value;
 	}
 
 	/**
@@ -1314,6 +1331,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.detachView();
 		this.container.set(container, undefined);
 		this._scopedContextKeyService = scopedContextKeyService;
+		this._scopedInstantiationService.value = this._instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, scopedContextKeyService]));
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
@@ -1511,6 +1530,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const currentOp = this.getAndResetCurrentOperation();
 
+		// Check for sentinel cleanup when cells are added during undo
+		if (currentOp === NotebookOperationType.Undo) {
+			this._cleanupSentinelsForRestoredCells(newlyAddedCells);
+		}
+
 		// Skip auto-selection for assistant-added and assistant-edited cells - the follow mode will handle reveal behavior
 		if (currentOp !== NotebookOperationType.AssistantAdd && currentOp !== NotebookOperationType.AssistantEdit && newlyAddedCells.length === 1) {
 			const newCell = newlyAddedCells[0];
@@ -1538,6 +1562,33 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// after an operation.
 		if (!wasEmpty && willBeEmpty && this.currentContainer) {
 			this.currentContainer.focus();
+		}
+	}
+
+	/**
+	 * Cleans up sentinels for cells that have been restored via undo.
+	 * Matches by comparing cell content since handles change on restoration.
+	 */
+	private _cleanupSentinelsForRestoredCells(restoredCells: IPositronNotebookCell[]): void {
+		if (restoredCells.length === 0) {
+			return;
+		}
+
+		const sentinels = this._deletionSentinels.get();
+		if (sentinels.length === 0) {
+			return;
+		}
+
+		// Build a set of restored cell contents for quick lookup
+		const restoredContents = new Set(restoredCells.map(cell => cell.getContent()));
+
+		// Remove sentinels whose cell content matches a restored cell
+		const remainingSentinels = sentinels.filter(sentinel => {
+			return !restoredContents.has(sentinel.cellData.source);
+		});
+
+		if (remainingSentinels.length < sentinels.length) {
+			this._deletionSentinels.set(remainingSentinels, undefined);
 		}
 	}
 
@@ -1865,7 +1916,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
-	async handleAssistantCellModification(cellIndex: number): Promise<void> {
+	async handleAssistantCellModification(cellIndex: number, operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<void> {
 		const cells = this.cells.get();
 		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return;
@@ -1878,21 +1929,125 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Check if cell is visible in viewport
 		const isVisible = cell.isInViewport();
+
 		if (isVisible) {
-			// Cell is already visible, no action needed
+			// Cell is visible - always highlight regardless of auto-follow
+			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.highlightTemporarily() returned false');
+			}
 			return;
 		}
 
-		// Check if auto-follow is enabled
+		// Cell is not visible - check auto-follow setting for scrolling behavior
 		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
 
 		if (autoFollow) {
-			const revealed = await cell.reveal();
-			const highlighted = await cell.highlightTemporarily();
-			if (!revealed || !highlighted) {
-				this._logService.debug(`Failed to reveal/highlight cell ${cellIndex} - container not available`);
+			// Reveal (scroll to) and highlight
+			if (!(await cell.reveal())) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.reveal() returned false');
+			}
+			if (!(await cell.highlightTemporarily(operationType, maxWaitMs))) {
+				this._logService.debug('[PositronNotebookInstance] handleAssistantModification: cell.highlightTemporarily() returned false');
 			}
 		}
+		// If auto-follow is off and cell is not visible, no visual feedback
+	}
+
+	/**
+	 * Add a deletion sentinel at the specified cell index.
+	 * @param cellIndex The index where the cell was deleted (in the current notebook state)
+	 * @param cellData The complete cell data for potential restoration
+	 */
+	addDeletionSentinel(cellIndex: number, cellData: ICellDto2): void {
+		// Calculate the true original index by accounting for previously deleted cells.
+		// When multiple cells are deleted sequentially, each deletion shifts indices down.
+		// We need to track where this cell was in the ORIGINAL notebook, not where it
+		// was at the moment of deletion.
+		//
+		// Example: Delete cells 2, then 3 (originally):
+		//   - Delete at index 2: no prior sentinels, originalIndex = 2
+		//   - Delete at index 2 (was cell 3): one sentinel at orig<=2, originalIndex = 2+1 = 3
+		const existingSentinels = this._deletionSentinels.get();
+		const priorDeletionsAtOrBefore = existingSentinels.filter(s => s.originalIndex <= cellIndex).length;
+		const trueOriginalIndex = cellIndex + priorDeletionsAtOrBefore;
+
+		// Generate preview content (first 3 lines)
+		const lines = cellData.source.split('\n');
+		const previewContent = lines.slice(0, 3).join('\n');
+		const truncated = lines.length > 3;
+
+		const sentinel: IDeletionSentinel = {
+			id: `sentinel-${Date.now()}-${trueOriginalIndex}`,
+			originalIndex: trueOriginalIndex,
+			timestamp: Date.now(),
+			previewContent: truncated ? previewContent + '\n...' : previewContent,
+			cellKind: cellData.cellKind,
+			language: cellData.language,
+			cellData  // Store complete data for restoration
+		};
+
+		const current = this._deletionSentinels.get();
+		this._deletionSentinels.set([...current, sentinel], undefined);
+	}
+
+	/**
+	 * Restores a deleted cell from its sentinel data.
+	 * @param sentinel The deletion sentinel containing cell data to restore
+	 */
+	restoreCell(sentinel: IDeletionSentinel): void {
+		this._assertTextModel();
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+
+		// Calculate the correct insertion index.
+		// Since originalIndex represents the cell's position in the ORIGINAL notebook,
+		// we need to subtract the count of still-deleted cells that were originally
+		// before this cell. This accounts for cells that haven't been restored yet.
+		//
+		// Example: Original [0,1,2,3,4], deleted cells 2 and 3 (sentinels with orig=2,3)
+		//   - Current notebook: [0,1,4]
+		//   - Restore cell with orig=3: sentinels with orig<3 = 1, so insertIndex = 3-1 = 2
+		//   - Result: [0,1,3,4] ✓
+		const otherSentinels = this._deletionSentinels.get().filter(s => s.id !== sentinel.id);
+		const deletedCellsBeforeThis = otherSentinels.filter(s => s.originalIndex < sentinel.originalIndex).length;
+		const calculatedIndex = sentinel.originalIndex - deletedCellsBeforeThis;
+
+		// Clamp to valid range (handles case where notebook was modified by user)
+		const maxIndex = textModel.cells.length;
+		const insertIndex = Math.min(calculatedIndex, maxIndex);
+
+		const focusRange = { start: insertIndex, end: insertIndex + 1 };
+
+		textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index: insertIndex,
+				count: 0,
+				cells: [sentinel.cellData]
+			}
+		],
+			true, // synchronous - ensures operations are serialized
+			{ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] },
+			() => ({ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }),
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+
+		// Remove the restored sentinel (no need to adjust other indices since
+		// originalIndex represents the true original position, not current position)
+		this._deletionSentinels.set(otherSentinels, undefined);
+	}
+
+	/**
+	 * Remove a deletion sentinel by its ID.
+	 * @param id The unique identifier of the sentinel to remove
+	 */
+	removeDeletionSentinel(id: string): void {
+		const current = this._deletionSentinels.get();
+		this._deletionSentinels.set(current.filter(s => s.id !== id), undefined);
 	}
 
 	// #endregion

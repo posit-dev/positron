@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { getEnabledProviders } from './config';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
-import { AutoconfigureResult } from './models.js';
+import { AutoconfigureResult } from './providers/index.js';
 
 /**
  * Configuration for managed credentials on Posit Workbench.
@@ -64,7 +64,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 
 	if (!IS_RUNNING_ON_PWB) {
 		log.debug(`[${displayName}] Not running on Posit Workbench, skipping autoconfigure`);
-		return { signedIn: false };
+		return { configured: false };
 	}
 
 	const providerEnabled = await getEnabledProviders().then(
@@ -72,7 +72,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	);
 	if (!providerEnabled) {
 		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings`);
-		return { signedIn: false };
+		return { configured: false };
 	}
 
 	// Check for managed credentials using the provided config
@@ -87,13 +87,13 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 
 	if (!tokenEnv || !credentialConfig.validator(tokenEnv)) {
 		log.debug(`[${displayName}] Managed credentials not available: ${credentialConfig.envVar}=${tokenEnv ? 'set but invalid' : 'not set'}`);
-		return { signedIn: false };
+		return { configured: false };
 	}
 
 	log.info(`[${displayName}] Auto-configuring with managed credentials`);
 
 	return {
-		signedIn: true,
+		configured: true,
 		message: credentialConfig.displayName
 	};
 }

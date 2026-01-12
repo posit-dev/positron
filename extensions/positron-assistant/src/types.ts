@@ -22,6 +22,7 @@ export enum PositronAssistantToolName {
 	RunNotebookCells = 'runNotebookCells',
 	EditNotebookCells = 'editNotebookCells',
 	GetNotebookCells = 'getNotebookCells',
+	CreateNotebook = 'createNotebook',
 }
 
 /**

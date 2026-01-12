@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { AnthropicLanguageModel, CacheControlOptions } from '../anthropic';
+import { AnthropicModelProvider, CacheControlOptions } from '../providers/anthropic/anthropicProvider';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
@@ -80,11 +80,12 @@ type MockAnthropicProgress = {
 	report: sinon.SinonStub<Parameters<vscode.Progress<vscode.LanguageModelResponsePart2>['report']>, void>;
 };
 
-suite('AnthropicLanguageModel', () => {
-	let model: AnthropicLanguageModel;
+suite('AnthropicModelProvider', () => {
+	let model: AnthropicModelProvider;
 	let mockClient: MockAnthropicClient;
 	let progress: MockAnthropicProgress;
 	let cancellationToken: vscode.CancellationToken;
+	let mockModelInfo: vscode.LanguageModelChatInformation;
 
 	setup(() => {
 		// Create a mock Anthropic client
@@ -100,8 +101,19 @@ suite('AnthropicLanguageModel', () => {
 			type: positron.PositronLanguageModelType.Chat
 		};
 
-		// Create an instance of the AnthropicLanguageModel
-		model = new AnthropicLanguageModel(config, undefined, undefined, mockClient as unknown as Anthropic);
+		// Create an instance of the AnthropicModelProvider
+		model = new AnthropicModelProvider(config, undefined, undefined, mockClient as unknown as Anthropic);
+
+		// Create mock model info for provideLanguageModelChatResponse
+		mockModelInfo = {
+			id: 'test-model',
+			name: 'Test Model',
+			family: 'anthropic-api',
+			version: '',
+			maxInputTokens: 200000,
+			maxOutputTokens: 8192,
+			capabilities: {},
+		};
 
 		// Create mock progress
 		progress = {
@@ -757,7 +769,7 @@ suite('AnthropicLanguageModel', () => {
 				assert.ok(result, 'Should return configured models');
 				assert.strictEqual(result.length, 1);
 				assert.strictEqual(result[0].id, 'user-claude');
-				assert.strictEqual(model.modelListing, result);
+				assert.strictEqual((model as any).modelListing, result);
 			});
 
 			test('falls back to API when no configured models', async () => {
@@ -789,7 +801,7 @@ suite('AnthropicLanguageModel', () => {
 				assert.ok(result, 'Should return API models');
 				assert.strictEqual(result.length, 1);
 				assert.strictEqual(result[0].id, 'claude-api-model');
-				assert.strictEqual(model.modelListing, result);
+				assert.strictEqual((model as any).modelListing, result);
 			});
 
 			test('returns undefined when both configured and API fail', async () => {
@@ -824,8 +836,8 @@ suite('AnthropicLanguageModel', () => {
 
 				await model.resolveModels(cancellationToken);
 
-				assert.strictEqual(model.modelListing.length, 1);
-				assert.strictEqual(model.modelListing[0].id, 'cached-claude');
+				assert.strictEqual((model as any).modelListing.length, 1);
+				assert.strictEqual((model as any).modelListing[0].id, 'cached-claude');
 			});
 		});
 	});

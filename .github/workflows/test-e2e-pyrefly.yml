@@ -2,6 +2,7 @@ name: "Test: E2E Pyrefly (Ubuntu)"
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   id-token: write

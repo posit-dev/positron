@@ -180,7 +180,7 @@ export class Sessions {
 	 * @param options.waitForIdle - wait for the session to display as "idle" (ready)
 	 * @param options.clearConsole - clear the console before restarting
 	 */
-	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean, clickModalButton?: string }): Promise<void> {
+	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean; clickModalButton?: string }): Promise<void> {
 		const { waitForIdle = true, clearConsole = true, clickModalButton = '' } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
@@ -460,6 +460,27 @@ export class Sessions {
 			if (waitForReady) {
 				await expect(this.console.activeConsole.getByText(/started/)).toBeVisible({ timeout: 90000 });
 			}
+
+			// For sessions with a disambiguator (like reticulate), find the session by name
+			// to ensure we return the correct session ID. This is needed because starting
+			// a reticulate session also starts an R session, and the active console may
+			// be either one when we get here.
+			if (options.disambiguator) {
+				// Wait for the session with the disambiguator to appear in the session list
+				let targetSession: { id: string; name: string } | undefined;
+				await expect(async () => {
+					const allSessions = await this.getAllSessionIdsAndNames();
+					targetSession = allSessions.find(s =>
+						s.name.toLowerCase().includes(options.disambiguator!.toLowerCase())
+					);
+					expect(targetSession).toBeDefined();
+				}, `Wait for session with '${options.disambiguator}' in name`).toPass({ timeout: 30000 });
+
+				if (targetSession) {
+					return targetSession.id;
+				}
+			}
+
 			return this.getCurrentSessionId();
 		});
 	}
@@ -824,7 +845,8 @@ export class Sessions {
 	async expectSessionNameToBe(sessionId: string, expectedName: string) {
 		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
 			const sessionTab = this.getSessionTab(sessionId);
-			await expect(sessionTab).toHaveText(expectedName);
+			const tabHeader = sessionTab.locator('.tab-header');
+			await expect(tabHeader).toHaveText(expectedName);
 		});
 	}
 
