@@ -330,17 +330,17 @@ enum ExistingEnvAction {
 
 type ExistingEnvResult =
     | {
-        reason: ExistingEnvAction.KeepExistingEnv;
-        existingEnv: PythonEnvInfo;
-    }
+          reason: ExistingEnvAction.KeepExistingEnv;
+          existingEnv: PythonEnvInfo;
+      }
     | {
-        reason: ExistingEnvAction.AddNewEnv;
-        existingEnv: undefined;
-    }
+          reason: ExistingEnvAction.AddNewEnv;
+          existingEnv: undefined;
+      }
     | {
-        reason: ExistingEnvAction.ReplaceExistingEnv;
-        existingEnv: PythonEnvInfo;
-    };
+          reason: ExistingEnvAction.ReplaceExistingEnv;
+          existingEnv: PythonEnvInfo;
+      };
 // --- End Positron ---
 
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
@@ -844,7 +844,12 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
     /**
      * Converts a BasicEnvInfo from the module locator to a PythonEnvInfo.
      */
-    private basicEnvToPythonEnvInfo(basicEnv: { kind: PythonEnvKind; executablePath: string; source?: PythonEnvSource[]; envPath?: string }): PythonEnvInfo | undefined {
+    private basicEnvToPythonEnvInfo(basicEnv: {
+        kind: PythonEnvKind;
+        executablePath: string;
+        source?: PythonEnvSource[];
+        envPath?: string;
+    }): PythonEnvInfo | undefined {
         const metadata = moduleMetadataMap.get(basicEnv.executablePath);
 
         // Parse version from metadata (format: "3.11.3")
@@ -853,9 +858,7 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
 
         // Format display name as "Python X.Y.Z (Module: envName)"
         const moduleLabel = metadata ? `Module: ${metadata.environmentName}` : 'Module';
-        const displayName = versionStr
-            ? `Python ${versionStr} (${moduleLabel})`
-            : `Python (${moduleLabel})`;
+        const displayName = versionStr ? `Python ${versionStr} (${moduleLabel})` : `Python (${moduleLabel})`;
 
         return {
             name: metadata?.environmentName ?? '',
