@@ -11,18 +11,23 @@ import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'r
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeResourceUsage, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { basename } from '../../../../../base/common/path.js';
 import { RuntimeIcon } from './runtimeIcon.js';
+import { ResourceUsageGraph } from './resourceUsageGraph.js';
+import { ResourceUsageStats } from './resourceUsageStats.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { MAX_RESOURCE_USAGE_HISTORY } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -30,6 +35,11 @@ import { RuntimeIcon } from './runtimeIcon.js';
  * session name (truncated), and the delete button.
  */
 const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
+
+/**
+ * The height of the resource usage graph in pixels.
+ */
+const RESOURCE_GRAPH_HEIGHT = 24;
 
 interface ConsoleTabProps {
 	positronConsoleInstance: IPositronConsoleInstance;
@@ -62,6 +72,11 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
 	const [sessionName, setSessionName] = useState(sessionDisplayName);
+	const [resourceUsageHistory, setResourceUsageHistory] = useState<ILanguageRuntimeResourceUsage[]>([]);
+	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
+	const [showResourceMonitor, setShowResourceMonitor] = useState(
+		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+	);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
@@ -74,6 +89,41 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Track whether we've been cancelled (for async operations)
+		let cancelled = false;
+
+		// Function to add resource usage listener to a session
+		const addResourceUsageListener = (session: ILanguageRuntimeSession): IDisposable => {
+			return session.onDidUpdateResourceUsage((usage) => {
+				setResourceUsageHistory(prev => {
+					// Add new data point and keep only the most recent entries
+					const updated = [...prev, usage];
+					if (updated.length > MAX_RESOURCE_USAGE_HISTORY) {
+						return updated.slice(-MAX_RESOURCE_USAGE_HISTORY);
+					}
+					return updated;
+				});
+			});
+		};
+
+		// Load historical resource usage data from the service
+		services.resourceUsageHistoryService.getHistory(positronConsoleInstance.sessionId).then(history => {
+			if (!cancelled && history.length > 0) {
+				setResourceUsageHistory(history);
+			}
+		});
+
+		// Add listener for showResourceMonitor configuration changes
+		disposableStore.add(
+			services.configurationService.onDidChangeConfiguration((e: IConfigurationChangeEvent) => {
+				if (e.affectsConfiguration('console.showResourceMonitor')) {
+					setShowResourceMonitor(
+						services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
+					);
+				}
+			})
+		);
+
 		// Add the onDidUpdateSessionName event handler.
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
@@ -81,7 +131,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					setSessionName(session.getLabel());
 				}
 			})
+		);
 
+		// Add the onDidChangeState event handler.
+		disposableStore.add(
+			positronConsoleInstance.onDidChangeState(state => {
+				setConsoleState(state)
+			})
 		);
 
 		// Add the onDidUpdateNotebookSessionUri event handler.
@@ -100,9 +156,27 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			})
 		);
 
+		// Add resource usage listener to the session if it exists
+		const session = services.runtimeSessionService.getSession(positronConsoleInstance.sessionId);
+		if (session) {
+			// We have a session, add the resource usage listener now.
+			disposableStore.add(addResourceUsageListener(session));
+		} else {
+			// Add the listener once the session starts.
+			disposableStore.add(
+				services.runtimeSessionService.onDidStartRuntime(e => {
+					if (e.sessionId === positronConsoleInstance.sessionId) {
+						disposableStore.add(addResourceUsageListener(e));
+					}
+				}));
+		}
+
 		// Return cleanup function to dispose of the store when effect cleans up.
-		return () => disposableStore.dispose();
-	}, [services.runtimeSessionService, positronConsoleInstance.sessionId])
+		return () => {
+			cancelled = true;
+			disposableStore.dispose();
+		};
+	}, [services.configurationService, services.runtimeSessionService, services.resourceUsageHistoryService, positronConsoleInstance.sessionId]);
 
 	/**
 	 * Handles the click event for the console tab.
@@ -173,6 +247,22 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			class: undefined,
 			enabled: !deleteDisabled,
 			run: () => deleteSession()
+		});
+
+		// Add the show resource monitor toggle action
+		actions.push({
+			id: 'workbench.action.positronConsole.toggleShowResourceMonitor',
+			label: localize('positron.console.showResourceMonitor', "Show Resource Monitor"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			checked: showResourceMonitor,
+			run: () => {
+				services.configurationService.updateValue(
+					'console.showResourceMonitor',
+					!showResourceMonitor
+				);
+			}
 		});
 
 		// Show the context menu.
@@ -365,6 +455,14 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 	};
 
+	// Get the latest resource usage data point for the stats display
+	const latestResourceUsage = resourceUsageHistory.length > 0
+		? resourceUsageHistory[resourceUsageHistory.length - 1]
+		: null;
+
+	// Calculate the graph width (tab width minus padding)
+	const graphWidth = Math.max(0, width - 20);
+
 	return (
 		<div
 			ref={tabRef}
@@ -378,41 +476,65 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onClick={handleClick}
 			onMouseDown={handleMouseDown}
 		>
-			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			<RuntimeIcon
-				base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
-				sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
-			/>
-			{isRenamingSession ? (
-				<input
-					ref={inputRef}
-					className='session-name-input'
-					type='text'
-					value={sessionName}
-					onBlur={handleRenameSubmit}
-					onChange={e => setSessionName(e.target.value)}
-					onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
-					onKeyDown={handleInputKeyDown}
-					onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
+			{/* Header row with session info */}
+			<div className='tab-header'>
+				<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+				<RuntimeIcon
+					base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
+					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 				/>
-			) : (
-				<>
-					<p className='session-name'>{sessionName}</p>
-					{/* Show the delete button only if the width of the tab is greater than the minimum width */
-						width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
-						<button
-							className='delete-button'
-							data-testid='trash-session'
-							disabled={deleteDisabled}
-							onClick={handleDeleteClick}
-							onKeyDown={handleDeleteKeyDown}
-							onMouseDown={handleDeleteMouseDown}
-						>
-							<span className='codicon codicon-trash' />
-						</button>
-					}
-				</>
-			)}
+				{isRenamingSession ? (
+					<input
+						ref={inputRef}
+						className='session-name-input'
+						type='text'
+						value={sessionName}
+						onBlur={handleRenameSubmit}
+						onChange={e => setSessionName(e.target.value)}
+						onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
+						onKeyDown={handleInputKeyDown}
+						onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
+					/>
+				) : (
+					<>
+						<p className='session-name'>{sessionName}</p>
+						{/* Show the delete button only if the width of the tab is greater than the minimum width */
+							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
+							<button
+								className='delete-button'
+								data-testid='trash-session'
+								disabled={deleteDisabled}
+								onClick={handleDeleteClick}
+								onKeyDown={handleDeleteKeyDown}
+								onMouseDown={handleDeleteMouseDown}
+							>
+								<span className='codicon codicon-trash' />
+							</button>
+						}
+					</>
+				)}
+			</div>
+
+			{/* Resource usage section */}
+			{isActiveTab && // Only show resource usage for the active tab
+				showResourceMonitor && // Only show resource usage if enabled in settings
+				resourceUsageHistory.length > 0 && // Only show resource usage if we have data
+				consoleState !== PositronConsoleState.Exited && // Only show resource usage if the console is not exited
+				(
+					<div className='resource-usage-section'>
+						<ResourceUsageGraph
+							data={resourceUsageHistory}
+							height={RESOURCE_GRAPH_HEIGHT}
+							width={graphWidth}
+						/>
+						{latestResourceUsage && (
+							<ResourceUsageStats
+								cpuPercent={latestResourceUsage.cpu_percent}
+								memoryBytes={latestResourceUsage.memory_bytes}
+							/>
+						)}
+					</div>
+				)}
 		</div>
 	)
 }

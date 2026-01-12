@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -89,12 +89,17 @@ export class MultipleLanguageServersDiagnosticService extends BaseDiagnosticsSer
         }
 
         const commandFactory = this.serviceContainer.get<IDiagnosticsCommandFactory>(IDiagnosticsCommandFactory);
+
+        // Create a search query for the detected language server extensions
+        const detectedExtensions = this.getDetectedLanguageServers();
+        const searchQuery = detectedExtensions.map((id) => `@id:${id}`).join(' ');
+
         const options = [
             {
                 prompt: Common.viewExtensions,
                 command: commandFactory.createCommand(diagnostic, {
-                    type: 'executeVSCCommand',
-                    options: 'workbench.view.extensions',
+                    type: 'executeVSCCommandWithArgs',
+                    options: { command: 'workbench.extensions.search', args: [searchQuery] },
                 }),
             },
             {

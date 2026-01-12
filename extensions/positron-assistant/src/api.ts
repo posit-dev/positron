@@ -7,7 +7,7 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext } from './tools/notebookUtils.js';
+import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext, isNotebookModeEnabled } from './tools/notebookUtils.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK, TOOL_TAG_REQUIRES_ACTIONS } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
@@ -277,13 +277,23 @@ export function getEnabledTools(
 				break;
 			case PositronAssistantToolName.EditNotebookCells:
 				// Modification requires Edit or Agent mode
-				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
+				// Available when notebook mode is enabled (not just when notebook is active)
+				// so it can be used immediately after CreateNotebook in the same turn
+				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
 					continue;
 				}
 				break;
 			case PositronAssistantToolName.GetNotebookCells:
-				// Read-only tools available in all modes
-				if (!(inChatPane && hasActiveNotebook)) {
+				// Read-only tools available in all modes when notebook mode is enabled
+				// Available without active notebook so it can be used after CreateNotebook
+				if (!(inChatPane && isNotebookModeEnabled())) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.CreateNotebook:
+				// CreateNotebook requires notebook mode enabled but NOT an active notebook
+				// Only available in Edit or Agent mode (creates something)
+				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
 					continue;
 				}
 				break;
@@ -344,8 +354,14 @@ export function getEnabledTools(
 
 		// Disable Copilot notebook tools when Positron notebook mode is active
 		// to avoid conflicts with Positron's specialized notebook tools.
-		if (copilotTool && hasActiveNotebook && COPILOT_NOTEBOOK_TOOLS.has(tool.name)) {
-			continue;
+		if (copilotTool && COPILOT_NOTEBOOK_TOOLS.has(tool.name)) {
+			// For most tools, this means an active notebook is attached
+			// For createNotebook specifically, we disable when our CreateNotebook tool would be available
+			if (hasActiveNotebook ||
+				(tool.name === 'copilot_createNewJupyterNotebook' &&
+					inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
+				continue;
+			}
 		}
 
 		// Check if the user is signed into Copilot.

@@ -6,6 +6,7 @@
 import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { CellKind as NotebookCellKind, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -16,6 +17,27 @@ import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+
+/**
+ * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
+ * Sentinels display a red fade animation and provide a restore button.
+ */
+export interface IDeletionSentinel {
+	/** Unique identifier for the sentinel */
+	id: string;
+	/** The original index where the cell was deleted */
+	originalIndex: number;
+	/** Timestamp when the sentinel was created */
+	timestamp: number;
+	/** Preview content for display (first few lines) */
+	previewContent: string;
+	/** The type of cell that was deleted */
+	cellKind: NotebookCellKind;
+	/** The language of the cell (for code cells) */
+	language?: string;
+	/** Complete cell data for restoration (outputs omitted to save memory) */
+	cellData: ICellDto2;
+}
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -371,8 +393,35 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Handle assistant cell modification by showing notifications or auto-following
 	 * when cells are modified outside the viewport.
 	 * @param cellIndex The index of the cell that was modified
+	 * @param operationType Optional type of operation for specific styling ('add', 'delete', or 'modify')
+	 * @param maxWaitMs Maximum time to wait for container in milliseconds
 	 */
-	handleAssistantCellModification(cellIndex: number): Promise<void>;
+	handleAssistantCellModification(cellIndex: number, operationType?: 'add' | 'delete' | 'modify', maxWaitMs?: number): Promise<void>;
+
+	/**
+	 * Observable list of deletion sentinels.
+	 * Sentinels are shown where cells were deleted and provide an undo button.
+	 */
+	readonly deletionSentinels: IObservable<IDeletionSentinel[]>;
+
+	/**
+	 * Add a deletion sentinel at the specified cell index.
+	 * @param cellIndex The index where the cell was deleted
+	 * @param cellData The complete cell data for potential restoration
+	 */
+	addDeletionSentinel(cellIndex: number, cellData: ICellDto2): void;
+
+	/**
+	 * Restores a deleted cell from its sentinel data.
+	 * @param sentinel The deletion sentinel containing cell data to restore
+	 */
+	restoreCell(sentinel: IDeletionSentinel): void;
+
+	/**
+	 * Remove a deletion sentinel by its ID.
+	 * @param id The unique identifier of the sentinel to remove
+	 */
+	removeDeletionSentinel(id: string): void;
 
 	/**
 	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.

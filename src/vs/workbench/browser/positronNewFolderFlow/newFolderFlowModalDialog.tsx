@@ -64,6 +64,22 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						}
 					}
 
+					// TODO: we may want to allow the user to select an already existing folder
+					// and then create the folder in that folder. We will need to handle if the
+					// folder is the same as the current workspace folder in the active window
+					// or if the new folder directory is already open in another window.
+
+					// If the folder is new, set its trust state to trusted.
+					if (!existingFolder) {
+						renderer.services.workspaceTrustManagementService.setUrisTrust([folder], true);
+					}
+
+					// Ask the user where to open the new folder.
+					result.openInNewWindow = await showChooseNewFolderWindowModalDialog(
+						folder.path,
+						result.openInNewWindow,
+					);
+
 					// Create the new folder configuration.
 					const newFolderConfig: NewFolderConfiguration = {
 						folderScheme: folder.scheme,
@@ -80,29 +96,23 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						condaPythonVersion: result.condaPythonVersion,
 						uvPythonVersion: result.uvPythonVersion,
 						useRenv: result.useRenv,
+						openInNewWindow: result.openInNewWindow,
 					};
-
-					// TODO: we may want to allow the user to select an already existing folder
-					// and then create the folder in that folder. We will need to handle if the
-					// folder is the same as the current workspace folder in the active window
-					// or if the new folder directory is already open in another window.
 
 					// Store the new folder configuration.
 					renderer.services.positronNewFolderService.storeNewFolderConfig(newFolderConfig);
 
-					// If the folder is new, set its trust state to trusted.
-					if (!existingFolder) {
-						renderer.services.workspaceTrustManagementService.setUrisTrust([folder], true);
-					}
-
 					// Any context-dependent work needs to be done before opening the folder
 					// because the extension host gets destroyed when a new folder is opened,
 					// whether the folder is opened in a new window or in the existing window.
-					// Ask the user where to open the new folder and open it.
-					showChooseNewFolderWindowModalDialog(
-						folder.path,
+					// Open the folder in the selected window.
+					await renderer.services.commandService.executeCommand(
+						'vscode.openFolder',
 						folder,
-						result.openInNewWindow
+						{
+							forceNewWindow: result.openInNewWindow,
+							forceReuseWindow: !result.openInNewWindow
+						}
 					);
 				}}
 				renderer={renderer}

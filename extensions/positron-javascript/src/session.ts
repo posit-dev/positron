@@ -22,6 +22,8 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
+	private readonly _onDidUpdateResourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
+
 	private _env?: JavaScriptVariables;
 
 	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
@@ -52,6 +54,9 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 	readonly onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>
 		= this._onDidEndSession.event;
+
+	readonly onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>
+		= this._onDidUpdateResourceUsage.event;
 
 	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
 		return this._runtimeInfo;

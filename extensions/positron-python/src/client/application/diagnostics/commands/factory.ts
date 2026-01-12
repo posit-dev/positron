@@ -7,6 +7,9 @@ import { inject, injectable } from 'inversify';
 import { IServiceContainer } from '../../../ioc/types';
 import { IDiagnostic, IDiagnosticCommand } from '../types';
 import { ExecuteVSCCommand } from './execVSCCommand';
+// --- Start Positron ---
+import { ExecuteVSCCommandWithArgs } from './execVSCCommandWithArgs';
+// --- End Positron ---
 import { IgnoreDiagnosticCommand } from './ignore';
 import { LaunchBrowserCommand } from './launchBrowser';
 import { CommandOptions, IDiagnosticsCommandFactory } from './types';
@@ -26,6 +29,16 @@ export class DiagnosticsCommandFactory implements IDiagnosticsCommandFactory {
             case 'executeVSCCommand': {
                 return new ExecuteVSCCommand(diagnostic, this.serviceContainer, options.options);
             }
+            // --- Start Positron ---
+            case 'executeVSCCommandWithArgs': {
+                return new ExecuteVSCCommandWithArgs(
+                    diagnostic,
+                    this.serviceContainer,
+                    options.options.command,
+                    options.options.args,
+                );
+            }
+            // --- End Positron ---
             default: {
                 throw new Error(`Unknown Diagnostic command commandType '${commandType}'`);
             }
