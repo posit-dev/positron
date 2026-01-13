@@ -304,10 +304,6 @@
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
-	"trustedExtensionAuthAccess": [
-		"GitHub.copilot-chat",
-		"positron.positron-assistant"
-	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",
@@ -323,13 +319,7 @@
 	"defaultChatAgent": {
 		"extensionId": "positron.positron-assistant",
 		"chatExtensionId": "positron.positron-assistant",
-		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
-		"completionsRefreshTokenCommand": "github.copilot.signIn",
-		"chatRefreshTokenCommand": "github.copilot.refreshToken",
-		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
-		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
-		"completionsAdvancedSetting": "github.copilot.advanced",
-		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled",
+
 		"provider": {
 			"default": {
 				"id": "positron.assistant",
@@ -354,7 +344,20 @@
 			[
 				"read:user"
 			]
-		]
+		],
+		"entitlementUrl": "https://api.github.com/copilot_internal/user",
+		"entitlementSignupLimitedUrl": "https://api.github.com/copilot_internal/subscribe_limited_user",
+		"chatQuotaExceededContext": "github.copilot.chat.quotaExceeded",
+		"completionsQuotaExceededContext": "github.copilot.completions.quotaExceeded",
+		"walkthroughCommand": "github.copilot.open.walkthrough",
+		"completionsMenuCommand": "github.copilot.toggleStatusMenu",
+		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"completionsRefreshTokenCommand": "github.copilot.signIn",
+		"chatRefreshTokenCommand": "github.copilot.refreshToken",
+		"generateCommitMessageCommand": "github.copilot.git.generateCommitMessage",
+		"resolveMergeConflictsCommand": "github.copilot.git.resolveMergeConflicts",
+		"completionsAdvancedSetting": "github.copilot.advanced",
+		"nextEditSuggestionsSetting": "github.copilot.nextEditSuggestions.enabled"
 	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
@@ -642,6 +645,15 @@
 		"TeamsDevApp.ms-teams-vscode-extension": [
 			"chatParticipantAdditions",
 			"languageModelSystem"
+		]
+	},
+	"trustedExtensionAuthAccess": {
+		"github": [
+			"GitHub.copilot-chat",
+			"positron.positron-assistant"
+		],
+		"github-enterprise": [
+			"GitHub.copilot-chat"
 		]
 	}
 }

@@ -25,7 +25,7 @@ import product from '../../../../../platform/product/common/product.js';
 // --- Start Positron ---
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
-import { ChatContextKeys } from '../../common/chatContextKeys.js';
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 // --- End Positron ---
 
 // --- Start Positron ---

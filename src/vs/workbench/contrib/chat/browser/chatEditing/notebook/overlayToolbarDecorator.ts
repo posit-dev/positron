@@ -18,7 +18,7 @@ import { IChatEditingNotebookEditor as INotebookEditor } from '../../../../posit
 // --- End Positron ---
 import { NotebookTextModel } from '../../../../notebook/common/model/notebookTextModel.js';
 import { CellKind } from '../../../../notebook/common/notebookCommon.js';
-import { IModifiedFileEntryChangeHunk } from '../../../common/chatEditingService.js';
+import { IModifiedFileEntryChangeHunk } from '../../../common/editing/chatEditingService.js';
 import { ICellDiffInfo } from './notebookCellChanges.js';
 
 

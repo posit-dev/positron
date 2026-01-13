@@ -22,8 +22,6 @@ import { CustomTreeView, TreeViewPane } from '../../browser/parts/views/treeView
 import { ViewPaneContainer } from '../../browser/parts/views/viewPaneContainer.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../common/contributions.js';
 import { ICustomViewDescriptor, IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainer, Extensions as ViewContainerExtensions, ViewContainerLocation } from '../../common/views.js';
-import { ChatContextKeyExprs } from '../../contrib/chat/common/chatContextKeys.js';
-import { LEGACY_AGENT_SESSIONS_VIEW_ID } from '../../contrib/chat/common/constants.js';
 import { VIEWLET_ID as DEBUG } from '../../contrib/debug/common/debug.js';
 import { VIEWLET_ID as EXPLORER } from '../../contrib/files/common/files.js';
 import { VIEWLET_ID as REMOTE } from '../../contrib/remote/browser/remoteExplorer.js';
@@ -256,12 +254,6 @@ const viewsContribution: IJSONSchema = {
 			description: localize('views.connections', "Contributes views to Connections container in the Auxiliary sidebar"),
 		},
 		// --- End Positron ---
-		'agentSessions': { //TODO@bpasero retire this eventually
-			description: localize('views.agentSessions', "Contributes views to Agent Sessions container in the Activity bar. To contribute to this container, the 'chatSessionsProvider' API proposal must be enabled."),
-			type: 'array',
-			items: viewDescriptor,
-			default: []
-		}
 	},
 	additionalProperties: {
 		description: localize('views.contributed', "Contributes views to contributed views container"),
@@ -549,17 +541,12 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 						accessibilityHelpContent = new MarkdownString(item.accessibilityHelpContent);
 					}
 
-					let when = ContextKeyExpr.deserialize(item.when);
-					if (key === 'agentSessions') {
-						when = ContextKeyExpr.and(when, ChatContextKeyExprs.agentViewWhen);
-					}
-
 					const viewDescriptor: ICustomViewDescriptor = {
 						type: type,
 						ctorDescriptor: type === ViewType.Tree ? new SyncDescriptor(TreeViewPane) : new SyncDescriptor(WebviewViewPane),
 						id: item.id,
 						name: { value: item.name, original: item.name },
-						when,
+						when: ContextKeyExpr.deserialize(item.when),
 						containerIcon: icon || viewContainer?.icon,
 						containerTitle: item.contextualTitle || (viewContainer && (typeof viewContainer.title === 'string' ? viewContainer.title : viewContainer.title.value)),
 						canToggleVisibility: true,
@@ -674,7 +661,6 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 			// --- Start Positron ---
 			case 'connections': return this.viewContainersRegistry.get(POSITRON_CONNECTIONS_VIEW_ID);
 			// --- End Positron ---
-			case 'agentSessions': return this.viewContainersRegistry.get(LEGACY_AGENT_SESSIONS_VIEW_ID);
 			default: return this.viewContainersRegistry.get(`workbench.view.extension.${value}`);
 		}
 	}

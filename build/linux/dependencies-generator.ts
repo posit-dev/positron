@@ -30,7 +30,7 @@ import { isRpmArchString, type RpmArchString } from './rpm/types.ts';
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
 
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/142.0.7444.175:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/142.0.7444.235:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [

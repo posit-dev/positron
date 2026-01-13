@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { assertNever } from '../../../../../base/common/assert.js';
+import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createMarkdownCommandLink } from '../../../../../base/common/htmlContent.js';
@@ -22,8 +23,8 @@ import { McpCommandIds } from '../../../mcp/common/mcpCommandIds.js';
 import { IMcpRegistry } from '../../../mcp/common/mcpRegistryTypes.js';
 import { IMcpServer, IMcpService, IMcpWorkbenchService, McpConnectionState, McpServerCacheState, McpServerEditorTab } from '../../../mcp/common/mcpTypes.js';
 import { startServerAndWaitForLiveTools } from '../../../mcp/common/mcpTypesUtils.js';
-import { ChatContextKeys } from '../../common/chatContextKeys.js';
-import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/languageModelToolsService.js';
+import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
+import { ILanguageModelToolsService, IToolData, ToolDataSource, ToolSet } from '../../common/tools/languageModelToolsService.js';
 import { ConfigureToolSets } from '../tools/toolSetsContribution.js';
 
 // --- Start Positron ---
@@ -187,16 +188,19 @@ function createToolSetTreeItem(toolset: ToolSet, checked: boolean, editorService
  * @param placeHolder - Placeholder text shown in the picker
  * @param description - Optional description text shown in the picker
  * @param toolsEntries - Optional initial selection state for tools and toolsets
+* @param token - Optional cancellation token to close the picker when cancelled
+ // --- Start Positron ---
  * @param selectedLanguageModel - Optional selected language model to filter tools for
- * @param onUpdate - Optional callback fired when the selection changes
+ // --- End Positron ---
  * @returns Promise resolving to the final selection map, or undefined if cancelled
  */
 export async function showToolsPicker(
 	accessor: ServicesAccessor,
 	placeHolder: string,
 	description?: string,
-	// --- Start Positron ---
 	getToolsEntries?: () => ReadonlyMap<ToolSet | IToolData, boolean>,
+	// --- Start Positron ---
+	token?: CancellationToken,
 	selectedLanguageModel?: ILanguageModelChatMetadataAndIdentifier
 	// --- End Positron ---
 ): Promise<ReadonlyMap<ToolSet | IToolData, boolean> | undefined> {
@@ -620,6 +624,13 @@ export async function showToolsPicker(
 		}
 		treePicker.hide();
 	}));
+
+	// Close picker when cancelled (e.g., when mode changes)
+	if (token) {
+		store.add(token.onCancellationRequested(() => {
+			treePicker.hide();
+		}));
+	}
 
 	treePicker.show();
 

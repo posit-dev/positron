@@ -2171,7 +2171,7 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 			const shouldInlineGroup = (action: SubmenuAction, group: string) => group === 'navigation' && action.actions.length <= 1;
 
 			actions = getActionBarActions(
-				editorTitleMenu.getActions({ arg: this.resourceContext.get(), shouldForwardArgs: true }),
+				editorTitleMenu.getActions({ arg: this.resourceContext.get(), shouldForwardArgs: true, renderShortTitle: true }),
 				'navigation',
 				shouldInlineGroup
 			);

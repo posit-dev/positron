@@ -771,6 +771,9 @@ declare namespace monaco {
 		 * Moves the range by the given amount of lines.
 		 */
 		delta(lineCount: number): Range;
+		/**
+		 * Test if this range starts and ends on the same line.
+		 */
 		isSingleLine(): boolean;
 		static fromPositions(start: IPosition, end?: IPosition): Range;
 		/**
@@ -7713,6 +7716,7 @@ declare namespace monaco.languages {
 
 	export type InlineCompletionEndOfLifeReason<TInlineCompletion = InlineCompletion> = {
 		kind: InlineCompletionEndOfLifeReasonKind.Accepted;
+		alternativeAction: boolean;
 	} | {
 		kind: InlineCompletionEndOfLifeReasonKind.Rejected;
 	} | {
@@ -7756,9 +7760,9 @@ declare namespace monaco.languages {
 		availableProviders: string;
 		skuPlan: string | undefined;
 		skuType: string | undefined;
-		renameCreated: boolean;
+		renameCreated: boolean | undefined;
 		renameDuration: number | undefined;
-		renameTimedOut: boolean;
+		renameTimedOut: boolean | undefined;
 		renameDroppedOtherEdits: number | undefined;
 		renameDroppedRenameEdits: number | undefined;
 		editKind: string | undefined;

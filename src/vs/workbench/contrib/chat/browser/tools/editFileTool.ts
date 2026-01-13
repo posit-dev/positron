@@ -35,15 +35,15 @@ import { ITextFileService } from '../../../../services/textfile/common/textfiles
 import { CellUri } from '../../../notebook/common/notebookCommon.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { IChatWidgetService } from '../chat.js';
-import { ICodeMapperService } from '../../common/chatCodeMapperService.js';
-import { ChatModel } from '../../common/chatModel.js';
-import { IChatService } from '../../common/chatService.js';
+import { ICodeMapperService } from '../../common/editing/chatCodeMapperService.js';
+import { ChatModel } from '../../common/model/chatModel.js';
+import { IChatService } from '../../common/chatService/chatService.js';
 import { ILanguageModelIgnoredFilesService } from '../../common/ignoredFiles.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolInvocationPresentation } from '../../common/languageModelToolsService.js';
+import { IToolData, ToolDataSource, IToolImpl, IToolInvocation, CountTokensCallback, IToolResult, IPreparedToolInvocation, ToolInvocationPresentation } from '../../common/tools/languageModelToolsService.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { ToolProgress } from '../../common/languageModelToolsService.js';
+import { ToolProgress } from '../../common/tools/languageModelToolsService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { getUriForFileOpenOrInsideWorkspace, isFileExcludedFromAI } from './utils.js';
 

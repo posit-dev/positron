@@ -9,7 +9,7 @@
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import type { IKeyValueStorage, IExperimentationTelemetry, ExperimentationService as TASClient } from 'tas-client';
 import { Memento } from '../../../common/memento.js';
-import { ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryData } from '../../../../base/common/actions.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -23,12 +23,12 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
 // --- End Positron ---
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
-import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { importAMDNodeModule } from '../../../../amdX.js';
 import { timeout } from '../../../../base/common/async.js';
 import { CopilotAssignmentFilterProvider } from './assignmentFilters.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { experimentsEnabled } from '../../telemetry/common/workbenchTelemetryUtils.js';
 
 export interface IAssignmentFilter {
 	exclude(assignment: string): boolean;
@@ -175,13 +175,9 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
 	) {
 		super();
 
-		this.experimentsEnabled = getTelemetryLevel(configurationService) === TelemetryLevel.USAGE &&
-			!environmentService.disableExperiments &&
-			!environmentService.extensionTestsLocationURI &&
-			!environmentService.enableSmokeTestDriver &&
-			configurationService.getValue('workbench.enableExperiments') === true;
+		this.experimentsEnabled = experimentsEnabled(configurationService, productService, environmentService);
 
-		if (productService.tasConfig && this.experimentsEnabled) {
+		if (this.experimentsEnabled) {
 			this.tasClient = this.setupTASClient();
 		}
 
