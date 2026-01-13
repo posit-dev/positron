@@ -17,6 +17,7 @@ const KIND_NAMES: [PythonEnvKind, string][] = [
     [PythonEnvKind.Pixi, 'pixi'],
     // --- Start Positron ---
     [PythonEnvKind.Uv, 'uv'],
+    [PythonEnvKind.Module, 'module'],
     // --- End Positron ---
     [PythonEnvKind.Custom, 'customGlobal'],
     [PythonEnvKind.OtherGlobal, 'otherGlobal'],
