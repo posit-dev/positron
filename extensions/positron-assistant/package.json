@@ -315,14 +315,6 @@
               "preview"
             ]
           },
-          "positron.assistant.notebookMode.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.notebookMode.enable.description%",
-            "tags": [
-              "experimental"
-            ]
-          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,

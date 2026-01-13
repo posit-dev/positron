@@ -101,7 +101,6 @@ export class AskAssistantAction extends NotebookAction2 {
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 					ContextKeyExpr.has('config.positron.assistant.enable'),
-					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
 				)
 			}
 		});

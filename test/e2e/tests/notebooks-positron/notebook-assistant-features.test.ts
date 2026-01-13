@@ -18,10 +18,6 @@ test.describe('Notebook Assistant Features', {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
-	test.beforeEach(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
@@ -32,7 +28,6 @@ test.describe('Notebook Assistant Features', {
 		// Disable assistant features
 		await settings.set({
 			'positron.assistant.enable': false,
-			'positron.assistant.notebookMode.enable': false
 		});
 
 		// Create a new notebook with a cell that produces an error
@@ -66,7 +61,6 @@ test.describe('Notebook Assistant Features', {
 		// Enable assistant features (notebook mode requires master switch)
 		await settings.set({
 			'positron.assistant.enable': true,
-			'positron.assistant.notebookMode.enable': true
 		});
 
 		// Configure and enable the echo model provider to set hasChatModels context key
@@ -108,7 +102,6 @@ test.describe('Notebook Assistant Features', {
 		// Test 1: Disable assistant - Follow Assistant should not be visible
 		await settings.set({
 			'positron.assistant.enable': false,
-			'positron.assistant.notebookMode.enable': false
 		});
 
 		await notebooks.createNewNotebook();
@@ -124,7 +117,6 @@ test.describe('Notebook Assistant Features', {
 		// Test 2: Enable master switch but not notebook mode - should still not be visible
 		await settings.set({
 			'positron.assistant.enable': true,
-			'positron.assistant.notebookMode.enable': false
 		});
 
 		await notebooks.createNewNotebook();
@@ -139,7 +131,6 @@ test.describe('Notebook Assistant Features', {
 		// Test 3: Enable both settings AND configure echo model (required for hasChatModels context key)
 		await settings.set({
 			'positron.assistant.enable': true,
-			'positron.assistant.notebookMode.enable': true
 		});
 
 		// Configure and enable the echo model provider to set hasChatModels context key

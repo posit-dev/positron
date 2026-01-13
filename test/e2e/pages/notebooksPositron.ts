@@ -153,30 +153,7 @@ export class PositronNotebooks extends Notebooks {
 	// #region ACTIONS
 
 	/**
-	 * Action: Configure Positron notebook editor in settings.
-	 * @param settings - The settings fixture
-	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
-	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
-	 * @param enableNotebooks - Whether to enable Positron notebooks (defaults to true, set to false to explicitly disable)
-	 */
-	async setNotebookEditor(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		},
-		editor: 'positron' | 'default',
-		waitMs = 1000,
-		enableNotebooks = true
-	) {
-		await settings.set({
-			'positron.notebook.enabled': enableNotebooks,
-			'workbench.editorAssociations': editor === 'positron'
-				? { '*.ipynb': 'workbench.editor.positronNotebook' }
-				: {}
-		}, { waitMs });
-	}
-
-	/**
-	 * Action: Configure editor associations to use Positron notebook editor for .ipynb files.
+	 * Action: Enable Positron notebooks as the default editor.
 	 * @param settings - The settings fixture
 	 */
 	async enablePositronNotebooks(
@@ -184,10 +161,28 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		const config: Record<string, unknown> = {
-			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
-		};
-		await settings.set(config, { reload: 'web' });
+		await this._setPositronNotebooksEnabled(settings, true);
+	}
+
+	/**
+	 * Action: Disable Positron notebooks as the default editor.
+	 * @param settings - The settings fixture
+	 */
+	async disablePositronNotebooks(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+	) {
+		await this._setPositronNotebooksEnabled(settings, false);
+	}
+
+	private async _setPositronNotebooksEnabled(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+		enabled: boolean,
+	) {
+		await settings.set({ 'positron.notebook.enabled': enabled }, { reload: true });
 		await this.sessions.expectNoStartUpMessaging();
 	}
 

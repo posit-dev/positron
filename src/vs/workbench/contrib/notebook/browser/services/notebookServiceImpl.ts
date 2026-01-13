@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-import { checkPositronNotebookEnabled } from '../../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -184,7 +184,12 @@ export class NotebookProviderInfoStore extends Disposable {
 				id: notebookProviderInfo.id,
 				label: notebookProviderInfo.displayName,
 				detail: notebookProviderInfo.providerDisplayName,
-				priority: notebookProviderInfo.priority,
+				// --- Start Positron ---
+				// If Positron notebooks are enabled, deprioritize the legacy notebook to `option`
+				// priority: notebookProviderInfo.priority,
+				priority: notebookProviderInfo.id === 'jupyter-notebook' && usingPositronNotebooks(this._configurationService) ?
+					RegisteredEditorPriority.option : notebookProviderInfo.priority,
+				// --- End Positron ---
 			};
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
@@ -365,7 +370,7 @@ export class NotebookProviderInfoStore extends Disposable {
 			// e.g. vscode.window.showTextDocument(cell.document).
 			// The editor resolver service expects a single handler with 'exclusive' priority,
 			// so don't register this one if Positron notebooks are enabled.
-			if (!checkPositronNotebookEnabled(this._configurationService)) {
+			if (!usingPositronNotebooks(this._configurationService)) {
 				disposables.add(this._editorResolverService.registerEditor(
 					`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
 					{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
