@@ -22,7 +22,9 @@
   },
   "icon": "icon.png",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onLanguage:rdata",
+    "onLanguage:rds"
   ],
   "contributes": {
     "commands": [
