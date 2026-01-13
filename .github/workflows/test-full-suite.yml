@@ -3,6 +3,11 @@ name: "Test: Full Suite"
 on:
   workflow_dispatch:
     inputs:
+      commit:
+        description: "Commit SHA to test (leave empty for current branch)"
+        required: false
+        default: ""
+        type: string
       run_e2e_linux:
         description: "E2E Tests / Electron (Ubuntu)"
         required: false
@@ -78,6 +83,8 @@ jobs:
     if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
+    with:
+      commit: ${{ inputs.commit }}
 
   e2e-electron:
     name: e2e
@@ -105,6 +112,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-windows"
       display_name: "windows"
@@ -142,6 +150,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-rhel.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron (rhel)"
@@ -157,6 +166,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-rhel.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (rhel)"
@@ -172,6 +182,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-suse.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron (suse)"
@@ -187,6 +198,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-suse.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (suse)"
@@ -202,6 +214,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-debian.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron (debian)"
@@ -217,6 +230,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-debian.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (debian)"
@@ -231,6 +245,8 @@ jobs:
     if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
+    with:
+      commit: ${{ inputs.commit }}
 
   integration-tests:
     name: test
@@ -238,6 +254,7 @@ jobs:
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit }}
       pull_request: false
 
   slack-notify:

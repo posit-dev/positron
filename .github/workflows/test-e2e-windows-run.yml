@@ -11,6 +11,11 @@ name: "Test: E2E (Windows) — Sharded"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       save_cache:
         required: false
         description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
@@ -107,6 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -493,6 +499,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
