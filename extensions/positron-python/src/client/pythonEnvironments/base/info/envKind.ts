@@ -70,6 +70,7 @@ export function getPrioritizedEnvKinds(): PythonEnvKind[] {
         PythonEnvKind.MicrosoftStore,
         // --- Start Positron ---
         PythonEnvKind.Uv, // Placed here since uv environments are essentially venvs
+        PythonEnvKind.Module,
         // --- End Positron ---
         PythonEnvKind.Pipenv,
         PythonEnvKind.Poetry,
