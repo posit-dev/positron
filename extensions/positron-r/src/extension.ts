@@ -21,6 +21,9 @@ import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
+// Export the runtime manager so other modules can access discovery state
+export let runtimeManager: RRuntimeManager;
+
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
 		LOGGER.appendLine(vscode.l10n.t('Log level: {0}', vscode.LogLevel[logLevel]));
@@ -34,14 +37,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// which is needed to properly restore the LSP after extension host restarts.
 	RSessionManager.initialize(context);
 
-	const rRuntimeManager = new RRuntimeManager(context);
-	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
+	runtimeManager = new RRuntimeManager(context);
+	positron.runtime.registerLanguageRuntimeManager('r', runtimeManager);
 
 	// Set contexts.
 	setContexts(context);
 
 	// Register commands.
-	registerCommands(context, rRuntimeManager);
+	registerCommands(context, runtimeManager);
 
 	// Register LLM tools.
 	registerRLanguageModelTools(context);

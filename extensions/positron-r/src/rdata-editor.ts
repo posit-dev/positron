@@ -6,6 +6,261 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { runtimeManager } from './extension.js';
+
+/**
+ * Result of checking R runtime availability.
+ */
+type RRuntimeStatus =
+	| { status: 'ready' }
+	| { status: 'waiting' }
+	| { status: 'no-r-found' };
+
+/**
+ * Checks the current R runtime availability status.
+ *
+ * @returns The current status of R runtime availability
+ */
+async function checkRRuntimeStatus(): Promise<RRuntimeStatus> {
+	// Check if there's an active R session
+	const activeSessions = await positron.runtime.getActiveSessions();
+	const hasActiveRSession = activeSessions.some(session =>
+		session.runtimeMetadata.languageId === 'r'
+	);
+
+	if (hasActiveRSession) {
+		return { status: 'ready' };
+	}
+
+	// Check if any R runtimes have been discovered
+	const registeredRuntimes = await positron.runtime.getRegisteredRuntimes();
+	const hasRegisteredR = registeredRuntimes.some(runtime =>
+		runtime.languageId === 'r'
+	);
+
+	if (hasRegisteredR) {
+		return { status: 'ready' };
+	}
+
+	// If discovery is complete and no R found, return no-r-found
+	if (runtimeManager.isDiscoveryComplete) {
+		return { status: 'no-r-found' };
+	}
+
+	// No R runtimes registered yet - still discovering
+	return { status: 'waiting' };
+}
+
+/**
+ * Waits for R runtime to become available.
+ *
+ * @param webviewPanel The webview panel to update with status
+ * @param fileName The name of the file being loaded
+ * @param updateHtml Function to update the webview HTML
+ * @param token Cancellation token
+ * @returns Promise that resolves to true if R is available, false if no R was found
+ */
+async function waitForRRuntime(
+	webviewPanel: vscode.WebviewPanel,
+	fileName: string,
+	updateHtml: (html: string) => void,
+	token: vscode.CancellationToken
+): Promise<boolean> {
+	// First check current status
+	const initialStatus = await checkRRuntimeStatus();
+	if (initialStatus.status === 'ready') {
+		return true;
+	}
+	if (initialStatus.status === 'no-r-found') {
+		return false;
+	}
+
+	// Show waiting message
+	updateHtml(getWaitingForRHtml(fileName));
+
+	// Wait for R runtime to be registered or discovery to complete
+	return new Promise<boolean>((resolve) => {
+		const disposables: vscode.Disposable[] = [];
+		let resolved = false;
+
+		const cleanup = () => {
+			if (!resolved) {
+				resolved = true;
+				disposables.forEach(d => d.dispose());
+			}
+		};
+
+		// Listen for new runtime registrations
+		disposables.push(
+			positron.runtime.onDidRegisterRuntime((runtime) => {
+				if (runtime.languageId === 'r') {
+					cleanup();
+					resolve(true);
+				}
+			})
+		);
+
+		// Listen for discovery completion
+		disposables.push(
+			runtimeManager.onDidCompleteDiscovery(() => {
+				// Discovery completed - check if any R was found
+				if (runtimeManager.discoveredRuntimeCount > 0) {
+					cleanup();
+					resolve(true);
+				} else {
+					cleanup();
+					resolve(false);
+				}
+			})
+		);
+
+		// Handle cancellation
+		disposables.push(
+			token.onCancellationRequested(() => {
+				cleanup();
+				resolve(false);
+			})
+		);
+
+		// Handle webview disposal
+		disposables.push(
+			webviewPanel.onDidDispose(() => {
+				cleanup();
+				resolve(false);
+			})
+		);
+	});
+}
+
+/**
+ * Generates HTML for the "waiting for R" state.
+ */
+function getWaitingForRHtml(fileName: string): string {
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Waiting for R</title>
+	<style>
+		body {
+			font-family: var(--vscode-font-family);
+			padding: 20px;
+			color: var(--vscode-foreground);
+			background-color: var(--vscode-editor-background);
+		}
+		.container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 200px;
+		}
+		.spinner {
+			width: 32px;
+			height: 32px;
+			border: 3px solid var(--vscode-foreground);
+			border-top-color: transparent;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin-bottom: 16px;
+		}
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+		code {
+			background-color: var(--vscode-textCodeBlock-background);
+			padding: 2px 6px;
+			border-radius: 3px;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="spinner"></div>
+		<h2>Waiting for R...</h2>
+		<p>Discovering R installations to load <code>${escapeHtml(fileName)}</code>...</p>
+	</div>
+</body>
+</html>`;
+}
+
+/**
+ * Generates HTML for the "no R found" error state.
+ */
+function getNoRFoundHtml(fileName: string): string {
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>R Required</title>
+	<style>
+		body {
+			font-family: var(--vscode-font-family);
+			padding: 20px;
+			color: var(--vscode-foreground);
+			background-color: var(--vscode-editor-background);
+		}
+		.container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 200px;
+		}
+		.error {
+			color: var(--vscode-testing-iconFailed, #f14c4c);
+		}
+		.error-icon {
+			font-size: 48px;
+			margin-bottom: 16px;
+		}
+		code {
+			background-color: var(--vscode-textCodeBlock-background);
+			padding: 2px 6px;
+			border-radius: 3px;
+		}
+		.message {
+			margin-top: 16px;
+			padding: 12px;
+			background-color: var(--vscode-inputValidation-warningBackground);
+			border: 1px solid var(--vscode-inputValidation-warningBorder);
+			border-radius: 4px;
+			max-width: 500px;
+			text-align: center;
+		}
+		a {
+			color: var(--vscode-textLink-foreground);
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="error-icon error">!</div>
+		<h2 class="error">R Installation Required</h2>
+		<p>Cannot load <code>${escapeHtml(fileName)}</code>.</p>
+		<div class="message">
+			An installation of R is required to load RData and RDS files.
+			<br><br>
+			<a href="https://positron.posit.co/r-installations">Learn more about R discovery</a>
+		</div>
+	</div>
+</body>
+</html>`;
+}
+
+/**
+ * Escapes HTML special characters.
+ */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+}
 
 /**
  * Custom editor provider for .RData/.rda files that loads the R workspace
@@ -27,7 +282,7 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 		);
 	}
 
-	constructor(private readonly context: vscode.ExtensionContext) { }
+	constructor(private readonly _context: vscode.ExtensionContext) { }
 
 	async openCustomDocument(
 		uri: vscode.Uri,
@@ -40,10 +295,26 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 	async resolveCustomEditor(
 		document: vscode.CustomDocument,
 		webviewPanel: vscode.WebviewPanel,
-		_token: vscode.CancellationToken
+		token: vscode.CancellationToken
 	): Promise<void> {
 		const filePath = document.uri.fsPath.replace(/\\/g, '/');
 		const fileName = path.basename(filePath);
+
+		// Wait for R runtime to be available
+		const rAvailable = await waitForRRuntime(
+			webviewPanel,
+			fileName,
+			(html) => { webviewPanel.webview.html = html; },
+			token
+		);
+
+		if (!rAvailable) {
+			// Either cancelled or no R found
+			if (!token.isCancellationRequested) {
+				webviewPanel.webview.html = getNoRFoundHtml(fileName);
+			}
+			return;
+		}
 
 		// Show loading message in webview
 		webviewPanel.webview.html = this.getLoadingHtml(fileName);
@@ -109,7 +380,7 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 	<div class="container">
 		<div class="spinner"></div>
 		<h2>Loading R Workspace</h2>
-		<p>Loading objects from <code>${this.escapeHtml(fileName)}</code>...</p>
+		<p>Loading objects from <code>${escapeHtml(fileName)}</code>...</p>
 	</div>
 </body>
 </html>`;
@@ -154,7 +425,7 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 	<div class="container">
 		<div class="checkmark success">✓</div>
 		<h2 class="success">R Workspace Loaded</h2>
-		<p>Objects from <code>${this.escapeHtml(fileName)}</code> have been loaded into your R session.</p>
+		<p>Objects from <code>${escapeHtml(fileName)}</code> have been loaded into your R session.</p>
 	</div>
 </body>
 </html>`;
@@ -208,20 +479,11 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 	<div class="container">
 		<div class="error-icon error">!</div>
 		<h2 class="error">Error Loading R Workspace</h2>
-		<p>Failed to load <code>${this.escapeHtml(fileName)}</code>.</p>
-		<div class="error-message">${this.escapeHtml(String(error))}</div>
+		<p>Failed to load <code>${escapeHtml(fileName)}</code>.</p>
+		<div class="error-message">${escapeHtml(String(error))}</div>
 	</div>
 </body>
 </html>`;
-	}
-
-	private escapeHtml(text: string): string {
-		return text
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;')
-			.replace(/'/g, '&#039;');
 	}
 }
 
@@ -245,7 +507,7 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 		);
 	}
 
-	constructor(private readonly context: vscode.ExtensionContext) { }
+	constructor(private readonly _context: vscode.ExtensionContext) { }
 
 	async openCustomDocument(
 		uri: vscode.Uri,
@@ -258,13 +520,29 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 	async resolveCustomEditor(
 		document: vscode.CustomDocument,
 		webviewPanel: vscode.WebviewPanel,
-		_token: vscode.CancellationToken
+		token: vscode.CancellationToken
 	): Promise<void> {
 		const filePath = document.uri.fsPath.replace(/\\/g, '/');
 		const fileName = path.basename(filePath);
 
 		// Generate a variable name from the filename (without extension)
 		const varName = this.generateVariableName(filePath);
+
+		// Wait for R runtime to be available
+		const rAvailable = await waitForRRuntime(
+			webviewPanel,
+			fileName,
+			(html) => { webviewPanel.webview.html = html; },
+			token
+		);
+
+		if (!rAvailable) {
+			// Either cancelled or no R found
+			if (!token.isCancellationRequested) {
+				webviewPanel.webview.html = getNoRFoundHtml(fileName);
+			}
+			return;
+		}
 
 		// Show loading message in webview
 		webviewPanel.webview.html = this.getLoadingHtml(fileName, varName);
@@ -355,7 +633,7 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 	<div class="container">
 		<div class="spinner"></div>
 		<h2>Loading R Object</h2>
-		<p>Loading <code>${this.escapeHtml(fileName)}</code> as <code>${this.escapeHtml(varName)}</code>...</p>
+		<p>Loading <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName)}</code>...</p>
 	</div>
 </body>
 </html>`;
@@ -400,7 +678,7 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 	<div class="container">
 		<div class="checkmark success">✓</div>
 		<h2 class="success">R Object Loaded</h2>
-		<p>Object from <code>${this.escapeHtml(fileName)}</code> loaded as <code>${this.escapeHtml(varName)}</code>.</p>
+		<p>Object from <code>${escapeHtml(fileName)}</code> loaded as <code>${escapeHtml(varName)}</code>.</p>
 	</div>
 </body>
 </html>`;
@@ -454,19 +732,10 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 	<div class="container">
 		<div class="error-icon error">!</div>
 		<h2 class="error">Error Loading R Object</h2>
-		<p>Failed to load <code>${this.escapeHtml(fileName)}</code> as <code>${this.escapeHtml(varName)}</code>.</p>
-		<div class="error-message">${this.escapeHtml(String(error))}</div>
+		<p>Failed to load <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName)}</code>.</p>
+		<div class="error-message">${escapeHtml(String(error))}</div>
 	</div>
 </body>
 </html>`;
-	}
-
-	private escapeHtml(text: string): string {
-		return text
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;')
-			.replace(/'/g, '&#039;');
 	}
 }
