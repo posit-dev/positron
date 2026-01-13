@@ -101,6 +101,41 @@ suite('Model Resolution Helpers', () => {
 
 			assert.strictEqual(result, false);
 		});
+
+		test('matches case-insensitively on model ID (lowercase preference)', () => {
+			const providerPreferences = { 'anthropic-api': 'sonnet' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+
+			const result = isDefaultUserModel('anthropic-api', 'claude-SONNET-4-5', 'Claude Sonnet 4.5');
+
+			assert.strictEqual(result, true);
+		});
+
+		test('matches case-insensitively on model name (lowercase preference)', () => {
+			const providerPreferences = { 'anthropic-api': 'haiku' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+
+			const result = isDefaultUserModel('anthropic-api', 'claude-haiku-4-5', 'Claude Haiku 4.5');
+
+			assert.strictEqual(result, true);
+		});
+
+		test('matches case-insensitively with uppercase preference', () => {
+			const providerPreferences = { 'anthropic-api': 'SONNET' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+
+			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+
+			assert.strictEqual(result, true);
+		});
+
+		test('matches case-insensitively on defaultMatch pattern', () => {
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns({});
+
+			const result = isDefaultUserModel('anthropic-api', 'claude-SONNET-4-5', 'Claude Sonnet 4.5', 'sonnet');
+
+			assert.strictEqual(result, true);
+		});
 	});
 
 	suite('getMaxTokens', () => {
@@ -174,6 +209,7 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(resultInput, 250_000);
 			assert.strictEqual(resultOutput, 64_000);
 		});
+
 	});
 
 	suite('markDefaultModel', () => {

@@ -55,14 +55,15 @@ export function isDefaultUserModel(
 	// Check user-configured default for this provider
 	const userDefault = providerPreferences[provider];
 	if (userDefault) {
-		if (id.includes(userDefault) || name?.includes(userDefault)) {
+		const userDefaultLower = userDefault.toLowerCase();
+		if (id.toLowerCase().includes(userDefaultLower) || name?.toLowerCase().includes(userDefaultLower)) {
 			return true;
 		}
 	}
 
 	// Fall back to provider-specific default pattern if provided
 	if (defaultMatch) {
-		return id.includes(defaultMatch);
+		return id.toLowerCase().includes(defaultMatch.toLowerCase());
 	}
 
 	return false;
