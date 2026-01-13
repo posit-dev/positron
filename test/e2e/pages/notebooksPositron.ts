@@ -210,7 +210,6 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		let totalCellsAdded = 0;
-		const keyboard = this.code.driver.page.keyboard;
 
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
@@ -224,7 +223,9 @@ export class PositronNotebooks extends Notebooks {
 		if (markdownCells > 0) {
 			for (let i = 0; i < markdownCells; i++) {
 				await this.addCell('markdown');
-				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				const editor = this.editorAtIndex(totalCellsAdded);
+				await editor.focus();
+				await editor.pressSequentially(`### Cell ${totalCellsAdded}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
 				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
 				totalCellsAdded++;
