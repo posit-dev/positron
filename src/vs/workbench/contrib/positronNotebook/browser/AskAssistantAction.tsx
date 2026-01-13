@@ -7,7 +7,7 @@
 import React from 'react';
 
 import { localize, localize2 } from '../../../../nls.js';
-import { MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -17,12 +17,12 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
-import { NotebookAction2 } from './NotebookAction2.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
@@ -31,7 +31,7 @@ const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
  * Users can select a predefined prompt, type their own custom prompt, or generate AI suggestions.
  * The panel shows as a centered modal dialog.
  */
-export class AskAssistantAction extends NotebookAction2 {
+export class AskAssistantAction extends Action2 {
 	constructor() {
 		super({
 			id: ASK_ASSISTANT_ACTION_ID,
@@ -57,13 +57,17 @@ export class AskAssistantAction extends NotebookAction2 {
 		});
 	}
 
-	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		// Extract all services upfront - accessor is only valid during this synchronous call
+		const editorService = accessor.get(IEditorService);
 		const commandService = accessor.get(ICommandService);
 		const notificationService = accessor.get(INotificationService);
 		const logService = accessor.get(ILogService);
 		const preferencesService = accessor.get(IPreferencesService);
 		const layoutService = accessor.get(ILayoutService);
+
+		// Get the initial notebook instance (may be undefined during loading)
+		const initialNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
 
 		// Create the modal renderer for a centered dialog
 		const renderer = new PositronModalReactRenderer({
@@ -88,12 +92,14 @@ export class AskAssistantAction extends NotebookAction2 {
 			}
 		};
 
-		// Render the assistant panel as a centered modal dialog
+		// Render the assistant panel immediately (optimistic loading)
+		// Pass a getter function so the panel can poll for notebook availability
 		renderer.render(
 			<AssistantPanel
 				commandService={commandService}
+				getNotebook={() => getNotebookInstanceFromActiveEditorPane(editorService)}
+				initialNotebook={initialNotebook}
 				logService={logService}
-				notebook={notebook}
 				notificationService={notificationService}
 				preferencesService={preferencesService}
 				renderer={renderer}

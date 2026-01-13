@@ -10,6 +10,7 @@ import './AssistantPanel.css';
 import React, { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
@@ -25,11 +26,28 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 
 /**
+ * Panel state for tracking notebook availability
+ */
+type PanelState = {
+	status: 'pending';
+} | {
+	status: 'ready';
+	notebook: IPositronNotebookInstance;
+} | {
+	status: 'error';
+	message: string;
+};
+
+const NOTEBOOK_TIMEOUT_MS = 5000; // 5 seconds timeout
+const NOTEBOOK_POLL_INTERVAL_MS = 100; // Poll every 100ms
+
+/**
  * AssistantPanelProps interface.
  * Services are passed directly as props (explicit dependency pattern).
  */
 export interface AssistantPanelProps {
-	notebook: IPositronNotebookInstance;
+	initialNotebook: IPositronNotebookInstance | undefined;
+	getNotebook: () => IPositronNotebookInstance | undefined;
 	renderer: PositronModalReactRenderer;
 	commandService: ICommandService;
 	notificationService: INotificationService;
@@ -39,12 +57,62 @@ export interface AssistantPanelProps {
 }
 
 /**
+ * Hook to poll for notebook instance availability
+ */
+function useNotebookPolling(
+	initialNotebook: IPositronNotebookInstance | undefined,
+	getNotebook: () => IPositronNotebookInstance | undefined
+): PanelState {
+	const [state, setState] = useState<PanelState>(() =>
+		initialNotebook
+			? { status: 'ready', notebook: initialNotebook }
+			: { status: 'pending' }
+	);
+
+	useEffect(() => {
+		// If already ready, nothing to do
+		if (state.status === 'ready') {
+			return;
+		}
+
+		const targetWindow = DOM.getActiveWindow();
+		let elapsed = 0;
+		const intervalId = targetWindow.setInterval(() => {
+			const notebook = getNotebook();
+			if (notebook) {
+				setState({ status: 'ready', notebook });
+				targetWindow.clearInterval(intervalId);
+				return;
+			}
+
+			elapsed += NOTEBOOK_POLL_INTERVAL_MS;
+			if (elapsed >= NOTEBOOK_TIMEOUT_MS) {
+				setState({
+					status: 'error',
+					message: localize(
+						'assistantPanel.notebookTimeout',
+						'Notebook is taking too long to load. Please close this dialog and try again.'
+					)
+				});
+				targetWindow.clearInterval(intervalId);
+			}
+		}, NOTEBOOK_POLL_INTERVAL_MS);
+
+		return () => targetWindow.clearInterval(intervalId);
+	}, [getNotebook, state.status]);
+
+	return state;
+}
+
+/**
  * AssistantPanel component.
  * A centered modal dialog for notebook assistant actions, showing context, settings, and actions.
+ * Supports optimistic loading: shows immediately even if notebook instance isn't ready yet.
  */
 export const AssistantPanel = (props: AssistantPanelProps) => {
 	const {
-		notebook,
+		initialNotebook,
+		getNotebook,
 		renderer,
 		commandService,
 		notificationService,
@@ -52,24 +120,33 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		preferencesService,
 		onActionSelected
 	} = props;
-	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);
-	const [isLoading, setIsLoading] = useState(true);
 
-	// Fetch notebook context on mount
+	// Poll for notebook availability
+	const panelState = useNotebookPolling(initialNotebook, getNotebook);
+
+	// State for notebook context (only used when ready)
+	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);
+	const [isLoadingContext, setIsLoadingContext] = useState(true);
+
+	// Fetch notebook context when notebook becomes available
 	useEffect(() => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
 		const fetchContext = async () => {
-			setIsLoading(true);
+			setIsLoadingContext(true);
 			try {
-				const context = await notebook.getAssistantContext();
+				const context = await panelState.notebook.getAssistantContext();
 				setNotebookContext(context);
 			} catch (error) {
 				logService.error('Failed to fetch notebook context:', error);
 			} finally {
-				setIsLoading(false);
+				setIsLoadingContext(false);
 			}
 		};
 		fetchContext();
-	}, [notebook, logService]);
+	}, [panelState, logService]);
 
 	const handleClose = () => {
 		renderer.dispose();
@@ -80,8 +157,67 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		await preferencesService.openSettings({ query: 'positron.assistant.notebook' });
 	}, [renderer, preferencesService]);
 
-	// Render using PositronModalDialog for centered positioning
-	// Modal size: 400x450 (standard medium modal size in Positron)
+	// Render loading skeleton when pending
+	const renderPendingState = () => (
+		<div className='assistant-panel-loading'>
+			<div className='assistant-panel-loading-spinner codicon codicon-loading codicon-modifier-spin' />
+			<div className='assistant-panel-loading-text'>
+				{localize('assistantPanel.loading', 'Preparing notebook assistant...')}
+			</div>
+		</div>
+	);
+
+	// Render error state
+	const renderErrorState = (message: string) => (
+		<div className='assistant-panel-error'>
+			<div className='assistant-panel-error-icon codicon codicon-warning' />
+			<div className='assistant-panel-error-text'>{message}</div>
+			<button
+				className='assistant-panel-error-close'
+				onClick={handleClose}
+			>
+				{localize('assistantPanel.close', 'Close')}
+			</button>
+		</div>
+	);
+
+	// Render the full panel content when ready
+	const renderReadyState = (notebook: IPositronNotebookInstance) => (
+		<>
+			<AssistantPanelContext
+				context={notebookContext}
+				isLoading={isLoadingContext}
+			/>
+			<div className='assistant-panel-section-divider' />
+			<div className='assistant-panel-section-header'>
+				{localize('assistantPanel.actions.header', 'Ask Assistant To')}
+			</div>
+			<AssistantPanelActions
+				commandService={commandService}
+				logService={logService}
+				notebook={notebook}
+				notificationService={notificationService}
+				onActionSelected={(query, mode) => {
+					handleClose();
+					onActionSelected(query, mode);
+				}}
+				onClose={handleClose}
+			/>
+		</>
+	);
+
+	// Determine content based on state
+	const renderContent = () => {
+		switch (panelState.status) {
+			case 'pending':
+				return renderPendingState();
+			case 'error':
+				return renderErrorState(panelState.message);
+			case 'ready':
+				return renderReadyState(panelState.notebook);
+		}
+	};
+
 	return (
 		<PositronModalDialog
 			closeOnClickOutside={true}
@@ -99,25 +235,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			/>
 			<ContentArea>
 				<div className='assistant-panel-content'>
-					<AssistantPanelContext
-						context={notebookContext}
-						isLoading={isLoading}
-					/>
-					<div className='assistant-panel-section-divider' />
-					<div className='assistant-panel-section-header'>
-						{localize('assistantPanel.actions.header', 'Ask Assistant To')}
-					</div>
-					<AssistantPanelActions
-						commandService={commandService}
-						logService={logService}
-						notebook={notebook}
-						notificationService={notificationService}
-						onActionSelected={(query, mode) => {
-							handleClose();
-							onActionSelected(query, mode);
-						}}
-						onClose={handleClose}
-					/>
+					{renderContent()}
 				</div>
 			</ContentArea>
 		</PositronModalDialog>
