@@ -30,6 +30,7 @@ const APPLY_IN_EDITOR_BUTTON = 'a.action-label.codicon.codicon-git-pull-request-
 const INSERT_AT_CURSOR_BUTTON = 'a.action-label.codicon.codicon-insert[role="button"][aria-label^="Insert At Cursor"]';
 const COPY_BUTTON = 'a.action-label.codicon.codicon-copy[role="button"][aria-label="Copy"]';
 const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="button"][aria-label="Insert into New File"]';
+const KEEP_BUTTON = 'a.monaco-button[aria-label^="Keep All Edits"]';
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor .native-edit-context';
@@ -111,7 +112,7 @@ export class Assistant {
 
 	async expectManageModelsVisible() {
 		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible({ timeout: 3000 });
-	};
+	}
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
@@ -212,6 +213,10 @@ export class Assistant {
 	async clickChatCodeRunButton(codeblock: string) {
 		await this.code.driver.page.locator(`span`).filter({ hasText: codeblock }).locator('span').first().dblclick();
 		await this.code.driver.page.locator(RUN_BUTTON).click();
+	}
+
+	async clickKeepButton(timeout: number = 20000) {
+		await this.code.driver.page.locator(KEEP_BUTTON).click({ timeout });
 	}
 
 	async clickNewChatButton() {

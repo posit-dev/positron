@@ -207,6 +207,22 @@ species = pl.DataFrame({
 				}).toPass({ timeout: 5000 });
 			},
 		} as const;
+
+		// Define post-question actions that run after a question is asked but before getting the response
+		const postQuestionActions = {
+			'sample_3': async (app: any) => {
+				try {
+					// Wait up to 20 seconds for the Keep button to appear
+					await app.workbench.assistant.clickKeepButton();
+					console.log('Keep button clicked for sample_3');
+				} catch (error) {
+					// Keep button didn't appear or wasn't clickable
+					// Don't fail so the rest of the tests can continue
+					console.log('Keep button not found or not clickable for sample_3 (this is OK)');
+				}
+			},
+		} as const;
+
 		// Define cleanup actions in a separate object (could even be moved to its own file later)
 		const cleanupActions = {
 			'sample_1': async () => {
@@ -241,6 +257,14 @@ species = pl.DataFrame({
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 			await app.workbench.assistant.enterChatMessage(item.question);
+
+			// Execute post-question action if one exists for this item
+			const postQuestionAction = postQuestionActions[item.id as keyof typeof postQuestionActions];
+			if (postQuestionAction) {
+				console.log(`Running post-question action for: ${item.id}`);
+				await postQuestionAction(app);
+			}
+
 			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 			if (!response || response.trim() === '') {
