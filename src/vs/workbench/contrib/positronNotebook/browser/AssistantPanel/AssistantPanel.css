@@ -147,6 +147,8 @@
 	position: relative;
 	display: flex;
 	align-items: center;
+	overflow: hidden;
+	border-radius: 4px;
 }
 
 .assistant-panel-prompt-wrapper .assistant-panel-prompt-input {
@@ -156,14 +158,17 @@
 /* Submit button - hidden by default */
 .assistant-panel-submit-button {
 	position: absolute;
-	right: 8px;
+	right: 4px;
 	top: 50%;
 	transform: translateY(-50%) translateX(20px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	opacity: 0;
 	padding: 4px;
 	border: none;
 	background: transparent;
-	color: var(--vscode-input-foreground);
+	color: var(--vscode-textLink-foreground);
 	cursor: pointer;
 	border-radius: 4px;
 	font-size: 14px;
@@ -176,6 +181,10 @@
 	transform: translateY(-50%) translateX(0);
 	opacity: 1;
 	pointer-events: auto;
+}
+
+.assistant-panel-submit-button .assistant-panel-submit-icon {
+	color: var(--vscode-textLink-foreground);
 }
 
 .assistant-panel-submit-button:hover {

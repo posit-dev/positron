@@ -572,7 +572,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 	/**
 	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
-	 * Respects the `positron.notebook.assistant.autoFollow` setting.
+	 * Respects the `positron.assistant.notebook.autoFollow` setting.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell to scroll to.
 	 */

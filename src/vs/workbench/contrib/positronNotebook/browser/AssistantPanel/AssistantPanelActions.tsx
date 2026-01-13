@@ -168,8 +168,6 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					cancellationTokenSource.token
 				);
 
-				callbackDisposable.dispose();
-
 				if (cancellationTokenSource.token.isCancellationRequested) {
 					return;
 				}
@@ -271,7 +269,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 						title={localize('assistantPanel.submit', 'Submit prompt')}
 						onClick={handleCustomPromptSubmit}
 					>
-						<span className='codicon codicon-arrow-right' />
+						<span className='assistant-panel-submit-icon codicon codicon-send' />
 					</button>
 				</div>
 
