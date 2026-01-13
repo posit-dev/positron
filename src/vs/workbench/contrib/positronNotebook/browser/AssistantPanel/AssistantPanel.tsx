@@ -71,9 +71,9 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		fetchContext();
 	}, [notebook]);
 
-	const handleClose = () => {
+	const handleClose = useCallback(() => {
 		renderer.dispose();
-	};
+	}, [renderer]);
 
 	const handleOpenSettings = useCallback(async () => {
 		handleClose();
