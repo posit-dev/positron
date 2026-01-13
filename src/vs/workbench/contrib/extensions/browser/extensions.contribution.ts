@@ -769,6 +769,7 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 			icon: installWorkspaceRecommendedIcon,
 			run: async () => {
 				// --- Start Positron ---
+				// await this.extensionsWorkbenchService.updateAll();
 				const results = await this.extensionsWorkbenchService.updateAll();
 
 				// Check for failures and report them

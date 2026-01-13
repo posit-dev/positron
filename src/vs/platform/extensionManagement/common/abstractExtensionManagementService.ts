@@ -27,7 +27,9 @@ import {
 import { areSameExtensions, ExtensionKey, getGalleryExtensionId, getGalleryExtensionTelemetryData, getLocalExtensionTelemetryData, isMalicious } from './extensionManagementUtil.js';
 import { ExtensionType, IExtensionManifest, isApplicationScopedExtension, TargetPlatform } from '../../extensions/common/extensions.js';
 import { areApiProposalsCompatible } from '../../extensions/common/extensionValidator.js';
+// --- Start Positron ---
 import { validatePositronExtensionManifest } from '../../extensions/common/positronExtensionValidator.js';
+// --- End Positron ---
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
