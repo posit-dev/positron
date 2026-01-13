@@ -1,0 +1,201 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Override content-area to extend to bottom (no action buttons) */
+.positron-modal-dialog-box:has(.assistant-panel-content) .content-area {
+	bottom: 0;
+}
+
+/* Wrapper for content inside the modal dialog */
+.assistant-panel-content {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 8px 16px;
+	position: relative;
+}
+
+/* Settings icon button in title bar - positioned at dialog box level */
+.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon {
+	position: absolute;
+	top: 4px;
+	right: 8px;
+	background: none;
+	border: none;
+	color: var(--vscode-positronModalDialog-titleBarForeground);
+	cursor: pointer;
+	padding: 4px;
+	font-size: 16px;
+	opacity: 0.8;
+	transition: opacity 0.2s;
+	border-radius: 4px;
+	z-index: 10;
+}
+
+.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon:hover {
+	opacity: 1;
+}
+
+/* Adjust section spacing for modal context */
+.positron-modal-dialog-box .assistant-panel-section {
+	margin: 0;
+}
+
+.assistant-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+	min-width: 280px;
+	max-width: 400px;
+}
+
+.assistant-panel-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.assistant-panel-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	color: var(--vscode-descriptionForeground);
+	letter-spacing: 0.5px;
+}
+
+.assistant-panel-section-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+/* Divider between sections */
+.assistant-panel-section-divider {
+	height: 1px;
+	background-color: var(--vscode-widget-border);
+	margin: 4px 0;
+}
+
+/* Context section */
+.assistant-panel-context-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 0;
+	cursor: pointer;
+}
+
+.assistant-panel-context-summary:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.assistant-panel-context-summary .expand-icon {
+	font-size: 12px;
+}
+
+.assistant-panel-context-expanded {
+	padding: 8px;
+	border-radius: 4px;
+	background-color: var(--vscode-input-background);
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.assistant-panel-context-cell {
+	font-size: 12px;
+	padding: 2px 0;
+	color: var(--vscode-foreground);
+}
+
+.assistant-panel-context-empty {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+	padding: 8px;
+}
+
+/* Actions section */
+.assistant-panel-prompt-input {
+	width: 100%;
+	padding: 8px;
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 4px;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 13px;
+	resize: none;
+	box-sizing: border-box;
+}
+
+.assistant-panel-prompt-input:focus {
+	outline: none;
+	border-color: var(--vscode-focusBorder);
+}
+
+.assistant-panel-prompt-input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.assistant-panel-action {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.assistant-panel-action:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.assistant-panel-action-icon {
+	font-size: 14px;
+	width: 16px;
+	text-align: center;
+}
+
+.assistant-panel-action-content {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.assistant-panel-action-label {
+	color: var(--vscode-foreground);
+}
+
+.assistant-panel-action-detail {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.assistant-panel-action.loading {
+	opacity: 0.7;
+	cursor: default;
+}
+
+.assistant-panel-action.loading .assistant-panel-action-icon {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* AI suggestions section */
+.assistant-panel-ai-suggestions-header {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	padding: 4px 0;
+	border-top: 1px solid var(--vscode-widget-border);
+	margin-top: 4px;
+}

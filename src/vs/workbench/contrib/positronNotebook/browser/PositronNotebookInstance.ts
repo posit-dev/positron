@@ -56,6 +56,8 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { INotebookCellDTO, INotebookContextDTO } from '../../../api/common/positron/extHost.positron.protocol.js';
+import { NotebookCellType } from '../../../api/common/positron/extHostTypes.positron.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -2048,6 +2050,70 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	removeDeletionSentinel(id: string): void {
 		const current = this._deletionSentinels.get();
 		this._deletionSentinels.set(current.filter(s => s.id !== id), undefined);
+	}
+
+	/**
+	 * Get the assistant context for this notebook.
+	 * Returns the context DTO with cell information for the assistant panel.
+	 */
+	async getAssistantContext(): Promise<INotebookContextDTO | undefined> {
+		const cells = this.cells.get();
+		const kernel = this.kernel.get();
+		const selectionState = this.selectionStateMachine.state.get();
+
+		const allCells: INotebookCellDTO[] = cells.map(cell => this._mapCellToDTO(cell, selectionState));
+		const selectedCells = this._getSelectedCellsFromState(selectionState).map(cell => this._mapCellToDTO(cell, selectionState));
+
+		return {
+			uri: this.uri.toString(),
+			kernelId: kernel?.id,
+			kernelLanguage: kernel?.runtime.languageId,
+			cellCount: cells.length,
+			selectedCells,
+			allCells
+		};
+	}
+
+	/**
+	 * Maps a cell to its DTO representation for the assistant context.
+	 */
+	private _mapCellToDTO(cell: IPositronNotebookCell, selectionState: ReturnType<typeof this.selectionStateMachine.state.get>): INotebookCellDTO {
+		const cellOutputs = cell.outputs?.get() ?? [];
+		// Use the isMarkdownCell type guard to determine cell type
+		const isCodeCell = !cell.isMarkdownCell();
+
+		const dto: INotebookCellDTO = {
+			id: cell.uri.toString(),
+			index: cell.index,
+			type: isCodeCell ? NotebookCellType.Code : NotebookCellType.Markdown,
+			content: cell.getContent(),
+			hasOutput: cellOutputs.length > 0,
+			selectionStatus: this._getCellSelectionStatusFromState(cell, selectionState)
+		};
+
+		return dto;
+	}
+
+	/**
+	 * Gets the selection status for a cell based on the current selection state.
+	 */
+	private _getCellSelectionStatusFromState(cell: IPositronNotebookCell, selectionState: ReturnType<typeof this.selectionStateMachine.state.get>): 'active' | 'selected' | 'unselected' {
+		const activeCell = getActiveCell(selectionState);
+		if (activeCell === cell) {
+			return 'active';
+		}
+		const selectedCells = getSelectedCells(selectionState);
+		if (selectedCells.includes(cell)) {
+			return 'selected';
+		}
+		return 'unselected';
+	}
+
+	/**
+	 * Gets the selected cells from the current selection state.
+	 */
+	private _getSelectedCellsFromState(selectionState: ReturnType<typeof this.selectionStateMachine.state.get>): IPositronNotebookCell[] {
+		return getSelectedCells(selectionState);
 	}
 
 	// #endregion
