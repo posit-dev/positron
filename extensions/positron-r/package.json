@@ -22,9 +22,7 @@
   },
   "icon": "icon.png",
   "activationEvents": [
-    "onStartupFinished",
-    "onCustomEditor:positron-r.rdataLoader",
-    "onCustomEditor:positron-r.rdsLoader"
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
