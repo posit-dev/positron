@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW] }, () => {
+test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	const folderTemplate = FolderTemplate.EMPTY_PROJECT;
 
 	test('Verify empty folder defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
