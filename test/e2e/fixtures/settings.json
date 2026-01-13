@@ -12,5 +12,6 @@
     "echo",
     "error"
   ],
-  "posit.workbench.showWorkbenchFlaskHint": false
+  "posit.workbench.showWorkbenchFlaskHint": false,
+	"console.showResourceMonitor": false
 }
