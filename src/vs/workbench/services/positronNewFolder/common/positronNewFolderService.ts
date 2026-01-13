@@ -414,6 +414,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 						this._handleGitIgnoreError(error);
 					});
 				break;
+			case FolderTemplate.EmptyProject:
+				// Empty projects don't need a .gitignore file
+				break;
 			default:
 				this._logService.error(
 					'Cannot determine .gitignore content for unknown folder template',
@@ -853,6 +856,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			case FolderTemplate.RProject:
 				tasks.add(NewFolderTask.R);
 				break;
+			case FolderTemplate.EmptyProject:
+				// Empty project doesn't have any language-specific tasks
+				break;
 			default:
 				this._logService.error(
 					'Cannot determine new folder tasks for unknown folder template',
@@ -865,9 +871,10 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			tasks.add(NewFolderTask.Git);
 		}
 
-		// Always create a new file in the new folder. This may be controlled by a folder config
-		// setting in the future.
-		tasks.add(NewFolderTask.CreateNewFile);
+		// Create a new file for language-specific templates. Empty projects don't create a file.
+		if (this._newFolderConfig.folderTemplate !== FolderTemplate.EmptyProject) {
+			tasks.add(NewFolderTask.CreateNewFile);
+		}
 
 		return tasks;
 	}
