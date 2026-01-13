@@ -69,7 +69,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			}
 		};
 		fetchContext();
-	}, [notebook]);
+	}, [notebook, logService]);
 
 	const handleClose = () => {
 		renderer.dispose();
