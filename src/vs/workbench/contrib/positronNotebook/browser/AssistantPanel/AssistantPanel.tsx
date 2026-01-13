@@ -104,6 +104,9 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 						isLoading={isLoading}
 					/>
 					<div className='assistant-panel-section-divider' />
+					<div className='assistant-panel-section-header'>
+						{localize('assistantPanel.actions.header', 'Ask Assistant To')}
+					</div>
 					<AssistantPanelActions
 						commandService={commandService}
 						logService={logService}

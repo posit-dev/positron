@@ -30,7 +30,6 @@ interface PredefinedAction {
 	query: string;
 	mode: ChatModeKind;
 	iconClass: string;
-	generateSuggestions?: boolean;
 }
 
 /**
@@ -60,15 +59,6 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
 		mode: ChatModeKind.Edit,
 		iconClass: 'codicon-edit'
-	},
-	{
-		id: 'generate',
-		label: localize('assistantPanel.action.generate', 'Generate AI Suggestions...'),
-		detail: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions'),
-		query: '',
-		mode: ChatModeKind.Agent,
-		iconClass: 'codicon-sparkle',
-		generateSuggestions: true
 	}
 ];
 
@@ -205,13 +195,9 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 		}
 	}, [isGenerating, notebook, commandService, notificationService, logService]);
 
-	const handleActionClick = useCallback(async (action: PredefinedAction) => {
-		if (action.generateSuggestions) {
-			await handleGenerateSuggestions();
-		} else {
-			onActionSelected(action.query, action.mode);
-		}
-	}, [handleGenerateSuggestions, onActionSelected]);
+	const handleActionClick = useCallback((action: PredefinedAction) => {
+		onActionSelected(action.query, action.mode);
+	}, [onActionSelected]);
 
 	// Cleanup on unmount
 	useEffect(() => {
@@ -245,6 +231,21 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 	return (
 		<div className='assistant-panel-section'>
 			<div className='assistant-panel-section-content'>
+				{/* Predefined actions */}
+				{PREDEFINED_ACTIONS.map((action) => (
+					<button
+						key={action.id}
+						className='assistant-panel-action'
+						onClick={() => handleActionClick(action)}
+					>
+						<span className={`assistant-panel-action-icon codicon ${action.iconClass}`} />
+						<div className='assistant-panel-action-content'>
+							<div className='assistant-panel-action-label'>{action.label}</div>
+							<div className='assistant-panel-action-detail'>{action.detail}</div>
+						</div>
+					</button>
+				))}
+
 				{/* Custom prompt input with submit button */}
 				<div className={positronClassNames(
 					'assistant-panel-prompt-wrapper',
@@ -253,7 +254,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					<textarea
 						autoFocus
 						className='assistant-panel-prompt-input'
-						placeholder={localize('assistantPanel.prompt.placeholder', 'Ask assistant to...')}
+						placeholder={localize('assistantPanel.prompt.placeholder', 'Or enter a custom prompt')}
 						rows={1}
 						value={customPrompt}
 						onChange={(e) => setCustomPrompt(e.target.value)}
@@ -270,47 +271,48 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					</button>
 				</div>
 
-				{/* Predefined actions */}
-				{PREDEFINED_ACTIONS.map((action) => (
-					<React.Fragment key={action.id}>
-						{action.generateSuggestions && (
-							<div className='assistant-panel-action-divider' />
-						)}
-						<button
-							className={positronClassNames(
-								'assistant-panel-action',
-								{ 'loading': action.generateSuggestions && isGenerating },
-								{ 'secondary-action': action.generateSuggestions }
-							)}
-							onClick={() => handleActionClick(action)}
-						>
-							<span className={`assistant-panel-action-icon codicon ${action.iconClass}`} />
-							<div className='assistant-panel-action-content'>
-								<div className='assistant-panel-action-label'>{action.label}</div>
-								<div className='assistant-panel-action-detail'>{action.detail}</div>
-							</div>
-						</button>
-					</React.Fragment>
-				))}
+				<div className='assistant-panel-action-divider' />
 
-				{/* Generation loading indicator */}
-				{isGenerating && (
-					<div className='assistant-panel-generating-indicator'>
-						<span className='codicon codicon-loading codicon-modifier-spin' />
-						<span>{localize('assistantPanel.generating', 'Generating suggestions...')}</span>
+				{/* Generate AI Suggestions button / AI Suggestions header */}
+				<button
+					className={positronClassNames(
+						'assistant-panel-suggestions-button',
+						{ 'generating': isGenerating },
+						{ 'has-suggestions': aiSuggestions.length > 0 }
+					)}
+					disabled={isGenerating}
+					onClick={handleGenerateSuggestions}
+				>
+					<span className='suggestions-button-icon codicon codicon-sparkle' />
+					<div className='suggestions-button-content'>
+						<div className='suggestions-button-label'>
+							{isGenerating
+								? localize('assistantPanel.generating', 'Generating suggestions...')
+								: aiSuggestions.length > 0
+									? localize('assistantPanel.aiSuggestions', 'AI Suggestions')
+									: localize('assistantPanel.action.generate', 'Generate AI Suggestions')}
+						</div>
+						{!aiSuggestions.length && !isGenerating && (
+							<div className='suggestions-button-detail'>
+								{localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions')}
+							</div>
+						)}
 					</div>
-				)}
+					<span className={positronClassNames(
+						'suggestions-button-indicator',
+						'codicon',
+						isGenerating ? 'codicon-loading codicon-modifier-spin' :
+							aiSuggestions.length > 0 ? 'codicon-refresh' : 'codicon-chevron-down'
+					)} />
+				</button>
 
 				{/* AI-generated suggestions */}
 				{aiSuggestions.length > 0 && (
 					<div
 						ref={suggestionsContainerRef}
-						className='assistant-panel-ai-suggestions-container'
+						className='assistant-panel-suggestions-list'
 						onScroll={handleScroll}
 					>
-						<div className='assistant-panel-ai-suggestions-header'>
-							{localize('assistantPanel.aiSuggestions', 'AI-Generated Suggestions')}
-						</div>
 						{aiSuggestions.map((suggestion, index) => (
 							<button
 								key={index}

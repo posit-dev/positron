@@ -276,20 +276,6 @@
 	color: var(--vscode-descriptionForeground);
 }
 
-.assistant-panel-action.loading {
-	opacity: 0.7;
-	cursor: default;
-}
-
-.assistant-panel-action.loading .assistant-panel-action-icon {
-	animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
-}
-
 /* Divider before secondary actions */
 .assistant-panel-action-divider {
 	height: 1px;
@@ -297,51 +283,116 @@
 	margin: 8px 0;
 }
 
-/* Secondary action styling (Generate AI suggestions) */
-.assistant-panel-action.secondary-action {
-	opacity: 0.85;
-}
-
-.assistant-panel-action.secondary-action .assistant-panel-action-label,
-.assistant-panel-action.secondary-action .assistant-panel-action-icon {
-	color: var(--vscode-descriptionForeground);
-}
-
-.assistant-panel-action.secondary-action:hover {
-	opacity: 1;
-}
-
-.assistant-panel-action.secondary-action:hover .assistant-panel-action-label,
-.assistant-panel-action.secondary-action:hover .assistant-panel-action-icon {
-	color: var(--vscode-foreground);
-}
-
-/* Generation loading indicator */
-.assistant-panel-generating-indicator {
+/* Suggestions button - looks like action item in initial state */
+.assistant-panel-suggestions-button {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 8px;
-	font-size: 12px;
-	color: var(--vscode-descriptionForeground);
-	font-style: italic;
+	padding: 4px 6px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+	border-left: 2px solid transparent;
+	margin-left: -2px;
+	transition: background-color 0.1s ease, border-color 0.1s ease;
+	background: none;
+	border-top: none;
+	border-right: none;
+	border-bottom: none;
+	color: inherit;
+	text-align: left;
+	width: 100%;
 }
 
-.assistant-panel-generating-indicator .codicon {
+.assistant-panel-suggestions-button:hover:not(:disabled) {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.assistant-panel-suggestions-button:focus {
+	outline: none;
+}
+
+.assistant-panel-suggestions-button:focus-visible {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.assistant-panel-suggestions-button:disabled {
+	cursor: wait;
+}
+
+.assistant-panel-suggestions-button .suggestions-button-icon {
+	font-size: 14px;
+	width: 16px;
+	text-align: center;
+	flex-shrink: 0;
+}
+
+.assistant-panel-suggestions-button .suggestions-button-content {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.assistant-panel-suggestions-button .suggestions-button-label {
+	color: var(--vscode-foreground);
+}
+
+.assistant-panel-suggestions-button .suggestions-button-detail {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.assistant-panel-suggestions-button .suggestions-button-indicator {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	flex-shrink: 0;
+}
+
+/* Generating state */
+.assistant-panel-suggestions-button.generating {
+	opacity: 0.7;
+}
+
+.assistant-panel-suggestions-button.generating .suggestions-button-label {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* Has suggestions state - section header style */
+.assistant-panel-suggestions-button.has-suggestions {
+	padding: 4px 6px;
+	margin-left: 0;
+	margin-top: 4px;
+	border-left: none;
+	border-radius: 0;
+}
+
+.assistant-panel-suggestions-button.has-suggestions:hover:not(:disabled) {
+	background: var(--vscode-list-hoverBackground);
+	border-left-color: transparent;
+}
+
+.assistant-panel-suggestions-button.has-suggestions .suggestions-button-label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.assistant-panel-suggestions-button.has-suggestions .suggestions-button-icon {
+	display: none;
+}
+
+.assistant-panel-suggestions-button.has-suggestions .suggestions-button-indicator {
 	font-size: 14px;
 }
 
-/* AI suggestions section */
-.assistant-panel-ai-suggestions-container {
+/* Suggestions list container */
+.assistant-panel-suggestions-list {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-}
-
-.assistant-panel-ai-suggestions-header {
-	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
-	padding: 4px 0;
-	border-top: 1px solid var(--vscode-widget-border);
-	margin-top: 4px;
+	max-height: 200px;
+	overflow-y: auto;
+	padding-left: 2px; /* Accommodate negative margin on action items for border */
 }
