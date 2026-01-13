@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -24,7 +24,6 @@ export interface AssistantPanelContextProps {
  */
 export const AssistantPanelContext = (props: AssistantPanelContextProps) => {
 	const { context, isLoading } = props;
-	const [isExpanded, setIsExpanded] = useState(false);
 
 	const getCellSummary = (): string => {
 		if (isLoading) {
@@ -73,16 +72,12 @@ export const AssistantPanelContext = (props: AssistantPanelContextProps) => {
 			<div className='assistant-panel-section-header'>
 				{localize('assistantPanel.context.header', 'What Assistant Can See')}
 			</div>
-			<div className='assistant-panel-section-content'>
-				<button
-					className='assistant-panel-context-summary'
-					onClick={() => setIsExpanded(!isExpanded)}
-				>
-					<span className={`expand-icon codicon codicon-chevron-${isExpanded ? 'down' : 'right'}`} />
-					<span>{getCellSummary()}</span>
-				</button>
-				{isExpanded && renderCellList()}
-			</div>
+			<details className='assistant-panel-context-details'>
+				<summary className='assistant-panel-context-summary'>
+					<span className='assistant-panel-context-summary-text'>{getCellSummary()}</span>
+				</summary>
+				{renderCellList()}
+			</details>
 		</div>
 	);
 };

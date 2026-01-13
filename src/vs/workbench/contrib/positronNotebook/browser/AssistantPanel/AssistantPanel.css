@@ -89,24 +89,47 @@
 	margin: 4px 0;
 }
 
-/* Context section */
+/* Context section - using details/summary for native expand/collapse */
+.assistant-panel-context-details {
+	width: 100%;
+}
+
 .assistant-panel-context-summary {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 	padding: 4px 0;
 	cursor: pointer;
-	/* Reset button styles */
-	background: none;
-	border: none;
-	color: inherit;
-	font: inherit;
-	text-align: left;
-	width: 100%;
+	color: var(--vscode-textLink-foreground);
+	list-style: none; /* Remove default marker */
+}
+
+/* Remove default marker in WebKit browsers */
+.assistant-panel-context-summary::-webkit-details-marker {
+	display: none;
+}
+
+/* Custom chevron using ::before pseudo-element */
+.assistant-panel-context-summary::before {
+	content: '\eab6'; /* codicon chevron-right */
+	font-family: codicon;
+	font-size: 12px;
+	transition: transform 0.1s ease;
+	text-decoration: none;
+	display: inline-block; /* Required for text-decoration: none to work on pseudo-elements */
+}
+
+.assistant-panel-context-details[open] > .assistant-panel-context-summary::before {
+	transform: rotate(90deg);
 }
 
 .assistant-panel-context-summary:hover {
 	color: var(--vscode-textLink-activeForeground);
+}
+
+/* Only underline the text, not the chevron */
+.assistant-panel-context-summary:hover .assistant-panel-context-summary-text {
+	text-decoration: underline;
 }
 
 .assistant-panel-context-summary:focus {
@@ -116,10 +139,6 @@
 .assistant-panel-context-summary:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: 2px;
-}
-
-.assistant-panel-context-summary .expand-icon {
-	font-size: 12px;
 }
 
 .assistant-panel-context-expanded {
@@ -151,6 +170,7 @@
 	border-radius: 4px;
 	background-color: var(--vscode-input-background);
 	color: var(--vscode-input-foreground);
+	font-family: inherit;
 	font-size: 13px;
 	resize: none;
 	box-sizing: border-box;
