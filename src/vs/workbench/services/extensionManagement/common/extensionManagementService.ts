@@ -565,11 +565,6 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		if (!compat.compatible) {
 			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
 		}
-
-		// const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
-		// if (!manifest) {
-		// 	throw new Error(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
-		// }
 		// --- End Positron ---
 
 		if (installOptions?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true) {
