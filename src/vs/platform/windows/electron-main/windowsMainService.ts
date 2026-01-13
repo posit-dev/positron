@@ -1559,16 +1559,16 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			});
 			mark('code/didCreateCodeWindow');
 
+			// Add as window tab if configured (macOS only)
 			// --- Start Positron ---
-			// We do the following after the window is ready to fix
-			// https://github.com/posit-dev/positron/issues/10488
-			//
-			// // Add as window tab if configured (macOS only)
-			// if (options.forceNewTabbedWindow) {
-			// 	const activeWindow = this.getLastActiveWindow();
-			// 	activeWindow?.addTabbedWindow(createdWindow);
-			// }
-			// --- End Positron ---
+			// Force opening in tabbed windows if `window.nativeTabs` is set to `true`.
+			// https://github.com/microsoft/vscode/issues/250042
+			const forceNewTabbedWindow = this.configurationService.getValue<boolean>('window.nativeTabs');
+			if (forceNewTabbedWindow || options.forceNewTabbedWindow) {
+				// --- End Positron ---
+				const activeWindow = this.getLastActiveWindow();
+				activeWindow?.addTabbedWindow(createdWindow);
+			}
 
 			// Add to our list of windows
 			this.windows.set(createdWindow.id, createdWindow);
@@ -1581,22 +1581,6 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 			// Window Events
 			const disposables = new DisposableStore();
-
-			// --- Start Positron ---
-			// Add as window tab if configured (macOS only)
-			// We wait for the window to be ready to fix a tab title mixup.
-			// https://github.com/posit-dev/positron/issues/10488
-			//
-			// Force opening in tabbed windows if `window.nativeTabs` is set to `true`.
-			// https://github.com/microsoft/vscode/issues/250042
-			const forceNewTabbedWindow = this.configurationService.getValue<boolean>('window.nativeTabs');
-			if (forceNewTabbedWindow || options.forceNewTabbedWindow) {
-				disposables.add(Event.once(createdWindow.onDidSignalReady)(() => {
-					this.getLastActiveWindow()?.addTabbedWindow(createdWindow);
-				}));
-			}
-			// --- End Positron ---
-
 			disposables.add(createdWindow.onDidSignalReady(() => this._onDidSignalReadyWindow.fire(createdWindow)));
 			disposables.add(Event.once(createdWindow.onDidClose)(() => this.onWindowClosed(createdWindow, disposables)));
 			disposables.add(Event.once(createdWindow.onDidDestroy)(() => this.onWindowDestroyed(createdWindow)));

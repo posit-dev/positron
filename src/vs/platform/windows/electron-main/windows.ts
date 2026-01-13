@@ -199,10 +199,17 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 		options.fullscreenable = false; // enables simple fullscreen mode
 	}
 
-	const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
-	if (useNativeTabs) {
-		options.tabbingIdentifier = productService.nameShort; // this opts in to sierra tabs
-	}
+	// --- Start Positron ---
+	// Don't set `tabbingIdentifier` because it causes macOS to automatically group
+	// windows as tabs at creation time, before they have their proper titles. This
+	// leads to a tab title mixup. Instead, we explicitly call `addTabbedWindow()`
+	// in windowsMainService.ts. https://github.com/posit-dev/positron/issues/10488
+	//
+	// const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
+	// if (useNativeTabs) {
+	// 	options.tabbingIdentifier = productService.nameShort; // this opts in to sierra tabs
+	// }
+	// --- End Positron ---
 
 	const hideNativeTitleBar = !hasNativeTitlebar(configurationService, overrides?.forceNativeTitlebar ? TitlebarStyle.NATIVE : undefined);
 	if (hideNativeTitleBar) {
