@@ -32,11 +32,11 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
 	private readonly _messagesByNotebookId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
 
-	/** Map of created widget webviews keyed by output ID for Positron notebooks. */
+	/** Map of created ipywidgets webviews keyed by output ID for Positron notebooks. */
 	private readonly _widgetWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
 
-	/** Map tracking which widget output IDs belong to which notebook for cache cleanup. */
-	private readonly _widgetIdsByNotebookId = new Map<string, Set<string>>();
+	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
+	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
 
 	/**
 	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
@@ -132,16 +132,16 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		const messagesForNotebook: ILanguageRuntimeMessageWebOutput[] = [];
 		this._messagesByNotebookId.set(notebookId, messagesForNotebook);
 
-		// Initialize widget tracking for this notebook
-		this._widgetIdsByNotebookId.set(notebookId, new Set());
+		// Initialize output ID tracking for this notebook
+		this._outputIdsByNotebookId.set(notebookId, new Set());
 
-		// Clean up widget cache entries when notebook is disposed
+		// Clean up webview cache entries when notebook is disposed
 		disposables.add(toDisposable(() => {
-			const widgetIds = this._widgetIdsByNotebookId.get(notebookId);
-			if (widgetIds) {
-				// Remove all cached webview promises for this notebook's widgets
-				widgetIds.forEach(widgetId => this._widgetWebviewsByOutputId.delete(widgetId));
-				this._widgetIdsByNotebookId.delete(notebookId);
+			const outputIds = this._outputIdsByNotebookId.get(notebookId);
+			if (outputIds) {
+				// Remove all cached webview promises for this notebook's outputs
+				outputIds.forEach(outputId => this._widgetWebviewsByOutputId.delete(outputId));
+				this._outputIdsByNotebookId.delete(notebookId);
 			}
 			this._messagesByNotebookId.delete(notebookId);
 			this._notebookToDisposablesMap.delete(notebookId);
@@ -254,13 +254,13 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		return { preloadMessageType: messageType };
 	}
 	/**
-	 * Create a webview for an IPyWidget output for a notebook.
-	 * Creates a per-widget messaging channel to enable proper communication
-	 * between the widget webview and the kernel.
+	 * Create a webview for an IPyWidget output from a Positron Notebook.
+	 * Creates a per-output messaging channel to enable proper communication
+	 * between the output's webview and the kernel.
 	 *
-	 * @param instance The notebook instance the widget belongs to.
+	 * @param instance The notebook instance the output belongs to.
 	 * @param session The notebook session (already validated to exist)
-	 * @param displayMessage The widget message to display.
+	 * @param displayMessage The output message to display.
 	 * @returns The created webview
 	 */
 	private async _createNotebookWidgetWebview(
@@ -271,16 +271,16 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Grab disposables for this notebook
 		const disposables = this._notebookToDisposablesMap.get(instance.getId());
 		if (!disposables) {
-			throw new Error(`PositronWebviewPreloadService: Could not find disposables for notebook ${instance.getId()}`);
+			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
 		}
 
-		// Track this widget ID for cache cleanup when notebook is disposed
-		const widgetIds = this._widgetIdsByNotebookId.get(instance.getId());
-		if (widgetIds) {
-			widgetIds.add(displayMessage.id);
+		// Track this output ID for cache cleanup when notebook is disposed
+		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		if (outputIds) {
+			outputIds.add(displayMessage.id);
 		}
 
-		// Create the per-widget messaging and IPyWidgets instance first.
+		// Create the per-output messaging and IPyWidgets instance first.
 		// This must happen before the webview is created so the messaging channel
 		// is ready when the webview starts communicating with the kernel
 		const widgetDisposable = this._positronIPyWidgetsService.createPositronNotebookWidgetInstance(
@@ -288,10 +288,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			displayMessage.id
 		);
 
-		// Store the widget disposable so it's cleaned up with the notebook
+		// Store the ipywidgets instance disposable so it is cleaned up with the notebook
 		disposables.add(widgetDisposable);
 
-		// Now create the webview for the widget output
+		// Now create the webview for the output
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
 			id: displayMessage.id,
 			runtime: session,
@@ -300,9 +300,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		});
 
 		if (!webview) {
-			// Clean up the widget instance if webview creation fails
+			// Clean up the ipywidgets instance if webview creation fails
 			widgetDisposable.dispose();
-			throw new Error(`PositronWebviewPreloadService: Failed to create webview for widget output ${displayMessage.id} in notebook ${instance.uri.toString()}`);
+			throw new Error(`[PositronWebviewPreloadService]: Failed to create webview for output ${displayMessage.id} in notebook ${instance.uri.toString()}`);
 		}
 
 		// Track the webview for disposal when the notebook closes

@@ -30,8 +30,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** Map of console IPyWidgetsInstances keyed by the language runtime output message ID that initiated the instance. */
 	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
 
-	/** Map of widget IPyWidgetsInstances keyed by widget/output ID for Positron notebooks. */
-	private readonly _positronNotebookInstancesByWidgetId = new Map<string, IPyWidgetsInstance>();
+	/** Map of Positron Notebook IPyWidgets instances keyed by output ID. Each instance manages communication for all widgets in a single output cell. */
+	private readonly _positronNotebookInstancesByOutputId = new Map<string, IPyWidgetsInstance>();
 
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
@@ -44,6 +44,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * @param _notebookService The notebook service.
 	 * @param _notebookEditorService The notebook editor service.
 	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
+	 * @param _notebookOutputWebviewService The Positron Notebook output webview service.
 	 * @param _logService The log service.
 	 */
 	constructor(
@@ -92,52 +93,52 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	/**
-	 * Checks if a positron notebook ipywidgets instance exists for the given widget ID.
-	 * @param widgetId The unique widget/output ID
-	 * @returns True if a widget instance exists for this ID
+	 * Checks if a Positron Notebook ipywidgets instance exists for the given output ID.
+	 * @param outputId The notebook cell output ID
+	 * @returns True if an ipywidgets instance exists for this output
 	 */
-	hasPositronNotebookWidgetInstance(widgetId: string): boolean {
-		return this._positronNotebookInstancesByWidgetId.has(widgetId);
+	hasPositronNotebookWidgetInstance(outputId: string): boolean {
+		return this._positronNotebookInstancesByOutputId.has(outputId);
 	}
 
 	/**
-	 * Creates an IPyWidgets instance for a specific Positron Notebooks widget output.
+	 * Creates an IPyWidgets instance for a specific Positron Notebook output cell.
 	 *
-	 * Each widget gets its own messaging channel keyed by the widget ID,
-	 * to enable proper message routing since each widget in a Positron Notebook
-	 * renders in a separate webview.
+	 * Each output gets its own messaging channel keyed by the output ID,
+	 * to enable proper message routing since each output in a Positron Notebook
+	 * renders in a separate webview. The instance manages all widgets within that output.
 	 *
 	 * @param session The notebook session
-	 * @param widgetId The unique widget/output ID
-	 * @returns Disposable that cleans up the widget instance when called
+	 * @param outputId The notebook cell output ID
+	 * @returns Disposable that cleans up the ipywidgets instance when called
 	 */
 	createPositronNotebookWidgetInstance(
 		session: ILanguageRuntimeSession,
-		widgetId: string
+		outputId: string
 	): IDisposable {
-		// Create per-widget messaging and instance using the widget ID
+		// Create per-output messaging and instance using the output ID
 		const { messaging, instance } = this.createWidgetInstance(
 			session,
-			widgetId
+			outputId
 		);
 
-		// Track by widget ID for cleanup
-		this._positronNotebookInstancesByWidgetId.set(widgetId, instance);
+		// Track by output ID for cleanup
+		this._positronNotebookInstancesByOutputId.set(outputId, instance);
 
 		// Return cleanup disposable
 		return toDisposable(() => {
 			messaging.dispose();
 			instance.dispose();
-			this._positronNotebookInstancesByWidgetId.delete(widgetId);
+			this._positronNotebookInstancesByOutputId.delete(outputId);
 		});
 	}
 
 	/**
 	 * Creates an IPyWidgets instance with its associated messaging channel.
-	 * This is the common pattern shared across console, notebook, and per-widget instances.
+	 * This is the common pattern shared across console, built-in notebook, and Positron Notebook instances.
 	 *
 	 * @param session The language runtime session
-	 * @param messagingId The ID for scoping renderer messages (e.g., editor ID, widget ID, client ID)
+	 * @param messagingId The ID for scoping renderer messages (e.g., editor ID, output ID, client ID)
 	 * @returns An object containing the messaging channel and IPyWidgets instance
 	 */
 	private createWidgetInstance(
