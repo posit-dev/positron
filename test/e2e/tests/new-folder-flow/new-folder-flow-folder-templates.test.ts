@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
-	tag: [tags.INTERPRETER, tags.WEB, tags.MODAL, tags.NEW_FOLDER_FLOW]
+	tag: [tags.INTERPRETER, tags.MODAL, tags.NEW_FOLDER_FLOW]
 }, () => {
 
 	// Some extra diligence around clearing settings is used to avoid the language-specific settings
