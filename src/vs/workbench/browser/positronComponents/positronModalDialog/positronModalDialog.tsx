@@ -41,6 +41,7 @@ export interface PositronModalDialogProps {
 	title: string;
 	width: number;
 	height: number;
+	closeOnClickOutside?: boolean;
 	onCancel?: () => void;
 }
 
@@ -292,7 +293,17 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 	// Render.
 	return (
-		<div ref={dialogContainerRef} className='positron-modal-dialog-container' role='dialog'>
+		<div
+			ref={dialogContainerRef}
+			className='positron-modal-dialog-container'
+			role='dialog'
+			onMouseDown={(e) => {
+				// Close if clicking directly on the backdrop (not the dialog content)
+				if (props.closeOnClickOutside && e.target === dialogContainerRef.current) {
+					props.onCancel?.();
+				}
+			}}
+		>
 			<div ref={dialogBoxRef} className='positron-modal-dialog-box' style={{ left: dialogBoxState.left, top: dialogBoxState.top, width: props.width, height: props.height }}>
 				<DraggableTitleBar {...props} onDrag={dragHandler} onStartDrag={startDragHandler} onStopDrag={stopDragHandler} />
 				{props.children}

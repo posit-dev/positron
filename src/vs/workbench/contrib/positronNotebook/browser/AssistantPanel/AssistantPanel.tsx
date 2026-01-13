@@ -78,12 +78,13 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 	const handleOpenSettings = useCallback(async () => {
 		handleClose();
 		await preferencesService.openSettings({ query: 'positron.assistant.notebook' });
-	}, [preferencesService]);
+	}, [handleClose, preferencesService]);
 
 	// Render using PositronModalDialog for centered positioning
 	// Modal size: 400x450 (standard medium modal size in Positron)
 	return (
 		<PositronModalDialog
+			closeOnClickOutside={true}
 			height={450}
 			renderer={renderer}
 			title={localize('assistantPanel.title', 'Positron Notebook Assistant')}
