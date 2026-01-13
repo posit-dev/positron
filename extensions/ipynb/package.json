@@ -86,7 +86,7 @@
     "notebooks": [
       {
         "type": "jupyter-notebook",
-        "displayName": "Jupyter Notebook",
+        "displayName": "Legacy Jupyter Notebook",
         "selector": [
           {
             "filenamePattern": "*.ipynb"

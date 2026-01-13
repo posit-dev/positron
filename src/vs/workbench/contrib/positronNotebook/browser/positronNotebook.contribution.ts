@@ -96,7 +96,7 @@ class PositronNotebookContribution extends Disposable {
 		const notebookEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
-			detail: localize('positronNotebook.detail', "Provided by Positron"),
+			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
 			priority: RegisteredEditorPriority.option
 		};
 
