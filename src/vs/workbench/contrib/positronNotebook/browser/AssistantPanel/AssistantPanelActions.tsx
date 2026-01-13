@@ -17,6 +17,7 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { TwinklingSparkleIcon } from './TwinklingSparkleIcon.js';
 
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
 
@@ -283,7 +284,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					disabled={isGenerating}
 					onClick={handleGenerateSuggestions}
 				>
-					<span className='suggestions-button-icon codicon codicon-sparkle' />
+					<TwinklingSparkleIcon animating={isGenerating} />
 					<div className='suggestions-button-content'>
 						<div className='suggestions-button-label'>
 							{isGenerating
@@ -292,11 +293,13 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 									? localize('assistantPanel.aiSuggestions', 'AI Suggestions')
 									: localize('assistantPanel.action.generate', 'Generate AI Suggestions')}
 						</div>
-						{!aiSuggestions.length && !isGenerating && (
-							<div className='suggestions-button-detail'>
-								{localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions')}
-							</div>
-						)}
+						<div className='suggestions-button-detail'>
+							{isGenerating
+								? localize('assistantPanel.action.generating.detail', 'Suggestions based on notebook content')
+								: aiSuggestions.length > 0
+									? localize('assistantPanel.action.regenerate.detail', 'Click to regenerate suggestions')
+									: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions')}
+						</div>
 					</div>
 					<span className={positronClassNames(
 						'suggestions-button-indicator',
