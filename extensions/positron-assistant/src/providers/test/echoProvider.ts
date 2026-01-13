@@ -11,6 +11,7 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABI
 import { recordTokenUsage, recordRequestTokenUsage } from '../../extension';
 import { toAIMessage } from '../../utils';
 import { ModelProvider } from '../base/modelProvider';
+import { markDefaultModel } from '../../modelResolutionHelpers';
 
 /**
  * Test provider that echoes back user input.
@@ -148,7 +149,7 @@ export class EchoModelProvider extends ModelProvider {
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
 			capabilities: this.capabilities,
-			isDefault: true,
+			isDefault: false,
 			isUserSelectable: true,
 		}, {
 			id: 'echo-language-model-v2',
@@ -158,10 +159,12 @@ export class EchoModelProvider extends ModelProvider {
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
 			capabilities: this.capabilities,
+			isDefault: false,
 			isUserSelectable: true,
 		}];
-		this.modelListing = models;
-		return models;
+		// Apply user preference for default model
+		this.modelListing = markDefaultModel(models, this.providerId);
+		return this.modelListing;
 	}
 
 	/**
