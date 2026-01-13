@@ -71,14 +71,14 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		fetchContext();
 	}, [notebook]);
 
-	const handleClose = useCallback(() => {
+	const handleClose = () => {
 		renderer.dispose();
-	}, [renderer]);
+	};
 
 	const handleOpenSettings = useCallback(async () => {
-		handleClose();
+		renderer.dispose();
 		await preferencesService.openSettings({ query: 'positron.assistant.notebook' });
-	}, [handleClose, preferencesService]);
+	}, [renderer, preferencesService]);
 
 	// Render using PositronModalDialog for centered positioning
 	// Modal size: 400x450 (standard medium modal size in Positron)
