@@ -63,7 +63,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 				const context = await notebook.getAssistantContext();
 				setNotebookContext(context);
 			} catch (error) {
-				console.error('Failed to fetch notebook context:', error);
+				logService.error('Failed to fetch notebook context:', error);
 			} finally {
 				setIsLoading(false);
 			}

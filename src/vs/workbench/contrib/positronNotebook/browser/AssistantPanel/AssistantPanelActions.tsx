@@ -39,7 +39,7 @@ interface PredefinedAction {
 const PREDEFINED_ACTIONS: PredefinedAction[] = [
 	{
 		id: 'explain',
-		label: localize('assistantPanel.action.explain', 'Explain this notebook'),
+		label: localize('assistantPanel.action.explain', 'Explain This Notebook'),
 		detail: localize('assistantPanel.action.explain.detail', 'Summarize what this notebook does and how it works'),
 		query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
 		mode: ChatModeKind.Ask,
@@ -47,7 +47,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 	},
 	{
 		id: 'fix',
-		label: localize('assistantPanel.action.fix', 'Fix errors and issues'),
+		label: localize('assistantPanel.action.fix', 'Fix Errors and Issues'),
 		detail: localize('assistantPanel.action.fix.detail', 'Debug problems and suggest improvements'),
 		query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
 		mode: ChatModeKind.Edit,
@@ -55,7 +55,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 	},
 	{
 		id: 'improve',
-		label: localize('assistantPanel.action.improve', 'Improve this notebook'),
+		label: localize('assistantPanel.action.improve', 'Improve This Notebook'),
 		detail: localize('assistantPanel.action.improve.detail', 'Add documentation and enhance readability'),
 		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
 		mode: ChatModeKind.Edit,
@@ -63,7 +63,7 @@ const PREDEFINED_ACTIONS: PredefinedAction[] = [
 	},
 	{
 		id: 'generate',
-		label: localize('assistantPanel.action.generate', 'Generate AI suggestions...'),
+		label: localize('assistantPanel.action.generate', 'Generate AI Suggestions...'),
 		detail: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions'),
 		query: '',
 		mode: ChatModeKind.Agent,
