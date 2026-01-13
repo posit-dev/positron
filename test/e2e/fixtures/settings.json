@@ -13,5 +13,6 @@
     "error"
   ],
   "posit.workbench.showWorkbenchFlaskHint": false,
-	"console.showResourceMonitor": false
+	"console.showResourceMonitor": false,
+	"kernelSupervisor.resourceUsagePollInterval": 0
 }
