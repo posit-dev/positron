@@ -114,21 +114,7 @@ test.describe('Notebook Assistant Features', {
 		// Close the notebook before changing settings
 		await hotKeys.closeAllEditors();
 
-		// Test 2: Enable master switch but not notebook mode - should still not be visible
-		await settings.set({
-			'positron.assistant.enable': true,
-		});
-
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-
-		const followAssistantPartial = page.getByRole('button', { name: /[Ff]ollow.*[Aa]ssistant/i });
-		await expect(followAssistantPartial).not.toBeVisible();
-
-		// Close the notebook before changing settings
-		await hotKeys.closeAllEditors();
-
-		// Test 3: Enable both settings AND configure echo model (required for hasChatModels context key)
+		// Test 2: Enable assistant AND configure echo model (required for hasChatModels context key)
 		await settings.set({
 			'positron.assistant.enable': true,
 		});
