@@ -157,6 +157,11 @@
         "command": "r.loadRdsFile",
         "category": "R",
         "title": "%r.command.loadRdsFile.title%"
+      },
+      {
+        "command": "r.loadRDataFileWithPicker",
+        "category": "R",
+        "title": "%r.command.loadRDataFileWithPicker.title%"
       }
     ],
     "configuration": [
@@ -677,6 +682,10 @@
           "category": "R",
           "command": "r.loadRdsFile",
           "when": "resourceExtname == '.rds' || resourceExtname == '.RDS'"
+        },
+        {
+          "category": "R",
+          "command": "r.loadRDataFileWithPicker"
         }
       ],
       "file/newFile": [

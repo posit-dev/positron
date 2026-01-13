@@ -196,6 +196,9 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.loadRdsFile', async (resource?: vscode.Uri) => {
 			loadRdsFile(resource);
 		}),
+		vscode.commands.registerCommand('r.loadRDataFileWithPicker', async () => {
+			loadRDataFileWithPicker();
+		}),
 
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.rmarkdownRender', async () => {
@@ -360,6 +363,37 @@ async function executeCodeForCommand(pkg: string, code: string) {
 	}
 }
 
+/**
+ * Prompts the user to select an R data file (.RData, .rda, .rds) and loads it.
+ */
+async function loadRDataFileWithPicker() {
+	const filters: { [name: string]: string[] } = {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'R Data Files': ['RData', 'Rdata', 'rdata', 'rda', 'rds', 'RDS']
+	};
+
+	const fileUri = await vscode.window.showOpenDialog({
+		canSelectMany: false,
+		openLabel: vscode.l10n.t('Load'),
+		filters: filters,
+		title: vscode.l10n.t('Select R Data File to Load')
+	});
+
+	if (!fileUri || fileUri.length === 0) {
+		return;
+	}
+
+	const selectedFile = fileUri[0];
+	const ext = path.extname(selectedFile.fsPath).toLowerCase();
+
+	if (ext === '.rds') {
+		loadRdsFile(selectedFile);
+	} else {
+		// .RData, .Rdata, .rdata, .rda
+		loadRDataFile(selectedFile);
+	}
+}
+
 export async function getEditorFilePathForCommand(resource?: vscode.Uri) {
 	let filePath: string | undefined;
 
@@ -464,14 +498,21 @@ async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undef
  * @param resource Optional URI from context menu click
  */
 async function loadRDataFile(resource?: vscode.Uri) {
+	if (!resource) {
+		// No resource, so nothing to do
+		return;
+	}
 	try {
 		const filePath = await getFilePathForLoad(resource);
 		if (filePath) {
 			const command = `load(${JSON.stringify(filePath)})`;
 			positron.runtime.executeCode('r', command, true); // focus=true to show result
+		} else {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
 		}
 	} catch (e) {
-		// File doesn't exist or invalid path - silently ignore
+		const message = e instanceof Error ? e.message : String(e);
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: {0}', message));
 	}
 }
 
@@ -480,9 +521,14 @@ async function loadRDataFile(resource?: vscode.Uri) {
  * @param resource Optional URI from context menu click
  */
 async function loadRdsFile(resource?: vscode.Uri) {
+	if (!resource) {
+		// No resource, so nothing to do
+		return;
+	}
 	try {
 		const filePath = await getFilePathForLoad(resource);
 		if (!filePath) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: File not found or invalid path {0}', JSON.stringify(resource)));
 			return;
 		}
 
@@ -511,6 +557,7 @@ async function loadRdsFile(resource?: vscode.Uri) {
 			positron.runtime.executeCode('r', command, true);
 		}
 	} catch (e) {
-		// File doesn't exist or invalid path - silently ignore
+		const message = e instanceof Error ? e.message : String(e);
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: {0}', message));
 	}
 }

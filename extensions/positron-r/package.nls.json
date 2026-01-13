@@ -22,6 +22,7 @@
 	"r.command.interpreters.settingsInfo.title": "Print interpreter settings information to Output",
 	"r.command.loadRDataFile.title": "Load R Objects",
 	"r.command.loadRdsFile.title": "Load R Object",
+	"r.command.loadRDataFileWithPicker.title": "Load R Data File...",
 	"r.customEditor.rdataLoader.displayName": "R Workspace Loader",
 	"r.customEditor.rdsLoader.displayName": "R Object Loader",
 	"r.menu.createNewFile.title": "R File",

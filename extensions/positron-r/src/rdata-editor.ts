@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -52,7 +52,12 @@ async function checkRRuntimeStatus(): Promise<RRuntimeStatus> {
 }
 
 /**
- * Waits for R runtime to become available.
+ * Waits for R runtime to become available. We do this to avoid trying to load
+ * an RData or RDS file before R has been discovered, which would lead to
+ * errors.
+ *
+ * This is primarily an issue when double-clicking an RData or RDS files from
+ * the OS file explorer when no R sessions are active yet.
  *
  * @param webviewPanel The webview panel to update with status
  * @param fileName The name of the file being loaded
@@ -78,7 +83,7 @@ async function waitForRRuntime(
 	// Show waiting message
 	updateHtml(getWaitingForRHtml(fileName));
 
-	// Wait for R runtime to be registered or discovery to complete
+	// Wait for discovery to complete or cancellation
 	return new Promise<boolean>((resolve) => {
 		const disposables: vscode.Disposable[] = [];
 		let resolved = false;
@@ -89,17 +94,6 @@ async function waitForRRuntime(
 				disposables.forEach(d => d.dispose());
 			}
 		};
-
-		// Listen for new runtime registrations
-		disposables.push(
-			positron.runtime.onDidRegisterRuntime((runtime) => {
-				if (runtime.languageId === 'r') {
-					cleanup();
-					resolve(true);
-				}
-			})
-		);
-
 		// Listen for discovery completion
 		disposables.push(
 			runtimeManager.onDidCompleteDiscovery(() => {
