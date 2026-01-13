@@ -277,7 +277,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 
 				{/* Pre-built actions label */}
 				<div className='assistant-panel-prebuilt-label'>
-					{localize('assistantPanel.prebuilt', 'Pre-built')}
+					{localize('assistantPanel.prebuilt', 'Pre-built Actions')}
 				</div>
 
 				{/* Predefined actions */}
