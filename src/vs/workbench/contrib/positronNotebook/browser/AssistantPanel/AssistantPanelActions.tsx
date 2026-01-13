@@ -180,7 +180,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					notificationService.info(
 						localize(
 							'assistantPanel.noSuggestions',
-							'No suggestions generated. Try selecting cells or executing code first.'
+							'No suggestions available. The assistant couldn\'t identify specific actions for this notebook. Try using the pre-built actions above or enter a custom prompt.'
 						)
 					);
 				}
@@ -244,9 +244,6 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 
 	return (
 		<div className='assistant-panel-section'>
-			<div className='assistant-panel-section-header'>
-				{localize('assistantPanel.actions.header', 'Actions')}
-			</div>
 			<div className='assistant-panel-section-content'>
 				{/* Custom prompt input with submit button */}
 				<div className={positronClassNames(
@@ -273,37 +270,36 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					</button>
 				</div>
 
-				{/* Pre-built actions label */}
-				<div className='assistant-panel-prebuilt-label'>
-					{localize('assistantPanel.prebuilt', 'Pre-built Actions')}
-				</div>
-
 				{/* Predefined actions */}
 				{PREDEFINED_ACTIONS.map((action) => (
-					<div
-						key={action.id}
-						className={positronClassNames(
-							'assistant-panel-action',
-							{ 'loading': action.generateSuggestions && isGenerating },
-							{ 'dynamic-action': action.generateSuggestions }
+					<React.Fragment key={action.id}>
+						{action.generateSuggestions && (
+							<div className='assistant-panel-action-divider' />
 						)}
-						role='button'
-						tabIndex={0}
-						onClick={() => handleActionClick(action)}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								handleActionClick(action);
-							}
-						}}
-					>
-						<span className={`assistant-panel-action-icon codicon ${action.iconClass}`} />
-						<div className='assistant-panel-action-content'>
-							<div className='assistant-panel-action-label'>{action.label}</div>
-							<div className='assistant-panel-action-detail'>{action.detail}</div>
-						</div>
-					</div>
+						<button
+							className={positronClassNames(
+								'assistant-panel-action',
+								{ 'loading': action.generateSuggestions && isGenerating },
+								{ 'secondary-action': action.generateSuggestions }
+							)}
+							onClick={() => handleActionClick(action)}
+						>
+							<span className={`assistant-panel-action-icon codicon ${action.iconClass}`} />
+							<div className='assistant-panel-action-content'>
+								<div className='assistant-panel-action-label'>{action.label}</div>
+								<div className='assistant-panel-action-detail'>{action.detail}</div>
+							</div>
+						</button>
+					</React.Fragment>
 				))}
+
+				{/* Generation loading indicator */}
+				{isGenerating && (
+					<div className='assistant-panel-generating-indicator'>
+						<span className='codicon codicon-loading codicon-modifier-spin' />
+						<span>{localize('assistantPanel.generating', 'Generating suggestions...')}</span>
+					</div>
+				)}
 
 				{/* AI-generated suggestions */}
 				{aiSuggestions.length > 0 && (
@@ -316,24 +312,16 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 							{localize('assistantPanel.aiSuggestions', 'AI-Generated Suggestions')}
 						</div>
 						{aiSuggestions.map((suggestion, index) => (
-							<div
+							<button
 								key={index}
 								className='assistant-panel-action'
-								role='button'
-								tabIndex={0}
 								onClick={() => onActionSelected(suggestion.query, suggestion.mode)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter' || e.key === ' ') {
-										e.preventDefault();
-										onActionSelected(suggestion.query, suggestion.mode);
-									}
-								}}
 							>
 								<span className='assistant-panel-action-icon codicon codicon-sparkle' />
 								<div className='assistant-panel-action-content'>
 									<div className='assistant-panel-action-label'>{suggestion.label}</div>
 								</div>
-							</div>
+							</button>
 						))}
 					</div>
 				)}

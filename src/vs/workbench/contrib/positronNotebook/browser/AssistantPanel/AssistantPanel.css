@@ -27,15 +27,22 @@
 	color: var(--vscode-positronModalDialog-titleBarForeground);
 	cursor: pointer;
 	padding: 4px;
-	font-size: 16px;
-	opacity: 0.8;
+	font-size: 14px; /* Reduced from 16px */
+	opacity: 0.6; /* Reduced from 0.8 */
 	transition: opacity 0.2s;
 	border-radius: 4px;
 	z-index: 10;
 }
 
 .positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon:hover {
-	opacity: 1;
+	opacity: 0.9; /* Reduced from 1.0 */
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon:focus-visible {
+	opacity: 0.9;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
 }
 
 /* Adjust section spacing for modal context */
@@ -89,10 +96,26 @@
 	gap: 6px;
 	padding: 4px 0;
 	cursor: pointer;
+	/* Reset button styles */
+	background: none;
+	border: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	width: 100%;
 }
 
 .assistant-panel-context-summary:hover {
 	color: var(--vscode-textLink-activeForeground);
+}
+
+.assistant-panel-context-summary:focus {
+	outline: none;
+}
+
+.assistant-panel-context-summary:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
 }
 
 .assistant-panel-context-summary .expand-icon {
@@ -196,14 +219,6 @@
 	outline-offset: -1px;
 }
 
-/* Pre-built actions label */
-.assistant-panel-prebuilt-label {
-	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
-	margin-top: 8px;
-	margin-bottom: 2px;
-}
-
 .assistant-panel-action {
 	display: flex;
 	align-items: center;
@@ -212,10 +227,32 @@
 	border-radius: 4px;
 	cursor: pointer;
 	font-size: 13px;
+	border-left: 2px solid transparent;
+	margin-left: -2px; /* Compensate for border width */
+	transition: background-color 0.1s ease, border-color 0.1s ease;
+	/* Reset button styles */
+	background: none;
+	border-top: none;
+	border-right: none;
+	border-bottom: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	width: 100%;
 }
 
 .assistant-panel-action:hover {
-	background-color: var(--vscode-list-hoverBackground);
+	background-color: var(--vscode-list-activeSelectionBackground);
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.assistant-panel-action:focus {
+	outline: none;
+}
+
+.assistant-panel-action:focus-visible {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	border-left-color: var(--vscode-focusBorder);
 }
 
 .assistant-panel-action-icon {
@@ -253,15 +290,45 @@
 	to { transform: rotate(360deg); }
 }
 
-/* Dynamic action (Generate AI suggestions) styling */
-.assistant-panel-action.dynamic-action .assistant-panel-action-label,
-.assistant-panel-action.dynamic-action .assistant-panel-action-icon {
-	color: var(--vscode-textLink-foreground);
+/* Divider before secondary actions */
+.assistant-panel-action-divider {
+	height: 1px;
+	background-color: var(--vscode-widget-border);
+	margin: 8px 0;
 }
 
-.assistant-panel-action.dynamic-action:hover .assistant-panel-action-label,
-.assistant-panel-action.dynamic-action:hover .assistant-panel-action-icon {
-	color: var(--vscode-textLink-activeForeground);
+/* Secondary action styling (Generate AI suggestions) */
+.assistant-panel-action.secondary-action {
+	opacity: 0.85;
+}
+
+.assistant-panel-action.secondary-action .assistant-panel-action-label,
+.assistant-panel-action.secondary-action .assistant-panel-action-icon {
+	color: var(--vscode-descriptionForeground);
+}
+
+.assistant-panel-action.secondary-action:hover {
+	opacity: 1;
+}
+
+.assistant-panel-action.secondary-action:hover .assistant-panel-action-label,
+.assistant-panel-action.secondary-action:hover .assistant-panel-action-icon {
+	color: var(--vscode-foreground);
+}
+
+/* Generation loading indicator */
+.assistant-panel-generating-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.assistant-panel-generating-indicator .codicon {
+	font-size: 14px;
 }
 
 /* AI suggestions section */

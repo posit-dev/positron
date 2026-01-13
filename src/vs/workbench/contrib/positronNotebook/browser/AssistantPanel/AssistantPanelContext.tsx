@@ -49,7 +49,7 @@ export const AssistantPanelContext = (props: AssistantPanelContextProps) => {
 			return (
 				<div className='assistant-panel-context-empty'>
 					{localize('assistantPanel.context.emptyHelp',
-						'Context will include notebook cells when you start a conversation.')}
+						'No notebook cells to include. Add cells to your notebook to provide context for the assistant.')}
 				</div>
 			);
 		}
@@ -74,21 +74,13 @@ export const AssistantPanelContext = (props: AssistantPanelContextProps) => {
 				{localize('assistantPanel.context.header', 'What Assistant Can See')}
 			</div>
 			<div className='assistant-panel-section-content'>
-				<div
+				<button
 					className='assistant-panel-context-summary'
-					role='button'
-					tabIndex={0}
 					onClick={() => setIsExpanded(!isExpanded)}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							setIsExpanded(!isExpanded);
-						}
-					}}
 				>
 					<span className={`expand-icon codicon codicon-chevron-${isExpanded ? 'down' : 'right'}`} />
 					<span>{getCellSummary()}</span>
-				</div>
+				</button>
 				{isExpanded && renderCellList()}
 			</div>
 		</div>
