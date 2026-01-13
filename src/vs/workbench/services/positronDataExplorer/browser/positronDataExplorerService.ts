@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -22,6 +23,7 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { DataExplorerPreviewEnabled } from './positronDataExplorerSummary.js';
 
 /**
  * DataExplorerRuntime class.
@@ -136,6 +138,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -374,9 +377,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		this.registerDataExplorerClient(languageName, dataExplorerClientInstance);
 
+		// Determine pinned state based on preview setting
+		const pinned = !DataExplorerPreviewEnabled(this._configurationService);
+
 		// Open an editor for the Positron data explorer client instance.
 		const editorPane = await this._editorService.openEditor({
-			resource: PositronDataExplorerUri.generate(dataExplorerClientInstance.identifier)
+			resource: PositronDataExplorerUri.generate(dataExplorerClientInstance.identifier),
+			options: { pinned }
 		});
 
 		// If the editor could not be opened, notify the user and return.

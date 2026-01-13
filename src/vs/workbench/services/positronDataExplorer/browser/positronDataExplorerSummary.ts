@@ -19,6 +19,8 @@ export const USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
 	'dataExplorer.summaryCollapsed';
 export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
+export const DATA_EXPLORER_ENABLE_PREVIEW_KEY =
+	'dataExplorer.enablePreview';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
@@ -38,6 +40,14 @@ export function DefaultDataExplorerSummaryLayout(
 	} else {
 		return PositronDataExplorerLayout.SummaryOnRight;
 	}
+}
+
+export function DataExplorerPreviewEnabled(
+	configurationService: IConfigurationService
+) {
+	return Boolean(
+		configurationService.getValue(DATA_EXPLORER_ENABLE_PREVIEW_KEY)
+	);
 }
 
 // Register the configuration setting
@@ -69,6 +79,20 @@ configurationRegistry.registerConfiguration({ // for summary layout
 			markdownDescription: localize(
 				'positron.dataExplorerSummaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
+			),
+		},
+	},
+});
+configurationRegistry.registerConfiguration({ // for preview mode
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[DATA_EXPLORER_ENABLE_PREVIEW_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.dataExplorerEnablePreview',
+				'Controls whether Data Explorer tabs open in preview mode. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or interacting with the data pins the tab.'
 			),
 		},
 	},

@@ -20,6 +20,8 @@ import { extname } from '../../../../base/common/resources.js';
 import { posix } from '../../../../base/common/path.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { DataExplorerPreviewEnabled } from '../../../services/positronDataExplorer/browser/positronDataExplorerSummary.js';
 
 /**
  * PositronDataExplorerContribution class.
@@ -36,6 +38,7 @@ class PositronDataExplorerContribution extends Disposable {
 	 * @param instantiationService The instantiation service.
 	 */
 	constructor(
+		@IConfigurationService configurationService: IConfigurationService,
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IPositronDataExplorerService dataExplorerService: IPositronDataExplorerService
@@ -51,6 +54,13 @@ class PositronDataExplorerContribution extends Disposable {
 		};
 
 		const createDataExplorerEditor: EditorInputFactoryFunction = ({ resource, options }) => {
+			// Determine pinned state based on preview setting.
+			// When preview is enabled, tabs open unpinned (in preview mode).
+			// See https://github.com/posit-dev/positron/issues/11289
+			// Note: We intentionally ignore options.pinned here to ensure our setting
+			// takes precedence over VS Code's default preview behavior for files.
+			const pinned = !DataExplorerPreviewEnabled(configurationService);
+
 			return {
 				editor: instantiationService.createInstance(
 					PositronDataExplorerEditorInput,
@@ -58,8 +68,7 @@ class PositronDataExplorerContribution extends Disposable {
 				),
 				options: {
 					...options,
-					// Fix for https://github.com/posit-dev/positron/issues/3362.
-					pinned: true
+					pinned
 				}
 			};
 		};
