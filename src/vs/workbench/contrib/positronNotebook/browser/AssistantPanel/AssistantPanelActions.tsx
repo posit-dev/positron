@@ -16,6 +16,7 @@ import { ChatModeKind } from '../../../chat/common/constants.js';
 import { CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 const MAX_CUSTOM_PROMPT_LENGTH = 15000;
 
@@ -103,6 +104,8 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
 	const cancellationTokenSourceRef = useRef<CancellationTokenSource | null>(null);
+	const suggestionsContainerRef = useRef<HTMLDivElement>(null);
+	const userHasScrolledRef = useRef(false);
 
 	const handleCustomPromptSubmit = useCallback(() => {
 		const trimmed = customPrompt.trim();
@@ -130,14 +133,6 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			handleCustomPromptSubmit();
 		}
 	}, [handleCustomPromptSubmit]);
-
-	const handleActionClick = useCallback(async (action: PredefinedAction) => {
-		if (action.generateSuggestions) {
-			await handleGenerateSuggestions();
-		} else {
-			onActionSelected(action.query, action.mode);
-		}
-	}, [onActionSelected]);
 
 	const handleGenerateSuggestions = useCallback(async () => {
 		if (isGenerating) {
@@ -212,6 +207,14 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 		}
 	}, [isGenerating, notebook, commandService, notificationService, logService]);
 
+	const handleActionClick = useCallback(async (action: PredefinedAction) => {
+		if (action.generateSuggestions) {
+			await handleGenerateSuggestions();
+		} else {
+			onActionSelected(action.query, action.mode);
+		}
+	}, [handleGenerateSuggestions, onActionSelected]);
+
 	// Cleanup on unmount
 	useEffect(() => {
 		return () => {
@@ -220,28 +223,72 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 		};
 	}, []);
 
+	// Track if user has manually scrolled
+	const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+		const element = e.currentTarget;
+		const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+		userHasScrolledRef.current = !isAtBottom;
+	}, []);
+
+	// Auto-scroll when new suggestions arrive
+	useEffect(() => {
+		if (aiSuggestions.length > 0 && !userHasScrolledRef.current && suggestionsContainerRef.current) {
+			suggestionsContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+		}
+	}, [aiSuggestions]);
+
+	// Reset scroll tracking when generation starts
+	useEffect(() => {
+		if (isGenerating) {
+			userHasScrolledRef.current = false;
+		}
+	}, [isGenerating]);
+
 	return (
 		<div className='assistant-panel-section'>
 			<div className='assistant-panel-section-header'>
 				{localize('assistantPanel.actions.header', 'Actions')}
 			</div>
 			<div className='assistant-panel-section-content'>
-				{/* Custom prompt input */}
-				<textarea
-					autoFocus
-					className='assistant-panel-prompt-input'
-					placeholder={localize('assistantPanel.prompt.placeholder', 'Ask assistant to...')}
-					rows={1}
-					value={customPrompt}
-					onChange={(e) => setCustomPrompt(e.target.value)}
-					onKeyDown={handleKeyDown}
-				/>
+				{/* Custom prompt input with submit button */}
+				<div className={positronClassNames(
+					'assistant-panel-prompt-wrapper',
+					{ 'has-content': customPrompt.trim().length > 0 }
+				)}>
+					<textarea
+						autoFocus
+						className='assistant-panel-prompt-input'
+						placeholder={localize('assistantPanel.prompt.placeholder', 'Ask assistant to...')}
+						rows={1}
+						value={customPrompt}
+						onChange={(e) => setCustomPrompt(e.target.value)}
+						onKeyDown={handleKeyDown}
+					/>
+					<button
+						aria-label={localize('assistantPanel.submit', 'Submit prompt')}
+						className='assistant-panel-submit-button'
+						tabIndex={customPrompt.trim().length > 0 ? 0 : -1}
+						title={localize('assistantPanel.submit', 'Submit prompt')}
+						onClick={handleCustomPromptSubmit}
+					>
+						<span className='codicon codicon-arrow-right' />
+					</button>
+				</div>
+
+				{/* Pre-built actions label */}
+				<div className='assistant-panel-prebuilt-label'>
+					{localize('assistantPanel.prebuilt', 'Pre-built')}
+				</div>
 
 				{/* Predefined actions */}
 				{PREDEFINED_ACTIONS.map((action) => (
 					<div
 						key={action.id}
-						className={`assistant-panel-action ${action.generateSuggestions && isGenerating ? 'loading' : ''}`}
+						className={positronClassNames(
+							'assistant-panel-action',
+							{ 'loading': action.generateSuggestions && isGenerating },
+							{ 'dynamic-action': action.generateSuggestions }
+						)}
 						role='button'
 						tabIndex={0}
 						onClick={() => handleActionClick(action)}
@@ -262,7 +309,11 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 
 				{/* AI-generated suggestions */}
 				{aiSuggestions.length > 0 && (
-					<>
+					<div
+						ref={suggestionsContainerRef}
+						className='assistant-panel-ai-suggestions-container'
+						onScroll={handleScroll}
+					>
 						<div className='assistant-panel-ai-suggestions-header'>
 							{localize('assistantPanel.aiSuggestions', 'AI-Generated Suggestions')}
 						</div>
@@ -286,7 +337,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 								</div>
 							</div>
 						))}
-					</>
+					</div>
 				)}
 			</div>
 		</div>

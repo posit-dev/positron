@@ -12,8 +12,8 @@
 .assistant-panel-content {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
-	padding: 8px 16px;
+	gap: 8px;
+	padding: 4px 12px;
 	position: relative;
 }
 
@@ -142,11 +142,64 @@
 	color: var(--vscode-input-placeholderForeground);
 }
 
+/* Prompt input wrapper for positioning submit button */
+.assistant-panel-prompt-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.assistant-panel-prompt-wrapper .assistant-panel-prompt-input {
+	padding-right: 32px; /* Make room for button */
+}
+
+/* Submit button - hidden by default */
+.assistant-panel-submit-button {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%) translateX(20px);
+	opacity: 0;
+	padding: 4px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-input-foreground);
+	cursor: pointer;
+	border-radius: 4px;
+	font-size: 14px;
+	transition: transform 150ms ease-out, opacity 150ms ease-out;
+	pointer-events: none;
+}
+
+/* Submit button visible when input has content */
+.assistant-panel-prompt-wrapper.has-content .assistant-panel-submit-button {
+	transform: translateY(-50%) translateX(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.assistant-panel-submit-button:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.assistant-panel-submit-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Pre-built actions label */
+.assistant-panel-prebuilt-label {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 8px;
+	margin-bottom: 2px;
+}
+
 .assistant-panel-action {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 6px 8px;
+	padding: 4px 6px;
 	border-radius: 4px;
 	cursor: pointer;
 	font-size: 13px;
@@ -191,7 +244,24 @@
 	to { transform: rotate(360deg); }
 }
 
+/* Dynamic action (Generate AI suggestions) styling */
+.assistant-panel-action.dynamic-action .assistant-panel-action-label,
+.assistant-panel-action.dynamic-action .assistant-panel-action-icon {
+	color: var(--vscode-textLink-foreground);
+}
+
+.assistant-panel-action.dynamic-action:hover .assistant-panel-action-label,
+.assistant-panel-action.dynamic-action:hover .assistant-panel-action-icon {
+	color: var(--vscode-textLink-activeForeground);
+}
+
 /* AI suggestions section */
+.assistant-panel-ai-suggestions-container {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
 .assistant-panel-ai-suggestions-header {
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
