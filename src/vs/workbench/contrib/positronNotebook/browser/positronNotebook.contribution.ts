@@ -686,7 +686,8 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.execute', "Run Cell"),
 			icon: ThemeIcon.fromId('notebook-execute'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
@@ -712,7 +713,8 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.stopExecution', "Stop Cell Execution"),
 			icon: ThemeIcon.fromId('primitive-square'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
