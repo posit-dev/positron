@@ -297,7 +297,7 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			ref={dialogContainerRef}
 			className='positron-modal-dialog-container'
 			role='dialog'
-			onMouseDown={(e) => {
+			onClick={(e) => {
 				// Close if clicking directly on the backdrop (not the dialog content)
 				if (props.closeOnClickOutside && e.target === dialogContainerRef.current) {
 					props.onCancel?.();
