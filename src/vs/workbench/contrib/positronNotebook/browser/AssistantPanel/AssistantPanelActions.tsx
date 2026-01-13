@@ -284,7 +284,6 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 					disabled={isGenerating}
 					onClick={handleGenerateSuggestions}
 				>
-					<TwinklingSparkleIcon animating={isGenerating} />
 					<div className='suggestions-button-content'>
 						<div className='suggestions-button-label'>
 							{isGenerating
@@ -301,12 +300,7 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 									: localize('assistantPanel.action.generate.detail', 'Analyze notebook and suggest actions')}
 						</div>
 					</div>
-					<span className={positronClassNames(
-						'suggestions-button-indicator',
-						'codicon',
-						isGenerating ? 'codicon-loading codicon-modifier-spin' :
-							aiSuggestions.length > 0 ? 'codicon-refresh' : 'codicon-chevron-down'
-					)} />
+					<TwinklingSparkleIcon animating={isGenerating} />
 				</button>
 
 				{/* AI-generated suggestions */}
