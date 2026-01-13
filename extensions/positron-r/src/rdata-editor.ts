@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { runtimeManager } from './extension.js';
+import { loadRDataFile, loadRdsFileWithVarName } from './commands.js';
 
 /**
  * Result of checking R runtime availability.
@@ -315,8 +316,7 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 
 		// Execute the load command
 		try {
-			const command = `load(${JSON.stringify(filePath)})`;
-			await positron.runtime.executeCode('r', command, true);
+			await loadRDataFile(document.uri, false);
 
 			// Update webview to show success and close after a short delay
 			webviewPanel.webview.html = this.getSuccessHtml(fileName);
@@ -543,8 +543,7 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
 		// Execute the readRDS command
 		try {
-			const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
-			await positron.runtime.executeCode('r', command, true);
+			await loadRdsFileWithVarName(document.uri, varName);
 
 			// Update webview to show success and close after a short delay
 			webviewPanel.webview.html = this.getSuccessHtml(fileName, varName);

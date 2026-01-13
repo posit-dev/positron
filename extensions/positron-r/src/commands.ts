@@ -465,13 +465,20 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 
 /**
  * Gets the file path for loading operations.
- * Unlike getEditorFilePathForCommand, this doesn't save the file.
+ *
  * @param resource Optional URI from context menu
+ * @returns The file path, or undefined if not found
  */
-async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
+export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
 	let filePath: string | undefined;
 
 	if (resource) {
+		// Unlikely since these Uris come from VS Code's file explorer or editor
+		// context menus, but validate that the resource has a file system path.
+		if (!resource.fsPath) {
+			LOGGER.warn('getFilePathForLoad: resource has no fsPath: ' + JSON.stringify(resource));
+			return undefined;
+		}
 		filePath = resource.fsPath;
 	} else {
 		const editor = vscode.window.activeTextEditor;
@@ -495,25 +502,37 @@ async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undef
 
 /**
  * Loads an R workspace file (.RData, .rda) into the R session.
+ *
  * @param resource Optional URI from context menu click
+ * @param showErrors Whether to show error messages (default true)
  */
-async function loadRDataFile(resource?: vscode.Uri) {
+export async function loadRDataFile(resource?: vscode.Uri, showErrors = true): Promise<void> {
 	if (!resource) {
 		// No resource, so nothing to do
 		return;
 	}
-	try {
-		const filePath = await getFilePathForLoad(resource);
-		if (filePath) {
-			const command = `load(${JSON.stringify(filePath)})`;
-			positron.runtime.executeCode('r', command, true); // focus=true to show result
-		} else {
-			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
-		}
-	} catch (e) {
-		const message = e instanceof Error ? e.message : String(e);
-		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: {0}', message));
+	const filePath = await getFilePathForLoad(resource);
+	if (filePath) {
+		const command = `load(${JSON.stringify(filePath)})`;
+		await positron.runtime.executeCode('r', command, true); // focus=true to show result
+	} else if (showErrors) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
 	}
+}
+
+/**
+ * Loads an RDS file into the R session with a specified variable name.
+ *
+ * @param resource The URI of the RDS file to load
+ * @param varName The variable name to assign the loaded object to
+ */
+export async function loadRdsFileWithVarName(resource: vscode.Uri, varName: string): Promise<void> {
+	const filePath = await getFilePathForLoad(resource);
+	if (!filePath) {
+		throw new Error(vscode.l10n.t('File not found or invalid path {0}', JSON.stringify(resource)));
+	}
+	const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
+	await positron.runtime.executeCode('r', command, true);
 }
 
 /**
@@ -553,8 +572,7 @@ async function loadRdsFile(resource?: vscode.Uri) {
 		});
 
 		if (varName) {
-			const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
-			positron.runtime.executeCode('r', command, true);
+			await loadRdsFileWithVarName(resource, varName);
 		}
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
