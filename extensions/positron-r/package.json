@@ -772,6 +772,40 @@
         "supportsUiLaunch": false
       }
     ],
+    "customEditors": [
+      {
+        "viewType": "positron-r.rdataLoader",
+        "displayName": "%r.customEditor.rdataLoader.displayName%",
+        "priority": "default",
+        "selector": [
+          {
+            "filenamePattern": "*.RData"
+          },
+          {
+            "filenamePattern": "*.Rdata"
+          },
+          {
+            "filenamePattern": "*.rdata"
+          },
+          {
+            "filenamePattern": "*.rda"
+          }
+        ]
+      },
+      {
+        "viewType": "positron-r.rdsLoader",
+        "displayName": "%r.customEditor.rdsLoader.displayName%",
+        "priority": "default",
+        "selector": [
+          {
+            "filenamePattern": "*.rds"
+          },
+          {
+            "filenamePattern": "*.RDS"
+          }
+        ]
+      }
+    ],
     "notebookRenderer": [
       {
         "id": "positron.r.htmlwidget",

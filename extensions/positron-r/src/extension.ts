@@ -17,6 +17,7 @@ import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
+import { RDataEditorProvider, RdsEditorProvider } from './rdata-editor.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -50,6 +51,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register file associations.
 	registerFileAssociations();
+
+	// Register custom editors for R data files.
+	context.subscriptions.push(RDataEditorProvider.register(context));
+	context.subscriptions.push(RdsEditorProvider.register(context));
 
 	// Register R file paste and drop provider.
 	registerRFilePasteAndDropProvider(context);

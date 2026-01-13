@@ -172,6 +172,7 @@ export const config = {
 			'Xcode workspace file': 'xcworkspace',
 			'Visual Basic script': 'vb',
 			'R source code': 'r',
+			'R Data file': ['rdata', 'RData', 'rda'],
 			'Rust source code': 'rs',
 			'Restructured Text document': 'rst',
 			'LaTeX document': ['tex', 'cls'],
