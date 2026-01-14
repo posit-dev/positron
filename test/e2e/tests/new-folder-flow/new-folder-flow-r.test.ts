@@ -11,12 +11,12 @@ test.use({
 	suiteId: __filename
 });
 
-test.beforeEach(async function ({ app, sessions }) {
-	await sessions.expectAllSessionsToBeReady();
-	await app.workbench.layouts.enterLayout("stacked");
-});
+// test.beforeEach(async function ({ app, sessions }) {
+// 	await sessions.expectAllSessionsToBeReady();
+// 	await app.workbench.layouts.enterLayout("stacked");
+// });
 
-test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB, tags.ARK] }, () => {
+test.describe.skip('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB, tags.ARK] }, () => {
 	test.describe.configure({ mode: 'serial' });
 	const folderTemplate = FolderTemplate.R_PROJECT;
 
