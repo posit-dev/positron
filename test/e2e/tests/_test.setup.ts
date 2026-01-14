@@ -273,15 +273,17 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		// --- Start Positron ---
 		// Log system diagnostics at end of each test for monitoring resource usage
-		try {
-			const freeMemory = getFreeMemory();
-			const processList = getCondensedProcessList();
-			const loadAvgAndCpu = getLoadAverageAndCpuUsage();
-			console.log(`Free Memory: ${freeMemory}`);
-			console.log(`Processes: ${processList}`);
-			console.log(`${loadAvgAndCpu}`);
-		} catch (error) {
-			console.log(`Error logging system diagnostics: ${error}`);
+		if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+			try {
+				const freeMemory = getFreeMemory();
+				const processList = getCondensedProcessList();
+				const loadAvgAndCpu = getLoadAverageAndCpuUsage();
+				console.log(`Free Memory: ${freeMemory}`);
+				console.log(`Processes: ${processList}`);
+				console.log(`${loadAvgAndCpu}`);
+			} catch (error) {
+				console.log(`Error logging system diagnostics: ${error}`);
+			}
 		}
 		// --- End Positron ---
 	}, { scope: 'test', auto: true }],

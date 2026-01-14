@@ -63,6 +63,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -208,6 +213,7 @@ jobs:
           PW_JSON_FILE: test-results/debian.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
 
           # Build the --grep argument only if PW_TAGS is non-empty

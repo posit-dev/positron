@@ -72,6 +72,11 @@ on:
           - failure
           - always
           - never
+      enable_diagnostic_logging:
+        description: "Enable diagnostic logging"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -127,6 +132,7 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-windows:
     name: e2e
@@ -147,6 +153,7 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium:
     name: e2e
@@ -167,6 +174,7 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-rhel:
     name: e2e
@@ -185,6 +193,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-rhel:
     name: e2e
@@ -203,6 +212,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-suse:
     name: e2e
@@ -221,6 +231,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-suse:
     name: e2e
@@ -239,6 +250,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-debian:
     name: e2e
@@ -257,6 +269,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-debian:
     name: e2e
@@ -275,6 +288,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   unit-tests:
     name: test
