@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { JupyterLanguageRuntimeSession, Comm } from './positron-supervisor';
+import { Debounced } from './util';
 
 /**
  * A Debug Adapter Protocol (DAP) comm.
@@ -21,6 +22,7 @@ export class DapComm {
 
 	private _debugSession?: vscode.DebugSession;
 	private _startingSession?: Promise<void>;
+	private _stopDebug = new Debounced(100);
 	private connected = false;
 	private readonly disposables: vscode.Disposable[] = [];
 
@@ -162,12 +164,17 @@ export class DapComm {
 			// When this happens, we attach automatically to the runtime
 			// with a synthetic configuration.
 			case 'start_debug': {
+				this._stopDebug.cancel();
 				vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
 				break;
 			}
 
 			case 'stop_debug': {
-				vscode.debug.setSuppressDebugToolbar(this.debugSession(), true);
+				this._stopDebug.schedule(() => {
+					if (this._debugSession) {
+						vscode.debug.setSuppressDebugToolbar(this._debugSession, true);
+					}
+				});
 				break;
 			}
 
@@ -231,6 +238,7 @@ export class DapComm {
 	}
 
 	dispose(): void {
+		this._stopDebug.flush();
 		this.disposables.forEach(d => d.dispose());
 		this._comm.dispose();
 	}
