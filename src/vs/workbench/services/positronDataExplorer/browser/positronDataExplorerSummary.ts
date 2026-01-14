@@ -89,7 +89,7 @@ configurationRegistry.registerConfiguration({ // for preview mode
 	properties: {
 		[DATA_EXPLORER_ENABLE_PREVIEW_KEY]: {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize(
 				'positron.dataExplorerEnablePreview',
 				'Controls whether Data Explorer tabs open in preview mode. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or interacting with the data pins the tab.'
