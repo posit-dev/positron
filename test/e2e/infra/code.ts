@@ -221,27 +221,34 @@ export class Code {
 			// Await the exit of the application
 			(async () => {
 				let retries = 0;
+				let killedWithTreeKill = false;
 				while (!done) {
 					retries++;
 
-					if (safeToKill) {
+					if (safeToKill && !killedWithTreeKill) {
 						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
 						this.kill(pid);
+						killedWithTreeKill = true;
 					}
 
 					switch (retries) {
 
 						// after 10 seconds: forcefully kill
 						case 20: {
-							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
-							this.kill(pid);
+							if (!killedWithTreeKill) {
+								this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
+								this.kill(pid);
+								killedWithTreeKill = true;
+							}
 							break;
 						}
 
 						// after 20 seconds: give up
 						case 40: {
-							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
-							this.kill(pid);
+							if (!killedWithTreeKill) {
+								this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
+								this.kill(pid);
+							}
 							done = true;
 							resolve();
 							break;
@@ -250,9 +257,15 @@ export class Code {
 
 					try {
 						process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
-						await this.wait(500);
+						// Give extra time after treeKill to allow child process cleanup
+						await this.wait(killedWithTreeKill ? 1000 : 500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
+
+						// If we used treeKill, wait a bit longer for child processes to be reaped
+						if (killedWithTreeKill) {
+							await this.wait(1000);
+						}
 
 						done = true;
 						resolve();
