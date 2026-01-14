@@ -9,6 +9,7 @@ export * from './logger';
 export * from './workbench';
 export * from './test-runner';
 export * from './test-teardown.js';
+export * from './systemDiagnostics';
 
 // pages
 export * from '../pages/console';
