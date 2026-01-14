@@ -5,6 +5,7 @@
 
 // --- Start Positron ---
 import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -184,13 +185,31 @@ export class NotebookProviderInfoStore extends Disposable {
 				id: notebookProviderInfo.id,
 				label: notebookProviderInfo.displayName,
 				detail: notebookProviderInfo.providerDisplayName,
-				// --- Start Positron ---
-				// If Positron notebooks are enabled, deprioritize the legacy notebook to `option`
-				// priority: notebookProviderInfo.priority,
-				priority: notebookProviderInfo.id === 'jupyter-notebook' && usingPositronNotebooks(this._configurationService) ?
-					RegisteredEditorPriority.option : notebookProviderInfo.priority,
-				// --- End Positron ---
+				priority: notebookProviderInfo.priority,
 			};
+			// --- Start Positron ---
+			// Use an editor info object so we can mutate `priority`
+			const notebookCellEditorInfo: RegisteredEditorInfo = { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive };
+
+			// For jupyter-notebook, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
+			if (notebookProviderInfo.id === 'jupyter-notebook') {
+				const updatePriorities = () => {
+					const usingPositron = usingPositronNotebooks(this._configurationService);
+					notebookEditorInfo.priority = usingPositron
+						? RegisteredEditorPriority.option
+						: notebookProviderInfo.priority;
+					notebookCellEditorInfo.priority = usingPositron
+						? RegisteredEditorPriority.option
+						: RegisteredEditorPriority.exclusive;
+				};
+				updatePriorities();
+				disposables.add(this._configurationService.onDidChangeConfiguration(e => {
+					if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+						updatePriorities();
+					}
+				}));
+			}
+			// --- End Positron ---
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
 				canSupportResource: (resource: URI) => {
@@ -358,27 +377,20 @@ export class NotebookProviderInfoStore extends Disposable {
 				notebookFactoryObject,
 			));
 			// Then register the schema handler as exclusive for that notebook
-			// --- Start Positron ---
-			// disposables.add(this._editorResolverService.registerEditor(
-			// 	`${Schemas.vscodeNotebookCell}:/**/${ globPattern } `,
-			// 	{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
-			// 	notebookEditorOptions,
-			// 	notebookCellFactoryObject
-			// ));
-
-			// The cell handler is specifically for opening and focusing a cell by URI
-			// e.g. vscode.window.showTextDocument(cell.document).
-			// The editor resolver service expects a single handler with 'exclusive' priority,
-			// so don't register this one if Positron notebooks are enabled.
-			if (!usingPositronNotebooks(this._configurationService)) {
-				disposables.add(this._editorResolverService.registerEditor(
-					`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
-					{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
-					notebookEditorOptions,
-					notebookCellFactoryObject
-				));
-			}
-			// --- End Positron ---
+			disposables.add(this._editorResolverService.registerEditor(
+				`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
+				// --- Start Positron ---
+				// { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+				//
+				// The cell handler is specifically for opening and focusing a cell by URI
+				// e.g. vscode.window.showTextDocument(cell.document).
+				// The editor resolver service expects a single handler with 'exclusive' priority.
+				// We dynamically adjust the priority based on whether Positron notebooks are enabled, see block above.
+				notebookCellEditorInfo,
+				// --- End Positron ---
+				notebookEditorOptions,
+				notebookCellFactoryObject
+			));
 		}
 
 		return disposables;

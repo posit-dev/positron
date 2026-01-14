@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Sessions, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -67,7 +67,7 @@ export class PositronNotebooks extends Notebooks {
 	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
 
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
@@ -161,7 +161,7 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		await this._setPositronNotebooksEnabled(settings, true);
+		await settings.set({ 'positron.notebook.enabled': true });
 	}
 
 	/**
@@ -173,17 +173,7 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		await this._setPositronNotebooksEnabled(settings, false);
-	}
-
-	private async _setPositronNotebooksEnabled(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		},
-		enabled: boolean,
-	) {
-		await settings.set({ 'positron.notebook.enabled': enabled }, { reload: true });
-		await this.sessions.expectNoStartUpMessaging();
+		await settings.set({ 'positron.notebook.enabled': false });
 	}
 
 	/**

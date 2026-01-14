@@ -38,7 +38,7 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
-				'Use Positron Notebook as the default editor for `.ipynb` files.\n\nRequires a restart to take effect.'
+				'Use Positron Notebook as the default editor for `.ipynb` files.'
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,

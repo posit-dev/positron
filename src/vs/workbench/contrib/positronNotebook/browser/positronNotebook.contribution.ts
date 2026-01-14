@@ -29,7 +29,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -90,17 +90,31 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerEditor(): void {
-		// Set the priority using the current configuration
-		const priority = usingPositronNotebooks(this.configurationService)
+		// Determine notebook/cell editor priority based on whether Positron notebooks are enabled
+		const getPriority = () => usingPositronNotebooks(this.configurationService)
 			? RegisteredEditorPriority.default
+			: RegisteredEditorPriority.option;
+
+		const getCellPriority = () => usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.exclusive
 			: RegisteredEditorPriority.option;
 
 		const notebookEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
-			priority
+			priority: getPriority(),
 		};
+		const notebookCellEditorInfo: RegisteredEditorInfo =
+			{ ...notebookEditorInfo, priority: getCellPriority() };
+
+		// Listen for configuration changes to update priorities dynamically
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+				notebookEditorInfo.priority = getPriority();
+				notebookCellEditorInfo.priority = getCellPriority();
+			}
+		}));
 
 		// Register for .ipynb files
 		this._register(this.editorResolverService.registerEditor(
@@ -182,7 +196,7 @@ class PositronNotebookContribution extends Disposable {
 			// The editor resolver service expects a single handler with 'exclusive' priority.
 			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
-			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+			notebookCellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
