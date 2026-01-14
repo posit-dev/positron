@@ -525,5 +525,160 @@ suite('Model Filters', () => {
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].id, 'model-v2.1');
 		});
+
+		test('re-selects default model when original default is filtered out', () => {
+			// Create models with one marked as default
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-opus-4',
+					name: 'Claude Opus 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-sonnet-4',
+					name: 'Claude Sonnet 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-haiku-3',
+					name: 'Claude Haiku 3',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter out the default model (opus)
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
+			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
+
+			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-sonnet-4');
+
+			// Should have filtered out opus
+			assert.strictEqual(result.length, 2);
+			const resultIds = result.map(m => m.id);
+			assert.ok(!resultIds.includes('claude-opus-4'), 'Opus should be filtered out');
+			assert.ok(resultIds.includes('claude-sonnet-4'));
+			assert.ok(resultIds.includes('claude-haiku-3'));
+
+			// Should have re-selected a default (sonnet-4 because of defaultMatch pattern)
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'claude-sonnet-4', 'Default should be re-selected based on defaultMatch');
+		});
+
+		test('preserves existing default when it survives filtering', () => {
+			// Create models with one marked as default that will NOT be filtered
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-sonnet-4',
+					name: 'Claude Sonnet 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default and will pass the filter
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-haiku-3',
+					name: 'Claude Haiku 3',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter includes the default model
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
+			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
+
+			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-haiku');
+
+			// Should still have both models
+			assert.strictEqual(result.length, 2);
+
+			// Original default should be preserved (not re-selected)
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'claude-sonnet-4', 'Original default should be preserved');
+		});
+
+		test('falls back to first model when defaultMatch does not match remaining models', () => {
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-opus-4',
+					name: 'Claude Opus 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default but will be filtered out
+					isUserSelectable: true
+				},
+				{
+					id: 'gpt-4o',
+					name: 'GPT-4o',
+					version: '1.0',
+					family: 'openai',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				},
+				{
+					id: 'gpt-4o-mini',
+					name: 'GPT-4o Mini',
+					version: '1.0',
+					family: 'openai',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter out the default model, keep only gpt models
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt']);
+			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
+
+			// defaultMatch is 'claude-sonnet' which won't match any remaining models
+			const result = applyModelFilters(models, 'mixed', 'Mixed', 'claude-sonnet');
+
+			// Should have filtered out opus
+			assert.strictEqual(result.length, 2);
+
+			// Should have re-selected first remaining model as default
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'gpt-4o', 'First remaining model should become default');
+		});
 	});
 });
