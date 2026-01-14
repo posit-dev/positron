@@ -353,9 +353,9 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.console.focus();
 			// Close any toasts that might be covering the session tabs
 			await this.toasts.closeAll();
+			await this.console.focus();
 			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
