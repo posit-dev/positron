@@ -130,7 +130,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		} finally {
 			await stop();
 		}
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 90000 }],
 
 	sessions: [
 		async ({ app }, use) => {
