@@ -270,12 +270,21 @@ export class Code {
 			return;
 		}
 
+		// --- Start Positron ---
 		try {
-			this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
-			process.kill(pid);
+			this.logger.log(`Smoke test kill(): Trying to kill process tree for PID: ${pid}`);
+			// Create a ChildProcess object with the PID for teardown
+			// teardown only needs the pid property from ChildProcess
+			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
+			// Use teardown which calls treeKill to kill entire process tree
+			// Note: teardown is async but we're in a sync context, so we fire and forget
+			teardown(processStub as cp.ChildProcess, this.logger).catch(e => {
+				this.logger.log('Smoke test kill(): treeKill failed', e);
+			});
 		} catch (e) {
-			this.logger.log('Smoke test kill(): SIGTERM failed', e);
+			this.logger.log('Smoke test kill(): kill attempt failed', e);
 		}
+		// --- End Positron ---
 	}
 
 	async getElement(selector: string): Promise<IElement | undefined> {
