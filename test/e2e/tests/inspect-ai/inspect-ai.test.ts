@@ -256,7 +256,7 @@ species = pl.DataFrame({
 			}
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
-			await app.workbench.assistant.enterChatMessage(item.question);
+			await app.workbench.assistant.enterChatMessage(item.question, item.waitForResponse !== false);
 
 			// Execute post-question action if one exists for this item
 			const postQuestionAction = postQuestionActions[item.id as keyof typeof postQuestionActions];
