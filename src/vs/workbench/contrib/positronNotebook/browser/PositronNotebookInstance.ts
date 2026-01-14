@@ -56,7 +56,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { INotebookContextDTO } from '../../../api/common/positron/extHost.positron.protocol.js';
+import { INotebookContextDTO } from '../../../common/positron/notebookAssistant.js';
 import { PositronNotebookAssistantController } from './contrib/assistant/controller.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {

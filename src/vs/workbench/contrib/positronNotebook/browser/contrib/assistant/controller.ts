@@ -6,8 +6,7 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookContribution } from '../../positronNotebookExtensions.js';
-import { INotebookCellDTO, INotebookContextDTO } from '../../../../../api/common/positron/extHost.positron.protocol.js';
-import { NotebookCellType } from '../../../../../api/common/positron/extHostTypes.positron.js';
+import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../../../../common/positron/notebookAssistant.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { getActiveCell, getSelectedCells } from '../../selectionMachine.js';
 

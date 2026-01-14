@@ -18,7 +18,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
 import { AssistantPanelActions } from './AssistantPanelActions.js';
-import { INotebookContextDTO } from '../../../../api/common/positron/extHost.positron.protocol.js';
+import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';

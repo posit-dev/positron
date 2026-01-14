@@ -8,7 +8,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { INotebookCellDTO, INotebookContextDTO } from '../../../../api/common/positron/extHost.positron.protocol.js';
+import { INotebookCellDTO, INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
 
 /**
  * AssistantPanelContextProps interface.
