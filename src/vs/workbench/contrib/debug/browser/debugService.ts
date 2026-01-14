@@ -170,7 +170,11 @@ export class DebugService implements IDebugService {
 			}
 		}));
 		this.disposables.add(Event.any(this.adapterManager.onDidRegisterDebugger, this.configurationManager.onDidSelectConfiguration)(() => {
-			const debugUxValue = (this.state !== State.Inactive || (this.configurationManager.getAllConfigurations().length > 0 && this.adapterManager.hasEnabledDebuggers())) ? 'default' : 'simple';
+			// --- Start Positron ---
+			// Original code:
+			// const debugUxValue = (this.state !== State.Inactive || (this.configurationManager.getAllConfigurations().length > 0 && this.adapterManager.hasEnabledDebuggers())) ? 'default' : 'simple';
+			const debugUxValue = this.computeDebugUxValue();
+			// --- End Positron ---
 			this.debugUx.set(debugUxValue);
 			this.debugStorage.storeDebugUxState(debugUxValue);
 		}));
@@ -310,7 +314,11 @@ export class DebugService implements IDebugService {
 				this.debugState.set(getStateLabel(state));
 				this.inDebugMode.set(state !== State.Inactive);
 				// Only show the simple ux if debug is not yet started and if no launch.json exists
-				const debugUxValue = ((state !== State.Inactive && state !== State.Initializing) || (this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name)) ? 'default' : 'simple';
+				// --- Start Positron ---
+				// Original code:
+				// const debugUxValue = ((state !== State.Inactive && state !== State.Initializing) || (this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name)) ? 'default' : 'simple';
+				const debugUxValue = this.computeDebugUxValue();
+				// --- End Positron ---
 				this.debugUx.set(debugUxValue);
 				this.debugStorage.storeDebugUxState(debugUxValue);
 			});
@@ -977,8 +985,27 @@ export class DebugService implements IDebugService {
 	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void {
 		session.setSuppressDebugToolbar(suppress);
 
+		// Update debugUx to show/hide welcome view based on suppression
+		const debugUxValue = this.computeDebugUxValue();
+		this.debugUx.set(debugUxValue);
+		this.debugStorage.storeDebugUxState(debugUxValue);
+
 		// Trigger toolbar update
 		this._onDidChangeState.fire(this.state);
+	}
+
+	/**
+	 * Computes the debugUx value based on current state and session suppression.
+	 * Returns 'simple' (welcome view) when there's no foreground debug session.
+	 * A foreground session is one that is active and doesn't have its toolbar suppressed.
+	 */
+	private computeDebugUxValue(): 'default' | 'simple' {
+		const state = this.state;
+		const sessions = this.model.getSessions();
+		const allSessionsSuppressed = sessions.length > 0 && sessions.every(s => s.suppressDebugToolbar);
+		const hasForegroundSession = (state !== State.Inactive && state !== State.Initializing) && !allSessionsSuppressed;
+		const hasDebugConfig = this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name;
+		return (hasForegroundSession || hasDebugConfig) ? 'default' : 'simple';
 	}
 	// --- End Positron ---
 
