@@ -16,6 +16,11 @@ on:
         required: false
         default: ""
         type: string
+      skip_cache:
+        required: false
+        description: "Skip restoring caches (use when testing a specific commit)"
+        type: boolean
+        default: false
       save_cache:
         required: false
         description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
@@ -149,6 +154,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: 📦 Restore caches
+        if: ${{ !inputs.skip_cache }}
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 

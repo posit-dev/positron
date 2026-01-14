@@ -8,6 +8,11 @@ on:
         required: false
         default: ""
         type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -157,6 +162,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           distro: debian
+          skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
           playwright-with-deps: 'false'
           github-token: ${{ github.token }}
