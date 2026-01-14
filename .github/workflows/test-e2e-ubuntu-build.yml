@@ -1,7 +1,13 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   id-token: write
@@ -56,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
