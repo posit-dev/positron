@@ -30,6 +30,10 @@ import { ITaskIdentifier } from '../../tasks/common/tasks.js';
 import { LiveTestResult } from '../../testing/common/testResult.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IView } from '../../../common/views.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 
 export const VIEWLET_ID = 'workbench.view.debug';
 
@@ -108,6 +112,26 @@ export const CONTEXT_DISASSEMBLE_REQUEST_SUPPORTED = new RawContextKey<boolean>(
 export const CONTEXT_DISASSEMBLY_VIEW_FOCUS = new RawContextKey<boolean>('disassemblyViewFocus', false, { type: 'boolean', description: nls.localize('disassemblyViewFocus', "True when the Disassembly View is focused.") });
 export const CONTEXT_LANGUAGE_SUPPORTS_DISASSEMBLE_REQUEST = new RawContextKey<boolean>('languageSupportsDisassembleRequest', false, { type: 'boolean', description: nls.localize('languageSupportsDisassembleRequest', "True when the language in the current editor supports disassemble request.") });
 export const CONTEXT_FOCUSED_STACK_FRAME_HAS_INSTRUCTION_POINTER_REFERENCE = new RawContextKey<boolean>('focusedStackFrameHasInstructionReference', false, { type: 'boolean', description: nls.localize('focusedStackFrameHasInstructionReference', "True when the focused stack frame has instruction pointer reference.") });
+
+// --- Start Positron ---
+export const CONTEXT_DEBUG_TOOLBAR_SUPPRESSED = new RawContextKey<boolean>('debugToolbarSuppressed', false, { type: 'boolean', description: nls.localize('debugToolbarSuppressed', "True when the debug toolbar is suppressed by an extension.") });
+
+/**
+ * Returns true when there is an active "foreground" debug session, i.e., a
+ * debug session is active and the debug toolbar is not suppressed by an
+ * extension. This is useful for determining whether to use debug-specific
+ * behavior (like debug history) vs normal behavior.
+ *
+ * Note: This is independent from user preferences about toolbar visibility
+ * (`debug.toolBarLocation`). See `debugToolBar.ts` for implementation details.
+ */
+export function isDebugSessionWithToolbar(contextKeyService: IContextKeyService): boolean {
+	const debugState = CONTEXT_DEBUG_STATE.getValue(contextKeyService);
+	const isDebugActive = debugState !== undefined && debugState !== 'inactive';
+	const isSuppressed = CONTEXT_DEBUG_TOOLBAR_SUPPRESSED.getValue(contextKeyService) ?? false;
+	return isDebugActive && !isSuppressed;
+}
+// --- End Positron ---
 
 export const debuggerDisabledMessage = (debugType: string) => nls.localize('debuggerDisabled', "Configured debug type '{0}' is installed but not supported in this environment.", debugType);
 
