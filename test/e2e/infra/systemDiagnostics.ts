@@ -17,6 +17,35 @@ export function getFreeMemory(): string {
 }
 
 /**
+ * Get load average and CPU usage information (Linux only)
+ *
+ * @returns The load average and CPU usage string, or a message indicating it's not available
+ */
+export function getLoadAverageAndCpuUsage(): string {
+	if (process.platform !== 'linux') {
+		return 'Load average and CPU usage information is only available on Linux systems.';
+	}
+
+	try {
+		const loadAvg = os.loadavg(); // [1min, 5min, 15min]
+		const cpuInfo = os.cpus();
+		const loadAvgStr = `Load Average (1m, 5m, 15m): ${loadAvg.map(avg => avg.toFixed(2)).join(', ')}`;
+
+		// Calculate CPU usage
+		const cpuUsage = cpuInfo.map((cpu, index) => {
+			const total = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
+			const idle = cpu.times.idle;
+			const usage = ((total - idle) / total) * 100;
+			return `CPU${index}: ${usage.toFixed(2)}%`;
+		}).join(', ');
+
+		return `${loadAvgStr}\nCPU Usage: ${cpuUsage}`;
+	} catch (error) {
+		return `Error getting load average and CPU usage: ${error}`;
+	}
+}
+
+/**
  * Get a condensed process listing with duplicate processes shown using multiplier notation
  * Example: "node x3, Electron x2, chrome x5"
  */
