@@ -25,7 +25,6 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 
 interface IConfiguration extends IWindowsConfiguration {
 	// --- Start Positron ---
-	positron?: { notebook?: { enabled?: boolean } };
 	update?: { mode?: string; autoUpdate?: boolean; positron: { channel?: string } };
 	// --- End Positron ---
 	debug?: { console?: { wordWrap?: boolean } };
@@ -56,7 +55,6 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		'_extensionsGallery.enablePPE',
 		'security.restrictUNCAccess',
 		// --- Start Positron ---
-		'positron.notebook.enabled',
 		'update.autoUpdate',
 		'update.positron.channel',
 		// --- End Positron ---
@@ -83,7 +81,6 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 	private readonly extensionUnificationEnabled = new ChangeObserver('boolean');
 
 	// --- Start Positron ---
-	private readonly notebookEnabled = new ChangeObserver('boolean');
 	private readonly autoUpdate = new ChangeObserver('boolean');
 	private readonly updateChannel = new ChangeObserver('string');
 	// --- End Positron ---
@@ -156,7 +153,6 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 			processChanged(this.updateMode.handleChange(config.update?.mode));
 
 			// --- Start Positron ---
-			processChanged(this.notebookEnabled.handleChange(config.positron?.notebook?.enabled));
 			processChanged(this.autoUpdate.handleChange(config.update?.autoUpdate));
 			processChanged(this.updateChannel.handleChange(config.update?.positron.channel));
 			// --- End Positron ---
