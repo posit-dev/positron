@@ -15,7 +15,6 @@ export interface AttachScreenshotsToReportOptions {
 }
 
 export interface AttachLogsToReportOptions {
-	suiteId: string;
 	logsPath: string;
 	testInfo: playwright.TestInfo;
 }
@@ -54,11 +53,9 @@ export function AttachScreenshotsToReportFixture() {
 
 export function AttachLogsToReportFixture() {
 	return async (options: AttachLogsToReportOptions, use: (arg0: void) => Promise<void>) => {
-		const { suiteId, logsPath, testInfo } = options;
+		const { logsPath, testInfo } = options;
 
 		await use();
-
-		if (!suiteId) { return; }
 
 		const zipPath = path.join(logsPath, 'logs.zip');
 		const output = fs.createWriteStream(zipPath);

@@ -24,7 +24,7 @@ import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand, RunResult } from '../fixtures/test-setup/app-workbench.fixtures.js';
 
 // used specifically for app fixture error handling in test.afterAll
-let appFixtureFailed = false;
+let appFixtureFailed = true;
 let appFixtureScreenshot: Buffer | undefined;
 
 // Currents fixtures
@@ -112,8 +112,9 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			await start();
 
 			await use(app);
+
+			appFixtureFailed = false;
 		} catch (error) {
-			appFixtureFailed = true;
 
 			const screenshotPath = join(logsPath, 'app-start-failure.png');
 			try {
@@ -235,9 +236,9 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await attachScreenshotsFixture({ app, testInfo }, use);
 	}, { auto: true }],
 
-	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
+	attachLogsToReport: [async ({ logsPath }, use, testInfo) => {
 		const attachLogsFixture = AttachLogsToReportFixture();
-		await attachLogsFixture({ suiteId, logsPath, testInfo }, use);
+		await attachLogsFixture({ logsPath, testInfo }, use);
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
@@ -291,7 +292,7 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger, suiteId, logsPath }, testInfo) {
+test.afterAll(async function ({ logger, logsPath }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
@@ -314,12 +315,12 @@ test.afterAll(async function ({ logger, suiteId, logsPath }, testInfo) {
 
 		try {
 			const attachLogs = AttachLogsToReportFixture();
-			await attachLogs({ suiteId, logsPath, testInfo }, async () => { /* no-op */ });
+			await attachLogs({ logsPath, testInfo }, async () => { /* no-op */ });
 		} catch (e) {
 			console.log(e);
 		}
 
-		appFixtureFailed = false;
+		appFixtureFailed = true;
 		appFixtureScreenshot = undefined;
 	}
 });
