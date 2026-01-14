@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
+import { join, basename } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
 import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser } from '../../infra';
-import { ROOT_PATH, TEMP_DIR } from './constants';
+import { ROOT_PATH } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 
 export interface CustomTestOptions {
@@ -32,7 +32,7 @@ export function OptionsFixture() {
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
+		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, basename(logsPath));
 
 		// get the version from package.json
 		const packageJsonPath = join(ROOT_PATH, 'package.json');

@@ -5,9 +5,39 @@
 
 import path from 'path';
 import * as fs from 'fs';
-import { constants, access, rm, mkdir, rename } from 'fs/promises';
-import { MultiLogger, Application } from '../../infra';
-import { SPEC_NAME, ROOT_PATH } from './constants';
+import { mkdir } from 'fs/promises';
+import { Application } from '../../infra';
+import { ROOT_PATH } from './constants';
+
+/**
+ * Derive a log directory name from the suiteId (test file path).
+ * Extracts a relative path from the tests directory as the directory name.
+ * Falls back to worker index if suiteId is not available.
+ *
+ * @param suiteId The suite ID (typically __filename from the test file)
+ * @param workerIndex The worker index as fallback
+ * @returns A sanitized directory name
+ */
+export function deriveLogDirName(suiteId: string, workerIndex: number): string {
+	if (!suiteId) {
+		return `worker-${workerIndex}`;
+	}
+
+	// Extract relative path from "tests/" directory: "/path/to/tests/console/console-input.test.ts" -> "console_console-input"
+	const testsMatch = suiteId.match(/\/tests\/(.+)\.test\.ts$/);
+	if (testsMatch) {
+		const relativePath = testsMatch[1];
+		// Replace path separators with underscores and sanitize
+		const sanitized = relativePath.replace(/\//g, '_').replace(/[^a-zA-Z0-9_-]/g, '_');
+		return sanitized || `worker-${workerIndex}`;
+	}
+
+	// Fallback: just use the filename without extension
+	const fileName = path.basename(suiteId, '.test.ts');
+	const sanitized = fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+	return sanitized || `worker-${workerIndex}`;
+}
 
 let fixtureScreenshot: Buffer | undefined;
 
@@ -81,45 +111,4 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 	fs.writeFileSync(userSettingsFile, JSON.stringify(mergedSettings, null, 2));
 
 	return userDir;
-}
-
-/**
- * Rename a temporary logs directory to a more descriptive name based on the test spec.
- * If a directory with the target name already exists, it will be overwritten.
- * If SPEC_NAME is not defined, uses a generic worker-based name.
- *
- * @param logger The logger instance to use for logging.
- * @param logsPath The path to the logs directory.
- * @param workerInfo Information about the worker process.
- * @returns A promise that resolves when the operation is complete.
- */
-export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, workerInfo: any): Promise<string> {
-	const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
-
-	try {
-		await access(logsPath, constants.F_OK);
-	} catch {
-		console.error(`moveAndOverwrite: source path does not exist: ${logsPath}`);
-		return 'unable to rename temp logs dir';
-	}
-
-	// check if the destination exists and delete it if so
-	try {
-		await access(specLogsPath, constants.F_OK);
-		await rm(specLogsPath, { recursive: true, force: true });
-	} catch (err) { }
-
-	// ensure parent directory of destination path exists
-	const destinationDir = path.dirname(specLogsPath);
-	await mkdir(destinationDir, { recursive: true });
-
-	// rename source to destination
-	try {
-		await rename(logsPath, specLogsPath);
-		logger.setPath(specLogsPath);
-		logger.log('Logger path updated to:', specLogsPath);
-	} catch (err) {
-		logger.log(`moveAndOverwrite: failed to move ${logsPath} to ${specLogsPath}:`, err);
-	}
-	return specLogsPath
 }

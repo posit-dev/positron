@@ -14,7 +14,6 @@ import {
 	MetricResponse,
 	positronVersion
 } from './metric-base.js';
-import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 
 export type PerfMetric = {
 	feature_area: string;
@@ -112,7 +111,7 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		duration_ms,
 		status,
 		target_description,
-		spec_name: spec_name || SPEC_NAME,
+		spec_name: spec_name || 'unknown',
 		context: JSON.stringify(context_json)
 	};
 }

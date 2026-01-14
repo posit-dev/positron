@@ -17,7 +17,7 @@ import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
-	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
+	CustomTestOptions, LOGS_ROOT_PATH, deriveLogDirName
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
@@ -26,7 +26,6 @@ import { runDockerCommand, RunResult } from '../fixtures/test-setup/app-workbenc
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
 let appFixtureScreenshot: Buffer | undefined;
-let renamedLogsPath = 'not-set';
 
 // Currents fixtures
 import {
@@ -65,9 +64,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	snapshots: [true, { scope: 'worker', auto: true }],
 
-	logsPath: [async ({ }, use, workerInfo) => {
+	logsPath: [async ({ suiteId }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
-		const logsPath = join(LOGS_ROOT_PATH, project.artifactDir, TEMP_DIR);
+		const dirName = deriveLogDirName(suiteId, workerInfo.workerIndex);
+		const logsPath = join(LOGS_ROOT_PATH, project.artifactDir, dirName);
 		await use(logsPath);
 	}, { scope: 'worker', auto: true }],
 
@@ -128,7 +128,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await stop();
-			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
@@ -287,19 +286,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 // However, we are using `suiteId` to ensure each suite gets a new worker (and a fresh app
 // instance). This also ensures these before/afterAll hooks will run for EACH spec
 test.beforeAll(async ({ logger }, testInfo) => {
-	// since the worker doesn't know or have access to the spec name when it starts,
-	// we store the spec name in a global variable. this ensures logs are written
-	// to the correct folder even when the app is scoped to "worker".
-	// by storing the spec name globally, we can rename the logs folder after the suite finishes.
-	// note: workers are intentionally restarted per spec to scope logs by spec
-	// and provide a fresh app instance for each spec.
-	setSpecName(testInfo.titlePath[0]);
 	logger.log('');
 	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger, suiteId, }, testInfo) {
+test.afterAll(async function ({ logger, suiteId, logsPath }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
@@ -322,7 +314,7 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 
 		try {
 			const attachLogs = AttachLogsToReportFixture();
-			await attachLogs({ suiteId, logsPath: renamedLogsPath, testInfo }, async () => { /* no-op */ });
+			await attachLogs({ suiteId, logsPath, testInfo }, async () => { /* no-op */ });
 		} catch (e) {
 			console.log(e);
 		}
