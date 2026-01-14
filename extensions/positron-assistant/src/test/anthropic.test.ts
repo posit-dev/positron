@@ -617,7 +617,7 @@ suite('AnthropicModelProvider', () => {
 	suite('Model Resolution', () => {
 		let mockWorkspaceConfig: sinon.SinonStub;
 		let mockModelDefinitions: sinon.SinonStub;
-		let mockHelpers: { createModelInfo: sinon.SinonStub; isDefaultUserModel: sinon.SinonStub; markDefaultModel: sinon.SinonStub };
+		let mockHelpers: { createModelInfo: sinon.SinonStub; markDefaultModel: sinon.SinonStub };
 		let getConfigurationStub: sinon.SinonStub;
 
 		setup(() => {
@@ -633,7 +633,6 @@ suite('AnthropicModelProvider', () => {
 			// Mock helper functions
 			mockHelpers = {
 				createModelInfo: sinon.stub(helpersModule, 'createModelInfo'),
-				isDefaultUserModel: sinon.stub(helpersModule, 'isDefaultUserModel'),
 				markDefaultModel: sinon.stub(helpersModule, 'markDefaultModel')
 			};
 		});
@@ -643,7 +642,6 @@ suite('AnthropicModelProvider', () => {
 			getConfigurationStub.restore();
 			mockModelDefinitions.restore();
 			mockHelpers.createModelInfo.restore();
-			mockHelpers.isDefaultUserModel.restore();
 			mockHelpers.markDefaultModel.restore();
 		});
 

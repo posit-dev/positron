@@ -9,7 +9,7 @@ import * as sinon from 'sinon';
 import * as extensionModule from '../extension.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import {
-	isDefaultUserModel,
+	findMatchingModelIndex,
 	getMaxTokens,
 	markDefaultModel
 } from '../modelResolutionHelpers.js';
@@ -47,94 +47,106 @@ suite('Model Resolution Helpers', () => {
 		sinon.restore();
 	});
 
-	suite('isDefaultUserModel', () => {
-		test('returns true when model ID matches user-configured default', () => {
-			const providerPreferences = { 'anthropic-api': 'sonnet-4' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+	suite('findMatchingModelIndex', () => {
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+		test('returns matching index when model ID matches pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			assert.strictEqual(result, true);
+			const result = findMatchingModelIndex(models, 'sonnet-4');
+
+			assert.strictEqual(result, 0);
 		});
 
-		test('returns true when model name matches user-configured default', () => {
-			const providerPreferences = { 'anthropic-api': 'Sonnet' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('returns matching index when model name matches pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+			const result = findMatchingModelIndex(models, 'Sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('returns false when no match and no defaultMatch provided', () => {
-			const providerPreferences = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('returns -1 when no match found', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+			const result = findMatchingModelIndex(models, 'opus');
 
-			assert.strictEqual(result, false);
+			assert.strictEqual(result, -1);
 		});
 
-		test('returns true when ID matches defaultMatch pattern', () => {
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns({});
+		test('matches case-insensitively on model ID (lowercase pattern)', () => {
+			const models = [
+				{ id: 'claude-SONNET-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5', 'sonnet-4');
+			const result = findMatchingModelIndex(models, 'sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('prioritizes user config over defaultMatch', () => {
-			const providerPreferences = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('matches case-insensitively on model name (lowercase pattern)', () => {
+			const models = [
+				{ id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			// User wants opus, but defaultMatch suggests sonnet - user config should win
-			const result = isDefaultUserModel('anthropic-api', 'claude-opus-4-1', 'Claude Opus 4.1', 'sonnet-4');
+			const result = findMatchingModelIndex(models, 'haiku');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('handles provider not in providerPreferences config', () => {
-			const providerPreferences = { 'anthropic-api': 'sonnet' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('matches case-insensitively with uppercase pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('openai-api', 'gpt-4', 'GPT-4');
+			const result = findMatchingModelIndex(models, 'SONNET');
 
-			assert.strictEqual(result, false);
+			assert.strictEqual(result, 0);
 		});
 
-		test('matches case-insensitively on model ID (lowercase preference)', () => {
-			const providerPreferences = { 'anthropic-api': 'sonnet' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('matches case-insensitively on ID with mixed case', () => {
+			const models = [
+				{ id: 'claude-SONNET-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-SONNET-4-5', 'Claude Sonnet 4.5');
+			const result = findMatchingModelIndex(models, 'sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('matches case-insensitively on model name (lowercase preference)', () => {
-			const providerPreferences = { 'anthropic-api': 'haiku' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('prefers exact ID match over partial match', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5-preview', name: 'Claude Sonnet 4.5 Preview' },
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-haiku-4-5', 'Claude Haiku 4.5');
+			// Pattern matches first model partially, but second model exactly
+			const result = findMatchingModelIndex(models, 'claude-sonnet-4-5');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 1); // Exact match on second model
 		});
 
-		test('matches case-insensitively with uppercase preference', () => {
-			const providerPreferences = { 'anthropic-api': 'SONNET' };
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
+		test('prefers exact name match over partial match', () => {
+			const models = [
+				{ id: 'model-a', name: 'Claude Sonnet Extended' },
+				{ id: 'model-b', name: 'Claude Sonnet' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+			// Pattern matches first model partially, but second model exactly
+			const result = findMatchingModelIndex(models, 'Claude Sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 1); // Exact match on second model
 		});
 
-		test('matches case-insensitively on defaultMatch pattern', () => {
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns({});
+		test('returns -1 for empty model list', () => {
+			const result = findMatchingModelIndex([], 'sonnet');
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-SONNET-4-5', 'Claude Sonnet 4.5', 'sonnet');
-
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, -1);
 		});
 	});
 

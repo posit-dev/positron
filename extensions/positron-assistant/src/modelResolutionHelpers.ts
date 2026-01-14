@@ -31,42 +31,39 @@ export function getUserTokenLimits(): TokenLimits {
 }
 
 /**
- * Determines if a model should be marked as the default for a given provider.
+ * Finds the index of the best matching model for a pattern.
+ * Prefers exact ID or name match over partial match. Matching is case-insensitive.
  *
- * This function checks:
- * 1. User-configured default models for the provider
- * 2. Falls back to provider-specific default patterns
- *
- * @param provider The provider ID (e.g., 'anthropic-api', 'openai-compatible')
- * @param id The model ID to check
- * @param name Optional model display name to check against
- * @param defaultMatch Optional fallback pattern to match against (provider-specific)
- * @returns true if this model should be the default
+ * @param models Array of models to search
+ * @param pattern Pattern to match against model ID or name
+ * @returns Index of matching model, or -1 if no match
  */
-export function isDefaultUserModel(
-	provider: string,
-	id: string,
-	name?: string,
-	defaultMatch?: string
-): boolean {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const providerPreferences = config.get<Record<string, string>>('models.preference.byProvider');
+export function findMatchingModelIndex(
+	models: vscode.LanguageModelChatInformation[],
+	pattern: string
+): number {
+	const patternLower = pattern.toLowerCase();
+	let firstPartialMatchIndex = -1;
 
-	// Check user-configured default for this provider
-	const userDefault = providerPreferences[provider];
-	if (userDefault) {
-		const userDefaultLower = userDefault.toLowerCase();
-		if (id.toLowerCase().includes(userDefaultLower) || name?.toLowerCase().includes(userDefaultLower)) {
-			return true;
+	for (let i = 0; i < models.length; i++) {
+		const model = models[i];
+		const idLower = model.id.toLowerCase();
+		const nameLower = model.name?.toLowerCase() ?? '';
+
+		// Exact match on ID or name - use it immediately
+		if (idLower === patternLower || nameLower === patternLower) {
+			return i;
+		}
+
+		// Track first partial match (includes pattern in id or name)
+		if (firstPartialMatchIndex === -1) {
+			if (idLower.includes(patternLower) || nameLower.includes(patternLower)) {
+				firstPartialMatchIndex = i;
+			}
 		}
 	}
 
-	// Fall back to provider-specific default pattern if provided
-	if (defaultMatch) {
-		return id.toLowerCase().includes(defaultMatch.toLowerCase());
-	}
-
-	return false;
+	return firstPartialMatchIndex;
 }
 
 /**
@@ -190,9 +187,10 @@ export function createModelInfo(params: CreateModelInfoParams): vscode.LanguageM
 /**
  * Marks models as default, ensuring only one default per provider.
  *
- * This utility function standardizes default model selection across all providers.
- * It uses the isDefaultUserModel logic to determine which model should be default,
- * and ensures exactly one model is marked as default per provider.
+ * Priority order:
+ * 1. User-configured byProvider pattern (exact match preferred, then partial)
+ * 2. Provider-specific defaultMatch pattern (exact match preferred, then partial)
+ * 3. First model in list
  *
  * @param models Array of models to process
  * @param provider The provider ID (used for default model detection)
@@ -208,24 +206,30 @@ export function markDefaultModel(
 		return models;
 	}
 
-	// Mark models as default, ensuring only one default per provider
-	let hasDefault = false;
-	const updatedModels = models.map((model) => {
-		if (!hasDefault && isDefaultUserModel(provider, model.id, model.name, defaultMatch)) {
-			hasDefault = true;
-			return { ...model, isDefault: true };
-		} else {
-			return { ...model, isDefault: false };
-		}
-	});
+	// Get user-configured pattern for this provider
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const providerPreferences = config.get<Record<string, string>>('models.preference.byProvider', {});
 
-	// If no models match the default criteria, make the first model the default
-	if (updatedModels.length > 0 && !hasDefault) {
-		updatedModels[0] = {
-			...updatedModels[0],
-			isDefault: true,
-		};
+	let defaultModelIndex = -1;
+
+	// Try user-configured pattern first
+	const userDefault = providerPreferences[provider];
+	if (userDefault) {
+		defaultModelIndex = findMatchingModelIndex(models, userDefault);
 	}
 
-	return updatedModels;
+	// Fall back to provider-specific defaultMatch
+	if (defaultModelIndex === -1 && defaultMatch) {
+		defaultModelIndex = findMatchingModelIndex(models, defaultMatch);
+	}
+
+	// Fall back to first model
+	if (defaultModelIndex === -1) {
+		defaultModelIndex = 0;
+	}
+
+	return models.map((model, index) => ({
+		...model,
+		isDefault: index === defaultModelIndex,
+	}));
 }
