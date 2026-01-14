@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator, Page } from '@playwright/test';
-import { Code, QuickAccess, Console, ContextMenu, Modals } from '../infra';
+import { Code, QuickAccess, Console, ContextMenu, Modals, Toasts } from '../infra';
 import { QuickInput } from './quickInput';
 
 // Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
@@ -46,7 +46,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
+	constructor(private toasts: Toasts, private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu, private modals: Modals) { }
 
 	// -- Actions --
 
@@ -354,6 +354,8 @@ export class Sessions {
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
 			await this.console.focus();
+			// Close any toasts that might be covering the session tabs
+			await this.toasts.closeAll();
 			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
