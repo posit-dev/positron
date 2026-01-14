@@ -276,10 +276,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		try {
 			const freeMemory = getFreeMemory();
 			const processList = getCondensedProcessList();
-			logger.log(`Free Memory: ${freeMemory}`);
-			logger.log(`Processes: ${processList}`);
+			console.log(`Free Memory: ${freeMemory}`);
+			console.log(`Processes: ${processList}`);
 		} catch (error) {
-			logger.log(`Error logging system diagnostics: ${error}`);
+			console.log(`Error logging system diagnostics: ${error}`);
 		}
 		// --- End Positron ---
 	}, { scope: 'test', auto: true }],
