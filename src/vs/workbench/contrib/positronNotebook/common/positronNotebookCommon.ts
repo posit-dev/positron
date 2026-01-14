@@ -20,3 +20,9 @@ export function usingPositronNotebooks(configurationService: IConfigurationServi
 	const editorAssociations = configurationService.getValue<Record<string, string>>('workbench.editorAssociations') || {};
 	return editorAssociations['*.ipynb'] === POSITRON_NOTEBOOK_EDITOR_ID;
 }
+
+// Group IDs used to visually differentiate actions in the cell action bar
+// Primary actions are shown more prominently than others
+export enum PositronNotebookCellActionBarLeftGroup {
+	Primary = '0_primary',
+}

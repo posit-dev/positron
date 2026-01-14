@@ -61,12 +61,12 @@
 	}
 
 	/* Ensure relative positioning for the separator pseudo-element we are adding below */
-	.action-button:first-child {
+	.action-button.primary-action {
 		position: relative;
 	}
 
-	/* Add separator psuedo-element after the first action button (run/stop) */
-	.action-button:first-child::after {
+	/* Add separator pseudo-element after primary action buttons (run/stop, edit) */
+	.action-button.primary-action::after {
 		content: '';
 		position: absolute;
 		right: calc((var(--_positron-notebooks-cell-action-bar-button-gap) * -1) / 2); /* Separator should be centered in between the gap */
