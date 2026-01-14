@@ -31,7 +31,7 @@ export default defineConfig<ExtendedTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
-	testMatch: ['notebooks-positron/*.test.ts', 'extensions/bootstrap-extensions.test.ts'],
+	testMatch: '*.test.ts',
 	shardingMode: 'duration-round-robin',
 	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
