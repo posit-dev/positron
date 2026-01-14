@@ -639,11 +639,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// state.
 		});
 
-		// Hook up the resource usage update handler
-		session.onDidUpdateResourceUsage(usage => {
-			this._proxy.$emitLanguageRuntimeResourceUsage(session.metadata.sessionId, usage);
-		});
-
 		// Register the runtime
 		const handle = this._runtimeSessions.length;
 		this._runtimeSessions.push(session);

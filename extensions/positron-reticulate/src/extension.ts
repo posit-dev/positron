@@ -604,9 +604,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	/** An object that emits an event when the user's session ends and the runtime exits */
 	public onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
-	/** An object that emits an event when the runtime's resource usage is updated */
-	public onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage>;
-
 	/** The emitter for language runtime messages */
 	private _messageEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
@@ -615,9 +612,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	/** The emitter for language runtime exits */
 	private _exitEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
-
-	/** The emitter for resource usage updates */
-	private _resourceUsageEmitter = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 
 	constructor(
 		readonly rSession: positron.LanguageRuntimeSession,
@@ -655,7 +649,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
-		this.onDidUpdateResourceUsage = this._resourceUsageEmitter.event;
 
 		this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
 
@@ -698,9 +691,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		});
 		pythonSession.onDidEndSession((e) => {
 			this._exitEmitter.fire(e);
-		});
-		pythonSession.onDidUpdateResourceUsage((e) => {
-			this._resourceUsageEmitter.fire(e);
 		});
 
 		return pythonSession;

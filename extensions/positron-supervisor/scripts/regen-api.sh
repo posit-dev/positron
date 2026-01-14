@@ -32,7 +32,7 @@ fi
 pushd "${SCRIPTDIR}/../src/kcclient"
 
 # Generate the API client
-openapi-generator generate -i "${KALLICHORE_JSON_PATH}" -g typescript-axios
+openapi-generator generate -i ~/git/kallichore/kallichore.json  -g typescript-axios
 
 # Return to the original directory
 popd

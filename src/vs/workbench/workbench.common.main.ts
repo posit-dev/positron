@@ -479,7 +479,6 @@ import './services/runtimeSession/common/runtimeSession.js';
 import './services/runtimeStartup/common/runtimeStartup.js';
 import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
-import './services/positronConsole/browser/resourceUsageHistoryService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
 import './services/positronHistory/common/executionHistory.js';
 import './services/positronVariables/common/positronVariablesService.js';

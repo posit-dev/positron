@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
@@ -64,7 +64,6 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
-	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
 }
 
 // The interface to the main thread exposed by the extension host

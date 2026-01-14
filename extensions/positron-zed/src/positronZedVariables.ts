@@ -178,15 +178,6 @@ export class ZedVariables {
 	}
 
 	/**
-	 * Count the number of variables currently defined
-	 *
-	 * @returns The number of variables
-	 */
-	public countVars(): number {
-		return this._vars.size;
-	}
-
-	/**
 	 * Updates some number of variables
 	 *
 	 * @param count The number of variables to update

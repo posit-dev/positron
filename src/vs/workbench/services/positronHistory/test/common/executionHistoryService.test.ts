@@ -443,7 +443,6 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	readonly onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;
 	readonly onDidReceiveRuntimeMessageIPyWidget = new Emitter<any>().event;
-	readonly onDidUpdateResourceUsage = new Emitter<any>().event;
 
 	constructor(
 		sessionId: string,

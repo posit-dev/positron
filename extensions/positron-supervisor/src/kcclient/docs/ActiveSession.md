@@ -23,7 +23,6 @@ Name | Type | Description | Notes
 **execution_queue** | [**ExecutionQueue**](ExecutionQueue.md) |  | [default to undefined]
 **status** | [**Status**](Status.md) |  | [default to undefined]
 **kernel_info** | **object** | The kernel information, as returned by the kernel_info_request message | [default to undefined]
-**resource_usage** | [**ResourceUsage**](ResourceUsage.md) |  | [optional] [default to undefined]
 **idle_seconds** | **number** | The number of seconds the session has been idle, or 0 if the session is busy | [default to undefined]
 **busy_seconds** | **number** | The number of seconds the session has been busy, or 0 if the session is idle | [default to undefined]
 **socket_path** | **string** | The path to the Unix domain socket used to send/receive data from the session, if applicable | [optional] [default to undefined]
@@ -52,7 +51,6 @@ const instance: ActiveSession = {
     execution_queue,
     status,
     kernel_info,
-    resource_usage,
     idle_seconds,
     busy_seconds,
     socket_path,

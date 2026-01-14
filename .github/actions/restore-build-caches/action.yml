@@ -192,6 +192,8 @@ runs:
       with:
         path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
         key: npm-extensions-stable-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
+        restore-keys: |
+          npm-extensions-stable-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}

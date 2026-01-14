@@ -28,7 +28,6 @@
 	"configuration.transport.ipc.label": "Native IPC",
 	"configuration.transport.tcp.description": "Use local TCP sockets",
 	"configuration.transport.tcp.label": "Local TCP",
-	"configuration.resourceUsagePollInterval.description": "Interval in milliseconds between polling for resource usage statistics (CPU, memory). Set to 0 to disable resource usage polling.",
 	"command.positron.supervisor.category": "Kernel Supervisor",
 	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
 	"command.showRunningSupervisors.title": "Show Running Kernel Supervisors",

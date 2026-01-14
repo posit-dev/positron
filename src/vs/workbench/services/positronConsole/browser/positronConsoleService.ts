@@ -282,12 +282,6 @@ configurationRegistry.registerConfiguration({
 			default: false,
 			markdownDescription: localize('console.showNotebookConsoleActions', "Controls whether notebook console actions are visible in notebook toolbars. When enabled, you can manually show or focus a notebook console using the 'Show Notebook Console' menu item."),
 			tags: ['experimental'],
-		},
-		// Whether to show the resource monitor in the console tab list
-		'console.showResourceMonitor': {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize('console.showResourceMonitor', "Controls whether the resource monitor (CPU and memory usage) is shown in the console tab list."),
 		}
 	}
 });

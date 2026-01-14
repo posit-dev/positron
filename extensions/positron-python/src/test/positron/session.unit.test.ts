@@ -133,7 +133,6 @@ suite('Python Runtime Session', () => {
             onDidChangeRuntimeState: () => ({ dispose() {} }),
             onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
             onDidEndSession: () => ({ dispose() {} }),
-            onDidUpdateResourceUsage: () => ({ dispose() {} }),
             start: () => Promise.resolve({} as positron.LanguageRuntimeInfo),
         });
 

@@ -8,7 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, LanguageRuntimeSessionChannel, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeResourceUsage, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
@@ -35,7 +35,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private readonly _onDidReceiveRuntimeClientEvent = this._register(new Emitter<IRuntimeClientEvent>());
 	private readonly _onDidReceiveRuntimeMessagePromptConfig = this._register(new Emitter<void>());
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
-	private readonly _onDidUpdateResourceUsage = this._register(new Emitter<ILanguageRuntimeResourceUsage>());
 
 	private _currentState = RuntimeState.Uninitialized;
 
@@ -62,7 +61,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeClientEvent.event;
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
 	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
-	onDidUpdateResourceUsage = this._onDidUpdateResourceUsage.event;
 
 	// Test helper events
 	private readonly _onDidExecute = this._register(new Emitter<string>());
@@ -78,7 +76,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	dynState: ILanguageRuntimeSessionState;
 
-	clientInstances = new Array<IRuntimeClientInstance<unknown, unknown>>();
+	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
 	private _runtimeInfo?: ILanguageRuntimeInfo;
 
@@ -162,7 +160,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async createClient(
-		type: RuntimeClientType, params: unknown, metadata?: unknown, id?: string, buffers?: VSBuffer[]
+		type: RuntimeClientType, params: any, metadata?: any, id?: string, buffers?: VSBuffer[]
 	): Promise<TestRuntimeClientInstance> {
 		const client = type === RuntimeClientType.Ui ?
 			new TestUiClientInstance(id ?? generateUuid()) :
@@ -179,8 +177,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 					id: generateUuid(),
 					comm_id: client.getClientId(),
 					target_name: type,
-					data: params as Record<string, unknown>,
-					metadata: metadata as Record<string, unknown> | undefined,
+					data: params,
+					metadata: metadata,
 					event_clock: 0,
 					parent_id: '',
 					type: LanguageRuntimeMessageType.CommOpen,
@@ -201,7 +199,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	sendClientMessage(_client_id: string, _message_id: string, _message: unknown): void {
+	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
 		throw new Error('Not implemented.');
 	}
 

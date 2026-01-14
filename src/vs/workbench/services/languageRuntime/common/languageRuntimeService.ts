@@ -312,7 +312,6 @@ export interface ILanguageRuntimeClientCreatedEvent {
 	message: ILanguageRuntimeMessageCommOpen;
 
 	/** The client that was created */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	client: IRuntimeClientInstance<any, any>;
 }
 
@@ -425,26 +424,6 @@ export interface ILanguageRuntimeStartupFailure {
 
 	/** Error details, logs, etc. as a multi-line string */
 	details: string;
-}
-
-/**
- * ILanguageRuntimeResourceUsage represents resource usage information for a language runtime.
- */
-export interface ILanguageRuntimeResourceUsage {
-	/** CPU usage percentage for the kernel and its children */
-	cpu_percent: number;
-
-	/** Memory usage in bytes for the kernel and its children */
-	memory_bytes: number;
-
-	/** Number of threads used by the kernel and its children */
-	thread_count: number;
-
-	/** Sampling period in milliseconds for the resource usage data */
-	sampling_period_ms: number;
-
-	/** Timestamp of the resource usage data in milliseconds since epoch */
-	timestamp: number;
 }
 
 /**
@@ -805,7 +784,6 @@ export interface ILanguageRuntimeMetadata {
 	readonly extensionId: ExtensionIdentifier;
 
 	/** Extra data supplied by the extension; not read by Positron */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	readonly extraRuntimeData: any;
 
 	/**
@@ -873,7 +851,6 @@ export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 /**
  * A provider for local resource roots.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
 /**
