@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as typesConverters from './jupyter/TypesConverters';
 import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, Comm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, StartupEnvironment, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
@@ -712,7 +711,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
-		codeLocation?: vscode.Location,
+		codeLocation?: positron.Utf8Location,
 	): void {
 
 		// Translate the parameters into a Jupyter execute request
@@ -726,7 +725,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 
 		if (codeLocation) {
-			request.positron = { code_location: typesConverters.JupyterPositronLocation.from(codeLocation, code) };
+			request.positron = {
+				code_location: {
+					uri: codeLocation.uri.toString(),
+					range: codeLocation.range,
+				}
+			};
 		}
 
 		// Create and send the execute request

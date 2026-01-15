@@ -13,10 +13,21 @@ export interface JupyterPositronRange {
 	end: JupyterPositronPosition;
 }
 
-// See https://jupyter-client.readthedocs.io/en/stable/messaging.html#cursor-pos-unicode-note
-// regarding choice of offset in unicode points
+/**
+ * A position in a document for Jupyter/kernel communication.
+ *
+ * Note: Unlike VS Code positions which use UTF-16 code units, and unlike the
+ * Jupyter protocol which uses unicode code points, we use UTF-8 byte offsets
+ * for `character`. This is the only representation that is not lossy when you
+ * don't have access to the whole line (e.g. with a partial line selection).
+ *
+ * The conversion from UTF-16 to UTF-8 byte offsets happens at the source where
+ * the document text is available, since this conversion is lossy without the
+ * actual text.
+ */
 export interface JupyterPositronPosition {
+	/** 0-based line number */
 	line: number;
-	/** Column offset in unicode points */
+	/** 0-based column offset in UTF-8 bytes */
 	character: number;
 }

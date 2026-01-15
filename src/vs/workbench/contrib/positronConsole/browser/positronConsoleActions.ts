@@ -34,6 +34,7 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
@@ -80,7 +81,7 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
 async function executeCodeInConsole(
 	code: string,
 	cursorLocation: Location,
-	codeLocation: Location | undefined,
+	codeLocation: ICodeLocation | undefined,
 	services: {
 		editorService: IEditorService;
 		languageService: ILanguageService;
@@ -384,14 +385,14 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute.
 			const selection = editor?.getSelection();
 
-			// Track the source and range of the executed code
-			let codeLocation: Location | undefined = undefined;
+			// Track the source and range of the executed code (with UTF-8 byte offsets)
+			let codeLocation: ICodeLocation | undefined = undefined;
 
 			// If we have a selection and it isn't empty, then we use its contents (even if it
 			// only contains whitespace or comments) and also retain the user's selection location.
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
-				codeLocation = { uri: model.uri, range: selection };
+				codeLocation = createCodeLocation(model, model.uri, selection);
 				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 				// This attempts to address https://github.com/posit-dev/positron/issues/1177
 				// by tacking a newline onto multiline, indented Python code fragments. This allows
@@ -430,7 +431,7 @@ export function registerPositronConsoleActions() {
 					// range provider returns, even if it is an empty string, as it should have
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
-					codeLocation = { uri: model.uri, range: statementRange.range };
+					codeLocation = createCodeLocation(model, model.uri, statementRange.range);
 
 					if (advance) {
 						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);

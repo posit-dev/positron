@@ -214,7 +214,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior,
-		codeLocation?: vscode.Location,
+		codeLocation?: positron.Utf8Location,
 	): void {
 		if (this._kernel) {
 			this._kernel.execute(code, id, mode, errorBehavior, codeLocation);

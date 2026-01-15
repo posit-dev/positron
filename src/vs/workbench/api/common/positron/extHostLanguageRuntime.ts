@@ -7,7 +7,6 @@ import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import * as typeConverters from '../extHostTypeConverters.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
@@ -24,7 +23,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { Location } from '../../../../editor/common/languages.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
  * Interface for code execution observers
@@ -781,17 +780,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: Location): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
-
-		let codeLocationConverted = undefined;
-		if (codeLocation) {
-			codeLocationConverted = typeConverters.Location.to(codeLocation);
-		}
-
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationConverted);
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocation);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {

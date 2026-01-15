@@ -52,7 +52,7 @@ import { IPositronVariablesInstance } from '../../../services/positronVariables/
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { Location } from '../../../../editor/common/languages.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -489,7 +489,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	): void {
 		this._lastUsed = Date.now();
 
-		let codeLocation: Location | undefined = undefined;
+		let codeLocation: ICodeLocation | undefined = undefined;
 
 		// For now we only provide source locations for scripts, but we might be
 		// able to provide it for notebooks as well
