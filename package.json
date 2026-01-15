@@ -137,7 +137,7 @@
     "react-dom": "18.3.1",
     "react-window": "^1.8.10",
     "tas-client-umd": "0.2.0",
-    "undici": "^7.9.0",
+    "undici": "^7.18.2",
     "v8-inspect-profiler": "^0.1.1",
     "vscode-oniguruma": "1.7.0",
     "vscode-regexpp": "^3.1.0",
