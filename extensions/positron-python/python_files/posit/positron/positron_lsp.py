@@ -546,6 +546,10 @@ def _get_parameter_completions(
     # Parse arguments section to understand context
     args_text = text_before_cursor[func_end + 1 :]
 
+    # Skip parameter completions if we're inside a string literal
+    if _is_inside_string(args_text):
+        return []
+
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
     if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
@@ -814,6 +818,20 @@ def _count_arg_commas(args_text: str) -> int:
         elif c == "," and depth == 0:
             count += 1
     return count
+
+
+def _is_inside_string(text: str) -> bool:
+    """Check if cursor is inside an unclosed string literal."""
+    in_string = False
+    string_char = ""
+    for c in text:
+        if in_string:
+            if c == string_char:
+                in_string = False
+        elif c in "\"'":
+            in_string = True
+            string_char = c
+    return in_string
 
 
 def _is_series_like(obj: Any) -> bool:
