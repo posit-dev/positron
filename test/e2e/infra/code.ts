@@ -221,51 +221,49 @@ export class Code {
 			// Await the exit of the application
 			(async () => {
 				let retries = 0;
-				let killedWithTreeKill = false;
 				while (!done) {
 					retries++;
 
-					if (safeToKill && !killedWithTreeKill) {
+					if (safeToKill) {
 						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
-						this.kill(pid);
-						killedWithTreeKill = true;
+						await this.killProcessTree(pid);
+						done = true;
+						resolve();
+						return;
 					}
 
 					switch (retries) {
 
 						// after 10 seconds: forcefully kill
 						case 20: {
-							if (!killedWithTreeKill) {
-								this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
-								this.kill(pid);
-								killedWithTreeKill = true;
-							}
-							break;
+							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
+							await this.killProcessTree(pid);
+							done = true;
+							resolve();
+							return;
 						}
 
 						// after 20 seconds: give up
 						case 40: {
-							if (!killedWithTreeKill) {
-								this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
-								this.kill(pid);
-							}
+							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
+							await this.killProcessTree(pid);
 							done = true;
 							resolve();
-							break;
+							return;
 						}
 					}
 
 					try {
 						process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
-						// Give extra time after treeKill to allow child process cleanup
-						await this.wait(killedWithTreeKill ? 1000 : 500);
+						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
 
-						// If we used treeKill, wait a bit longer for child processes to be reaped
-						if (killedWithTreeKill) {
-							await this.wait(1000);
-						}
+						// --- Start Positron ---
+						// Even though main process exited, kill entire process tree to clean up child processes
+						this.logger.log('Smoke test exit(): killing child processes');
+						await this.killProcessTree(pid);
+						// --- End Positron ---
 
 						done = true;
 						resolve();
@@ -275,30 +273,31 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	private kill(pid: number): void {
+	// --- Start Positron ---
+	/**
+	 * Kill the entire process tree starting from the given PID.
+	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
+	 */
+	private async killProcessTree(pid: number): Promise<void> {
 		try {
 			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
 		} catch (e) {
-			this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
+			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
 			return;
 		}
 
-		// --- Start Positron ---
 		try {
-			this.logger.log(`Smoke test kill(): Trying to kill process tree for PID: ${pid}`);
+			this.logger.log(`Smoke test killProcessTree(): Killing process tree for PID: ${pid}`);
 			// Create a ChildProcess object with the PID for teardown
-			// teardown only needs the pid property from ChildProcess
 			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
 			// Use teardown which calls treeKill to kill entire process tree
-			// Note: teardown is async but we're in a sync context, so we fire and forget
-			teardown(processStub as cp.ChildProcess, this.logger).catch(e => {
-				this.logger.log('Smoke test kill(): treeKill failed', e);
-			});
+			await teardown(processStub as cp.ChildProcess, this.logger);
+			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
 		} catch (e) {
-			this.logger.log('Smoke test kill(): kill attempt failed', e);
+			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
 		}
-		// --- End Positron ---
 	}
+	// --- End Positron ---
 
 	async getElement(selector: string): Promise<IElement | undefined> {
 		return (await this.driver.getElements(selector))?.[0];
