@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -13,14 +14,6 @@ test.use({
 test.describe('Notebook Assistant Features', {
 	tag: [tags.POSITRON_NOTEBOOKS]
 }, () => {
-
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('Notebook AI features hidden when assistant disabled', async function ({ app, settings, page }) {
 		const { notebooks, notebooksPositron } = app.workbench;
