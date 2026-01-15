@@ -63,11 +63,8 @@ export class QmdParserService extends Disposable {
 					// Parser handles lazy initialization automatically
 					const result = await this._parser.parse(qmdContent);
 
-					const outputChannel = vscode.window.createOutputChannel('QMD Parser Output');
-					outputChannel.clear();
-					outputChannel.appendLine('=== QMD Parse Result ===');
-					outputChannel.appendLine(JSON.stringify(result, null, 2));
-					outputChannel.show();
+					// Copy the result to the clipboard as formatted JSON
+					await vscode.env.clipboard.writeText(JSON.stringify(result, null, 2));
 
 					this._log.debug('Parsed QMD content successfully');
 					return result; // Return for programmatic use in tests
