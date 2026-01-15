@@ -61,6 +61,27 @@
 					"additionalProperties": true
 				}
 			}
+		},
+		{
+			"name": "editor_context_changed",
+			"summary": "Active editor context changed",
+			"description": "This notification is sent from the frontend to the backend when the active text editor changes. It provides the document URI of the currently active editor.",
+			"params": [
+				{
+					"name": "document_uri",
+					"description": "The URI of the active document, or empty string if no editor is active",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "editor_context_changed_result",
+					"description": "Unused response to notification",
+					"type": "null"
+				}
+			}
 		}
 	]
 }

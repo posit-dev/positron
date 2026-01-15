@@ -296,4 +296,13 @@ export class UiClientInstance extends Disposable {
 	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
 		await this._comm.didChangePlotsRenderSettings(settings);
 	}
+
+	/**
+	 * Notification that the active editor context has changed.
+	 *
+	 * @param documentUri The URI of the active document, or empty string if no editor is active
+	 */
+	public async editorContextChanged(documentUri: string): Promise<void> {
+		await this._comm.editorContextChanged(documentUri);
+	}
 }

@@ -11,6 +11,7 @@ import enum
 import logging
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
@@ -334,6 +335,10 @@ class PositronShell(ZMQInteractiveShell):
         if not raw_cell or raw_cell.isspace():
             return
 
+        # Add the directory of the last active editor to sys.path if it differs
+        # from the working directory. This allows imports from the editor's directory.
+        self._update_sys_path_for_editor()
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
@@ -363,6 +368,26 @@ class PositronShell(ZMQInteractiveShell):
             self.kernel.variables_service.poll_variables()
         except Exception:
             logger.exception("Error polling variables")
+
+    def _update_sys_path_for_editor(self) -> None:
+        """
+        Add the directory of the last active editor to sys.path if it differs
+        from the working directory. This allows imports from the editor's directory.
+        """
+        try:
+            editor_path = self.kernel.ui_service.get_editor_file_path()
+            if editor_path is None:
+                return
+
+            editor_dir = str(editor_path.parent)
+            working_dir = self.kernel.ui_service.working_directory
+
+            # If editor directory differs from working directory, add to sys.path
+            if editor_dir != working_dir and editor_dir not in sys.path:
+                sys.path.insert(0, editor_dir)
+                logger.debug(f"Added editor directory to sys.path: {editor_dir}")
+        except Exception:
+            logger.warning("Failed to update sys.path with editor directory", exc_info=True)
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.

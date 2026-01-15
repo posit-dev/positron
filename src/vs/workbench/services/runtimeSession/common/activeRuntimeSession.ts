@@ -11,6 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
+import { IEditorService } from '../../editor/common/editorService.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
@@ -57,7 +58,8 @@ export class ActiveRuntimeSession extends Disposable {
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
-		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService
+		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
 		super();
 
@@ -272,6 +274,24 @@ export class ActiveRuntimeSession extends Disposable {
 					data: event
 				}
 			});
+		}));
+
+		// Send the current active editor URI to the backend when the UI client starts,
+		// and subscribe to active editor changes to keep the backend informed.
+		const sendEditorContext = () => {
+			const activeEditor = this._editorService.activeEditor;
+			const documentUri = activeEditor?.resource?.toString() ?? '';
+			uiClient.editorContextChanged(documentUri).catch(err => {
+				this._logService.warn(`Failed to send editor context changed: ${err}`);
+			});
+		};
+
+		// Send the initial editor context
+		sendEditorContext();
+
+		// Listen for active editor changes and forward to the backend
+		uiClient.register(this._editorService.onDidActiveEditorChange(() => {
+			sendEditorContext();
 		}));
 
 		// Forward UI client to interested services

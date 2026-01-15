@@ -195,6 +195,9 @@ class UiBackendRequest(str, enum.Enum):
     # Run a method in the interpreter and return the result to the frontend
     CallMethod = "call_method"
 
+    # Active editor context changed
+    EditorContextChanged = "editor_context_changed"
+
 
 class DidChangePlotsRenderSettingsParams(BaseModel):
     """
@@ -266,11 +269,45 @@ class CallMethodRequest(BaseModel):
     )
 
 
+class EditorContextChangedParams(BaseModel):
+    """
+    This notification is sent from the frontend to the backend when the
+    active text editor changes. It provides the document URI of the
+    currently active editor.
+    """
+
+    document_uri: StrictStr = Field(
+        description="The URI of the active document, or empty string if no editor is active",
+    )
+
+
+class EditorContextChangedRequest(BaseModel):
+    """
+    This notification is sent from the frontend to the backend when the
+    active text editor changes. It provides the document URI of the
+    currently active editor.
+    """
+
+    params: EditorContextChangedParams = Field(
+        description="Parameters to the EditorContextChanged method",
+    )
+
+    method: Literal[UiBackendRequest.EditorContextChanged] = Field(
+        description="The JSON-RPC method name (editor_context_changed)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class UiBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         DidChangePlotsRenderSettingsRequest,
         CallMethodRequest,
+        EditorContextChangedRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -624,6 +661,10 @@ DidChangePlotsRenderSettingsRequest.update_forward_refs()
 CallMethodParams.update_forward_refs()
 
 CallMethodRequest.update_forward_refs()
+
+EditorContextChangedParams.update_forward_refs()
+
+EditorContextChangedRequest.update_forward_refs()
 
 BusyParams.update_forward_refs()
 
