@@ -51,7 +51,8 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'azure',
-			displayName: 'Azure'
+			displayName: 'Azure',
+			settingName: 'azure'
 		},
 		supportedOptions: ['resourceName', 'apiKey', 'toolCalls'],
 		defaults: {

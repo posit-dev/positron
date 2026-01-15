@@ -20,7 +20,7 @@ let supportedProviderIds: Set<string> | undefined;
  * valid provider IDs. Logs warnings and optionally shows user notifications for unsupported identifiers.
  *
  * @param identifiers - Array of provider UI names or provider IDs to validate
- * @param settingName - Name of the setting for error messages (e.g., "positron.assistant.providers")
+ * @param settingName - Name of the setting for error messages
  * @param showWarningMessage - Whether to show a user-facing warning message (default: true)
  * @returns Array of valid provider IDs
  */
@@ -78,18 +78,21 @@ export function registerSupportedProviders(): void {
 	const models = getModelProviders();
 	for (const model of models) {
 		if (model.source?.provider) {
+			// Register display name mapping for models.preference.byProvider and models.custom settings
 			configureProvider(model.source.provider.id, model.source.provider.displayName);
 			registeredProviderIds.push(model.source.provider.id);
+
+			positron.ai.registerProviderMetadata({
+				id: model.source.provider.id,
+				displayName: model.source.provider.displayName,
+				settingName: model.source.provider.settingName
+			});
 		}
 	}
 
-	// Add Copilot since it is contributed via the GitHub Copilot extension
-	configureProvider('copilot', 'GitHub Copilot');
-	registeredProviderIds.push('copilot');
-
 	// TODO: For future consideration, how can providers from other extensions be dynamically
 	// discovered and registered here? Perhaps an extension API to register a provider?
-	// For now, we don't support providers other than the built-in ones and Copilot, so this is sufficient.
+	// For now, we only support providers that are returned by getModelProviders().
 
 	// Cache the registered provider IDs for validation
 	supportedProviderIds = new Set(registeredProviderIds);
@@ -114,26 +117,11 @@ export function validateByProviderPreferences(): void {
 }
 
 /**
- * Gets the list of enabled provider IDs from user configuration.
- *
- * Uses the Positron API which provides a single source of truth for provider configuration,
- * handling both the new 'positron.assistant.providers' setting and the deprecated
- * 'positron.assistant.enabledProviders' setting.
- *
- * @returns Array of enabled provider IDs (e.g., ["anthropic-api", "copilot"])
- */
-export async function getEnabledProviders(): Promise<string[]> {
-	// Use the Positron API which calls the core service
-	// This provides a unified implementation shared with chatInputPart.ts
-	return positron.ai.getEnabledProviders();
-}
-
-/**
  * Validates that at least one language model provider is enabled.
  * If no providers are enabled, shows a warning message with an option to open settings.
  */
 export async function validateProvidersEnabled(): Promise<void> {
-	const enabledProviders = await getEnabledProviders();
+	const enabledProviders = await positron.ai.getEnabledProviders();
 	if (enabledProviders.length === 0) {
 		const openSettings = vscode.l10n.t('Open Settings');
 		const selection = await vscode.window.showWarningMessage(
@@ -143,7 +131,7 @@ export async function validateProvidersEnabled(): Promise<void> {
 			openSettings
 		);
 		if (selection === openSettings) {
-			await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.providers');
+			await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
 		}
 	}
 }

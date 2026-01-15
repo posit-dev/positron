@@ -40,10 +40,23 @@ export type PositronLanguageModelOptions = Exclude<{
 	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
 }[keyof IPositronLanguageModelConfig], undefined>;
 
+/**
+ * Metadata about a language model provider used for configuration.
+ * Registered during extension activation, independent of sign-in state.
+ */
+export interface IPositronProviderMetadata {
+	/** Provider ID (e.g., 'anthropic-api', 'copilot') */
+	id: string;
+	/** Display name shown in UI (e.g., 'Anthropic', 'GitHub Copilot') */
+	displayName: string;
+	/** Setting name used in positron.assistant.provider.<settingName>.enable */
+	settingName: string;
+}
+
 // Equivalent in positron.d.ts API: LanguageModelSource
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
-	provider: { id: string; displayName: string };
+	provider: IPositronProviderMetadata;
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
 	signedIn?: boolean;
@@ -113,12 +126,25 @@ export interface IPositronAssistantConfigurationService {
 	readonly onChangeCopilotEnabled: Event<boolean>;
 
 	/**
+	 * Event that fires when enabled providers configuration changes.
+	 * Fires when either individual provider enable settings or the deprecated enabledProviders array changes.
+	 */
+	readonly onChangeEnabledProviders: Event<void>;
+
+	/**
+	 * Registers provider metadata with the configuration service.
+	 * This allows the service to check provider enable settings without requiring sign-in.
+	 * Should be called during extension activation for all available providers.
+	 *
+	 * @param metadata Provider identification and settings information
+	 */
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void;
+
+	/**
 	 * Gets the list of enabled provider IDs from configuration.
 	 *
-	 * Reads from 'positron.assistant.providers' setting (and deprecated
-	 * 'positron.assistant.enabledProviders' array) and maps UI display names
-	 * (e.g., "GitHub Copilot", "Anthropic") to provider IDs
-	 * (e.g., "copilot", "anthropic-api").
+	 * Reads from individual provider enable settings (positron.assistant.provider.<settingName>.enable)
+	 * and the deprecated 'positron.assistant.enabledProviders' array setting.
 	 *
 	 * @returns Array of enabled provider IDs
 	 */

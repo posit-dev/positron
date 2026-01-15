@@ -8,7 +8,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -18,7 +18,6 @@ import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { isFileExcludedFromAI } from '../../chat/browser/tools/utils.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { ILanguageModelsService } from '../../chat/common/languageModels.js';
 
 /**
  * PositronAssistantConfigurationService class.
@@ -29,14 +28,47 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	declare readonly _serviceBrand: undefined;
 	private _copilotEnabled = false;
 	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
+	private _enabledProvidersEmitter = this._register(new Emitter<void>());
+
+	// Tracks registered provider metadata for checking enable settings
+	// This is populated during extension activation, independent of sign-in state
+	private _providerMetadata = new Map<string, IPositronProviderMetadata>();
 
 	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
+	readonly onChangeEnabledProviders = this._enabledProvidersEmitter.event;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 	) {
 		super();
+
+		// Listen for configuration changes to provider enablement settings
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			// Check if any provider enable setting or the deprecated enabledProviders array changed
+			let providerConfigChanged = false;
+
+			// Check individual provider enable settings
+			for (const metadata of this._providerMetadata.values()) {
+				const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
+				if (e.affectsConfiguration(settingKey)) {
+					providerConfigChanged = true;
+					break;
+				}
+			}
+
+			// Check deprecated setting
+			if (!providerConfigChanged && e.affectsConfiguration('positron.assistant.enabledProviders')) {
+				providerConfigChanged = true;
+			}
+
+			if (providerConfigChanged) {
+				this._enabledProvidersEmitter.fire();
+			}
+		}));
+	}
+
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._providerMetadata.set(metadata.id, metadata);
 	}
 
 	get copilotEnabled(): boolean {
@@ -49,48 +81,31 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	}
 
 	getEnabledProviders(): string[] {
-		// Read new providers setting (object with boolean values)
-		const providersConfig = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.providers') || {};
-		const enabledFromProviders = Object.keys(providersConfig).filter(key => providersConfig[key]);
+		// Read individual provider enable settings using registered metadata
+		// This works before any providers have signed in, as metadata is registered during extension activation
+		//
+		// IMPORTANT: When adding a new provider to positron-assistant extension:
+		// 1. Add settingName to the provider's source.provider object in the extension
+		// 2. If the setting should be visible in the Settings UI, remove the "advanced" tag from the setting's  extensions/positron-assistant/package.json
+		// 3. registerProviderMetadata() is called during extension activation, which populates _providerMetadata
+		const enabledProviders: string[] = [];
 
-		// DEPRECATED: Read legacy enabledProviders setting (array of strings)
-		// TODO: Remove this when positron.assistant.enabledProviders is fully deprecated
-		const enabledFromLegacy = this._configurationService.getValue<string[]>('positron.assistant.enabledProviders') || [];
-
-		// Build UI name to provider ID mapping from extension package.json contributions
-		// This uses the languageModelChatProviders contribution point which extensions
-		// declare in their package.json with both vendor (provider ID) and displayName (UI name).
-		// This mapping is available immediately when extensions are loaded, unlike registered
-		// language models which may not be available yet (e.g., if API keys aren't configured).
-		const uiNameToId = new Map<string, string>();
-		const vendors = this._languageModelsService.getVendors();
-		for (const vendor of vendors) {
-			// Filter out non-copilot vendors from the Copilot extension
-			// The Copilot extension declares vendors like 'anthropic', 'openai', 'azure', etc.
-			// for its BYOK (Bring Your Own Key) feature, but Positron Assistant provides
-			// its own implementations of these providers with different vendor IDs
-			// (e.g., 'anthropic-api' vs 'anthropic')
-			const extensionId = this._languageModelsService.getExtensionIdentifierForProvider(vendor.vendor);
-			if (extensionId?._lower === 'github.copilot-chat' && vendor.vendor !== 'copilot') {
-				continue; // Skip non-copilot vendors from Copilot extension
-			}
-
-			// Special case: GitHub Copilot extension declares displayName as "Copilot" in package.json,
-			// but Positron's settings use "GitHub Copilot" for clarity
-			if (vendor.vendor === 'copilot') {
-				uiNameToId.set('GitHub Copilot', 'copilot');
-			} else {
-				uiNameToId.set(vendor.displayName, vendor.vendor);
+		for (const [providerId, metadata] of this._providerMetadata.entries()) {
+			const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
+			const isEnabled = this._configurationService.getValue<boolean>(settingKey);
+			if (isEnabled) {
+				enabledProviders.push(providerId);
 			}
 		}
 
-		// Map UI names to provider IDs (fallback to original if not found)
-		const mapToId = (name: string) => uiNameToId.get(name) || name;
+		// DEPRECATED: Read legacy enabledProviders setting (array of strings) for backward compatibility
+		// TODO: Remove this when positron.assistant.enabledProviders is fully deprecated
+		const enabledFromLegacy = this._configurationService.getValue<string[]>('positron.assistant.enabledProviders') || [];
 
 		// Merge and deduplicate
 		return Array.from(new Set([
-			...enabledFromProviders.map(mapToId),
-			...enabledFromLegacy.map(mapToId)
+			...enabledProviders,
+			...enabledFromLegacy
 		]));
 	}
 }

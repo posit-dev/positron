@@ -31,6 +31,7 @@ export class ErrorModelProvider extends ModelProvider {
 		provider: {
 			id: 'error',
 			displayName: 'Error Language Model',
+			settingName: 'error'
 		},
 		supportedOptions: [],
 		defaults: {

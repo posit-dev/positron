@@ -162,7 +162,8 @@ class OpenAILegacyCompletion extends CompletionModel {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openai-legacy',
-			displayName: 'OpenAI (Legacy)'
+			displayName: 'OpenAI (Legacy)',
+			settingName: 'openAILegacy'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -249,7 +250,8 @@ class MistralCompletion extends OpenAILegacyCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral AI'
+			displayName: 'Mistral AI',
+			settingName: 'mistral'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -271,7 +273,8 @@ class DeepSeekCompletion extends OpenAILegacyCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'deepseek',
-			displayName: 'DeepSeek'
+			displayName: 'DeepSeek',
+			settingName: 'deepseek'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -293,7 +296,8 @@ class OllamaCompletion extends OpenAILegacyCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'ollama',
-			displayName: 'Ollama'
+			displayName: 'Ollama',
+			settingName: 'ollama'
 		},
 		supportedOptions: ['baseUrl'],
 		defaults: {
@@ -320,7 +324,8 @@ class VertexLegacyCompletion extends MistralCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'vertex-legacy',
-			displayName: 'Google Vertex (OpenAI Legacy API)'
+			displayName: 'Google Vertex (OpenAI Legacy API)',
+			settingName: 'vertexLegacy'
 		},
 		supportedOptions: ['project', 'location'],
 		defaults: {
@@ -442,7 +447,8 @@ class AnthropicCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'anthropic-api',
-			displayName: 'Anthropic'
+			displayName: 'Anthropic',
+			settingName: 'anthropic'
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
@@ -464,7 +470,8 @@ class OpenAICompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openai-api',
-			displayName: 'OpenAI'
+			displayName: 'OpenAI',
+			settingName: 'openAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
@@ -488,7 +495,8 @@ class OpenAICompatibleCompletion extends OpenAICompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openai-compatible',
-			displayName: 'OpenAI Compatible'
+			displayName: 'OpenAI Compatible',
+			settingName: 'openAICompatible'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
@@ -506,7 +514,8 @@ class OpenRouterCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openrouter',
-			displayName: 'OpenRouter'
+			displayName: 'OpenRouter',
+			settingName: 'openrouter'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
@@ -532,7 +541,8 @@ class AWSCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock'
+			displayName: 'Amazon Bedrock',
+			settingName: 'amazonBedrock'
 		},
 		supportedOptions: [],
 		defaults: {
@@ -558,7 +568,8 @@ class VertexCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'vertex',
-			displayName: 'Google Vertex'
+			displayName: 'Google Vertex',
+			settingName: 'vertex'
 		},
 		supportedOptions: ['project', 'location'],
 		defaults: {
@@ -585,7 +596,8 @@ class GoogleCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'google',
-			displayName: 'Google Generative AI'
+			displayName: 'Google Generative AI',
+			settingName: 'google'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -612,7 +624,8 @@ class AzureCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'azure',
-			displayName: 'Azure'
+			displayName: 'Azure',
+			settingName: 'azure'
 		},
 		supportedOptions: ['resourceName', 'apiKey'],
 		defaults: {

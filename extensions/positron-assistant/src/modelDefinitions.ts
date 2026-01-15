@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './providerConfiguration.js';
+import * as positron from 'positron';
 import { log } from './extension.js';
 import { uiNameToProviderId, providerIdToUiName } from './providerMapping.js';
 
@@ -44,7 +44,7 @@ export function getCustomModels(providerId: string): ModelDefinition[] {
 export async function validateProvidersInCustomModels() {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	const enabledProviders = await getEnabledProviders();
+	const enabledProviders = await positron.ai.getEnabledProviders();
 
 	const invalidProviders = Object.keys(customModels).filter(key => {
 		// Note: 'copilot' is a special case, where we don't support customModels

@@ -43,7 +43,8 @@ export class PositModelProvider extends ModelProvider {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'posit-ai',
-			displayName: 'Posit AI'
+			displayName: 'Posit AI',
+			settingName: 'positAI'
 		},
 		supportedOptions: ['oauth'],
 		defaults: {

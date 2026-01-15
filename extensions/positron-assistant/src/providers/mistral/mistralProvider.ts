@@ -20,7 +20,8 @@ export class MistralModelProvider extends VercelModelProvider implements positro
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral AI'
+			displayName: 'Mistral AI',
+			settingName: 'mistral'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {

@@ -34,6 +34,7 @@ export class EchoModelProvider extends ModelProvider {
 		provider: {
 			id: 'echo',
 			displayName: 'Echo',
+			settingName: 'echo'
 		},
 		supportedOptions: [],
 		defaults: {

@@ -13,7 +13,6 @@ import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
 import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
-import { getEnabledProviders } from './providerConfiguration.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -128,7 +127,7 @@ export function getMaxConnectionAttempts(): number {
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers
-	const enabledProviders = await getEnabledProviders();
+	const enabledProviders = await positron.ai.getEnabledProviders();
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
@@ -401,15 +400,22 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 }
 
 /**
- * Note: the LanguageModelSource object returned by this function is not the same as the original
- * one that was used to create the configuration.
+ * Reconstructs a LanguageModelSource from a stored model configuration.
+ *
+ * This function is used to recreate the LanguageModelSource object needed by positron.ai.addLanguageModelConfig()
+ * from the minimal StoredModelConfig data that is persisted in globalState.
+ *
+ * Note: The returned LanguageModelSource is NOT the same as the original provider's static source definition.
  */
 export function expandConfigToSource(config: StoredModelConfig): positron.ai.LanguageModelSource {
 	return {
 		...config,
 		provider: {
 			id: config.provider,
-			displayName: config.name
+			displayName: config.name,
+			// Empty string for custom/stored configs since they're not registered via registerProviderMetadata()
+			// and don't have provider-level enable settings. This value is never accessed by addLanguageModelConfig().
+			settingName: ''
 		},
 		supportedOptions: [],
 		defaults: {

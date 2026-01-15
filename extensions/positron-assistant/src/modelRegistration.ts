@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
 import { getModelConfigurations, ModelConfig, SecretStorage, StoredModelConfig } from './config';
-import { getEnabledProviders } from './providerConfiguration.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { AssistantError, log } from './extension';
@@ -17,9 +16,6 @@ const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 let modelDisposables: ModelDisposable[] = [];
 
 const autoconfiguredModels: ModelConfig[] = [];
-
-// Track the last known enabled providers to detect enable/disable changes
-let lastEnabledProviders: string[] = [];
 
 /**
  * Add a model to the autoconfigured models list.
@@ -107,7 +103,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The model configuration could not be found.'));
 		}
 
-		const enabledProviders = await getEnabledProviders();
+		const enabledProviders = await positron.ai.getEnabledProviders();
 		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
 		if (!enabled) {
 			vscode.window.showErrorMessage(
@@ -133,7 +129,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	let modelConfigs: ModelConfig[] = [];
 	try {
 		// Refresh the set of enabled providers
-		const enabledProviders = await getEnabledProviders();
+		const enabledProviders = await positron.ai.getEnabledProviders();
 
 		modelConfigs = await getModelConfigurations(context, storage);
 		modelConfigs = modelConfigs.filter(config => {
@@ -239,42 +235,4 @@ export async function registerModelWithAPI(modelConfig: ModelConfig, context: vs
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
 		modelDisposables.push(new ModelDisposable(complDisp, modelConfig));
 	}
-}
-
-/**
- * Register configuration listeners for provider changes.
- * Shows a notification when providers are enabled, prompting user to restart Positron.
- */
-export function registerModelConfigListeners(context: vscode.ExtensionContext, storage: SecretStorage) {
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration('positron.assistant.providers') ||
-				e.affectsConfiguration('positron.assistant.enabledProviders')) {
-				// Get current enabled providers
-				const enabledProviders = await getEnabledProviders();
-
-				// Detect what changed by comparing with last known state
-				const newlyEnabledProviders = enabledProviders.filter(p => !lastEnabledProviders.includes(p));
-
-				// Show notification if providers were enabled
-				if (newlyEnabledProviders.length > 0) {
-					log.debug(`[Positron Assistant] Provider(s) enabled: [${newlyEnabledProviders.join(', ')}]`);
-					vscode.window.showInformationMessage(
-						vscode.l10n.t('A language model provider was enabled. Please restart Positron and if applicable, authenticate to the provider.')
-					);
-				}
-
-				// Update last known state
-				lastEnabledProviders = [...enabledProviders];
-			}
-		})
-	);
-}
-
-/**
- * Update the last known enabled providers state.
- * Should be called after initial provider registration.
- */
-export async function updateLastEnabledProviders() {
-	lastEnabledProviders = await getEnabledProviders();
 }

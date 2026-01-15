@@ -532,23 +532,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 			this.inputEditor.updateOptions(newOptions);
 
-			// --- Start Positron ---
-			// Listen for provider configuration changes (both new and deprecated settings)
-			if (e.affectsConfiguration('positron.assistant.providers') ||
-				e.affectsConfiguration('positron.assistant.enabledProviders')) {
-				// Provider filtering changed - notify UI
-				this._onDidChangeModelList.fire();
-
-				// May need to switch current model if it's no longer in enabled providers
-				const currentModel = this._currentLanguageModel;
-				if (currentModel) {
-					const enabledProviders = this.getEnabledProvidersFromConfig();
-					if (enabledProviders.length > 0 && !enabledProviders.includes(currentModel.metadata.vendor)) {
-						this.setCurrentLanguageModelToDefault();
-					}
-				}
-			}
-			// --- End Positron ---
 		}));
 
 		this._chatEditsListPool = this._register(this.instantiationService.createInstance(CollapsibleListPool, this._onDidChangeVisibility.event, MenuId.ChatEditingWidgetModifiedFilesToolbar, { verticalScrollMode: ScrollbarVisibility.Visible }));
@@ -579,6 +562,23 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this._onDidChangeModelList.fire();
 			// --- End Positron ---
 		}));
+
+		// --- Start Positron ---
+		// Listen for provider enablement configuration changes
+		this._register(this.positronAssistantConfigService.onChangeEnabledProviders(() => {
+			// Provider filtering changed - notify UI
+			this._onDidChangeModelList.fire();
+
+			// May need to switch current model if it's no longer in enabled providers
+			const currentModel = this._currentLanguageModel;
+			if (currentModel) {
+				const enabledProviders = this.positronAssistantConfigService.getEnabledProviders();
+				if (enabledProviders.length > 0 && !enabledProviders.includes(currentModel.metadata.vendor)) {
+					this.setCurrentLanguageModelToDefault();
+				}
+			}
+		}));
+		// --- End Positron ---
 
 		this._register(this.onDidChangeCurrentChatMode(() => {
 			this.accessibilityService.alert(this._currentModeObservable.get().label.get());
@@ -964,11 +964,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	// --- Start Positron ---
-	private getEnabledProvidersFromConfig(): string[] {
-		// Use the Positron Assistant Configuration Service for unified provider configuration logic
-		return this.positronAssistantConfigService.getEnabledProviders();
-	}
-
 	/**
 	 * Helper to filter models for user-selectable, mode-supported, and provider-enabled models.
 	 * If no providers are configured, provider filtering is skipped (all providers allowed).
@@ -999,7 +994,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		// --- Start Positron ---
 		// Filter for user-selectable models that are supported in the current mode and enabled via config
-		const enabledProviders = this.getEnabledProvidersFromConfig();
+		const enabledProviders = this.positronAssistantConfigService.getEnabledProviders();
 		models = this.filterAvailableModels(models, enabledProviders);
 		// --- End Positron ---
 

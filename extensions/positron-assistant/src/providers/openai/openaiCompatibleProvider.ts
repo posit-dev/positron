@@ -47,7 +47,8 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openai-compatible',
-			displayName: 'Custom Provider'
+			displayName: 'Custom Provider',
+			settingName: 'customProvider'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {

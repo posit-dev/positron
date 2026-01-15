@@ -71,7 +71,8 @@ export class OpenAIModelProvider extends VercelModelProvider implements positron
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openai-api',
-			displayName: 'OpenAI'
+			displayName: 'OpenAI',
+			settingName: 'openAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {

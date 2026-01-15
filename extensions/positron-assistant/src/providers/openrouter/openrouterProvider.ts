@@ -20,7 +20,8 @@ export class OpenRouterModelProvider extends VercelModelProvider implements posi
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openrouter',
-			displayName: 'OpenRouter'
+			displayName: 'OpenRouter',
+			settingName: 'openrouter'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {

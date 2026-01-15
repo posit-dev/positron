@@ -20,7 +20,8 @@ export class VertexModelProvider extends VercelModelProvider implements positron
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'vertex',
-			displayName: 'Google Vertex AI'
+			displayName: 'Google Vertex AI',
+			settingName: 'vertex'
 		},
 		supportedOptions: ['toolCalls', 'project', 'location'],
 		defaults: {

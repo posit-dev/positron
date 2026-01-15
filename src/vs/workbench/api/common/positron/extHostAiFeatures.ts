@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IPositronProviderMetadata } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
@@ -93,6 +93,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getChatExport(): Promise<object | undefined> {
 		return this._proxy.$getChatExport();
+	}
+
+	registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._proxy.$registerProviderMetadata(metadata);
 	}
 
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {

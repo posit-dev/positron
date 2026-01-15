@@ -185,7 +185,8 @@ export class CopilotModelProvider extends ModelProvider {
 			// Use 'copilot-auth' as the ID to distinguish from the full
 			// Copilot implementation, which has the id 'copilot'
 			id: 'copilot-auth',
-			displayName: 'GitHub Copilot'
+			displayName: 'GitHub Copilot',
+			settingName: 'githubCopilot'
 		},
 		supportedOptions: ['oauth'],
 		defaults: {

@@ -1,119 +1,142 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { providerIdToUiName } from './providerMapping.js';
 import { log } from './extension.js';
+import { getModelProviders } from './providers/index.js';
 
 /**
- * Performs one-time migration from the old array-based enabledProviders configuration
- * to the new object-based providers configuration.
+ * Gets a map of provider ID to setting name from the provider source metadata.
  *
- * This function is non-blocking and returns immediately after showing the migration prompt.
- * The actual migration happens asynchronously after user confirmation.
+ * @returns Map of provider ID (e.g., "anthropic-api") to setting name (e.g., "anthropic")
+ */
+export function getProviderIdToSettingNameMap(): Map<string, string> {
+	const providers = getModelProviders();
+	const map = new Map<string, string>();
+
+	for (const providerClass of providers) {
+		const providerId = providerClass.source.provider.id;
+		const settingName = providerClass.source.provider.settingName;
+
+		if (settingName) {
+			map.set(providerId, settingName);
+		}
+	}
+
+	return map;
+}
+
+/**
+ * Performs one-time migration from positron.assistant.enabledProviders
+ * to the new individual settings-based system.
  *
- * This function:
- * 1. Checks if migration is needed (old enabledProviders array is set)
- * 2. Shows a non-blocking warning notification with a preview of what will change
- * 3. If user approves, asynchronously maps provider IDs from the old array to UI names in the new object
- * 4. Removes the old setting after successful migration
- * 5. Shows success notification with option to open settings
+ * This migrates from:
+ * - positron.assistant.enabledProviders (array)
+ *
+ * To:
+ * - positron.assistant.provider.<name>.enable (individual boolean settings)
+ *
+ * Migration strategy:
+ * 1. Read old enabledProviders array
+ * 2. For each enabled provider, set the corresponding individual setting
+ * 3. Don't overwrite existing individual settings (preserve user choice)
+ * 4. Remove the old setting after migration
+ * 5. Show notification when migration occurs
  */
 export async function performProviderMigration(): Promise<void> {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const legacyEnabledProviders = config.get<string[]>('enabledProviders');
 
-	if (!legacyEnabledProviders || legacyEnabledProviders.length === 0) {
-		return; // Nothing to migrate
+	// Inspect the old setting to determine its scope
+	const enabledProvidersInspect = config.inspect<string[]>('enabledProviders');
+
+	// Determine which scope to migrate and get the values from that scope
+	let targetScope: vscode.ConfigurationTarget;
+	let legacyEnabledProviders: string[] | undefined;
+
+	// Check workspace scope first
+	const hasWorkspaceEnabledProviders = enabledProvidersInspect?.workspaceValue && enabledProvidersInspect.workspaceValue.length > 0;
+
+	// Check global scope
+	const hasGlobalEnabledProviders = enabledProvidersInspect?.globalValue && enabledProvidersInspect.globalValue.length > 0;
+
+	if (hasWorkspaceEnabledProviders) {
+		// Migrate workspace settings to workspace scope
+		targetScope = vscode.ConfigurationTarget.Workspace;
+		legacyEnabledProviders = enabledProvidersInspect?.workspaceValue;
+	} else if (hasGlobalEnabledProviders) {
+		// Migrate global settings to global scope
+		targetScope = vscode.ConfigurationTarget.Global;
+		legacyEnabledProviders = enabledProvidersInspect?.globalValue;
+	} else {
+		// No settings to migrate
+		return;
 	}
 
 	try {
 		// Log the existing configuration for backup purposes
-		log.info(`[performProviderMigration] Deprecated positron.assistant.enabledProviders setting detected. Current enabledProviders: ${JSON.stringify(legacyEnabledProviders)}. Please migrate to the positron.assistant.providers setting.`);
-
-		// Build preview of what will change
-		const mappedProviders: Array<{ id: string; uiName: string }> = [];
-		const unsupportedProviders: string[] = [];
-
-		for (const providerId of legacyEnabledProviders) {
-			const uiName = providerIdToUiName(providerId);
-			if (uiName) {
-				mappedProviders.push({ id: providerId, uiName });
-			} else {
-				unsupportedProviders.push(providerId);
-			}
+		const scopeName = targetScope === vscode.ConfigurationTarget.Workspace ? 'workspace' : 'global';
+		if (legacyEnabledProviders) {
+			log.info(`[performProviderMigration] enabledProviders array detected in ${scopeName} settings: ${JSON.stringify(legacyEnabledProviders)}`);
 		}
 
-		// Build preview message
-		let previewMessage = vscode.l10n.t(
-			'The positron.assistant.enabledProviders setting is deprecated and will be replaced. ' +
-			'Click "Migrate Now" to move your enabled providers to positron.assistant.providers and remove the old setting. '
-		);
+		// Get provider ID to setting name map
+		const providerIdToSettingName = getProviderIdToSettingNameMap();
 
-		if (mappedProviders.length > 0) {
-			const providerNames = mappedProviders.map(p => p.uiName).join(', ');
-			previewMessage += vscode.l10n.t('Providers to migrate: {0}. ', providerNames);
-		}
+		// Collect all enabled providers from the old setting
+		const enabledProviders = new Set<string>();
 
-		if (unsupportedProviders.length > 0) {
-			previewMessage += vscode.l10n.t('(Providers no longer supported: {0}) ', unsupportedProviders.join(', '));
-		}
-
-		// Show migration warning notification (non-blocking)
-		const migrateNow = vscode.l10n.t('Migrate Now');
-		const notNow = vscode.l10n.t('Not Now');
-		return vscode.window.showWarningMessage(
-			previewMessage,
-			migrateNow,
-			notNow
-		).then(async (choice) => {
-			if (choice !== migrateNow) {
-				log.info('[performProviderMigration] Provider migration declined. Will prompt again on next extension activation.');
-				return;
-			}
-
-			try {
-				// Build new providers configuration
-				const newProvidersConfig: Record<string, boolean> = {};
-				for (const provider of mappedProviders) {
-					newProvidersConfig[provider.uiName] = true;
+		// Add from enabledProviders array (provider IDs)
+		if (legacyEnabledProviders) {
+			for (const providerId of legacyEnabledProviders) {
+				const settingName = providerIdToSettingName.get(providerId);
+				if (settingName) {
+					enabledProviders.add(settingName);
+				} else {
+					log.warn(`[performProviderMigration] Unknown provider ID in enabledProviders: ${providerId}`);
 				}
-
-				// Log any unsupported providers that are being removed
-				if (unsupportedProviders.length > 0) {
-					log.debug(`[performProviderMigration] Removing unsupported providers during migration: ${unsupportedProviders.join(', ')}`);
-				}
-
-				// Update the new providers configuration (merge with existing if present)
-				await config.update('providers', newProvidersConfig, vscode.ConfigurationTarget.Global);
-
-				// Remove the old array configuration completely
-				await config.update('enabledProviders', undefined, vscode.ConfigurationTarget.Global);
-
-				// Show success notification with button to open settings (non-blocking)
-				const openSettings = vscode.l10n.t('Open Settings');
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Assistant provider settings updated successfully'),
-					openSettings
-				).then((result) => {
-					if (result === openSettings) {
-						vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.providers');
-					}
-				});
-
-				log.info('[performProviderMigration] Provider migration completed successfully');
-			} catch (error) {
-				log.error(`[performProviderMigration] Failed to apply migration: ${JSON.stringify(error, null, 2)}`);
-				vscode.window.showErrorMessage(
-					vscode.l10n.t('Failed to migrate provider configuration: {0}', JSON.stringify(error))
-				);
 			}
-		});
+		}
+
+		// Migrate to individual settings (don't overwrite existing settings)
+		let migratedCount = 0;
+		for (const settingName of enabledProviders) {
+			const settingKey = `provider.${settingName}.enable`;
+			const existingValue = config.inspect<boolean>(settingKey);
+
+			// Only set if not already set by user
+			const isAlreadySet = targetScope === vscode.ConfigurationTarget.Workspace
+				? existingValue?.workspaceValue !== undefined
+				: existingValue?.globalValue !== undefined;
+
+			if (!isAlreadySet) {
+				try {
+					await config.update(settingKey, true, targetScope);
+					migratedCount++;
+					log.info(`[performProviderMigration] Migrated provider to ${scopeName} setting: positron.assistant.${settingKey} = true`);
+				} catch (error) {
+					// If the setting cannot be written, log but don't fail the migration
+					log.warn(`[performProviderMigration] Could not migrate setting for provider '${settingName}': positron.assistant.${settingKey}. The provider may need to be manually enabled.`);
+				}
+			}
+		}
+
+		// Remove old setting after migration
+		if (legacyEnabledProviders) {
+			await config.update('enabledProviders', undefined, targetScope);
+			log.info(`[performProviderMigration] Removed positron.assistant.enabledProviders setting from ${scopeName}`);
+		}
+
+		// Show migration notification
+		if (migratedCount > 0) {
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('The \'positron.assistant.enabledProviders\' setting has been deprecated, and has been migrated to individual settings for each provider. You can search for these settings in the Settings UI with "positron.assistant.provider enable". Please remove your \'positron.assistant.enabledProviders\' setting, which will be phased out in an upcoming release.')
+			);
+		}
 	} catch (error) {
-		log.error(`[performProviderMigration] Failed to prepare provider migration: ${JSON.stringify(error, null, 2)}`);
+		log.error(`[performProviderMigration] Failed to perform provider migration: ${JSON.stringify(error, null, 2)}`);
 		vscode.window.showErrorMessage(
-			vscode.l10n.t('Failed to prepare provider migration: {0}', JSON.stringify(error))
+			vscode.l10n.t('Failed to migrate provider configuration: {0}', JSON.stringify(error))
 		);
 	}
 }

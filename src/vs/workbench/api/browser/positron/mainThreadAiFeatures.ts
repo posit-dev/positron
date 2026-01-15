@@ -12,7 +12,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -103,6 +103,10 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getChatExport(): Promise<IExportableChatData | undefined> {
 		return this._positronAssistantService.getChatExport();
+	}
+
+	$registerProviderMetadata(metadata: IPositronProviderMetadata): void {
+		this._positronAssistantConfigurationService.registerProviderMetadata(metadata);
 	}
 
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void {

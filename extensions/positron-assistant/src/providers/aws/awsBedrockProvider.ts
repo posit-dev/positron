@@ -96,7 +96,8 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock'
+			displayName: 'Amazon Bedrock',
+			settingName: 'amazonBedrock'
 		},
 		supportedOptions: ['toolCalls', 'autoconfigure'],
 		defaults: {

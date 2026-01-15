@@ -337,6 +337,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getChatExport(): Thenable<object | undefined> {
 				return extHostAiFeatures.getChatExport();
 			},
+			registerProviderMetadata(metadata: { id: string; displayName: string; settingName: string }): void {
+				return extHostAiFeatures.registerProviderMetadata(metadata);
+			},
 			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 				return extHostAiFeatures.addLanguageModelConfig(source);
 			},

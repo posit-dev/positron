@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
-import { getEnabledProviders, registerSupportedProviders, validateByProviderPreferences, validateProvidersEnabled } from './providerConfiguration.js';
+import { registerSupportedProviders, validateByProviderPreferences, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
@@ -29,7 +29,7 @@ import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
 import { performProviderMigration } from './providerMigration.js';
 import { validateProvidersInCustomModels } from './modelDefinitions.js';
-import { disposeModels, registerModelConfigListeners, registerModels, updateLastEnabledProviders } from './modelRegistration';
+import { disposeModels, registerModels } from './modelRegistration';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
@@ -178,9 +178,8 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 	// 1. Register supported providers
 	registerSupportedProviders();
 
-	// 2. Perform one-time migration from old to new provider settings (non-blocking)
-	// This is non-blocking because getEnabledProviders() supports both old and new settings
-	performProviderMigration();
+	// 2. Perform one-time migration from old to new provider settings
+	await performProviderMigration();
 
 	// 3. Validate that at least one provider is enabled
 	await validateProvidersEnabled();
@@ -211,14 +210,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 		.then(() => {
 			// After initialization, register models
 			return registerModels(context, storage);
-		})
-		.then(() => {
-			// Update last enabled providers after initial registration
-			updateLastEnabledProviders();
 		});
-
-	// Listen for configuration changes
-	registerModelConfigListeners(context, storage);
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);

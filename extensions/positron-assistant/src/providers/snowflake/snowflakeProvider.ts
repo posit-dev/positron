@@ -29,7 +29,8 @@ export class SnowflakeModelProvider extends OpenAIModelProvider {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'snowflake-cortex',
-			displayName: 'Snowflake Cortex'
+			displayName: 'Snowflake Cortex',
+			settingName: 'snowflakeCortex'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 		defaults: {

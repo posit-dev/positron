@@ -708,39 +708,153 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.alwaysEnableApplyInEditorAction.description%"
+          }
+        }
+      },
+      {
+        "type": "object",
+        "title": "%configuration.providers.title%",
+        "properties": {
+          "positron.assistant.provider.anthropic.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.anthropic.enable.description%",
+            "order": 1
           },
-          "positron.assistant.providers": {
-            "default": {
-              "Anthropic": true,
-              "GitHub Copilot": true,
-              "Amazon Bedrock": false,
-              "Snowflake Cortex": false,
-              "OpenAI": false,
-              "Custom Provider": false
-            },
-            "type": "object",
-            "markdownDescription": "%configuration.providers.description%",
-            "properties": {
-              "Anthropic": {
-                "type": "boolean"
-              },
-              "GitHub Copilot": {
-                "type": "boolean"
-              },
-              "Amazon Bedrock": {
-                "type": "boolean"
-              },
-              "Snowflake Cortex": {
-                "type": "boolean"
-              },
-              "OpenAI": {
-                "type": "boolean"
-              },
-              "Custom Provider": {
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": false
+          "positron.assistant.provider.githubCopilot.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.provider.githubCopilot.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 2
+          },
+          "positron.assistant.provider.amazonBedrock.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.amazonBedrock.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 3
+          },
+          "positron.assistant.provider.snowflakeCortex.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.snowflakeCortex.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 4
+          },
+          "positron.assistant.provider.openAI.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.openAI.enable.description%",
+            "tags": [
+              "preview"
+            ],
+            "order": 5
+          },
+          "positron.assistant.provider.customProvider.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.customProvider.enable.description%",
+            "tags": [
+              "experimental"
+            ],
+            "order": 6
+          },
+          "positron.assistant.provider.positAI.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.positAI.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 7
+          },
+          "positron.assistant.provider.azure.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.azure.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 8
+          },
+          "positron.assistant.provider.google.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.google.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 9
+          },
+          "positron.assistant.provider.vertex.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.vertex.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 10
+          },
+          "positron.assistant.provider.mistral.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.mistral.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 11
+          },
+          "positron.assistant.provider.ollama.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.ollama.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 12
+          },
+          "positron.assistant.provider.openrouter.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.openrouter.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 13
+          },
+          "positron.assistant.provider.echo.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.echo.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 14
+          },
+          "positron.assistant.provider.error.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.provider.error.enable.description%",
+            "tags": [
+              "experimental",
+              "advanced"
+            ],
+            "order": 15
           }
         }
       }

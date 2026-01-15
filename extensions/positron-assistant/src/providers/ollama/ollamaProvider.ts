@@ -52,7 +52,8 @@ export class OllamaModelProvider extends VercelModelProvider implements positron
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'ollama',
-			displayName: 'Ollama'
+			displayName: 'Ollama',
+			settingName: 'ollama'
 		},
 		supportedOptions: ['baseUrl', 'toolCalls', 'numCtx'],
 		defaults: {

@@ -45,7 +45,8 @@ export class GoogleModelProvider extends VercelModelProvider implements positron
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'google',
-			displayName: 'Gemini Code Assist'
+			displayName: 'Gemini Code Assist',
+			settingName: 'google'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {

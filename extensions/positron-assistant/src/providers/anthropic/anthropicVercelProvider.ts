@@ -58,7 +58,8 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 			// use 'anthropic-api' instead to make it possible to differentiate
 			// the two.
 			id: 'anthropic-api',
-			displayName: 'Anthropic'
+			displayName: 'Anthropic',
+			settingName: 'anthropic'
 		},
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {

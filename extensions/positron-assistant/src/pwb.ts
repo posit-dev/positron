@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getEnabledProviders } from './providerConfiguration.js';
+import * as positron from 'positron';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
 import { AutoconfigureResult } from './providers/index.js';
@@ -62,7 +62,7 @@ export async function autoconfigureWithManagedCredentials<T extends ManagedCrede
 	// - we are on PWB, and
 	// - managed credentials are available
 
-	const enabledProviders = await getEnabledProviders();
+	const enabledProviders = await positron.ai.getEnabledProviders();
 	const providerEnabled = enabledProviders.includes(providerId);
 	if (!providerEnabled) {
 		log.debug(`[${displayName}] Provider '${providerId}' not enabled in settings, skipping autoconfigure`);
