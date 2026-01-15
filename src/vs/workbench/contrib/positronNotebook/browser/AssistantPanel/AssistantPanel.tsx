@@ -7,7 +7,7 @@
 import './AssistantPanel.css';
 
 // React.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -112,6 +112,92 @@ function useNotebookPolling(
 }
 
 /**
+ * PendingState component.
+ * Displays a loading spinner while waiting for the notebook to become available.
+ */
+const PendingState = () => (
+	<div className='assistant-panel-loading'>
+		<div className='assistant-panel-loading-spinner codicon codicon-loading codicon-modifier-spin' />
+		<div className='assistant-panel-loading-text'>
+			{loadingText}
+		</div>
+	</div>
+);
+
+/**
+ * ErrorStateProps interface.
+ */
+interface ErrorStateProps {
+	message: string;
+	onClose: () => void;
+}
+
+/**
+ * ErrorState component.
+ * Displays an error message with a close button.
+ */
+const ErrorState = ({ message, onClose }: ErrorStateProps) => (
+	<div className='assistant-panel-error'>
+		<div className='assistant-panel-error-icon codicon codicon-warning' />
+		<div className='assistant-panel-error-text'>{message}</div>
+		<button
+			className='assistant-panel-error-close'
+			onClick={onClose}
+		>
+			{closeButtonLabel}
+		</button>
+	</div>
+);
+
+/**
+ * ReadyStateProps interface.
+ */
+interface ReadyStateProps {
+	notebook: IPositronNotebookInstance;
+	notebookContext: INotebookContextDTO | undefined;
+	isLoadingContext: boolean;
+	commandService: ICommandService;
+	logService: ILogService;
+	notificationService: INotificationService;
+	onActionSelected: (query: string, mode: ChatModeKind) => void;
+	onClose: () => void;
+}
+
+/**
+ * ReadyState component.
+ * Displays the full panel content when the notebook is ready.
+ */
+const ReadyState = ({
+	notebook,
+	notebookContext,
+	isLoadingContext,
+	commandService,
+	logService,
+	notificationService,
+	onActionSelected,
+	onClose
+}: ReadyStateProps) => (
+	<>
+		<AssistantPanelContext
+			context={notebookContext}
+			isLoading={isLoadingContext}
+		/>
+		<div className='assistant-panel-section-divider' />
+		<div className='assistant-panel-section-header'>
+			{actionsHeader}
+		</div>
+		<AssistantPanelActions
+			commandService={commandService}
+			logService={logService}
+			notebook={notebook}
+			notificationService={notificationService}
+			onActionSelected={onActionSelected}
+			onClose={onClose}
+		/>
+	</>
+);
+
+/**
  * AssistantPanel component.
  * A centered modal dialog for notebook assistant actions, showing context, settings, and actions.
  * Supports optimistic loading: shows immediately even if notebook instance isn't ready yet.
@@ -160,69 +246,36 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		renderer.dispose();
 	};
 
-	const handleOpenSettings = useCallback(async () => {
+	const handleOpenSettings = async () => {
 		renderer.dispose();
 		await preferencesService.openSettings({ query: 'positron.assistant.notebook' });
-	}, [renderer, preferencesService]);
+	};
 
-	// Render loading skeleton when pending
-	const renderPendingState = () => (
-		<div className='assistant-panel-loading'>
-			<div className='assistant-panel-loading-spinner codicon codicon-loading codicon-modifier-spin' />
-			<div className='assistant-panel-loading-text'>
-				{loadingText}
-			</div>
-		</div>
-	);
-
-	// Render error state
-	const renderErrorState = (message: string) => (
-		<div className='assistant-panel-error'>
-			<div className='assistant-panel-error-icon codicon codicon-warning' />
-			<div className='assistant-panel-error-text'>{message}</div>
-			<button
-				className='assistant-panel-error-close'
-				onClick={handleClose}
-			>
-				{closeButtonLabel}
-			</button>
-		</div>
-	);
-
-	// Render the full panel content when ready
-	const renderReadyState = (notebook: IPositronNotebookInstance) => (
-		<>
-			<AssistantPanelContext
-				context={notebookContext}
-				isLoading={isLoadingContext}
-			/>
-			<div className='assistant-panel-section-divider' />
-			<div className='assistant-panel-section-header'>
-				{actionsHeader}
-			</div>
-			<AssistantPanelActions
-				commandService={commandService}
-				logService={logService}
-				notebook={notebook}
-				notificationService={notificationService}
-				onActionSelected={(query, mode) => {
-					handleClose();
-					onActionSelected(query, mode);
-				}}
-				onClose={handleClose}
-			/>
-		</>
-	);
+	const handleActionSelected = (query: string, mode: ChatModeKind) => {
+		renderer.dispose();
+		onActionSelected(query, mode);
+	};
 
 	// Determine content based on state
 	const renderContent = () => {
 		switch (panelState.status) {
 			case 'pending':
-				return renderPendingState();
+				return <PendingState />;
 			case 'error':
-				return renderErrorState(panelState.message);
+				return <ErrorState message={panelState.message} onClose={handleClose} />;
 			case 'ready':
-				return renderReadyState(panelState.notebook);
+				return (
+					<ReadyState
+						commandService={commandService}
+						isLoadingContext={isLoadingContext}
+						logService={logService}
+						notebook={panelState.notebook}
+						notebookContext={notebookContext}
+						notificationService={notificationService}
+						onActionSelected={handleActionSelected}
+						onClose={handleClose}
+					/>
+				);
 		}
 	};
 
