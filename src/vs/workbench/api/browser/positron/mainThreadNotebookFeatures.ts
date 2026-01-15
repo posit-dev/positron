@@ -20,7 +20,7 @@ import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
