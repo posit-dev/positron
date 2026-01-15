@@ -1,0 +1,41 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-code-cell-footer {
+	/* Layout */
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 1rem;
+	min-height: 24px;
+
+	/* Visual separator from editor content above */
+	border-top: 1px solid var(--vscode-widget-border);
+	background-color: var(--vscode-notebook-cellEditorBackground);
+
+	/* Typography */
+	color: var(--vscode-descriptionForeground);
+}
+
+.code-cell-footer-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.code-cell-footer-text {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	white-space: nowrap;
+}
+
+/* Separator between duration and timestamp */
+.code-cell-footer-separator {
+	margin: 0 4px;
+	color: var(--vscode-descriptionForeground);
+	opacity: 0.6;
+}
