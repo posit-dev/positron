@@ -18,22 +18,15 @@
 		"lint": "eslint src --ext ts"
 	},
 	"contributes": {
-		"configuration": [
+		"notebooks": [
 			{
-				"type": "object",
-				"title": "%configuration.title%",
-				"properties": {
-					"notebook.plainText.enable": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "%configuration.enable.description%",
-						"tags": [
-							"experimental"
-						],
-						"scope": "window"
-					}
-				}
+				"type": "quarto-notebook",
+				"displayName": "Quarto Notebook",
+				"selector": [{ "filenamePattern": "*.qmd" }],
+				"priority": "default"
 			}
+		],
+		"configuration": [
 		],
 		"commands": [
 			{

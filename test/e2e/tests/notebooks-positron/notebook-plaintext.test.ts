@@ -23,6 +23,38 @@ test.describe('Positron Notebooks: Plaintext Notebooks', {
 	test.skip('plaintext notebooks are disabled when setting is off', async function ({ app, settings }) {
 	});
 
+	test('Positron Notebook is not in Open With menu for .qmd files when setting is off', async function ({ app, settings }) {
+		const { quickaccess, quickInput } = app.workbench;
+		const path = await import('path');
+
+		// First disable the setting
+		await settings.set({ 'positron.notebook.plainText.enable': false });
+
+		// Open the .qmd file using quick access
+		const qmdFilePath = path.join(app.workspacePathOrFolder, 'workspaces/quarto_basic/quarto_basic.qmd');
+		await quickaccess.openFile(qmdFilePath, false);
+
+		// Use the "Reopen Editor With..." command to check available editors
+		await quickaccess.runCommand('workbench.action.reopenWithEditor', { keepOpen: true });
+
+		// Wait for the quickpick to open
+		await quickInput.waitForQuickInputOpened();
+
+		// Verify "Positron Notebook" is NOT in the list of options
+		await quickInput.waitForQuickInputElements((names) => {
+			const hasPositronNotebook = names.some(name =>
+				name.toLowerCase().includes('positron notebook')
+			);
+			expect(hasPositronNotebook).toBe(false);
+			return true;
+		});
+
+		await quickInput.closeQuickInput();
+
+		// Re-enable for other tests
+		await settings.set({ 'positron.notebook.plainText.enable': true });
+	});
+
 	test('parse .qmd command returns expected result', async function ({ app }) {
 		const { clipboard, quickInput } = app.workbench;
 

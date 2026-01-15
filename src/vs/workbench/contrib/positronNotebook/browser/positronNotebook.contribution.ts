@@ -100,7 +100,7 @@ class PositronNotebookContribution extends Disposable {
 		// Register for .qmd files only when plaintext notebooks are enabled
 		this._register(autorun((reader) => {
 			/** @description register plaintext notebook editors */
-			const enabled = this._positronNotebookService.enabled.read(reader);
+			const enabled = this._positronNotebookService.plainTextNotebooksEnabled.read(reader);
 			if (enabled) {
 				// Add to the reader store to dispose when enabled changes
 				reader.store.add(this._registerForViewType(PositronNotebookViewType.Quarto));
@@ -145,9 +145,10 @@ class PositronNotebookContribution extends Disposable {
 				canSupportResource: (resource: URI) => {
 					// Support untitled notebooks and any file system that has a provider
 					// This handles: file://, vscode-remote://, vscode-userdata://, etc.
-					return resource.scheme === Schemas.untitled ||
-						resource.scheme === Schemas.vscodeNotebookCell ||
-						this.fileService.hasProvider(resource);
+					return PositronNotebookViewType.fromResource(resource) === viewType &&
+						(resource.scheme === Schemas.untitled ||
+							resource.scheme === Schemas.vscodeNotebookCell ||
+							this.fileService.hasProvider(resource));
 				}
 			},
 			{

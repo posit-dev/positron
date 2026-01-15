@@ -18,7 +18,7 @@ Or add to `settings.json`:
 
 ```json
 {
-  "notebook.plainText.enable": true
+  "positron.notebook.plainText.enable": true
 }
 ```
 

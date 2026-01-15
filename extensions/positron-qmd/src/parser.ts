@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import init, { parse_qmd } from 'wasm-qmd-parser';
-import { QmdDocument } from './qmdDocument.js';
+import { QmdDocument } from './ast.js';
 
 /**
  * QMD parser wrapper.
@@ -20,9 +20,9 @@ export class QmdParser {
 	 * @param content QMD content to parse.
 	 * @returns Parsed QMD document.
 	 */
-	async parse(content: string): Promise<QmdDocument> {
+	async parse(content: string, includeSourceLocations = true): Promise<QmdDocument> {
 		await this.initialize();
-		const jsonString = parse_qmd(content, 'false');
+		const jsonString = parse_qmd(content, includeSourceLocations ? 'true' : 'false');
 		return JSON.parse(jsonString);
 	}
 
