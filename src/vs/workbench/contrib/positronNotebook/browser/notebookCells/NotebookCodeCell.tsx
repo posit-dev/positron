@@ -20,6 +20,7 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 
 
@@ -54,6 +55,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 					<div className='positron-notebook-editor-container'>
 						<CellEditorMonacoWidget cell={cell} />
 					</div>
+					<CodeCellStatusFooter cell={cell} hasError={hasError} />
 				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>

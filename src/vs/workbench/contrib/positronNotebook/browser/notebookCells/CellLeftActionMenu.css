@@ -1,63 +1,27 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 /* Generic container for left-hand actions */
 .left-hand-action-container {
-	/* Private CSS variables for all dimensions */
-	--_container-size: 20px;  /* Match circle size exactly */
-	--_circle-size: 18px;
-	--_circle-border-width: 1px;
-	--_icon-size: 11px;  /* Slightly larger for better visibility */
-	--_container-offset-left: -24px;  /* Fine-tune position */
+	/* Private CSS variables for dimensions */
+	--_container-size: 20px;
+	--_container-offset-left: -24px;
 	--_container-element-margin: 2px;
 	--_badge-font-size: 10px;
 
-	/* Container positioning - easily adjustable via variables */
+	/* Container positioning */
 	position: absolute;
 	top: 0;
 	bottom: 0;
 	left: var(--_container-offset-left);
 	width: var(--_container-size);
 
-	/* Vertical layout with items at top and bottom */
+	/* Vertical layout */
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-}
-
-/* Position element to the top of the cell */
-.left-hand-action-container-top {
-	position: relative;
-	width: var(--_container-size);
-	height: var(--_container-size);
-	margin-top: var(--_container-element-margin);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	visibility: hidden;
-}
-
-/* Show when selected, running, or explicitly visible */
-.left-hand-action-container-top.visible {
-	visibility: visible;
-}
-
-/* Show on hover (matches existing behavior) */
-.left-hand-action-container:hover .left-hand-action-container-top {
-	visibility: visible;
-}
-
-/* Show when cell or its children are focused via tab */
-.positron-notebook-cell:focus-within .left-hand-action-container-top {
-	visibility: visible;
-}
-
-/* Always show execution status animation when running */
-.left-hand-action-container[data-execution-status='running'] .left-hand-action-container-top {
-	visibility: visible;
 }
 
 /* Positions element to the bottom of the cell */
@@ -73,61 +37,6 @@
 	margin-top: auto; /* Push element to bottom */
 }
 
-/* Hide the circle outline when the cell isn't running */
-.left-hand-action-container:not([data-execution-status='running']) {
-	--_circle-border-width: 0;
-}
-
-/* Status-specific styling for the container */
-.left-hand-action-container[data-execution-status='running'] {
-	color: var(--vscode-debugIcon-startForeground);
-}
-
-.left-hand-action-container[data-execution-status='success'] {
-	border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 70%, transparent);
-}
-
-.left-hand-action-container[data-execution-status='failed'] {
-	border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 70%, transparent);
-}
-
-.left-hand-action-container[data-execution-status='failed'] .execution-order-badge {
-	color: var(--vscode-testing-iconFailed);
-}
-
-.left-hand-action-container[data-execution-status='neutral'] {
-	border-color: var(--vscode-textLink-foreground);
-}
-
-.left-hand-action-container[data-execution-status='pending'] {
-	color: color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
-}
-
-.left-hand-action-container[data-execution-status='queued'] {
-	border-color: color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
-}
-
-.cell-execution-status-animation {
-	position:absolute;
-	width: var(--_circle-size, 18px);
-	height: var(--_circle-size, 18px);
-	background-color: transparent;
-	border-radius: 50%;
-	user-select: none;
-	border: var(--_circle-border-width, 1px) solid color-mix(in srgb, var(--vscode-descriptionForeground) 50%, transparent);
-}
-
-.left-hand-action-container[data-execution-status='running'] .cell-execution-status-animation {
-	border: var(--_circle-border-width, 1px) solid var(--vscode-debugIcon-startForeground);
-	border-top-color: transparent;
-	animation: spin 1.2s cubic-bezier(0.4, 0.3, 0.5, 0.7) infinite;
-	transform-origin: center;
-}
-
-.left-hand-action-container[data-execution-status='pending'] .cell-execution-status-animation {
-	border: 1px dashed color-mix(in srgb, var(--vscode-widget-border) 50%, transparent);
-}
-
 .execution-order-badge-container {
 	pointer-events: none;
 	width: var(--_container-size);
@@ -139,12 +48,6 @@
 	gap: 1px;
 	background-color: transparent;
 	user-select: none;
-	transition: border-color 0.15s ease;
-}
-
-.left-hand-action-container-top .codicon-notebook-execute {
-	/* Move button a smidge to the left to center it in circle */
-	transform: translate(0.7px, 0);
 }
 
 .execution-order-badge-container span.execution-order-badge {
@@ -170,73 +73,4 @@ span.execution-order-badge {
 /* Error state styling - use error color for execution badge */
 .execution-order-badge-container[data-has-error="true"] {
 	color: var(--vscode-errorForeground);
-}
-
-/* Wrapper for the execution status badge - provides consistent hover target */
-.execution-status-badge-wrapper {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-width: var(--_container-size, 20px);
-	min-height: var(--_container-size, 20px);
-	cursor: default;
-}
-
-/* Animation for running state */
-@keyframes spin {
-	0% {
-		transform: rotate(0deg) scale(1);
-	}
-	25% {
-		transform: rotate(90deg) scale(1.01);
-	}
-	50% {
-		transform: rotate(180deg) scale(1);
-	}
-	75% {
-		transform: rotate(270deg) scale(0.99);
-	}
-	100% {
-		transform: rotate(360deg) scale(1);
-	}
-}
-
-/* Action button wrapper for circle outline and loading spinner */
-.action-button-wrapper {
-	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: var(--_circle-size, 18px);
-	height: var(--_circle-size, 18px);
-}
-
-/* Hover effects for the button */
-.action-button-wrapper:hover .action-button {
-	background-color: color-mix(in srgb, var(--vscode-descriptionForeground) 8%, transparent);
-	border-radius: 50%;
-}
-
-/* Ensure button inside wrapper maintains proper size and clickability */
-.action-button-wrapper .action-button {
-	width: 100%;
-	height: 100%;
-	border-radius: 50%;
-	padding: 0 !important; /* Override default padding for precise control */
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: transparent;
-	border: none;
-}
-
-/* Icon inside the button - precise centering */
-.action-button-wrapper .button-icon {
-	font-size: var(--_icon-size, 11px);
-	line-height: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	/* Adjust for play icon which tends to be off-center */
-	padding-left: 1px;
 }

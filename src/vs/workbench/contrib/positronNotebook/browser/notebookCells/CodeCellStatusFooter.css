@@ -26,6 +26,29 @@
 	flex-shrink: 0;
 }
 
+.codicon.code-cell-footer-icon.success {
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.error {
+	color: var(--vscode-notebookStatusErrorIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.pending {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.running {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+	animation: code-cell-spin 1.5s linear infinite;
+}
+
+@keyframes code-cell-spin {
+	100% {
+		transform:rotate(360deg);
+	}
+}
+
 .code-cell-footer-text {
 	display: flex;
 	align-items: center;

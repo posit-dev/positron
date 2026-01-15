@@ -53,12 +53,11 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
-	// TODO: fix icon color and animations
 	const renderIcon = () => {
 		if (isCurrentlyRunning) {
 			return (
 				<Icon
-					className='code-cell-footer-icon'
+					className='code-cell-footer-icon running'
 					icon={Codicon.sync}
 				/>
 			);
@@ -67,7 +66,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 		if (isPending) {
 			return (
 				<Icon
-					className='code-cell-footer-icon'
+					className='code-cell-footer-icon pending'
 					icon={Codicon.clock}
 				/>
 			);
@@ -77,14 +76,14 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 			if (hasError || lastRunSuccess === false) {
 				return (
 					<Icon
-						className='code-cell-footer-icon'
+						className='code-cell-footer-icon error'
 						icon={Codicon.error}
 					/>
 				);
 			} else {
 				return (
 					<Icon
-						className='code-cell-footer-icon'
+						className='code-cell-footer-icon success'
 						icon={Codicon.check}
 					/>
 				);
