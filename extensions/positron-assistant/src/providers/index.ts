@@ -51,7 +51,6 @@ interface ConcreteModelProviderConstructor {
  */
 export function getModelProviders(): ConcreteModelProviderConstructor[] {
 	const testProviders = [
-		AWSModelProvider,
 		EchoModelProvider,
 		ErrorModelProvider,
 	];
@@ -63,6 +62,7 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 	const providers = [
 		...testProviders,
 		anthropicClass,
+		AWSModelProvider,
 		AzureModelProvider,
 		CopilotModelProvider,
 		GoogleModelProvider,
