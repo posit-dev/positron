@@ -784,7 +784,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocation);
+
+		// Revive the URI after RPC serialization so extensions get a proper Uri instance
+		let codeLocationRevived: positron.Utf8Location | undefined;
+		if (codeLocation) {
+			codeLocationRevived = {
+				uri: URI.revive(codeLocation.uri),
+				range: codeLocation.range,
+			};
+		}
+
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
