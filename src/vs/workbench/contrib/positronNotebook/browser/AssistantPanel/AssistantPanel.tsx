@@ -10,7 +10,6 @@ import './AssistantPanel.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
@@ -25,9 +24,10 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
+import { CancelablePromise } from '../../../../../base/common/async.js';
+import { isCancellationError } from '../../../../../base/common/errors.js';
 
 // Localized strings.
-const notebookTimeoutMessage = localize('assistantPanel.notebookTimeout', 'Notebook is taking too long to load. Please close this dialog and try again.');
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
 const closeButtonLabel = localize('assistantPanel.close', 'Close');
 const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant To');
@@ -48,16 +48,15 @@ type PanelState = {
 	message: string;
 };
 
-const NOTEBOOK_TIMEOUT_MS = 5000; // 5 seconds timeout
-const NOTEBOOK_POLL_INTERVAL_MS = 100; // Poll every 100ms
-
 /**
  * AssistantPanelProps interface.
  * Services are passed directly as props (explicit dependency pattern).
  */
 export interface AssistantPanelProps {
+	/** The notebook instance if already available (fast path) */
 	initialNotebook: IPositronNotebookInstance | undefined;
-	getNotebook: () => IPositronNotebookInstance | undefined;
+	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
+	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
 	renderer: PositronModalReactRenderer;
 	commandService: ICommandService;
 	notificationService: INotificationService;
@@ -67,11 +66,14 @@ export interface AssistantPanelProps {
 }
 
 /**
- * Hook to poll for notebook instance availability
+ * Hook to wait for notebook instance availability via promise.
+ * If initialNotebook is provided, returns ready state immediately.
+ * Otherwise awaits the notebookPromise.
  */
-function useNotebookPolling(
+function useWaitForNotebook(
 	initialNotebook: IPositronNotebookInstance | undefined,
-	getNotebook: () => IPositronNotebookInstance | undefined
+	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined,
+	logService: ILogService
 ): PanelState {
 	const [state, setState] = useState<PanelState>(() =>
 		initialNotebook
@@ -80,33 +82,34 @@ function useNotebookPolling(
 	);
 
 	useEffect(() => {
-		// If already ready, nothing to do
-		if (state.status === 'ready') {
+		// If already ready or no promise to wait for, nothing to do
+		if (state.status === 'ready' || !notebookPromise) {
 			return;
 		}
 
-		const targetWindow = DOM.getActiveWindow();
-		let elapsed = 0;
-		const intervalId = targetWindow.setInterval(() => {
-			const notebook = getNotebook();
-			if (notebook) {
-				setState({ status: 'ready', notebook });
-				targetWindow.clearInterval(intervalId);
-				return;
-			}
+		let disposed = false;
 
-			elapsed += NOTEBOOK_POLL_INTERVAL_MS;
-			if (elapsed >= NOTEBOOK_TIMEOUT_MS) {
-				setState({
-					status: 'error',
-					message: notebookTimeoutMessage
-				});
-				targetWindow.clearInterval(intervalId);
-			}
-		}, NOTEBOOK_POLL_INTERVAL_MS);
+		notebookPromise
+			.then(notebook => {
+				if (!disposed) {
+					setState({ status: 'ready', notebook });
+				}
+			})
+			.catch(error => {
+				if (!disposed && !isCancellationError(error)) {
+					logService.error('Failed to get notebook instance:', error);
+					setState({
+						status: 'error',
+						message: error instanceof Error ? error.message : String(error)
+					});
+				}
+				// On cancellation, do nothing - component is likely unmounting
+			});
 
-		return () => targetWindow.clearInterval(intervalId);
-	}, [getNotebook, state.status]);
+		return () => {
+			disposed = true;
+		};
+	}, [notebookPromise, state.status, logService]);
 
 	return state;
 }
@@ -205,7 +208,7 @@ const ReadyState = ({
 export const AssistantPanel = (props: AssistantPanelProps) => {
 	const {
 		initialNotebook,
-		getNotebook,
+		notebookPromise,
 		renderer,
 		commandService,
 		notificationService,
@@ -214,8 +217,8 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		onActionSelected
 	} = props;
 
-	// Poll for notebook availability
-	const panelState = useNotebookPolling(initialNotebook, getNotebook);
+	// Wait for notebook availability via promise
+	const panelState = useWaitForNotebook(initialNotebook, notebookPromise, logService);
 
 	// State for notebook context (only used when ready)
 	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);

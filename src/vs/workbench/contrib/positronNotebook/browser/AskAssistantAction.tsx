@@ -22,7 +22,9 @@ import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane, waitForNotebook } from './notebookUtils.js';
+import { CancelablePromise } from '../../../../base/common/async.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
@@ -66,12 +68,23 @@ export class AskAssistantAction extends Action2 {
 		const preferencesService = accessor.get(IPreferencesService);
 		const layoutService = accessor.get(ILayoutService);
 
-		// Get the initial notebook instance (may be undefined during loading)
+		// Get the initial notebook instance (may be undefined during the timing gap
+		// between editor activation and setInput() completion)
 		const initialNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
 
+		// Create a cancelable promise to wait for the notebook if not immediately available
+		let notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
+		if (!initialNotebook) {
+			notebookPromise = waitForNotebook(editorService);
+		}
+
 		// Create the modal renderer for a centered dialog
+		// Hook up cancellation so polling stops if the modal is closed early
 		const renderer = new PositronModalReactRenderer({
-			container: layoutService.activeContainer
+			container: layoutService.activeContainer,
+			onDisposed: () => {
+				notebookPromise?.cancel();
+			}
 		});
 
 		// Handle action selection - open the chat with the selected query
@@ -93,13 +106,13 @@ export class AskAssistantAction extends Action2 {
 		};
 
 		// Render the assistant panel immediately (optimistic loading)
-		// Pass a getter function so the panel can poll for notebook availability
+		// Pass the notebook directly if available, otherwise pass the promise
 		renderer.render(
 			<AssistantPanel
 				commandService={commandService}
-				getNotebook={() => getNotebookInstanceFromActiveEditorPane(editorService)}
 				initialNotebook={initialNotebook}
 				logService={logService}
+				notebookPromise={notebookPromise}
 				notificationService={notificationService}
 				preferencesService={preferencesService}
 				renderer={renderer}
