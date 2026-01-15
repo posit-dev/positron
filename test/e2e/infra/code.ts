@@ -296,6 +296,10 @@ export class Code {
 			// Use teardown which calls treeKill to kill entire process tree
 			await teardown(processStub as cp.ChildProcess, this.logger);
 			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
+
+			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
+			// The shared dbus session (started in xvfb setup) should handle all Electron instances
+			// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 		} catch (e) {
 			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
 		}

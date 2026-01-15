@@ -23,3 +23,15 @@ runs:
 
         # Export the DISPLAY variable for subsequent steps
         echo "DISPLAY=:10" >> $GITHUB_ENV
+
+        # Start a proper dbus session bus for Electron/Chromium
+        # This prevents each Electron instance from spawning its own dbus-daemon
+        if command -v dbus-launch > /dev/null 2>&1; then
+          echo "Starting dbus session..."
+          eval "$(dbus-launch --sh-syntax)"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> $GITHUB_ENV
+          echo "DBUS_SESSION_BUS_PID=$DBUS_SESSION_BUS_PID" >> $GITHUB_ENV
+          echo "dbus session started: $DBUS_SESSION_BUS_ADDRESS"
+        else
+          echo "Warning: dbus-launch not found, Electron may spawn individual dbus instances"
+        fi
