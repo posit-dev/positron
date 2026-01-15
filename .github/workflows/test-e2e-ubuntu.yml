@@ -315,7 +315,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs
+          name: ${{ inputs.project }}-ubuntu-logs
           path: test-logs
           if-no-files-found: ignore
 

@@ -347,7 +347,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs-${{ matrix.shard }}
+          name: ${{ inputs.project }}-ubuntu-logs-${{ matrix.shard }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore
