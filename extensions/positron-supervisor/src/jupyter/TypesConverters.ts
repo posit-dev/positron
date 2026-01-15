@@ -16,7 +16,7 @@ import * as PositronTypes from './JupyterPositronTypes';
  *
  * The backend uses the `character` offset of the first line to insert
  * whitespace, so that the R parser creates source references with proper
- * offsets. If we send the offset in code points, the whitespace will be too
+ * offsets. If we send the offset in code points, the whitespace may be too
  * short. So we really need to send UTF-8 offsets to the backend.
  *
  * To perform non-lossy conversion of the offset, we need the full line of text.
@@ -24,8 +24,8 @@ import * as PositronTypes from './JupyterPositronTypes';
  * our current code point conversion, since we don't look at the text before the
  * offset.
  *
- * We could retrieve the lines of text from the document at time of conversion,
- * i.e. in `positron-supervisor`. This would allow us to correctly convert from
+ * We could retrieve the lines of text from the document at time of conversion
+ * (here in `positron-supervisor`). This would allow us to correctly convert from
  * UTF-16 to UTF-8. However there's a race condition: the document might have
  * changed already.
  *
