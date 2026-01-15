@@ -55,7 +55,6 @@ export default defineConfig<ExtendedTestOptions>({
 			...githubSummaryReport,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
-			['@currents/playwright'],
 			['@midleman/playwright-reporter',
 				{
 					repoName: 'positron',
@@ -64,16 +63,14 @@ export default defineConfig<ExtendedTestOptions>({
 					// localOutputDir: '/Users/marieidleman/Develop/e2e-test-insights/test-results'
 				},
 			],
-			['list'],
-			['html', { open: 'on-failure' }],
-			// ...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
-			// 	? [currentsReporter({
-			// 		ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-			// 		recordKey: process.env.CURRENTS_RECORD_KEY || '',
-			// 		projectId: 'ZOs5z2',
-			// 		disableTitleTags: true,
-			// 	})]
-			// 	: [])
+			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
+				? [currentsReporter({
+					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+					recordKey: process.env.CURRENTS_RECORD_KEY || '',
+					projectId: 'ZOs5z2',
+					disableTitleTags: true,
+				})]
+				: [])
 		]
 		: [
 			['list'],
