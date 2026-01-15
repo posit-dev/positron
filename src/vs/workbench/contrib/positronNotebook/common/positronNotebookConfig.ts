@@ -87,15 +87,16 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
-		[POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY]: {
-			type: 'boolean',
-			default: false,
-			tags: ['preview'],
-			markdownDescription: localize(
-				'positron.notebook.plainText.enable',
-				'Enable plaintext notebook formats (like `.qmd`) in the Positron Notebook editor.'
-			),
-			scope: ConfigurationScope.WINDOW,
-		},
+		// TODO: Hiding this from the settings UI for now. Manually enabling via settings.json is still possible.
+		// [POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY]: {
+		// 	type: 'boolean',
+		// 	default: false,
+		// 	tags: ['preview'],
+		// 	markdownDescription: localize(
+		// 		'positron.notebook.plainText.enable',
+		// 		'Enable plaintext notebook formats (like `.qmd`) in the Positron Notebook editor.'
+		// 	),
+		// 	scope: ConfigurationScope.WINDOW,
+		// },
 	},
 });

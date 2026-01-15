@@ -244,6 +244,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
 	}
 
+	public async commandPalette() {
+		await this.pressHotKeys('Cmd+Shift+P', 'Open Command Palette');
+	}
+
 	// -----------------------
 	// ---  Data Explorer  ---
 	// -----------------------
