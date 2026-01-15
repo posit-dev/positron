@@ -2373,11 +2373,23 @@ declare module 'positron' {
 		export function getChatExport(): Thenable<object | undefined>;
 
 		/**
+		 * Options for showing the language model configuration modal.
+		 */
+		export interface ShowLanguageModelConfigOptions {
+			/**
+			 * Optional provider ID to pre-select in the dialog.
+			 * If provided and valid, the modal will open with this provider selected.
+			 */
+			preselectedProviderId?: string;
+		}
+
+		/**
 		 * Show a modal dialog for language model configuration.
 		 */
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
 			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
+			options?: ShowLanguageModelConfigOptions,
 		): Thenable<void>;
 
 		/**

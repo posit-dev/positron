@@ -51,8 +51,8 @@ export const log = new BufferedLogOutputChannel(
 
 function registerConfigureProvidersCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureProviders', async () => {
-			await showConfigurationDialog(context, storage);
+		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {
+			await showConfigurationDialog(context, storage, providerId);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);

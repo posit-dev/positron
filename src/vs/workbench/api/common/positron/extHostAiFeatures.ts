@@ -48,12 +48,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Promise<void> {
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, options?: positron.ai.ShowLanguageModelConfigOptions): Promise<void> {
 		const id = generateUuid();
 		this._languageModelRequestRegistry.set(id, onAction);
 
 		try {
-			await this._proxy.$languageModelConfig(id, sources);
+			await this._proxy.$languageModelConfig(id, sources, options);
 		} catch (err) {
 			throw err;
 		}

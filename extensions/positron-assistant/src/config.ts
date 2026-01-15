@@ -124,7 +124,11 @@ export function getMaxConnectionAttempts(): number {
 	return maxAttempts;
 }
 
-export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function showConfigurationDialog(
+	context: vscode.ExtensionContext,
+	storage: SecretStorage,
+	preselectedProviderId?: string
+) {
 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await positron.ai.getEnabledProviders();
@@ -232,7 +236,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 		}
-	});
+	}, { preselectedProviderId });
 
 }
 

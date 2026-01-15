@@ -103,6 +103,15 @@ export interface IPositronLanguageModelConfig {
 	autoconfigure?: IPositronLanguageModelAutoconfigure;
 }
 
+// Equivalent in positron.d.ts API: ShowLanguageModelConfigOptions
+export interface IShowLanguageModelConfigOptions {
+	/**
+	 * Optional provider ID to pre-select in the dialog.
+	 * If provided and valid, the modal will open with this provider selected.
+	 */
+	preselectedProviderId?: string;
+}
+
 //#endregion
 //#region Configuration Service
 
@@ -185,6 +194,7 @@ export interface IPositronAssistantService {
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
+		options?: IShowLanguageModelConfigOptions,
 	): void;
 
 	/**

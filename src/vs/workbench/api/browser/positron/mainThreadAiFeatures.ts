@@ -12,7 +12,7 @@ import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/
 import { ChatModel, IExportableChatData } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
-import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantConfigurationService, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelSource, IPositronProviderMetadata, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
@@ -57,7 +57,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.
 	 */
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void> {
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], options?: IShowLanguageModelConfigOptions): Thenable<void> {
 		return new Promise((resolve, reject) => {
 			this._positronAssistantService.showLanguageModelModalDialog(
 				sources,
@@ -66,6 +66,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					resolve();
 				},
 				() => this._proxy.$onCompleteLanguageModelConfig(id),
+				options,
 			);
 		});
 	}
