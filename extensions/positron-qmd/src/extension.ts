@@ -21,7 +21,7 @@ export async function activate(
 	// Manage extension enablement based on enablement setting
 	context.subscriptions.push(
 		new ExtensionEnablement(
-			'notebook.plainText',
+			'positron.notebook.plainText',
 			'enable',
 			() => {
 				// Actually activate extension features
