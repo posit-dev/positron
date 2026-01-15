@@ -11,9 +11,7 @@ runs:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        # Generate a unique REPORT_DIR
-        RANDOM_SUFFIX=$RANDOM
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}"
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV

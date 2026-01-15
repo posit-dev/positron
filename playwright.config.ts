@@ -55,6 +55,7 @@ export default defineConfig<ExtendedTestOptions>({
 			...githubSummaryReport,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
+			['@currents/playwright'], // Keep existing reporters
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
 				? [currentsReporter({
 					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
@@ -65,6 +66,15 @@ export default defineConfig<ExtendedTestOptions>({
 				: [])
 		]
 		: [
+			[
+				'@midleman/playwright-reporter',
+				{
+					repoName: 'positron',
+					verbose: true,
+					mode: 'prod',
+					// localOutputDir: '/Users/marieidleman/Develop/e2e-test-insights/test-results'
+				},
+			],
 			['list'],
 			['html', { open: 'on-failure' }],
 		],
