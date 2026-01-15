@@ -5,12 +5,12 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as providerMappingModule from '../providerMapping.js';
 import {
 	validateProviders,
 	registerSupportedProviders,
-	getEnabledProviders,
 	validateByProviderPreferences,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
@@ -71,7 +71,7 @@ suite('Provider Configuration Tests', () => {
 			});
 			mockGetConfiguration.withArgs('enabledProviders').returns([]);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
 			assert.ok(result.includes('openai-api'), 'Should include openai-api');
@@ -85,7 +85,7 @@ suite('Provider Configuration Tests', () => {
 			});
 			mockGetConfiguration.withArgs('enabledProviders').returns([]);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
 			assert.ok(!result.includes('openai-api'), 'Should not include openai-api');
@@ -96,7 +96,7 @@ suite('Provider Configuration Tests', () => {
 			mockGetConfiguration.withArgs('providers').returns({});
 			mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'openai-api']);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
 			assert.ok(result.includes('openai-api'), 'Should include openai-api');
@@ -107,7 +107,7 @@ suite('Provider Configuration Tests', () => {
 			mockGetConfiguration.withArgs('providers').returns({});
 			mockGetConfiguration.withArgs('enabledProviders').returns([]);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			assert.strictEqual(result.length, 0, 'Should return empty array');
 			// Empty array signals "show all providers" to config dialog
@@ -124,7 +124,7 @@ suite('Provider Configuration Tests', () => {
 			// Legacy setting
 			mockGetConfiguration.withArgs('enabledProviders').returns(['copilot', 'openai-api']);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			assert.ok(result.includes('anthropic-api'), 'Should include provider from new setting');
 			assert.ok(result.includes('copilot'), 'Should include provider from legacy setting');
@@ -141,7 +141,7 @@ suite('Provider Configuration Tests', () => {
 			// Legacy setting includes same provider via ID
 			mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'openai-api']);
 
-			const result = await getEnabledProviders();
+			const result = await positron.ai.getEnabledProviders();
 
 			// Count occurrences of anthropic-api (should only appear once)
 			const anthropicCount = result.filter(id => id === 'anthropic-api').length;

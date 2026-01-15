@@ -91,6 +91,7 @@ suite('ChatAgents', function () {
 			_serviceBrand: undefined,
 			copilotEnabled: true,
 			onChangeCopilotEnabled: Event.None,
+			onChangeEnabledProviders: Event.None,
 			registerProviderMetadata: () => { },
 			getEnabledProviders: () => [],
 		} satisfies IPositronAssistantConfigurationService;
