@@ -78,9 +78,6 @@ on:
         default: false
         type: boolean
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-
 jobs:
   validate-commit:
     name: validate-commit
