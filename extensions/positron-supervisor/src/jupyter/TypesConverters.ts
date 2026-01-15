@@ -6,6 +6,34 @@
 import * as vscode from 'vscode';
 import * as PositronTypes from './JupyterPositronTypes';
 
+/**
+ * The code location encodes line offsets (`character`) in Unicode points. This
+ * choice of representation is originally for consistency with other location
+ * types in the Jupyter protocol. However I now think this is a mistake because
+ * doing anything other than UTF-8 offsets is inherently lossy if we don't have
+ * access to the whole line (not a selected region like code locations) to
+ * perform the conversion.
+ *
+ * The backend uses the `character` offset of the first line to insert
+ * whitespace, so that the R parser creates source references with proper
+ * offsets. If we send the offset in code points, the whitespace will be too
+ * short. So we really need to send UTF-8 offsets to the backend.
+ *
+ * To perform non-lossy conversion of the offset, we need the full line of text.
+ * The same applies to conversion to Unicode point and there's actually a bug in
+ * our current code point conversion, since we don't look at the text before the
+ * offset.
+ *
+ * We could retrieve the lines of text from the document at time of conversion,
+ * i.e. in `positron-supervisor`. This would allow us to correctly convert from
+ * UTF-16 to UTF-8. However there's a race condition: the document might have
+ * changed already.
+ *
+ * Alternatively, we could extend `execute()` with a way to send whole lines
+ * with a selection range. Then we would have all the information to perform the
+ * conversion.
+ */
+
 export namespace JupyterPositronLocation {
 	export function from(location: vscode.Location, text: string): PositronTypes.JupyterPositronLocation {
 		return {
