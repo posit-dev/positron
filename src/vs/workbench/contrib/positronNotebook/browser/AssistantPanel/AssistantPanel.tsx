@@ -26,6 +26,15 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 
+// Localized strings.
+const notebookTimeoutMessage = localize('assistantPanel.notebookTimeout', 'Notebook is taking too long to load. Please close this dialog and try again.');
+const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
+const closeButtonLabel = localize('assistantPanel.close', 'Close');
+const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant To');
+const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant');
+const settingsAriaLabel = localize('assistantPanel.settings.openLabel', 'Open Notebook AI Settings');
+const settingsTooltip = localize('assistantPanel.settings.openTooltip', 'Open Notebook AI Settings');
+
 /**
  * Panel state for tracking notebook availability
  */
@@ -90,10 +99,7 @@ function useNotebookPolling(
 			if (elapsed >= NOTEBOOK_TIMEOUT_MS) {
 				setState({
 					status: 'error',
-					message: localize(
-						'assistantPanel.notebookTimeout',
-						'Notebook is taking too long to load. Please close this dialog and try again.'
-					)
+					message: notebookTimeoutMessage
 				});
 				targetWindow.clearInterval(intervalId);
 			}
@@ -164,7 +170,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		<div className='assistant-panel-loading'>
 			<div className='assistant-panel-loading-spinner codicon codicon-loading codicon-modifier-spin' />
 			<div className='assistant-panel-loading-text'>
-				{localize('assistantPanel.loading', 'Preparing notebook assistant...')}
+				{loadingText}
 			</div>
 		</div>
 	);
@@ -178,7 +184,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 				className='assistant-panel-error-close'
 				onClick={handleClose}
 			>
-				{localize('assistantPanel.close', 'Close')}
+				{closeButtonLabel}
 			</button>
 		</div>
 	);
@@ -192,7 +198,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			/>
 			<div className='assistant-panel-section-divider' />
 			<div className='assistant-panel-section-header'>
-				{localize('assistantPanel.actions.header', 'Ask Assistant To')}
+				{actionsHeader}
 			</div>
 			<AssistantPanelActions
 				commandService={commandService}
@@ -225,14 +231,14 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			closeOnClickOutside={true}
 			height={450}
 			renderer={renderer}
-			title={localize('assistantPanel.title', 'Positron Notebook Assistant')}
+			title={panelTitle}
 			width={400}
 			onCancel={handleClose}
 		>
 			<button
-				aria-label={localize('assistantPanel.settings.openLabel', 'Open Notebook AI Settings')}
+				aria-label={settingsAriaLabel}
 				className='assistant-panel-settings-icon codicon codicon-settings-gear'
-				title={localize('assistantPanel.settings.openTooltip', 'Open Notebook AI Settings')}
+				title={settingsTooltip}
 				onClick={handleOpenSettings}
 			/>
 			<ContentArea>
