@@ -9,10 +9,12 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
-import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ICellDto2 } from '../../notebook/common/notebookCommon.js';
+import { IObservable } from '../../../../base/common/observable.js';
+import { observableConfigValue } from '../../../../platform/observable/common/platformObservableUtils.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY, POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -30,6 +32,16 @@ export interface IPositronNotebookService {
 	 * Event that fires when a notebook instance is removed.
 	 */
 	readonly onDidRemoveNotebookInstance: Event<IPositronNotebookInstance>;
+
+	/**
+	 * Observable that tracks whether Positron notebooks are enabled as the default notebook editor.
+	 */
+	readonly enabled: IObservable<boolean>;
+
+	/**
+	 * Observable that tracks whether plain text notebook support is enabled.
+	 */
+	readonly plainTextNotebooksEnabled: IObservable<boolean>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronNotebookService.
@@ -53,12 +65,6 @@ export interface IPositronNotebookService {
 	 * @param instance The instance to unregister.
 	 */
 	unregisterInstance(instance: IPositronNotebookInstance): void;
-
-	/**
-	 * Check if Positron notebooks are configured as the default editor for .ipynb files
-	 * @returns true if Positron notebooks are the default editor, false otherwise
-	 */
-	usingPositronNotebooks(): boolean;
 
 	/**
 	 * Stores cells in the shared clipboard.
@@ -95,6 +101,12 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 	readonly onDidAddNotebookInstance = this._onDidAddNotebookInstance.event;
 	readonly onDidRemoveNotebookInstance = this._onDidRemoveNotebookInstance.event;
 	//#endregion Events
+
+	//#region Observables
+	public readonly enabled = observableConfigValue<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY, true, this._configurationService);
+
+	public readonly plainTextNotebooksEnabled = observableConfigValue<boolean>(POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY, false, this._configurationService);
+	//#endregion Observables
 
 	//#region Private Properties
 	private _instanceById = new Map<string, IPositronNotebookInstance>();
@@ -142,10 +154,6 @@ export class PositronNotebookService extends Disposable implements IPositronNote
 			}
 			this._onDidRemoveNotebookInstance.fire(instance);
 		}
-	}
-
-	public usingPositronNotebooks(): boolean {
-		return utilUsingPositronNotebooks(this._configurationService);
 	}
 
 	public setClipboardCells(cells: ICellDto2[]): void {
