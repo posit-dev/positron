@@ -154,6 +154,7 @@ export function applyModelFilters(
 		log.debug(`[${providerName}] ${userSelectableCount} user-selectable models after applying system defaults (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.isUserSelectable !== false).map(m => m.id).join(', ')}`);
 	}
 
+	// TODO: Consider refactoring so that selecting the default model only happens after filtering
 	// Check if the default model was filtered out
 	const hasDefault = filteredModels.some(m => m.isDefault);
 	if (!hasDefault && filteredModels.length > 0) {
