@@ -56,8 +56,6 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { createBareFontInfoFromRawSettings } from '../../../../editor/common/config/fontInfoFromSettings.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { INotebookContextDTO } from '../../../common/positron/notebookAssistant.js';
-import { PositronNotebookAssistantController } from './contrib/assistant/controller.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -2050,21 +2048,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	removeDeletionSentinel(id: string): void {
 		const current = this._deletionSentinels.get();
 		this._deletionSentinels.set(current.filter(s => s.id !== id), undefined);
-	}
-
-	/**
-	 * Get the assistant context for this notebook.
-	 * Delegates to the assistant controller contribution.
-	 * @returns The context DTO with cell information for the assistant panel.
-	 */
-	async getAssistantContext(): Promise<INotebookContextDTO | undefined> {
-		const controller = PositronNotebookAssistantController.get(this);
-		if (!controller) {
-			// This shouldn't happen as the contribution is always registered,
-			// but handle gracefully just in case
-			return undefined;
-		}
-		return controller.getAssistantContext();
 	}
 
 	// #endregion

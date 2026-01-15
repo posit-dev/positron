@@ -17,7 +17,6 @@ import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { INotebookContextDTO } from '../../../common/positron/notebookAssistant.js';
 
 /**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
@@ -433,10 +432,4 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Grabs focus for this notebook based on the current selection state.
 	 */
 	grabFocus(): void;
-
-	/**
-	 * Get the assistant context for this notebook.
-	 * Returns the context DTO with cell information for the assistant panel.
-	 */
-	getAssistantContext(): Promise<INotebookContextDTO | undefined>;
 }

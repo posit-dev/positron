@@ -16,6 +16,7 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
+import { PositronNotebookAssistantController } from '../contrib/assistant/controller.js';
 import { AssistantPanelContext } from './AssistantPanelContext.js';
 import { AssistantPanelActions } from './AssistantPanelActions.js';
 import { INotebookContextDTO } from '../../../../common/positron/notebookAssistant.js';
@@ -137,7 +138,8 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		const fetchContext = async () => {
 			setIsLoadingContext(true);
 			try {
-				const context = await panelState.notebook.getAssistantContext();
+				const controller = PositronNotebookAssistantController.get(panelState.notebook);
+				const context = await controller?.getAssistantContext();
 				setNotebookContext(context);
 			} catch (error) {
 				logService.error('Failed to fetch notebook context:', error);
