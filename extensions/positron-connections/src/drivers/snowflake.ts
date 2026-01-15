@@ -3,10 +3,126 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
+import * as os from 'os';
 import path = require('path');
 import * as positron from 'positron';
+import * as toml from 'toml';
 import * as vscode from 'vscode';
+
+/**
+ * Gets the paths to look for Snowflake connections.toml file.
+ * Checks in order:
+ * 1. SNOWFLAKE_HOME environment variable
+ * 2. Platform-specific default paths
+ *
+ * @returns An array of paths to check in order of priority
+ */
+function getSnowflakeConnectionsPaths(): string[] {
+	const platform = os.platform();
+	const home = os.homedir();
+	const paths: string[] = [];
+
+	// 1. Check SNOWFLAKE_HOME environment variable
+	const snowflakeHome = process.env.SNOWFLAKE_HOME;
+	if (snowflakeHome) {
+		paths.push(path.join(snowflakeHome, 'connections.toml'));
+	}
+
+	// 2. Platform-specific default paths
+	// Common location across platforms (highest priority among defaults)
+	paths.push(path.join(home, '.snowflake', 'connections.toml'));
+
+	switch (platform) {
+		case 'linux': {
+			// Use XDG_CONFIG_HOME if defined, otherwise default to ~/.config
+			const xdgConfigHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+			paths.push(path.join(xdgConfigHome, 'snowflake', 'connections.toml'));
+			break;
+		}
+		case 'win32':
+			paths.push(path.join(home, 'AppData', 'Local', 'snowflake', 'connections.toml'));
+			break;
+		case 'darwin': // macOS
+			paths.push(path.join(home, 'Library', 'Application Support', 'snowflake', 'connections.toml'));
+			break;
+		default:
+			// For other platforms, use Linux-style path as fallback
+			paths.push(path.join(home, '.config', 'snowflake', 'connections.toml'));
+			break;
+	}
+
+	return paths;
+}
+
+/**
+ * Parsed connection info from connections.toml
+ */
+interface SnowflakeConnectionInfo {
+	name: string;
+	account?: string;
+}
+
+/**
+ * Result of reading the Snowflake connections.toml file.
+ */
+interface SnowflakeConnectionsResult {
+	/** The connections found in the file with their metadata */
+	connections: SnowflakeConnectionInfo[];
+	/** The path where the connections.toml file was found */
+	foundPath: string | undefined;
+	/** The default connection name (from file or env var) */
+	defaultConnection: string | undefined;
+}
+
+/**
+ * Reads the Snowflake connections.toml file and returns the available connections
+ * along with the path where the file was found and the default connection.
+ *
+ * Default connection priority:
+ * 1. SNOWFLAKE_DEFAULT_CONNECTION_NAME environment variable
+ * 2. default_connection_name field in connections.toml
+ * 3. undefined (caller should fall back to first connection)
+ *
+ * @returns Object containing connections, path, and default connection
+ */
+function getSnowflakeConnections(): SnowflakeConnectionsResult {
+	const pathsToTry = getSnowflakeConnectionsPaths();
+
+	for (const pathToTry of pathsToTry) {
+		try {
+			if (existsSync(pathToTry)) {
+				const content = readFileSync(pathToTry, 'utf8');
+				const parsed = toml.parse(content);
+
+				// Extract connections (top-level keys that are objects, excluding default_connection_name)
+				const connections: SnowflakeConnectionInfo[] = Object.keys(parsed)
+					.filter(key => key !== 'default_connection_name' && typeof parsed[key] === 'object')
+					.map(name => ({
+						name,
+						account: parsed[name].account as string | undefined
+					}));
+
+				// Determine default connection:
+				// 1. SNOWFLAKE_DEFAULT_CONNECTION_NAME env var takes precedence
+				// 2. default_connection_name in the TOML file
+				const envDefault = process.env.SNOWFLAKE_DEFAULT_CONNECTION_NAME;
+				const fileDefault = parsed.default_connection_name as string | undefined;
+				const defaultConnection = envDefault || fileDefault;
+
+				return {
+					connections,
+					foundPath: pathToTry,
+					defaultConnection
+				};
+			}
+		} catch {
+			// Continue to try the next path
+		}
+	}
+
+	return { connections: [], foundPath: undefined, defaultConnection: undefined };
+}
 
 /**
  * Base class for Python Snowflake drivers.
@@ -528,10 +644,15 @@ conn = snowflake.connector.connect(
  * - connection_name: The name of the connection defined in connections.toml
  */
 export class PythonSnowflakeDefaultConnectionDriver extends PythonSnowflakeDriverBase implements positron.ConnectionsDriver {
+	/** The path where the connections.toml file was found */
+	private connectionsPath: string | undefined;
+	/** The parsed connections from connections.toml */
+	private connectionsList: SnowflakeConnectionInfo[] = [];
 
 	constructor(context: vscode.ExtensionContext) {
 		super();
 		this.loadIcon(context);
+		this.initializeMetadata();
 	}
 
 	driverId: string = 'py-snowflake-default';
@@ -539,20 +660,74 @@ export class PythonSnowflakeDefaultConnectionDriver extends PythonSnowflakeDrive
 		languageId: 'python',
 		name: 'Snowflake',
 		description: 'Default Connection (connections.toml)',
-		inputs: [
-			{
-				'id': 'connection_name',
-				'label': 'Connection Name',
-				'type': 'string',
-				'value': 'default'
-			},
-		]
+		inputs: []
 	};
+
+	/**
+	 * Initialize the metadata inputs based on the connections.toml file.
+	 * If connections are found, show them as selectable options.
+	 * Otherwise, fall back to a text input.
+	 */
+	private initializeMetadata() {
+		const { connections, foundPath, defaultConnection } = getSnowflakeConnections();
+		this.connectionsPath = foundPath;
+		this.connectionsList = connections;
+
+		if (connections.length > 0) {
+			const connectionNames = connections.map(c => c.name);
+
+			// Determine which connection to select by default:
+			// 1. Use defaultConnection if it exists in the list
+			// 2. Otherwise use the first connection
+			const selectedDefault = defaultConnection && connectionNames.includes(defaultConnection)
+				? defaultConnection
+				: connectionNames[0];
+
+			// Show connection names as selectable options (with account in title if available)
+			this.metadata.inputs = [
+				{
+					'id': 'connection_name',
+					'label': 'Connection Name',
+					'type': 'option',
+					'options': connections.map(conn => ({
+						'identifier': conn.name,
+						'title': conn.name
+					})),
+					'value': selectedDefault
+				}
+			];
+		} else {
+			// Fall back to text input if no connections.toml found
+			this.metadata.inputs = [
+				{
+					'id': 'connection_name',
+					'label': 'Connection Name',
+					'type': 'string',
+					'value': 'default'
+				}
+			];
+		}
+	}
 
 	generateCode(inputs: positron.ConnectionsInput[]) {
 		const connectionName = inputs.find(input => input.id === 'connection_name')?.value ?? 'default';
 
-		return `import snowflake.connector
+		// Find the account for the selected connection
+		const selectedConnection = this.connectionsList.find(c => c.name === connectionName);
+		const account = selectedConnection?.account;
+
+		// Build the comment header
+		let comment = '';
+		if (this.connectionsPath) {
+			comment += `# Using connections.toml from: ${this.connectionsPath}\n`;
+		} else {
+			comment += '# Note: No connections.toml found. Snowflake will search default locations.\n';
+		}
+		if (account) {
+			comment += `# Connecting to account: ${account}\n`;
+		}
+
+		return `${comment}import snowflake.connector
 
 conn = snowflake.connector.connect(
 	connection_name=${JSON.stringify(connectionName)}
