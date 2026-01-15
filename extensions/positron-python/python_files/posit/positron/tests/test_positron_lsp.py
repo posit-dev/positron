@@ -443,7 +443,6 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'import os; os.getenv("")',
@@ -451,7 +450,9 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_from_source",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
+                marks=pytest.mark.xfail(
+                    reason="Completions from imported source not yet supported"
+                ),
             ),
             pytest.param(
                 'os.getenv(key="")',
@@ -459,7 +460,6 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_keyword",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv(default="")',
@@ -474,7 +474,6 @@ class TestCompletions:
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_getenv_keyword_unclosed",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv(default="',
@@ -489,7 +488,6 @@ class TestCompletions:
                 len('os.getenv("'),
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_with_default",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("", default="")',
@@ -497,7 +495,6 @@ class TestCompletions:
                 len('os.getenv("'),
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_with_keyword_default",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("',
@@ -505,7 +502,6 @@ class TestCompletions:
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_getenv_unclosed",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("", "")',
