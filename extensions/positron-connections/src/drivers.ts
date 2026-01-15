@@ -37,12 +37,12 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new PythonDatabricksPATDriver(context),
 		new PythonDatabricksM2MDriver(context),
 		new PythonDatabricksU2MDriver(context),
+		new PythonSnowflakeDefaultConnectionDriver(context),
 		new PythonSnowflakePasswordDriver(context),
 		new PythonSnowflakeSSODriver(context),
 		new PythonSnowflakeKeyPairDriver(context),
 		new PythonSnowflakeOAuthM2MDriver(context),
 		new PythonSnowflakePATDriver(context),
-		new PythonSnowflakeDefaultConnectionDriver(context),
 	];
 
 	for (const driver of drivers) {
