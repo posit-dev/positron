@@ -39,7 +39,8 @@
 			{
 				"command": "positron-qmd.parseQmd",
 				"title": "%commands.parseQmd.title%",
-				"category": "%commands.devCategory%"
+				"category": "%commands.devCategory%",
+        "enablement": "config.positron.notebook.plainText.enable"
 			}
 		],
 		"menus": {
