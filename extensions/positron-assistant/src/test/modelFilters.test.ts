@@ -17,6 +17,7 @@ suite('Model Filters', () => {
 		sinon.stub(vscode.workspace, 'getConfiguration').returns({
 			get: mockWorkspaceConfig
 		} as any);
+		mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 	});
 
 	teardown(() => {
@@ -78,7 +79,9 @@ suite('Model Filters', () => {
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
 			assert.strictEqual(result.length, models.length);
-			assert.deepStrictEqual(result, models);
+			const resultIds = result.map(m => m.id);
+			assert.ok(resultIds.includes('claude-sonnet-4.5'));
+			assert.ok(resultIds.includes('claude-opus-4'));
 		});
 
 		test('filters models using patterns', () => {
@@ -567,7 +570,6 @@ suite('Model Filters', () => {
 			// Filter out the default model (opus)
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
-			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 
 			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-sonnet-4');
 
@@ -614,7 +616,6 @@ suite('Model Filters', () => {
 			// Filter includes the default model
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
-			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 
 			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-haiku');
 
@@ -667,7 +668,6 @@ suite('Model Filters', () => {
 			// Filter out the default model, keep only gpt models
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt']);
-			mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 
 			// defaultMatch is 'claude-sonnet' which won't match any remaining models
 			const result = applyModelFilters(models, 'mixed', 'Mixed', 'claude-sonnet');

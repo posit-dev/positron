@@ -40,6 +40,7 @@ suite('OpenAIModelProvider', () => {
 		// Mock the applyModelFilters import
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 		mockWorkspaceConfig.withArgs('models.include', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 
 		openAIModel = new OpenAIModelProvider(mockConfig);
 	});
