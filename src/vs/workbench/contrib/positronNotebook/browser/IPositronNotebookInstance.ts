@@ -17,6 +17,7 @@ import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 import { IHoverManager } from '../../../../platform/hover/browser/hoverManager.js';
 import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { PositronNotebookViewType } from '../common/positronNotebookViewType.js';
 
 /**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
@@ -103,9 +104,9 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	readonly uri: URI;
 
 	/**
-	 * The notebook view type. Only Jupyter notebooks are supported currently.
+	 * The notebook view type.
 	 */
-	readonly viewType: 'jupyter-notebook';
+	readonly viewType: PositronNotebookViewType;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.

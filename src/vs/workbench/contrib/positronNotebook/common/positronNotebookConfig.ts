@@ -26,6 +26,9 @@ export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant
 // Configuration key for showing diff view for assistant edits
 export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
 
+// Configuration key for enabling plaintext notebook support (e.g., .qmd files)
+export const POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY = 'positron.notebook.plainText.enable';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -81,6 +84,16 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.showDiff',
 				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_PLAINTEXT_ENABLED_KEY]: {
+			type: 'boolean',
+			default: false,
+			tags: ['preview'],
+			markdownDescription: localize(
+				'positron.notebook.plainText.enable',
+				'Enable plaintext notebook formats (like `.qmd`) in the Positron Notebook editor.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},

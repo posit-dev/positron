@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-import { usingPositronNotebooks } from '../../../positronNotebook/common/positronNotebookCommon.js';
-import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../../positronNotebook/common/positronNotebookConfig.js';
+import { autorun } from '../../../../../base/common/observable.js';
+import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
@@ -70,6 +70,9 @@ export class NotebookProviderInfoStore extends Disposable {
 	private readonly _contributedEditorDisposables = this._register(new DisposableStore());
 
 	constructor(
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IStorageService storageService: IStorageService,
 		@IExtensionService extensionService: IExtensionService,
 		@IEditorResolverService private readonly _editorResolverService: IEditorResolverService,
@@ -193,20 +196,14 @@ export class NotebookProviderInfoStore extends Disposable {
 
 			// For jupyter-notebook, update the notebook/cell editor priorities based on whether Positron notebooks are enabled
 			if (notebookProviderInfo.id === 'jupyter-notebook') {
-				const updatePriorities = () => {
-					const usingPositron = usingPositronNotebooks(this._configurationService);
-					notebookEditorInfo.priority = usingPositron
+				disposables.add(autorun((reader) => {
+					const enabled = this._positronNotebookService.enabled.read(reader);
+					notebookEditorInfo.priority = enabled
 						? RegisteredEditorPriority.option
 						: notebookProviderInfo.priority;
-					notebookCellEditorInfo.priority = usingPositron
+					notebookCellEditorInfo.priority = enabled
 						? RegisteredEditorPriority.option
 						: RegisteredEditorPriority.exclusive;
-				};
-				updatePriorities();
-				disposables.add(this._configurationService.onDidChangeConfiguration(e => {
-					if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
-						updatePriorities();
-					}
 				}));
 			}
 			// --- End Positron ---
