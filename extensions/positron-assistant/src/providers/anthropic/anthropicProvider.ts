@@ -94,6 +94,10 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		return !!this._config.apiKey && this._config.apiKey.startsWith('sk-ant-');
 	}
 
+	protected override getDefaultMatch(): string {
+		return DEFAULT_ANTHROPIC_MODEL_MATCH;
+	}
+
 	override async resolveConnection(token: vscode.CancellationToken) {
 		// Keep custom implementation for API-specific connection testing
 		const timeoutMs = getProviderTimeoutMs();
