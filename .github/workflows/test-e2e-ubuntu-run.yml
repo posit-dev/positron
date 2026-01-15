@@ -441,6 +441,15 @@ jobs:
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
 
+      - name: Upload JSON report artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.project }}-json
+          path: playwright-merge/playwright-report/results.json
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Upload HTML report to S3
         if: always()
         uses: ./.github/actions/upload-report-to-s3

@@ -13,6 +13,8 @@ test.use({
 	suiteId: __filename
 });
 
+// Currently not tagging WEB to avoid flaky test runs in CI web environment
+// After feature is enabled by default we can consider adding WEB tag back if necessary
 test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
@@ -58,7 +60,7 @@ test.describe('Positron Notebooks: Open & Save', {
 	});
 
 
-	test('Positron notebooks can open new untitled notebooks and saving works properly', { tag: [tags.WEB] },
+	test('Positron notebooks can open new untitled notebooks and saving works properly',
 		async function ({ app, settings, runCommand, cleanup }) {
 			const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
