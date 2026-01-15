@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { DEFAULT_SELECTABLE_PATTERNS } from './constants.js';
+import { markDefaultModel } from './modelResolutionHelpers.js';
 
 /**
  * Check if a model matches a user-defined filter pattern.
@@ -78,7 +79,8 @@ function regexMatch(pattern: string, text: string): boolean {
 export function applyModelFilters(
 	models: vscode.LanguageModelChatInformation[],
 	vendor: string,
-	providerName: string
+	providerName: string,
+	defaultMatch?: string
 ): vscode.LanguageModelChatInformation[] {
 	if (models.length === 0) {
 		log.debug(`[${providerName}] No models to filter.`);
@@ -150,6 +152,19 @@ export function applyModelFilters(
 		log.debug(`[${providerName}] 1 user-selectable model after applying system defaults (${nonSelectableCount} non-selectable): ${filteredModels.find(m => m.isUserSelectable !== false)?.id}`);
 	} else {
 		log.debug(`[${providerName}] ${userSelectableCount} user-selectable models after applying system defaults (${nonSelectableCount} non-selectable): ${filteredModels.filter(m => m.isUserSelectable !== false).map(m => m.id).join(', ')}`);
+	}
+
+	// TODO: Consider refactoring so that selecting the default model only happens after filtering
+	// Check if the default model was filtered out
+	const hasDefault = filteredModels.some(m => m.isDefault);
+	if (!hasDefault && filteredModels.length > 0) {
+		// Find the original default model that was filtered out for logging
+		const originalDefault = models.find(m => m.isDefault);
+		if (originalDefault) {
+			log.info(`[${providerName}] Configured default model '${originalDefault.id}' was filtered out; re-selecting default from remaining models.`);
+		}
+		// Re-select default from the filtered list
+		filteredModels = markDefaultModel(filteredModels, vendor, defaultMatch);
 	}
 
 	return filteredModels;

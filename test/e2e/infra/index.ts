@@ -51,5 +51,5 @@ export * from '../pages/hotKeys';
 // utils
 export * from '../pages/utils/aws';
 export * from '../pages/dialog-contextMenu';
-export * from '../pages/utils/vscodeSettings';
+export * from '../pages/utils/settingsFile';
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

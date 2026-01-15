@@ -27,7 +27,7 @@ import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, Sel
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';

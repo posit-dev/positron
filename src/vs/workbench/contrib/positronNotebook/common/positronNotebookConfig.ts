@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import {
 	ConfigurationScope,
 	Extensions,
@@ -24,20 +23,6 @@ export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.noteboo
 // Configuration key for showing/hiding deletion sentinels
 export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.notebook.deletionSentinel.show';
 
-/**
- * Retrieves the value of the configuration setting that determines whether to enable
- * the Positron Notebook editor.
- * @param configurationService The configuration service
- * @returns Whether to enable the Positron Notebook editor
- */
-export function checkPositronNotebookEnabled(
-	configurationService: IConfigurationService
-): boolean {
-	return Boolean(
-		configurationService.getValue(POSITRON_NOTEBOOK_ENABLED_KEY)
-	);
-}
-
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -47,15 +32,16 @@ configurationRegistry.registerConfiguration({
 	order: 7,
 	title: localize('positronConfigurationTitle', "Positron"),
 	type: 'object',
-	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
-				'Enable the Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'
+				'Use Positron Notebook as the default editor for `.ipynb` files.'
 			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY]: {
 			type: 'boolean',
@@ -64,6 +50,7 @@ configurationRegistry.registerConfiguration({
 				'positron.notebook.assistant.autoFollow',
 				'Automatically scroll to cells modified by the AI assistant. When enabled, cells modified outside the viewport will be automatically scrolled into view and highlighted.'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY]: {
 			type: 'number',
@@ -74,6 +61,7 @@ configurationRegistry.registerConfiguration({
 				'positron.notebook.deletionSentinel.timeout',
 				'Time in milliseconds before deletion sentinels auto-dismiss (0 to disable auto-dismiss).'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY]: {
 			type: 'boolean',
@@ -82,6 +70,7 @@ configurationRegistry.registerConfiguration({
 				'positron.notebook.deletionSentinel.show',
 				'Show deletion sentinels when cells are deleted. When disabled, cells are deleted immediately without undo placeholders.'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 	},
 });

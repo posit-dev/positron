@@ -15,7 +15,7 @@ import { IDeletionSentinel } from '../IPositronNotebookInstance.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { IConfigurationService, ConfigurationTarget } from '../../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY, POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY } from '../positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY, POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY } from '../../common/positronNotebookConfig.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
