@@ -161,7 +161,11 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		await settings.set({ 'positron.notebook.enabled': true });
+		await settings.set(
+			{ 'positron.notebook.enabled': true },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
 	}
 
 	/**
@@ -173,7 +177,11 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		await settings.set({ 'positron.notebook.enabled': false });
+		await settings.set(
+			{ 'positron.notebook.enabled': false },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
 	}
 
 	/**
