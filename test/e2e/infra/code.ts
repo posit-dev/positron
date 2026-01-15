@@ -106,7 +106,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { driver } = await measureAndLog(() => launchPlaywrightExternalServer(options, options.externalServerUrl!), 'launch playwright (external server)', options.logger);
 
 		// No server process to register since we're connecting to an external one
-		return new Code(driver, options.logger, null as any, undefined, options.quality, options.version, undefined, options.userDataDir);
+		return new Code(driver, options.logger, null as any, undefined, options.quality, options.version);
 	}
 
 	// Browser smoke tests (managed server)
@@ -114,7 +114,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
-		return new Code(driver, options.logger, serverProcess, undefined, options.quality, options.version, undefined, options.userDataDir);
+		return new Code(driver, options.logger, serverProcess, undefined, options.quality, options.version);
 	}
 
 	// Electron smoke tests (playwright)
@@ -122,7 +122,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
 
-		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version, electronApp, options.userDataDir);
+		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version, electronApp);
 	}
 }
 
@@ -139,10 +139,6 @@ export class Code {
 		readonly version: { major: number; minor: number; patch: number },
 		// Only available when running against Electron
 		readonly electronApp?: ElectronApplication,
-		// --- Start Positron ---
-		// User data directory for targeted process cleanup
-		private readonly userDataDir?: string,
-		// --- End Positron ---
 	) {
 		this.driver = new Proxy(driver, {
 			get(target, prop) {
@@ -239,10 +235,10 @@ export class Code {
 					switch (retries) {
 
 						// --- Start Positron ---
-						// after 2 seconds: proactively kill process tree while main process is still alive
+						// after 1 second: proactively kill process tree while main process is still alive
 						// This ensures child processes are killed before they can be reparented
-						case 4: {
-							this.logger.log('Smoke test exit(): proactively killing process tree after 2s');
+						case 2: {
+							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
 							await this.killProcessTree(pid);
 							break;
 						}
@@ -290,8 +286,6 @@ export class Code {
 			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
 		} catch (e) {
 			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
-			// Even if main process is gone, try cleanup sweep for escaped children
-			await this.killEscapedChildren();
 			return;
 		}
 
@@ -302,61 +296,8 @@ export class Code {
 			// Use teardown which calls treeKill to kill entire process tree
 			await teardown(processStub as cp.ChildProcess, this.logger);
 			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
-
-			// Also do a cleanup sweep to catch any processes that escaped the tree
-			await this.killEscapedChildren();
 		} catch (e) {
 			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
-			// Try cleanup sweep as fallback
-			await this.killEscapedChildren();
-		}
-	}
-
-	/**
-	 * Kill orphaned kernel and language server processes by name.
-	 * This catches processes that escaped the process tree (e.g., via detached spawning).
-	 * Uses userDataDir to target only processes belonging to this test worker.
-	 */
-	private async killEscapedChildren(): Promise<void> {
-		// If we don't have a userDataDir, we can't safely target processes
-		// (might kill processes from other parallel test workers)
-		if (!this.userDataDir) {
-			this.logger.log('Smoke test killEscapedChildren(): No userDataDir, skipping targeted cleanup');
-			return;
-		}
-
-		// Extract a unique identifier from the userDataDir path
-		// e.g., /tmp/vscsmoke-12345/... -> use "12345" as identifier
-		const userDataDirMatch = this.userDataDir.match(/vscsmoke[/-]([a-zA-Z0-9-]+)/);
-		if (!userDataDirMatch) {
-			this.logger.log('Smoke test killEscapedChildren(): Could not extract identifier from userDataDir, skipping');
-			return;
-		}
-		const identifier = userDataDirMatch[1];
-
-		if (process.platform === 'win32') {
-			// Windows approach - harder to target by command line
-			try {
-				this.logger.log(`Smoke test killEscapedChildren(): Killing orphaned processes for ${identifier} (Windows)`);
-				// Note: Windows targeting is limited - may still affect other workers
-				cp.execSync(`taskkill /F /IM kcserver.exe /T 2>nul || exit 0`, { stdio: 'ignore' });
-				cp.execSync(`taskkill /F /IM python.exe /FI "WINDOWTITLE eq *positron*" /T 2>nul || exit 0`, { stdio: 'ignore' });
-			} catch {
-				// Ignore errors
-			}
-		} else {
-			// Unix approach (Linux/macOS) - can target by command line pattern
-			try {
-				this.logger.log(`Smoke test killEscapedChildren(): Killing orphaned processes for ${identifier} (Unix)`);
-				// Kill processes that have this userDataDir in their command line
-				// This targets only processes spawned by this specific test worker
-				cp.execSync(`pkill -9 -f "kcserver.*${identifier}" 2>/dev/null || true`, { stdio: 'ignore' });
-				cp.execSync(`pkill -9 -f "ruff.*${identifier}" 2>/dev/null || true`, { stdio: 'ignore' });
-				cp.execSync(`pkill -9 -f "air.*${identifier}" 2>/dev/null || true`, { stdio: 'ignore' });
-				cp.execSync(`pkill -9 -f "publisher.*${identifier}" 2>/dev/null || true`, { stdio: 'ignore' });
-			} catch {
-				// Ignore errors - pkill may not find processes
-			}
 		}
 	}
 	// --- End Positron ---
