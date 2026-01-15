@@ -234,6 +234,16 @@ export class Code {
 
 					switch (retries) {
 
+						// --- Start Positron ---
+						// after 2 seconds: proactively kill process tree while main process is still alive
+						// This ensures child processes are killed before they can be reparented
+						case 4: {
+							this.logger.log('Smoke test exit(): proactively killing process tree after 2s');
+							await this.killProcessTree(pid);
+							break;
+						}
+						// --- End Positron ---
+
 						// after 10 seconds: forcefully kill
 						case 20: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
@@ -258,13 +268,6 @@ export class Code {
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
-
-						// --- Start Positron ---
-						// Even though main process exited, kill entire process tree to clean up child processes
-						this.logger.log('Smoke test exit(): killing child processes');
-						await this.killProcessTree(pid);
-						// --- End Positron ---
-
 						done = true;
 						resolve();
 					}
