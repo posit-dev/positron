@@ -8,6 +8,7 @@ import * as sinon from 'sinon';
 import { TestInstantiationService } from '../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronConnectionsService } from '../browser/positronConnectionsService.js';
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
+import { IDriver } from '../common/interfaces/positronConnectionsDriver.js';
 import { TestConnectionInstance } from './positronConnectionInstanceMock.js';
 import { TestSecretStorageService } from '../../../../platform/secrets/test/common/testSecretStorageService.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
@@ -51,7 +52,7 @@ suite('Positron - Connections Service', () => {
 				fn();
 				return;
 			} catch (e) {
-				if (Date.now() - start > timeout) throw new Error('Timeout waiting for condition');
+				if (Date.now() - start > timeout) { throw new Error('Timeout waiting for condition'); }
 				await new Promise(r => setTimeout(r, interval));
 			}
 		}
@@ -99,7 +100,7 @@ suite('Positron - Connections Service', () => {
 							'name': 'table1', 'kind': 'table'
 						}]
 					}
-				}
+				};
 			} else if (request.method === 'contains_data') {
 				return {
 					'data': {
@@ -129,6 +130,89 @@ suite('Positron - Connections Service', () => {
 		instance.onToggleExpandEmitter.fire('test-connection');
 		await waitUntilOk(() => {
 			assert.equal(instanceEntriesChangedSpy.callCount, 1);
+		});
+	});
+
+	suite('Driver Manager', () => {
+		function createTestDriver(id: string, name: string = 'Test Driver'): IDriver {
+			return {
+				driverId: id,
+				metadata: {
+					languageId: 'test',
+					name,
+					inputs: []
+				}
+			};
+		}
+
+		test('registerDriver fires onDidChangeDrivers', () => {
+			const driverManager = connectionsService.driverManager;
+			const changeDriversSpy = sinon.spy();
+			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+
+			const driver = createTestDriver('driver-1');
+			driverManager.registerDriver(driver);
+
+			assert.equal(changeDriversSpy.callCount, 1);
+			assert.equal(driverManager.getDrivers().length, 1);
+		});
+
+		test('removeDriver fires onDidChangeDrivers', () => {
+			const driverManager = connectionsService.driverManager;
+			const changeDriversSpy = sinon.spy();
+
+			const driver = createTestDriver('driver-1');
+			driverManager.registerDriver(driver);
+
+			disposables.add(driverManager.onDidChangeDrivers(changeDriversSpy));
+			driverManager.removeDriver('driver-1');
+
+			assert.equal(changeDriversSpy.callCount, 1);
+			assert.equal(driverManager.getDrivers().length, 0);
+		});
+
+		test('removeDriver at index 0 works correctly', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1');
+			const driver2 = createTestDriver('driver-2');
+			driverManager.registerDriver(driver1);
+			driverManager.registerDriver(driver2);
+
+			assert.equal(driverManager.getDrivers().length, 2);
+
+			// Remove the first driver (index 0)
+			driverManager.removeDriver('driver-1');
+
+			assert.equal(driverManager.getDrivers().length, 1);
+			assert.equal(driverManager.getDrivers()[0].driverId, 'driver-2');
+		});
+
+		test('registerDriver replaces existing driver with same id', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1', 'Original');
+			const driver1Updated = createTestDriver('driver-1', 'Updated');
+
+			driverManager.registerDriver(driver1);
+			assert.equal(driverManager.getDrivers()[0].metadata.name, 'Original');
+
+			driverManager.registerDriver(driver1Updated);
+			assert.equal(driverManager.getDrivers().length, 1);
+			assert.equal(driverManager.getDrivers()[0].metadata.name, 'Updated');
+		});
+
+		test('registerDriver replaces driver at index 0', () => {
+			const driverManager = connectionsService.driverManager;
+
+			const driver1 = createTestDriver('driver-1', 'Original');
+			driverManager.registerDriver(driver1);
+
+			const driver1Updated = createTestDriver('driver-1', 'Updated');
+			driverManager.registerDriver(driver1Updated);
+
+			assert.equal(driverManager.getDrivers().length, 1);
+			assert.equal(driverManager.getDrivers()[0].metadata.name, 'Updated');
 		});
 	});
 });

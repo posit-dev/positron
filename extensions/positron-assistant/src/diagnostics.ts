@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { getStoredModels } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
-import { getLanguageModels } from './models.js';
+import { getModelProviders } from './providers';
 
 function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -209,7 +209,7 @@ async function getChatExportInfo(): Promise<string> {
 }
 
 function getEnvironmentConfiguredModels(): string {
-	const models = getLanguageModels();
+	const models = getModelProviders();
 	const envModels = models
 		.filter(model => {
 			const defaults = model.source.defaults as any;

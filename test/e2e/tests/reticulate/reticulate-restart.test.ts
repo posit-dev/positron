@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe.skip('Reticulate', {
+test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB, tags.SOFT_FAIL],
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
@@ -37,6 +37,7 @@ test.describe.skip('Reticulate', {
 		// start new reticulate session
 		await sessions.start('pythonReticulate');
 		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
+		await sessions.expectStatusToBe(RETICULATE_SESSION, 'idle');
 
 		// restart reticulate session
 		await sessions.restart(RETICULATE_SESSION, {

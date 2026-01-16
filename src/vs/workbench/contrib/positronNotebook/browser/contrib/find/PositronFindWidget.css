@@ -1,0 +1,112 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container to clip overflows from the widget e.g. box shadows */
+.positron-find-widget-container {
+	position: absolute;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+
+	/* Don't capture pointer events; they'll get captured in the widget itself */
+	pointer-events: none;
+}
+
+/* Hide container when widget is not visible */
+.positron-find-widget-container:not(:has(.positron-find-widget.visible)) {
+	display: none;
+}
+
+.positron-find-widget {
+	position: absolute;
+	top: 0;
+	right: 18px;
+	z-index: 35;
+	box-sizing: border-box;
+	line-height: 19px;
+
+	/* Initial width: match code oss NOTEBOOK_FIND_WIDGET_INITIAL_WIDTH */
+	width: 419px;
+
+	/* Styling */
+	font-size: 12px;
+	background-color: var(--vscode-editorWidget-background);
+	color: var(--vscode-editorWidget-foreground);
+	border: 1px solid var(--vscode-widget-border);
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	box-shadow: 0 0 8px 2px var(--vscode-widget-shadow);
+	padding: 4px;
+
+	/* Layout */
+	display: flex;
+	align-items: center;
+	gap: 3px;
+
+	/* Capture pointer events */
+	pointer-events: auto;
+}
+
+/* Reduce motion support for accessibility */
+.monaco-reduce-motion .positron-find-widget {
+	transition: transform 0ms linear;
+}
+
+.positron-find-widget .find-input-container {
+	/* Let the find input grow with the widget */
+	flex: 1;
+}
+
+.positron-find-widget .action-button {
+	min-width: 20px;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	border-radius: 5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+}
+
+.positron-find-widget .action-button:not(.disabled):hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	outline: 1px dashed var(--vscode-toolbar-hoverOutline);
+	outline-offset: -1px;
+}
+
+.positron-find-widget .action-button.disabled {
+	opacity: 0.3 !important;
+	cursor: default;
+}
+
+.positron-find-widget .action-button .codicon {
+	font-size: 14px;
+	line-height: 20px;
+}
+
+.positron-find-widget .results {
+	width: 73px;
+	max-width: 73px;
+	min-width: 73px;
+	padding-left: 5px;
+	white-space: nowrap;
+}
+
+.positron-find-widget.no-results .results {
+	color: var(--vscode-errorForeground);
+}
+
+.positron-find-widget .navigation-buttons {
+	display: flex;
+	gap: 2px;
+}
+
+.positron-find-widget .close-button {
+	margin-left: 2px;
+}

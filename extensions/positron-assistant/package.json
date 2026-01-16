@@ -250,12 +250,23 @@
             },
             "markdownDescription": "%configuration.inlineCompletions.enable.description%"
           },
+          "positron.assistant.aiExcludes": {
+            "type": "array",
+            "default": [
+              "**/.*"
+            ],
+            "markdownDescription": "%configuration.aiExcludes.description%",
+            "items": {
+              "type": "string"
+            }
+          },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
             "default": [
               "**/.*"
             ],
             "markdownDescription": "%configuration.inlineCompletionExcludes.description%",
+            "deprecationMessage": "Use positron.assistant.aiExcludes instead",
             "items": {
               "type": "string"
             }
@@ -304,14 +315,6 @@
               "preview"
             ]
           },
-          "positron.assistant.notebookMode.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.notebookMode.enable.description%",
-            "tags": [
-              "experimental"
-            ]
-          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,
@@ -335,64 +338,50 @@
             "maximum": 10,
             "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
-          "positron.assistant.filterModels": {
+          "positron.assistant.models.include": {
             "type": "array",
-            "default": [
-              "claude",
-              "gpt"
-            ],
-            "markdownDescription": "%configuration.filterModels.description%",
+            "default": [],
+            "markdownDescription": "%configuration.models.include.description%",
             "items": {
               "type": "string"
             },
             "examples": [
               [
-                "sonnet"
+                "claude",
+                "gpt"
               ],
               [
-                "Claude*",
-                "GPT-5"
-              ],
-              [
-                "**/google/gemini*"
+                "Claude Sonnet 4.5",
+                "GPT-4o"
               ]
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.preferredModel": {
+          "positron.assistant.models.preference.global": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.preferredModel.description%",
+            "markdownDescription": "%configuration.models.preference.global.description%",
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.defaultModels": {
+          "positron.assistant.models.preference.byProvider": {
             "type": "object",
             "default": {},
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.defaultModels.description%",
+            "markdownDescription": "%configuration.models.preference.byProvider.description%",
             "examples": [
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
-          "positron.assistant.configuredModels": {
+          "positron.assistant.models.custom": {
             "type": "object",
             "default": {},
-            "markdownDescription": "%configuration.configuredModels.description%",
+            "markdownDescription": "%configuration.models.custom.description%",
             "additionalProperties": {
               "type": "array",
               "items": {
@@ -440,9 +429,6 @@
                   }
                 ]
               }
-            ],
-            "tags": [
-              "experimental"
             ]
           },
           "positron.assistant.notebookSuggestions.model": {
@@ -845,12 +831,11 @@
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndex), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content). Code cells are executed by default after adding (set run=false to skip execution). Use operation='update' to modify existing cells (requires cellIndex and content), operation='delete' to remove cells (requires cellIndices array, e.g., [0] for single cell or [0,1,2] for multiple), or operation='reorder' to reorganize cells. For reorder, either use fromIndex and toIndex to move a single cell, or provide newOrder array (a permutation where newOrder[i] is the original index of the cell that should be at position i) to reorder all cells at once. Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant",
-          "requires-notebook"
+          "positron-assistant"
         ],
         "inputSchema": {
           "type": "object",
@@ -883,7 +868,14 @@
             },
             "cellIndex": {
               "type": "number",
-              "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+              "description": "Index of the cell to modify (0-based). Required when operation is 'update'."
+            },
+            "cellIndices": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Array of cell indices to delete (0-based). Required when operation is 'delete'. Use [0] for single cell or [0,1,2] for multiple cells."
             },
             "run": {
               "type": "boolean",
@@ -917,8 +909,7 @@
         "toolReferenceName": "getNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant",
-          "requires-notebook"
+          "positron-assistant"
         ],
         "inputSchema": {
           "type": "object",
@@ -945,15 +936,34 @@
             "operation"
           ]
         }
+      },
+      {
+        "name": "createNotebook",
+        "displayName": "Create Notebook",
+        "modelDescription": "Create a new Jupyter notebook with the specified language kernel (Python or R). Use when the user wants to start a new notebook. After creation, use EditNotebookCells to add content.",
+        "toolReferenceName": "createNotebook",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "enum": ["python", "r"],
+              "description": "The kernel language for the notebook"
+            }
+          },
+          "required": ["language"]
+        }
       }
     ]
   },
   "scripts": {
     "compile": "gulp compile-extension:positron-assistant",
     "vscode:prepublish": "npm run compile",
-    "pretest": "npm run compile",
-    "install-copilot-language-server": "ts-node scripts/install-copilot-language-server.ts",
-    "postinstall": "ts-node scripts/post-install.ts"
+    "pretest": "npm run compile"
   },
   "devDependencies": {
     "@ai-sdk/amazon-bedrock": "2.2.12",
@@ -983,9 +993,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1",
     "yaml": "^2.8.1"
   },
   "extensionDependencies": [

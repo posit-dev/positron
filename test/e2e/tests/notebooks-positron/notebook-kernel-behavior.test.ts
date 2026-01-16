@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -13,14 +14,6 @@ test.use({
 test.describe('Positron Notebooks: Kernel Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SOFT_FAIL] // soft fail due to https://github.com/posit-dev/positron/issues/10546
 }, () => {
-
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
@@ -149,29 +142,33 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		});
 	});
 
-	test('ensure existing notebooks use their correct interpreter kernel', async function ({ app, sessions }) {
-		const { notebooksPositron } = app.workbench;
-		const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
-		const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
+	test.skip('ensure existing notebooks use their correct interpreter kernel',
+		{
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }] // <--- test is failing on chromium only
+		},
+		async function ({ app, sessions }) {
+			const { notebooksPositron } = app.workbench;
+			const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
+			const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
 
-		// start multiple sessions and select R
-		const [, rSession] = await sessions.start(['python', 'r']);
-		await sessions.select(rSession.id);
+			// start multiple sessions and select R
+			const [, rSession] = await sessions.start(['python', 'r']);
+			await sessions.select(rSession.id);
 
-		// open existing python notebook and ensure python kernel is auto-selected (from background) and started
-		await notebooksPositron.openNotebook(pythonNotebook);
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'Python',
-			status: 'idle'
+			// open existing python notebook and ensure python kernel is auto-selected (from background) and started
+			await notebooksPositron.openNotebook(pythonNotebook);
+			await notebooksPositron.kernel.expectKernelToBe({
+				kernelGroup: 'Python',
+				status: 'idle'
+			});
+
+			// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
+			await notebooksPositron.openNotebook(rRnotebook);
+			await notebooksPositron.kernel.expectKernelToBe({
+				kernelGroup: 'R',
+				status: 'idle'
+			});
 		});
-
-		// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
-		await notebooksPositron.openNotebook(rRnotebook);
-		await notebooksPositron.kernel.expectKernelToBe({
-			kernelGroup: 'R',
-			status: 'idle'
-		});
-	});
 
 	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions, settings }) {
 		const { notebooksPositron, console } = app.workbench;
@@ -181,6 +178,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
+		const sessionCountBefore = await sessions.getSessionCount();
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
@@ -191,7 +189,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// open notebook console and ensure appears in session list
 		await notebooksPositron.kernel.openNotebookConsole();
-		await sessions.expectSessionCountToBe(3);
+		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
 
 		// terminate notebook session

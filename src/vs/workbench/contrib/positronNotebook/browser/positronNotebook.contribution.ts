@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Notebook editor extensions
+import './contrib/find/positronNotebookFind.contribution.js';
+import './contrib/assistant/positronNotebookAssistant.contribution.js';
+
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -26,7 +30,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { checkPositronNotebookEnabled, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -36,9 +40,9 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -51,6 +55,13 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
+import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../editor/contrib/find/browser/findModel.js';
+
+export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
+	POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+	POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
+	CONTEXT_FIND_INPUT_FOCUSED.toNegated(),
+);
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -76,19 +87,35 @@ class PositronNotebookContribution extends Disposable {
 	) {
 		super();
 
-		// Only register the editor if the feature is enabled
-		if (checkPositronNotebookEnabled(this.configurationService)) {
-			this.registerEditor();
-		}
+		this.registerEditor();
 	}
 
 	private registerEditor(): void {
+		// Determine notebook/cell editor priority based on whether Positron notebooks are enabled
+		const getPriority = () => usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.default
+			: RegisteredEditorPriority.option;
+
+		const getCellPriority = () => usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.exclusive
+			: RegisteredEditorPriority.option;
+
 		const notebookEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
-			detail: localize('positronNotebook.detail', "Provided by Positron"),
-			priority: RegisteredEditorPriority.option
+			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
+			priority: getPriority(),
 		};
+		const notebookCellEditorInfo: RegisteredEditorInfo =
+			{ ...notebookEditorInfo, priority: getCellPriority() };
+
+		// Listen for configuration changes to update priorities dynamically
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+				notebookEditorInfo.priority = getPriority();
+				notebookCellEditorInfo.priority = getCellPriority();
+			}
+		}));
 
 		// Register for .ipynb files
 		this._register(this.editorResolverService.registerEditor(
@@ -170,7 +197,7 @@ class PositronNotebookContribution extends Disposable {
 			// The editor resolver service expects a single handler with 'exclusive' priority.
 			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
-			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+			notebookCellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
@@ -214,15 +241,11 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IWorkingCopyEditorService private readonly workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly extensionService: IExtensionService,
-		@INotebookService private readonly notebookService: INotebookService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@INotebookService private readonly notebookService: INotebookService
 	) {
 		super();
 
-		// Only install handler if Positron notebooks are enabled
-		if (checkPositronNotebookEnabled(this.configurationService)) {
-			this.installHandler();
-		}
+		this.installHandler();
 	}
 
 	private async installHandler(): Promise<void> {
@@ -231,12 +254,8 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// Only handle .ipynb files when Positron notebooks are enabled
+		// Always handle .ipynb files
 		if (!workingCopy.resource.path.endsWith('.ipynb')) {
-			return false;
-		}
-
-		if (!checkPositronNotebookEnabled(this.configurationService)) {
 			return false;
 		}
 
@@ -343,7 +362,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.selectUp',
 			title: localize2('positronNotebook.selectUp', "Move Focus Up"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.UpArrow,
 				secondary: [KeyCode.KeyK]
@@ -362,7 +381,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.selectDown',
 			title: localize2('positronNotebook.selectDown', "Move Focus Down"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.DownArrow,
 				secondary: [KeyCode.KeyJ]
@@ -381,7 +400,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.addSelectionDown',
 			title: localize2('positronNotebook.addSelectionDown', "Extend Selection Down"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.DownArrow,
 				secondary: [KeyMod.Shift | KeyCode.KeyJ]
@@ -400,7 +419,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.addSelectionUp',
 			title: localize2('positronNotebook.addSelectionUp', "Extend Selection Up"),
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.UpArrow,
 				secondary: [KeyMod.Shift | KeyCode.KeyK]
@@ -420,10 +439,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.edit',
 			title: localize2('positronNotebook.cell.edit', "Enter Cell Edit Mode"),
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-				),
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Enter
 			}
@@ -488,10 +504,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.reduceSelectionToActiveCell',
 			title: localize2('positronNotebook.reduceSelectionToActiveCell', "Reduce Selection to Active Cell"),
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-				),
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Escape
 			}
@@ -513,11 +526,8 @@ registerAction2(class extends NotebookAction2 {
 KeybindingsRegistry.registerKeybindingRule({
 	id: 'undo',
 	weight: KeybindingWeight.EditorContrib,
-	when: ContextKeyExpr.and(
-		POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-		POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-	),
-	primary: KeyCode.KeyZ
+	when: POSITRON_NOTEBOOK_COMMAND_MODE,
+	primary: KeyCode.KeyZ,
 });
 
 // Shift+Z key: Redo in command mode (Jupyter-style)
@@ -525,10 +535,7 @@ KeybindingsRegistry.registerKeybindingRule({
 KeybindingsRegistry.registerKeybindingRule({
 	id: 'redo',
 	weight: KeybindingWeight.EditorContrib,
-	when: ContextKeyExpr.and(
-		POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-		POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-	),
+	when: POSITRON_NOTEBOOK_COMMAND_MODE,
 	primary: KeyMod.Shift | KeyCode.KeyZ
 });
 
@@ -553,7 +560,7 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionGroup.Insert,
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyA
 			}
@@ -565,6 +572,9 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell) {
 			cell.insertCodeCellAbove();
+		} else {
+			// Empty notebook: add a code cell
+			notebook.addCell(CellKind.Code, 0, false);
 		}
 	}
 });
@@ -583,7 +593,7 @@ registerAction2(class extends NotebookAction2 {
 				group: PositronNotebookCellActionGroup.Insert,
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyB
 			}
@@ -595,6 +605,9 @@ registerAction2(class extends NotebookAction2 {
 		const cell = getActiveCell(state);
 		if (cell) {
 			cell.insertCodeCellBelow();
+		} else {
+			// Empty notebook: add a code cell
+			notebook.addCell(CellKind.Code, 0, false);
 		}
 	}
 });
@@ -661,7 +674,7 @@ registerAction2(class extends NotebookAction2 {
 				group: 'Cell'
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.Backspace,
 				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
@@ -741,10 +754,7 @@ registerAction2(class extends NotebookAction2 {
 				when: CELL_CONTEXT_KEYS.isCode
 			},
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-				),
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
 			}
@@ -933,10 +943,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeOrToggleEditor',
 			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute Cell or Toggle Editor"),
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-				),
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.Enter
 			}
@@ -966,10 +973,7 @@ registerAction2(class extends NotebookAction2 {
 			id: 'positronNotebook.cell.executeAndSelectBelow',
 			title: localize2('positronNotebook.cell.executeAndSelectBelow', "Execute Cell and Select Below"),
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-				),
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.Enter
 			}
@@ -1031,7 +1035,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 20
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyC
 			}
@@ -1059,7 +1063,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 10
 			}],
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyX
 			}
@@ -1087,10 +1091,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 40
 			}],
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-				),
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyV
 			}
@@ -1118,10 +1119,7 @@ registerAction2(class extends NotebookAction2 {
 				order: 30
 			}],
 			keybinding: {
-				when: ContextKeyExpr.and(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-				),
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.KeyV
 			}
@@ -1147,10 +1145,7 @@ registerAction2(class extends NotebookAction2 {
 				when: CELL_CONTEXT_KEYS.canMoveUp
 			},
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-				),
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
 			}
@@ -1176,10 +1171,7 @@ registerAction2(class extends NotebookAction2 {
 				when: CELL_CONTEXT_KEYS.canMoveDown
 			},
 			keybinding: {
-				when: ContextKeyExpr.or(
-					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-				),
+				when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
 			}
@@ -1388,7 +1380,7 @@ registerAction2(class extends NotebookAction2 {
 				displayTitle: true
 			},
 			toggled: {
-				condition: ContextKeyExpr.equals('config.positron.notebook.assistant.autoFollow', true),
+				condition: ContextKeyExpr.equals('config.positron.assistant.notebook.autoFollow', true),
 				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
 				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
 			},
@@ -1398,13 +1390,13 @@ registerAction2(class extends NotebookAction2 {
 				order: 55, // After Ask Assistant (50)
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
+					ContextKeyExpr.has('config.positron.assistant.enable'),
 				)
 			}
 		});
 	}
 
-	override runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
+	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
 		const configurationService = accessor.get(IConfigurationService);
 		const currentValue = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
 		configurationService.updateValue(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, !currentValue);
@@ -1436,19 +1428,9 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	submenu: MenuId.PositronNotebookCellContext,
 	title: localize('positronNotebook.menu.editorContext.cell', 'Notebook Cell'),
 	group: '2_notebook',
-	when: ContextKeyExpr.and(
-		ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-		// Only show these menu items when a notebook editor has focus to
-		// avoid these menu items showing up in other editors, such as the
-		// output panel (which is a monaco editor).
-		ContextKeyExpr.or(
-			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-			// Need to include this context key to ensure the menu shows up
-			// when right-clicking inside a cell editor. This is because the
-			// POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED key gets set to false
-			// when user is editing a cell.
-			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-		)
-	),
+	// Only show these menu items when a notebook editor has focus to
+	// avoid these menu items showing up in other editors, such as the
+	// output panel (which is a monaco editor).
+	when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
 	order: 0
 });

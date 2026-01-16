@@ -98,33 +98,29 @@ suite('Positron Notebook Configuration Handling', () => {
 		disposables.add(notebookContribution);
 	}
 
-	test('usingPositronNotebooks returns true when editor association is set', async () => {
+	test('usingPositronNotebooks returns true when positron.notebook.enabled is true', async () => {
 		await createTestServices();
 
-		// Set editor association for Positron notebooks
-		configurationService.setUserConfiguration('workbench.editorAssociations', {
-			'*.ipynb': 'workbench.editor.positronNotebook'
-		});
+		// Enable Positron notebooks via configuration setting
+		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 
 		const isUsing = usingPositronNotebooks(configurationService);
 		assert.strictEqual(isUsing, true);
 	});
 
-	test('usingPositronNotebooks returns false when editor association is not set', async () => {
+	test('usingPositronNotebooks returns false when positron.notebook.enabled is not set', async () => {
 		await createTestServices();
 
-		// No editor associations set
+		// No configuration set (defaults to false/undefined, both are falsy)
 		const isUsing = usingPositronNotebooks(configurationService);
-		assert.strictEqual(isUsing, false);
+		assert.strictEqual(!!isUsing, false);
 	});
 
-	test('usingPositronNotebooks returns false when editor association is set to different editor', async () => {
+	test('usingPositronNotebooks returns false when positron.notebook.enabled is false', async () => {
 		await createTestServices();
 
-		// Set editor association to VS Code notebook
-		configurationService.setUserConfiguration('workbench.editorAssociations', {
-			'*.ipynb': 'jupyter-notebook'
-		});
+		// Explicitly disable Positron notebooks
+		configurationService.setUserConfiguration('positron.notebook.enabled', false);
 
 		const isUsing = usingPositronNotebooks(configurationService);
 		assert.strictEqual(isUsing, false);

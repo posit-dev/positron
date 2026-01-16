@@ -226,25 +226,40 @@ export class Code {
 
 					if (safeToKill) {
 						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
-						this.kill(pid);
+						await this.killProcessTree(pid);
+						done = true;
+						resolve();
+						return;
 					}
 
 					switch (retries) {
 
+						// --- Start Positron ---
+						// after 1 second: proactively kill process tree while main process is still alive
+						// This ensures child processes are killed before they can be reparented
+						case 2: {
+							this.logger.log('Smoke test exit(): proactively killing process tree after 1s');
+							await this.killProcessTree(pid);
+							break;
+						}
+						// --- End Positron ---
+
 						// after 10 seconds: forcefully kill
 						case 20: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
-							this.kill(pid);
-							break;
+							await this.killProcessTree(pid);
+							done = true;
+							resolve();
+							return;
 						}
 
 						// after 20 seconds: give up
 						case 40: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
-							this.kill(pid);
+							await this.killProcessTree(pid);
 							done = true;
 							resolve();
-							break;
+							return;
 						}
 					}
 
@@ -253,7 +268,6 @@ export class Code {
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
-
 						done = true;
 						resolve();
 					}
@@ -262,21 +276,35 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	private kill(pid: number): void {
+	// --- Start Positron ---
+	/**
+	 * Kill the entire process tree starting from the given PID.
+	 * This ensures child processes (kernels, language servers, etc.) are also terminated.
+	 */
+	private async killProcessTree(pid: number): Promise<void> {
 		try {
 			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
 		} catch (e) {
-			this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
+			this.logger.log('Smoke test killProcessTree(): process does not exist, skipping');
 			return;
 		}
 
 		try {
-			this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
-			process.kill(pid);
+			this.logger.log(`Smoke test killProcessTree(): Killing process tree for PID: ${pid}`);
+			// Create a ChildProcess object with the PID for teardown
+			const processStub: Pick<cp.ChildProcess, 'pid'> = { pid };
+			// Use teardown which calls treeKill to kill entire process tree
+			await teardown(processStub as cp.ChildProcess, this.logger);
+			this.logger.log('Smoke test killProcessTree(): Process tree killed successfully');
+
+			// Note: dbus-daemon cleanup removed to prevent interference with parallel tests
+			// The shared dbus session (started in xvfb setup) should handle all Electron instances
+			// Any orphaned dbus-daemon processes will be cleaned up by docker --init zombie reaping
 		} catch (e) {
-			this.logger.log('Smoke test kill(): SIGTERM failed', e);
+			this.logger.log('Smoke test killProcessTree(): treeKill failed', e);
 		}
 	}
+	// --- End Positron ---
 
 	async getElement(selector: string): Promise<IElement | undefined> {
 		return (await this.driver.getElements(selector))?.[0];

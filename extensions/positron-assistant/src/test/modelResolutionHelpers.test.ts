@@ -9,10 +9,11 @@ import * as sinon from 'sinon';
 import * as extensionModule from '../extension.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import {
-	isDefaultUserModel,
+	findMatchingModelIndex,
 	getMaxTokens,
 	markDefaultModel
 } from '../modelResolutionHelpers.js';
+import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';
 
 suite('Model Resolution Helpers', () => {
 	let mockGetConfiguration: sinon.SinonStub;
@@ -46,59 +47,106 @@ suite('Model Resolution Helpers', () => {
 		sinon.restore();
 	});
 
-	suite('isDefaultUserModel', () => {
-		test('returns true when model ID matches user-configured default', () => {
-			const defaultModels = { 'anthropic-api': 'sonnet-4' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+	suite('findMatchingModelIndex', () => {
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+		test('returns matching index when model ID matches pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			assert.strictEqual(result, true);
+			const result = findMatchingModelIndex(models, 'sonnet-4');
+
+			assert.strictEqual(result, 0);
 		});
 
-		test('returns true when model name matches user-configured default', () => {
-			const defaultModels = { 'anthropic-api': 'Sonnet' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+		test('returns matching index when model name matches pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+			const result = findMatchingModelIndex(models, 'Sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('returns false when no match and no defaultMatch provided', () => {
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+		test('returns -1 when no match found', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5');
+			const result = findMatchingModelIndex(models, 'opus');
 
-			assert.strictEqual(result, false);
+			assert.strictEqual(result, -1);
 		});
 
-		test('returns true when ID matches defaultMatch pattern', () => {
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+		test('matches case-insensitively on model ID (lowercase pattern)', () => {
+			const models = [
+				{ id: 'claude-SONNET-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('anthropic-api', 'claude-sonnet-4-5', 'Claude Sonnet 4.5', 'sonnet-4');
+			const result = findMatchingModelIndex(models, 'sonnet');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('prioritizes user config over defaultMatch', () => {
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+		test('matches case-insensitively on model name (lowercase pattern)', () => {
+			const models = [
+				{ id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			// User wants opus, but defaultMatch suggests sonnet - user config should win
-			const result = isDefaultUserModel('anthropic-api', 'claude-opus-4-1', 'Claude Opus 4.1', 'sonnet-4');
+			const result = findMatchingModelIndex(models, 'haiku');
 
-			assert.strictEqual(result, true);
+			assert.strictEqual(result, 0);
 		});
 
-		test('handles provider not in defaultModels config', () => {
-			const defaultModels = { 'anthropic-api': 'sonnet' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+		test('matches case-insensitively with uppercase pattern', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
 
-			const result = isDefaultUserModel('openai-api', 'gpt-4', 'GPT-4');
+			const result = findMatchingModelIndex(models, 'SONNET');
 
-			assert.strictEqual(result, false);
+			assert.strictEqual(result, 0);
+		});
+
+		test('matches case-insensitively on ID with mixed case', () => {
+			const models = [
+				{ id: 'claude-SONNET-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
+
+			const result = findMatchingModelIndex(models, 'sonnet');
+
+			assert.strictEqual(result, 0);
+		});
+
+		test('prefers exact ID match over partial match', () => {
+			const models = [
+				{ id: 'claude-sonnet-4-5-preview', name: 'Claude Sonnet 4.5 Preview' },
+				{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }
+			] as vscode.LanguageModelChatInformation[];
+
+			// Pattern matches first model partially, but second model exactly
+			const result = findMatchingModelIndex(models, 'claude-sonnet-4-5');
+
+			assert.strictEqual(result, 1); // Exact match on second model
+		});
+
+		test('prefers exact name match over partial match', () => {
+			const models = [
+				{ id: 'model-a', name: 'Claude Sonnet Extended' },
+				{ id: 'model-b', name: 'Claude Sonnet' }
+			] as vscode.LanguageModelChatInformation[];
+
+			// Pattern matches first model partially, but second model exactly
+			const result = findMatchingModelIndex(models, 'Claude Sonnet');
+
+			assert.strictEqual(result, 1); // Exact match on second model
+		});
+
+		test('returns -1 for empty model list', () => {
+			const result = findMatchingModelIndex([], 'sonnet');
+
+			assert.strictEqual(result, -1);
 		});
 	});
 
@@ -173,6 +221,7 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(resultInput, 250_000);
 			assert.strictEqual(resultOutput, 64_000);
 		});
+
 	});
 
 	suite('markDefaultModel', () => {
@@ -185,7 +234,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -196,15 +245,15 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// Mock workspace configuration to simulate user preference for opus
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -224,7 +273,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -235,15 +284,15 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// Mock workspace configuration with no matching preference
-			const defaultModels = { 'anthropic-api': 'nonexistent' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerPreferences = { 'anthropic-api': 'nonexistent' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -260,7 +309,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -271,18 +320,16 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns({});
 
-			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4');
-
-			const defaultModel = result.find((m: any) => m.isDefault);
+			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
 			assert.strictEqual(defaultModel.id, 'claude-sonnet-4-5');
 			const nonDefaultModels = result.filter((m: any) => !m.isDefault);
 			assert.strictEqual(nonDefaultModels.length, 1);
@@ -298,7 +345,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -309,7 +356,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -320,15 +367,15 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 32_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// Mock workspace configuration that would match multiple models
-			const defaultModels = { 'anthropic-api': 'claude' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerPreferences = { 'anthropic-api': 'claude' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
 
 			const result = markDefaultModel(models as any, 'anthropic-api', 'claude-sonnet-4');
 
@@ -352,18 +399,16 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 100_000,
 					maxOutputTokens: 4_096,
-					capabilities: { vision: false, toolCalling: true, agentMode: false },
+					capabilities: { imageInput: false, toolCalling: true, agentMode: false },
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// Mock workspace configuration with no default models
-			mockGetConfiguration.withArgs('defaultModels').returns({});
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns({});
 
-			const result = markDefaultModel(models as any, 'test-provider');
-
-			assert.strictEqual(result.length, 1);
+			const result = markDefaultModel(models as any, 'test-provider'); assert.strictEqual(result.length, 1);
 			const model = result[0];
 			assert.strictEqual(model.id, 'test-model');
 			assert.strictEqual(model.name, 'Test Model');
@@ -371,7 +416,7 @@ suite('Model Resolution Helpers', () => {
 			assert.strictEqual(model.version, '1.0');
 			assert.strictEqual(model.maxInputTokens, 100_000);
 			assert.strictEqual(model.maxOutputTokens, 4_096);
-			assert.deepStrictEqual(model.capabilities, { vision: false, toolCalling: true, agentMode: false });
+			assert.deepStrictEqual(model.capabilities, { imageInput: false, toolCalling: true, agentMode: false });
 			assert.strictEqual(model.isDefault, true); // Should be marked as default (first/only model)
 			assert.strictEqual(model.isUserSelectable, true);
 		});
@@ -385,7 +430,7 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 8_192,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				},
@@ -396,19 +441,17 @@ suite('Model Resolution Helpers', () => {
 					version: '1.0',
 					maxInputTokens: 200_000,
 					maxOutputTokens: 64_000,
-					capabilities: { vision: true, toolCalling: true, agentMode: true },
+					capabilities: DEFAULT_MODEL_CAPABILITIES,
 					isDefault: false,
 					isUserSelectable: true
 				}
 			];
 
 			// User wants opus, but defaultMatch suggests sonnet - user config should win
-			const defaultModels = { 'anthropic-api': 'opus' };
-			mockGetConfiguration.withArgs('defaultModels').returns(defaultModels);
+			const providerPreferences = { 'anthropic-api': 'opus' };
+			mockGetConfiguration.withArgs('models.preference.byProvider').returns(providerPreferences);
 
-			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4');
-
-			const defaultModel = result.find((m: any) => m.isDefault);
+			const result = markDefaultModel(models as any, 'anthropic-api', 'sonnet-4'); const defaultModel = result.find((m: any) => m.isDefault);
 			assert.strictEqual(defaultModel.id, 'claude-opus-4-1');
 		});
 	});

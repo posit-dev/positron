@@ -6,6 +6,7 @@
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
+import * as fs from 'fs';
 
 // Merge Currents Fixtures into CustomTestOptions
 type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
@@ -13,6 +14,22 @@ type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorker
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
+const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
+	? [currentsReporter({
+		ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+		recordKey: process.env.CURRENTS_RECORD_KEY || '',
+		projectId: 'ZOs5z2',
+		disableTitleTags: true,
+	})]
+	: [];
+const customReporter = process.env.ENABLE_CUSTOM_REPORTER === 'true'
+	? [['@midleman/playwright-reporter',
+		{
+			repoName: 'positron',
+			mode: 'prod'
+		},
+	] as const]
+	: [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -32,11 +49,11 @@ export default defineConfig<ExtendedTestOptions>({
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
 	shardingMode: 'duration-round-robin',
-	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
+	// @ts-expect-error lastRunFile added by playwright patch
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
-		: [...baseIgnore, '**/pyrefly/**'],
+		: [...baseIgnore, '**/lsp/**'],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
@@ -52,16 +69,10 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			...githubSummaryReport,
+			...currentsReporters,
+			...customReporter,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
-			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
-				? [currentsReporter({
-					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-					recordKey: process.env.CURRENTS_RECORD_KEY || '',
-					projectId: 'ZOs5z2',
-					disableTitleTags: true,
-				})]
-				: [])
 		]
 		: [
 			['list'],
@@ -193,3 +204,22 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 	],
 });
+
+/**
+ * Check if the current platform is openSUSE
+ */
+function isOpenSUSE(): boolean {
+	try {
+		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
+		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+
+		return id.startsWith('opensuse') || id.includes('opensuse-leap') || idLike.includes('opensuse');
+	} catch {
+		return false;
+	}
+}
+
+// Set environment variable for tests to check
+const IS_OPENSUSE = isOpenSUSE();
+process.env.IS_OPENSUSE = IS_OPENSUSE ? 'true' : 'false';

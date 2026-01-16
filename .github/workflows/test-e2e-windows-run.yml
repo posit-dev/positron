@@ -11,6 +11,16 @@ name: "Test: E2E (Windows) — Sharded"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        required: false
+        description: "Skip restoring caches (use when testing a specific commit)"
+        type: boolean
+        default: false
       save_cache:
         required: false
         description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
@@ -81,6 +91,11 @@ on:
         description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
         type: number
         default: 10
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -107,6 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -142,7 +158,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Restore caches
+      - name: 📦 Restore caches
+        if: ${{ !inputs.skip_cache }}
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
@@ -153,7 +170,9 @@ jobs:
           npx patch-package
 
       - name: Install node dependencies
-        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' || steps.restore-caches.outputs.cache-npm-extensions-hit != 'true'
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
         uses: nick-fields/retry@v3
         env:
           npm_config_arch: x64
@@ -165,8 +184,13 @@ jobs:
           NPM_CONFIG_AUDIT: 'false'              # Skip security audit during install (speeds up install)
           NPM_CONFIG_FUND: 'false'               # Skip funding messages
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'    # Skip update notifications
+          # Extension filter logic:
+          #   volatile=hit, stable=miss  → filter=stable (install stable only)
+          #   volatile=miss, stable=hit  → filter=volatile (install volatile only)
+          #   both hit OR both miss      → filter='' (install all or skip via parent condition)
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
         with:
-          timeout_minutes: 35
+          timeout_minutes: 60
           max_attempts: 3
           retry_wait_seconds: 5
           shell: bash
@@ -201,31 +225,36 @@ jobs:
             echo "Downloading Kallichore binary..."
             cd ../positron-supervisor && npm rebuild --foreground-scripts
 
-      - name: Install E2E test dependencies
-        run: npm --prefix test/e2e ci --no-audit --no-fund
-
-      - name: Compile E2E Tests
-        run: npm --prefix test/e2e run compile
-
       - name: Compile Positron and Download Electron
         run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
 
       - name: Install Playwright browsers
         run: npm run playwright-install
 
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
         run: npm run prelaunch
 
-      - name: Save caches
+      - name: 💾 Save caches
         if: ${{ inputs.save_cache && matrix.shard == 1 }}
         uses: ./.github/actions/save-build-caches
         with:
           cache-npm-core-hit: ${{ steps.restore-caches.outputs.cache-npm-core-hit }}
-          cache-npm-extensions-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-hit }}
+          cache-npm-extensions-volatile-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit }}
+          cache-npm-extensions-stable-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-stable-hit }}
           cache-builtins-hit: ${{ steps.restore-caches.outputs.cache-builtins-hit }}
-          extensions-hash: ${{ steps.restore-caches.outputs.extensions-hash }}
+          cache-playwright-hit: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          extensions-volatile-hash: ${{ steps.restore-caches.outputs.extensions-volatile-hash }}
+          extensions-stable-hash: ${{ steps.restore-caches.outputs.extensions-stable-hash }}
           package-locks-hash: ${{ steps.restore-caches.outputs.package-locks-hash }}
+          node-version: ${{ steps.restore-caches.outputs.node-version }}
+          playwright-version: ${{ steps.restore-caches.outputs.playwright-version }}
 
       - name: Download Python requirements file
         id: download-python-reqs
@@ -237,7 +266,7 @@ jobs:
 
       - name: Restore Python packages cache
         id: cache-python
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -253,7 +282,7 @@ jobs:
       - name: Save Python packages cache
         if: ${{ matrix.shard == 1 && steps.cache-python.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: ${{ runner.os }}-pip-${{ steps.download-python-reqs.outputs.requirements-hash }}
@@ -293,7 +322,7 @@ jobs:
 
       - name: Restore R packages cache
         id: cache-r
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -310,7 +339,7 @@ jobs:
       - name: Save R packages cache
         if: ${{ matrix.shard == 1 && steps.cache-r.outputs.cache-hit != 'true' }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ~\AppData\Local\R\cache
@@ -360,7 +389,7 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Run Extensions Tests
+      - name: 🧪 Run Extensions Tests
         if: ${{ matrix.shard == 1 }}
         id: extensions
         continue-on-error: true
@@ -387,7 +416,7 @@ jobs:
           fi
           exit 0
 
-      - name: Run Bootstrap Extensions Test
+      - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
         id: bootstrap
         shell: bash
@@ -399,7 +428,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "${{ inputs.project }}" --reporter=null
 
-      - name: Run Playwright E2E Tests
+      - name: 🧪 Run Playwright E2E Tests
         shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
@@ -417,6 +446,7 @@ jobs:
           USE_KEY: true
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
@@ -451,7 +481,7 @@ jobs:
 
       - name: Upload Blob Report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
@@ -459,7 +489,7 @@ jobs:
 
       - name: Upload Extensions Test Logs If Failed
         if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: extensions-tests-logs
           path: extensions-tests-logs/
@@ -467,7 +497,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-win-logs
           path: test-logs
@@ -478,9 +508,11 @@ jobs:
     timeout-minutes: 10
     if: ${{ !cancelled() }}
     needs: [e2e-windows-run]
-    runs-on: ubuntu-latest-4x
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
@@ -511,7 +543,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*

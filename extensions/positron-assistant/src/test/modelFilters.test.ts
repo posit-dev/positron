@@ -17,6 +17,7 @@ suite('Model Filters', () => {
 		sinon.stub(vscode.workspace, 'getConfiguration').returns({
 			get: mockWorkspaceConfig
 		} as any);
+		mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 	});
 
 	teardown(() => {
@@ -44,7 +45,7 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns(['openai']);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
 
 			const result = applyModelFilters(models, 'openai', 'OpenAI');
 
@@ -56,7 +57,7 @@ suite('Model Filters', () => {
 			const models = [createTestModel('test-model', 'Test Model')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
 
 			// Should return all models for test providers
 			const testResult = applyModelFilters(models, 'test-lm-vendor', 'Test LM Vendor');
@@ -73,12 +74,14 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns([]);
 
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
 			assert.strictEqual(result.length, models.length);
-			assert.deepStrictEqual(result, models);
+			const resultIds = result.map(m => m.id);
+			assert.ok(resultIds.includes('claude-sonnet-4.5'));
+			assert.ok(resultIds.includes('claude-opus-4'));
 		});
 
 		test('filters models using patterns', () => {
@@ -150,7 +153,7 @@ suite('Model Filters', () => {
 
 			testCases.forEach(testCase => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
+				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 				const resultIds = result.map(m => m.id);
@@ -228,7 +231,7 @@ suite('Model Filters', () => {
 
 			testCases.forEach(testCase => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
+				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 				const resultIds = result.map(m => m.id);
@@ -318,7 +321,7 @@ suite('Model Filters', () => {
 
 			testCases.forEach(testCase => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
+				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 				const resultIds = result.map(m => m.id);
@@ -378,7 +381,7 @@ suite('Model Filters', () => {
 
 			testCases.forEach(testCase => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
+				mockWorkspaceConfig.withArgs('models.include', []).returns([testCase.pattern]);
 
 				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 
@@ -416,7 +419,7 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['gpt', 'claude']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt', 'claude']);
 
 			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
@@ -445,7 +448,7 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['gpt', '*chat*']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt', '*chat*']);
 
 			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
@@ -468,7 +471,7 @@ suite('Model Filters', () => {
 			const models = [createTestModel('gpt-4o', 'GPT-4o')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['nonexistent']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['nonexistent']);
 
 			const result = applyModelFilters(models, 'some-vendor', 'Some Vendor');
 
@@ -477,7 +480,7 @@ suite('Model Filters', () => {
 
 		test('handles empty model list', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['claude']);
 
 			const result = applyModelFilters([], 'anthropic', 'Anthropic');
 
@@ -488,7 +491,7 @@ suite('Model Filters', () => {
 			const models = [createTestModel('model-id-without-filter-string', 'Claude Opus 4')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['Opus']);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['Opus']);
 
 			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
@@ -504,7 +507,7 @@ suite('Model Filters', () => {
 			];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['Pro']); // Should match "Gemini Pro" and "Gemini Pro Vision" in name
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['Pro']); // Should match "Gemini Pro" and "Gemini Pro Vision" in name
 
 			const result = applyModelFilters(models, 'google', 'Google');
 
@@ -518,12 +521,164 @@ suite('Model Filters', () => {
 			const models = [createTestModel('model-v2.1', 'Model Version 2.1')];
 
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
-			mockWorkspaceConfig.withArgs('filterModels', []).returns(['v2.1']); // Pattern with dot
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['v2.1']); // Pattern with dot
 
 			const result = applyModelFilters(models, 'provider', 'Provider');
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].id, 'model-v2.1');
+		});
+
+		test('re-selects default model when original default is filtered out', () => {
+			// Create models with one marked as default
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-opus-4',
+					name: 'Claude Opus 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-sonnet-4',
+					name: 'Claude Sonnet 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-haiku-3',
+					name: 'Claude Haiku 3',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter out the default model (opus)
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
+
+			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-sonnet-4');
+
+			// Should have filtered out opus
+			assert.strictEqual(result.length, 2);
+			const resultIds = result.map(m => m.id);
+			assert.ok(!resultIds.includes('claude-opus-4'), 'Opus should be filtered out');
+			assert.ok(resultIds.includes('claude-sonnet-4'));
+			assert.ok(resultIds.includes('claude-haiku-3'));
+
+			// Should have re-selected a default (sonnet-4 because of defaultMatch pattern)
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'claude-sonnet-4', 'Default should be re-selected based on defaultMatch');
+		});
+
+		test('preserves existing default when it survives filtering', () => {
+			// Create models with one marked as default that will NOT be filtered
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-sonnet-4',
+					name: 'Claude Sonnet 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default and will pass the filter
+					isUserSelectable: true
+				},
+				{
+					id: 'claude-haiku-3',
+					name: 'Claude Haiku 3',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter includes the default model
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['sonnet', 'haiku']);
+
+			const result = applyModelFilters(models, 'anthropic-api', 'Anthropic', 'claude-haiku');
+
+			// Should still have both models
+			assert.strictEqual(result.length, 2);
+
+			// Original default should be preserved (not re-selected)
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'claude-sonnet-4', 'Original default should be preserved');
+		});
+
+		test('falls back to first model when defaultMatch does not match remaining models', () => {
+			const models: vscode.LanguageModelChatInformation[] = [
+				{
+					id: 'claude-opus-4',
+					name: 'Claude Opus 4',
+					version: '1.0',
+					family: 'anthropic',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: true, // This one is marked as default but will be filtered out
+					isUserSelectable: true
+				},
+				{
+					id: 'gpt-4o',
+					name: 'GPT-4o',
+					version: '1.0',
+					family: 'openai',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				},
+				{
+					id: 'gpt-4o-mini',
+					name: 'GPT-4o Mini',
+					version: '1.0',
+					family: 'openai',
+					maxInputTokens: 4096,
+					maxOutputTokens: 4096,
+					capabilities: {},
+					isDefault: false,
+					isUserSelectable: true
+				}
+			];
+
+			// Filter out the default model, keep only gpt models
+			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+			mockWorkspaceConfig.withArgs('models.include', []).returns(['gpt']);
+
+			// defaultMatch is 'claude-sonnet' which won't match any remaining models
+			const result = applyModelFilters(models, 'mixed', 'Mixed', 'claude-sonnet');
+
+			// Should have filtered out opus
+			assert.strictEqual(result.length, 2);
+
+			// Should have re-selected first remaining model as default
+			const defaultModels = result.filter(m => m.isDefault);
+			assert.strictEqual(defaultModels.length, 1, 'Should have exactly one default model');
+			assert.strictEqual(defaultModels[0].id, 'gpt-4o', 'First remaining model should become default');
 		});
 	});
 });

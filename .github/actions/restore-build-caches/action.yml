@@ -3,15 +3,15 @@ description: "Restores caches for npm dependencies and built-in extensions. Work
 
 # Platform-Agnostic Design:
 # This action automatically detects the platform (Linux/Windows) and uses appropriate
-# cache paths. Cache configuration is centralized in .github/scripts/:
+# cache paths. Cache configuration is centralized in .github/cache-scripts/:
 # - configure-npm-cache.sh: Sets up npm cache directory
 # - log-cache-status.sh: Unified logging for cache operations
 # - cache-paths.sh: SINGLE SOURCE OF TRUTH for all cache paths
 #
 # IMPORTANT: When adding new cache paths:
-# 1. Edit .github/scripts/cache-paths.sh ONLY (single source of truth)
+# 1. Edit .github/cache-scripts/cache-paths.sh ONLY (single source of truth)
 # 2. That's it! This action loads paths dynamically from cache-paths.sh
-# 3. Run .github/scripts/verify-cache-paths.sh to verify paths load correctly
+# 3. Run .github/cache-scripts/verify-cache-paths.sh to verify paths load correctly
 #
 # The paths are loaded at runtime via the "Load cache paths" step below,
 # eliminating the need to manually sync multiple files.
@@ -33,23 +33,42 @@ inputs:
     description: "Whether to restore built-in extensions cache (default: true)"
     required: false
     default: 'true'
+  restore-playwright:
+    description: "Whether to restore Playwright browsers cache (default: true)"
+    required: false
+    default: 'true'
 
 outputs:
   cache-npm-core-hit:
     description: "Whether npm core dependencies cache was restored"
     value: ${{ steps.cache-npm-core.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  cache-npm-extensions-hit:
-    description: "Whether npm extensions cache was restored"
-    value: ${{ steps.cache-npm-extensions.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-volatile-hit:
+    description: "Whether npm volatile extensions cache (python, assistant, r) was restored"
+    value: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  cache-npm-extensions-stable-hit:
+    description: "Whether npm stable extensions cache (all except python, assistant, r) was restored"
+    value: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit == 'true' && 'true' || 'false' }}
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit == 'true' && 'true' || 'false' }}
-  extensions-hash:
-    description: "Generated hash of all extension package-lock.json files"
-    value: ${{ steps.extensions-hash.outputs.hash }}
+  cache-playwright-hit:
+    description: "Whether Playwright browsers cache was restored"
+    value: ${{ steps.cache-playwright.outputs.cache-hit == 'true' && 'true' || 'false' }}
+  extensions-volatile-hash:
+    description: "Generated hash for volatile extensions (python, assistant, r)"
+    value: ${{ steps.extensions-volatile-hash.outputs.hash }}
+  extensions-stable-hash:
+    description: "Generated hash for stable extensions (all except python, assistant, r)"
+    value: ${{ steps.extensions-stable-hash.outputs.hash }}
   package-locks-hash:
     description: "Computed hash of all package-lock.json files (for DRY cache key generation)"
     value: ${{ steps.package-locks-hash.outputs.hash }}
+  node-version:
+    description: "Detected Node.js major version (e.g., 22)"
+    value: ${{ steps.node-version.outputs.version }}
+  playwright-version:
+    description: "Detected Playwright version from package.json"
+    value: ${{ steps.playwright-version.outputs.version }}
 
 runs:
   using: "composite"
@@ -58,12 +77,12 @@ runs:
       shell: bash
       run: |
         echo "::group::🔍 Verifying cache paths"
-        .github/scripts/verify-cache-paths.sh
+        .github/cache-scripts/verify-cache-paths.sh
         echo "::endgroup::"
 
     - name: Configure npm cache
       shell: bash
-      run: .github/scripts/configure-npm-cache.sh
+      run: .github/cache-scripts/configure-npm-cache.sh
 
     - name: Determine effective distro
       id: distro
@@ -83,13 +102,16 @@ runs:
       shell: bash
       run: |
         echo "::group::📦 Loading cache paths from cache-paths.sh"
-        source .github/scripts/cache-paths.sh
+        source .github/cache-scripts/cache-paths.sh
 
         echo "✅ npm-core: $(echo "$NPM_CORE_PATHS" | wc -l | tr -d ' ') paths"
         echo "$NPM_CORE_PATHS" | sed 's/^/  → /'
         echo ""
-        echo "✅ npm-extensions: $(echo "$NPM_EXTENSIONS_PATHS" | wc -l | tr -d ' ') paths"
-        echo "$NPM_EXTENSIONS_PATHS" | sed 's/^/  → /'
+        echo "✅ npm-extensions-volatile: $(echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_VOLATILE_PATHS" | sed 's/^/  → /'
+        echo ""
+        echo "✅ npm-extensions-stable: $(echo "$NPM_EXTENSIONS_STABLE_PATHS" | wc -l | tr -d ' ') paths"
+        echo "$NPM_EXTENSIONS_STABLE_PATHS" | sed 's/^/  → /'
         echo ""
         echo "✅ builtins: $(echo "$BUILTINS_PATHS" | wc -l | tr -d ' ') paths"
         echo "$BUILTINS_PATHS" | sed 's/^/  → /'
@@ -97,16 +119,28 @@ runs:
         output_to_github_actions
         echo "::endgroup::"
 
-    - name: Generate extensions cache key
+    - name: Generate volatile extensions cache key
       if: ${{ inputs.restore-npm-extensions == 'true' }}
-      id: extensions-hash
+      id: extensions-volatile-hash
       continue-on-error: true
       shell: bash
       run: |
-        if ! .github/scripts/generate-extensions-hash.sh; then
-          echo "::warning::Extensions hash generation failed - caching will be degraded"
-          echo "⚠️ **Cache Warning**: Extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
-          echo "hash=fallback-extensions-$(date +%s)" >> "$GITHUB_OUTPUT"
+        if ! .github/cache-scripts/generate-extensions-hash.sh --filter volatile; then
+          echo "::warning::Volatile extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Volatile extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-volatile-$(date +%s)" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Generate stable extensions cache key
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: extensions-stable-hash
+      continue-on-error: true
+      shell: bash
+      run: |
+        if ! .github/cache-scripts/generate-extensions-hash.sh --filter stable; then
+          echo "::warning::Stable extensions hash generation failed - caching will be degraded"
+          echo "⚠️ **Cache Warning**: Stable extensions hash generation failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "hash=fallback-extensions-stable-$(date +%s)" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Generate package-locks cache key
@@ -115,11 +149,24 @@ runs:
       continue-on-error: true
       shell: bash
       run: |
-        if ! .github/scripts/generate-package-locks-hash.sh; then
+        if ! .github/cache-scripts/generate-package-locks-hash.sh; then
           echo "::warning::Package-locks hash generation failed - caching will be degraded"
           echo "⚠️ **Cache Warning**: Package-locks hash generation failed" >> "$GITHUB_STEP_SUMMARY"
           echo "hash=fallback-package-locks-$(date +%s)" >> "$GITHUB_OUTPUT"
         fi
+
+    - name: Get Node.js major version
+      if: ${{ inputs.restore-npm-core == 'true' }}
+      id: node-version
+      shell: bash
+      run: |
+        # Extract just the major version (e.g., "22" from "v22.22.0")
+        # Using major version only because ABI is stable within a major version
+        # (all Node 22.x use NODE_MODULE_VERSION=127, native modules are compatible)
+        NODE_FULL=$(node -v)
+        NODE_MAJOR=$(echo "$NODE_FULL" | sed 's/v\([0-9]*\).*/\1/')
+        echo "version=$NODE_MAJOR" >> "$GITHUB_OUTPUT"
+        echo "Detected Node.js: $NODE_FULL → using major version $NODE_MAJOR for cache key"
 
     - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm-core == 'true' }}
@@ -128,16 +175,27 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v4-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        restore-keys: |
+          npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
-    - name: Restore npm extensions cache
+    - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
-      id: cache-npm-extensions
+      id: cache-npm-extensions-volatile
       continue-on-error: true
       uses: actions/cache/restore@v4
       with:
-        path: ${{ steps.cache-paths.outputs.npm-extensions-paths }}
-        key: npm-extensions-v6-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-hash.outputs.hash }}
+        path: ${{ steps.cache-paths.outputs.npm-extensions-volatile-paths }}
+        key: npm-extensions-volatile-v1-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-volatile-hash.outputs.hash }}
+
+    - name: Restore npm stable extensions cache
+      if: ${{ inputs.restore-npm-extensions == 'true' }}
+      id: cache-npm-extensions-stable
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.npm-extensions-stable-paths }}
+        key: npm-extensions-stable-v3-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.extensions-stable-hash.outputs.hash }}
 
     - name: Restore built-in extensions cache
       if: ${{ inputs.restore-builtins == 'true' }}
@@ -150,14 +208,71 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
+    - name: Get Playwright version
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: playwright-version
+      shell: bash
+      run: .github/cache-scripts/get-playwright-version.sh
+
+    - name: Restore Playwright browsers cache
+      if: ${{ inputs.restore-playwright == 'true' }}
+      id: cache-playwright
+      continue-on-error: true
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.cache-paths.outputs.playwright-paths }}
+        key: playwright-v2-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+        restore-keys: |
+          playwright-v2-${{ runner.os }}-
+
+    - name: Detect partial cache hits (restore-key matches)
+      if: always()
+      id: detect-partials
+      shell: bash
+      run: |
+        # Detect if restore-key matched (cache-hit: false but cache was restored)
+        # Check if cache directories have content when cache-hit is false
+
+        check_partial() {
+          local cache_hit="$1"
+          local dir="$2"
+          local output_name="$3"
+
+          if [[ "$cache_hit" == "false" ]] && [[ -d "$dir" ]] && [[ -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            echo "${output_name}=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "${output_name}=false" >> "$GITHUB_OUTPUT"
+          fi
+        }
+
+        # Check each cache type for partial hits
+        check_partial "${{ steps.cache-npm-core.outputs.cache-hit }}" ".npm-cache" "npm-core-partial"
+        check_partial "${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}" "extensions/positron-python" "npm-extensions-volatile-partial"
+        check_partial "${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}" "extensions/positron-duckdb" "npm-extensions-stable-partial"
+        check_partial "${{ steps.cache-builtins.outputs.cache-hit }}" ".build/builtInExtensions" "builtins-partial"
+        check_partial "${{ steps.cache-playwright.outputs.cache-hit }}" "$HOME/.cache/ms-playwright" "playwright-partial"
+
     - name: Log cache results
       if: always()
       shell: bash
       env:
+        # restore inputs
         RESTORE_NPM_CORE: ${{ inputs.restore-npm-core }}
         RESTORE_NPM_EXTENSIONS: ${{ inputs.restore-npm-extensions }}
         RESTORE_BUILTINS: ${{ inputs.restore-builtins }}
+        RESTORE_PLAYWRIGHT: ${{ inputs.restore-playwright }}
+
+        # cache - exact hits (from GitHub Actions)
         CACHE_NPM_CORE_HIT: ${{ steps.cache-npm-core.outputs.cache-hit }}
-        CACHE_NPM_EXTENSIONS_HIT: ${{ steps.cache-npm-extensions.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_HIT: ${{ steps.cache-npm-extensions-volatile.outputs.cache-hit }}
+        CACHE_NPM_EXTENSIONS_STABLE_HIT: ${{ steps.cache-npm-extensions-stable.outputs.cache-hit }}
         CACHE_BUILTINS_HIT: ${{ steps.cache-builtins.outputs.cache-hit }}
-      run: .github/scripts/log-cache-status.sh restore
+        CACHE_PLAYWRIGHT_HIT: ${{ steps.cache-playwright.outputs.cache-hit }}
+
+        # cache - partial hits (our detection: cache-hit=false but content exists)
+        CACHE_NPM_CORE_PARTIAL: ${{ steps.detect-partials.outputs.npm-core-partial }}
+        CACHE_NPM_EXTENSIONS_VOLATILE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-volatile-partial }}
+        CACHE_NPM_EXTENSIONS_STABLE_PARTIAL: ${{ steps.detect-partials.outputs.npm-extensions-stable-partial }}
+        CACHE_BUILTINS_PARTIAL: ${{ steps.detect-partials.outputs.builtins-partial }}
+        CACHE_PLAYWRIGHT_PARTIAL: ${{ steps.detect-partials.outputs.playwright-partial }}
+      run: .github/cache-scripts/log-cache-status.sh restore

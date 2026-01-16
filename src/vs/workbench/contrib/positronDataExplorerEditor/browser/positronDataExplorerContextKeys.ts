@@ -15,6 +15,11 @@ export const POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR = ContextKeyExpr.equals(
 	PositronDataExplorerEditorInput.EditorID
 );
 
+export const POSITRON_DATA_EXPLORER_IS_FOCUSED = ContextKeyExpr.equals(
+	'positronDataExplorerFocused',
+	true
+);
+
 /**
  * Raw context keys.
  */

@@ -78,6 +78,11 @@ on:
         description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
         type: number
         default: 10
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -94,7 +99,7 @@ jobs:
       matrix: ${{ fromJson(inputs.matrix) }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
-      options: --user 0:0
+      options: --user 0:0 --init
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -264,10 +269,14 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Install Playwright browsers
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: npx playwright install --with-deps
 
       - name: Install Microsoft Edge for e2e-edge project
         if: ${{ inputs.project == 'e2e-edge' }}
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
         run: |
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge
@@ -275,6 +284,7 @@ jobs:
       - name: Run Playwright Tests
         shell: bash
         env:
+          PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
@@ -292,6 +302,7 @@ jobs:
           USE_KEY: true
           PW_PROJECT_NAME: ${{ inputs.project }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""
@@ -336,7 +347,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs-${{ matrix.shard }}
+          name: ${{ inputs.project }}-ubuntu-logs-${{ matrix.shard }}
           path: test-logs
           retention-days: 3
           if-no-files-found: ignore

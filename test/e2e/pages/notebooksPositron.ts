@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Sessions, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -55,7 +55,19 @@ export class PositronNotebooks extends Notebooks {
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
 	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
+	// Search Widget
+	private searchWidget = this.code.driver.page.locator('.positron-find-widget');
+	private findInput = this.searchWidget.getByRole('textbox', { name: 'Find' });
+	private replaceInput = this.searchWidget.getByRole('textbox', { name: 'Replace' });
+	private replaceButton = this.searchWidget.getByRole('button', { name: 'Replace' });
+	private replaceAllButton = this.searchWidget.getByRole('button', { name: 'Replace All' });
+	private searchNextButton = this.searchWidget.getByRole('button', { name: 'Next Match' });
+	private searchPreviousButton = this.searchWidget.getByRole('button', { name: 'Previous Match' });
+	private searchCloseButton = this.searchWidget.getByRole('button', { name: 'Close', exact: true });
+	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
+
+
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
@@ -141,30 +153,7 @@ export class PositronNotebooks extends Notebooks {
 	// #region ACTIONS
 
 	/**
-	 * Action: Configure Positron notebook editor in settings.
-	 * @param settings - The settings fixture
-	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
-	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
-	 * @param enableNotebooks - Whether to enable Positron notebooks (defaults to true, set to false to explicitly disable)
-	 */
-	async setNotebookEditor(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		},
-		editor: 'positron' | 'default',
-		waitMs = 800,
-		enableNotebooks = true
-	) {
-		await settings.set({
-			'positron.notebook.enabled': enableNotebooks,
-			'workbench.editorAssociations': editor === 'positron'
-				? { '*.ipynb': 'workbench.editor.positronNotebook' }
-				: {}
-		}, { waitMs });
-	}
-
-	/**
-	 * Action: Configure editor associations to use Positron notebook editor for .ipynb files.
+	 * Action: Enable Positron notebooks as the default editor.
 	 * @param settings - The settings fixture
 	 */
 	async enablePositronNotebooks(
@@ -172,11 +161,27 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		const config: Record<string, unknown> = {
-			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
-		};
-		await settings.set(config, { reload: 'web' });
-		await this.sessions.expectNoStartUpMessaging();
+		await settings.set(
+			{ 'positron.notebook.enabled': true },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
+	}
+
+	/**
+	 * Action: Disable Positron notebooks as the default editor.
+	 * @param settings - The settings fixture
+	 */
+	async disablePositronNotebooks(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+	) {
+		await settings.set(
+			{ 'positron.notebook.enabled': false },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
 	}
 
 	/**
@@ -203,7 +208,6 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		let totalCellsAdded = 0;
-		const keyboard = this.code.driver.page.keyboard;
 
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
@@ -217,7 +221,9 @@ export class PositronNotebooks extends Notebooks {
 		if (markdownCells > 0) {
 			for (let i = 0; i < markdownCells; i++) {
 				await this.addCell('markdown');
-				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				const editor = this.editorAtIndex(totalCellsAdded);
+				await editor.focus();
+				await editor.pressSequentially(`### Cell ${totalCellsAdded}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
 				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
 				totalCellsAdded++;
@@ -508,9 +514,106 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	/**
+	 * Action: Search Notebook.
+	 * @param searchText - The text to search for.
+	 * @param options - Options to control behavior:
+	 * replaceText: Optional text to replace the search text with.
+	 * replaceAll: Whether to replace all occurrences (default: false).
+	 */
+	async search(
+		searchText: string,
+		options?: { replaceText?: string; replaceAll?: boolean; enterKey?: boolean }
+	): Promise<void> {
+		const { replaceText = undefined, replaceAll = false, enterKey = true } = options ?? {};
+
+		await test.step(`Search notebook for: ${searchText}`, async () => {
+			// Open search
+			await this.hotKeys.searchInNotebook();
+			await expect(this.searchWidget).toBeVisible({ timeout: 2000 });
+
+			// Enter search text
+			await this.findInput.fill(searchText);
+
+			// If replace text is provided, perform replace
+			if (replaceText !== undefined) {
+				await this.replaceInput.fill(replaceText);
+
+				replaceAll
+					? await this.replaceAllButton.click()
+					: await this.replaceButton.click();
+			}
+
+			if (enterKey) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+		});
+	}
+
+	/**
+	 * Action: Click the 'Next Match' button in the search widget.
+	 * @param mode - 'button' to click the button, 'keyboard' to press Enter key (default: 'button')
+	 */
+	async searchNext(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
+		await test.step('Search next match', async () => {
+			mode === 'keyboard'
+				? await this.code.driver.page.keyboard.press('Enter')
+				: await this.searchNextButton.click();
+		});
+	}
+
+	/**
+	 * Action: Click the 'Previous Match' button in the search widget.
+	 */
+	async searchPrevious(): Promise<void> {
+		await test.step('Search previous match', async () => {
+			await this.searchPreviousButton.click();
+		});
+	}
+
+	/**
+	 * Action: Close the search widget.
+	 * @param mode - 'button' to click the close button, 'keyboard' to press Escape key.
+	 */
+	async searchClose(mode: 'button' | 'keyboard' = 'button'): Promise<void> {
+		await test.step('Close search widget', async () => {
+			mode === 'keyboard'
+				? await this.code.driver.page.keyboard.press('Escape')
+				: await this.searchCloseButton.click();
+
+			await expect(this.searchWidget).not.toBeVisible({ timeout: 2000 });
+		});
+	}
+
 	// #endregion
 
 	// #region VERIFICATIONS
+
+	/**
+	 * Verify: search count matches expected count.
+	 * @param total  - The expected number of search results.
+	 * @param current - The expected current search result index (1-based).
+	 */
+	async expectSearchCountToBe({ current, total }: { current?: number; total: number }): Promise<void> {
+		await test.step(`Expect search count to be: ${current ?? '_'} of ${total}`, async () => {
+			if (total === 0) {
+				await expect(this.searchWidget.getByText('No results')).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			} else {
+				const countText = current !== undefined ? `${current} of ${total}` : `of ${total}`;
+				await expect(this.searchWidget.getByText(countText)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			}
+		});
+	}
+
+	/**
+	 * Verify: search decoration count matches expected count.
+	 * @param expectedCount - The expected number of search decorations.
+	 */
+	async expectSearchDecorationCountToBe(expectedCount: number): Promise<void> {
+		await test.step(`Expect search decoration count to be: ${expectedCount}`, async () => {
+			await expect(this.searchDecoration).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
 
 	/**
 	 * Verify: a Positron notebook is visible on the page.

@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { UiClientInstance, IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
@@ -157,6 +157,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	onDidReceiveRuntimeMessagePromptConfig: Event<void>;
 	onDidReceiveRuntimeMessageIPyWidget: Event<ILanguageRuntimeMessageIPyWidget>;
 
+	/** An event that fires when the runtime's resource usage is updated */
+	onDidUpdateResourceUsage: Event<ILanguageRuntimeResourceUsage>;
+
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 
@@ -169,7 +172,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * known to the the backend; to request the full set of clients from the
 	 * backend, use `listClients`.
 	 */
-	clientInstances: IRuntimeClientInstance<any, any>[];
+	clientInstances: IRuntimeClientInstance<unknown, unknown>[];
 
 	/**
 	 * Opens a resource in the runtime.
@@ -196,10 +199,10 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 * @param metadata The metadata to pass to the client constructor
 	 * @param id The unique identifier for the client instance. Defaults to a randomly generated ID.
 	 */
-	createClient<T, U>(type: RuntimeClientType, params: any, metadata?: any, id?: string): Thenable<IRuntimeClientInstance<T, U>>;
+	createClient<T, U>(type: RuntimeClientType, params: unknown, metadata?: unknown, id?: string): Thenable<IRuntimeClientInstance<T, U>>;
 
 	/** Get a list of all known clients */
-	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<any, any>>>;
+	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<unknown, unknown>>>;
 
 	/** Reply to an input prompt that the runtime issued
 	 * (via a LanguageRuntimePrompt message)

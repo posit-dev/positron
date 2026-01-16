@@ -167,6 +167,24 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	//#region Private Methods
 
 	/**
+	 * Applies the appropriate layout for the folder template.
+	 * This is called before awaiting trust since layout changes don't require trust.
+	 */
+	private async _applyLayout(): Promise<void> {
+		if (!this._newFolderConfig) {
+			return;
+		}
+
+		// Apply notebook layout if this is a Jupyter Notebook template opened in a new window.
+		// When opened in the current window, we preserve the user's existing layout.
+		if (this._newFolderConfig.folderTemplate === FolderTemplate.JupyterNotebook &&
+			this._newFolderConfig.openInNewWindow) {
+			this._logService.debug('[New folder startup] Applying notebook layout for Jupyter Notebook folder template in new window');
+			await this._commandService.executeCommand('workbench.action.positronNotebookLayout');
+		}
+	}
+
+	/**
 	 * Parses the new folder configuration from the storage service and returns it.
 	 * @returns The new folder configuration.
 	 */
@@ -396,6 +414,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 						this._handleGitIgnoreError(error);
 					});
 				break;
+			case FolderTemplate.EmptyProject:
+				// Empty projects don't need a .gitignore file
+				break;
 			default:
 				this._logService.error(
 					'Cannot determine .gitignore content for unknown folder template',
@@ -436,7 +457,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				// Ensure the Python interpreter path is available. This is the global Python
 				// interpreter to use for the new environment. This is only required if we are not
 				// using a conda or uv environment.
-				const interpreterPath = runtimeMetadata?.extraRuntimeData?.pythonPath;
+				const interpreterPath = (runtimeMetadata?.extraRuntimeData as { pythonPath?: string } | undefined)?.pythonPath;
 				if (!interpreterPath && !condaPythonVersion && !uvPythonVersion) {
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new folder.');
 					this._logService.error(message);
@@ -598,6 +619,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		const notebookEditors = this._notebookEditorService.listNotebookEditors();
 
 		// Prefer the active notebook editor if available
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const activeEditor = (this._notebookEditorService as any).activeNotebookEditor as { textModel?: INotebookTextModel } | undefined;
 		const editor = activeEditor?.textModel
 			? activeEditor
@@ -737,6 +759,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			if (!hasExecuted) {
 				this._logService.debug('[New folder startup] Overriding pre-selected kernel because notebook has no execution history.');
 				// We simply clear the selection; the subsequent logic will select the correct kernel.
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				this._notebookKernelService.selectKernelForNotebook(undefined as any, notebookTextModel);
 			}
 		}
@@ -833,6 +856,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			case FolderTemplate.RProject:
 				tasks.add(NewFolderTask.R);
 				break;
+			case FolderTemplate.EmptyProject:
+				// Empty project doesn't have any language-specific tasks
+				break;
 			default:
 				this._logService.error(
 					'Cannot determine new folder tasks for unknown folder template',
@@ -845,9 +871,10 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			tasks.add(NewFolderTask.Git);
 		}
 
-		// Always create a new file in the new folder. This may be controlled by a folder config
-		// setting in the future.
-		tasks.add(NewFolderTask.CreateNewFile);
+		// Create a new file for language-specific templates. Empty projects don't create a file.
+		if (this._newFolderConfig.folderTemplate !== FolderTemplate.EmptyProject) {
+			tasks.add(NewFolderTask.CreateNewFile);
+		}
 
 		return tasks;
 	}
@@ -915,6 +942,15 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		if (this._newFolderConfig) {
 			// We're in the new folder window, so we can clear the config from the storage service.
 			this.clearNewFolderConfig();
+
+			// Apply layout before awaiting trust since layout changes don't require trust.
+			this._startupPhase.set(
+				NewFolderStartupPhase.ApplyLayout,
+				undefined
+			);
+			this._applyLayout().catch((error) => {
+				this._logService.error('[New folder startup] Error applying layout:', error);
+			});
 
 			this._startupPhase.set(
 				NewFolderStartupPhase.AwaitingTrust,
