@@ -476,20 +476,25 @@ def _handle_completion(
                 has_closing_quote=has_closing_quote,
             )
         )
-    elif "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
-        # Attribute completion (only if not inside a function call)
-        items.extend(_get_attribute_completions(server, text_before_cursor))
-    elif trimmed_line.startswith((_LINE_MAGIC_PREFIX, _CELL_MAGIC_PREFIX)):
-        # Magic command completion only
-        pass  # Will add magics below
-    else:
-        # Namespace completions - always include these so users can use positional arguments
-        # When inside a function call, don't filter by prefix to allow any namespace item
-        items.extend(
-            _get_namespace_completions(
-                server, text_before_cursor, filter_prefix=not inside_function_call
+
+    # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
+    items.extend(_get_getenv_completions(server, text_before_cursor, text_after_cursor))
+
+    if not dict_key_match:
+        if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
+            # Attribute completion (only if not inside a function call)
+            items.extend(_get_attribute_completions(server, text_before_cursor))
+        elif trimmed_line.startswith((_LINE_MAGIC_PREFIX, _CELL_MAGIC_PREFIX)):
+            # Magic command completion only
+            pass  # Will add magics below
+        else:
+            # Namespace completions - always include these so users can use positional arguments
+            # When inside a function call, don't filter by prefix to allow any namespace item
+            items.extend(
+                _get_namespace_completions(
+                    server, text_before_cursor, filter_prefix=not inside_function_call
+                )
             )
-        )
 
     # Add magic completions if appropriate
     is_completing_attribute = "." in trimmed_line
@@ -521,19 +526,7 @@ def _get_parameter_completions(
         return []
 
     # Find if we're inside a function call
-    # Look for pattern like "func(" or "obj.method("
-    paren_depth = 0
-    func_end = -1
-    for i in range(len(text_before_cursor) - 1, -1, -1):
-        c = text_before_cursor[i]
-        if c == ")":
-            paren_depth += 1
-        elif c == "(":
-            if paren_depth == 0:
-                func_end = i
-                break
-            paren_depth -= 1
-
+    func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
         return []
 
@@ -552,6 +545,10 @@ def _get_parameter_completions(
 
     # Parse arguments section to understand context
     args_text = text_before_cursor[func_end + 1 :]
+
+    # Skip parameter completions if we're inside a string literal
+    if _is_inside_string(args_text):
+        return []
 
     # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
     # Pattern: look for "word=" at the end, possibly with a value started
@@ -673,8 +670,8 @@ def _get_dict_key_completions(
     if isinstance(obj, dict):
         keys = [str(k) for k in obj if isinstance(k, str)]
     elif _is_environ_like(obj):
-        # os.environ or similar
-        keys = list(os.environ.keys())
+        # os.environ or similar - use shared helper
+        return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
     elif _is_dataframe_like(obj):
         # pandas/polars DataFrame
         with contextlib.suppress(Exception):
@@ -708,6 +705,133 @@ def _is_environ_like(obj: Any) -> bool:
     return type_name == "_Environ" or (
         hasattr(obj, "keys") and hasattr(obj, "__getitem__") and type_name.startswith("_Environ")
     )
+
+
+def _make_env_var_completions(
+    prefix: str,
+    quote_char: str,
+    *,
+    has_closing_quote: bool,
+) -> list[types.CompletionItem]:
+    """Create completion items for environment variables matching prefix."""
+    items = []
+    for key in os.environ:
+        if not key.startswith(prefix):
+            continue
+        completion_text = key if has_closing_quote else f"{key}{quote_char}"
+        items.append(
+            types.CompletionItem(
+                label=completion_text,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"a{key}",
+                insert_text=completion_text,
+            )
+        )
+    return items
+
+
+def _get_getenv_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+) -> list[types.CompletionItem]:
+    """Get environment variable completions for os.getenv() calls.
+
+    Provides completions for the 'key' parameter (first positional or key=)
+    but not for the 'default' parameter.
+    """
+    # Quick early exit: skip expensive parsing if "getenv" isn't in the text
+    if server.shell is None or "getenv" not in text_before_cursor:
+        return []
+
+    # Check if cursor is inside a string literal (matches opening quote + optional prefix)
+    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    prefix = string_match.group(2) or ""
+    before_string = text_before_cursor[: string_match.start()]
+
+    # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
+    keyword_match = re.search(r"(\w+)\s*=\s*$", before_string)
+    if keyword_match and keyword_match.group(1) != "key":
+        return []
+
+    # Find the enclosing function call's opening parenthesis
+    func_paren_pos = _find_enclosing_paren(before_string)
+    if func_paren_pos < 0:
+        return []
+
+    # Extract and validate the function name
+    func_match = re.search(r"([\w\.]+)\s*$", before_string[:func_paren_pos])
+    if not func_match or not func_match.group(1).endswith("getenv"):
+        return []
+
+    # Verify it's actually os.getenv
+    func_name = func_match.group(1)
+    resolved = _safe_resolve_expression(server.shell.user_ns, func_name)
+    if resolved is not os.getenv:
+        return []
+
+    # For positional args, only complete the first argument (not 'default')
+    if not keyword_match:
+        args_text = before_string[func_paren_pos + 1 :]
+        if _count_arg_commas(args_text) > 0:
+            return []
+
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+    return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+
+
+def _find_enclosing_paren(text: str) -> int:
+    """Find position of the opening parenthesis for the enclosing function call."""
+    depth = 0
+    for i in range(len(text) - 1, -1, -1):
+        c = text[i]
+        if c == ")":
+            depth += 1
+        elif c == "(":
+            if depth == 0:
+                return i
+            depth -= 1
+    return -1
+
+
+def _count_arg_commas(args_text: str) -> int:
+    """Count commas in function arguments, ignoring those inside strings or nested parens."""
+    count = 0
+    in_string = False
+    string_char = ""
+    depth = 0
+    for c in args_text:
+        if in_string:
+            if c == string_char:
+                in_string = False
+        elif c in "\"'":
+            in_string = True
+            string_char = c
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "," and depth == 0:
+            count += 1
+    return count
+
+
+def _is_inside_string(text: str) -> bool:
+    """Check if cursor is inside an unclosed string literal."""
+    in_string = False
+    string_char = ""
+    for c in text:
+        if in_string:
+            if c == string_char:
+                in_string = False
+        elif c in "\"'":
+            in_string = True
+            string_char = c
+    return in_string
 
 
 def _is_series_like(obj: Any) -> bool:
@@ -995,19 +1119,7 @@ def _handle_signature_help(
     text_before_cursor = line[: params.position.character]
 
     # Find function call context
-    # Simple approach: find the last unclosed parenthesis
-    paren_depth = 0
-    func_end = -1
-    for i in range(len(text_before_cursor) - 1, -1, -1):
-        c = text_before_cursor[i]
-        if c == ")":
-            paren_depth += 1
-        elif c == "(":
-            if paren_depth == 0:
-                func_end = i
-                break
-            paren_depth -= 1
-
+    func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
         return None
 
@@ -1070,9 +1182,9 @@ def _handle_signature_help(
         parameters=params_list,
     )
 
-    # Determine active parameter
+    # Determine active parameter (count commas, ignoring those inside strings/nested parens)
     args_text = text_before_cursor[func_end + 1 :]
-    active_param = args_text.count(",")
+    active_param = _count_arg_commas(args_text)
 
     return types.SignatureHelp(
         signatures=[signature_info],
