@@ -157,7 +157,9 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
 	// But exclude any that are already registered manually
-	const autoconfiguredModels = getAutoconfiguredModels().filter(m => !registeredModels.some(rm => rm.provider === m.provider));
+	// Use a Set for O(1) lookup instead of Array.some() which is O(n)
+	const registeredProviderIds = new Set(registeredModels?.map(rm => rm.provider));
+	const autoconfiguredModels = getAutoconfiguredModels().filter(m => !registeredProviderIds.has(m.provider));
 	const allProviders = [...getModelProviders(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
