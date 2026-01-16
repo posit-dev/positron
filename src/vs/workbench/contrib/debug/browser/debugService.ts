@@ -995,6 +995,14 @@ export class DebugService implements IDebugService {
 
 		// Trigger toolbar update
 		this._onDidChangeState.fire(this.state);
+
+		// When bringing a session to the foreground, open the debug pane based on user settings
+		if (!suppress && !session.suppressDebugView) {
+			const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
+			if (openDebug !== 'neverOpen') {
+				this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
+			}
+		}
 	}
 
 	/**
