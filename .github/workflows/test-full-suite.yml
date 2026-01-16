@@ -113,7 +113,7 @@ jobs:
   e2e-electron:
     name: e2e
     needs: [setup]
-    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_linux) }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -155,7 +155,7 @@ jobs:
   e2e-chromium:
     name: e2e
     needs: [setup]
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_browser) }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
