@@ -115,6 +115,16 @@ export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
 /**
  * A data explorer client instance.
  */
+/**
+ * Default thousands separator for data display (no separator).
+ */
+const DEFAULT_DATA_THOUSANDS_SEP = '';
+
+/**
+ * Default thousands separator for profile/summary display (comma).
+ */
+const DEFAULT_PROFILE_THOUSANDS_SEP = ',';
+
 export class DataExplorerClientInstance extends Disposable {
 	//#region Private Properties
 
@@ -207,8 +217,12 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * Creates a new data explorer client instance.
 	 * @param backendClient The data explorer backend client instance.
+	 * @param _useLanguagePackFormatOptions Whether to use format options from the language pack.
 	 */
-	constructor(backendClient: IDataExplorerBackendClient) {
+	constructor(
+		backendClient: IDataExplorerBackendClient,
+		private readonly _useLanguagePackFormatOptions: boolean
+	) {
 		// Call the disposable constructor.
 		super();
 
@@ -217,7 +231,7 @@ export class DataExplorerClientInstance extends Disposable {
 			small_num_digits: 4,
 			max_integral_digits: 7,
 			max_value_length: 1000,
-			thousands_sep: '',
+			thousands_sep: DEFAULT_DATA_THOUSANDS_SEP,
 		};
 
 		this._profileFormatOptions = {
@@ -225,7 +239,7 @@ export class DataExplorerClientInstance extends Disposable {
 			small_num_digits: 4,
 			max_integral_digits: 7,
 			max_value_length: 1000,
-			thousands_sep: ','
+			thousands_sep: DEFAULT_PROFILE_THOUSANDS_SEP
 		};
 		// Create and register the PositronDataExplorerComm on the client.
 		this._backendClient = backendClient;
@@ -368,6 +382,25 @@ export class DataExplorerClientInstance extends Disposable {
 		if (this.cachedBackendState.connected === false) {
 			// Halt more requests from going out
 			this.status = DataExplorerClientStatus.Disconnected;
+		}
+
+		// Update format options from backend state if provided and setting is enabled
+		if (this._useLanguagePackFormatOptions && this.cachedBackendState.format_options) {
+			const backendFormatOptions = this.cachedBackendState.format_options;
+
+			// Merge backend format options with data format options
+			this._dataFormatOptions = {
+				...this._dataFormatOptions,
+				...backendFormatOptions,
+				thousands_sep: backendFormatOptions.thousands_sep ?? DEFAULT_DATA_THOUSANDS_SEP
+			};
+
+			// Merge backend format options with profile format options
+			this._profileFormatOptions = {
+				...this._profileFormatOptions,
+				...backendFormatOptions,
+				thousands_sep: backendFormatOptions.thousands_sep ?? DEFAULT_PROFILE_THOUSANDS_SEP
+			};
 		}
 
 		// Notify listeners

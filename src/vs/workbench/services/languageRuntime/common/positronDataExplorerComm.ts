@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -155,6 +155,12 @@ export interface BackendState {
 	 * connected=false. This parameter may change.
 	 */
 	error_message?: string;
+
+	/**
+	 * Optional formatting options provided by the backend for displaying
+	 * data values
+	 */
+	format_options?: FormatOptions;
 
 }
 

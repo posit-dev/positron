@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -16,6 +17,7 @@ import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js'
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY } from './positronDataExplorerSummary.js';
 import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
@@ -57,10 +59,12 @@ class DataExplorerRuntime extends Disposable {
 
 	/**
 	 * Constructor.
+	 * @param _configurationService The configuration service.
 	 * @param _notificationService The notification service.
 	 * @param _session The session.
 	 */
 	constructor(
+		private readonly _configurationService: IConfigurationService,
 		private readonly _notificationService: INotificationService,
 		private readonly _session: ILanguageRuntimeSession
 	) {
@@ -79,7 +83,8 @@ class DataExplorerRuntime extends Disposable {
 
 				// Create and register the DataExplorerClientInstance for the client instance.
 				const commInstance = new PositronDataExplorerComm(e.client);
-				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
+				const useLanguagePackFormatOptions = this._configurationService.getValue<boolean>(USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY);
+				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance, useLanguagePackFormatOptions);
 				this._register(dataExplorerClientInstance);
 
 				// Register the onDidClose event handler on the DataExplorerClientInstance
@@ -136,6 +141,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -270,7 +276,8 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// TODO: error handling if opening the file failed
 
-		const client = new DataExplorerClientInstance(backend);
+		const useLanguagePackFormatOptions = this._configurationService.getValue<boolean>(USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY);
+		const client = new DataExplorerClientInstance(backend, useLanguagePackFormatOptions);
 		this.registerDataExplorerClient('duckdb', client);
 	}
 
@@ -312,7 +319,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// If the runtime has already been added, check if we need to open a Data Explorer client.
 		if (this._dataExplorerRuntimes.has(session.sessionId)) {
 			// Get the Data Explorer clients for the session.
-			const sessionClients: Array<IRuntimeClientInstance<any, any>> = [];
+			const sessionClients: Array<IRuntimeClientInstance<unknown, unknown>> = [];
 			try {
 				sessionClients.push(...await session.listClients(RuntimeClientType.DataExplorer));
 			} catch (err) {
@@ -320,12 +327,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			}
 
 			// For each client, check if we already have a Data Explorer client instance.
+			const useLanguagePackFormatOptions = this._configurationService.getValue<boolean>(USE_LANGUAGE_PACK_FORMAT_OPTIONS_KEY);
 			for (const client of sessionClients) {
 				const existingInstance = this.getInstance(client.getClientId());
 				// If we don't have a Data Explorer client instance, create one and open the editor.
 				if (!existingInstance) {
 					const commInstance = new PositronDataExplorerComm(client);
-					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
+					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance, useLanguagePackFormatOptions);
 					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
 				}
 			}
@@ -340,7 +348,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		}
 
 		// Create and add the data explorer runtime.
-		const dataExplorerRuntime = new DataExplorerRuntime(this._notificationService, session);
+		const dataExplorerRuntime = new DataExplorerRuntime(this._configurationService, this._notificationService, session);
 		this._dataExplorerRuntimes.set(session.sessionId, dataExplorerRuntime);
 
 		// Add the onDidOpenDataExplorerClient event handler.
