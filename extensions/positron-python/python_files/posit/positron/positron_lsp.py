@@ -43,6 +43,7 @@ from .help_comm import ShowHelpTopicParams
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
 
+    from ._vendor.pygls.workspace.text_document import TextDocument
     from .positron_ipkernel import PositronShell
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,55 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return resolve_node(tree.body)
     except Exception:
         return None
+
+
+def _parse_os_imports(source: str) -> dict[str, str]:
+    """
+    Parse import statements to find os module imports.
+
+    Returns a mapping of alias -> 'os' for any imports of the os module.
+    Only supports `import os` and `import os as <alias>` forms.
+    Does NOT support `from os import ...` (out of scope).
+
+    Returns empty dict if source is empty, invalid, or has no os imports.
+    """
+    if not source or not source.strip():
+        return {}
+
+    imports: dict[str, str] = {}
+
+    # First try parsing the whole source
+    try:
+        tree = ast.parse(source, mode="exec")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "os":
+                        key = alias.asname if alias.asname else "os"
+                        imports[key] = "os"
+        return imports
+    except SyntaxError:
+        pass
+
+    # If whole source fails to parse (e.g., incomplete code during typing),
+    # try to extract and parse just the import statements
+    # Split by common statement separators and try each part
+    for part in re.split(r"[;\n]", source):
+        part = part.strip()
+        if not part.startswith("import "):
+            continue
+        try:
+            tree = ast.parse(part, mode="exec")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == "os":
+                            key = alias.asname if alias.asname else "os"
+                            imports[key] = "os"
+        except SyntaxError:
+            continue
+
+    return imports
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -474,11 +524,14 @@ def _handle_completion(
                 prefix=dict_key_match.group(3) or "",
                 quote_char=quote_char,
                 has_closing_quote=has_closing_quote,
+                document=document,
             )
         )
 
     # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
-    items.extend(_get_getenv_completions(server, text_before_cursor, text_after_cursor))
+    items.extend(
+        _get_getenv_completions(server, text_before_cursor, text_after_cursor, document=document)
+    )
 
     if not dict_key_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
@@ -653,6 +706,7 @@ def _get_dict_key_completions(
     prefix: str,
     quote_char: str,
     has_closing_quote: bool,
+    document: TextDocument | None = None,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -661,6 +715,15 @@ def _get_dict_key_completions(
     # Safely resolve the expression
     obj = _safe_resolve_expression(server.shell.user_ns, expr)
     if obj is None:
+        # Try static analysis fallback for os.environ
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if expr is "<alias>.environ" where alias maps to "os"
+            match = re.match(r"^(\w+)\.environ$", expr)
+            if match and os_imports.get(match.group(1)) == "os":
+                return _make_env_var_completions(
+                    prefix, quote_char, has_closing_quote=has_closing_quote
+                )
         return []
 
     items = []
@@ -734,6 +797,7 @@ def _get_getenv_completions(
     server: PositronLanguageServer,
     text_before_cursor: str,
     text_after_cursor: str,
+    document: TextDocument | None = None,
 ) -> list[types.CompletionItem]:
     """Get environment variable completions for os.getenv() calls.
 
@@ -768,11 +832,19 @@ def _get_getenv_completions(
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
-    # Verify it's actually os.getenv
+    # Verify it's actually os.getenv (from namespace or static import analysis)
     func_name = func_match.group(1)
     resolved = _safe_resolve_expression(server.shell.user_ns, func_name)
     if resolved is not os.getenv:
-        return []
+        # Try static analysis fallback
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if func_name is "<alias>.getenv" where alias maps to "os"
+            match = re.match(r"^(\w+)\.getenv$", func_name)
+            if not (match and os_imports.get(match.group(1)) == "os"):
+                return []
+        else:
+            return []
 
     # For positional args, only complete the first argument (not 'default')
     if not keyword_match:
