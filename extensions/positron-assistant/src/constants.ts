@@ -31,6 +31,9 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
 /** Default patterns for selectable models */
 export const DEFAULT_SELECTABLE_PATTERNS = ['claude', 'gpt'];
 
+/** Settings search string for provider enable settings */
+export const PROVIDER_ENABLE_SETTINGS_SEARCH = 'positron.assistant.provider enable';
+
 /**
  * Tag used by tools to indicate that a session must be active in order to use the tool
  *

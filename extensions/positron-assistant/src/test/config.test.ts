@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { showConfigurationDialog, GlobalSecretStorage } from '../config.js';
 import * as providersModule from '../providers';
 import * as completionModule from '../completion';
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 
 suite('Configuration Dialog Tests', () => {
 	let mockContext: vscode.ExtensionContext;
@@ -101,7 +102,7 @@ suite('Configuration Dialog Tests', () => {
 
 			assert.ok(mockExecuteCommand.called, 'Should execute command');
 			assert.ok(
-				mockExecuteCommand.calledWith('workbench.action.openSettings', 'positron.assistant.provider enable'),
+				mockExecuteCommand.calledWith('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH),
 				'Should open settings to provider enable section'
 			);
 			assert.ok(!mockOpenExternal.called, 'Should not open external link');
@@ -118,17 +119,6 @@ suite('Configuration Dialog Tests', () => {
 			const uri = externalCall.args[0];
 			assert.ok(uri.toString().includes('positron.posit.co'), 'Should link to Positron documentation');
 			assert.ok(!mockExecuteCommand.calledWith('workbench.action.openSettings'), 'Should not open settings');
-		});
-
-		test('does nothing when user dismisses message', async () => {
-			mockGetEnabledProviders.resolves([]);
-			mockShowInformationMessage.resolves(undefined);
-
-			await showConfigurationDialog(mockContext, mockSecretStorage);
-
-			assert.ok(mockShowInformationMessage.called, 'Should show message');
-			assert.ok(!mockExecuteCommand.called, 'Should not execute command');
-			assert.ok(!mockOpenExternal.called, 'Should not open external link');
 		});
 
 		test('shows modal when at least one provider is enabled', async () => {

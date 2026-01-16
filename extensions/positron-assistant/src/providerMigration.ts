@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { getModelProviders } from './providers/index.js';
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
 /**
  * Gets a map of provider ID to setting name from the provider source metadata.
@@ -139,7 +140,7 @@ export async function performProviderMigration(): Promise<void> {
 				dontShowAgain
 			).then(selection => {
 				if (selection === showSettings) {
-					vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
+					vscode.commands.executeCommand('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH);
 				} else if (selection === dontShowAgain) {
 					// Store preference to not show this notification again
 					config.update('hideProviderMigrationNotification', true, vscode.ConfigurationTarget.Global);

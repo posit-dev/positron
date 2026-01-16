@@ -8,26 +8,29 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import * as providersModule from '../providers';
 import { performProviderMigration } from '../providerMigration.js';
-import { registerSupportedProviders } from '../providerConfiguration.js';
 
 suite('Provider Migration Tests', () => {
 	let mockGetConfiguration: sinon.SinonStub;
+	let mockInspect: sinon.SinonStub;
+	let mockGetValue: sinon.SinonStub;
 	let mockUpdate: sinon.SinonStub;
-	let mockShowWarningMessage: sinon.SinonStub;
 	let mockShowInformationMessage: sinon.SinonStub;
 
 	setup(() => {
 		// Mock vscode.workspace.getConfiguration
 		mockGetConfiguration = sinon.stub();
+		mockInspect = sinon.stub();
+		mockGetValue = sinon.stub();
 		mockUpdate = sinon.stub().resolves();
 
 		sinon.stub(vscode.workspace, 'getConfiguration').callsFake(() => ({
 			get: mockGetConfiguration,
+			getValue: mockGetValue,
+			inspect: mockInspect,
 			update: mockUpdate
 		}) as unknown as vscode.WorkspaceConfiguration);
 
 		// Mock vscode.window methods
-		mockShowWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 		mockShowInformationMessage = sinon.stub(vscode.window, 'showInformationMessage').resolves();
 
 		// Mock getModelProviders to return test providers
@@ -37,7 +40,17 @@ suite('Provider Migration Tests', () => {
 				source: {
 					provider: {
 						id: 'anthropic-api',
-						displayName: 'Anthropic'
+						displayName: 'Anthropic',
+						settingName: 'anthropic'
+					}
+				}
+			},
+			{
+				source: {
+					provider: {
+						id: 'copilot-auth',
+						displayName: 'GitHub Copilot',
+						settingName: 'githubCopilot'
 					}
 				}
 			},
@@ -45,105 +58,176 @@ suite('Provider Migration Tests', () => {
 				source: {
 					provider: {
 						id: 'openai-api',
-						displayName: 'OpenAI'
+						displayName: 'OpenAI',
+						settingName: 'openAI'
+					}
+				}
+			},
+			{
+				source: {
+					provider: {
+						id: 'echo',
+						displayName: 'Echo',
+						settingName: 'echo'
 					}
 				}
 			}
 		] as any);
-
-		// Register providers before running tests
-		registerSupportedProviders();
 	});
 
 	teardown(() => {
 		sinon.restore();
 	});
 
-	test('migrates providers when user approves', async () => {
-		// Setup: Legacy setting exists
-		mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'copilot', 'openai-api']);
-
-		// Mock user approval
-		mockShowWarningMessage.resolves('Migrate Now');
+	test('migrates from enabledProviders array to individual settings', async () => {
+		// Setup: Legacy enabledProviders array exists in global scope
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: ['anthropic-api', 'copilot-auth', 'echo'],
+			workspaceValue: undefined
+		});
+		// Mock inspect for individual settings (not set yet)
+		mockInspect.withArgs('provider.anthropic.enable').returns({});
+		mockInspect.withArgs('provider.githubCopilot.enable').returns({});
+		mockInspect.withArgs('provider.echo.enable').returns({});
 
 		await performProviderMigration();
 
-		// Verify new setting was updated
-		assert.ok(mockUpdate.calledWith('providers'), 'Should update providers setting');
-		const providersCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'providers');
-		assert.ok(providersCall, 'Should have called update with providers');
+		// Verify individual settings were created
+		const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
+		const copilotCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.githubCopilot.enable');
+		const echoCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.echo.enable');
 
-		const newConfig = providersCall.args[1];
-		assert.strictEqual(newConfig['Anthropic'], true, 'Should enable Anthropic');
-		assert.strictEqual(newConfig['GitHub Copilot'], true, 'Should enable GitHub Copilot');
-		assert.strictEqual(newConfig['OpenAI'], true, 'Should enable OpenAI');
+		assert.ok(anthropicCall, 'Should create anthropic setting');
+		assert.strictEqual(anthropicCall.args[1], true, 'Should enable anthropic');
+		assert.strictEqual(anthropicCall.args[2], vscode.ConfigurationTarget.Global);
+
+		assert.ok(copilotCall, 'Should create copilot setting');
+		assert.strictEqual(copilotCall.args[1], true, 'Should enable copilot');
+
+		assert.ok(echoCall, 'Should create echo setting');
+		assert.strictEqual(echoCall.args[1], true, 'Should enable echo');
 
 		// Verify old setting was removed
-		assert.ok(mockUpdate.calledWith('enabledProviders', undefined), 'Should remove old setting');
+		const removeEnableProvidersCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'enabledProviders');
+		assert.ok(removeEnableProvidersCall, 'Should remove enabledProviders');
+		assert.strictEqual(removeEnableProvidersCall.args[1], undefined);
 
 		// Verify success notification
 		assert.ok(mockShowInformationMessage.called, 'Should show success message');
 	});
 
-	test('does not migrate when user declines', async () => {
-		mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api']);
-		mockShowWarningMessage.resolves('Not Now');
+
+	test('does not overwrite existing individual settings', async () => {
+		// Setup: Legacy setting exists, but user has already set some individual settings
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: ['anthropic-api', 'openai-api'],
+			workspaceValue: undefined
+		});
+		// Mock that anthropic is already set by user
+		mockInspect.withArgs('provider.anthropic.enable').returns({
+			globalValue: false // User explicitly disabled it
+		});
+		// openAI is not set
+		mockInspect.withArgs('provider.openAI.enable').returns({});
 
 		await performProviderMigration();
 
-		// Verify no updates were made
-		assert.ok(!mockUpdate.called, 'Should not update settings when user declines');
+		// Verify anthropic was NOT overwritten
+		const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
+		assert.ok(!anthropicCall, 'Should not overwrite existing anthropic setting');
+
+		// Verify openAI was migrated
+		const openaiCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.openAI.enable');
+		assert.ok(openaiCall, 'Should create openAI setting');
+		assert.strictEqual(openaiCall.args[1], true);
 	});
 
-	test('does not run when no legacy setting exists', async () => {
-		mockGetConfiguration.withArgs('enabledProviders').returns([]);
+	test('migrates workspace settings to workspace scope', async () => {
+		// Setup: Legacy setting in workspace scope
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: undefined,
+			workspaceValue: ['anthropic-api']
+		});
+		mockInspect.withArgs('provider.anthropic.enable').returns({});
 
 		await performProviderMigration();
 
-		assert.ok(!mockShowWarningMessage.called, 'Should not show dialog when nothing to migrate');
-		assert.ok(!mockUpdate.called, 'Should not update settings');
+		// Verify individual setting created in workspace scope
+		const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
+		assert.ok(anthropicCall);
+		assert.strictEqual(anthropicCall.args[2], vscode.ConfigurationTarget.Workspace);
+
+		// Verify old setting removed from workspace scope
+		const removeCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'enabledProviders');
+		assert.strictEqual(removeCall.args[2], vscode.ConfigurationTarget.Workspace);
 	});
 
-	test('handles unsupported providers during migration', async () => {
-		// Setup: Legacy setting with both supported and unsupported providers
-		mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'unsupported-provider-id']);
-
-		// Mock user approval
-		mockShowWarningMessage.resolves('Migrate Now');
+	test('prioritizes workspace over global when both exist', async () => {
+		// Setup: Different settings in workspace and global
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: ['anthropic-api'],
+			workspaceValue: ['openai-api'] // Different
+		});
+		mockInspect.withArgs('provider.anthropic.enable').returns({});
+		mockInspect.withArgs('provider.openAI.enable').returns({});
 
 		await performProviderMigration();
 
-		// Verify supported provider was migrated
-		const providersCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'providers');
-		assert.ok(providersCall, 'Should have updated providers setting');
+		// Verify only workspace value was migrated
+		const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
+		const openaiCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.openAI.enable');
 
-		const newConfig = providersCall.args[1];
-		assert.strictEqual(newConfig['Anthropic'], true, 'Should migrate supported provider only');
+		assert.ok(!anthropicCall, 'Should not migrate global value when workspace exists');
+		assert.ok(openaiCall, 'Should migrate workspace value');
+		assert.strictEqual(openaiCall.args[2], vscode.ConfigurationTarget.Workspace);
 	});
 
-	test('shows preview with unsupported providers', async () => {
-		mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'unknown-provider']);
-		mockShowWarningMessage.resolves('Not Now');
+	test('does not run when no legacy settings exist or are empty', async () => {
+		// Test both undefined and empty array scenarios
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: undefined,
+			workspaceValue: undefined
+		});
 
 		await performProviderMigration();
 
-		// Verify warning message includes mention of unsupported provider
-		assert.ok(mockShowWarningMessage.called, 'Should show warning');
-		const warningCall = mockShowWarningMessage.getCall(0);
-		const message = warningCall.args[0];
-		assert.ok(typeof message === 'string', 'Warning message should be a string');
+		assert.ok(!mockUpdate.called, 'Should not update any settings when undefined');
+		assert.ok(!mockShowInformationMessage.called, 'Should not show notification when undefined');
+
+		// Reset stubs for second scenario
+		mockUpdate.resetHistory();
+		mockShowInformationMessage.resetHistory();
+
+		// Test empty array
+		mockInspect.withArgs('enabledProviders').returns({
+			globalValue: [],
+			workspaceValue: undefined
+		});
+
+		await performProviderMigration();
+
+		assert.ok(!mockUpdate.called, 'Should not update settings for empty arrays');
+		assert.ok(!mockShowInformationMessage.called, 'Should not show notification for empty arrays');
 	});
 
-	test('migration completes even when both settings exist', async () => {
-		// Note: The current implementation doesn't check if new setting exists before migrating
-		// It will overwrite the new setting if user approves
-		mockGetConfiguration.withArgs('providers').returns({ 'Anthropic': true });
-		mockGetConfiguration.withArgs('enabledProviders').returns(['copilot']);
-		mockShowWarningMessage.resolves('Migrate Now');
+	suite('Error Handling', () => {
+		test('handles invalid provider IDs gracefully', async () => {
+			// Setup: Legacy setting with invalid provider ID
+			mockInspect.withArgs('enabledProviders').returns({
+				globalValue: ['invalid-provider-id', 'anthropic-api'],
+				workspaceValue: undefined
+			});
+			mockInspect.withArgs('provider.anthropic.enable').returns({});
 
-		await performProviderMigration();
+			await performProviderMigration();
 
-		// Migration should still run (overwrites existing providers setting)
-		assert.ok(mockUpdate.called, 'Should update settings');
+			// Verify valid provider was migrated
+			const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
+			assert.ok(anthropicCall, 'Should migrate valid provider');
+
+			// Verify invalid provider was silently skipped (no error thrown)
+			const allCalls = mockUpdate.getCalls().map((call: any) => call.args[0]);
+			assert.ok(!allCalls.some((arg: string) => arg.includes('invalid')), 'Should skip invalid provider');
+		});
 	});
 });

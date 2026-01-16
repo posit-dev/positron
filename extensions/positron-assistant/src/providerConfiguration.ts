@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { getModelProviders } from './providers';
 import { log } from './extension.js';
 import { configureProvider, uiNameToProviderId } from './providerMapping.js';
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
 /**
  * Cached set of supported provider IDs.
@@ -131,7 +132,7 @@ export async function validateProvidersEnabled(): Promise<void> {
 			openSettings
 		);
 		if (selection === openSettings) {
-			await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
+			await vscode.commands.executeCommand('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH);
 		}
 	}
 }

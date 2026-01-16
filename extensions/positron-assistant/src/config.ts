@@ -12,7 +12,7 @@ import { addAutoconfiguredModel, disposeModels, getAutoconfiguredModels, registe
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
-import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
+import { DEFAULT_MAX_CONNECTION_ATTEMPTS, PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -145,7 +145,7 @@ export async function showConfigurationDialog(
 
 		if (result === settingsAction) {
 			// Open settings to the provider section
-			await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
+			await vscode.commands.executeCommand('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH);
 		} else if (result === docsAction) {
 			// Open Positron documentation about AI providers
 			await vscode.env.openExternal(vscode.Uri.parse('https://positron.posit.co/assistant-getting-started'));

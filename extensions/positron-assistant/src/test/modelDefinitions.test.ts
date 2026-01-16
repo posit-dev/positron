@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
 import { registerSupportedProviders } from '../providerConfiguration.js';
@@ -27,7 +28,8 @@ suite('Model Definitions', () => {
 				source: {
 					provider: {
 						id: 'anthropic-api',
-						displayName: 'Anthropic'
+						displayName: 'Anthropic',
+						settingName: 'anthropic'
 					}
 				}
 			},
@@ -35,7 +37,8 @@ suite('Model Definitions', () => {
 				source: {
 					provider: {
 						id: 'openai-api',
-						displayName: 'OpenAI'
+						displayName: 'OpenAI',
+						settingName: 'openAI'
 					}
 				}
 			}
@@ -52,33 +55,16 @@ suite('Model Definitions', () => {
 	});
 
 	suite('getAllModelDefinitions', () => {
-		test('prioritizes custom models over built-in (using display name)', () => {
+		test('prioritizes custom models over built-in', () => {
 			const userModels = [
 				{
 					name: 'User Claude',
 					identifier: 'user-claude'
 				}
 			];
+			// Test with display name
 			mockWorkspaceConfig.withArgs('models.custom', {}).returns({
 				'Anthropic': userModels
-			});
-
-			const result = getAllModelDefinitions('anthropic-api');
-
-			assert.strictEqual(result.length, 1);
-			assert.strictEqual(result[0].name, 'User Claude');
-			assert.strictEqual(result[0].identifier, 'user-claude');
-		});
-
-		test('prioritizes custom models over built-in (using provider ID)', () => {
-			const userModels = [
-				{
-					name: 'User Claude',
-					identifier: 'user-claude'
-				}
-			];
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns({
-				'anthropic-api': userModels
 			});
 
 			const result = getAllModelDefinitions('anthropic-api');
@@ -106,8 +92,9 @@ suite('Model Definitions', () => {
 				]
 			};
 			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
-			mockWorkspaceConfig.withArgs('providers').returns({});
-			mockWorkspaceConfig.withArgs('enabledProviders').returns([]);
+
+			// Mock positron.ai.getEnabledProviders to return empty array (no providers enabled)
+			const mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders').resolves([]);
 
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
@@ -118,31 +105,10 @@ suite('Model Definitions', () => {
 			assert.strictEqual(showWarningMessageStub.calledOnce, true);
 			const warningMessage = showWarningMessageStub.getCall(0).args[0];
 			assert.ok(warningMessage.includes('unsupported-provider'));
+			mockGetEnabledProviders.restore();
 		});
 
-		test('does not show a warning if all custom model providers are supported (using display name)', async () => {
-			const userModels = {
-				'Anthropic': [
-					{
-						name: 'Claude Sonnet 4.5',
-						identifier: 'claude-sonnet-4-5'
-					}
-				]
-			};
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
-			mockWorkspaceConfig.withArgs('providers').returns({ 'Anthropic': true });
-			mockWorkspaceConfig.withArgs('enabledProviders').returns([]);
-
-			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
-
-			// Call the function that validates providers
-			const { validateProvidersInCustomModels } = await import('../modelDefinitions.js');
-			await validateProvidersInCustomModels();
-
-			assert.strictEqual(showWarningMessageStub.notCalled, true);
-		});
-
-		test('does not show a warning if all custom model providers are supported (using provider ID)', async () => {
+		test('does not show a warning if all custom model providers are supported', async () => {
 			const userModels = {
 				'anthropic-api': [
 					{
@@ -152,8 +118,9 @@ suite('Model Definitions', () => {
 				]
 			};
 			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
-			mockWorkspaceConfig.withArgs('providers').returns({ 'Anthropic': true });
-			mockWorkspaceConfig.withArgs('enabledProviders').returns([]);
+
+			// Mock positron.ai.getEnabledProviders to return anthropic-api
+			const mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders').resolves(['anthropic-api']);
 
 			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
@@ -162,6 +129,7 @@ suite('Model Definitions', () => {
 			await validateProvidersInCustomModels();
 
 			assert.strictEqual(showWarningMessageStub.notCalled, true);
+			mockGetEnabledProviders.restore();
 		});
 	});
 });

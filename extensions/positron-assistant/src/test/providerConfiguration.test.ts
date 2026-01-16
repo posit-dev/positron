@@ -7,11 +7,10 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
-import * as providerMappingModule from '../providerMapping.js';
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 import {
 	validateProviders,
 	registerSupportedProviders,
-	validateByProviderPreferences,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
 import * as providersModule from '../providers';
@@ -20,6 +19,7 @@ suite('Provider Configuration Tests', () => {
 	let mockGetConfiguration: sinon.SinonStub;
 	let mockUpdate: sinon.SinonStub;
 	let mockShowWarningMessage: sinon.SinonStub;
+	let mockGetEnabledProviders: sinon.SinonStub;
 
 	setup(() => {
 		// Mock vscode.workspace.getConfiguration
@@ -34,6 +34,12 @@ suite('Provider Configuration Tests', () => {
 		// Mock vscode.window methods
 		mockShowWarningMessage = sinon.stub(vscode.window, 'showWarningMessage').resolves();
 
+		// Mock positron.ai.getEnabledProviders
+		mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders');
+
+		// Mock positron.ai.registerProviderMetadata
+		sinon.stub(positron.ai, 'registerProviderMetadata');
+
 		// Mock getModelProviders to return test providers
 		// eslint-disable-next-line local/code-no-any-casts
 		sinon.stub(providersModule, 'getModelProviders').returns([
@@ -41,7 +47,8 @@ suite('Provider Configuration Tests', () => {
 				source: {
 					provider: {
 						id: 'anthropic-api',
-						displayName: 'Anthropic'
+						displayName: 'Anthropic',
+						settingName: 'anthropic'
 					}
 				}
 			},
@@ -49,7 +56,17 @@ suite('Provider Configuration Tests', () => {
 				source: {
 					provider: {
 						id: 'openai-api',
-						displayName: 'OpenAI'
+						displayName: 'OpenAI',
+						settingName: 'openAI'
+					}
+				}
+			},
+			{
+				source: {
+					provider: {
+						id: 'copilot',
+						displayName: 'GitHub Copilot',
+						settingName: 'githubCopilot'
 					}
 				}
 			}
@@ -61,93 +78,6 @@ suite('Provider Configuration Tests', () => {
 
 	teardown(() => {
 		sinon.restore();
-	});
-
-	suite('Core Functionality', () => {
-		test('accepts display names and returns provider IDs', async () => {
-			mockGetConfiguration.withArgs('providers').returns({
-				'Anthropic': true,
-				'OpenAI': true
-			});
-			mockGetConfiguration.withArgs('enabledProviders').returns([]);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
-			assert.ok(result.includes('openai-api'), 'Should include openai-api');
-			assert.strictEqual(result.length, 2, 'Should return exactly 2 providers');
-		});
-
-		test('filters out disabled providers', async () => {
-			mockGetConfiguration.withArgs('providers').returns({
-				'Anthropic': true,
-				'OpenAI': false
-			});
-			mockGetConfiguration.withArgs('enabledProviders').returns([]);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
-			assert.ok(!result.includes('openai-api'), 'Should not include openai-api');
-			assert.strictEqual(result.length, 1, 'Should return exactly 1 provider');
-		});
-
-		test('accepts provider IDs in enabledProviders array', async () => {
-			mockGetConfiguration.withArgs('providers').returns({});
-			mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'openai-api']);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			assert.ok(result.includes('anthropic-api'), 'Should include anthropic-api');
-			assert.ok(result.includes('openai-api'), 'Should include openai-api');
-			assert.strictEqual(result.length, 2, 'Should return exactly 2 providers');
-		});
-
-		test('returns empty array when no providers configured', async () => {
-			mockGetConfiguration.withArgs('providers').returns({});
-			mockGetConfiguration.withArgs('enabledProviders').returns([]);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			assert.strictEqual(result.length, 0, 'Should return empty array');
-			// Empty array signals "show all providers" to config dialog
-		});
-	});
-
-	suite('Backwards Compatibility', () => {
-		test('merges new and legacy settings', async () => {
-			// New setting
-			mockGetConfiguration.withArgs('providers').returns({
-				'Anthropic': true
-			});
-
-			// Legacy setting
-			mockGetConfiguration.withArgs('enabledProviders').returns(['copilot', 'openai-api']);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			assert.ok(result.includes('anthropic-api'), 'Should include provider from new setting');
-			assert.ok(result.includes('copilot'), 'Should include provider from legacy setting');
-			assert.ok(result.includes('openai-api'), 'Should include provider from legacy setting');
-			assert.strictEqual(result.length, 3, 'Should merge all providers');
-		});
-
-		test('deduplicates providers from both settings', async () => {
-			// New setting
-			mockGetConfiguration.withArgs('providers').returns({
-				'Anthropic': true
-			});
-
-			// Legacy setting includes same provider via ID
-			mockGetConfiguration.withArgs('enabledProviders').returns(['anthropic-api', 'openai-api']);
-
-			const result = await positron.ai.getEnabledProviders();
-
-			// Count occurrences of anthropic-api (should only appear once)
-			const anthropicCount = result.filter(id => id === 'anthropic-api').length;
-			assert.strictEqual(anthropicCount, 1, 'Should deduplicate anthropic-api');
-			assert.ok(result.includes('openai-api'), 'Should include openai-api');
-		});
 	});
 
 	suite('Validation', () => {
@@ -177,16 +107,6 @@ suite('Provider Configuration Tests', () => {
 			assert.ok(!mockShowWarningMessage.called, 'Should not show message when suppressed');
 		});
 
-		test('validateByProviderPreferences validates display names', () => {
-			mockGetConfiguration.withArgs('models.preference.byProvider').returns({
-				'Anthropic': 'Claude Sonnet 4.5',
-				'OpenAI': 'gpt-4o'
-			});
-
-			// Should not throw or show warnings for valid providers
-			validateByProviderPreferences();
-		});
-
 		suite('validateProvidersEnabled', () => {
 			let mockExecuteCommand: sinon.SinonStub;
 
@@ -199,10 +119,8 @@ suite('Provider Configuration Tests', () => {
 			});
 
 			test('shows no warning when providers are enabled', async () => {
-				mockGetConfiguration.withArgs('providers').returns({
-					'Anthropic': true
-				});
-				mockGetConfiguration.withArgs('enabledProviders').returns([]);
+				// Mock the Positron API to return enabled providers
+				mockGetEnabledProviders.resolves(['anthropic-api']);
 
 				await validateProvidersEnabled();
 
@@ -211,8 +129,8 @@ suite('Provider Configuration Tests', () => {
 			});
 
 			test('shows warning when no providers are enabled', async () => {
-				mockGetConfiguration.withArgs('providers').returns({});
-				mockGetConfiguration.withArgs('enabledProviders').returns([]);
+				// Mock the Positron API to return no enabled providers
+				mockGetEnabledProviders.resolves([]);
 
 				await validateProvidersEnabled();
 
@@ -224,8 +142,8 @@ suite('Provider Configuration Tests', () => {
 			});
 
 			test('opens settings when user clicks "Open Settings"', async () => {
-				mockGetConfiguration.withArgs('providers').returns({});
-				mockGetConfiguration.withArgs('enabledProviders').returns([]);
+				// Mock the Positron API to return no enabled providers
+				mockGetEnabledProviders.resolves([]);
 
 				// Mock user clicking "Open Settings"
 				mockShowWarningMessage.resolves('Open Settings');
@@ -235,14 +153,14 @@ suite('Provider Configuration Tests', () => {
 				assert.ok(mockShowWarningMessage.called, 'Should show warning');
 				assert.ok(mockExecuteCommand.called, 'Should execute command');
 				assert.ok(
-					mockExecuteCommand.calledWith('workbench.action.openSettings', 'positron.assistant.providers'),
+					mockExecuteCommand.calledWith('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH),
 					'Should open settings to the correct section'
 				);
 			});
 
 			test('does not open settings when user dismisses warning', async () => {
-				mockGetConfiguration.withArgs('providers').returns({});
-				mockGetConfiguration.withArgs('enabledProviders').returns([]);
+				// Mock the Positron API to return no enabled providers
+				mockGetEnabledProviders.resolves([]);
 
 				// Mock user dismissing the warning (returns undefined)
 				mockShowWarningMessage.resolves(undefined);
@@ -253,31 +171,56 @@ suite('Provider Configuration Tests', () => {
 				assert.ok(!mockExecuteCommand.called, 'Should not execute command when dismissed');
 			});
 		});
+	});
 
-		test('registerSupportedProviders creates bidirectional mappings', () => {
-			// Test display name to provider ID
-			const providerId = providerMappingModule.uiNameToProviderId('Anthropic');
-			assert.strictEqual(providerId, 'anthropic-api');
+	suite('Provider Settings Mapping', () => {
+		test('all providers with settingName are properly defined', () => {
+			// This test ensures that when a new provider is added, it has a valid settingName.
+			// The developer must then:
+			// 1. Add the setting to package.json (positron.assistant.provider.<settingName>.enable)
+			// 2. Add the mapping to positronAssistantService.ts
+			// Note: We don't validate package.json here - VS Code does that at extension load time.
+			const providers = providersModule.getModelProviders();
+			const providersWithSettingName = providers.filter(p => p.source.provider.settingName);
 
-			// Test provider ID to display name
-			const displayName = providerMappingModule.providerIdToUiName('anthropic-api');
-			assert.strictEqual(displayName, 'Anthropic');
+			for (const provider of providersWithSettingName) {
+				const settingName = provider.source.provider.settingName;
+				const providerId = provider.source.provider.id;
+
+				assert.ok(settingName, `Provider ${providerId} should have a settingName defined`);
+				assert.ok(settingName.length > 0, `Provider ${providerId} settingName should not be empty`);
+
+				// Validate settingName format (should be camelCase)
+				assert.match(
+					settingName!,
+					/^[a-z][a-zA-Z0-9]*$/,
+					`Provider ${providerId} settingName should be camelCase: ${settingName}`
+				);
+			}
+
+			// Ensure we have at least the main UI-visible providers
+			const settingNames = providersWithSettingName.map(p => p.source.provider.settingName);
+			assert.ok(settingNames.includes('anthropic'), 'Should have anthropic provider');
+			assert.ok(settingNames.includes('githubCopilot'), 'Should have githubCopilot provider');
 		});
 
-		test('registers Copilot provider', () => {
-			const providerId = providerMappingModule.uiNameToProviderId('GitHub Copilot');
-			assert.strictEqual(providerId, 'copilot');
+		test('settingName to provider ID mapping is unique', () => {
+			// Ensure no duplicate settingNames
+			const providers = providersModule.getModelProviders();
+			const settingNames = new Set<string>();
+			const duplicates: string[] = [];
 
-			const displayName = providerMappingModule.providerIdToUiName('copilot');
-			assert.strictEqual(displayName, 'GitHub Copilot');
-		});
+			for (const provider of providers) {
+				const settingName = provider.source.provider.settingName;
+				if (settingName) {
+					if (settingNames.has(settingName)) {
+						duplicates.push(settingName);
+					}
+					settingNames.add(settingName);
+				}
+			}
 
-		test('validateProviders works after registration', () => {
-			// Should be able to validate providers
-			const result = validateProviders(['Anthropic', 'copilot'], 'test', false);
-			assert.strictEqual(result.length, 2);
-			assert.ok(result.includes('anthropic-api'));
-			assert.ok(result.includes('copilot'));
+			assert.strictEqual(duplicates.length, 0, `Duplicate settingNames found: ${duplicates.join(', ')}`);
 		});
 	});
 });
