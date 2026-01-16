@@ -127,11 +127,24 @@ export async function performProviderMigration(): Promise<void> {
 			log.info(`[performProviderMigration] Removed positron.assistant.enabledProviders setting from ${scopeName}`);
 		}
 
-		// Show migration notification
-		if (migratedCount > 0) {
+		// Show migration notification (non-blocking)
+		// Check if user has opted out of seeing the notification
+		const hideProviderMigrationNotification = config.get<boolean>('hideProviderMigrationNotification', false);
+		if (migratedCount > 0 && !hideProviderMigrationNotification) {
+			const showSettings = vscode.l10n.t('Show Settings');
+			const dontShowAgain = vscode.l10n.t('Don\'t Show Again');
 			vscode.window.showInformationMessage(
-				vscode.l10n.t('The \'positron.assistant.enabledProviders\' setting has been deprecated, and has been migrated to individual settings for each provider. You can search for these settings in the Settings UI with "positron.assistant.provider enable". Please remove your \'positron.assistant.enabledProviders\' setting, which will be phased out in an upcoming release.')
-			);
+				vscode.l10n.t('Your \'positron.assistant.enabledProviders\' setting has been migrated to individual enable settings for each provider. The old setting has been removed.'),
+				showSettings,
+				dontShowAgain
+			).then(selection => {
+				if (selection === showSettings) {
+					vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
+				} else if (selection === dontShowAgain) {
+					// Store preference to not show this notification again
+					config.update('hideProviderMigrationNotification', true, vscode.ConfigurationTarget.Global);
+				}
+			});
 		}
 	} catch (error) {
 		log.error(`[performProviderMigration] Failed to perform provider migration: ${JSON.stringify(error, null, 2)}`);

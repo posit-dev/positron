@@ -44,25 +44,13 @@ export class PositronAssistantConfigurationService extends Disposable implements
 
 		// Listen for configuration changes to provider enablement settings
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			// Check if any provider enable setting or the deprecated enabledProviders array changed
-			let providerConfigChanged = false;
-
 			// Check individual provider enable settings
 			for (const metadata of this._providerMetadata.values()) {
 				const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
 				if (e.affectsConfiguration(settingKey)) {
-					providerConfigChanged = true;
+					this._enabledProvidersEmitter.fire();
 					break;
 				}
-			}
-
-			// Check deprecated setting
-			if (!providerConfigChanged && e.affectsConfiguration('positron.assistant.enabledProviders')) {
-				providerConfigChanged = true;
-			}
-
-			if (providerConfigChanged) {
-				this._enabledProvidersEmitter.fire();
 			}
 		}));
 	}
@@ -98,15 +86,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 			}
 		}
 
-		// DEPRECATED: Read legacy enabledProviders setting (array of strings) for backward compatibility
-		// TODO: Remove this when positron.assistant.enabledProviders is fully deprecated
-		const enabledFromLegacy = this._configurationService.getValue<string[]>('positron.assistant.enabledProviders') || [];
-
-		// Merge and deduplicate
-		return Array.from(new Set([
-			...enabledProviders,
-			...enabledFromLegacy
-		]));
+		return enabledProviders;
 	}
 }
 
