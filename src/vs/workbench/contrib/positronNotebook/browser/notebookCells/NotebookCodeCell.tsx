@@ -21,6 +21,7 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
+import { CellMarkdownOutput } from './CellMarkdownOutput.js';
 
 
 interface CellOutputsSectionProps {
@@ -82,6 +83,8 @@ function CellOutput(output: NotebookCellOutputs) {
 			return <img alt='output image' src={parsed.dataUrl} />;
 		case 'html':
 			return renderHtml(parsed.content);
+		case 'markdown':
+			return <CellMarkdownOutput content={parsed.content} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
