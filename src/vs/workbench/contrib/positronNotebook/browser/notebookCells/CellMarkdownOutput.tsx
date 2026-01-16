@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './CellMarkdownOutput.css';
+import './markdownContent.css';
 
 // React.
 import React from 'react';
@@ -71,10 +71,10 @@ export function CellMarkdownOutput({ content }: { content: string }) {
 
 	switch (result.status) {
 		case 'error':
-			return <div className='positron-markdown-output-error'>{result.errorMsg}</div>;
+			return <div className='positron-markdown-content-error'>{result.errorMsg}</div>;
 		case 'rendering':
-			return <div className='positron-markdown-output-rendering'>{localize('renderingMd', "Rendering...")}</div>;
+			return <div className='positron-markdown-content-rendering'>{localize('renderingMd', "Rendering...")}</div>;
 		case 'success':
-			return <div className='positron-markdown-output'>{result.nodes}</div>;
+			return <div className='positron-markdown-content'>{result.nodes}</div>;
 	}
 }

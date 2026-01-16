@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './Markdown.css';
+import './markdownContent.css';
 
 // React.
 import React from 'react';
@@ -26,11 +26,11 @@ export function Markdown({ content }: { content: string }) {
 
 	switch (renderedHtml.status) {
 		case 'error':
-			return <div className='positron-markdown-error'>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
+			return <div className='positron-markdown-content-error'>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
 		case 'rendering':
-			return <div className='positron-markdown-rendering'>{localize('renderingMd', "Rendering markdown...")}</div>;
+			return <div className='positron-markdown-content-rendering'>{localize('renderingMd', "Rendering markdown...")}</div>;
 		case 'success':
-			return <div className='positron-markdown-rendered'>{renderedHtml.nodes}</div>;
+			return <div className='positron-markdown-content'>{renderedHtml.nodes}</div>;
 	}
 }
 
