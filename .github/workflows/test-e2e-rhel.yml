@@ -3,6 +3,16 @@ name: "Test: E2E (RHEL)"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -53,6 +63,11 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -87,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-rocky8-amd64:65
-      options: --user 0:0
+      options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -129,6 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -151,6 +167,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           distro: rhel
+          skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
           playwright-with-deps: 'false'
           github-token: ${{ github.token }}
@@ -196,6 +213,7 @@ jobs:
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
 
           # Build the --grep argument only if PW_TAGS is non-empty
@@ -241,6 +259,6 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs
+          name: ${{ inputs.project }}-rhel-logs
           path: test-logs
           if-no-files-found: ignore

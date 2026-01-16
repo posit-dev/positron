@@ -5,6 +5,7 @@
 
 // Notebook editor extensions
 import './contrib/find/positronNotebookFind.contribution.js';
+import './contrib/assistant/positronNotebookAssistant.contribution.js';
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -1379,7 +1380,7 @@ registerAction2(class extends NotebookAction2 {
 				displayTitle: true
 			},
 			toggled: {
-				condition: ContextKeyExpr.equals('config.positron.notebook.assistant.autoFollow', true),
+				condition: ContextKeyExpr.equals('config.positron.assistant.notebook.autoFollow', true),
 				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
 				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
 			},

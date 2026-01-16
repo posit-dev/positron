@@ -15,13 +15,13 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 
 // Configuration key for assistant auto-follow setting
-export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.notebook.assistant.autoFollow';
+export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.assistant.notebook.autoFollow';
 
 // Configuration key for deletion sentinel timeout setting
-export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.notebook.deletionSentinel.timeout';
+export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.assistant.notebook.deletionSentinel.timeout';
 
 // Configuration key for showing/hiding deletion sentinels
-export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.notebook.deletionSentinel.show';
+export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant.notebook.deletionSentinel.show';
 
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
@@ -47,7 +47,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			markdownDescription: localize(
-				'positron.notebook.assistant.autoFollow',
+				'positron.assistant.notebook.autoFollow',
 				'Automatically scroll to cells modified by the AI assistant. When enabled, cells modified outside the viewport will be automatically scrolled into view and highlighted.'
 			),
 			scope: ConfigurationScope.WINDOW,
@@ -58,7 +58,7 @@ configurationRegistry.registerConfiguration({
 			minimum: 0,
 			maximum: 60000,
 			markdownDescription: localize(
-				'positron.notebook.deletionSentinel.timeout',
+				'positron.assistant.notebook.deletionSentinel.timeout',
 				'Time in milliseconds before deletion sentinels auto-dismiss (0 to disable auto-dismiss).'
 			),
 			scope: ConfigurationScope.WINDOW,
@@ -67,7 +67,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			markdownDescription: localize(
-				'positron.notebook.deletionSentinel.show',
+				'positron.assistant.notebook.deletionSentinel.show',
 				'Show deletion sentinels when cells are deleted. When disabled, cells are deleted immediately without undo placeholders.'
 			),
 			scope: ConfigurationScope.WINDOW,
