@@ -1,24 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Shared styles for markdown content rendering in notebooks.
- * Used by both markdown cells and markdown outputs (e.g., IPython.display.Markdown). */
-
-.positron-markdown-content-rendering {
+.positron-markdown-rendering {
 	text-align: center;
 	opacity: 0.6;
 	font-style: italic;
 }
 
-.positron-markdown-content-error {
+.positron-markdown-error {
 	color: var(--vscode-positronNotebook-error-color);
 	font-style: italic;
 }
 
 /* These styles are taken from the vscode notebook markdown rendering styles found in extensions/markdown-language-features/notebook/index.ts */
-.positron-markdown-content {
+.positron-markdown-rendered {
 	img {
 		max-width: 100%;
 		max-height: 100%;
@@ -78,24 +75,24 @@
 		font-size: 1.2em;
 	}
 
-	/* Remove top margin from first element in markdown content */
+	/* Remove top margin from first element in markdown cell */
 	*:first-child {
 		margin-top: 0;
 	}
 
-	/* Remove bottom margin from last element in markdown content */
+	/* Remove bottom margin from last element in markdown cell */
 	*:last-child {
 		margin-bottom: 0;
 	}
 
-	/* Removes bottom margin when only one item exists in markdown content */
+	/* Removes bottom margin when only one item exists in markdown cell */
 	#preview > *:only-child,
 	#preview > *:last-child {
 		margin-bottom: 0;
 		padding-bottom: 0;
 	}
 
-	/* makes all markdown content consistent */
+	/* makes all markdown cells consistent */
 	div {
 		min-height: 1rem;
 		width: 100%;
