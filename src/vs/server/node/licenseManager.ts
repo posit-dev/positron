@@ -20,7 +20,6 @@ interface LicenseVerifyOutput {
 	'days-left': number;
 	'license-scope': string;
 	'license-engine': string;
-	signature?: string; // Added optional signature property
 }
 
 /**
@@ -99,10 +98,8 @@ async function validateLicenseFile(
 		throw new Error(`License validation failed: No JSON content found in output. Raw output: ${result}`);
 	}
 
-	const signature = result.slice(0, jsonStartIndex).trim();
 	const jsonContent = result.slice(jsonStartIndex);
 	const output = JSON.parse(jsonContent) as LicenseVerifyOutput;
-	output['signature'] = signature; // Attach the signature to the output in case we need it later?
 
 	// Validate the output structure
 	if (!output.status || output['days-left'] === undefined) {

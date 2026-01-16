@@ -141,10 +141,14 @@ export async function validateLicenseFile(connectionToken: string, licenseFile: 
 		const trimmedContents = contents.trim();
 		if (trimmedContents.startsWith('{')) {
 			return validateLicense(connectionToken, contents);
-		} else {
-			// This is not a JSON license key file, let the license manager handle it.
+		} else if (trimmedContents.startsWith('-----BEGIN RSTUDIO LICENSE-----')) {
+			// This is an RSA license file, let the license manager handle it.
 			const installPath = path.join(FileAccess.asFileUri('').fsPath, '..');
 			return await validateWithManager(installPath, licenseFile);
+		} else {
+			// Unknown license format
+			console.error('Unrecognized license file format. Expected JSON license key or RSA license file.');
+			return false;
 		}
 	} catch (e) {
 		console.error('Error reading license file: ', licenseFile);
