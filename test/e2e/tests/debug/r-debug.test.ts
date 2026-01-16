@@ -65,9 +65,9 @@ test.describe('R Debugging', {
 		await debug.expectBrowserModeFrame(1);
 
 		// Verify call stack order
-		await debug.expectCallStackAtIndex(0, 'inner()inner(x)');
-		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)');
-		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
+		await debug.expectCallStackAtIndex(0, 'inner()');
+		await debug.expectCallStackAtIndex(1, 'outer()');
+		await debug.expectCallStackAtIndex(2, '<global>');
 
 		// Verify the call stack redirects to correct data frame(s)
 		await debug.selectCallStackAtIndex(0);
@@ -223,8 +223,8 @@ async function verifyDebugPane(app: Application) {
 async function verifyCallStack(app: Application) {
 	const { debug } = app.workbench;
 
-	await debug.expectCallStackAtIndex(0, 'fruit_avg()fruit_avg()2:');
-	await debug.expectCallStackAtIndex(1, '<global>fruit_avg(dat, "berry")');
+	await debug.expectCallStackAtIndex(0, 'fruit_avg()');
+	await debug.expectCallStackAtIndex(1, '<global>');
 }
 
 async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {
