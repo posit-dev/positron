@@ -704,9 +704,6 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
 export class MockDebugStorage extends DebugStorage {
 
 	constructor(storageService: IStorageService) {
-		// --- Start Positron ---
-		// Added mock IDebugService for verifyBreakpointsInDirtyDocuments capability lookup
-		super(storageService, undefined!, undefined!, new NullLogService(), <any>{ getAdapterManager: () => ({ getDebugger: () => undefined }) });
-		// --- End Positron ---
+		super(storageService, undefined!, undefined!, new NullLogService());
 	}
 }

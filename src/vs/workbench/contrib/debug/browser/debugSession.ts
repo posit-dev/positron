@@ -240,6 +240,10 @@ export class DebugSession implements IDebugSession {
 		this._options.suppressDebugToolbar = value;
 		this._onDidChangeState.fire();
 	}
+
+	private get verifyBreakpointsInDirtyDocuments(): boolean {
+		return this.debugService.getAdapterManager().getDebugger(this.configuration.type)?.verifyBreakpointsInDirtyDocuments ?? false;
+	}
 	// --- End Positron ---
 
 	get suppressDebugView(): boolean {
@@ -516,8 +520,7 @@ export class DebugSession implements IDebugSession {
 			}
 
 			// --- Start Positron ---
-			// Pass debugger type so Breakpoint can look up capabilities like verifyBreakpointsInDirtyDocuments
-			this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+			this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 			// --- End Positron ---
 		}
 	}
@@ -535,7 +538,7 @@ export class DebugSession implements IDebugSession {
 					data.set(fbpts[i].getId(), response.body.breakpoints[i]);
 				}
 				// --- Start Positron ---
-				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 				// --- End Positron ---
 			}
 		}
@@ -566,7 +569,7 @@ export class DebugSession implements IDebugSession {
 				}
 
 				// --- Start Positron ---
-				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 				// --- End Positron ---
 			}
 		}
@@ -622,7 +625,7 @@ export class DebugSession implements IDebugSession {
 					}
 				}
 				// --- Start Positron ---
-				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 				// --- End Positron ---
 			}
 		}
@@ -641,7 +644,7 @@ export class DebugSession implements IDebugSession {
 					data.set(instructionBreakpoints[i].getId(), response.body.breakpoints[i]);
 				}
 				// --- Start Positron ---
-				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+				this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 				// --- End Positron ---
 			}
 		}
@@ -1280,7 +1283,7 @@ export class DebugSession implements IDebugSession {
 				if (bps.length === 1) {
 					const data = new Map<string, DebugProtocol.Breakpoint>([[bps[0].getId(), event.body.breakpoint]]);
 					// --- Start Positron ---
-					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 					// --- End Positron ---
 				}
 			}
@@ -1304,25 +1307,25 @@ export class DebugSession implements IDebugSession {
 					}
 					const data = new Map<string, DebugProtocol.Breakpoint>([[breakpoint.getId(), event.body.breakpoint]]);
 					// --- Start Positron ---
-					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 					// --- End Positron ---
 				}
 				if (functionBreakpoint) {
 					const data = new Map<string, DebugProtocol.Breakpoint>([[functionBreakpoint.getId(), event.body.breakpoint]]);
 					// --- Start Positron ---
-					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 					// --- End Positron ---
 				}
 				if (dataBreakpoint) {
 					const data = new Map<string, DebugProtocol.Breakpoint>([[dataBreakpoint.getId(), event.body.breakpoint]]);
 					// --- Start Positron ---
-					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 					// --- End Positron ---
 				}
 				if (exceptionBreakpoint) {
 					const data = new Map<string, DebugProtocol.Breakpoint>([[exceptionBreakpoint.getId(), event.body.breakpoint]]);
 					// --- Start Positron ---
-					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.configuration.type);
+					this.model.setBreakpointSessionData(this.getId(), this.capabilities, data, this.verifyBreakpointsInDirtyDocuments);
 					// --- End Positron ---
 				}
 			}
@@ -1504,7 +1507,7 @@ export class DebugSession implements IDebugSession {
 	private onDidExitAdapter(event?: AdapterEndEvent): void {
 		this.initialized = true;
 		// --- Start Positron ---
-		this.model.setBreakpointSessionData(this.getId(), this.capabilities, undefined, this.configuration.type);
+		this.model.setBreakpointSessionData(this.getId(), this.capabilities, undefined, this.verifyBreakpointsInDirtyDocuments);
 		// --- End Positron ---
 		this.shutdown();
 		this._onDidEndAdapter.fire(event);
