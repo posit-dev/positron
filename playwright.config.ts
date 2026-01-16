@@ -22,7 +22,7 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
-const customReporter = process.env.ENABLE_CUSTOM_REPORTER === 'true'
+const customReporter = process.env.ENABLE_CUSTOM_REPORTER !== 'false'
 	? [['@midleman/playwright-reporter',
 		{
 			repoName: 'positron',
