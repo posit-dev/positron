@@ -23,6 +23,9 @@ export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.assista
 // Configuration key for showing/hiding deletion sentinels
 export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant.notebook.deletionSentinel.show';
 
+// Configuration key for showing diff view for assistant edits
+export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -69,6 +72,15 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.deletionSentinel.show',
 				'Show deletion sentinels when cells are deleted. When disabled, cells are deleted immediately without undo placeholders.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.assistant.notebook.showDiff',
+				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
