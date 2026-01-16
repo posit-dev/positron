@@ -3,25 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 .positron-cell-editor-monaco-widget {
-	border: var(--vscode-positronNotebook-border);
-	border-left: none; /* The selection bar on the left handles the left-side border */
-	border-radius: var(--vscode-positronNotebook-cell-radius);
-	/* The selection bar handles the left-side border radius */
-	border-bottom-left-radius: 0;
-	border-top-left-radius: 0;
+	/* No borders - parent container (.positron-notebook-editor-section) handles them */
+	border: none;
+	border-radius: 0;
 	padding: 0;
-	overflow: hidden; /* Clip content to respect rounded corners */
+	overflow: visible;
 }
 
 /* Set cell editor background */
 .positron-cell-editor-monaco-widget .monaco-editor-background,
 .positron-cell-editor-monaco-widget .margin-view-overlays {
 	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
-}
-
-/* On hover, when NOT selected/editing: change border color to hover color */
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-cell-editor-monaco-widget {
-	border-color: var(--vscode-editorWidget-border);
 }
 
 /* Show focus outline with default VS Code focus color */
@@ -40,35 +32,4 @@
 /* Ensure the editor container has minimum height for empty cells */
 .positron-monaco-editor-container {
 	min-height: 1rem;
-}
-
-/* Focus target element - overlays the editor, visible only when focused */
-.positron-cell-editor-focus-target {
-	position: absolute;
-	inset: 0;
-	z-index: 2;
-	pointer-events: none;
-	border-radius: var(--vscode-positronNotebook-cell-radius);
-}
-
-.positron-cell-editor-focus-target:focus {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 1px;
-}
-
-/* Remove bottom-left radius when there are outputs below */
-.positron-notebook-cell.selected .positron-cell-editor-focus-target,
-.positron-notebook-cell.editing .positron-cell-editor-focus-target,
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-cell-editor-focus-target {
-	border-bottom-left-radius: 0;
-}
-
-/* Restore bottom-left radius when no outputs */
-.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-cell-editor-focus-target,
-.positron-notebook-cell.selected:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target,
-.positron-notebook-cell.editing:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target,
-.positron-notebook-cell:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) .positron-cell-editor-focus-target {
-	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 }
