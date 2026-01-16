@@ -24,11 +24,7 @@ import { AnthropicModelProvider } from './anthropic/anthropicProvider';
 import { AnthropicAIModelProvider } from './anthropic/anthropicVercelProvider';
 import { AzureModelProvider } from './azure/azureProvider';
 import { GoogleModelProvider } from './google/googleProvider';
-import { VertexModelProvider } from './google/vertexProvider';
 import { SnowflakeModelProvider } from './snowflake/snowflakeProvider';
-import { MistralModelProvider } from './mistral/mistralProvider';
-import { OllamaModelProvider } from './ollama/ollamaProvider';
-import { OpenRouterModelProvider } from './openrouter/openrouterProvider';
 import { AWSModelProvider } from './aws/awsBedrockProvider';
 import { PositModelProvider } from './posit/positProvider';
 import { ModelProvider } from './base/modelProvider.js';
@@ -66,14 +62,10 @@ export function getModelProviders(): ConcreteModelProviderConstructor[] {
 		AzureModelProvider,
 		CopilotModelProvider,
 		GoogleModelProvider,
-		MistralModelProvider,
-		OllamaModelProvider,
 		OpenAIModelProvider,
 		OpenAICompatibleModelProvider,
-		OpenRouterModelProvider,
 		PositModelProvider,
 		SnowflakeModelProvider,
-		VertexModelProvider,
 	];
 	return providers;
 }

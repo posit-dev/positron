@@ -796,46 +796,6 @@
             ],
             "order": 9
           },
-          "positron.assistant.provider.vertex.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.vertex.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 10
-          },
-          "positron.assistant.provider.mistral.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.mistral.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 11
-          },
-          "positron.assistant.provider.ollama.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.ollama.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 12
-          },
-          "positron.assistant.provider.openrouter.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.openrouter.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 13
-          },
           "positron.assistant.provider.echo.enable": {
             "type": "boolean",
             "default": false,
@@ -844,7 +804,7 @@
               "experimental",
               "advanced"
             ],
-            "order": 14
+            "order": 10
           },
           "positron.assistant.provider.error.enable": {
             "type": "boolean",
@@ -854,7 +814,7 @@
               "experimental",
               "advanced"
             ],
-            "order": 15
+            "order": 11
           }
         }
       }
@@ -1334,12 +1294,9 @@
     "@ai-sdk/anthropic": "^1.0.5",
     "@ai-sdk/azure": "^1.1.9",
     "@ai-sdk/google": "^1.1.17",
-    "@ai-sdk/google-vertex": "^2.1.8",
-    "@ai-sdk/mistral": "^1.1.6",
     "@ai-sdk/openai": "^1.0.8",
     "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",
-    "@openrouter/ai-sdk-provider": "^0.0.6",
     "@stylistic/eslint-plugin": "^2.9.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "^20",
@@ -1348,7 +1305,6 @@
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
     "mocha": "^9.2.1",
-    "ollama-ai-provider": "^1.1.0",
     "sinon": "^17.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
