@@ -125,11 +125,24 @@ export const CONTEXT_DEBUG_TOOLBAR_SUPPRESSED = new RawContextKey<boolean>('debu
  * Note: This is independent from user preferences about toolbar visibility
  * (`debug.toolBarLocation`). See `debugToolBar.ts` for implementation details.
  */
-export function isDebugSessionWithToolbar(contextKeyService: IContextKeyService): boolean {
+export function isForegroundDebugSession(contextKeyService: IContextKeyService): boolean {
 	const debugState = CONTEXT_DEBUG_STATE.getValue(contextKeyService);
 	const isDebugActive = debugState !== undefined && debugState !== 'inactive';
 	const isSuppressed = CONTEXT_DEBUG_TOOLBAR_SUPPRESSED.getValue(contextKeyService) ?? false;
 	return isDebugActive && !isSuppressed;
+}
+
+/**
+ * Returns the debug state when there's a foreground debug session, or 'inactive'
+ * otherwise. A foreground session is one where the debug toolbar is not suppressed
+ * by an extension (e.g., R's always-connected DAP for breakpoints is a background
+ * session).
+ */
+export function getForegroundDebugState(contextKeyService: IContextKeyService): string | undefined {
+	if (isForegroundDebugSession(contextKeyService)) {
+		return CONTEXT_DEBUG_STATE.getValue(contextKeyService);
+	}
+	return 'inactive';
 }
 // --- End Positron ---
 
