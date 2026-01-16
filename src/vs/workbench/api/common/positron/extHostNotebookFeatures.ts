@@ -5,7 +5,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import type * as positron from 'positron';
-import { NotebookCellType } from './extHostTypes.positron.js';
+import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 
 /**
  * Extension host implementation of notebook features.
@@ -22,7 +22,7 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	 * Gets the context information for the currently active notebook.
 	 * @returns The notebook context DTO, or undefined if no notebook is active.
 	 */
-	async getActiveNotebookContext(): Promise<extHostProtocol.INotebookContextDTO | undefined> {
+	async getActiveNotebookContext(): Promise<INotebookContextDTO | undefined> {
 		return this._proxy.$getActiveNotebookContext();
 	}
 
@@ -126,7 +126,7 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 
 	/**
 	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
-	 * Respects the `positron.notebook.assistant.autoFollow` setting.
+	 * Respects the `positron.assistant.notebook.autoFollow` setting.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell to scroll to.
 	 */
