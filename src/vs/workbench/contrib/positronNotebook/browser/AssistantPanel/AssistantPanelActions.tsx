@@ -143,6 +143,10 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 			const callbackDisposable = CommandsRegistry.registerCommand(
 				callbackCommandId,
 				(_accessor, suggestion: { label: string; query: string; mode: ChatModeKind }) => {
+					// Check if cancelled before updating state to prevent memory leak
+					if (cancellationTokenSource.token.isCancellationRequested) {
+						return;
+					}
 					progressiveSuggestions.push(suggestion);
 					setAiSuggestions([...progressiveSuggestions]);
 				}
@@ -212,6 +216,8 @@ export const AssistantPanelActions = (props: AssistantPanelActionsProps) => {
 	const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
 		const element = e.currentTarget;
 		const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+		// Track if user has scrolled away from bottom to prevent auto-scroll interruption
+		// When true, user has manually scrolled up and we should not auto-scroll
 		userHasScrolledRef.current = !isAtBottom;
 	}, []);
 

@@ -234,6 +234,9 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			setIsLoadingContext(true);
 			try {
 				const controller = PositronNotebookAssistantController.get(panelState.notebook);
+				if (!controller) {
+					logService.warn('PositronNotebookAssistantController not found for notebook. Contribution may not be registered.');
+				}
 				const context = await controller?.getAssistantContext();
 				setNotebookContext(context);
 			} catch (error) {
