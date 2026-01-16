@@ -14,6 +14,23 @@ type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorker
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
+const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
+	? [
+		['@midleman/playwright-reporter',
+			{
+				repoName: 'positron',
+				verbose: true,
+				mode: 'prod',
+			},
+		] as const,
+		currentsReporter({
+			ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+			recordKey: process.env.CURRENTS_RECORD_KEY || '',
+			projectId: 'ZOs5z2',
+			disableTitleTags: true,
+		}),
+	]
+	: [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -53,24 +70,9 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			...githubSummaryReport,
+			...currentsReporters,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
-			['@midleman/playwright-reporter',
-				{
-					repoName: 'positron',
-					verbose: true,
-					mode: 'prod',
-					// localOutputDir: '/Users/marieidleman/Develop/e2e-test-insights/test-results'
-				},
-			],
-			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
-				? [currentsReporter({
-					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-					recordKey: process.env.CURRENTS_RECORD_KEY || '',
-					projectId: 'ZOs5z2',
-					disableTitleTags: true,
-				})]
-				: [])
 		]
 		: [
 			['list'],
