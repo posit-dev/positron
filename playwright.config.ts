@@ -65,7 +65,6 @@ export default defineConfig<ExtendedTestOptions>({
 			['@midleman/playwright-reporter',
 				{
 					repoName: 'positron',
-					verbose: true,
 					mode: 'prod',
 				},
 			] as const,
