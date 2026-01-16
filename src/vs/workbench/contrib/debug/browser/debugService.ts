@@ -649,8 +649,11 @@ export class DebugService implements IDebugService {
 		this._onWillNewSession.fire(session);
 
 		const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
-		// Open debug viewlet based on the visibility of the side bar and openDebug setting. Do not open for 'run without debug'
-		if (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug !== 'neverOpen' && this.viewModel.firstSessionStart)) && !session.suppressDebugView) {
+		// --- Start Positron ---
+		// Open debug viewlet based on the visibility of the side bar and openDebug setting.
+		// Do not open for 'run without debug' or for background sessions (suppressDebugToolbar).
+		if (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug !== 'neverOpen' && this.viewModel.firstSessionStart)) && !session.suppressDebugView && !session.suppressDebugToolbar) {
+			// --- End Positron ---
 			await this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
 		}
 
