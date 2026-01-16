@@ -132,6 +132,26 @@ export async function showConfigurationDialog(
 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await positron.ai.getEnabledProviders();
+
+	// Check if no providers are enabled
+	if (enabledProviders.length === 0) {
+		const settingsAction = vscode.l10n.t('Open Settings');
+		const docsAction = vscode.l10n.t('View Documentation');
+		const result = await vscode.window.showInformationMessage(
+			vscode.l10n.t('No language model providers are enabled. Enable at least one provider in Settings.'),
+			settingsAction,
+			docsAction
+		);
+
+		if (result === settingsAction) {
+			// Open settings to the provider section
+			await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.provider enable');
+		} else if (result === docsAction) {
+			// Open Positron documentation about AI providers
+			await vscode.env.openExternal(vscode.Uri.parse('https://positron.posit.co/assistant-getting-started'));
+		}
+		return;
+	}
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
