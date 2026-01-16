@@ -6,6 +6,10 @@ inputs:
     description: "Distribution identifier (ubuntu, rhel, suse, windows)"
     required: false
     default: 'ubuntu'
+  skip-cache:
+    description: "Skip restoring caches (use when testing a specific commit)"
+    required: false
+    default: 'false'
   install-playwright:
     description: "Whether to install Playwright browsers (default: true)"
     required: false
@@ -54,6 +58,7 @@ runs:
   using: "composite"
   steps:
     - name: 📦 Restore caches
+      if: ${{ inputs.skip-cache != 'true' }}
       id: restore-caches
       uses: ./.github/actions/restore-build-caches
       with:

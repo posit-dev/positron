@@ -11,7 +11,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
@@ -289,6 +289,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 		logger.log(endLog);
 		logger.log('');
+
+		// --- Start Positron ---
+		// Log system diagnostics at end of each test for monitoring resource usage
+		if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+			try {
+				const freeMemory = getFreeMemory();
+				const processList = getCondensedProcessList();
+				const loadAvgAndCpu = getLoadAverageAndCpuUsage();
+				console.log(`Free Memory: ${freeMemory}`);
+				console.log(`Processes: ${processList}`);
+				console.log(`${loadAvgAndCpu}`);
+			} catch (error) {
+				console.log(`Error logging system diagnostics: ${error}`);
+			}
+		}
+		// --- End Positron ---
 	}, { scope: 'test', auto: true }],
 
 	metric: [async ({ logger, app }, use) => {
