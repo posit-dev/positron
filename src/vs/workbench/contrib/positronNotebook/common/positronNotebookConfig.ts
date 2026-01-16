@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import {
 	ConfigurationScope,
 	Extensions,
@@ -16,27 +15,13 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 
 // Configuration key for assistant auto-follow setting
-export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.notebook.assistant.autoFollow';
+export const POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY = 'positron.assistant.notebook.autoFollow';
 
 // Configuration key for deletion sentinel timeout setting
-export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.notebook.deletionSentinel.timeout';
+export const POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY = 'positron.assistant.notebook.deletionSentinel.timeout';
 
 // Configuration key for showing/hiding deletion sentinels
-export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.notebook.deletionSentinel.show';
-
-/**
- * Retrieves the value of the configuration setting that determines whether to enable
- * the Positron Notebook editor.
- * @param configurationService The configuration service
- * @returns Whether to enable the Positron Notebook editor
- */
-export function checkPositronNotebookEnabled(
-	configurationService: IConfigurationService
-): boolean {
-	return Boolean(
-		configurationService.getValue(POSITRON_NOTEBOOK_ENABLED_KEY)
-	);
-}
+export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant.notebook.deletionSentinel.show';
 
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
@@ -47,23 +32,25 @@ configurationRegistry.registerConfiguration({
 	order: 7,
 	title: localize('positronConfigurationTitle', "Positron"),
 	type: 'object',
-	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize(
 				'positron.enablePositronNotebook',
-				'Enable the Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'
+				'Use Positron Notebook as the default editor for `.ipynb` files.'
 			),
+			tags: ['preview'],
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY]: {
 			type: 'boolean',
 			default: true,
 			markdownDescription: localize(
-				'positron.notebook.assistant.autoFollow',
+				'positron.assistant.notebook.autoFollow',
 				'Automatically scroll to cells modified by the AI assistant. When enabled, cells modified outside the viewport will be automatically scrolled into view and highlighted.'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_DELETION_SENTINEL_TIMEOUT_KEY]: {
 			type: 'number',
@@ -71,17 +58,19 @@ configurationRegistry.registerConfiguration({
 			minimum: 0,
 			maximum: 60000,
 			markdownDescription: localize(
-				'positron.notebook.deletionSentinel.timeout',
+				'positron.assistant.notebook.deletionSentinel.timeout',
 				'Time in milliseconds before deletion sentinels auto-dismiss (0 to disable auto-dismiss).'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 		[POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY]: {
 			type: 'boolean',
 			default: true,
 			markdownDescription: localize(
-				'positron.notebook.deletionSentinel.show',
+				'positron.assistant.notebook.deletionSentinel.show',
 				'Show deletion sentinels when cells are deleted. When disabled, cells are deleted immediately without undo placeholders.'
 			),
+			scope: ConfigurationScope.WINDOW,
 		},
 	},
 });

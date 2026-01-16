@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -13,17 +14,10 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ app, hotKeys }) {
+	test.afterEach(async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-
 		await notebooksPositron.moveMouseAway();
 		await notebooksPositron.expectNoActiveSpinners();
-
-		await hotKeys.closeAllEditors();
 	});
 
 	test('Cell Execution Tooltip - Basic Functionality', async function ({ app }) {

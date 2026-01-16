@@ -9,7 +9,7 @@ import { HotKeys } from './hotKeys.js';
 import { Code } from '../infra/code';
 import { expect } from '@playwright/test';
 
-const USER_SETTINGS_FILENAME = 'settings.json';
+export const USER_SETTINGS_FILENAME = 'settings.json';
 
 export class UserSettings {
 	private readonly settingsPath: string;

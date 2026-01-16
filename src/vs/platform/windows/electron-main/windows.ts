@@ -192,17 +192,43 @@ export function defaultBrowserWindowOptions(accessor: ServicesAccessor, windowSt
 
 	if (overrides?.disableFullscreen) {
 		options.fullscreen = false;
-	// --- Start Positron ---
-	// eslint-disable-next-line react-hooks/rules-of-hooks
+		// --- Start Positron ---
+		// eslint-disable-next-line react-hooks/rules-of-hooks
 	} else if (isMacintosh && !useNativeFullScreen(configurationService)) {
 		// --- End Positron ---
 		options.fullscreenable = false; // enables simple fullscreen mode
 	}
 
-	const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
-	if (useNativeTabs) {
-		options.tabbingIdentifier = productService.nameShort; // this opts in to sierra tabs
-	}
+	// --- Start Positron ---
+	// In Positron, we do not rely on macOS's OS level setting
+	// "Prefer tabs when opening documents". This setting is what generally
+	// controls whether or not a new window is automatically grouped into
+	// a tab group at creation time, within a tab group name of
+	// `tabbingIdentifier`.
+	//
+	// Instead, we rely solely on `windowSettings?.nativeTabs`. If this is `true`,
+	// we assume the user definitely wants a native tab, regardless of the OS
+	// level setting, and we always call `addTabbedWindow()` in
+	// `windowsMainService.ts` to add the window as a tab "manually" after
+	// window creation.
+	//
+	// We have determined that a bug causing a mixup in tab titles was related to
+	// us doing both of the following:
+	// - Set `tabbingIdentifier` to let the OS auto-add the window as a tab
+	// - Call `addTabbedWindow()` to manually add the window as a tab
+	// And doing both has been shown to result in tab ordering problems:
+	// https://github.com/posit-dev/positron/issues/10488
+	// https://github.com/microsoft/vscode/issues/276577
+	//
+	// Because we always manually call `addTabbedWindow()` on any window
+	// that is going to be opened in a tab, we are able to fully disable
+	// `tabbingIdentifier` to work around this bug.
+	//
+	// const useNativeTabs = isMacintosh && windowSettings?.nativeTabs === true;
+	// if (useNativeTabs) {
+	// 	options.tabbingIdentifier = productService.nameShort; // this opts in to sierra tabs
+	// }
+	// --- End Positron ---
 
 	const hideNativeTitleBar = !hasNativeTitlebar(configurationService, overrides?.forceNativeTitlebar ? TitlebarStyle.NATIVE : undefined);
 	if (hideNativeTitleBar) {

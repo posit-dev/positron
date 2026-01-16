@@ -15,6 +15,7 @@ import { IExtensionDescription } from '../../../../platform/extensions/common/ex
 import { ExtHostConfigProvider } from '../extHostConfiguration.js';
 import { ExtHostPositronContext } from './extHost.positron.protocol.js';
 import * as extHostTypes from './extHostTypes.positron.js';
+import { NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IExtHostInitDataService } from '../extHostInitDataService.js';
 import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
 import { ExtHostModalDialogs } from './extHostModalDialogs.js';
@@ -368,7 +369,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const notebooks: typeof positron.notebooks = {
-			NotebookCellType: extHostTypes.NotebookCellType,
+			NotebookCellType,
 			async getContext(): Promise<positron.notebooks.NotebookContext | undefined> {
 				const context = await extHostNotebookFeatures.getActiveNotebookContext();
 				if (!context) {

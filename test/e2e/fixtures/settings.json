@@ -12,5 +12,7 @@
 	"positron.assistant.provider.openAI.enable": true,
 	"positron.assistant.provider.echo.enable": true,
 	"positron.assistant.provider.error.enable": true,
-  "posit.workbench.showWorkbenchFlaskHint": false
+  "posit.workbench.showWorkbenchFlaskHint": false,
+  "kernelSupervisor.resourceUsagePollInterval": 0,
+  "console.showResourceMonitor": false
 }

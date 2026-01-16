@@ -20,13 +20,13 @@ export abstract class NotebookAction2 extends Action2 {
 		if (!activeNotebook) {
 			return;
 		}
-		const result = this.runNotebookAction(activeNotebook, accessor);
+		const result = this.runNotebookAction(activeNotebook, accessor, ...args);
 		// Handle both sync (void) and async (Promise) returns
 		if (result instanceof Promise) {
 			await result;
 		}
 	}
 
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> | void;
+	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor, ...args: unknown[]): Promise<void> | void;
 }
 
