@@ -64,7 +64,7 @@ outputs:
     description: "Computed hash of all package-lock.json files (for DRY cache key generation)"
     value: ${{ steps.package-locks-hash.outputs.hash }}
   node-version:
-    description: "Detected Node.js version (e.g., v22.20.0)"
+    description: "Detected Node.js major version (e.g., 22)"
     value: ${{ steps.node-version.outputs.version }}
   playwright-version:
     description: "Detected Playwright version from package.json"
@@ -155,14 +155,18 @@ runs:
           echo "hash=fallback-package-locks-$(date +%s)" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Get Node.js version
+    - name: Get Node.js major version
       if: ${{ inputs.restore-npm-core == 'true' }}
       id: node-version
       shell: bash
       run: |
-        NODE_VERSION=$(node -v)
-        echo "version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
-        echo "Detected Node.js version: $NODE_VERSION (will be used in npm-core cache key)"
+        # Extract just the major version (e.g., "22" from "v22.22.0")
+        # Using major version only because ABI is stable within a major version
+        # (all Node 22.x use NODE_MODULE_VERSION=127, native modules are compatible)
+        NODE_FULL=$(node -v)
+        NODE_MAJOR=$(echo "$NODE_FULL" | sed 's/v\([0-9]*\).*/\1/')
+        echo "version=$NODE_MAJOR" >> "$GITHUB_OUTPUT"
+        echo "Detected Node.js: $NODE_FULL → using major version $NODE_MAJOR for cache key"
 
     - name: Restore npm core dependencies cache
       if: ${{ inputs.restore-npm-core == 'true' }}
@@ -171,9 +175,9 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.cache-paths.outputs.npm-core-paths }}
-        key: npm-core-v6-${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
+        key: npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-${{ steps.package-locks-hash.outputs.hash }}
         restore-keys: |
-          npm-core-v6-${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
+          npm-core-v7-node${{ steps.node-version.outputs.version }}-${{ runner.os }}-${{ steps.distro.outputs.distro }}-
 
     - name: Restore npm volatile extensions cache
       if: ${{ inputs.restore-npm-extensions == 'true' }}
