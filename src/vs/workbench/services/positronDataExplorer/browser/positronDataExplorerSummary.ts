@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -92,7 +92,7 @@ configurationRegistry.registerConfiguration({ // for preview mode
 			default: false,
 			markdownDescription: localize(
 				'positron.dataExplorerEnablePreview',
-				'Controls whether Data Explorer tabs open in preview mode. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or interacting with the data pins the tab.'
+				'Controls whether preview mode is used for Data Explorer tabs, similar to `#workbench.editor.enablePreview#` for regular editors. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or interacting with the data pins the tab.'
 			),
 		},
 	},
