@@ -704,6 +704,11 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
 export class MockDebugStorage extends DebugStorage {
 
 	constructor(storageService: IStorageService) {
-		super(storageService, undefined!, undefined!, new NullLogService());
+		// --- Start Positron ---
+		// Old code:
+		// super(storageService, undefined!, undefined!, new NullLogService());
+		// eslint-disable-next-line local/code-no-any-casts
+		super(storageService, undefined!, undefined!, new NullLogService(), <any>{ getAdapterManager: () => ({ shouldVerifyBreakpointsInDirtyDocuments: () => false }) });
+		// --- End Positron ---
 	}
 }

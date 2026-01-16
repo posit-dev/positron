@@ -1076,6 +1076,7 @@ export interface IAdapterManager {
 	// --- Start Positron ---
 	someDebuggerInterestedInLanguageSupportsUiLaunch(language: string): boolean;
 	shouldSendBreakpointsOnAllSaves(languageId: string): boolean;
+	shouldVerifyBreakpointsInDirtyDocuments(uri: uri): boolean;
 	// --- End Positron ---
 	getDebugger(type: string): IDebuggerMetadata | undefined;
 

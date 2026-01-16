@@ -328,3 +328,4 @@ Registry.as<IExtensionFeaturesRegistry>(Extensions.ExtensionFeaturesRegistry).re
 	},
 	renderer: new SyncDescriptor(DebuggersDataRenderer),
 });
+
