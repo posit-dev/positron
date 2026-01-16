@@ -795,26 +795,6 @@
               "advanced"
             ],
             "order": 9
-          },
-          "positron.assistant.provider.echo.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.echo.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 10
-          },
-          "positron.assistant.provider.error.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.provider.error.enable.description%",
-            "tags": [
-              "experimental",
-              "advanced"
-            ],
-            "order": 11
           }
         }
       }

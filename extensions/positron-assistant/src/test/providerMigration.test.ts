@@ -82,20 +82,20 @@ suite('Provider Migration Tests', () => {
 	test('migrates from enabledProviders array to individual settings', async () => {
 		// Setup: Legacy enabledProviders array exists in global scope
 		mockInspect.withArgs('enabledProviders').returns({
-			globalValue: ['anthropic-api', 'copilot-auth', 'echo'],
+			globalValue: ['anthropic-api', 'copilot-auth', 'openai-api'],
 			workspaceValue: undefined
 		});
 		// Mock inspect for individual settings (not set yet)
 		mockInspect.withArgs('provider.anthropic.enable').returns({});
 		mockInspect.withArgs('provider.githubCopilot.enable').returns({});
-		mockInspect.withArgs('provider.echo.enable').returns({});
+		mockInspect.withArgs('provider.openAI.enable').returns({});
 
 		await performProviderMigration();
 
 		// Verify individual settings were created
 		const anthropicCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.anthropic.enable');
 		const copilotCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.githubCopilot.enable');
-		const echoCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.echo.enable');
+		const openaiCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'provider.openAI.enable');
 
 		assert.ok(anthropicCall, 'Should create anthropic setting');
 		assert.strictEqual(anthropicCall.args[1], true, 'Should enable anthropic');
@@ -104,8 +104,8 @@ suite('Provider Migration Tests', () => {
 		assert.ok(copilotCall, 'Should create copilot setting');
 		assert.strictEqual(copilotCall.args[1], true, 'Should enable copilot');
 
-		assert.ok(echoCall, 'Should create echo setting');
-		assert.strictEqual(echoCall.args[1], true, 'Should enable echo');
+		assert.ok(openaiCall, 'Should create openai setting');
+		assert.strictEqual(openaiCall.args[1], true, 'Should enable openai');
 
 		// Verify old setting was removed
 		const removeEnableProvidersCall = mockUpdate.getCalls().find((call: any) => call.args[0] === 'enabledProviders');
