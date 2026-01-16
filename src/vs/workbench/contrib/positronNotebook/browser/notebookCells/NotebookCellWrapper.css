@@ -11,20 +11,5 @@
 
 	&[data-is-running='true'] {
 		outline: 1px solid var(--vscode-focusBorder);
-		animation: running-cell-pulse 2s ease-in-out infinite;
-	}
-}
-
-@keyframes running-cell-pulse {
-	0% {
-		outline-color: var(--vscode-focusBorder);
-	}
-
-	50% {
-		outline-color: color-mix(in srgb, var(--vscode-focusBorder) 70%, white 30%);
-	}
-
-	100% {
-		outline-color: var(--vscode-focusBorder);
 	}
 }
