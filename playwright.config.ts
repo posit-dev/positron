@@ -22,6 +22,14 @@ const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
 		disableTitleTags: true,
 	})]
 	: [];
+const customReporter = process.env.ENABLE_CUSTOM_REPORTER === 'true'
+	? [['@midleman/playwright-reporter',
+		{
+			repoName: 'positron',
+			mode: 'prod'
+		},
+	] as const]
+	: [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -62,12 +70,7 @@ export default defineConfig<ExtendedTestOptions>({
 		? [
 			...githubSummaryReport,
 			...currentsReporters,
-			['@midleman/playwright-reporter',
-				{
-					repoName: 'positron',
-					mode: 'prod',
-				},
-			] as const,
+			...customReporter,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 		]
