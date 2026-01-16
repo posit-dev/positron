@@ -209,12 +209,27 @@ export class DebugService implements IDebugService {
 			}
 		}));
 
+		// --- Start Positron ---
+		// Only veto extension host restart for foreground debug sessions.
+		// Background sessions (with suppressDebugToolbar) should be gracefully
+		// disconnected without blocking the restart.
 		this.disposables.add(extensionService.onWillStop(evt => {
+			const sessions = this.model.getSessions();
+			const foregroundSessions = sessions.filter(s => !s.suppressDebugToolbar);
+			const backgroundSessions = sessions.filter(s => s.suppressDebugToolbar);
+
+			// Gracefully disconnect background sessions to avoid "terminated unexpectedly" errors
+			for (const session of backgroundSessions) {
+				session.disconnect();
+			}
+
+			// Only veto if there are foreground debug sessions
 			evt.veto(
-				this.model.getSessions().length > 0,
+				foregroundSessions.length > 0,
 				nls.localize('active debug session', 'A debug session is still running that would terminate.'),
 			);
 		}));
+		// --- End Positron ---
 
 		this.initContextKeys(contextKeyService);
 	}
