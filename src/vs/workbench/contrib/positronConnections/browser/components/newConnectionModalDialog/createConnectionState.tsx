@@ -249,13 +249,12 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 					title: option.title,
 					value: option.identifier
 				}));
-				const selectedId = defaultValue || options[0].identifier;
 
 				return <div className='labeled-input'><label className='label'>
 					<span className='label-text'>{label}</span>
 					<DropDownListBox
 						entries={entries}
-						selectedIdentifier={selectedId}
+						selectedIdentifier={defaultValue || options[0].identifier}
 						title={label}
 						onSelectionChanged={(item) => props.onChange(item.options.identifier)}
 					/>
@@ -266,7 +265,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 				<span className='label-text'>{label}</span>
 				<RadioGroup
 					entries={options.map(option => ({ options: option }))}
-					initialSelectionId={options[0].identifier}
+					initialSelectionId={defaultValue || options[0].identifier}
 					labelledBy={label}
 					name={label}
 					onSelectionChanged={(option) => props.onChange(option)}
