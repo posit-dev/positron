@@ -92,7 +92,7 @@ configurationRegistry.registerConfiguration({ // for preview mode
 			default: false,
 			markdownDescription: localize(
 				'positron.dataExplorerEnablePreview',
-				'Controls whether preview mode is used for Data Explorer tabs, similar to `#workbench.editor.enablePreview#` for regular editors. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or interacting with the data pins the tab.'
+				'Controls whether preview mode is used for Data Explorer tabs, similar to `#workbench.editor.enablePreview#` for regular editors. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or clicking the \'Keep Open\' option in its label context menu pins the tab.'
 			),
 		},
 	},
