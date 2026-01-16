@@ -312,9 +312,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
-		// Only save to persistent state for non-autoconfigured models
-		// Autoconfigured models (e.g., Copilot, env var based) are managed
-		// externally
+		// Update persistent storage with new configuration
 		await context.globalState.update(
 			'positron.assistant.models',
 			[...existingConfigs, newConfig]
