@@ -156,7 +156,8 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
-	const autoconfiguredModels = getAutoconfiguredModels();
+	// But exclude any that are already registered manually
+	const autoconfiguredModels = getAutoconfiguredModels().filter(m => !registeredModels.some(rm => rm.provider === m.provider));
 	const allProviders = [...getModelProviders(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
@@ -274,8 +275,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
 	// Some models such as Anthropic can use either autoconfiguration or manual configuration;
 	// if an apiKey is provided, treat it as manual configuration
-	const providerSource = sources.find(source => source.provider.id === userConfig.provider);
-	const isAutoconfigured = !apiKey && providerSource?.defaults.autoconfigure !== undefined;
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
@@ -313,23 +312,13 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
-
-		if (isAutoconfigured) {
-			// Track autoconfigured models in memory so they are returned by
-			// getAutoconfiguredModels()
-			addAutoconfiguredModel({
-				...newConfig,
-				apiKey: apiKey || ''
-			});
-		} else {
-			// Only save to persistent state for non-autoconfigured models
-			// Autoconfigured models (e.g., Copilot, env var based) are managed
-			// externally
-			await context.globalState.update(
-				'positron.assistant.models',
-				[...existingConfigs, newConfig]
-			);
-		}
+		// Only save to persistent state for non-autoconfigured models
+		// Autoconfigured models (e.g., Copilot, env var based) are managed
+		// externally
+		await context.globalState.update(
+			'positron.assistant.models',
+			[...existingConfigs, newConfig]
+		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
