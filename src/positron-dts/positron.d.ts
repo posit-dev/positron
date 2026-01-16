@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -277,6 +277,36 @@ declare module 'positron' {
 
 		/** Additional binary data, if any */
 		buffers?: Array<Uint8Array>;
+	}
+
+	/**
+	 * RuntimeResourceUsage represents resource usage information for a language runtime.
+	 */
+	export interface RuntimeResourceUsage {
+		/**
+		 * CPU usage percentage for the kernel and its children.
+		 */
+		cpu_percent: number;
+
+		/**
+		 * Memory usage in bytes for the kernel and its children.
+		 */
+		memory_bytes: number;
+
+		/**
+		 * Number of threads used by the kernel and its children.
+		 */
+		thread_count: number;
+
+		/**
+		 * Sampling period in milliseconds for the resource usage data.
+		 */
+		sampling_period_ms: number;
+
+		/**
+		 * Timestamp of the resource usage data in milliseconds since epoch.
+		 */
+		timestamp: number;
 	}
 
 	/**
@@ -1112,6 +1142,9 @@ declare module 'positron' {
 
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
+
+		/** An object that emits an event when the runtime's resource usage is updated */
+		onDidUpdateResourceUsage: vscode.Event<RuntimeResourceUsage>;
 
 		/**
 		 * Opens a resource in the runtime.
@@ -2154,8 +2187,8 @@ declare module 'positron' {
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
-			name: string;
-			provider: string;
+			displayName: string;
+			providerId: string;
 			id: string;
 
 			providerName: string;
@@ -2505,6 +2538,12 @@ declare module 'positron' {
 			 * Only present for code cells
 			 */
 			lastRunEndTime?: number;
+
+			/**
+			 * For markdown cells only: whether the editor is shown (true) or preview is shown (false).
+			 * This property is undefined for code cells.
+			 */
+			editorShown?: boolean;
 		}
 
 		/**
@@ -2553,6 +2592,13 @@ declare module 'positron' {
 		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
 
 		/**
+		 * Delete multiple cells from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Array of cell indices to delete
+		 */
+		export function deleteCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
+
+		/**
 		 * Update the content of a cell in a notebook
 		 * @param notebookUri URI of the notebook
 		 * @param cellIndex Index of the cell to update
@@ -2599,5 +2645,13 @@ declare module 'positron' {
 		 *                 Must be a valid permutation containing each index from 0 to cellCount-1 exactly once.
 		 */
 		export function reorderCells(notebookUri: string, newOrder: number[]): Thenable<void>;
+
+		/**
+		 * Scroll to a cell if it's out of view and auto-follow is enabled.
+		 * Respects the `positron.notebook.assistant.autoFollow` setting.
+		 * @param notebookUri The notebook URI as a string
+		 * @param cellIndex The index of the cell to scroll to
+		 */
+		export function scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Thenable<void>;
 	}
 }

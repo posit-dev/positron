@@ -7,7 +7,7 @@
 import './listDriversState.css';
 
 // React.
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -28,29 +28,63 @@ interface ListDriversProps {
 
 export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	const services = usePositronReactServicesContext();
+	const driverManager = services.positronConnectionsService.driverManager;
+	const runtimeSessionService = services.runtimeSessionService;
+
+	const { languageId, setLanguageId } = props;
+
+	// Use a ref to track languageId to avoid recreating the subscription on every change
+	const languageIdRef = useRef(languageId);
+	useEffect(() => {
+		languageIdRef.current = languageId;
+	}, [languageId]);
+
+	// Store raw drivers list in state
+	// Note: We spread the array to create a new reference, since driverManager.getDrivers()
+	// may return the same mutable array, and React skips re-renders if the reference is unchanged.
+	const [drivers, setDrivers] = useState(() => [...driverManager.getDrivers()]);
+
+	// Subscribe to driver changes
+	useEffect(() => {
+		const disposable = driverManager.onDidChangeDrivers((newDrivers) => {
+			setDrivers(newDrivers);
+		});
+		// Re-fetch after subscription to catch any changes we might have missed
+		setDrivers([...driverManager.getDrivers()]);
+		return () => disposable.dispose();
+	}, [driverManager]);
+
+	// Auto-select language when a console starts and no language is selected
+	useEffect(() => {
+		const disposable = runtimeSessionService.onDidStartRuntime((session) => {
+			if (!languageIdRef.current) {
+				setLanguageId(session.runtimeMetadata.languageId);
+			}
+		});
+		return () => disposable.dispose();
+	}, [runtimeSessionService, setLanguageId]);
+
+	// Compute filtered/grouped drivers, cached by drivers and languageId
+	const driversByName = useMemo(() => {
+		const filtered = languageId
+			? drivers.filter((driver) => driver.metadata.languageId === languageId)
+			: [];
+
+		const grouped = new Map<string, IDriver[]>();
+		for (const driver of filtered) {
+			const existing = grouped.get(driver.metadata.name);
+			if (existing) {
+				existing.push(driver);
+			} else {
+				grouped.set(driver.metadata.name, [driver]);
+			}
+		}
+		return grouped;
+	}, [drivers, languageId]);
 
 	const onDriverSelectedHandler = (drivers: IDriver[]) => {
 		props.onSelection(drivers);
 	};
-
-	const { languageId, setLanguageId } = props;
-	const driverManager = services.positronConnectionsService.driverManager;
-
-	const drivers = languageId
-		? driverManager
-			.getDrivers()
-			.filter((driver) => driver.metadata.languageId === languageId)
-		: [];
-
-	// group drivers by name such that we only display a single driver per name
-	const driversByName: Map<string, IDriver[]> = new Map();
-	for (const driver of drivers) {
-		if (!driversByName.get(driver.metadata.name)) {
-			driversByName.set(driver.metadata.name, [driver]);
-		} else {
-			driversByName.get(driver.metadata.name)?.push(driver);
-		}
-	}
 
 	const onLanguageChangeHandler = (lang: string) => {
 		setLanguageId(lang);
@@ -89,29 +123,14 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		<div className='driver-list'>
 			{
 				driversByName.size > 0 ?
-					[...driversByName].map(([name, drivers]) => {
-						// find the first icon
-						const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
-
-						const icon = baseIcon ?
-							<img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} /> :
-							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
-
-						return <button
+					[...driversByName].map(([name, drivers]) => (
+						<DriverListItem
 							key={name}
-							className='driver-list-item'
-							onClick={() => onDriverSelectedHandler(drivers)}
-						>
-							{icon}
-							<div className='driver-info'>
-								<div className='driver-name'>
-									{name}
-								</div>
-								<div className={`driver-button codicon codicon-chevron-right`}>
-								</div>
-							</div>
-						</button>;
-					}) :
+							drivers={drivers}
+							name={name}
+							onSelect={onDriverSelectedHandler}
+						/>
+					)) :
 					<div className='no-drivers'>
 						{(() => localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available"))()}
 					</div>
@@ -126,6 +145,34 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 			</PositronButton>
 		</div>
 	</div>;
+};
+
+interface DriverListItemProps {
+	readonly name: string;
+	readonly drivers: IDriver[];
+	readonly onSelect: (drivers: IDriver[]) => void;
+}
+
+const DriverListItem = (props: DriverListItemProps) => {
+	const { name, drivers, onSelect } = props;
+	const baseIcon = drivers[0].metadata.base64EncodedIconSvg;
+
+	const icon = baseIcon
+		? <img alt='' className='driver-icon' src={`data:image/svg+xml;base64,${baseIcon}`} />
+		: <div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+
+	return <button
+		className='driver-list-item'
+		onClick={() => onSelect(drivers)}
+	>
+		{icon}
+		<div className='driver-info'>
+			<div className='driver-name'>
+				{name}
+			</div>
+			<div className='driver-button codicon codicon-chevron-right' />
+		</div>
+	</button>;
 };
 
 const getRegisteredLanguages = (services: PositronReactServices) => {

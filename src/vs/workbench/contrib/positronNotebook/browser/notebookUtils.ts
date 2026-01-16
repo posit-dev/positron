@@ -31,7 +31,8 @@ export function getNotebookInstanceFromEditorPane(editorPane?: IEditorPane): IPo
 		return undefined;
 	}
 
-	// Extract the notebook instance from the editor
-	const activeNotebook = (editorPane as PositronNotebookEditor).notebookInstance;
+	// Extract the notebook instance from the editor.
+	// The cast to IPositronNotebookInstance is safe because PositronNotebookInstance implements the interface.
+	const activeNotebook = (editorPane as PositronNotebookEditor).notebookInstance as IPositronNotebookInstance | undefined;
 	return activeNotebook;
 }

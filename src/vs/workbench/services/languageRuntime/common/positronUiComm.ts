@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -257,6 +257,12 @@ export interface OpenEditorParams {
 	 * omitted, defaults to 'path'.
 	 */
 	kind: OpenEditorKind;
+
+	/**
+	 * Whether to open the editor pinned (non-preview mode). If omitted,
+	 * defaults to true.
+	 */
+	pinned?: boolean;
 }
 
 /**
@@ -576,6 +582,12 @@ export interface OpenEditorEvent {
 	 * omitted, defaults to 'path'.
 	 */
 	kind?: OpenEditorKind;
+
+	/**
+	 * Whether to open the editor pinned (non-preview mode). If omitted,
+	 * defaults to true.
+	 */
+	pinned?: boolean;
 
 }
 
@@ -962,7 +974,7 @@ export class PositronUiComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
 		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
-		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column', 'kind']);
+		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column', 'kind', 'pinned']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);

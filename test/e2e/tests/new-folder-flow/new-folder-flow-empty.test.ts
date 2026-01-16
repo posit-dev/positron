@@ -5,7 +5,7 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, verifyGitStatus, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -26,5 +26,20 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 
 		await newFolderFlow.verifyFolderCreation(folderName);
 		await verifyPyprojectTomlNotCreated(app);
+	});
+
+	test('Verify empty folder with git initialization', async function ({ app }) {
+		const { newFolderFlow } = app.workbench;
+		const folderName = addRandomNumSuffix('empty-project-git');
+
+		// Create a new empty project folder with git initialized
+		await newFolderFlow.createNewFolder({
+			folderTemplate,
+			folderName,
+			initGitRepo: true
+		});
+
+		await newFolderFlow.verifyFolderCreation(folderName);
+		await verifyGitStatus(app);
 	});
 });

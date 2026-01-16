@@ -5,6 +5,7 @@
 
 import { test, tags } from '../_test.setup';
 import { RETICULATE_SESSION, verifyReticulateFunctionality } from './helpers/verifyReticulateFunction.js';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -33,7 +34,7 @@ test.describe('Reticulate', {
 	test('R - Verify Reticulate Stop/Start Functionality', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
-		const { console, sessions, modals } = app.workbench;
+		const { sessions, modals } = app.workbench;
 
 		// start new reticulate session and verify functionality
 		const reticulateSession = await sessions.start('pythonReticulate');
@@ -44,7 +45,11 @@ test.describe('Reticulate', {
 		// stop reticulate session
 		await sessions.select(reticulateSession.id);
 		await sessions.delete(reticulateSession.id);
-		await console.waitForConsoleContents('exited', { timeout: 30000 });
+		// Deleting the Reticulate session will bring focus to the R session
+		expect(async () => {
+			const info = await sessions.getSelectedSessionInfo();
+			return info.language.toLowerCase() === 'r';
+		}).toPass();
 
 		// start reticulate session (again) and verify functionality
 		await sessions.start('pythonReticulate');

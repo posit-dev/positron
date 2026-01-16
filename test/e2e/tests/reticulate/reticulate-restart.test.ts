@@ -37,6 +37,7 @@ test.describe('Reticulate', {
 		// start new reticulate session
 		await sessions.start('pythonReticulate');
 		await sessions.expectSessionPickerToBe(RETICULATE_SESSION, 60000);
+		await sessions.expectStatusToBe(RETICULATE_SESSION, 'idle');
 
 		// restart reticulate session
 		await sessions.restart(RETICULATE_SESSION, {

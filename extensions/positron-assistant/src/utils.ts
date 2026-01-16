@@ -111,8 +111,11 @@ export function toAIMessage(
 				}
 			}
 			const aiMessage: ai.AssistantModelMessage = {
+
 				role: 'assistant',
+
 				content,
+
 			};
 
 			// If this is a cache breakpoint, note it in the message

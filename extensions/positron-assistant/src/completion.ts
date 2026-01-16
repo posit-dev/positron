@@ -22,7 +22,6 @@ import { createAzure } from '@ai-sdk/azure';
 import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { CopilotService } from './copilot.js';
 
 /**
  * Models used for autocomplete/ghost text.
@@ -412,7 +411,6 @@ abstract class FimPromptCompletion extends CompletionModel {
 			messages: [
 				{ role: 'user', content: `${relatedText}\n<|file_separator|>${document.fileName}\n<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>` }
 			],
-			maxOutputTokens: 128,
 			temperature: 0.2,
 			stopSequences: ['\n\n', '<|fim_prefix|>', '<|fim_suffix|>', '<|file_separator|>'],
 			abortSignal: signal,
