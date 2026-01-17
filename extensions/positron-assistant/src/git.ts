@@ -209,19 +209,9 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[], pr
 	});
 
 	// Use provider-specific patterns if available, otherwise use default patterns
-	let encouragedPatterns = preferences.encouraged || [];
-	let discouragedPatterns = preferences.discouraged || [];
-
-	if (providerId && preferences.byProvider && preferences.byProvider[providerId]) {
-		const providerPrefs = preferences.byProvider[providerId];
-		// Override with provider-specific patterns if they exist
-		if (providerPrefs.encouraged) {
-			encouragedPatterns = providerPrefs.encouraged;
-		}
-		if (providerPrefs.discouraged) {
-			discouragedPatterns = providerPrefs.discouraged;
-		}
-	}
+	const providerPrefs = (providerId && preferences.byProvider) ? preferences.byProvider[providerId] : undefined;
+	const encouragedPatterns = providerPrefs?.encouraged ?? preferences.encouraged ?? [];
+	const discouragedPatterns = providerPrefs?.discouraged ?? preferences.discouraged ?? [];
 
 	// If no patterns configured, return original order
 	if (encouragedPatterns.length === 0 && discouragedPatterns.length === 0) {
