@@ -34,7 +34,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
-	const executionStatus = useObservedValue(cell.executionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
 	// Track previous selection status to detect edit mode exit
 	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>();
@@ -129,7 +128,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-has-error={hasError}
-		data-is-running={executionStatus === 'running'}
 		data-testid='notebook-cell'
 		role='article'
 		tabIndex={0}

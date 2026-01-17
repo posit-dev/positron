@@ -8,8 +8,4 @@
 	margin-left: 12px;
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
-
-	&[data-is-running='true'] {
-		outline: 1px solid var(--vscode-focusBorder);
-	}
 }
