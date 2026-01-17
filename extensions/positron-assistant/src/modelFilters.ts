@@ -11,7 +11,7 @@ import { markDefaultModel } from './modelResolutionHelpers.js';
 /**
  * Check if a model matches a user-defined filter pattern.
  */
-function matchesModelFilter(pattern: string, id: string, name: string): boolean {
+export function matchesModelFilter(pattern: string, id: string, name: string): boolean {
 	const normalizedPattern = pattern.toLowerCase().trim();
 	const values = [id, name].map(v => v.toLowerCase());
 

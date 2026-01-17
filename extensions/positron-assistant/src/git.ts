@@ -12,6 +12,7 @@ import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
+import { matchesModelFilter } from './modelFilters.js';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
@@ -209,33 +210,13 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[]): v
 		return models;
 	}
 
-	// Helper function to check if a model matches a pattern (using same logic as modelFilters.ts)
-	const matchesPattern = (pattern: string, model: vscode.LanguageModelChat): boolean => {
-		try {
-			const normalizedPattern = pattern.toLowerCase().trim();
-			const modelId = model.id.toLowerCase();
-			const modelName = model.name.toLowerCase();
-
-			// If pattern contains regex special chars, use regex matching
-			if (/[.+^${}()|[\]\\]/.test(normalizedPattern) || normalizedPattern.includes('*')) {
-				const regex = new RegExp(normalizedPattern, 'i');
-				return regex.test(model.id) || regex.test(model.name);
-			}
-
-			// Simple substring match
-			return modelId.includes(normalizedPattern) || modelName.includes(normalizedPattern);
-		} catch {
-			return false;
-		}
-	};
-
 	// Score each model based on pattern matching
 	const scoredModels = models.map(model => {
 		let score = 0;
 
 		// Check encouraged patterns (higher index = higher priority = higher score)
 		for (let i = 0; i < encouragedPatterns.length; i++) {
-			if (matchesPattern(encouragedPatterns[i], model)) {
+			if (matchesModelFilter(encouragedPatterns[i], model.id, model.name)) {
 				// First pattern gets highest score
 				score = 1000 + (encouragedPatterns.length - i);
 				break;
@@ -245,7 +226,7 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[]): v
 		// Check discouraged patterns (higher index = lower priority = lower score)
 		if (score === 0) {
 			for (let i = 0; i < discouragedPatterns.length; i++) {
-				if (matchesPattern(discouragedPatterns[i], model)) {
+				if (matchesModelFilter(discouragedPatterns[i], model.id, model.name)) {
 					// Last pattern gets lowest score
 					score = -(discouragedPatterns.length - i);
 					break;
