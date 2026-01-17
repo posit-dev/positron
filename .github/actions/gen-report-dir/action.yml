@@ -5,13 +5,16 @@ inputs:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
+  project:
+    description: "Playwright project name (e.g., e2e-electron, e2e-windows)"
+    required: true
 runs:
   using: "composite"
   steps:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}"
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.project }}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
