@@ -46,6 +46,7 @@ from positron.positron_lsp import (
     PositronLanguageServer,
     _get_expression_at_position,
     _MagicType,
+    _parse_os_imports,
     _safe_resolve_expression,
     create_server,
 )
@@ -262,6 +263,52 @@ class TestSafeResolveExpression:
         assert result is None
 
 
+class TestParseOsImports:
+    """Tests for _parse_os_imports."""
+
+    def test_simple_import(self):
+        result = _parse_os_imports("import os")
+        assert result == {"os": "os"}
+
+    def test_aliased_import(self):
+        result = _parse_os_imports("import os as system")
+        assert result == {"system": "os"}
+
+    def test_multiple_imports(self):
+        result = _parse_os_imports("import sys, os, json")
+        assert result == {"os": "os"}
+
+    def test_multiple_imports_with_alias(self):
+        result = _parse_os_imports("import sys, os as o, json")
+        assert result == {"o": "os"}
+
+    def test_multiline_imports(self):
+        result = _parse_os_imports("import sys\nimport os\nimport json")
+        assert result == {"os": "os"}
+
+    def test_no_os_import(self):
+        result = _parse_os_imports("import sys\nimport json")
+        assert result == {}
+
+    def test_invalid_syntax(self):
+        # Incomplete syntax should still extract import (robust parsing)
+        result = _parse_os_imports('import os; os.environ["')
+        assert result == {"os": "os"}
+
+    def test_from_import_not_supported(self):
+        # from imports are explicitly not supported
+        result = _parse_os_imports("from os import environ")
+        assert result == {}
+
+    def test_empty_source(self):
+        result = _parse_os_imports("")
+        assert result == {}
+
+    def test_whitespace_only(self):
+        result = _parse_os_imports("   \n  ")
+        assert result == {}
+
+
 class TestCompletions:
     """Tests for completion functionality."""
 
@@ -423,9 +470,6 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_environ_from_source",
-                marks=pytest.mark.xfail(
-                    reason="Completions from imported source not yet supported"
-                ),
             ),
             pytest.param(
                 'import os; os.environ["',
@@ -433,9 +477,6 @@ class TestCompletions:
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_environ_from_source_unclosed",
-                marks=pytest.mark.xfail(
-                    reason="Completions from imported source not yet supported"
-                ),
             ),
             pytest.param(
                 'os.getenv("")',
@@ -450,9 +491,6 @@ class TestCompletions:
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_from_source",
-                marks=pytest.mark.xfail(
-                    reason="Completions from imported source not yet supported"
-                ),
             ),
             pytest.param(
                 'os.getenv(key="")',
@@ -516,6 +554,79 @@ class TestCompletions:
                 None,
                 [],
                 id="os_getenv_wrong_arg_unclosed",
+            ),
+            # Static analysis tests with aliases
+            pytest.param(
+                'import os as system; system.environ[""]',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_from_source_with_alias",
+            ),
+            pytest.param(
+                'import os as system; system.environ["',
+                {},
+                None,
+                [f'{TEST_ENVIRONMENT_VARIABLE}"'],
+                id="os_environ_from_source_with_alias_unclosed",
+            ),
+            pytest.param(
+                'import os as o; o.getenv("")',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_from_source_with_alias",
+            ),
+            pytest.param(
+                'import os as o; o.getenv("',
+                {},
+                None,
+                [f'{TEST_ENVIRONMENT_VARIABLE}"'],
+                id="os_getenv_from_source_with_alias_unclosed",
+            ),
+            # Multiline import tests
+            pytest.param(
+                'import sys, os\nos.environ[""]',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_multiline_import",
+            ),
+            pytest.param(
+                'import os\n\n\nos.getenv("")',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_multiline_import",
+            ),
+            # Tests with os already in namespace (namespace should take priority)
+            pytest.param(
+                'import os as alias; os.environ[""]',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_namespace_priority_over_alias",
+            ),
+            pytest.param(
+                'import os as alias; os.getenv("")',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_namespace_priority_over_alias",
+            ),
+            pytest.param(
+                'import os as alias; alias.environ[""]',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_alias_with_os_in_namespace",
+            ),
+            pytest.param(
+                'import os as alias; alias.getenv("")',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_alias_with_os_in_namespace",
             ),
         ],
     )
