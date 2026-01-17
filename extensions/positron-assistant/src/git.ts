@@ -222,7 +222,7 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[], pr
 	const scoredModels = models.map(model => {
 		let score = 0;
 
-		// Check encouraged patterns (higher index = higher priority = higher score)
+		// Check encouraged patterns (lower index = higher priority = higher score)
 		for (let i = 0; i < encouragedPatterns.length; i++) {
 			if (matchesModelFilter(encouragedPatterns[i], model.id, model.name)) {
 				// First pattern gets highest score
