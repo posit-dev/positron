@@ -184,6 +184,66 @@ export async function generateCommitMessage(
 	}
 }
 
+/**
+ * Filter models to find suitable ones for commit message generation.
+ * Prioritizes cheaper, faster models and excludes specialized/expensive models.
+ */
+function filterModelsForCommitGeneration(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
+	// Patterns for models that should be excluded (expensive or specialized)
+	const excludePatterns = [
+		/codex/i,        // Code-specific models (e.g., gpt-5.2-codex)
+		/search/i,       // Search-specific models
+		/audio/i,        // Audio-specific models
+		/realtime/i,     // Realtime models
+		/transcribe/i,   // Transcription models
+		/vision/i,       // Vision-specific models
+	];
+
+	// Patterns for preferred cheaper models
+	const preferPatterns = [
+		/mini/i,         // GPT mini models
+		/flash/i,        // Gemini flash models
+		/haiku/i,        // Claude haiku models
+		/3\.5/i,         // GPT 3.5 models
+	];
+
+	// First, filter out non-user-selectable models and specialized models
+	let filtered = models.filter(model => {
+		// Skip if explicitly marked as not user-selectable (using type assertion since this is a proposed API property)
+		if ((model as any).isUserSelectable === false) {
+			return false;
+		}
+		// Skip test/error models
+		if (model.family === 'echo' || model.family === 'error') {
+			return false;
+		}
+		// Skip models matching exclude patterns
+		const modelIdentifier = `${model.id} ${model.name}`;
+		if (excludePatterns.some(pattern => pattern.test(modelIdentifier))) {
+			return false;
+		}
+		return true;
+	});
+
+	// If we have no models left after filtering, fall back to all available models
+	// (excluding only test/error models)
+	if (filtered.length === 0) {
+		filtered = models.filter(model => model.family !== 'echo' && model.family !== 'error');
+	}
+
+	// Try to find a preferred cheaper model
+	const preferred = filtered.find(model => {
+		const modelIdentifier = `${model.id} ${model.name}`;
+		return preferPatterns.some(pattern => pattern.test(modelIdentifier));
+	});
+
+	if (preferred) {
+		return [preferred, ...filtered.filter(m => m !== preferred)];
+	}
+
+	return filtered;
+}
+
 async function getModel(participantService: ParticipantService): Promise<vscode.LanguageModelChat> {
 	// Check for the latest chat session and use its model.
 	const sessionModelId = participantService.getCurrentSessionModel();
@@ -198,7 +258,10 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	const currentProvider = await positron.ai.getCurrentProvider();
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		return models[0];
+		const filtered = filterModelsForCommitGeneration(models);
+		if (filtered.length > 0) {
+			return filtered[0];
+		}
 	}
 
 	// Fall back to the first available model from any provider.
@@ -206,5 +269,9 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	if (models.length === 0) {
 		throw new Error('No language models available for git commit message generation');
 	}
-	return models.filter((model) => model.family !== 'echo' && model.family !== 'error')[0];
+	const filtered = filterModelsForCommitGeneration(models);
+	if (filtered.length === 0) {
+		throw new Error('No suitable language models available for git commit message generation');
+	}
+	return filtered[0];
 }
