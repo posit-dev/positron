@@ -455,6 +455,55 @@
               "experimental"
             ]
           },
+          "positron.assistant.commitMessage.modelPreference": {
+            "type": "object",
+            "default": {
+              "encouraged": [
+                "mini",
+                "flash",
+                "haiku",
+                "3\\.5"
+              ],
+              "discouraged": [
+                "codex",
+                "search",
+                "audio",
+                "realtime",
+                "transcribe",
+                "vision"
+              ]
+            },
+            "markdownDescription": "%configuration.commitMessage.modelPreference.description%",
+            "properties": {
+              "encouraged": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Patterns for models to prioritize (ordered by preference, supports regex)"
+              },
+              "discouraged": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Patterns for models to deprioritize (ordered by least preferred, supports regex)"
+              }
+            },
+            "examples": [
+              {
+                "encouraged": [
+                  "gpt-4o-mini",
+                  "claude-haiku",
+                  "mini"
+                ],
+                "discouraged": [
+                  "codex",
+                  "vision"
+                ]
+              }
+            ]
+          },
           "positron.assistant.providerVariables.bedrock": {
             "type": "object",
             "default": {},

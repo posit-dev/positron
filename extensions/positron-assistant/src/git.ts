@@ -186,65 +186,90 @@ export async function generateCommitMessage(
 }
 
 /**
- * Filter models to find suitable ones for commit message generation.
- * Prioritizes cheaper, faster models and excludes specialized/expensive models.
+ * Reorder models for commit message generation based on configured preferences.
+ * Models are reordered (not filtered) so all models remain available.
  */
-function filterModelsForCommitGeneration(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
-	// Patterns for models that should be excluded (expensive or specialized)
-	const excludePatterns = [
-		/codex/i,        // Code-specific models (e.g., gpt-5.2-codex)
-		/search/i,       // Search-specific models
-		/audio/i,        // Audio-specific models
-		/realtime/i,     // Realtime models
-		/transcribe/i,   // Transcription models
-		/vision/i,       // Vision-specific models
-	];
-
-	// Patterns for preferred cheaper models
-	const preferPatterns = [
-		/mini/i,         // GPT mini models
-		/flash/i,        // Gemini flash models
-		/haiku/i,        // Claude haiku models
-		/3\.5/i,         // GPT 3.5 models
-	];
-
-	// First, filter out non-user-selectable models and specialized models
-	let filtered = models.filter(model => {
-		// Skip if explicitly marked as not user-selectable
-		// Note: isUserSelectable is a proposed API property that may not be in the type definition
-		const modelWithSelectability = model as any;
-		if ('isUserSelectable' in modelWithSelectability && modelWithSelectability.isUserSelectable === false) {
-			return false;
-		}
-		// Skip test/error models
-		if (model.family === 'echo' || model.family === 'error') {
-			return false;
-		}
-		// Skip models matching exclude patterns
-		const modelIdentifier = `${model.id} ${model.name}`;
-		if (excludePatterns.some(pattern => pattern.test(modelIdentifier))) {
-			return false;
-		}
-		return true;
-	});
-
-	// If we have no models left after filtering, fall back to all available models
-	// (excluding only test/error models)
-	if (filtered.length === 0) {
-		filtered = models.filter(model => model.family !== 'echo' && model.family !== 'error');
+function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
+	if (models.length <= 1) {
+		return models;
 	}
 
-	// Try to find a preferred cheaper model
-	const preferred = filtered.find(model => {
-		const modelIdentifier = `${model.id} ${model.name}`;
-		return preferPatterns.some(pattern => pattern.test(modelIdentifier));
+	// Get configuration
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const preferences = config.get<{ encouraged?: string[]; discouraged?: string[] }>('commitMessage.modelPreference', {
+		encouraged: ['mini', 'flash', 'haiku', '3\\.5'],
+		discouraged: ['codex', 'search', 'audio', 'realtime', 'transcribe', 'vision']
 	});
 
-	if (preferred) {
-		return [preferred, ...filtered.filter(m => m !== preferred)];
+	const encouragedPatterns = preferences.encouraged || [];
+	const discouragedPatterns = preferences.discouraged || [];
+
+	// If no patterns configured, return original order
+	if (encouragedPatterns.length === 0 && discouragedPatterns.length === 0) {
+		return models;
 	}
 
-	return filtered;
+	// Helper function to check if a model matches a pattern (using same logic as modelFilters.ts)
+	const matchesPattern = (pattern: string, model: vscode.LanguageModelChat): boolean => {
+		try {
+			const normalizedPattern = pattern.toLowerCase().trim();
+			const modelId = model.id.toLowerCase();
+			const modelName = model.name.toLowerCase();
+
+			// If pattern contains regex special chars, use regex matching
+			if (/[.+^${}()|[\]\\]/.test(normalizedPattern) || normalizedPattern.includes('*')) {
+				const regex = new RegExp(normalizedPattern, 'i');
+				return regex.test(model.id) || regex.test(model.name);
+			}
+
+			// Simple substring match
+			return modelId.includes(normalizedPattern) || modelName.includes(normalizedPattern);
+		} catch {
+			return false;
+		}
+	};
+
+	// Score each model based on pattern matching
+	const scoredModels = models.map(model => {
+		let score = 0;
+
+		// Check encouraged patterns (higher index = higher priority = higher score)
+		for (let i = 0; i < encouragedPatterns.length; i++) {
+			if (matchesPattern(encouragedPatterns[i], model)) {
+				// First pattern gets highest score
+				score = 1000 + (encouragedPatterns.length - i);
+				break;
+			}
+		}
+
+		// Check discouraged patterns (higher index = lower priority = lower score)
+		if (score === 0) {
+			for (let i = 0; i < discouragedPatterns.length; i++) {
+				if (matchesPattern(discouragedPatterns[i], model)) {
+					// Last pattern gets lowest score
+					score = -(discouragedPatterns.length - i);
+					break;
+				}
+			}
+		}
+
+		return { model, score };
+	});
+
+	// Sort by score (descending), keeping original order for same scores
+	scoredModels.sort((a, b) => {
+		if (b.score !== a.score) {
+			return b.score - a.score;
+		}
+		// Maintain original order for models with same score
+		return models.indexOf(a.model) - models.indexOf(b.model);
+	});
+
+	// Filter out test/error models (keep them at the end)
+	const nonTestModels = scoredModels.filter(({ model }) => model.family !== 'echo' && model.family !== 'error');
+	const testModels = scoredModels.filter(({ model }) => model.family === 'echo' || model.family === 'error');
+
+	return [...nonTestModels.map(({ model }) => model), ...testModels.map(({ model }) => model)];
 }
 
 async function getModel(participantService: ParticipantService): Promise<vscode.LanguageModelChat> {
@@ -259,13 +284,11 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 
 	// Fall back to the first model for the currently selected provider.
 	const currentProvider = await positron.ai.getCurrentProvider();
-	log.info(`[git] Current AI provider for commit message generation: ${currentProvider ? currentProvider.id : 'none'}`);
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		log.info(`Following models found for provider ${currentProvider.id}: ${models.map(m => m.name).join(', ')}`);
-		const filtered = filterModelsForCommitGeneration(models);
-		if (filtered.length > 0) {
-			return filtered[0];
+		const reordered = reorderModelsForCommitGeneration(models);
+		if (reordered.length > 0) {
+			return reordered[0];
 		}
 	}
 
@@ -274,9 +297,6 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	if (models.length === 0) {
 		throw new Error('No language models available for git commit message generation');
 	}
-	const filtered = filterModelsForCommitGeneration(models);
-	if (filtered.length === 0) {
-		throw new Error('No suitable language models available for git commit message generation');
-	}
-	return filtered[0];
+	const reordered = reorderModelsForCommitGeneration(models);
+	return reordered[0];
 }
