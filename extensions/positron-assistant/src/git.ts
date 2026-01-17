@@ -254,7 +254,7 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[], pr
 		return models.indexOf(a.model) - models.indexOf(b.model);
 	});
 
-	// Filter out test/error models (keep them at the end)
+	// Separate test/error models and place them at the end
 	const nonTestModels = scoredModels.filter(({ model }) => model.family !== 'echo' && model.family !== 'error');
 	const testModels = scoredModels.filter(({ model }) => model.family === 'echo' || model.family === 'error');
 
