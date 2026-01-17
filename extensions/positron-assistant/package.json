@@ -459,18 +459,10 @@
             "type": "object",
             "default": {
               "encouraged": [
-                "mini",
-                "flash",
-                "haiku",
-                "3\\.5"
+                "mini"
               ],
               "discouraged": [
-                "codex",
-                "search",
-                "audio",
-                "realtime",
-                "transcribe",
-                "vision"
+                "codex"
               ]
             },
             "markdownDescription": "%configuration.commitMessage.modelPreference.description%",
@@ -1039,11 +1031,16 @@
           "properties": {
             "language": {
               "type": "string",
-              "enum": ["python", "r"],
+              "enum": [
+                "python",
+                "r"
+              ],
               "description": "The kernel language for the notebook"
             }
           },
-          "required": ["language"]
+          "required": [
+            "language"
+          ]
         }
       }
     ]

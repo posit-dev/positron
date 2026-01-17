@@ -204,8 +204,8 @@ function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[], pr
 		discouraged?: string[];
 		byProvider?: Record<string, { encouraged?: string[]; discouraged?: string[] }>;
 	}>('commitMessage.modelPreference', {
-		encouraged: ['mini', 'flash', 'haiku', '3\\.5'],
-		discouraged: ['codex', 'search', 'audio', 'realtime', 'transcribe', 'vision']
+		encouraged: ['mini'],
+		discouraged: ['codex']
 	});
 
 	// Use provider-specific patterns if available, otherwise use default patterns
