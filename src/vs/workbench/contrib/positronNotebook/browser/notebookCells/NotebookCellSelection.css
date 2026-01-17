@@ -21,7 +21,13 @@
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;
 	border-bottom: none; /* Footer connects seamlessly to outputs below */
+}
+
+.positron-notebook-code-cell .positron-notebook-editor-container {
 	overflow: hidden; /* Clip editor content to rounded corners */
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
 }
 
 /* === Code Cells: Outputs Container === */
