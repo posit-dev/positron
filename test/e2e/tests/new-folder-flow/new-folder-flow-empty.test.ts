@@ -40,6 +40,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		});
 
 		await newFolderFlow.verifyFolderCreation(folderName);
+		await app.code.wait(1000);
 		await verifyGitStatus(app);
 	});
 });
