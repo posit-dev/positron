@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { MARKDOWN_DIR } from './constants';
+import { log } from './extension.js';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
@@ -258,8 +259,10 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 
 	// Fall back to the first model for the currently selected provider.
 	const currentProvider = await positron.ai.getCurrentProvider();
+	log.info(`[git] Current AI provider for commit message generation: ${currentProvider ? currentProvider.id : 'none'}`);
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
+		log.info(`Following models found for provider ${currentProvider.id}: ${models.map(m => m.name).join(', ')}`);
 		const filtered = filterModelsForCommitGeneration(models);
 		if (filtered.length > 0) {
 			return filtered[0];
