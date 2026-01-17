@@ -31,6 +31,7 @@ import os
 import re
 import threading
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -529,9 +530,18 @@ def _handle_completion(
         )
 
     # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
-    items.extend(
-        _get_getenv_completions(server, text_before_cursor, text_after_cursor, document=document)
+    getenv_items = _get_getenv_completions(
+        server, text_before_cursor, text_after_cursor, document=document
     )
+    items.extend(getenv_items)
+
+    # Check for path completions in bare string literals (not dict access, not getenv)
+    if not dict_key_match and not getenv_items:
+        path_items = _get_path_completions(
+            server, text_before_cursor, text_after_cursor, params.position
+        )
+        if path_items:
+            return types.CompletionList(is_incomplete=False, items=path_items)
 
     if not dict_key_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
@@ -790,6 +800,209 @@ def _make_env_var_completions(
                 insert_text=completion_text,
             )
         )
+    return items
+
+
+# --- Path Completion Helpers ---
+
+
+def _get_path_completion_base_dir(server: PositronLanguageServer) -> Path:
+    """Get the base directory for path completions.
+
+    Priority:
+    1. server._working_directory (notebook parent or custom workspace)
+    2. server.workspace.root_path (project root)
+    3. User's home directory (fallback)
+    """
+    # Priority 1: Working directory (notebook context)
+    if server._working_directory:  # noqa: SLF001
+        try:
+            return Path(server._working_directory)  # noqa: SLF001
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 2: Workspace root path
+    if server.workspace and server.workspace.root_path:
+        try:
+            return Path(server.workspace.root_path)
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 3: User's home directory
+    return Path.home()
+
+
+def _parse_partial_path(partial_path: str) -> tuple[str, str]:
+    """Parse a partial path into directory and filename components.
+
+    Examples:
+        "" → ("", "")
+        "my" → ("", "my")
+        "dir/" → ("dir/", "")
+        "dir/file" → ("dir/", "file")
+
+    Returns:
+        Tuple of (directory_part, filename_prefix)
+    """
+    if not partial_path:
+        return ("", "")
+
+    # Normalize path separators to os.sep for processing
+    normalized = partial_path.replace("/", os.sep)
+
+    # Check if path ends with separator (completing in a directory)
+    if normalized.endswith(os.sep):
+        return (partial_path, "")
+
+    # Split into directory and filename
+    directory, filename = os.path.split(normalized)
+
+    # Add trailing separator to directory if non-empty
+    if directory:
+        # Keep original separators in the directory part
+        dir_end = len(partial_path) - len(filename)
+        directory = partial_path[:dir_end]
+
+    return (directory, filename)
+
+
+def _scan_directory_for_completions(
+    base_dir: Path,
+    relative_dir: str,
+    filename_prefix: str,
+) -> list[tuple[str, bool]]:
+    """Scan a directory for matching filesystem entries.
+
+    Args:
+        base_dir: Base directory path
+        relative_dir: Relative directory from base (e.g., "subdir/")
+        filename_prefix: Prefix to filter results (e.g., "my")
+
+    Returns:
+        List of (name, is_directory) tuples for matching entries, sorted
+        with directories first, then files, alphabetically within each group.
+    """
+    try:
+        # Construct target directory
+        if relative_dir:
+            # Normalize separators and strip trailing separator
+            normalized_dir = relative_dir.replace("/", os.sep).rstrip(os.sep)
+            target_dir = base_dir / normalized_dir
+        else:
+            target_dir = base_dir
+
+        # Check if directory exists and is readable
+        if not target_dir.exists() or not target_dir.is_dir():
+            return []
+
+        results = []
+
+        # List directory contents
+        for entry in target_dir.iterdir():
+            entry_name = entry.name
+
+            # Skip hidden files unless prefix starts with "."
+            if entry_name.startswith(".") and not filename_prefix.startswith("."):
+                continue
+
+            # Filter by prefix (case-sensitive on Unix, case-insensitive on Windows)
+            if os.name == "nt":
+                if not entry_name.lower().startswith(filename_prefix.lower()):
+                    continue
+            else:
+                if not entry_name.startswith(filename_prefix):
+                    continue
+
+            # Add to results
+            is_directory = entry.is_dir()
+            results.append((entry_name, is_directory))
+
+        # Sort: directories first, then files, alphabetically within each group
+        results.sort(key=lambda x: (not x[1], x[0].lower()))
+
+        return results
+
+    except (OSError, PermissionError):
+        return []
+
+
+def _get_path_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+    position: types.Position,
+) -> list[types.CompletionItem]:
+    """Get filesystem path completions for string literals.
+
+    Provides incremental completions for paths, completing one segment at a time.
+    Directories get trailing slashes, files get auto-closed quotes.
+
+    Args:
+        server: The language server instance
+        text_before_cursor: Text before cursor position
+        text_after_cursor: Text after cursor position
+        position: Cursor position for text edit range
+
+    Returns:
+        List of completion items for matching filesystem paths
+    """
+    # Detect if cursor is inside a string literal
+    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    partial_path = string_match.group(2) or ""
+
+    # Check for closing quote after cursor
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+
+    # Get base directory
+    base_dir = _get_path_completion_base_dir(server)
+
+    # Parse partial path into directory and filename prefix
+    directory_part, filename_prefix = _parse_partial_path(partial_path)
+
+    # Scan directory for matches
+    entries = _scan_directory_for_completions(base_dir, directory_part, filename_prefix)
+    if not entries:
+        return []
+
+    # Create completion items
+    items = []
+    completion_range = types.Range(position, position)
+
+    for entry_name, is_directory in entries:
+        # Calculate what text to insert (incremental completion)
+        # Remove the prefix that user has already typed
+        remaining = entry_name[len(filename_prefix) :]
+
+        if is_directory:
+            # Directories get trailing separator, no auto-close quote
+            # Windows: escape backslash for string literal
+            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+        else:
+            # Files: auto-close quote if needed
+            completion_text = remaining if has_closing_quote else remaining + quote_char
+
+        # Use InsertReplaceEdit as expected by tests
+        text_edit = types.InsertReplaceEdit(
+            new_text=completion_text,
+            insert=completion_range,
+            replace=completion_range,
+        )
+
+        kind = types.CompletionItemKind.Folder if is_directory else types.CompletionItemKind.File
+
+        items.append(
+            types.CompletionItem(
+                label=entry_name,
+                kind=kind,
+                sort_text=f"0{entry_name}",  # Sort before namespace completions
+                text_edit=text_edit,
+            )
+        )
+
     return items
 
 
