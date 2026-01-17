@@ -11,7 +11,6 @@ import * as path from 'path';
 import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { MARKDOWN_DIR } from './constants';
-import { log } from './extension.js';
 import { matchesModelFilter } from './modelFilters.js';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
@@ -266,7 +265,6 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	const sessionModelId = participantService.getCurrentSessionModel();
 	if (sessionModelId) {
 		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
-		log.info(`[git] current session has following models: ${models.map(m => m.name).join(', ')}`);
 		if (models && models.length > 0) {
 			return models[0];
 		}
@@ -276,7 +274,6 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	const currentProvider = await positron.ai.getCurrentProvider();
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		log.info(`[git] current provider has following models: ${models.map(m => m.name).join(', ')}`);
 		const reordered = reorderModelsForCommitGeneration(models, currentProvider.id);
 		if (reordered.length > 0) {
 			return reordered[0];
@@ -288,7 +285,6 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	if (models.length === 0) {
 		throw new Error('No language models available for git commit message generation');
 	}
-	log.info(`[git] all available models: ${models.map(m => m.name).join(', ')}`);
 	const reordered = reorderModelsForCommitGeneration(models);
 	return reordered[0];
 }
