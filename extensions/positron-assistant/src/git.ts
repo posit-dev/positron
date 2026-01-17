@@ -189,21 +189,39 @@ export async function generateCommitMessage(
 /**
  * Reorder models for commit message generation based on configured preferences.
  * Models are reordered (not filtered) so all models remain available.
+ * @param models - The models to reorder
+ * @param providerId - Optional provider ID to use provider-specific patterns
  */
-function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat[] {
+function reorderModelsForCommitGeneration(models: vscode.LanguageModelChat[], providerId?: string): vscode.LanguageModelChat[] {
 	if (models.length <= 1) {
 		return models;
 	}
 
 	// Get configuration
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const preferences = config.get<{ encouraged?: string[]; discouraged?: string[] }>('commitMessage.modelPreference', {
+	const preferences = config.get<{
+		encouraged?: string[];
+		discouraged?: string[];
+		byProvider?: Record<string, { encouraged?: string[]; discouraged?: string[] }>;
+	}>('commitMessage.modelPreference', {
 		encouraged: ['mini', 'flash', 'haiku', '3\\.5'],
 		discouraged: ['codex', 'search', 'audio', 'realtime', 'transcribe', 'vision']
 	});
 
-	const encouragedPatterns = preferences.encouraged || [];
-	const discouragedPatterns = preferences.discouraged || [];
+	// Use provider-specific patterns if available, otherwise use default patterns
+	let encouragedPatterns = preferences.encouraged || [];
+	let discouragedPatterns = preferences.discouraged || [];
+
+	if (providerId && preferences.byProvider && preferences.byProvider[providerId]) {
+		const providerPrefs = preferences.byProvider[providerId];
+		// Override with provider-specific patterns if they exist
+		if (providerPrefs.encouraged) {
+			encouragedPatterns = providerPrefs.encouraged;
+		}
+		if (providerPrefs.discouraged) {
+			discouragedPatterns = providerPrefs.discouraged;
+		}
+	}
 
 	// If no patterns configured, return original order
 	if (encouragedPatterns.length === 0 && discouragedPatterns.length === 0) {
@@ -267,7 +285,7 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 	const currentProvider = await positron.ai.getCurrentProvider();
 	if (currentProvider) {
 		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
-		const reordered = reorderModelsForCommitGeneration(models);
+		const reordered = reorderModelsForCommitGeneration(models, currentProvider.id);
 		if (reordered.length > 0) {
 			return reordered[0];
 		}

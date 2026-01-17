@@ -480,27 +480,66 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Patterns for models to prioritize (ordered by preference, supports regex)"
+                "description": "Default patterns for models to prioritize (ordered by preference, supports regex)"
               },
               "discouraged": {
                 "type": "array",
                 "items": {
                   "type": "string"
                 },
-                "description": "Patterns for models to deprioritize (ordered by least preferred, supports regex)"
+                "description": "Default patterns for models to deprioritize (ordered by least preferred, supports regex)"
+              },
+              "byProvider": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "encouraged": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Provider-specific patterns for models to prioritize"
+                    },
+                    "discouraged": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Provider-specific patterns for models to deprioritize"
+                    }
+                  }
+                },
+                "description": "Provider-specific model preferences (overrides default)"
               }
             },
             "examples": [
               {
                 "encouraged": [
-                  "gpt-4o-mini",
-                  "claude-haiku",
-                  "mini"
+                  "mini",
+                  "haiku"
                 ],
                 "discouraged": [
                   "codex",
                   "vision"
-                ]
+                ],
+                "byProvider": {
+                  "copilot": {
+                    "encouraged": [
+                      "gpt-4o-mini"
+                    ],
+                    "discouraged": [
+                      "codex",
+                      "o1"
+                    ]
+                  },
+                  "anthropic-api": {
+                    "encouraged": [
+                      "haiku",
+                      "sonnet-3-5"
+                    ]
+                  }
+                }
               }
             ]
           },
