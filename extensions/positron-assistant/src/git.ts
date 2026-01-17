@@ -209,8 +209,10 @@ function filterModelsForCommitGeneration(models: vscode.LanguageModelChat[]): vs
 
 	// First, filter out non-user-selectable models and specialized models
 	let filtered = models.filter(model => {
-		// Skip if explicitly marked as not user-selectable (using type assertion since this is a proposed API property)
-		if ((model as any).isUserSelectable === false) {
+		// Skip if explicitly marked as not user-selectable
+		// Note: isUserSelectable is a proposed API property that may not be in the type definition
+		const modelWithSelectability = model as any;
+		if ('isUserSelectable' in modelWithSelectability && modelWithSelectability.isUserSelectable === false) {
 			return false;
 		}
 		// Skip test/error models
