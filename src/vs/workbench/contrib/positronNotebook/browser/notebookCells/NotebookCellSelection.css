@@ -65,8 +65,10 @@
 
 /* === Selection States: Error === */
 
-.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-editor-section,
-.positron-notebook-code-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-cell-outputs {
+.positron-notebook-cell[data-has-error="true"]:not(.selected) .positron-notebook-editor-section,
+.positron-notebook-cell[data-has-error="true"].editing .positron-notebook-editor-section,
+.positron-notebook-code-cell[data-has-error="true"]:not(.selected) .positron-notebook-cell-outputs
+.positron-notebook-code-cell[data-has-error="true"].editing .positron-notebook-cell-outputs {
 	border-color: var(--vscode-errorForeground);
 }
 
@@ -92,7 +94,8 @@
 	border-bottom-color: var(--vscode-editorWidget-border);
 }
 
-.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing):has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+.positron-notebook-cell[data-has-error="true"].editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section,
+.positron-notebook-cell[data-has-error="true"]:not(.selected):has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
 	border-bottom-color: var(--vscode-errorForeground);
 }
 
