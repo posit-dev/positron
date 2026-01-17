@@ -11,7 +11,7 @@ runs:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}"
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
