@@ -33,6 +33,11 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
 	const binpath = RSessionManager.instance.getLastBinpath();
+
+	// Check if user wants to use base R for package development tasks
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const useBaseR = config.get<boolean>('useBaseRForPackageDev') ?? false;
+
 	const taskData = [
 		{
 			task: 'r.task.packageCheck',
@@ -41,7 +46,13 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			package: 'devtools',
 			envVars: { ... await prepCliEnvVars() }
 		},
-		{
+		useBaseR ? {
+			task: 'r.task.packageInstall',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
+			cmdArgs: ['CMD', 'INSTALL', '--preclean', '--no-multiarch', '--with-keep.source', '.'],
+			package: null,
+			envVars: null
+		} : {
 			task: 'r.task.packageInstall',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
 			rcode: 'pak::local_install(upgrade = FALSE)',
@@ -68,14 +79,23 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	];
 
 	return taskData.map(data => {
-		let taskEnv = {};
+		const taskEnv = {};
 
 		if (data.envVars) {
 			Object.assign(taskEnv, data.envVars);
 		}
 
 		let exec: vscode.ProcessExecution | vscode.ShellExecution;
-		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
+
+		// Check if this task uses cmdArgs (R CMD INSTALL) instead of rcode
+		if ('cmdArgs' in data) {
+			// R CMD INSTALL uses ShellExecution for consistency with other tasks
+			exec = new vscode.ShellExecution(
+				{ value: binpath, quoting: vscode.ShellQuoting.Strong },
+				data.cmdArgs,
+				{ env: taskEnv }
+			);
+		} else if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
 			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
 			// specifically encountered with PowerShell.
 			// https://github.com/posit-dev/positron/issues/3816

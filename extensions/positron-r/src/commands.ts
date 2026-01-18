@@ -72,9 +72,13 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
-			const isInstalled = await checkInstalled(task.definition.pkg);
-			if (!isInstalled) {
-				return;
+			// Only check for package installation if the task requires a package (pak)
+			// When using R CMD INSTALL, pkg is null and no package check is needed
+			if (task.definition.pkg) {
+				const isInstalled = await checkInstalled(task.definition.pkg);
+				if (!isInstalled) {
+					return;
+				}
 			}
 			const session = await RSessionManager.instance.getConsoleSession();
 			if (!session) {
