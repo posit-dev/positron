@@ -28,7 +28,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 		}
 	});
 
-	test('R - Verify can open, test, check, install, and restart package', async function ({ app, openFolder, logger }) {
+	test('R - Verify can open, test, check, install, and restart package', async function ({ app, openFolder, logger, settings }) {
 		test.slow();
 
 		// Open an R package embedded in qa-example-content
@@ -66,6 +66,23 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK]
 			await app.workbench.console.pasteCodeToConsole('(.packages())');
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.console.waitForConsoleContents('"testfun"');
+		});
+
+		await test.step('Install R Package with base R and Restart R', async () => {
+			logger.log('Install R Package with base R and Restart R');
+			await settings.set({ 'positron.r.useBaseRForPackageDev': true });
+			await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
+			await app.workbench.quickaccess.runCommand('r.packageInstall');
+
+			await app.workbench.console.waitForConsoleContents('restarted', { timeout: 30000 });
+			await app.workbench.console.waitForConsoleContents('library(testfun)', { timeout: 30000 });
+
+			await app.workbench.console.pasteCodeToConsole('(.packages())');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.waitForConsoleContents('"testfun"');
+
+			// Reset setting to default
+			await settings.set({ 'positron.r.useBaseRForPackageDev': false });
 		});
 	});
 });
