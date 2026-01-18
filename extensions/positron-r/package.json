@@ -208,6 +208,12 @@
             "type": "boolean",
             "default": true,
             "description": "%r.configuration.autoConvertFilePaths.description%"
+          },
+          "positron.r.useBaseRForPackageDev": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%r.configuration.useBaseRForPackageDev.description%"
           }
         }
       },
