@@ -74,35 +74,31 @@ function convertBlocksToCells(
 	const cells: vscode.NotebookCellData[] = [];
 	let pendingMarkdownBlocks: BlockNode[] = [];
 
+	const flushMarkdownBlocks = (maxEndOffset?: number) => {
+		if (pendingMarkdownBlocks.length > 0) {
+			// createMarkdownCells handles splitting at <!-- cell --> markers
+			cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, maxEndOffset));
+			pendingMarkdownBlocks = [];
+		}
+	};
+
 	for (const block of blocks) {
 		if (block.t === 'CodeBlock') {
 			// Flush pending markdown, capping at the start of this code block
-			if (pendingMarkdownBlocks.length > 0) {
-				// Use the block's location if available
-				const blockStart = block.l?.b.o;
-				// createMarkdownCells handles splitting at <!-- cell --> markers
-				cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, blockStart));
-				pendingMarkdownBlocks = [];
-			}
+			flushMarkdownBlocks(block.l?.b.o);
 			cells.push(createCodeCell(block));
 		} else if (block.t === 'RawBlock') {
-			// Flush pending markdown
-			if (pendingMarkdownBlocks.length > 0) {
-				const blockStart = block.l?.b.o;
-				cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, blockStart));
-				pendingMarkdownBlocks = [];
-			}
+			// Flush pending markdown, capping at the start of this code block
+			flushMarkdownBlocks(block.l?.b.o);
 			cells.push(createRawBlockCell(block));
 		} else {
-			// Accumulate markdown blocks (including Div, Header, Para, lists, etc.)
+			// Accumulate markdown blocks
 			pendingMarkdownBlocks.push(block);
 		}
 	}
 
-	// Flush remaining markdown (no cap needed at end of document)
-	if (pendingMarkdownBlocks.length > 0) {
-		cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, undefined));
-	}
+	// Flush remaining markdown
+	flushMarkdownBlocks();
 
 	return cells;
 }
