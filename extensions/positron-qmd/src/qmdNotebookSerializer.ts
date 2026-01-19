@@ -24,8 +24,9 @@ export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 	): Promise<vscode.NotebookData> {
 		const textContent = new TextDecoder().decode(content);
 
+		// Return empty notebook for empty files
 		if (!textContent.trim()) {
-			throw new Error('Cannot open empty QMD file');
+			return new vscode.NotebookData([]);
 		}
 
 		try {
