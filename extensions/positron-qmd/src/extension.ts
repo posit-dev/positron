@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { ExtensionEnablement } from './util/extensionEnablement.js';
 import { DisposableStore } from './util/disposable.js';
 import { QmdParserService } from './parserService.js';
+import { QmdNotebookSerializer } from './qmdNotebookSerializer.js';
 
 /** Extension log output channel */
 export let log: vscode.LogOutputChannel;
@@ -26,7 +27,23 @@ export async function activate(
 			() => {
 				// Actually activate extension features
 				const disposables = new DisposableStore();
-				disposables.add(new QmdParserService(context.extensionUri, log));
+
+				const parserService = disposables.add(new QmdParserService(context.extensionUri, log));
+
+				// Register notebook serializer
+				const serializer = new QmdNotebookSerializer(parserService.parser, log);
+				disposables.add(vscode.workspace.registerNotebookSerializer(
+					'quarto-notebook',
+					serializer,
+					{
+						transientOutputs: true, // Outputs not persisted to .qmd
+						transientCellMetadata: {
+							breakpointMargin: true,
+							id: true,
+						}
+					}
+				));
+
 				return disposables;
 			},
 			log,

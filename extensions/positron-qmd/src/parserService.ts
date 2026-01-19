@@ -6,56 +6,22 @@
 import * as vscode from 'vscode';
 import { Disposable } from './util/disposable.js';
 import { QmdParser } from './parser.js';
-import { QmdDocument } from './ast.js';
-import { QmdNotebookSerializer } from './qmdNotebookSerializer.js';
 
 /**
  * Service that manages the QMD parser and its associated commands.
  */
 export class QmdParserService extends Disposable {
-	private readonly _parser: QmdParser;
+	readonly parser: QmdParser;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
 		private readonly _log: vscode.LogOutputChannel,
 	) {
 		super();
-		this._parser = new QmdParser(this._extensionUri);
-
-		// Register notebook serializer
-		this._registerNotebookSerializer();
+		this.parser = new QmdParser(this._extensionUri);
 
 		// Register dev commands
 		this._registerParseQmdDevCommand();
-	}
-
-	private _registerNotebookSerializer(): void {
-		const serializer = new QmdNotebookSerializer(this._parser, this._log);
-
-		const serializerOptions: vscode.NotebookDocumentContentOptions = {
-			transientOutputs: true, // Outputs not persisted to QMD
-			transientCellMetadata: {
-				breakpointMargin: true,
-				id: true,
-			}
-		};
-
-		this._register(
-			vscode.workspace.registerNotebookSerializer(
-				'quarto-notebook',
-				serializer,
-				serializerOptions
-			)
-		);
-
-		this._log.info('Registered QMD notebook serializer');
-	}
-
-	/**
-	 * Parse QMD content.
-	 */
-	async parse(content: string): Promise<QmdDocument> {
-		return this._parser.parse(content);
 	}
 
 	private _registerParseQmdDevCommand(): void {
@@ -89,7 +55,7 @@ export class QmdParserService extends Disposable {
 
 				try {
 					// Parser handles lazy initialization automatically
-					const result = await this._parser.parse(qmdContent);
+					const result = await this.parser.parse(qmdContent);
 
 					// Copy the result to the clipboard as formatted JSON
 					await vscode.env.clipboard.writeText(JSON.stringify(result, null, 2));
