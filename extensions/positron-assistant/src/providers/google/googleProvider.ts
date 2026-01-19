@@ -54,8 +54,7 @@ export class GoogleModelProvider extends VercelModelProvider implements positron
 			model: 'gemini-2.0-flash-exp',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
-			toolCalls: true,
-			completions: true,
+			toolCalls: true
 		},
 	};
 

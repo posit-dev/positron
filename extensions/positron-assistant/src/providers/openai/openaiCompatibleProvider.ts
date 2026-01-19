@@ -55,8 +55,7 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 			name: 'Custom Provider',
 			model: 'openai-compatible',
 			baseUrl: 'https://localhost:1337/v1',
-			toolCalls: true,
-			completions: false,
+			toolCalls: true
 		},
 	};
 

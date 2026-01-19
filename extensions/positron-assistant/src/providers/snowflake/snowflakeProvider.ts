@@ -38,7 +38,6 @@ export class SnowflakeModelProvider extends OpenAIModelProvider {
 			model: 'claude-4-sonnet',
 			baseUrl: getSnowflakeDefaultBaseUrl(),
 			toolCalls: true,
-			completions: false,
 			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using Snowflake credentials', signedIn: false },
 		}
 	};
