@@ -91,7 +91,7 @@
     "@aws-sdk/client-bedrock": "^3.914.0",
     "@microsoft/1ds-core-js": "^3.2.13",
     "@microsoft/1ds-post-js": "^3.2.13",
-    "@midleman/playwright-reporter": "^0.18.0",
+    "@midleman/playwright-reporter": "^0.19.0",
     "@parcel/watcher": "parcel-bundler/watcher#1ca032aa8339260a8a3bcf825c3a1a71e3e43542",
     "@types/react": "18.3.1",
     "@types/react-dom": "18.3.1",
