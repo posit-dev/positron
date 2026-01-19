@@ -205,6 +205,10 @@ export class NotebookProviderInfoStore extends Disposable {
 						? RegisteredEditorPriority.option
 						: RegisteredEditorPriority.exclusive;
 				}));
+			} else if (notebookProviderInfo.id === 'quarto-notebook') {
+				// Don't register the legacy notebook editor for .qmd files
+				// Only allow the Positron notebook editor
+				continue;
 			}
 			// --- End Positron ---
 			const notebookEditorOptions = {
