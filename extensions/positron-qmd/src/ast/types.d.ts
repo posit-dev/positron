@@ -3,6 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * Pandoc AST type definitions.
+ *
+ * Type names match Pandoc's native naming (e.g., `CodeBlock`, `Para`, `Str`).
+ * All node types have a `t` discriminator for TypeScript narrowing:
+ *
+ * @example
+ * ```typescript
+ * if (block.t === 'CodeBlock') {
+ *   // block is narrowed to CodeBlock
+ * }
+ * ```
+ */
+
+//#region Common Types
+
 /** Source position within a file */
 export interface Position {
 	/** Column number (1-indexed) */
@@ -42,109 +58,113 @@ export type Attr = [identifier: string, classes: string[], attributes: AttrKeyVa
 /** Link/image target */
 export type Target = [url: string, title: string];
 
-// --- Inline node types ---
+//#endregion Common Types
+
+//#region Inline Nodes
 
 /** Text string */
-export interface StrInline extends BaseNode {
+export interface Str extends BaseNode {
 	t: 'Str';
 	/** Text content */
 	c: string;
 }
 
 /** Inter-word space */
-export interface SpaceInline extends BaseNode {
+export interface Space extends BaseNode {
 	t: 'Space';
 }
 
 /** Soft line break (rendered as space or newline depending on context) */
-export interface SoftBreakInline extends BaseNode {
+export interface SoftBreak extends BaseNode {
 	t: 'SoftBreak';
 }
 
 /** Hard line break */
-export interface LineBreakInline extends BaseNode {
+export interface LineBreak extends BaseNode {
 	t: 'LineBreak';
 }
 
 /** Bold text */
-export interface StrongInline extends BaseNode {
+export interface Strong extends BaseNode {
 	t: 'Strong';
 	/** Inline content */
-	c: InlineNode[];
+	c: Inline[];
 }
 
 /** Italic text */
-export interface EmphInline extends BaseNode {
+export interface Emph extends BaseNode {
 	t: 'Emph';
 	/** Inline content */
-	c: InlineNode[];
+	c: Inline[];
 }
 
 /** Inline code */
-export interface CodeInline extends BaseNode {
+export interface Code extends BaseNode {
 	t: 'Code';
 	c: [attributes: Attr, text: string];
 }
 
 /** Hyperlink */
-export interface LinkInline extends BaseNode {
+export interface Link extends BaseNode {
 	t: 'Link';
-	c: [attributes: Attr, inlines: InlineNode[], target: Target];
+	c: [attributes: Attr, inlines: Inline[], target: Target];
 }
 
 /** Image */
-export interface ImageInline extends BaseNode {
+export interface Image extends BaseNode {
 	t: 'Image';
-	c: [attributes: Attr, altText: InlineNode[], target: Target];
+	c: [attributes: Attr, altText: Inline[], target: Target];
 }
 
 /** Footnote or endnote */
-export interface NoteInline extends BaseNode {
+export interface Note extends BaseNode {
 	t: 'Note';
 	/** Note content as blocks */
-	c: BlockNode[];
+	c: Block[];
 }
 
 /** Union of all inline node types */
-export type InlineNode =
-	| StrInline
-	| SpaceInline
-	| SoftBreakInline
-	| LineBreakInline
-	| StrongInline
-	| EmphInline
-	| CodeInline
-	| LinkInline
-	| ImageInline
-	| NoteInline;
+export type Inline =
+	| Str
+	| Space
+	| SoftBreak
+	| LineBreak
+	| Strong
+	| Emph
+	| Code
+	| Link
+	| Image
+	| Note;
 
-// --- Block node types ---
+//#endregion Inline Nodes
+
+//#region Block Nodes
 
 /** Section header (h1-h6) */
-export interface HeaderBlock extends BaseNode {
+export interface Header extends BaseNode {
 	t: 'Header';
-	c: [level: number, attributes: Attr, inlines: InlineNode[]];
+	c: [level: number, attributes: Attr, inlines: Inline[]];
 }
 
 /** Paragraph */
-export interface ParaBlock extends BaseNode {
+export interface Para extends BaseNode {
 	t: 'Para';
 	/** Paragraph content */
-	c: InlineNode[];
+	c: Inline[];
 }
 
 /** Plain text (not wrapped in paragraph tags) */
-export interface PlainBlock extends BaseNode {
+export interface Plain extends BaseNode {
 	t: 'Plain';
 	/** Plain content */
-	c: InlineNode[];
+	c: Inline[];
 }
 
 /** Unordered (bullet) list */
-export interface BulletListBlock extends BaseNode {
+export interface BulletList extends BaseNode {
 	t: 'BulletList';
 	/** List items, each item is an array of blocks */
-	c: BlockNode[][];
+	c: Block[][];
 }
 
 /** Ordered list number style */
@@ -168,41 +188,49 @@ export type ListNumberDelim =
 export type ListAttributes = [startNumber: number, style: { t: ListNumberStyle }, delimiter: { t: ListNumberDelim }];
 
 /** Ordered (numbered) list */
-export interface OrderedListBlock extends BaseNode {
+export interface OrderedList extends BaseNode {
 	t: 'OrderedList';
-	c: [listAttributes: ListAttributes, items: BlockNode[][]];
+	c: [listAttributes: ListAttributes, items: Block[][]];
 }
 
 /** Block quote */
-export interface BlockQuoteBlock extends BaseNode {
+export interface BlockQuote extends BaseNode {
 	t: 'BlockQuote';
 	/** Quoted content */
-	c: BlockNode[];
+	c: Block[];
 }
 
 /** Fenced or indented code block */
-export interface CodeBlockBlock extends BaseNode {
+export interface CodeBlock extends BaseNode {
 	t: 'CodeBlock';
 	c: [attributes: Attr, text: string];
 }
 
 /** Horizontal rule (thematic break) */
-export interface HorizontalRuleBlock extends BaseNode {
+export interface HorizontalRule extends BaseNode {
 	t: 'HorizontalRule';
 }
 
 /** Generic block container (div) */
-export interface DivBlock extends BaseNode {
+export interface Div extends BaseNode {
 	t: 'Div';
-	c: [attributes: Attr, blocks: BlockNode[]];
+	c: [attributes: Attr, blocks: Block[]];
 }
 
-// --- Table structures ---
+/** Raw content in a specific format (e.g., HTML, LaTeX) */
+export interface RawBlock extends BaseNode {
+	t: 'RawBlock';
+	c: [format: string, content: string];
+}
+
+//#endregion Block Nodes
+
+//#region Table
 
 /** Table cell */
 export interface TableCell {
 	t: 'Cell';
-	c: [attributes: Attr, alignment: { t: string }, rowSpan: number, colSpan: number, blocks: BlockNode[]];
+	c: [attributes: Attr, alignment: { t: string }, rowSpan: number, colSpan: number, blocks: Block[]];
 }
 
 /** Table row */
@@ -236,32 +264,32 @@ export interface ColSpec {
 }
 
 /** Table */
-export interface TableBlock extends BaseNode {
+export interface Table extends BaseNode {
 	t: 'Table';
-	c: [attributes: Attr, caption: InlineNode[], colSpecs: ColSpec[], head: TableHead, bodies: TableBody[], foot: TableFoot];
+	c: [attributes: Attr, caption: Inline[], colSpecs: ColSpec[], head: TableHead, bodies: TableBody[], foot: TableFoot];
 }
 
-/** Raw content in a specific format (e.g., HTML, LaTeX) */
-export interface RawBlock extends BaseNode {
-	t: 'RawBlock';
-	c: [format: string, content: string];
-}
+//#endregion Table
+
+//#region Block Union
 
 /** Union of all block node types */
-export type BlockNode =
-	| HeaderBlock
-	| ParaBlock
-	| PlainBlock
-	| BulletListBlock
-	| OrderedListBlock
-	| BlockQuoteBlock
-	| CodeBlockBlock
-	| HorizontalRuleBlock
-	| DivBlock
-	| TableBlock
+export type Block =
+	| Header
+	| Para
+	| Plain
+	| BulletList
+	| OrderedList
+	| BlockQuote
+	| CodeBlock
+	| HorizontalRule
+	| Div
+	| Table
 	| RawBlock;
 
-// --- Meta values (document metadata) ---
+//#endregion Block Union
+
+//#region Meta Values
 
 /** String metadata value */
 export interface MetaString {
@@ -274,14 +302,14 @@ export interface MetaString {
 export interface MetaInlines {
 	t: 'MetaInlines';
 	/** Inline content */
-	c: InlineNode[];
+	c: Inline[];
 }
 
 /** Block content metadata value */
 export interface MetaBlocks {
 	t: 'MetaBlocks';
 	/** Block content */
-	c: BlockNode[];
+	c: Block[];
 }
 
 /** List metadata value */
@@ -314,7 +342,9 @@ export type MetaValue =
 	| MetaMap
 	| MetaBool;
 
-// --- Source mapping ---
+//#endregion Meta Values
+
+//#region Source Mapping
 
 /** Byte offset range for source mapping */
 export interface SourceInfo {
@@ -334,7 +364,9 @@ export interface ASTContext {
 	sourceInfoPool: SourceInfo[];
 }
 
-// --- Root document ---
+//#endregion Source Mapping
+
+//#region Document
 
 /** Parsed QMD document */
 export interface QmdDocument {
@@ -343,7 +375,10 @@ export interface QmdDocument {
 	/** Document metadata (YAML frontmatter) */
 	meta: Record<string, MetaValue>;
 	/** Document content blocks */
-	blocks: BlockNode[];
+	blocks: Block[];
 	/** Source mapping context */
 	astContext: ASTContext;
 }
+
+//#endregion Document
+

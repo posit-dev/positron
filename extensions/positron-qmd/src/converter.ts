@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TextDecoder, TextEncoder } from 'util';
-import { QmdDocument, BlockNode, CodeBlockBlock, RawBlock, SourceInfo, MetaValue, MetaMap, MetaList, MetaString, MetaInlines, MetaBlocks, MetaBool, InlineNode } from './ast.js';
+import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo, MetaValue, Inline, Attr, ast } from './ast/index.js';
 
 /** Marker comment to separate consecutive markdown cells */
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
@@ -68,11 +68,11 @@ export function convertToNotebookData(
 }
 
 function convertBlocksToCells(
-	blocks: BlockNode[],
+	blocks: Block[],
 	context: ConversionContext
 ): vscode.NotebookCellData[] {
 	const cells: vscode.NotebookCellData[] = [];
-	let pendingMarkdownBlocks: BlockNode[] = [];
+	let pendingMarkdownBlocks: Block[] = [];
 
 	const flushMarkdownBlocks = (maxEndOffset?: number) => {
 		if (pendingMarkdownBlocks.length > 0) {
@@ -85,11 +85,11 @@ function convertBlocksToCells(
 	for (const block of blocks) {
 		if (block.t === 'CodeBlock') {
 			// Flush pending markdown, capping at the start of this code block
-			flushMarkdownBlocks(block.l?.b.o);
+			flushMarkdownBlocks(block.l ? ast.Loc.startOffset(block.l) : undefined);
 			cells.push(createCodeCell(block));
 		} else if (block.t === 'RawBlock') {
 			// Flush pending markdown, capping at the start of this code block
-			flushMarkdownBlocks(block.l?.b.o);
+			flushMarkdownBlocks(block.l ? ast.Loc.startOffset(block.l) : undefined);
 			cells.push(createRawBlockCell(block));
 		} else {
 			// Accumulate markdown blocks
@@ -103,12 +103,9 @@ function convertBlocksToCells(
 	return cells;
 }
 
-function createCodeCell(block: CodeBlockBlock): vscode.NotebookCellData {
-	const [attr, code] = block.c;
-	const [, classes] = attr;
-
-	// First class is typically the language
-	const rawLanguage = classes[0] || '';
+function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
+	const code = ast.CodeBlock.text(block);
+	const rawLanguage = ast.CodeBlock.language(block) ?? '';
 	const language = QUARTO_LANGUAGE_MAP[rawLanguage.toLowerCase()] || rawLanguage || 'text';
 
 	const cell = new vscode.NotebookCellData(
@@ -119,18 +116,17 @@ function createCodeCell(block: CodeBlockBlock): vscode.NotebookCellData {
 
 	// Store original attributes in metadata for round-trip
 	cell.metadata = {
-		qmdAttributes: attr,
+		qmdAttributes: ast.CodeBlock.attr(block),
 	};
 
 	return cell;
 }
 
 function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
-	const [format, content] = block.c;
 	return new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
-		content,
-		format || 'text' // 'latex', 'html', etc.
+		ast.RawBlock.content(block),
+		ast.RawBlock.format(block) || 'text' // 'latex', 'html', etc.
 	);
 }
 
@@ -139,7 +135,7 @@ function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
  * Splits at `<!-- cell -->` markers to preserve cell boundaries.
  */
 function createMarkdownCells(
-	blocks: BlockNode[],
+	blocks: Block[],
 	context: ConversionContext,
 	maxEndOffset: number | undefined
 ): vscode.NotebookCellData[] {
@@ -171,7 +167,7 @@ function createMarkdownCells(
  *                     including content from following code blocks).
  */
 function extractRawTextForBlocks(
-	blocks: BlockNode[],
+	blocks: Block[],
 	context: ConversionContext,
 	maxEndOffset: number | undefined
 ): string {
@@ -185,8 +181,8 @@ function extractRawTextForBlocks(
 	const lastBlock = blocks[blocks.length - 1];
 
 	// Try to get positions from Location property first
-	const startOffset = firstBlock.l?.b.o;
-	let endOffset = lastBlock.l?.e.o;
+	const startOffset = firstBlock.l ? ast.Loc.startOffset(firstBlock.l) : undefined;
+	let endOffset = lastBlock.l ? ast.Loc.endOffset(lastBlock.l) : undefined;
 
 	if (startOffset === undefined || endOffset === undefined) {
 		console.warn('[QMD Converter] Missing location info for blocks, using fallback extraction', {
@@ -256,12 +252,12 @@ function extractByteRange(
  * Extract raw source text for a single block.
  */
 function extractRawTextForBlock(
-	block: BlockNode,
+	block: Block,
 	context: ConversionContext
 ): string {
 	// Try Location property first (character offsets)
 	if (block.l) {
-		return context.sourceText.slice(block.l.b.o, block.l.e.o).trim();
+		return context.sourceText.slice(ast.Loc.startOffset(block.l), ast.Loc.endOffset(block.l)).trim();
 	}
 
 	// Fallback to source info pool (byte offsets)
@@ -371,7 +367,7 @@ function serializeCodeCell(cell: vscode.NotebookCellData): string {
 	const code = cell.value;
 
 	// Check if we have original attributes to preserve
-	const qmdAttributes = cell.metadata?.qmdAttributes as [string, string[], [string, string][]] | undefined;
+	const qmdAttributes = cell.metadata?.qmdAttributes as Attr | undefined;
 
 	let fenceInfo: string;
 	if (qmdAttributes) {
@@ -390,8 +386,10 @@ function serializeCodeCell(cell: vscode.NotebookCellData): string {
  * Format code block attributes back to Quarto syntax.
  * Handles the Attr tuple: [id, classes, keyvals]
  */
-function formatAttributes(attr: [string, string[], [string, string][]]): string {
-	const [id, classes, keyvals] = attr;
+function formatAttributes(attr: Attr): string {
+	const id = ast.Attr.id(attr);
+	const classes = ast.Attr.classes(attr);
+	const keyvals = ast.Attr.keyvals(attr);
 
 	// If we have classes with braces, use them directly (they came from Quarto)
 	// e.g., ['{python}'] or ['python']
@@ -474,18 +472,18 @@ function convertMetaToPlain(meta: Record<string, MetaValue>): Record<string, unk
 function metaValueToPlain(value: MetaValue): unknown {
 	switch (value.t) {
 		case 'MetaString':
-			return (value as MetaString).c;
+			return ast.Meta.string(value);
 		case 'MetaBool':
-			return (value as MetaBool).c;
+			return ast.Meta.bool(value);
 		case 'MetaInlines':
-			return inlinesToText((value as MetaInlines).c);
+			return inlinesToText(ast.Meta.inlines(value));
 		case 'MetaBlocks':
 			// For blocks, extract text content
-			return (value as MetaBlocks).c.map(block => extractTextContentFallback(block)).join('\n');
+			return ast.Meta.blocks(value).map(block => extractTextContentFallback(block)).join('\n');
 		case 'MetaList':
-			return (value as MetaList).c.map(metaValueToPlain);
+			return ast.Meta.list(value).map(metaValueToPlain);
 		case 'MetaMap':
-			return convertMetaToPlain((value as MetaMap).c);
+			return convertMetaToPlain(ast.Meta.map(value));
 		default:
 			return null;
 	}
@@ -494,7 +492,7 @@ function metaValueToPlain(value: MetaValue): unknown {
 /**
  * Convert inline nodes to plain text.
  */
-function inlinesToText(inlines: InlineNode[]): string {
+function inlinesToText(inlines: Inline[]): string {
 	return inlines.map(inline => {
 		switch (inline.t) {
 			case 'Str':
