@@ -100,6 +100,7 @@ import { katexContainerClassName } from '../../markdown/common/markedKatexExtens
 // --- Start Positron ---
 import './media/positronChat.css';
 import { ILanguageModelsService } from '../common/languageModels.js';
+import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -521,6 +522,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
 		// --- Start Positron ---
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
@@ -624,6 +626,13 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.onDidChangeItems();
 			}
 		}));
+
+		// --- Start Positron ---
+		// Refresh welcome message when enabled providers change
+		this._register(this.positronAssistantConfigurationService.onChangeEnabledProviders(() => {
+			this._welcomeRenderScheduler.schedule();
+		}));
+		// --- End Positron ---
 
 		this._register(autorun(r => {
 
@@ -1313,10 +1322,17 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
 			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
+		} else if (this.positronAssistantConfigurationService.getEnabledProviders().length === 0) {
+			// No providers are enabled in settings
+			welcomeTitle = localize('positronAssistant.enableProviderTitle', "Enable a Language Model Provider");
+			const enableProviderMessage = localize('positronAssistant.enableProviderMessage', "Enable Provider");
+			welcomeText = localize('positronAssistant.noProvidersEnabled', "No language model providers are enabled. Enable at least one provider in Settings to start using Positron Assistant.");
+			welcomeText += `\n\n[${enableProviderMessage}](command:workbench.action.openSettings?%22positron.assistant.provider%20enable%22)`;
 		} else if (!this.languageModelsService.currentProvider) {
+			// Providers are enabled but not configured (not authenticated)
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant, you must first select and authenticate with a language model provider.");
+			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Configure Provider");
+			welcomeText = localize('positronAssistant.welcomeMessage', "You have enabled language model providers but haven't configured them yet. Select and authenticate with a provider to get started.");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureProviders)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
