@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { captureLogs } from './util/captureLogs.js';
-import { QmdDocument } from '../ast.js';
+import { QmdDocument } from '../ast/index.js';
 
 const EXTENSION_ID = 'positron.positron-qmd';
 

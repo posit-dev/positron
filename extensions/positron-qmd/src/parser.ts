@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import init, { parse_qmd } from 'wasm-qmd-parser';
-import { QmdDocument } from './ast.js';
+import { QmdDocument } from './ast/index.js';
 
 /**
  * QMD parser wrapper.
