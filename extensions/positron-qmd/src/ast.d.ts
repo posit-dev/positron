@@ -33,8 +33,14 @@ interface BaseNode {
 	l?: Location;
 }
 
-/** Pandoc attribute tuple: [id, classes, key-value pairs] */
-export type Attr = [string, string[], [string, string][]];
+/** Pandoc attribute key-value pair */
+export type AttrKeyValue = [key: string, value: string];
+
+/** Pandoc attribute tuple */
+export type Attr = [identifier: string, classes: string[], attributes: AttrKeyValue[]];
+
+/** Link/image target */
+export type Target = [url: string, title: string];
 
 // --- Inline node types ---
 
@@ -77,22 +83,19 @@ export interface EmphInline extends BaseNode {
 /** Inline code */
 export interface CodeInline extends BaseNode {
 	t: 'Code';
-	/** [attributes, code text] */
-	c: [Attr, string];
+	c: [attributes: Attr, text: string];
 }
 
 /** Hyperlink */
 export interface LinkInline extends BaseNode {
 	t: 'Link';
-	/** [attributes, link text, [url, title]] */
-	c: [Attr, InlineNode[], [string, string]];
+	c: [attributes: Attr, inlines: InlineNode[], target: Target];
 }
 
 /** Image */
 export interface ImageInline extends BaseNode {
 	t: 'Image';
-	/** [attributes, alt text, [url, title]] */
-	c: [Attr, InlineNode[], [string, string]];
+	c: [attributes: Attr, altText: InlineNode[], target: Target];
 }
 
 /** Footnote or endnote */
@@ -120,8 +123,7 @@ export type InlineNode =
 /** Section header (h1-h6) */
 export interface HeaderBlock extends BaseNode {
 	t: 'Header';
-	/** [level (1-6), attributes, heading text] */
-	c: [number, Attr, InlineNode[]];
+	c: [level: number, attributes: Attr, inlines: InlineNode[]];
 }
 
 /** Paragraph */
@@ -162,14 +164,13 @@ export type ListNumberDelim =
 	| 'OneParen'
 	| 'TwoParens';
 
-/** Ordered list attributes: [start number, number style, delimiter style] */
-export type ListAttributes = [number, { t: ListNumberStyle }, { t: ListNumberDelim }];
+/** Ordered list attributes */
+export type ListAttributes = [startNumber: number, style: { t: ListNumberStyle }, delimiter: { t: ListNumberDelim }];
 
 /** Ordered (numbered) list */
 export interface OrderedListBlock extends BaseNode {
 	t: 'OrderedList';
-	/** [list attributes, list items] */
-	c: [ListAttributes, BlockNode[][]];
+	c: [listAttributes: ListAttributes, items: BlockNode[][]];
 }
 
 /** Block quote */
@@ -182,8 +183,7 @@ export interface BlockQuoteBlock extends BaseNode {
 /** Fenced or indented code block */
 export interface CodeBlockBlock extends BaseNode {
 	t: 'CodeBlock';
-	/** [attributes, code content] */
-	c: [Attr, string];
+	c: [attributes: Attr, text: string];
 }
 
 /** Horizontal rule (thematic break) */
@@ -194,8 +194,7 @@ export interface HorizontalRuleBlock extends BaseNode {
 /** Generic block container (div) */
 export interface DivBlock extends BaseNode {
 	t: 'Div';
-	/** [attributes, content blocks] */
-	c: [Attr, BlockNode[]];
+	c: [attributes: Attr, blocks: BlockNode[]];
 }
 
 // --- Table structures ---
@@ -203,57 +202,49 @@ export interface DivBlock extends BaseNode {
 /** Table cell */
 export interface TableCell {
 	t: 'Cell';
-	/** [attributes, alignment, rowspan, colspan, cell content] */
-	c: [Attr, { t: string }, number, number, BlockNode[]];
+	c: [attributes: Attr, alignment: { t: string }, rowSpan: number, colSpan: number, blocks: BlockNode[]];
 }
 
 /** Table row */
 export interface TableRow {
 	t: 'Row';
-	/** [attributes, cells] */
-	c: [Attr, TableCell[]];
+	c: [attributes: Attr, cells: TableCell[]];
 }
 
 /** Table header section */
 export interface TableHead {
 	t: 'TableHead';
-	/** [attributes, header rows] */
-	c: [Attr, TableRow[]];
+	c: [attributes: Attr, rows: TableRow[]];
 }
 
 /** Table body section */
 export interface TableBody {
 	t: 'TableBody';
-	/** [attributes, row head columns count, intermediate head rows, body rows] */
-	c: [Attr, number, TableRow[], TableRow[]];
+	c: [attributes: Attr, rowHeadColumns: number, headRows: TableRow[], bodyRows: TableRow[]];
 }
 
 /** Table footer section */
 export interface TableFoot {
 	t: 'TableFoot';
-	/** [attributes, footer rows] */
-	c: [Attr, TableRow[]];
+	c: [attributes: Attr, rows: TableRow[]];
 }
 
 /** Column specification */
 export interface ColSpec {
 	t: 'ColSpec';
-	/** [alignment, width] */
-	c: [{ t: string }, { t: string; c?: number }];
+	c: [alignment: { t: string }, width: { t: string; c?: number }];
 }
 
 /** Table */
 export interface TableBlock extends BaseNode {
 	t: 'Table';
-	/** [attributes, caption, column specs, head, bodies, foot] */
-	c: [Attr, InlineNode[], ColSpec[], TableHead, TableBody[], TableFoot];
+	c: [attributes: Attr, caption: InlineNode[], colSpecs: ColSpec[], head: TableHead, bodies: TableBody[], foot: TableFoot];
 }
 
 /** Raw content in a specific format (e.g., HTML, LaTeX) */
 export interface RawBlock extends BaseNode {
 	t: 'RawBlock';
-	/** [format, raw content] */
-	c: [string, string];
+	c: [format: string, content: string];
 }
 
 /** Union of all block node types */

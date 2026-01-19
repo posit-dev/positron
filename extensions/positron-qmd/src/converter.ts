@@ -104,12 +104,7 @@ function convertBlocksToCells(
 }
 
 function createCodeCell(block: CodeBlockBlock): vscode.NotebookCellData {
-	// CodeBlock content: [Attr, string]
-	// Attr: [id, classes, keyvals]
-	const [attr, code] = block.c as [
-		[string, string[], [string, string][]],
-		string
-	];
+	const [attr, code] = block.c;
 	const [, classes] = attr;
 
 	// First class is typically the language
@@ -131,9 +126,7 @@ function createCodeCell(block: CodeBlockBlock): vscode.NotebookCellData {
 }
 
 function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
-	// RawBlock content: [format, string]
-	const [format, content] = block.c as [string, string];
-
+	const [format, content] = block.c;
 	return new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
 		content,
