@@ -123,11 +123,10 @@ suite('QMD to NotebookData Converter', () => {
 		assert.ok(classes.includes('python') || classes.includes('{python}'));
 	});
 
-	test('should reject empty document', async () => {
-		await assert.rejects(
-			() => deserialize(''),
-			/Cannot open empty QMD file/
-		);
+	test('should open empty document with no cells', async () => {
+		const result = await deserialize('');
+
+		assert.strictEqual(result.cells.length, 0);
 	});
 
 	test('should handle document with only metadata', async () => {
