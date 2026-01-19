@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './extension.js';
-import { providerIdToUiName } from './providerMapping.js';
+import { getProviderIdToSettingNameMap } from './providerMigration.js';
 
 /**
  * Type definition for token limits configuration from user settings.
@@ -189,7 +189,7 @@ export function createModelInfo(params: CreateModelInfoParams): vscode.LanguageM
  * Marks models as default, ensuring only one default per provider.
  *
  * Priority order:
- * 1. User-configured byProvider pattern (exact match preferred, then partial)
+ * 1. Individual provider setting (models.preference.<settingName>)
  * 2. Provider-specific defaultMatch pattern (exact match preferred, then partial)
  * 3. First model in list
  *
@@ -207,16 +207,17 @@ export function markDefaultModel(
 		return models;
 	}
 
-	// Get user-configured pattern for this provider
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const providerPreferences = config.get<Record<string, string>>('models.preference.byProvider', {});
-
 	let defaultModelIndex = -1;
 
-	// Try user-configured pattern first
-	const userDefault = providerPreferences[provider];
-	if (userDefault) {
-		defaultModelIndex = findMatchingModelIndex(models, userDefault);
+	// Try individual provider setting
+	const providerIdToSettingName = getProviderIdToSettingNameMap();
+	const settingName = providerIdToSettingName.get(provider);
+	if (settingName) {
+		const individualPref = config.get<string>(`models.preference.${settingName}`);
+		if (individualPref) {
+			defaultModelIndex = findMatchingModelIndex(models, individualPref);
+		}
 	}
 
 	// Fall back to provider-specific defaultMatch

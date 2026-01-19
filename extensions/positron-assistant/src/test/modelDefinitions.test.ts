@@ -5,7 +5,6 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
 import { registerSupportedProviders } from '../providerConfiguration.js';
@@ -62,74 +61,14 @@ suite('Model Definitions', () => {
 					identifier: 'user-claude'
 				}
 			];
-			// Test with display name
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns({
-				'Anthropic': userModels
-			});
+			// Test with individual models.custom setting
+			mockWorkspaceConfig.withArgs('models.custom.anthropic').returns(userModels);
 
 			const result = getAllModelDefinitions('anthropic-api');
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].name, 'User Claude');
 			assert.strictEqual(result[0].identifier, 'user-claude');
-		});
-
-		test('returns empty array for unknown provider', () => {
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns({});
-
-			const result = getAllModelDefinitions('unknown-provider');
-
-			assert.deepStrictEqual(result, []);
-		});
-
-		test('show a warning if custom models include unsupported providers', async () => {
-			const userModels = {
-				'unsupported-provider': [
-					{
-						name: 'Some Model',
-						identifier: 'some-model'
-					}
-				]
-			};
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
-
-			// Mock positron.ai.getEnabledProviders to return empty array (no providers enabled)
-			const mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders').resolves([]);
-
-			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
-
-			// Call the function that validates providers
-			const { validateProvidersInCustomModels } = await import('../modelDefinitions.js');
-			await validateProvidersInCustomModels();
-
-			assert.strictEqual(showWarningMessageStub.calledOnce, true);
-			const warningMessage = showWarningMessageStub.getCall(0).args[0];
-			assert.ok(warningMessage.includes('unsupported-provider'));
-			mockGetEnabledProviders.restore();
-		});
-
-		test('does not show a warning if all custom model providers are supported', async () => {
-			const userModels = {
-				'anthropic-api': [
-					{
-						name: 'Claude Sonnet 4.5',
-						identifier: 'claude-sonnet-4-5'
-					}
-				]
-			};
-			mockWorkspaceConfig.withArgs('models.custom', {}).returns(userModels);
-
-			// Mock positron.ai.getEnabledProviders to return anthropic-api
-			const mockGetEnabledProviders = sinon.stub(positron.ai, 'getEnabledProviders').resolves(['anthropic-api']);
-
-			const showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves();
-
-			// Call the function that validates providers
-			const { validateProvidersInCustomModels } = await import('../modelDefinitions.js');
-			await validateProvidersInCustomModels();
-
-			assert.strictEqual(showWarningMessageStub.notCalled, true);
-			mockGetEnabledProviders.restore();
 		});
 	});
 });

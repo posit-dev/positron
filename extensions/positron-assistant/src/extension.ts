@@ -5,15 +5,13 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, expandConfigToSource, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
-import { registerSupportedProviders, validateByProviderPreferences, validateProvidersEnabled } from './providerConfiguration.js';
+import { EncryptedSecretStorage, expandConfigToSource, getStoredModels, GlobalSecretStorage, logStoredModels, SecretStorage, showConfigurationDialog } from './config';
+import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
@@ -27,8 +25,7 @@ import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
 import { resetAssistantState } from './reset.js';
-import { performProviderMigration } from './providerMigration.js';
-import { validateProvidersInCustomModels } from './modelDefinitions.js';
+import { performSettingsMigrations } from './providerMigration.js';
 import { disposeModels, registerModels } from './modelRegistration';
 
 // (Authentication provider is registered via registerCopilotAuthProvider)
@@ -178,17 +175,11 @@ async function initializeProviderConfiguration(context: vscode.ExtensionContext)
 	// 1. Register supported providers
 	registerSupportedProviders();
 
-	// 2. Perform one-time migration from old to new provider settings
-	await performProviderMigration();
+	// 2. Perform settings migrations (provider enablement, model preferences, custom models)
+	await performSettingsMigrations();
 
 	// 3. Validate that at least one provider is enabled
 	await validateProvidersEnabled();
-
-	// 4. Validate that custom models reference valid providers
-	await validateProvidersInCustomModels();
-
-	// 5. Validate that byProvider preferences reference valid providers
-	validateByProviderPreferences();
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {

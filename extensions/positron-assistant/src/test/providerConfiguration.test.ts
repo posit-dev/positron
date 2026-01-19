@@ -9,7 +9,6 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from '../constants.js';
 import {
-	validateProviders,
 	registerSupportedProviders,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
@@ -81,32 +80,6 @@ suite('Provider Configuration Tests', () => {
 	});
 
 	suite('Validation', () => {
-		test('warns about unsupported providers', () => {
-			const identifiers = ['NonExistentProvider', 'Anthropic'];
-			const result = validateProviders(identifiers, 'positron.assistant.providers', true);
-
-			assert.ok(result.includes('anthropic-api'), 'Should include valid provider');
-			assert.ok(!result.includes('NonExistentProvider'), 'Should exclude invalid provider');
-			assert.strictEqual(result.length, 1, 'Should only return valid providers');
-
-			// Verify user notification was shown
-			assert.ok(mockShowWarningMessage.called, 'Should show warning message');
-		});
-
-		test('handles all invalid providers gracefully', () => {
-			const identifiers = ['Invalid1', 'Invalid2'];
-			const result = validateProviders(identifiers, 'positron.assistant.providers', false);
-
-			assert.strictEqual(result.length, 0, 'Should return empty array');
-		});
-
-		test('can suppress user notification', () => {
-			const identifiers = ['NonExistentProvider'];
-			validateProviders(identifiers, 'positron.assistant.providers', false);
-
-			assert.ok(!mockShowWarningMessage.called, 'Should not show message when suppressed');
-		});
-
 		suite('validateProvidersEnabled', () => {
 			let mockExecuteCommand: sinon.SinonStub;
 

@@ -4,9 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import { log } from './extension.js';
-import { uiNameToProviderId, providerIdToUiName } from './providerMapping.js';
+import { getProviderIdToSettingNameMap } from './providerMigration.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -17,67 +15,26 @@ export interface ModelDefinition {
 
 /**
  * Get custom models from VS Code settings for a specific provider.
- * Handles both provider IDs (e.g., 'anthropic-api') and display names (e.g., 'Anthropic').
+ *
+ * Reads from the individual provider setting (models.custom.<settingName>).
+ * Legacy object-based settings are migrated on startup, so no fallback is needed.
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
 
-	// Try direct lookup with provider ID first
-	if (customModels[providerId]) {
-		return customModels[providerId];
-	}
-
-	// Fall back to display name lookup
-	const displayName = providerIdToUiName(providerId);
-	if (displayName && customModels[displayName]) {
-		return customModels[displayName];
+	// Get individual provider setting
+	const providerIdToSettingName = getProviderIdToSettingNameMap();
+	const settingName = providerIdToSettingName.get(providerId);
+	if (settingName) {
+		const individualModels = config.get<ModelDefinition[]>(`models.custom.${settingName}`);
+		if (individualModels && individualModels.length > 0) {
+			return individualModels;
+		}
 	}
 
 	return [];
 }
 
-/**
- * Check whether the provider IDs in the custom models are valid providers.
- * Handles both provider IDs and display names in the configuration.
- */
-export async function validateProvidersInCustomModels() {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const customModels = config.get<Record<string, ModelDefinition[]>>('models.custom', {});
-	const enabledProviders = await positron.ai.getEnabledProviders();
-
-	const invalidProviders = Object.keys(customModels).filter(key => {
-		// Note: 'copilot' is a special case, where we don't support customModels
-		if (key === 'copilot') {
-			return true;
-		}
-
-		// Check if key is a valid provider ID
-		if (enabledProviders.includes(key)) {
-			return false;
-		}
-
-		// Check if key is a valid display name by converting to provider ID
-		const providerId = uiNameToProviderId(key);
-		if (providerId && enabledProviders.includes(providerId)) {
-			return false;
-		}
-
-		return true;
-	});
-
-	if (invalidProviders.length === 0) {
-		return;
-	}
-
-	const message = vscode.l10n.t('Custom models contain unsupported providers: {0}. Please review your configuration for \'positron.assistant.models.custom\'', invalidProviders.map(p => `'${p}'`).join(', '));
-	log.warn(message);
-	const settingsAction = vscode.l10n.t('Open Settings');
-	const selectedAction = await vscode.window.showWarningMessage(message, settingsAction);
-	if (selectedAction === settingsAction) {
-		await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.models.custom');
-	}
-}
 
 /**
  * Built-in model definitions that serve as fallback defaults when no user configuration
