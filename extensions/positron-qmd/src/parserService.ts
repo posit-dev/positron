@@ -30,7 +30,7 @@ export class QmdParserService extends Disposable {
 		this._register(vscode.commands.registerCommand(
 			'positron-qmd.parseQmd',
 			async (content?: string) => {
-				// Get content from: 1) argument, 2) prompt, 3) active editor
+				// Get content from: 1) argument, 2) prompt
 				let qmdContent = content;
 				if (!qmdContent) {
 					const input = await vscode.window.showInputBox({
@@ -43,18 +43,11 @@ export class QmdParserService extends Disposable {
 					}
 				}
 				if (!qmdContent) {
-					const editor = vscode.window.activeTextEditor;
-					if (editor) {
-						qmdContent = editor.document.getText();
-					}
-				}
-				if (!qmdContent) {
 					vscode.window.showWarningMessage('No content to parse');
 					return;
 				}
 
 				try {
-					// Parser handles lazy initialization automatically
 					const result = await this.parser.parse(qmdContent);
 
 					// Copy the result to the clipboard as formatted JSON
