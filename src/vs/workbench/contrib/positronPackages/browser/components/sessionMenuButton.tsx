@@ -1,21 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import "./variablesInstanceMenuButton.css";
+import './variablesInstanceMenuButton.css';
 
 // React.
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { usePositronReactServicesContext } from "../../../../../base/browser/positronReactRendererContext.js";
-import { IAction } from "../../../../../base/common/actions.js";
-import { DisposableStore } from "../../../../../base/common/lifecycle.js";
-import { ActionBarMenuButton } from "../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js";
-import { ILanguageRuntimeSession } from "../../../../services/runtimeSession/common/runtimeSessionService.js";
-import { usePositronPackagesContext } from "../positronPackagesContext.js";
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IAction } from '../../../../../base/common/actions.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { usePositronPackagesContext } from '../positronPackagesContext.js';
 
 /**
  * VariablesInstanceMenuButton component.
@@ -31,12 +31,12 @@ export const PackagesSessionInstanceMenuButton = () => {
 		if (session) {
 			return session.getLabel();
 		}
-		return "None";
+		return 'None';
 	};
 
 	// Store just the label in state instead of the entire session
 	const [sessionLabel, setSessionLabel] = useState<string>(
-		labelForRuntime(positronPackagesContext.activeSession)
+		labelForRuntime(positronPackagesContext.activeSession),
 	);
 
 	// Use an effect to update the session label when active instance changes
@@ -48,8 +48,8 @@ export const PackagesSessionInstanceMenuButton = () => {
 			services.positronVariablesService.onDidChangeActivePositronVariablesInstance(
 				(instance) => {
 					setSessionLabel(labelForRuntime(instance?.session));
-				}
-			)
+				},
+			),
 		);
 
 		disposables.add(
@@ -57,7 +57,7 @@ export const PackagesSessionInstanceMenuButton = () => {
 				if (session.sessionId === positronPackagesContext.activeSessionId) {
 					setSessionLabel(labelForRuntime(session));
 				}
-			})
+			}),
 		);
 
 		return () => disposables.dispose();

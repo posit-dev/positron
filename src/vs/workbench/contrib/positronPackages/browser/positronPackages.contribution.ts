@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,7 +19,7 @@ export const POSITRON_PACKAGES_VIEW_ID = 'workbench.view.positronPackages.view';
 
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PACKAGES_VIEW_CONTAINER_ID,
-	title: nls.localize2("packages", "Packages"),
+	title: nls.localize2('packages', 'Packages'),
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_PACKAGES_VIEW_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: 'workbench.packages.views.state',
 	icon: Codicon.package,
@@ -27,9 +27,9 @@ const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensio
 	hideIfEmpty: true,
 	order: 51,
 	openCommandActionDescriptor: {
-		id: "workbench.action.positron.openPackages",
-		title: "Packages",
-		mnemonicTitle: "Packages",
+		id: 'workbench.action.positron.openPackages',
+		title: 'Packages',
+		mnemonicTitle: 'Packages',
 		keybindings: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyE },
 		order: 0
 	},
@@ -40,7 +40,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 		{
 			id: POSITRON_PACKAGES_VIEW_ID,
 			name: {
-				value: nls.localize('positron.packages', "Packages"),
+				value: nls.localize('positron.packages', 'Packages'),
 				original: 'Packages'
 			},
 			ctorDescriptor: new SyncDescriptor(PositronPackagesView),
@@ -49,7 +49,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			containerIcon: positronSessionViewIcon,
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.togglePackages',
-				mnemonicTitle: nls.localize({ key: 'miTogglePackages', comment: ['&& denotes a mnemonic'] }, "&&Packagesoo"),
+				mnemonicTitle: nls.localize({ key: 'miTogglePackages', comment: ['&& denotes a mnemonic'] }, '&&Packagesoo'),
 				keybindings: {
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 				},

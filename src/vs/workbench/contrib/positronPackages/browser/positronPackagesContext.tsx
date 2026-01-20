@@ -1,28 +1,28 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { PropsWithChildren, createContext, useContext } from "react";
+import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { IReactComponentContainer } from "../../../../base/browser/positronReactRenderer.js";
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import {
 	PositronPackagesState,
 	usePositronPackagesState,
-} from "./positronPackagesState.js";
+} from './positronPackagesState.js';
 
 export interface PositronPackagesEnvironment {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 const PositronPackagesContext = createContext<PositronPackagesState>(
-	undefined!
+	undefined!,
 );
 
 export const PositronPackagesContextProvider = (
-	props: PropsWithChildren<PositronPackagesEnvironment>
+	props: PropsWithChildren<PositronPackagesEnvironment>,
 ) => {
 	const state = usePositronPackagesState(props);
 

@@ -1,36 +1,35 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import "./positronPackagesView.css";
+import './positronPackagesView.css';
 
 import {
 	IReactComponentContainer,
 	ISize,
 	PositronReactRenderer,
-} from "../../../../base/browser/positronReactRenderer.js";
-import { Emitter, Event } from "../../../../base/common/event.js";
-import { IConfigurationService } from "../../../../platform/configuration/common/configuration.js";
-import { IContextKeyService } from "../../../../platform/contextkey/common/contextkey.js";
-import { IContextMenuService } from "../../../../platform/contextview/browser/contextView.js";
-import { IHoverService } from "../../../../platform/hover/browser/hover.js";
-import { IInstantiationService } from "../../../../platform/instantiation/common/instantiation.js";
-import { IKeybindingService } from "../../../../platform/keybinding/common/keybinding.js";
-import { IOpenerService } from "../../../../platform/opener/common/opener.js";
-import { IThemeService } from "../../../../platform/theme/common/themeService.js";
-import { IViewPaneOptions } from "../../../browser/parts/views/viewPane.js";
-import { PositronViewPane } from "../../../browser/positronViewPane/positronViewPane.js";
-import { IViewDescriptorService } from "../../../common/views.js";
-import * as DOM from "../../../../base/browser/dom.js";
-import { PositronPackages } from "./positronPackages.js";
-import * as React from "react";
+} from '../../../../base/browser/positronReactRenderer.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import * as DOM from '../../../../base/browser/dom.js';
+import { PositronPackages } from './positronPackages.js';
+import * as React from 'react';
 
 export class PositronPackagesView
 	extends PositronViewPane
-	implements IReactComponentContainer
-{
+	implements IReactComponentContainer {
 	private onSizeChangedEmitter = this._register(new Emitter<ISize>());
 	private onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
 	private onSaveScrollPositionEmitter = this._register(new Emitter<void>());
@@ -76,7 +75,7 @@ export class PositronPackagesView
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
 		super(
 			options,
@@ -88,7 +87,7 @@ export class PositronPackagesView
 			instantiationService,
 			openerService,
 			themeService,
-			hoverService
+			hoverService,
 		);
 
 		this._register(
@@ -105,7 +104,7 @@ export class PositronPackagesView
 					this.onRestoreScrollPositionEmitter.fire();
 				}
 				this.onVisibilityChangedEmitter.fire(visible);
-			})
+			}),
 		);
 	}
 
@@ -114,15 +113,15 @@ export class PositronPackagesView
 		super.renderBody(container);
 
 		// Create and append the Positron variables container.
-		this.positronPackagesContainer = DOM.$(".positron-packages-container");
+		this.positronPackagesContainer = DOM.$('.positron-packages-container');
 		container.appendChild(this.positronPackagesContainer);
 
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
 		this.positronReactRenderer = this._register(
-			new PositronReactRenderer(this.positronPackagesContainer)
+			new PositronReactRenderer(this.positronPackagesContainer),
 		);
 		this.positronReactRenderer.render(
-			<PositronPackages reactComponentContainer={this} />
+			<PositronPackages reactComponentContainer={this} />,
 		);
 	}
 

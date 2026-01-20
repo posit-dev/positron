@@ -1,17 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { LanguageRuntimePackage } from "positron";
-import { usePositronReactServicesContext } from "../../../../base/browser/positronReactRendererContext.js";
-import { DisposableStore } from "../../../../base/common/lifecycle.js";
-import { ILanguageRuntimeSession } from "../../../services/runtimeSession/common/runtimeSessionService.js";
-import { PositronPackagesEnvironment } from "./positronPackagesContext.js";
+import { LanguageRuntimePackage } from 'positron';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { PositronPackagesEnvironment } from './positronPackagesContext.js';
 
 export interface IPositronPackagesInstance {
 	id: string;
@@ -33,7 +33,7 @@ export interface PositronPackagesState extends PositronPackagesEnvironment {
  * @returns The hook.
  */
 export const usePositronPackagesState = (
-	positronPackagesEnvironment: PositronPackagesEnvironment
+	positronPackagesEnvironment: PositronPackagesEnvironment,
 ): PositronPackagesState => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
@@ -43,7 +43,7 @@ export const usePositronPackagesState = (
 
 	const defaultSession = services.runtimeSessionService.activeSessions[0];
 	const [activeSessionId, setActiveSessionId] = useState<string | undefined>(
-		defaultSession?.metadata.sessionId
+		defaultSession?.metadata.sessionId,
 	);
 	const [activeSession, setActiveSession] = useState<
 		ILanguageRuntimeSession | undefined
@@ -67,7 +67,7 @@ export const usePositronPackagesState = (
 				}
 			}
 		},
-		[services.runtimeSessionService]
+		[services.runtimeSessionService],
 	);
 
 	// When the active session changes
@@ -81,8 +81,8 @@ export const usePositronPackagesState = (
 						setActiveSession(session);
 						refreshPackages(session.metadata.sessionId);
 					}
-				}
-			)
+				},
+			),
 		);
 		disposableStore.add(
 			services.runtimeSessionService.onDidChangeForegroundSession((session) => {
@@ -91,7 +91,7 @@ export const usePositronPackagesState = (
 				if (session) {
 					refreshPackages(session.metadata.sessionId);
 				}
-			})
+			}),
 		);
 		return () => disposableStore.dispose();
 	}, [

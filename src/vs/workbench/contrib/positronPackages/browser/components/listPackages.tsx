@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import "./listPackages.css";
+import './listPackages.css';
 
 // React.
 import React, {
@@ -13,31 +13,31 @@ import React, {
 	useEffect,
 	useRef,
 	useState,
-} from "react";
+} from 'react';
 
 // Other dependencies.
-import { FixedSizeList as List } from "react-window";
-import * as DOM from "../../../../../base/browser/dom.js";
-import { useStateRef } from "../../../../../base/browser/ui/react/useStateRef.js";
-import { positronClassNames } from "../../../../../base/common/positronUtilities.js";
-import { ActionBarButton } from "../../../../../platform/positronActionBar/browser/components/actionBarButton.js";
-import { ActionBarRegion } from "../../../../../platform/positronActionBar/browser/components/actionBarRegion.js";
-import { PositronActionBar } from "../../../../../platform/positronActionBar/browser/positronActionBar.js";
-import { PositronActionBarContextProvider } from "../../../../../platform/positronActionBar/browser/positronActionBarContext.js";
-import { ViewsProps } from "../positronPackages.js";
+import { FixedSizeList as List } from 'react-window';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ViewsProps } from '../positronPackages.js';
 // import { languageIdToName } from './schemaNavigation.js';
-import { DisposableStore } from "../../../../../base/common/lifecycle.js";
-import { ThemeIcon } from "../../../../../base/common/themables.js";
-import { localize } from "../../../../../nls.js";
-import { usePositronPackagesContext } from "../positronPackagesContext.js";
-import { ILanguageRuntimeSession } from "../../../../services/runtimeSession/common/runtimeSessionService.js";
-import { ProgressBar } from "../../../../../base/browser/ui/progressbar/progressbar.js";
-import { usePositronReactServicesContext } from "../../../../../base/browser/positronReactRendererContext.js";
-import Severity from "../../../../../base/common/severity.js";
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { localize } from '../../../../../nls.js';
+import { usePositronPackagesContext } from '../positronPackagesContext.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import Severity from '../../../../../base/common/severity.js';
 
 const positronRefreshObjects = localize(
-	"positronRefreshObjects",
-	"Refresh objects"
+	'positronRefreshObjects',
+	'Refresh objects',
 );
 
 export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
@@ -50,7 +50,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const services = usePositronReactServicesContext();
 
 	// List
-	const key = activeSession?.metadata.sessionId ?? "";
+	const key = activeSession?.metadata.sessionId ?? '';
 	const packages = packagesMap[key] || [];
 
 	// Progress Bar
@@ -60,7 +60,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	const doRefreshPackages = useCallback(
 		async (session?: ILanguageRuntimeSession) => {
 			if (!session) {
-				throw new Error("No active session to refresh packages.");
+				throw new Error('No active session to refresh packages.');
 			}
 
 			try {
@@ -70,7 +70,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				setLoading((i) => i - 1);
 			}
 		},
-		[refreshPackages]
+		[refreshPackages],
 	);
 
 	useEffect(() => {
@@ -138,7 +138,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
 	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(
-		undefined
+		undefined,
 	);
 	const innerRef = useRef<HTMLElement>(undefined!);
 	useEffect(() => {
@@ -148,7 +148,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				if (innerRef.current) {
 					setScrollState(DOM.saveParentsScrollTop(innerRef.current));
 				}
-			})
+			}),
 		);
 		disposableStore.add(
 			reactComponentContainer.onRestoreScrollPosition(() => {
@@ -156,26 +156,26 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 					if (innerRef.current) {
 						DOM.restoreParentsScrollTop(
 							innerRef.current,
-							scrollStateRef.current
+							scrollStateRef.current,
 						);
 					}
 					setScrollState(undefined);
 				}
-			})
+			}),
 		);
 		return () => disposableStore.dispose();
 	}, [reactComponentContainer, scrollStateRef, setScrollState]);
 
 	// Item renderer
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
-		const key = activeSession?.metadata.sessionId ?? "";
+		const key = activeSession?.metadata.sessionId ?? '';
 		const packages = packagesMap[key] || [];
 		const itemProps = packages[props.index];
 		const { id, displayName, version } = itemProps;
 
 		return (
 			<div
-				className={positronClassNames("packages-list-item", {
+				className={positronClassNames('packages-list-item', {
 					selected: id === selectedItem,
 				})}
 				style={props.style}
@@ -184,21 +184,21 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 				}}
 			>
 				<div>{displayName}</div>
-				<div className="description">{version}</div>
+				<div className='description'>{version}</div>
 			</div>
 		);
 	};
 
 	return (
 		<div
-			className={positronClassNames("positron-packages-list", {
+			className={positronClassNames('positron-packages-list', {
 				focused,
 			})}
 			tabIndex={0}
 			onBlur={() => setFocused(false)}
 			onFocus={() => setFocused(true)}
 		>
-			<div ref={progressRef} id="variables-progress" />
+			<div ref={progressRef} id='variables-progress' />
 
 			<ActionBar
 				activeSession={activeSession}
@@ -213,19 +213,19 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						services.notificationService.notify({
 							message: `Failed to refresh packages: ${err.message}`,
 							severity: Severity.Error,
-							source: "Packages",
+							source: 'Packages',
 						});
 					}
 				}}
 			></ActionBar>
-			<div className="packages-list-container">
+			<div className='packages-list-container'>
 				<List
 					height={height - ACTION_BAR_HEIGHT}
 					innerRef={innerRef}
 					itemCount={packages.length}
 					itemKey={(index) => packages[index].id}
 					itemSize={26}
-					width={"calc(100% - 2px)"}
+					width={'calc(100% - 2px)'}
 				>
 					{ItemEntry}
 				</List>
@@ -257,19 +257,19 @@ const ActionBar = ({
 					paddingLeft={ACTION_BAR_PADDING_LEFT}
 					paddingRight={ACTION_BAR_PADDING_RIGHT}
 				>
-					<ActionBarRegion location="left">
+					<ActionBarRegion location='left'>
 						<ActionBarButton
-							align="left"
-							ariaLabel=""
-							label={activeSession?.getLabel() ?? "No active session"}
-							tooltip={""}
+							align='left'
+							ariaLabel=''
+							label={activeSession?.getLabel() ?? 'No active session'}
+							tooltip={''}
 						/>
 					</ActionBarRegion>
-					<ActionBarRegion location="right">
+					<ActionBarRegion location='right'>
 						<ActionBarButton
-							align="right"
+							align='right'
 							ariaLabel={positronRefreshObjects}
-							icon={ThemeIcon.fromId("positron-refresh")}
+							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={positronRefreshObjects}
 							onPressed={onRefreshPackages}
 						/>
