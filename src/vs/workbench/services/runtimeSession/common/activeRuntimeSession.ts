@@ -280,21 +280,24 @@ export class ActiveRuntimeSession extends Disposable {
 		// and subscribe to active editor changes to keep the backend informed.
 		// The isExecutionSource flag is false here since this is just tracking editor focus,
 		// not code execution from a file.
-		const sendEditorContext = (isExecutionSource: boolean = false) => {
-			const activeEditor = this._editorService.activeEditor;
-			const documentUri = activeEditor?.resource?.toString() ?? '';
-			uiClient.editorContextChanged(documentUri, isExecutionSource).catch(err => {
-				this._logService.warn(`Failed to send editor context changed: ${err}`);
-			});
-		};
+		// Many tests run without an editor service, so only set up the listener if we have one.
+		if (this._editorService) {
+			const sendEditorContext = (isExecutionSource: boolean = false) => {
+				const activeEditor = this._editorService.activeEditor;
+				const documentUri = activeEditor?.resource?.toString() ?? '';
+				uiClient.editorContextChanged(documentUri, isExecutionSource).catch(err => {
+					this._logService.warn(`Failed to send editor context changed: ${err}`);
+				});
+			};
 
-		// Send the initial editor context
-		sendEditorContext();
-
-		// Listen for active editor changes and forward to the backend
-		uiClient.register(this._editorService.onDidActiveEditorChange(() => {
+			// Send the initial editor context
 			sendEditorContext();
-		}));
+
+			// Listen for active editor changes and forward to the backend
+			uiClient.register(this._editorService.onDidActiveEditorChange(() => {
+				sendEditorContext();
+			}));
+		}
 
 		// Forward UI client to interested services
 		this._onUiClientStartedEmitter.fire(uiClient);
