@@ -340,12 +340,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         traceInfo('session: getting packages');
         try {
             if (this._kernel) {
-                return await this._kernel?.callMethod("getPackagesInstalled");
+                return await this._kernel?.callMethod('getPackagesInstalled');
             }
             throw new Error(`Cannot get packages: kernel not started`);
         } catch (err) {
             traceInfo(`session: getting packages failed: ${err}`);
-            throw err
+            throw err;
         }
     }
 
