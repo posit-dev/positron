@@ -399,6 +399,8 @@ jobs:
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v7
