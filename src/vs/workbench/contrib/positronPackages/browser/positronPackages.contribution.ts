@@ -25,7 +25,7 @@ const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensio
 	icon: Codicon.package,
 	alwaysUseContainerInfo: true,
 	hideIfEmpty: true,
-	order: 50,
+	order: 51,
 	openCommandActionDescriptor: {
 		id: "workbench.action.positron.openPackages",
 		title: "Packages",
