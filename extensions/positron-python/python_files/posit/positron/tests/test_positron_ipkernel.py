@@ -456,8 +456,8 @@ class TestEditorSysPath:
 
         # Set the editor context to the test file with is_execution_source=True
         editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri
-        shell.kernel.ui_service._is_execution_source = True
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -468,17 +468,17 @@ class TestEditorSysPath:
             sys.path.remove(str(editor_dir))
 
         # Add the path (simulates pre_run_cell)
-        added_path = shell._add_editor_dir_to_sys_path()
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Check that editor_dir was added to sys.path
         assert added_path == str(editor_dir)
         assert str(editor_dir) in sys.path
 
         # Store the added path like _handle_pre_run_cell does
-        shell._editor_path_added = added_path
+        shell._editor_path_added = added_path  # noqa: SLF001
 
         # Remove the path (simulates post_run_cell)
-        shell._remove_editor_dir_from_sys_path()
+        shell._remove_editor_dir_from_sys_path()  # noqa: SLF001
 
         # Check that editor_dir was removed from sys.path
         assert str(editor_dir) not in sys.path
@@ -493,15 +493,15 @@ class TestEditorSysPath:
 
         # Set the editor context to a file in cwd with is_execution_source=True
         editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri
-        shell.kernel.ui_service._is_execution_source = True
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
 
         # Count how many times cwd appears in sys.path before
         cwd_str = str(cwd)
         count_before = sys.path.count(cwd_str)
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since it's the cwd
         assert added_path is None
@@ -515,12 +515,12 @@ class TestEditorSysPath:
         import sys
 
         # Ensure no editor context
-        shell.kernel.ui_service._last_active_editor_uri = ""
+        shell.kernel.ui_service._last_active_editor_uri = ""  # noqa: SLF001
 
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
         assert added_path is None
@@ -533,13 +533,13 @@ class TestEditorSysPath:
         import sys
 
         # Set a non-file URI with is_execution_source=True
-        shell.kernel.ui_service._last_active_editor_uri = "untitled:Untitled-1"
-        shell.kernel.ui_service._is_execution_source = True
+        shell.kernel.ui_service._last_active_editor_uri = "untitled:Untitled-1"  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
 
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything
         assert added_path is None
@@ -552,12 +552,12 @@ class TestEditorSysPath:
         import sys
 
         # Ensure _editor_path_added is not set
-        shell._editor_path_added = None
+        shell._editor_path_added = None  # noqa: SLF001
 
         sys_path_before = sys.path.copy()
 
         # Remove should be a no-op
-        shell._remove_editor_dir_from_sys_path()
+        shell._remove_editor_dir_from_sys_path()  # noqa: SLF001
 
         # sys.path should be unchanged
         assert sys.path == sys_path_before
@@ -576,8 +576,8 @@ class TestEditorSysPath:
 
         # Set the editor context to the test module with is_execution_source=True
         editor_uri = test_module.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri
-        shell.kernel.ui_service._is_execution_source = True
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
 
         # Remove editor_dir from sys.path if present
         while str(editor_dir) in sys.path:
@@ -619,8 +619,8 @@ class TestEditorSysPath:
         # Set the editor context with is_execution_source=False
         # (simulates just switching editor focus, not executing from file)
         editor_uri = test_file.as_uri()
-        shell.kernel.ui_service._last_active_editor_uri = editor_uri
-        shell.kernel.ui_service._is_execution_source = False
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = False  # noqa: SLF001
 
         # Ensure we're in a different directory
         original_cwd = Path.cwd()
@@ -633,7 +633,7 @@ class TestEditorSysPath:
         sys_path_before = sys.path.copy()
 
         # Try to add the path
-        added_path = shell._add_editor_dir_to_sys_path()
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
 
         # Should not have added anything since is_execution_source is False
         assert added_path is None

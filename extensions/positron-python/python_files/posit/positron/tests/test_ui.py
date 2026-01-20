@@ -413,7 +413,8 @@ class TestEditorContext:
         # Check that the path is correctly parsed
         editor_path = ui_service.get_editor_file_path()
         assert editor_path is not None
-        assert str(editor_path) == "/path/to/file.py"
+        # Compare using Path for platform independence
+        assert editor_path == Path("/path/to/file.py")
 
     def test_get_editor_file_path_with_spaces(
         self, ui_service: UiService, ui_comm: DummyComm
@@ -431,7 +432,31 @@ class TestEditorContext:
 
         editor_path = ui_service.get_editor_file_path()
         assert editor_path is not None
-        assert str(editor_path) == "/path/to/my file.py"
+        # Compare using Path for platform independence
+        assert editor_path == Path("/path/to/my file.py")
+
+    def test_get_editor_file_path_windows_uri(
+        self, ui_service: UiService, ui_comm: DummyComm
+    ) -> None:
+        """Test that get_editor_file_path correctly handles Windows file URIs."""
+        # Set a Windows-style file URI
+        document_uri = "file:///C:/Users/test/file.py"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+        ui_comm.messages.clear()
+
+        editor_path = ui_service.get_editor_file_path()
+        assert editor_path is not None
+        # The path should not have a leading slash on Windows
+        path_str = str(editor_path)
+        assert not path_str.startswith("/"), f"Path should not start with /: {path_str}"
+        assert not path_str.startswith("\\"), f"Path should not start with \\: {path_str}"
+        # On all platforms, the drive letter should be at the start
+        assert path_str[0] == "C" or path_str[0] == "c", f"Path should start with C: {path_str}"
 
     def test_get_editor_file_path_non_file_uri(
         self, ui_service: UiService, ui_comm: DummyComm
@@ -453,6 +478,6 @@ class TestEditorContext:
     def test_get_editor_file_path_no_editor(self, ui_service: UiService) -> None:
         """Test that get_editor_file_path returns None when no editor URI is set."""
         # Reset the editor context
-        ui_service._last_active_editor_uri = ""
+        ui_service._last_active_editor_uri = ""  # noqa: SLF001
         assert ui_service.last_active_editor_uri == ""
         assert ui_service.get_editor_file_path() is None

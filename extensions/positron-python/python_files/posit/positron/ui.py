@@ -176,7 +176,15 @@ class UiService:
         if parsed.scheme != "file":
             return None
 
-        return Path(unquote(parsed.path))
+        path = unquote(parsed.path)
+
+        # On Windows, file URIs like file:///C:/path result in /C:/path after parsing.
+        # We need to strip the leading slash to get a valid Windows path.
+        # Check for drive letter pattern: /X:/ where X is a letter
+        if len(path) >= 3 and path[0] == "/" and path[1].isalpha() and path[2] == ":":
+            path = path[1:]
+
+        return Path(path)
 
     def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import logging
 import os
@@ -374,11 +375,12 @@ class PositronShell(ZMQInteractiveShell):
 
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
-        Add the directory of the last active editor to sys.path if it differs
-        from the working directory and code is being executed from a file.
+        Add the directory of the last active editor to sys.path.
 
-        This only adds the path when is_execution_source is True, which indicates
-        that code is being executed from a script file (not typed in the console).
+        Only adds the path if it differs from the working directory and code is being
+        executed from a file. This only adds the path when is_execution_source is True,
+        which indicates that code is being executed from a script file (not typed in
+        the console).
 
         Returns the path that was added, or None if no path was added.
         """
@@ -406,9 +408,7 @@ class PositronShell(ZMQInteractiveShell):
         return None
 
     def _remove_editor_dir_from_sys_path(self) -> None:
-        """
-        Remove the temporarily added editor directory from sys.path.
-        """
+        """Remove the temporarily added editor directory from sys.path."""
         editor_dir = getattr(self, "_editor_path_added", None)
         if editor_dir is not None and editor_dir in sys.path:
             try:
@@ -420,10 +420,8 @@ class PositronShell(ZMQInteractiveShell):
                 self._editor_path_added = None
 
         # Clear the execution source flag
-        try:
+        with contextlib.suppress(Exception):
             self.kernel.ui_service.clear_execution_source()
-        except Exception:
-            pass
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.
