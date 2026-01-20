@@ -66,11 +66,8 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 			try {
 				setLoading((i) => i + 1);
 				await refreshPackages(session.metadata.sessionId);
-			} catch (error) {
-				console.error("Error refreshing packages:", error);
 			} finally {
 				setLoading((i) => i - 1);
-				throw new Error("Failed to refresh packages.");
 			}
 		},
 		[refreshPackages]

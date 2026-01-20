@@ -927,9 +927,6 @@ declare module 'positron' {
 	}
 
 	export interface LanguageRuntimeManager {
-
-
-
 		/**
 		 * Returns a generator that yields metadata about all the language
 		 * runtimes that are available to the user.
@@ -1246,6 +1243,11 @@ declare module 'positron' {
 		 */
 		forceQuit(): Thenable<void>;
 
+		/**
+		 * Get the list of installed packages in the runtime.
+		 *
+		 * @returns A list of installed packages on this runtime
+		 */
 		getPackages(): Thenable<LanguageRuntimePackage[]>;
 
 		/**
