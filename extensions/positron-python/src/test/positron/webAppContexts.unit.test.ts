@@ -139,8 +139,6 @@ app = Dash(__name__)
         });
 
         test('should only match app creation when import is for the same library', () => {
-            // Has Flask import but Dash-like app creation pattern - should return flask (import match)
-            // since the app creation pattern doesn't match the imported library
             const code = `
 from flask import Flask
 
