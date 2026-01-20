@@ -8,7 +8,7 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 4px 1rem;
+	padding: 0px 1rem;
 	min-height: 24px;
 
 	/* Visual separators from editor content above and outputs below */
@@ -20,6 +20,7 @@
 	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 
 	/* Typography */
+	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
 }
 
