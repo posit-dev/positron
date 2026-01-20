@@ -7,8 +7,9 @@
 .left-hand-action-container {
 	/* Private CSS variables for dimensions */
 	--_container-size: 20px;
-	--_container-offset-left: -24px;
-	--_container-element-margin: 2px;
+	/* -25px offset accounts for the 1px border from the cell. */
+	/* Need to account for the border so the menu is horizontally centered */
+	--_container-offset-left: -25px;
 	--_badge-font-size: 10px;
 
 	/* Container positioning */
