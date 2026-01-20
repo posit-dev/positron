@@ -11,6 +11,7 @@ import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
+import { RSessionManager } from './session-manager';
 import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
@@ -25,6 +26,12 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 	context.subscriptions.push(LOGGER.onDidChangeLogLevel(onDidChangeLogLevel));
 	onDidChangeLogLevel(LOGGER.logLevel);
+
+	// Initialize the session manager with the extension context before registering
+	// the runtime manager. This ensures that the session manager has access to
+	// persistent state (workspaceState) for tracking the last foreground session,
+	// which is needed to properly restore the LSP after extension host restarts.
+	RSessionManager.initialize(context);
 
 	const rRuntimeManager = new RRuntimeManager(context);
 	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);

@@ -3,6 +3,16 @@ name: "Test: E2E (RHEL)"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
@@ -43,11 +53,6 @@ on:
         description: "Whether or not to install positron-license"
         type: boolean
         default: false
-      skip_tags:
-        required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."
@@ -56,6 +61,11 @@ on:
       allow_soft_fail:
         required: false
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
         type: boolean
         default: false
 
@@ -92,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-rocky8-amd64:65
-      options: --user 0:0
+      options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -134,6 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -156,6 +167,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           distro: rhel
+          skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
           playwright-with-deps: 'false'
           github-token: ${{ github.token }}
@@ -180,6 +192,8 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
 
       - name: 🧪 Run Playwright Tests
         shell: bash
@@ -201,32 +215,8 @@ jobs:
           PW_JSON_FILE: test-results/rhel.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
-
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
-
-          # Build a single lookahead regex pattern
-          if [ "${{ inputs.project }}" == "e2e-electron" ]; then
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-            else
-              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-            fi
-          else
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN))"
-            else
-              SKIP_TAGS_REGEX=""
-            fi
-          fi
-
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
 
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
@@ -237,20 +227,19 @@ jobs:
 
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
 
             node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
           else
-            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
           fi
 
       - name: Upload Playwright Report to S3
@@ -272,6 +261,6 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs
+          name: ${{ inputs.project }}-rhel-logs
           path: test-logs
           if-no-files-found: ignore

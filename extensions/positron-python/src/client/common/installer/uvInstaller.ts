@@ -6,15 +6,18 @@
 /* eslint-disable class-methods-use-this */
 
 import { inject, injectable } from 'inversify';
+import * as path from 'path';
 import { ModuleInstallerType } from '../../pythonEnvironments/info';
-import { ExecutionInfo, IConfigurationService } from '../types';
-import { ModuleInstaller } from './moduleInstaller';
+import { ExecutionInfo, IConfigurationService, Product } from '../types';
+import { ModuleInstaller, translateProductToModule } from './moduleInstaller';
 import { InterpreterUri, ModuleInstallFlags } from './types';
 import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { IServiceContainer } from '../../ioc/types';
 import { isResource } from '../utils/misc';
 import { IWorkspaceService } from '../application/types';
 import { IInterpreterService } from '../../interpreter/contracts';
+import { IFileSystem } from '../platform/types';
+import { traceLog } from '../../logging';
 
 @injectable()
 export class UVInstaller extends ModuleInstaller {
@@ -54,8 +57,51 @@ export class UVInstaller extends ModuleInstaller {
     ): Promise<ExecutionInfo> {
         // If the resource isSupported, then the uv binary exists
         const execPath = 'uv';
-        // TODO: should we use uv add if a pyproject.toml exists?
-        const args = ['pip', 'install', '--upgrade'];
+
+        // Don't use 'uv add' for ipykernel since it's only being used to enable the Console
+        const isIpykernel = moduleName === translateProductToModule(Product.ipykernel);
+
+        // ...or if we're trying to break system packages
+        const isBreakingSystemPackages = (flags & ModuleInstallFlags.breakSystemPackages) !== 0;
+
+        // ...or if pyproject.toml doesn't exist at the workspace root
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const fileSystem = this.serviceContainer.get<IFileSystem>(IFileSystem);
+        let workspaceFolder = isResource(resource) ? workspaceService.getWorkspaceFolder(resource) : undefined;
+        if (!workspaceFolder && workspaceService.workspaceFolders && workspaceService.workspaceFolders.length > 0) {
+            workspaceFolder = workspaceService.workspaceFolders[0];
+        }
+        const pyprojectPath = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, 'pyproject.toml') : undefined;
+        const pyprojectExists = pyprojectPath ? await fileSystem.fileExists(pyprojectPath) : false;
+
+        // ...or if it doesn't have a valid [project] section with name and version
+        let hasValidProjectSection = false;
+        if (pyprojectExists && pyprojectPath) {
+            try {
+                const pyprojectContent = await fileSystem.readFile(pyprojectPath);
+                // Check for [project] section, a name field, and a version field.
+                // This may fail if name and version are outside the [project] section, but it's a reasonable heuristic.
+                const hasProjectSection = /^\[project\]/m.test(pyprojectContent);
+                const hasName = /^name\s*=/m.test(pyprojectContent);
+                const hasVersion = /^version\s*=/m.test(pyprojectContent);
+                hasValidProjectSection = hasProjectSection && hasName && hasVersion;
+            } catch {
+                // If we can't read the file, assume it doesn't have a valid project section
+            }
+        }
+
+        // ...or if requirements.txt does exist, because we don't want them to get out of sync
+        const requirementsPath = workspaceFolder
+            ? path.join(workspaceFolder.uri.fsPath, 'requirements.txt')
+            : undefined;
+        const requirementsExists = requirementsPath ? await fileSystem.fileExists(requirementsPath) : false;
+
+        const usePyprojectWorkflow =
+            !isIpykernel &&
+            !isBreakingSystemPackages &&
+            pyprojectExists &&
+            hasValidProjectSection &&
+            !requirementsExists;
 
         // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -64,22 +110,39 @@ export class UVInstaller extends ModuleInstaller {
         const interpreter = isResource(resource) ? await interpreterService.getActiveInterpreter(resource) : resource;
         const interpreterPath = interpreter?.path ?? settings.pythonPath;
         const pythonPath = isResource(resource) ? interpreterPath : resource.path;
-        args.push('--python', pythonPath);
 
-        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-        const proxy = workspaceService.getConfiguration('http').get('proxy', '');
-        if (proxy.length > 0) {
-            args.push('--proxy', proxy);
-        }
+        const args: string[] = [];
 
-        if (flags & ModuleInstallFlags.reInstall) {
-            args.push('--force-reinstall');
-        }
+        if (usePyprojectWorkflow) {
+            // Use 'uv add' for project-based workflow
+            traceLog(`Using 'uv add' for ${moduleName}: project-based workflow detected`);
+            args.push('add', '--active');
+        } else {
+            // Use 'uv pip install' for environment-based workflow
+            const reasons: string[] = [];
+            if (isIpykernel) {
+                reasons.push('installing ipykernel');
+            }
+            if (isBreakingSystemPackages) {
+                reasons.push('breaking system packages');
+            }
+            if (!pyprojectExists) {
+                reasons.push('no pyproject.toml found');
+            } else if (!hasValidProjectSection) {
+                reasons.push('pyproject.toml missing valid [project] section with name and version');
+            }
+            if (requirementsExists) {
+                reasons.push('requirements.txt exists');
+            }
+            traceLog(`Using 'uv pip install' for ${moduleName}: ${reasons.join(', ')}`);
+            args.push('pip', 'install');
 
-        // Support the --break-system-packages flag to temporarily work around PEP 668.
-        if (flags & ModuleInstallFlags.breakSystemPackages) {
-            args.push('--break-system-packages');
+            // Support the --break-system-packages flag to temporarily work around PEP 668.
+            if (isBreakingSystemPackages) {
+                args.push('--break-system-packages');
+            }
         }
+        args.push('--upgrade', '--python', pythonPath);
 
         return {
             args: [...args, moduleName],

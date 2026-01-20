@@ -64,7 +64,7 @@ export class Modals {
 	 */
 	async installRenvModal(action: 'install' | 'cancel') {
 		try {
-			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 40000 });
 
 			if (action === 'install') {
 				this.code.logger.log('Install Renv modal detected: clicking `Install now`');

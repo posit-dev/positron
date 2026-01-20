@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import { DocumentSelector } from 'vscode-languageclient';
 import * as vscode from 'vscode';
+import { ModelCapabilities } from './providers/base/modelProviderTypes.js';
 
 /** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
@@ -14,7 +14,7 @@ export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 export const MARKDOWN_DIR = path.join(EXTENSION_ROOT_DIR, 'src', 'md');
 
 /** Selects all documents. */
-export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];
+export const ALL_DOCUMENTS_SELECTOR = [{ scheme: '*' }];
 
 /** The default max token input if a model's maximum is unknown */
 export const DEFAULT_MAX_TOKEN_INPUT = 100_000;
@@ -72,17 +72,9 @@ export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
 export const IS_RUNNING_ON_PWB = !!process.env.RS_SERVER_URL && vscode.env.uiKind === vscode.UIKind.Web;
 
 /**
- * Extended capabilities interface for Positron language models.
- * Extends the standard VSCode LanguageModelChatCapabilities with agentMode.
- */
-export interface PositronLanguageModelCapabilities extends vscode.LanguageModelChatCapabilities {
-	readonly agentMode?: boolean;
-}
-
-/**
  * Default capabilities for language models supporting image input, tool calling, and agent mode.
  */
-export const DEFAULT_MODEL_CAPABILITIES: PositronLanguageModelCapabilities = {
+export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
 	imageInput: true,
 	toolCalling: true,
 	agentMode: true,

@@ -3,15 +3,19 @@ description: "Restores caches, installs dependencies, compiles Positron, and set
 
 inputs:
   distro:
-    description: "Distribution identifier (ubuntu, rhel, windows)"
+    description: "Distribution identifier (ubuntu, rhel, suse, windows)"
     required: false
     default: 'ubuntu'
+  skip-cache:
+    description: "Skip restoring caches (use when testing a specific commit)"
+    required: false
+    default: 'false'
   install-playwright:
     description: "Whether to install Playwright browsers (default: true)"
     required: false
     default: 'true'
   playwright-with-deps:
-    description: "Whether to use --with-deps when installing Playwright (default: true, set to false for RHEL)"
+    description: "Whether to use --with-deps when installing Playwright (default: true, set to false for RHEL & SUSE)"
     required: false
     default: 'true'
   github-token:
@@ -54,6 +58,7 @@ runs:
   using: "composite"
   steps:
     - name: 📦 Restore caches
+      if: ${{ inputs.skip-cache != 'true' }}
       id: restore-caches
       uses: ./.github/actions/restore-build-caches
       with:
@@ -134,7 +139,7 @@ runs:
         if [[ "${{ inputs.playwright-with-deps }}" == "true" ]]; then
           npx playwright install --with-deps
         else
-          # RHEL: Don't use --with-deps (uses apt-get which doesn't exist on RHEL)
+          # RHEL/SUSE: Don't use --with-deps (uses apt-get which doesn't exist on RHEL/SUSE)
           # System dependencies should be pre-installed in the Docker container
           npx playwright install
         fi

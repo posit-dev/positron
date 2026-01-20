@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -30,6 +30,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** Map of console IPyWidgetsInstances keyed by the language runtime output message ID that initiated the instance. */
 	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
 
+	/** Map of Positron Notebook IPyWidgets instances keyed by output ID. Each instance manages communication for all widgets in a single output cell. */
+	private readonly _positronNotebookInstancesByOutputId = new Map<string, IPyWidgetsInstance>();
+
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
 
@@ -41,6 +44,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * @param _notebookService The notebook service.
 	 * @param _notebookEditorService The notebook editor service.
 	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
+	 * @param _notebookOutputWebviewService The Positron Notebook output webview service.
 	 * @param _logService The log service.
 	 */
 	constructor(
@@ -70,13 +74,94 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
 	}
 
-	hasInstance(id: string): boolean {
-		return this._notebookInstancesBySessionId.has(id) ||
-			this._consoleInstancesByMessageId.has(id);
+	/**
+	 * Checks if a built-in notebook ipywidgets instance exists for the given session ID.
+	 * @param sessionId The notebook session ID
+	 * @returns True if an instance exists for this session
+	 */
+	hasNotebookWidgetInstance(sessionId: string): boolean {
+		return this._notebookInstancesBySessionId.has(sessionId);
 	}
 
 	/**
-	 * Map to disposeable stores for each session. Used to preventing memory leaks caused by
+	 * Checks if a console ipywidgets instance exists for the given message ID.
+	 * @param messageId The language runtime output message ID
+	 * @returns True if an instance exists for this message
+	 */
+	hasConsoleWidgetInstance(messageId: string): boolean {
+		return this._consoleInstancesByMessageId.has(messageId);
+	}
+
+	/**
+	 * Checks if a Positron Notebook ipywidgets instance exists for the given output ID.
+	 * @param outputId The notebook cell output ID
+	 * @returns True if an ipywidgets instance exists for this output
+	 */
+	hasPositronNotebookWidgetInstance(outputId: string): boolean {
+		return this._positronNotebookInstancesByOutputId.has(outputId);
+	}
+
+	/**
+	 * Creates an IPyWidgets instance for a specific Positron Notebook output cell.
+	 *
+	 * Each output gets its own messaging channel keyed by the output ID,
+	 * to enable proper message routing since each output in a Positron Notebook
+	 * renders in a separate webview. The instance manages all widgets within that output.
+	 *
+	 * @param session The notebook session
+	 * @param outputId The notebook cell output ID
+	 * @returns Disposable that cleans up the ipywidgets instance when called
+	 */
+	createPositronNotebookWidgetInstance(
+		session: ILanguageRuntimeSession,
+		outputId: string
+	): IDisposable {
+		// Create per-output messaging and instance using the output ID
+		const { messaging, instance } = this.createWidgetInstance(
+			session,
+			outputId
+		);
+
+		// Track by output ID for cleanup
+		this._positronNotebookInstancesByOutputId.set(outputId, instance);
+
+		// Return cleanup disposable
+		return toDisposable(() => {
+			messaging.dispose();
+			instance.dispose();
+			this._positronNotebookInstancesByOutputId.delete(outputId);
+		});
+	}
+
+	/**
+	 * Creates an IPyWidgets instance with its associated messaging channel.
+	 * This is the common pattern shared across console, built-in notebook, and Positron Notebook instances.
+	 *
+	 * @param session The language runtime session
+	 * @param messagingId The ID for scoping renderer messages (e.g., editor ID, output ID, client ID)
+	 * @returns An object containing the messaging channel and IPyWidgets instance
+	 */
+	private createWidgetInstance(
+		session: ILanguageRuntimeSession,
+		messagingId: string
+	): { messaging: IPyWidgetsWebviewMessaging; instance: IPyWidgetsInstance } {
+		const messaging = new IPyWidgetsWebviewMessaging(
+			messagingId,
+			this._notebookRendererMessagingService
+		);
+
+		const instance = new IPyWidgetsInstance(
+			session,
+			messaging,
+			this._notebookService,
+			this._logService
+		);
+
+		return { messaging, instance };
+	}
+
+	/**
+	 * Map to disposable stores for each session. Used to preventing memory leaks caused by
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
@@ -119,14 +204,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				this._notebookOutputWebviewService, session, message
 			));
 
-			// Create the ipywidgets instance.
-			const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
-				client.id, this._notebookRendererMessagingService
-			));
-			const ipywidgetsInstance = disposables.add(
-				new IPyWidgetsInstance(session, messaging, this._notebookService, this._logService)
+			// Create the ipywidgets instance using the client ID for messaging.
+			const { messaging, instance } = this.createWidgetInstance(
+				session,
+				client.id
 			);
-			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
+			disposables.add(messaging);
+			disposables.add(instance);
+			this._consoleInstancesByMessageId.set(message.id, instance);
 
 			// Unregister the instance when the session is disposed.
 			disposables.add(toDisposable(() => {
@@ -149,7 +234,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private attachNotebookSession(session: ILanguageRuntimeSession, disposables: DisposableStore) {
-		// Find the session's notebook editor by its notebook URI.
+		// For built-in notebooks: find the session's notebook editor by its notebook URI.
 		const notebookEditor = this._notebookEditorService.listNotebookEditors().find(
 			(editor) => isEqual(session.metadata.notebookUri, editor.textModel?.uri));
 
@@ -161,13 +246,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
 
 		// We found a matching notebook editor, create an ipywidgets instance.
-		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
-			notebookEditor.getId(), this._notebookRendererMessagingService
-		));
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
-			session, messaging, this._notebookService, this._logService
-		));
-		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
+		const { messaging, instance } = this.createWidgetInstance(
+			session,
+			notebookEditor.getId()
+		);
+		disposables.add(messaging);
+		disposables.add(instance);
+		this._notebookInstancesBySessionId.set(session.sessionId, instance);
 
 		// Unregister the instance when the session is disposed.
 		disposables.add(toDisposable(() => {
@@ -350,7 +435,7 @@ export class IPyWidgetsInstance extends Disposable {
 		});
 	}
 
-	private createClient(client: IRuntimeClientInstance<any, any>) {
+	private createClient(client: IRuntimeClientInstance<unknown, unknown>) {
 		// Determine the list of RPC methods by client type.
 		let rpcMethods: string[];
 		switch (client.getClientType()) {

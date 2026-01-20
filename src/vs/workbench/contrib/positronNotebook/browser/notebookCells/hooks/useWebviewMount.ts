@@ -201,7 +201,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				}
 
 				// Listen for messages from the webview; adjust container height if needed
-				disposables.add(toDisposable(() => webviewElement!.onMessage(handleWebviewMessage).dispose()));
+				disposables.add(webviewElement.onMessage(handleWebviewMessage));
 
 				// React to editor or layout changes
 				const handleLayoutChange = () => updateWebviewLayout(false);
@@ -252,7 +252,8 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		);
 
 		// Actually start the mounting process
-		mountWebview();
+		// Track the returned disposable to prevent leaks
+		mountWebview().then(disposable => disposables.add(disposable));
 
 		// Cleanup callback: abort tasks, release the webview, and dispose of all listeners
 		return () => {

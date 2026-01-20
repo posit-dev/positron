@@ -15,6 +15,7 @@ import { IExtensionDescription } from '../../../../platform/extensions/common/ex
 import { ExtHostConfigProvider } from '../extHostConfiguration.js';
 import { ExtHostPositronContext } from './extHost.positron.protocol.js';
 import * as extHostTypes from './extHostTypes.positron.js';
+import { NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IExtHostInitDataService } from '../extHostInitDataService.js';
 import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
 import { ExtHostModalDialogs } from './extHostModalDialogs.js';
@@ -92,7 +93,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, any>> {
+			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId);
 			},
@@ -231,7 +232,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
-			call(method: string, params: Record<string, any>): Thenable<any> {
+			call(method: string, params: Record<string, unknown>): Thenable<unknown> {
 				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params);
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
@@ -365,7 +366,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const notebooks: typeof positron.notebooks = {
-			NotebookCellType: extHostTypes.NotebookCellType,
+			NotebookCellType,
 			async getContext(): Promise<positron.notebooks.NotebookContext | undefined> {
 				const context = await extHostNotebookFeatures.getActiveNotebookContext();
 				if (!context) {
@@ -396,7 +397,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					executionOrder: cell.executionOrder,
 					lastRunSuccess: cell.lastRunSuccess,
 					lastExecutionDuration: cell.lastExecutionDuration,
-					lastRunEndTime: cell.lastRunEndTime
+					lastRunEndTime: cell.lastRunEndTime,
+					editorShown: cell.editorShown
 				}));
 			},
 
@@ -426,6 +428,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostNotebookFeatures.deleteCell(notebookUri, cellIndex);
 			},
 
+			async deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+				return extHostNotebookFeatures.deleteCells(notebookUri, cellIndices);
+			},
+
 			async updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
 				return extHostNotebookFeatures.updateCellContent(notebookUri, cellIndex, content);
 			},
@@ -440,6 +446,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 			async reorderCells(notebookUri: string, newOrder: number[]): Promise<void> {
 				return extHostNotebookFeatures.reorderCells(notebookUri, newOrder);
+			},
+
+			async scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+				return extHostNotebookFeatures.scrollToCellIfNeeded(notebookUri, cellIndex);
 			}
 		};
 

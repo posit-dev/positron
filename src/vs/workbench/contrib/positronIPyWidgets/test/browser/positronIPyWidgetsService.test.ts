@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -95,7 +95,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		const message = await receiveIPyWidgetsResultMessage(session);
 
 		// Check that an instance was created with the expected properties.
-		assert(positronIpywidgetsService.hasInstance(message.id));
+		assert(positronIpywidgetsService.hasConsoleWidgetInstance(message.id));
 		assert(!!plotClient);
 		assert.strictEqual(plotClient.id, message.id);
 		assert.deepStrictEqual(plotClient.metadata, {
@@ -118,7 +118,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		await timeout(0);
 
 		// Check that the instance was removed.
-		assert(!positronIpywidgetsService.hasInstance(plotClient.id));
+		assert(!positronIpywidgetsService.hasConsoleWidgetInstance(plotClient.id));
 	});
 
 	test('console session: respond to result message type and check for memory leaks', async () => {
@@ -134,7 +134,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 
 		await timeout(0);
 
-		assert(positronIpywidgetsService.hasInstance(message.id));
+		assert(positronIpywidgetsService.hasConsoleWidgetInstance(message.id));
 		// Note that we don't end the session here. This helps us check for memory leaks caused by
 		// improper disposal of listeners
 	});
@@ -145,7 +145,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 
 		await timeout(0);
 
-		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 		// Note that we don't end the session here. This helps us check for memory leaks caused by
 		// improper disposal of listeners
 	});
@@ -172,7 +172,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		);
 
 		// Check that an instance was created.
-		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 
 		return { session, notebookEditor };
 	}
@@ -181,14 +181,14 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		const { session } = await createNotebookInstance();
 
 		// Check that an instance was created.
-		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 
 		// End the session.
 		session.endSession();
 		await timeout(0);
 
 		// Check that the instance was removed.
-		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(!positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 	});
 
 	test('notebook session: change notebook text model', async () => {
@@ -199,21 +199,21 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		await timeout(0);
 
 		// Check that the instance was removed.
-		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(!positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 	});
 
 	test('notebook session: remove notebook editor', async () => {
 		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Check that an instance was created.
-		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 
 		// Remove notebook editor.
 		notebookEditorService.removeNotebookEditor(notebookEditor);
 		await timeout(0);
 
 		// Check that the instance was removed.
-		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
+		assert(!positronIpywidgetsService.hasNotebookWidgetInstance(session.sessionId));
 	});
 
 });

@@ -238,7 +238,7 @@ configurationRegistry.registerConfiguration({
 		},
 		'chat.useCopilotParticipantsWithOtherProviders': {
 			type: 'boolean',
-			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider**.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
+			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider when Copilot participants are used**.\n\nFor example, if you enable this setting and you are using Anthropic as a provider, GitHub Copilot participants are available. When invoked, the participants may send data to Copilot models.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
 			default: false
 		},
 		// --- End Positron ---
@@ -783,7 +783,12 @@ configurationRegistry.registerConfiguration({
 		'chat.extensionUnification.enabled': {
 			type: 'boolean',
 			description: nls.localize('chat.extensionUnification.enabled', "Enables the unification of GitHub Copilot extensions. When enabled, all GitHub Copilot functionality is served from the GitHub Copilot Chat extension. When disabled, the GitHub Copilot and GitHub Copilot Chat extensions operate independently."),
-			default: false,
+			// --- Start Positron ---
+			// default: false,
+			// The Github Copilot extension is closed source and doesn't exist
+			// in Positron, so we always enable unification.
+			default: true,
+			// --- End Positron ---
 			tags: ['experimental'],
 			experiment: {
 				mode: 'auto'

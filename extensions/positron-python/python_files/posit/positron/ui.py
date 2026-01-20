@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -169,8 +169,8 @@ class UiService:
                 event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
                 self._send_event(name=UiFrontendEvent.WorkingDirectory, payload=event)
 
-    def open_editor(self, file: str, line: int, column: int) -> None:
-        event = OpenEditorParams(file=file, line=line, column=column)
+    def open_editor(self, file: str, line: int, column: int, *, pinned: bool = True) -> None:
+        event = OpenEditorParams(file=file, line=line, column=column, pinned=pinned)
         self._send_event(name=UiFrontendEvent.OpenEditor, payload=event)
 
     def clear_console(self) -> None:
@@ -236,14 +236,12 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         destination = ShowHtmlFileDestination.Viewer
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
-            # Send bokeh plots to the plots pane.
-            # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
-            # This is not great but currently the only information we have.
-            destination = (
-                ShowHtmlFileDestination.Plot
-                if self._is_module_function("bokeh.io.showing", "show")
-                else ShowHtmlFileDestination.Viewer
-            )
+            # Send bokeh and plotly plots to the plots pane.
+            # Identify them by checking the stack for their respective modules/functions.
+            if self._is_module_function("bokeh.io.showing", "show") or self._is_module_function(
+                "plotly.basedatatypes"
+            ):
+                destination = ShowHtmlFileDestination.Plot
 
             return self._send_show_html_event(url, destination)
 

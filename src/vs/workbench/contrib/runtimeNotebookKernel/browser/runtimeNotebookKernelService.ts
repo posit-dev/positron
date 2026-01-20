@@ -19,6 +19,7 @@ import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveRuntimeNotebookContextManager } from '../common/activeRuntimeNotebookContextManager.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
 import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
+import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -39,6 +40,9 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 	/** Map of runtime notebook kernels keyed by runtime ID. */
 	private readonly _kernelsByRuntimeId = new Map<string, RuntimeNotebookKernel>();
+
+	/** Map of pending kernel selections (notebook URI -> kernel ID) to start kernels that are not yet registered. */
+	private readonly _pendingKernelSelections = new ResourceMap<string>();
 
 	/** An event that fires when code is executed in any notebook */
 	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
@@ -63,8 +67,20 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		this._register(this._instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 
 		// Create a kernel when a runtime is registered.
-		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this.getOrCreateKernel(runtime);
+		this._register(this._languageRuntimeService.onDidRegisterRuntime(async runtime => {
+			const kernel = this.getOrCreateKernel(runtime);
+
+			// Process any pending notebook selections for this kernel.
+			// This handles the race condition where a notebook is created before runtimes register.
+			for (const [notebookUri, kernelId] of this._pendingKernelSelections) {
+				if (kernel.id === kernelId) {
+					this._logService.info(
+						`[RuntimeNotebookKernelService] Processing deferred kernel selection for ${kernelId}`
+					);
+					this._pendingKernelSelections.delete(notebookUri);
+					await kernel.ensureSessionStarted(notebookUri, 'Deferred kernel selection after runtime registration');
+				}
+			}
 		}));
 
 		// Create a kernel for each existing runtime.
@@ -91,30 +107,42 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			}
 		});
 
-		// When a known kernel is selected for a notebook, select the corresponding runtime.
+		// When a kernel is selected for a notebook, handle starting/stopping sessions.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
-			// Get the old/new kernel from the map.
-			// These will be undefined if the user switched from/to an unknown kernel.
-			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
-			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
-			if (newKernel) {
-				// A known kernel was selected.
-				// Update the notebook's language to match the selected kernel.
-				this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
+			// Handle deselection of our kernel
+			if (isRuntimeKernelId(e.oldKernel)) {
+				// Clear any pending selection for this notebook
+				this._pendingKernelSelections.delete(e.notebook);
 
-				// Select the corresponding runtime for the notebook.
-				// This will also shutdown the old runtime if needed.
-				await newKernel.ensureSessionStarted(
-					e.notebook,
-					`Runtime kernel ${newKernel.id} selected for notebook`,
-				);
-			} else if (oldKernel && !newKernel) {
-				// The user switched from a known kernel to an unknown kernel, shutdown the old kernel's runtime.
-				await this._runtimeSessionService.shutdownNotebookSession(
-					e.notebook,
-					RuntimeExitReason.Shutdown,
-					`Runtime kernel ${oldKernel.id} deselected for notebook`,
-				);
+				// Shut down the session if it was running
+				const oldKernel = this._kernels.get(e.oldKernel);
+				if (oldKernel) {
+					await this._runtimeSessionService.shutdownNotebookSession(
+						e.notebook,
+						RuntimeExitReason.Shutdown,
+						`Runtime kernel ${oldKernel.id} deselected for notebook`,
+					);
+				} else {
+					this._logService.info(
+						`[RuntimeNotebookKernelService] Runtime kernel ${e.oldKernel} deselected but not running. No shutdown needed.`
+					);
+				}
+			}
+
+			// Handle selection of our kernel
+			if (isRuntimeKernelId(e.newKernel)) {
+				const newKernel = this._kernels.get(e.newKernel);
+				if (newKernel) {
+					// Kernel is registered, start the session
+					this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
+					await newKernel.ensureSessionStarted(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
+				} else {
+					// Our kernel but not registered yet - defer processing until runtime registers
+					this._logService.info(
+						`[RuntimeNotebookKernelService] Runtime kernel ${e.newKernel} selected but not yet registered. Deferring.`
+					);
+					this._pendingKernelSelections.set(e.notebook, e.newKernel);
+				}
 			}
 		}));
 
@@ -139,8 +167,11 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				.catch(err => this._logService.error(`Error attaching notebook instance: ${err}`));
 		}
 
-		// When a notebook is closed, shutdown the corresponding session.
+		// When a notebook is closed, cleanup pending selections and shutdown the session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
+			// Clean up any pending kernel selection
+			this._pendingKernelSelections.delete(notebook.uri);
+
 			await this._runtimeSessionService.shutdownNotebookSession(
 				notebook.uri,
 				RuntimeExitReason.Shutdown,
@@ -407,6 +438,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
  */
 function getNotebookLanguage(notebook: NotebookTextModel): string | undefined {
 	// First try the notebook metadata.
+	// eslint-disable-next-line local/code-no-any-casts, @typescript-eslint/no-explicit-any
 	const metadata = notebook.metadata?.metadata as any;
 	const languageId = metadata?.language_info?.name ?? metadata?.kernelspec?.language;
 	if (languageId &&
@@ -438,3 +470,10 @@ registerSingleton(
 
 // Register actions.
 registerRuntimeNotebookKernelActions();
+
+/**
+ * Check if a kernel ID belongs to a runtime notebook kernel.
+ */
+function isRuntimeKernelId(kernelId: string | undefined): kernelId is string {
+	return !!kernelId && kernelId.startsWith(POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
+}

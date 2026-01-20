@@ -3,6 +3,11 @@ name: "Test: Integration"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       pull_request:
         required: false
         type: boolean
@@ -31,6 +36,8 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
@@ -127,7 +134,7 @@ jobs:
 
       - name: Restore R installation and packages cache
         id: cache-r
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.local/share/rig

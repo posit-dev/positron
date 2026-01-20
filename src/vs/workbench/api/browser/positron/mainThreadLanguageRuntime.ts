@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,7 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -114,11 +114,14 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private readonly _onDidReceiveRuntimeMessagePromptConfigEmitter = new Emitter<void>();
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
+	private readonly _onDidUpdateResourceUsageEmitter = new Emitter<ILanguageRuntimeResourceUsage>();
 
 	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _lastUsed: number = 0;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
 	/** Lamport clock, used for event ordering */
@@ -169,6 +172,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		this.onDidCompleteStartup = this._startupEmitter.event;
 		this.onDidEncounterStartupFailure = this._startupFailureEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
+		this.onDidUpdateResourceUsage = this._onDidUpdateResourceUsageEmitter.event;
 
 		// Listen to state changes and track the current state
 		this._register(this.onDidChangeRuntimeState((state) => {
@@ -250,7 +254,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 				const editor: ITextResourceEditorInput = {
 					resource: file,
-					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
+					options: {
+						selection: { startLineNumber: ed.line, startColumn: ed.column },
+						pinned: ed.pinned ?? true
+					}
 				};
 				this._editorService.openEditor(editor);
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
@@ -307,6 +314,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfigEmitter.event;
 	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
+	onDidUpdateResourceUsage = this._onDidUpdateResourceUsageEmitter.event;
 
 	handleRuntimeMessage(message: ILanguageRuntimeMessage, handled: boolean): void {
 		// Add the message to the event queue
@@ -375,6 +383,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		this._exitEmitter.fire(exit);
 	}
 
+	emitResourceUsage(usage: ILanguageRuntimeResourceUsage): void {
+		this._onDidUpdateResourceUsageEmitter.fire(usage);
+	}
+
 	/**
 	 * Returns the information about the runtime that is only available after starting
 	 */
@@ -385,7 +397,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	/**
 	 * Returns the current set of client instances
 	 */
-	get clientInstances(): IRuntimeClientInstance<any, any>[] {
+	get clientInstances(): IRuntimeClientInstance<unknown, unknown>[] {
 		return Array.from(this._clients.values());
 	}
 
@@ -431,7 +443,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 		// Create a new client instance wrapper on the front end. This will be
 		// used to relay messages to the server side of the comm.
-		const client = new ExtHostRuntimeClientInstance<any, any>(
+		const client = new ExtHostRuntimeClientInstance<unknown, unknown>(
 			message.comm_id,
 			message.target_name as RuntimeClientType,
 			this.handle, this._proxy);
@@ -476,12 +488,12 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$isCodeFragmentComplete(this.handle, code);
 	}
 
-	callMethod(method: string, ...args: any[]): Thenable<any> {
+	callMethod(method: string, ...args: unknown[]): Thenable<unknown> {
 		return this._proxy.$callMethod(this.handle, method, args);
 	}
 
 	/** Create a new client inside the runtime */
-	createClient<Input, Output>(type: RuntimeClientType, params: any, metadata?: any, id?: string):
+	createClient<Input, Output>(type: RuntimeClientType, params: unknown, metadata?: unknown, id?: string):
 		Thenable<IRuntimeClientInstance<Input, Output>> {
 		// Create an ID for the client if not provided.
 		id = id ?? this.generateClientId(this.runtimeMetadata.languageId, type);
@@ -523,12 +535,12 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	}
 
 	/** List active clients */
-	listClients(type?: RuntimeClientType): Thenable<IRuntimeClientInstance<any, any>[]> {
+	listClients(type?: RuntimeClientType): Thenable<IRuntimeClientInstance<unknown, unknown>[]> {
 		return new Promise((resolve, reject) => {
 			this._proxy.$listClients(this.handle, type).then(clients => {
 				// Array to hold resolved set of clients. This will be a combination of clients
 				// already known to the extension host and new clients that need to be created.
-				const instances = new Array<IRuntimeClientInstance<any, any>>();
+				const instances = new Array<IRuntimeClientInstance<unknown, unknown>>();
 
 				// Loop over each client ID and check if we already have an instance for it;
 				// if not, create a new instance and add it to the list.
@@ -547,7 +559,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					if (Object.values(RuntimeClientType).includes(clientType as RuntimeClientType)) {
 						// We know what type of client this is, so create a new
 						// instance and add it to the list.
-						const client = new ExtHostRuntimeClientInstance<any, any>(
+						const client = new ExtHostRuntimeClientInstance<unknown, unknown>(
 							key,
 							clientType as RuntimeClientType,
 							this.handle,
@@ -664,6 +676,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 					// There are multiple errors (AggregateError)
 					this._startupFailureEmitter.fire({
 						message: err.message,
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						details: err.errors.map((e: any) => e.toString()).join('\n\n')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
@@ -1119,6 +1132,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private readonly _dataEmitter = new Emitter<IRuntimeClientOutput<Output>>();
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private readonly _pendingRpcs = new Map<string, PendingRpc<any>>();
 
 	/**
@@ -1186,9 +1200,11 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		let messageId;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		if ((request as any)?.id) {
 			// If the request already has an id field, use it as id. This is typically
 			// the case with nested JSON-RPC messages.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			messageId = (request as any).id;
 		} else {
 			messageId = generateUuid();
@@ -1295,7 +1311,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param message Message to send to the server
 	 * @param buffers Optional binary buffers to send with the message
 	 */
-	sendMessage(message: any, buffers?: VSBuffer[]): void {
+	sendMessage(message: unknown, buffers?: VSBuffer[]): void {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
@@ -1525,6 +1541,10 @@ export class MainThreadLanguageRuntime
 		this.findSession(sessionId).emitExit(exit);
 	}
 
+	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void {
+		this.findSession(sessionId).emitResourceUsage(usage);
+	}
+
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
 		this._registeredRuntimes.set(metadata.runtimeId, metadata);
@@ -1575,7 +1595,7 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.dynState);
 	}
 
-	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any> {
+	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
 		const session = this.findSession(sessionId);
 		return session.callMethod(method, args);
 	}
