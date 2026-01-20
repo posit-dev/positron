@@ -27,7 +27,7 @@ export function getFramework(text: string): string | undefined {
 
     // Define patterns for app creation for each framework
     const appCreationPatterns: Record<string, RegExp> = {
-        streamlit: /st\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
+        streamlit: /\bst\.\w+\(|streamlit\.\w+\(/i, // More specific pattern for actual streamlit usage
         dash: /\w+\s*=\s*(?:Dash|dash\.Dash)\(/i,
         gradio: /\w+\s*=\s*(?:gr\.|gradio\.)/i,
         flask: /\w+\s*=\s*(?:Flask|flask\.Flask)\(/i,
@@ -51,8 +51,8 @@ export function getFramework(text: string): string | undefined {
         // Check for app creation
         const hasAppCreation = appCreationPatterns[lib].test(text);
 
-        // If we have both app creation and import, return immediately (highest priority)
-        if (hasAppCreation && importMatch) {
+        // If we have both app creation and import for the same library, return immediately (highest priority)
+        if (hasAppCreation && importMatch === lib) {
             traceInfo(`Detected web app framework: ${lib} (with app creation)`);
             return lib;
         }
