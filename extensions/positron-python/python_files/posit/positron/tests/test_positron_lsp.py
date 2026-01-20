@@ -712,7 +712,6 @@ class TestCompletions:
             replace=expected_range,
         )
 
-    @pytest.mark.xfail(reason="Path completion implementation needs verification")
     @pytest.mark.parametrize(
         ("source", "expected_completion", "chars_from_end"),
         [
@@ -752,7 +751,6 @@ class TestCompletions:
             root_path=tmp_path,
         )
 
-    @pytest.mark.xfail(reason="Path completion implementation needs verification")
     def test_notebook_path_completions(self, tmp_path: Path) -> None:
         """Test that notebook path completions use the notebook's parent directory."""
         # Notebook path completions should be in the notebook's parent, not root path.
@@ -771,7 +769,6 @@ class TestCompletions:
             working_directory=str(notebook_parent),
         )
 
-    @pytest.mark.xfail(reason="Path completion implementation needs verification")
     def test_notebook_path_completions_different_wd(self, tmp_path: Path) -> None:
         """Test that notebook path completions respect custom working directory."""
         notebook_parent = tmp_path / "notebooks"
@@ -793,6 +790,108 @@ class TestCompletions:
             root_path=tmp_path,
             working_directory=str(working_directory),
         )
+
+    def test_path_completion_single_quotes(self, tmp_path: Path) -> None:
+        """Test path completions with single quotes."""
+        file = tmp_path / "data.csv"
+        file.write_text("")
+
+        self._assert_has_path_completion(
+            source="''",
+            expected_completion="data.csv",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_hidden_files(self, tmp_path: Path) -> None:
+        """Test that hidden files are only shown when prefix starts with '.'."""
+        # Create both hidden and visible files
+        hidden_file = tmp_path / ".gitignore"
+        hidden_file.write_text("")
+        visible_file = tmp_path / "readme.md"
+        visible_file.write_text("")
+
+        # Without dot prefix, should complete to visible file
+        self._assert_has_path_completion(
+            source='"r"',
+            expected_completion="eadme.md",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_hidden_files_with_dot(self, tmp_path: Path) -> None:
+        """Test that hidden files are shown when prefix starts with '.'."""
+        hidden_file = tmp_path / ".gitignore"
+        hidden_file.write_text("")
+
+        self._assert_has_path_completion(
+            source='"."',
+            expected_completion="gitignore",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_empty_directory(self, tmp_path: Path) -> None:
+        """Test path completion in empty directory returns no completions."""
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '""')
+        completions = self._completions(server, text_document, character=1)
+
+        assert len(completions) == 0
+
+    def test_path_completion_nonexistent_path(self, tmp_path: Path) -> None:
+        """Test path completion with non-existent directory returns no completions."""
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"nonexistent/"')
+        completions = self._completions(server, text_document, character=13)
+
+        assert len(completions) == 0
+
+    def test_path_completion_multiple_files(self, tmp_path: Path) -> None:
+        """Test path completion returns multiple matching files."""
+        # Create multiple files
+        (tmp_path / "data1.csv").write_text("")
+        (tmp_path / "data2.csv").write_text("")
+        (tmp_path / "other.txt").write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"data"')
+        completions = self._completions(server, text_document, character=5)
+
+        # Should return 2 completions for files starting with "data"
+        assert len(completions) == 2
+        labels = {c.label for c in completions}
+        assert labels == {"data1.csv", "data2.csv"}
+
+    def test_path_completion_directories_first(self, tmp_path: Path) -> None:
+        """Test that directories are listed before files."""
+        # Create a directory and a file with same prefix
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets.txt").write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"a"')
+        completions = self._completions(server, text_document, character=2)
+
+        # Should have 2 completions, with directory first
+        assert len(completions) == 2
+        assert completions[0].label == "assets"  # Directory first
+        assert completions[1].label == "assets.txt"  # File second
+
+    def test_path_completion_falls_back_to_home(self, tmp_path: Path, monkeypatch) -> None:
+        """Test that path completions fall back to home directory when no root_path or working_directory."""
+        # Create a file in the "fake" home directory
+        home_file = tmp_path / "home-file.txt"
+        home_file.write_text("")
+
+        # Mock Path.home() to return our temp directory
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # Create server with NO root_path and NO working_directory
+        server = create_test_server(root_path=None, working_directory=None)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"home"')
+        completions = self._completions(server, text_document, character=5)
+
+        # Should find the file in the mocked home directory
+        assert len(completions) == 1
+        assert completions[0].label == "home-file.txt"
 
     @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
     def test_line_magic_completions(self) -> None:
