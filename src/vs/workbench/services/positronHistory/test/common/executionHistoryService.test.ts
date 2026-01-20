@@ -26,6 +26,7 @@ import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRunti
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { LanguageRuntimePackage } from 'positron';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -549,6 +550,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 
 	forceQuit(): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	getPackages(): Promise<LanguageRuntimePackage[]> {
 		throw new Error('Method not implemented.');
 	}
 

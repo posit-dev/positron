@@ -51,7 +51,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState, LanguageRuntimePackage } from 'positron';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -615,6 +615,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	async forceQuit(): Promise<void> {
 		// No check for state here; we can force quit the runtime at any time.
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
+	}
+
+	async getPackages(): Promise<Array<LanguageRuntimePackage>> {
+		return this._proxy.$getPackages(this.handle);
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {

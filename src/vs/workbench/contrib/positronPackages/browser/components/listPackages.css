@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.packages-list-container {
+	height: 100%;
+	position: relative;
+	left: 0.5px;
+}
+
+.packages-list-header {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var(--vscode-positronVariables-border);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.positron-packages-list .action-bar-button.disabled {
+	cursor: not-allowed;
+}
+
+.positron-packages-list .action-bar-button.disabled .action-bar-button-label {
+	color: var(--vscode-positronActionBar-disabledForeground);
+}
+
+.packages-list-item {
+	margin-top: 5px;
+	padding-left: 8px;
+	padding-right: 8px;
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+}
+
+.packages-list-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.packages-list-item.selected {
+	color: var(--vscode-list-inactiveSelectionForeground);
+	background: var(--vscode-list-inactiveSelectionBackground);
+	outline: 1px;
+	outline-offset: -1px;
+}
+
+.positron-packages-list.focused .packages-list-item.selected {
+	color: var(--vscode-list-activeSelectionForeground);
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.packages-list-item .description {
+	opacity: 0.7;
+	white-space: nowrap;
+	font-size: 0.9em;
+	margin-left: 0.5em;
+}

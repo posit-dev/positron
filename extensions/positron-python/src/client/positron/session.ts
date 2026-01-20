@@ -336,6 +336,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+        traceInfo('session: getting packages');
+        try {
+            if (this._kernel) {
+                return await this._kernel?.callMethod("getPackagesInstalled");
+            }
+            throw new Error(`Cannot get packages: kernel not started`);
+        } catch (err) {
+            traceInfo(`session: getting packages failed: ${err}`);
+            throw err
+        }
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);

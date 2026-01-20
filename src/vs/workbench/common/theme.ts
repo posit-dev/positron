@@ -1955,6 +1955,31 @@ export const POSITRON_VARIABLES_INACTIVE_SELECTION_FOREGROUND_COLOR = registerCo
 	hcLight: listInactiveSelectionForeground
 }, localize('positronVariables.inactiveSelectionForeground', "Positron variables inactive selection foreground color."));
 
+// < --- Positron Packages --- >
+// Positron packagers background color.
+export const POSITRON_PACKAGES_BACKGROUND_COLOR = registerColor('positronPackages.background', {
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
+}, localize('positronPackages.background', "Positron packages background color."));
+
+// Positron packgages foreground color.
+export const POSITRON_PACKAGES_FOREGROUND_COLOR = registerColor('positronPackages.foreground', {
+	dark: editorForeground,
+	light: editorForeground,
+	hcDark: editorForeground,
+	hcLight: editorForeground
+}, localize('positronPackages.foreground', "Positron packages foreground color."));
+
+// Positron packages border color.
+export const POSITRON_PACKAGES_BORDER_COLOR = registerColor('positronPackages.border', {
+	dark: tableColumnsBorder,
+	light: tableColumnsBorder,
+	hcDark: tableColumnsBorder,
+	hcLight: tableColumnsBorder
+}, localize('positronPackages.border', "Positron packages border color."));
+
 // < --- Positron Plots --- >
 
 // Positron plots background color.

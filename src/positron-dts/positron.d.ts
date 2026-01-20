@@ -927,6 +927,9 @@ declare module 'positron' {
 	}
 
 	export interface LanguageRuntimeManager {
+
+
+
 		/**
 		 * Returns a generator that yields metadata about all the language
 		 * runtimes that are available to the user.
@@ -1064,6 +1067,13 @@ declare module 'positron' {
 		LSP = 'lsp',
 	}
 
+	export interface LanguageRuntimePackage {
+		id: string;
+		name: string;
+		displayName: string;
+		version: string;
+	}
+
 	/**
 	 * Basic metadata about an active language runtime session, including
 	 * immutable metadata about the session itself and metadata about the
@@ -1130,7 +1140,6 @@ declare module 'positron' {
 	 * runtime, such as code execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
-
 		/** Information about the runtime that is only available after starting. */
 		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
 
@@ -1236,6 +1245,8 @@ declare module 'positron' {
 		 * should forcibly terminate any underlying processes.
 		 */
 		forceQuit(): Thenable<void>;
+
+		getPackages(): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Update the session name.

@@ -211,6 +211,10 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		return Promise.resolve();
 	}
 
+	getPackages(): Thenable<positron.LanguageRuntimePackage[]> {
+		return Promise.resolve([])
+	}
+
 	dispose() { }
 
 	updateSessionName(sessionName: string): void {

@@ -11,6 +11,7 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeS
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
+import { LanguageRuntimePackage } from 'positron';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -227,6 +228,8 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
+
+	getPackages(): Promise<Array<LanguageRuntimePackage>>;
 
 	/** Show output log of the runtime */
 	showOutput(channel?: LanguageRuntimeSessionChannel): void;
@@ -599,6 +602,7 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+
 }
 
 export { RuntimeClientType };

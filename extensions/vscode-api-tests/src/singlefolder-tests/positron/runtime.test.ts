@@ -392,6 +392,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		throw new Error('Not implemented.');
 	}
 
+	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		throw new Error('Not implemented.');
+	}
+
 	dispose() {
 	}
 

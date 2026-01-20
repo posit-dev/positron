@@ -1339,6 +1339,26 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		return Promise.resolve();
 	}
 
+	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		// Fake list of Zed packages
+		await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+		return Promise.resolve([
+			{ "name": "zed-core", "version": "1.0.0" },
+			{ "name": "zed-stdlib", "version": "1.2.4" },
+			{ "name": "zed-runtime", "version": "0.9.8" },
+			{ "name": "zed-io", "version": "2.1.0" },
+			{ "name": "zed-net", "version": "1.4.2" },
+			{ "name": "zed-crypto", "version": "0.7.3" },
+			{ "name": "zed-fmt", "version": "3.0.1" },
+			{ "name": "zed-testkit", "version": "1.1.0" },
+			{ "name": "zed-async", "version": "2.0.0-beta.2" },
+			{ "name": "zed-cli", "version": "0.5.6" },
+			{ "name": "zed-packager", "version": "1.0.0-rc.1" },
+			{ "name": "zed-vm", "version": "4.3.9" }
+		].map((pkg) => ({ id: pkg.name, name: pkg.name, displayName: pkg.name, version: pkg.version })));
+	}
+
 	dispose(): void { }
 
 	updateSessionName(sessionName: string): void {

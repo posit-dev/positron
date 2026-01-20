@@ -89,6 +89,7 @@ class MockRuntimeSession implements ILanguageRuntimeSession {
 	getRuntimeState() { return RuntimeState.Ready; }
 	restart() { return Promise.resolve(); }
 	forceQuit() { return Promise.resolve(); }
+	getPackages() { return Promise.resolve([]); }
 	start() { return Promise.resolve({} as ILanguageRuntimeInfo); }
 	dispose() { }
 	execute() { return Promise.resolve(); }

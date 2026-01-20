@@ -405,6 +405,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
+		if (this._kernel) {
+			const packages = await this._kernel.callMethod('get_installed_packages');
+			return JSON.parse(packages).map((pkg) => ({ id: pkg, name: pkg, displayName: pkg, version: '0.0.0' }));
+		}
+
+		throw new Error(`Cannot get packages: kernel not started`);
+	}
+
 	async dispose() {
 		// Clean up the console width listener
 		this._consoleWidthDisposable?.dispose();
