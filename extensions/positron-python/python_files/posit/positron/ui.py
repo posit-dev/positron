@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
-
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
@@ -113,6 +112,7 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
 
         torch.set_printoptions(linewidth=width)
 
+
 # Get all installed packages
 def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     packages_dict = {}
@@ -124,9 +124,10 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
                 "id": pkg_id,
                 "name": dist.name,
                 "displayName": canonicalize_name(dist.name),
-                "version": dist.version
+                "version": dist.version,
             }
     return sorted(packages_dict.values(), key=lambda p: p["name"])
+
 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
