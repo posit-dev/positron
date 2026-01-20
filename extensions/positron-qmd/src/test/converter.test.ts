@@ -82,6 +82,53 @@ suite('QMD to NotebookData Converter', () => {
 		assert.ok('author' in result.metadata.qmdMeta);
 	});
 
+	test('should preserve markdown content after front matter', async () => {
+		const result = await deserialize('---\ntitle: Test\n---\n\n# Heading\n\nParagraph text.');
+
+		assert.strictEqual(result.cells.length, 1);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[0].value, '# Heading\n\nParagraph text.');
+	});
+
+	test('should handle multi-byte UTF-8 characters correctly', async () => {
+		const result = await deserialize('# Pokémon\n\nI love Pokémon!');
+
+		assert.strictEqual(result.cells.length, 1);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[0].value, '# Pokémon\n\nI love Pokémon!');
+	});
+
+	test('should handle multi-byte UTF-8 before code block', async () => {
+		// 'é' is 2 bytes in UTF-8, so byte offsets differ from character offsets
+		const result = await deserialize('# Pokémon\n\n```{python}\nprint("hello")\n```');
+
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[0].value, '# Pokémon');
+		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Code);
+		assert.strictEqual(result.cells[1].value, 'print("hello")');
+	});
+
+	test('should handle markdown after code with UTF-8', async () => {
+		// If byte offsets are used incorrectly, the markdown after code will be wrong
+		const result = await deserialize('```{python}\nprint("Pokémon")\n```\n\n# Results');
+
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Code);
+		assert.strictEqual(result.cells[0].value, 'print("Pokémon")');
+		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[1].value, '# Results');
+	});
+
+	test('should handle markdown after front matter with UTF-8', async () => {
+		// Simpler repro case: UTF-8 in front matter, then markdown
+		const result = await deserialize('---\ntitle: Pokémon\n---\n\nThis');
+
+		assert.strictEqual(result.cells.length, 1);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[0].value, 'This');
+	});
+
 	test('should handle Div blocks as markdown content', async () => {
 		const result = await deserialize('::: {.callout-note}\nThis is a callout.\n:::');
 
@@ -101,6 +148,9 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[2].kind, vscode.NotebookCellKind.Markup);
 		assert.strictEqual(result.cells[3].kind, vscode.NotebookCellKind.Code);
 		assert.strictEqual(result.cells[3].languageId, 'r');
+		// Verify content is preserved exactly
+		assert.strictEqual(result.cells[0].value, '# Intro');
+		assert.strictEqual(result.cells[2].value, '## Results');
 	});
 
 	test('should handle R language', async () => {
@@ -467,6 +517,11 @@ suite('Round-trip serialization', () => {
 		assert.strictEqual(roundTripped.cells[1].kind, vscode.NotebookCellKind.Markup);
 		assert.strictEqual(roundTripped.cells[2].kind, vscode.NotebookCellKind.Code);
 		assert.strictEqual(roundTripped.cells[3].kind, vscode.NotebookCellKind.Markup);
+		// Verify content is preserved - especially important for consecutive markdown cells
+		assert.strictEqual(roundTripped.cells[0].value, '# Cell 1');
+		assert.strictEqual(roundTripped.cells[1].value, '# Cell 2');
+		assert.strictEqual(roundTripped.cells[2].value, 'x = 1');
+		assert.strictEqual(roundTripped.cells[3].value, '# Cell 3');
 	});
 
 	test('should round-trip code cell languages', async () => {

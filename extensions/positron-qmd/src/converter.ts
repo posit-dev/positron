@@ -212,17 +212,8 @@ function extractRawTextForBlocks(
 		return blocks.map(block => extractRawTextForBlock(block, context)).join('\n\n');
 	}
 
-	// Bounds check
-	if (startOffset < 0 || endOffset > context.sourceText.length) {
-		console.warn('[QMD Converter] Offset out of bounds', {
-			startOffset,
-			endOffset,
-			sourceLength: context.sourceText.length,
-		});
-	}
-
-	// Location offsets are character offsets, use sourceText directly
-	return context.sourceText.slice(startOffset, endOffset).trim();
+	// Location offsets are byte offsets, use byte-aware extraction
+	return extractByteRange(context, startOffset, endOffset).trim();
 }
 
 /**
@@ -255,9 +246,9 @@ function extractRawTextForBlock(
 	block: Block,
 	context: ConversionContext
 ): string {
-	// Try Location property first (character offsets)
+	// Try Location property first (byte offsets)
 	if (block.l) {
-		return context.sourceText.slice(ast.Loc.startOffset(block.l), ast.Loc.endOffset(block.l)).trim();
+		return extractByteRange(context, ast.Loc.startOffset(block.l), ast.Loc.endOffset(block.l)).trim();
 	}
 
 	// Fallback to source info pool (byte offsets)
