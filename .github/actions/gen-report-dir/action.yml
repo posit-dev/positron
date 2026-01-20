@@ -6,7 +6,7 @@ inputs:
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
   project:
-    description: "Playwright project name (e.g., e2e-electron, e2e-firefox). The app-type is extracted from after the first hyphen."
+    description: "Playwright project name (e.g., e2e-electron, e2e-chromium)"
     required: true
 runs:
   using: "composite"
@@ -14,19 +14,18 @@ runs:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        # Strip "e2e-" prefix (or "***-" when masked) from project name
-        # e.g., "e2e-electron" → "electron", but "inspect-ai" stays as "inspect-ai"
-        APP_TYPE="${{ inputs.project }}"
-        APP_TYPE="${APP_TYPE#e2e-}"
-        APP_TYPE="${APP_TYPE#***-}"
-        echo "Extracted app-type: $APP_TYPE"
+        # Fix GitHub masking: "***" → "e2e" (GitHub masks "e2e" as a secret)
+        # Keep full project name (e.g., "e2e-electron" stays as "e2e-electron")
+        PROJECT="${{ inputs.project }}"
+        PROJECT="${PROJECT//\*\*\*/e2e}"
+        echo "Project: $PROJECT"
 
-        # Detect platform and distro to construct project name
-        # Format: apptype-platform[-distro]
+        # Detect platform and distro to construct platform suffix
+        # Format: {project}-{platform}[-{distro}]
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          PROJECT_NAME="${APP_TYPE}-windows"
+          PLATFORM_SUFFIX="windows"
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          PROJECT_NAME="${APP_TYPE}-mac"
+          PLATFORM_SUFFIX="mac"
         elif [[ -f /etc/os-release ]]; then
           # Parse Linux distro from os-release
           OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
@@ -46,12 +45,12 @@ runs:
               fi
               ;;
           esac
-          PROJECT_NAME="${APP_TYPE}-linux-${DISTRO}"
+          PLATFORM_SUFFIX="linux-${DISTRO}"
         else
-          PROJECT_NAME="${APP_TYPE}-linux"
+          PLATFORM_SUFFIX="linux"
         fi
 
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT_NAME}"
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT}-${PLATFORM_SUFFIX}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
