@@ -6,7 +6,7 @@
 /* Markdown cell rendered output container */
 .positron-notebook-markdown-cell .positron-notebook-cell-outputs {
 	padding-inline: 1rem;
-	padding-block: 0.75rem; /* Slightly larger vertical padding for markdown cells to avoid action bar colliding with rendered text */
+	padding-block: 1rem; /* Match CellEditorMonacoWidget padding for consistent spacing between cell action bar and rendered text */
 	cursor: pointer; /* Entire area is clickable (to edit markdown cell) */
 
 	/* NOTE: the border and border-radius styles are handled by NotebookCellSelection.css to keep selection styling together */
