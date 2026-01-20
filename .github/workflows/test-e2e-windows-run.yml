@@ -416,6 +416,12 @@ jobs:
           fi
           exit 0
 
+      - name: Set Report URL
+        uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
+          skip-summary: true
+
       - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
         id: bootstrap
