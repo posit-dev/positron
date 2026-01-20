@@ -65,13 +65,20 @@
 		{
 			"name": "editor_context_changed",
 			"summary": "Active editor context changed",
-			"description": "This notification is sent from the frontend to the backend when the active text editor changes. It provides the document URI of the currently active editor.",
+			"description": "This notification is sent from the frontend to the backend when the active text editor changes or when code is about to be executed from a file. It provides the document URI and indicates whether this is the source file for code execution.",
 			"params": [
 				{
 					"name": "document_uri",
 					"description": "The URI of the active document, or empty string if no editor is active",
 					"schema": {
 						"type": "string"
+					}
+				},
+				{
+					"name": "is_execution_source",
+					"description": "Whether this editor is the source of code being executed. When true, the backend may temporarily add the file's directory to sys.path.",
+					"schema": {
+						"type": "boolean"
 					}
 				}
 			],

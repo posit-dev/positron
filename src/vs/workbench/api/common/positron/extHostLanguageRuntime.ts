@@ -27,7 +27,7 @@ import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronCon
 /**
  * Interface for code execution observers
  */
-interface IExecutionObserver {
+export interface IExecutionObserver {
 	/** A cancellation token for interrupting execution */
 	token?: CancellationToken;
 
@@ -44,10 +44,10 @@ interface IExecutionObserver {
 	onPlot?: (plotData: string) => void;
 
 	/** Called when data (like a dataframe) is produced */
-	onData?: (data: any) => void;
+	onData?: (data: unknown) => void;
 
 	/** Called on successful completion with a result */
-	onCompleted?: (result: any) => void;
+	onCompleted?: (result: unknown) => void;
 
 	/** Called when execution fails with an error */
 	onFailed?: (error: Error) => void;
@@ -64,7 +64,7 @@ interface IExecutionObserver {
 class ExecutionObserver implements IDisposable {
 
 	/** The promise that resolves when the computation completes */
-	public readonly promise: DeferredPromise<Record<string, any>>;
+	public readonly promise: DeferredPromise<Record<string, unknown>>;
 
 	/** Store of disposables to be cleaned up */
 	public readonly store: DisposableStore = new DisposableStore();
@@ -81,7 +81,7 @@ class ExecutionObserver implements IDisposable {
 
 	constructor(public readonly observer: IExecutionObserver | undefined) {
 		this.state = 'pending';
-		this.promise = new DeferredPromise<Record<string, any>>();
+		this.promise = new DeferredPromise<Record<string, unknown>>();
 	}
 
 	onOutputMessage(message: ILanguageRuntimeMessageOutput) {
@@ -157,7 +157,7 @@ class ExecutionObserver implements IDisposable {
 		this.promise.error(error);
 	}
 
-	onCompleted(result: Record<string, any>) {
+	onCompleted(result: Record<string, unknown>) {
 		this.state = 'completed';
 		if (this.observer?.onCompleted) {
 			this.observer.onCompleted(result);
@@ -222,7 +222,7 @@ export class ExtHostRuntimeSessionProxy
 	/**
 	 * Call a method in the runtime
 	 */
-	callMethod(method: string, ...args: any[]): Thenable<any> {
+	callMethod(method: string, ...args: unknown[]): Thenable<unknown> {
 		return this._proxy.$callMethod(this.metadata.sessionId, method, args);
 	}
 
@@ -684,7 +684,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
-	async $callMethod(handle: number, method: string, args: any[]): Promise<any> {
+	async $callMethod(handle: number, method: string, args: unknown[]): Promise<unknown> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot call method ${method}: session handle '${handle}' not found or no longer valid.`);
 		}
@@ -793,11 +793,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].isCodeFragmentComplete(code));
 	}
 
-	$createClient(handle: number, id: string, type: RuntimeClientType, params: any, metadata?: any): Promise<void> {
+	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot create '${type}' client: session handle '${handle}' not found or no longer valid.`);
 		}
-		return Promise.resolve(this._runtimeSessions[handle].createClient(id, type, params, metadata));
+		return Promise.resolve(this._runtimeSessions[handle].createClient(id, type, params as Record<string, unknown>, metadata as Record<string, unknown> | undefined));
 	}
 
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>> {
@@ -814,11 +814,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimeSessions[handle].removeClient(id);
 	}
 
-	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void {
+	$sendClientMessage(handle: number, client_id: string, message_id: string, message: unknown): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot send message to client: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimeSessions[handle].sendClientMessage(client_id, message_id, message);
+		this._runtimeSessions[handle].sendClientMessage(client_id, message_id, message as Record<string, unknown>);
 	}
 
 	$replyToPrompt(handle: number, id: string, response: string): void {
@@ -1236,7 +1236,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		observer?: IExecutionObserver,
-		sessionId?: string): Promise<Record<string, any>> {
+		sessionId?: string,
+		documentUri?: URI): Promise<Record<string, unknown>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1250,7 +1251,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// more or less fixed since it's part of the public API, but the
 		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId, documentUri).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;

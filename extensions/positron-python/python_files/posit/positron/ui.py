@@ -136,6 +136,11 @@ class UiService:
         # The URI of the last active editor, updated by the frontend
         self._last_active_editor_uri: str = ""
 
+        # Whether the current editor context is the source of code being executed
+        # This is set to True when code is about to be executed from a file,
+        # and should be reset to False after execution completes.
+        self._is_execution_source: bool = False
+
     @property
     def last_active_editor_uri(self) -> str:
         """
@@ -144,6 +149,19 @@ class UiService:
         Returns an empty string if no editor is active.
         """
         return self._last_active_editor_uri
+
+    @property
+    def is_execution_source(self) -> bool:
+        """
+        Whether the current editor context is the source of code being executed.
+
+        When True, the backend should temporarily add the editor's directory to sys.path.
+        """
+        return self._is_execution_source
+
+    def clear_execution_source(self) -> None:
+        """Clear the execution source flag after code execution completes."""
+        self._is_execution_source = False
 
     def get_editor_file_path(self) -> Optional[Path]:
         """
@@ -215,8 +233,9 @@ class UiService:
             self._call_method(request.params)
 
         elif isinstance(request, EditorContextChangedRequest):
-            # Update the cached last active editor URI
+            # Update the cached last active editor URI and execution source flag
             self._last_active_editor_uri = request.params.document_uri
+            self._is_execution_source = request.params.is_execution_source
             # Send null result to acknowledge the notification
             if self._comm is not None:
                 self._comm.send_result(data=None)

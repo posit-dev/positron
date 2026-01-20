@@ -1884,7 +1884,8 @@ declare module 'positron' {
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
 			observer?: ExecutionObserver,
-			sessionId?: string): Thenable<Record<string, any>>;
+			sessionId?: string,
+			documentUri?: vscode.Uri): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.

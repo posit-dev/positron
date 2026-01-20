@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtHostLanguageRuntime } from './extHostLanguageRuntime.js';
+import { ExtHostLanguageRuntime, IExecutionObserver } from './extHostLanguageRuntime.js';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
 import { URI } from '../../../../base/common/uri.js';
@@ -92,9 +92,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, unknown>> {
+			executeCode(languageId, code, focus, allowIncomplete?, mode?, errorBehavior?, observer?, sessionId?, documentUri?): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
-				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId);
+				// Cast observer since positron.runtime.ExecutionObserver is structurally compatible with IExecutionObserver
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer as IExecutionObserver | undefined, sessionId, documentUri);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,

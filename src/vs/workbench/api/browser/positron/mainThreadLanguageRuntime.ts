@@ -1723,7 +1723,7 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string,
+	async $executeCode(languageId: string,
 		extensionId: string,
 		sessionId: string | undefined,
 		code: string,
@@ -1731,7 +1731,26 @@ export class MainThreadLanguageRuntime
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<string> {
+		executionId?: string,
+		documentUri?: URI): Promise<string> {
+
+		// If a document URI is provided, notify the backend that code is being executed from a file.
+		// This allows the backend to temporarily add the file's directory to sys.path.
+		if (documentUri) {
+			// Revive the URI from the serialized form
+			const uri = URI.revive(documentUri);
+			const activeSessions = this._runtimeSessionService.getActiveSessions();
+			for (const activeSession of activeSessions) {
+				if (activeSession.uiClient) {
+					try {
+						await activeSession.uiClient.editorContextChanged(uri.toString(), true);
+					} catch (err) {
+						// Log but don't fail the execution if notification fails
+						console.warn(`Failed to send editor context changed: ${err}`);
+					}
+				}
+			}
+		}
 
 		// Attribute this code to the extension that requested it.
 		const attribution: IConsoleCodeAttribution = {

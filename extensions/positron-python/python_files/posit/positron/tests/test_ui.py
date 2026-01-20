@@ -343,3 +343,116 @@ webbrowser.open("file://file.html")
     params = ui_comm.messages[1]["data"]["params"]
     assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
     assert params["destination"] != "plot"
+
+
+class TestEditorContext:
+    """Tests for editor context change handling."""
+
+    def test_editor_context_changed(self, ui_service: UiService, ui_comm: DummyComm) -> None:
+        """Test that editor_context_changed updates the last active editor URI."""
+        document_uri = "file:///path/to/file.py"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+
+        # Check that the URI was cached
+        assert ui_service.last_active_editor_uri == document_uri
+        assert ui_service.is_execution_source is False
+
+        # Check that a null response was sent
+        assert ui_comm.messages == [json_rpc_response(None)]
+
+    def test_editor_context_changed_execution_source(
+        self, ui_service: UiService, ui_comm: DummyComm
+    ) -> None:
+        """Test that editor_context_changed sets is_execution_source flag."""
+        document_uri = "file:///path/to/file.py"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": True},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+
+        # Check that the URI was cached and execution source flag is set
+        assert ui_service.last_active_editor_uri == document_uri
+        assert ui_service.is_execution_source is True
+
+        # Check that a null response was sent
+        assert ui_comm.messages == [json_rpc_response(None)]
+
+    def test_editor_context_changed_empty_uri(
+        self, ui_service: UiService, ui_comm: DummyComm
+    ) -> None:
+        """Test that editor_context_changed handles empty URI (no active editor)."""
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": "", "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+
+        assert ui_service.last_active_editor_uri == ""
+        assert ui_comm.messages == [json_rpc_response(None)]
+
+    def test_get_editor_file_path(self, ui_service: UiService, ui_comm: DummyComm) -> None:
+        """Test that get_editor_file_path correctly parses file URIs."""
+        # Set a file URI
+        document_uri = "file:///path/to/file.py"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+        ui_comm.messages.clear()
+
+        # Check that the path is correctly parsed
+        editor_path = ui_service.get_editor_file_path()
+        assert editor_path is not None
+        assert str(editor_path) == "/path/to/file.py"
+
+    def test_get_editor_file_path_with_spaces(
+        self, ui_service: UiService, ui_comm: DummyComm
+    ) -> None:
+        """Test that get_editor_file_path correctly handles URI-encoded paths."""
+        # Set a file URI with spaces (URI-encoded)
+        document_uri = "file:///path/to/my%20file.py"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+        ui_comm.messages.clear()
+
+        editor_path = ui_service.get_editor_file_path()
+        assert editor_path is not None
+        assert str(editor_path) == "/path/to/my file.py"
+
+    def test_get_editor_file_path_non_file_uri(
+        self, ui_service: UiService, ui_comm: DummyComm
+    ) -> None:
+        """Test that get_editor_file_path returns None for non-file URIs."""
+        # Set a non-file URI (e.g., untitled)
+        document_uri = "untitled:Untitled-1"
+        msg = json_rpc_request(
+            "editor_context_changed",
+            {"document_uri": document_uri, "is_execution_source": False},
+            comm_id="dummy_comm_id",
+        )
+        ui_comm.handle_msg(msg)
+        ui_comm.messages.clear()
+
+        editor_path = ui_service.get_editor_file_path()
+        assert editor_path is None
+
+    def test_get_editor_file_path_no_editor(self, ui_service: UiService) -> None:
+        """Test that get_editor_file_path returns None when no editor URI is set."""
+        # Reset the editor context
+        ui_service._last_active_editor_uri = ""
+        assert ui_service.last_active_editor_uri == ""
+        assert ui_service.get_editor_file_path() is None

@@ -272,20 +272,26 @@ class CallMethodRequest(BaseModel):
 class EditorContextChangedParams(BaseModel):
     """
     This notification is sent from the frontend to the backend when the
-    active text editor changes. It provides the document URI of the
-    currently active editor.
+    active text editor changes or when code is about to be executed from a
+    file. It provides the document URI and indicates whether this is the
+    source file for code execution.
     """
 
     document_uri: StrictStr = Field(
         description="The URI of the active document, or empty string if no editor is active",
     )
 
+    is_execution_source: StrictBool = Field(
+        description="Whether this editor is the source of code being executed. When true, the backend may temporarily add the file's directory to sys.path.",
+    )
+
 
 class EditorContextChangedRequest(BaseModel):
     """
     This notification is sent from the frontend to the backend when the
-    active text editor changes. It provides the document URI of the
-    currently active editor.
+    active text editor changes or when code is about to be executed from a
+    file. It provides the document URI and indicates whether this is the
+    source file for code execution.
     """
 
     params: EditorContextChangedParams = Field(

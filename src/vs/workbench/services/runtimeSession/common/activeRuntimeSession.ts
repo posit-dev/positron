@@ -278,10 +278,12 @@ export class ActiveRuntimeSession extends Disposable {
 
 		// Send the current active editor URI to the backend when the UI client starts,
 		// and subscribe to active editor changes to keep the backend informed.
-		const sendEditorContext = () => {
+		// The isExecutionSource flag is false here since this is just tracking editor focus,
+		// not code execution from a file.
+		const sendEditorContext = (isExecutionSource: boolean = false) => {
 			const activeEditor = this._editorService.activeEditor;
 			const documentUri = activeEditor?.resource?.toString() ?? '';
-			uiClient.editorContextChanged(documentUri).catch(err => {
+			uiClient.editorContextChanged(documentUri, isExecutionSource).catch(err => {
 				this._logService.warn(`Failed to send editor context changed: ${err}`);
 			});
 		};

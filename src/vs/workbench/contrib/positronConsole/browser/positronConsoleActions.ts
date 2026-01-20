@@ -30,6 +30,7 @@ import { ILanguageFeaturesService } from '../../../../editor/common/services/lan
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
@@ -86,6 +87,7 @@ async function executeCodeInConsole(
 		languageService: ILanguageService;
 		notificationService: INotificationService;
 		positronConsoleService: IPositronConsoleService;
+		runtimeSessionService: IRuntimeSessionService;
 	},
 	opts: {
 		allowIncomplete?: boolean;
@@ -94,7 +96,7 @@ async function executeCodeInConsole(
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
 ): Promise<boolean> {
-	const { editorService, languageService, notificationService, positronConsoleService } = services;
+	const { editorService, languageService, notificationService, positronConsoleService, runtimeSessionService } = services;
 
 	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
@@ -121,6 +123,20 @@ async function executeCodeInConsole(
 			},
 		}
 	};
+
+	// Notify the backend that code is about to be executed from a file.
+	// This allows the backend to temporarily add the file's directory to sys.path.
+	const activeSessions = runtimeSessionService.getActiveSessions();
+	for (const activeSession of activeSessions) {
+		if (activeSession.uiClient) {
+			try {
+				await activeSession.uiClient.editorContextChanged(model.uri.toString(), true);
+			} catch (err) {
+				// Log but don't fail the execution if notification fails
+				console.warn(`Failed to send editor context changed: ${err}`);
+			}
+		}
+	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
 	// this will rip focus away from the editor.
@@ -341,6 +357,7 @@ export function registerPositronConsoleActions() {
 			const modelService = accessor.get(IModelService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -495,7 +512,8 @@ export function registerPositronConsoleActions() {
 					editorService,
 					languageService,
 					notificationService,
-					positronConsoleService
+					positronConsoleService,
+					runtimeSessionService
 				},
 				{
 					allowIncomplete: opts.allowIncomplete,
@@ -718,6 +736,7 @@ export function registerPositronConsoleActions() {
 		const languageService = accessor.get(ILanguageService);
 		const notificationService = accessor.get(INotificationService);
 		const positronConsoleService = accessor.get(IPositronConsoleService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		// If there is no active editor, there is nothing to execute.
 		const editor = editorService.activeTextEditorControl as IEditor;
@@ -779,7 +798,8 @@ export function registerPositronConsoleActions() {
 				editorService,
 				languageService,
 				notificationService,
-				positronConsoleService
+				positronConsoleService,
+				runtimeSessionService
 			},
 			{
 				allowIncomplete: opts.allowIncomplete,
