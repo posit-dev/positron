@@ -34,33 +34,36 @@ export function getFramework(text: string): string | undefined {
         fastapi: /\w+\s*=\s*(?:FastAPI|fastapi\.FastAPI)\(/i,
     };
 
-    const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'i');
-    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})(?:\\S*)?\\s+import`, 'i');
+    // Check for app creation with matching import for each library
+    let firstImportMatch: string | undefined;
+    for (const lib of libraries) {
+        const importPattern = new RegExp(`import\\s+${lib}\\b|from\\s+${lib}(?:\\S*)?\\s+import`, 'i');
+        const hasImport = importPattern.test(text);
 
-    // Check for imports
-    const importMatch = (importPattern.exec(text)?.[1] || fromImportPattern.exec(text)?.[1])?.toLowerCase();
+        if (hasImport) {
+            // Track the first import found for fallback
+            if (!firstImportMatch) {
+                firstImportMatch = lib;
+            }
+
+            const hasAppCreation = appCreationPatterns[lib].test(text);
+            // If we have both app creation and import for the same library, return immediately (highest priority)
+            if (hasAppCreation) {
+                traceInfo(`Detected web app framework: ${lib} (with app creation)`);
+                return lib;
+            }
+        }
+    }
 
     // Not a Python web app if no imports found
-    if (!importMatch) {
+    if (!firstImportMatch) {
         traceInfo('No web app imports detected in the document.');
         return undefined;
     }
 
-    // Check for app creation
-    for (const lib of libraries) {
-        // Check for app creation
-        const hasAppCreation = appCreationPatterns[lib].test(text);
-
-        // If we have both app creation and import for the same library, return immediately (highest priority)
-        if (hasAppCreation && importMatch === lib) {
-            traceInfo(`Detected web app framework: ${lib} (with app creation)`);
-            return lib;
-        }
-    }
-
-    // Fall back to import detection
-    traceInfo(`Detected web app framework: ${importMatch} (import only)`);
-    return importMatch;
+    // Fall back to first import detected
+    traceInfo(`Detected web app framework: ${firstImportMatch} (import only)`);
+    return firstImportMatch;
 }
 
 export function activateAppDetection(disposables: vscode.Disposable[]): void {
