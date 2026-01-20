@@ -16,6 +16,8 @@ export interface PositronPlotsState {
 	readonly positronPlotInstances: IPositronPlotClient[];
 	selectedInstanceId: string;
 	selectedInstanceIndex: number;
+	/** Counter that increments when any plot's metadata changes, used to trigger re-renders. */
+	metadataVersion: number;
 }
 
 /**
@@ -38,6 +40,9 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 	const initialSelectedIndex = services.positronPlotsService.positronPlotInstances.findIndex
 		(p => p.id === initialSelectedId);
 	const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(initialSelectedIndex);
+
+	// Counter to trigger re-renders when metadata changes.
+	const [metadataVersion, setMetadataVersion] = useState<number>(0);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -87,9 +92,14 @@ export const usePositronPlotsState = (): PositronPlotsState => {
 			setPositronPlotInstances(plots);
 		}));
 
+		// Listen for metadata updates.
+		disposableStore.add(services.positronPlotsService.onDidUpdatePlotMetadata(() => {
+			setMetadataVersion(v => v + 1);
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, [services.positronPlotsService]);
 
-	return { positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
+	return { positronPlotInstances, selectedInstanceId, selectedInstanceIndex, metadataVersion };
 };

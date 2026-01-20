@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
-import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
+import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
+import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -20,7 +20,7 @@ import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -572,7 +572,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 	/**
 	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
-	 * Respects the `positron.notebook.assistant.autoFollow` setting.
+	 * Respects the `positron.assistant.notebook.autoFollow` setting.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellIndex The index of the cell to scroll to.
 	 */

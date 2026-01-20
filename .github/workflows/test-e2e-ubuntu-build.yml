@@ -1,7 +1,18 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -15,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
-      options: --user 0:0
+      options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -56,6 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -69,6 +81,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           distro: ubuntu
+          skip-cache: ${{ inputs.skip_cache }}
           install-playwright: 'true'
           github-token: ${{ github.token }}
 

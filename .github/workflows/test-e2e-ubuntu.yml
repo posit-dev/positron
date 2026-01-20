@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
-      options: --user 0:0
+      options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -246,6 +246,8 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -315,7 +317,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.project }}-logs
+          name: ${{ inputs.project }}-ubuntu-logs
           path: test-logs
           if-no-files-found: ignore
 

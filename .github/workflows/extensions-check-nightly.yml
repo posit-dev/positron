@@ -42,6 +42,8 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: e2e-electron
 
       - name: Run Playwright Tests (Electron)
         shell: bash

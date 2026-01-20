@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -12,14 +13,6 @@ test.use({
 test.describe('Positron Notebooks: Cell Undo-Redo Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('Should correctly undo and redo cell actions', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;

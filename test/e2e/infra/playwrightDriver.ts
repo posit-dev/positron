@@ -203,6 +203,22 @@ export class PlaywrightDriver {
 			}
 		}
 
+		// --- Start Positron ---
+		// Explicitly close page and context before closing the browser to ensure proper cleanup
+		// of browser child processes (renderers, GPU processes, etc.)
+		try {
+			await measureAndLog(() => this.page.close(), 'close page', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error closing page (${error})`);
+		}
+
+		try {
+			await measureAndLog(() => this.context.close(), 'close context', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error closing context (${error})`);
+		}
+		// --- End Positron ---
+
 		//  exit via `close` method
 		try {
 			await measureAndLog(() => this.application.close(), 'playwright.close()', this.options.logger);
