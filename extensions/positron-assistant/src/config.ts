@@ -274,9 +274,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Create unique ID for the configuration
 	const id = randomUUID();
 
-	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
-	// Some models such as Anthropic can use either autoconfiguration or manual configuration;
-	// if an apiKey is provided, treat it as manual configuration
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
