@@ -599,8 +599,8 @@ class TestEditorSysPath:
         assert str(editor_dir) not in sys.path
 
         # Clean up the imported module
-        del shell.user_ns["my_test_module"]
-        del shell.user_ns["value"]
+        shell.user_ns.pop("my_test_module", None)
+        shell.user_ns.pop("value", None)
         if "my_test_module" in sys.modules:
             del sys.modules["my_test_module"]
 
