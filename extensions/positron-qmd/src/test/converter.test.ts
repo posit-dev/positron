@@ -73,21 +73,28 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[0].languageId, 'python');
 	});
 
-	test('should preserve metadata from front matter', async () => {
+	test('should extract frontmatter to first cell', async () => {
 		const result = await deserialize('---\ntitle: Test\nauthor: User\n---\n\n# Content');
 
-		assert.ok(result.metadata?.qmdMeta, 'Should have qmdMeta');
-		// Front matter meta is parsed as Pandoc MetaValue objects
-		assert.ok('title' in result.metadata.qmdMeta);
-		assert.ok('author' in result.metadata.qmdMeta);
+		// First cell should be frontmatter
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Code);
+		assert.strictEqual(result.cells[0].languageId, 'yaml');
+		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(result.cells[0].value.includes('title: Test'));
+		assert.ok(result.cells[0].value.includes('author: User'));
+		// Should include --- delimiters
+		assert.ok(result.cells[0].value.startsWith('---'));
+		assert.ok(result.cells[0].value.endsWith('---'));
 	});
 
 	test('should preserve markdown content after front matter', async () => {
 		const result = await deserialize('---\ntitle: Test\n---\n\n# Heading\n\nParagraph text.');
 
-		assert.strictEqual(result.cells.length, 1);
-		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
-		assert.strictEqual(result.cells[0].value, '# Heading\n\nParagraph text.');
+		// First cell is frontmatter, second is markdown
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[1].value, '# Heading\n\nParagraph text.');
 	});
 
 	test('should handle multi-byte UTF-8 characters correctly', async () => {
@@ -124,9 +131,12 @@ suite('QMD to NotebookData Converter', () => {
 		// Simpler repro case: UTF-8 in front matter, then markdown
 		const result = await deserialize('---\ntitle: Pokémon\n---\n\nThis');
 
-		assert.strictEqual(result.cells.length, 1);
-		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
-		assert.strictEqual(result.cells[0].value, 'This');
+		// First cell is frontmatter, second is markdown
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(result.cells[0].value.includes('Pokémon'));
+		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[1].value, 'This');
 	});
 
 	test('should handle Div blocks as markdown content', async () => {
@@ -182,7 +192,9 @@ suite('QMD to NotebookData Converter', () => {
 	test('should handle document with only metadata', async () => {
 		const result = await deserialize('---\ntitle: Test\n---\n\n# Heading');
 
-		assert.ok(result.metadata?.qmdMeta, 'Should have qmdMeta');
+		// Should have frontmatter cell
+		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(result.cells[0].value.includes('title: Test'));
 	});
 
 	test('should handle code cell with multiple execution options', async () => {
@@ -332,26 +344,33 @@ suite('NotebookData to QMD Serializer', () => {
 		assert.ok(result.includes(code));
 	});
 
-	test('should serialize front matter metadata', () => {
-		const result = serialize(
-			[markdownCell('# Content')],
-			{
-				qmdMeta: {
-					title: { t: 'MetaInlines', c: [{ t: 'Str', c: 'Test Document', s: 0 }] },
-					author: { t: 'MetaInlines', c: [{ t: 'Str', c: 'Test Author', s: 0 }] },
-				}
-			}
+	test('should serialize frontmatter cell', () => {
+		const frontmatterCell = new vscode.NotebookCellData(
+			vscode.NotebookCellKind.Code,
+			'---\ntitle: Test Document\nauthor: Test Author\n---',
+			'yaml'
 		);
+		frontmatterCell.metadata = { qmdCellType: 'frontmatter' };
+
+		const result = serialize([frontmatterCell, markdownCell('# Content')]);
 
 		assert.ok(result.startsWith('---\n'));
-		assert.ok(result.includes('title:'));
-		assert.ok(result.includes('author:'));
+		assert.ok(result.includes('title: Test Document'));
+		assert.ok(result.includes('author: Test Author'));
 	});
 
-	test('should not emit empty front matter', () => {
-		const result = serialize([markdownCell('# Content')], { qmdMeta: {} });
+	test('should not emit empty frontmatter cell', () => {
+		const frontmatterCell = new vscode.NotebookCellData(
+			vscode.NotebookCellKind.Code,
+			'',
+			'yaml'
+		);
+		frontmatterCell.metadata = { qmdCellType: 'frontmatter' };
+
+		const result = serialize([frontmatterCell, markdownCell('# Content')]);
 
 		assert.ok(!result.startsWith('---'));
+		assert.ok(result.startsWith('# Content'));
 	});
 
 	test('should skip empty markdown cells', () => {
@@ -570,5 +589,60 @@ suite('Round-trip serialization', () => {
 		assert.strictEqual(roundTripped.cells[3].kind, vscode.NotebookCellKind.Markup);
 		assert.strictEqual(roundTripped.cells[4].kind, vscode.NotebookCellKind.Code);
 		assert.strictEqual(roundTripped.cells[5].kind, vscode.NotebookCellKind.Markup);
+	});
+
+	test('should round-trip document with frontmatter', async () => {
+		const original = `---
+title: Test Document
+author: Test Author
+---
+
+# Content
+
+\`\`\`{python}
+print("hello")
+\`\`\`
+`;
+		const notebook = await deserialize(original);
+		const serialized = convertFromNotebookData(notebook);
+		const roundTripped = await deserialize(serialized);
+
+		// Should have frontmatter, markdown, and code cells
+		assert.strictEqual(roundTripped.cells.length, 3);
+		assert.strictEqual(roundTripped.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(roundTripped.cells[0].value.includes('title: Test Document'));
+		assert.ok(roundTripped.cells[0].value.includes('author: Test Author'));
+		assert.strictEqual(roundTripped.cells[1].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(roundTripped.cells[2].kind, vscode.NotebookCellKind.Code);
+	});
+
+	test('should preserve frontmatter formatting on round-trip', async () => {
+		const original = `---
+# Comment preserved
+title: "Test"
+items:
+  - one
+  - two
+---
+
+Content`;
+		const notebook = await deserialize(original);
+		const serialized = convertFromNotebookData(notebook);
+
+		// Should preserve YAML comments and formatting
+		assert.ok(serialized.includes('# Comment preserved'));
+		assert.ok(serialized.includes('title: "Test"'));
+		assert.ok(serialized.includes('items:'));
+		assert.ok(serialized.includes('  - one'));
+		assert.ok(serialized.includes('  - two'));
+	});
+
+	test('should not create frontmatter cell when document has none', async () => {
+		const original = '# Just content\n\n```{python}\nx = 1\n```\n';
+		const notebook = await deserialize(original);
+
+		// No frontmatter cell
+		assert.notStrictEqual(notebook.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.strictEqual(notebook.cells[0].kind, vscode.NotebookCellKind.Markup);
 	});
 });

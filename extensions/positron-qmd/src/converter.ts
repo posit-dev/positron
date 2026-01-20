@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { TextDecoder, TextEncoder } from 'util';
-import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo, MetaValue, Inline, Attr, ast } from './ast/index.js';
+import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo, Attr, ast } from './ast/index.js';
 
 /** Marker comment to separate consecutive markdown cells */
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
@@ -40,6 +40,80 @@ interface ConversionContext {
 }
 
 /**
+ * Result of frontmatter extraction.
+ */
+interface FrontmatterResult {
+	/** The frontmatter text including --- delimiters */
+	text: string;
+	/** End byte offset (exclusive) of the frontmatter block */
+	endOffset: number;
+}
+
+/**
+ * Extract YAML frontmatter from a QMD document as raw text.
+ * Scans the document directly for `---` delimiters at the start.
+ */
+function extractFrontmatter(
+	doc: QmdDocument,
+	sourceBytes: Uint8Array
+): FrontmatterResult | null {
+	// Check if document has frontmatter metadata
+	if (!doc.meta || Object.keys(doc.meta).length === 0) {
+		return null;
+	}
+
+	const len = sourceBytes.length;
+
+	// Document must start with `---` followed by newline
+	if (len < 4 ||
+		sourceBytes[0] !== 0x2D || // -
+		sourceBytes[1] !== 0x2D || // -
+		sourceBytes[2] !== 0x2D) { // -
+		return null;
+	}
+
+	// Check for newline after opening `---`
+	let pos = 3;
+	if (sourceBytes[pos] === 0x0D) { // \r
+		pos++;
+	}
+	if (pos >= len || sourceBytes[pos] !== 0x0A) { // \n
+		return null;
+	}
+	pos++; // Move past the newline
+
+	// Scan for closing `---` at line start
+	while (pos < len - 2) {
+		// Look for newline followed by `---`
+		if (sourceBytes[pos] === 0x0A) { // \n
+			if (pos + 3 < len &&
+				sourceBytes[pos + 1] === 0x2D &&
+				sourceBytes[pos + 2] === 0x2D &&
+				sourceBytes[pos + 3] === 0x2D) {
+				// Found closing delimiter
+				let endOffset = pos + 4;
+				// Skip past trailing newline(s)
+				if (endOffset < len && sourceBytes[endOffset] === 0x0D) {
+					endOffset++;
+				}
+				if (endOffset < len && sourceBytes[endOffset] === 0x0A) {
+					endOffset++;
+				}
+
+				// Extract frontmatter text
+				const decoder = new TextDecoder();
+				const text = decoder.decode(sourceBytes.slice(0, endOffset)).trim();
+
+				return { text, endOffset };
+			}
+		}
+		pos++;
+	}
+
+	return null;
+}
+
+/**
  * Convert a QmdDocument to VS Code NotebookData.
  * @param doc The parsed QMD document from the WASM parser.
  * @param sourceText The original source text for source location extraction.
@@ -56,11 +130,30 @@ export function convertToNotebookData(
 		sourceInfoPool: doc.astContext.sourceInfoPool,
 	};
 
-	const cells = convertBlocksToCells(doc.blocks, context);
+	const cells: vscode.NotebookCellData[] = [];
+
+	// Extract frontmatter as first cell (if present)
+	const frontmatter = extractFrontmatter(doc, context.sourceBytes);
+	if (frontmatter) {
+		const cell = new vscode.NotebookCellData(
+			vscode.NotebookCellKind.Code,
+			frontmatter.text, // Includes --- delimiters
+			'yaml'
+		);
+		cell.metadata = { qmdCellType: 'frontmatter' };
+		cells.push(cell);
+	}
+
+	// Convert remaining blocks to cells, skipping content before frontmatter end
+	const contentCells = convertBlocksToCells(
+		doc.blocks,
+		context,
+		frontmatter?.endOffset
+	);
+	cells.push(...contentCells);
 
 	const notebookData = new vscode.NotebookData(cells);
 	notebookData.metadata = {
-		qmdMeta: doc.meta,
 		pandocApiVersion: doc['pandoc-api-version'],
 	};
 
@@ -69,7 +162,8 @@ export function convertToNotebookData(
 
 function convertBlocksToCells(
 	blocks: Block[],
-	context: ConversionContext
+	context: ConversionContext,
+	minStartOffset?: number
 ): vscode.NotebookCellData[] {
 	const cells: vscode.NotebookCellData[] = [];
 	let pendingMarkdownBlocks: Block[] = [];
@@ -77,7 +171,7 @@ function convertBlocksToCells(
 	const flushMarkdownBlocks = (maxEndOffset?: number) => {
 		if (pendingMarkdownBlocks.length > 0) {
 			// createMarkdownCells handles splitting at <!-- cell --> markers
-			cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, maxEndOffset));
+			cells.push(...createMarkdownCells(pendingMarkdownBlocks, context, minStartOffset, maxEndOffset));
 			pendingMarkdownBlocks = [];
 		}
 	};
@@ -137,10 +231,11 @@ function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
 function createMarkdownCells(
 	blocks: Block[],
 	context: ConversionContext,
+	minStartOffset: number | undefined,
 	maxEndOffset: number | undefined
 ): vscode.NotebookCellData[] {
 	// Extract raw text from source using source locations
-	const content = extractRawTextForBlocks(blocks, context, maxEndOffset);
+	const content = extractRawTextForBlocks(blocks, context, minStartOffset, maxEndOffset);
 
 	// Split at cell boundary markers
 	const parts = content.split(/\s*<!-- cell -->\s*/);
@@ -163,12 +258,14 @@ function createMarkdownCells(
 /**
  * Extract the raw source text for a sequence of blocks using their source locations.
  * This preserves exact formatting, whitespace, and Quarto-specific syntax.
- * @param maxEndOffset If provided, cap extraction at this character offset (used to prevent
+ * @param minStartOffset If provided, start extraction from this byte offset (used to skip frontmatter).
+ * @param maxEndOffset If provided, cap extraction at this byte offset (used to prevent
  *                     including content from following code blocks).
  */
 function extractRawTextForBlocks(
 	blocks: Block[],
 	context: ConversionContext,
+	minStartOffset: number | undefined,
 	maxEndOffset: number | undefined
 ): string {
 	if (blocks.length === 0) {
@@ -181,7 +278,7 @@ function extractRawTextForBlocks(
 	const lastBlock = blocks[blocks.length - 1];
 
 	// Try to get positions from Location property first
-	const startOffset = firstBlock.l ? ast.Loc.startOffset(firstBlock.l) : undefined;
+	let startOffset = firstBlock.l ? ast.Loc.startOffset(firstBlock.l) : undefined;
 	let endOffset = lastBlock.l ? ast.Loc.endOffset(lastBlock.l) : undefined;
 
 	if (startOffset === undefined || endOffset === undefined) {
@@ -192,6 +289,11 @@ function extractRawTextForBlocks(
 			hasLastLocation: !!lastBlock.l,
 		});
 		return blocks.map(block => extractRawTextForBlock(block, context)).join('\n\n');
+	}
+
+	// Cap start at minStartOffset to skip content before (e.g., frontmatter)
+	if (minStartOffset !== undefined && startOffset < minStartOffset) {
+		startOffset = minStartOffset;
 	}
 
 	// Cap at maxEndOffset to avoid including content from following blocks
@@ -205,6 +307,7 @@ function extractRawTextForBlocks(
 		console.warn('[QMD Converter] Invalid offset range', {
 			startOffset,
 			endOffset,
+			minStartOffset,
 			maxEndOffset,
 			firstBlockType: firstBlock.t,
 			lastBlockType: lastBlock.t,
@@ -318,16 +421,23 @@ const VSCODE_TO_QUARTO_MAP: Record<string, string> = {
  */
 export function convertFromNotebookData(data: vscode.NotebookData): string {
 	const parts: string[] = [];
+	let cellIndex = 0;
 
-	// Serialize front matter metadata if present
-	const qmdMeta = data.metadata?.qmdMeta as Record<string, MetaValue> | undefined;
-	if (qmdMeta && Object.keys(qmdMeta).length > 0) {
-		parts.push(serializeYamlFrontMatter(qmdMeta));
+	// Check if first cell is frontmatter
+	const firstCell = data.cells[0];
+	if (firstCell?.metadata?.qmdCellType === 'frontmatter') {
+		const content = firstCell.value.trim();
+		if (content) {
+			parts.push(content); // Already includes --- delimiters
+		}
+		cellIndex = 1; // Skip frontmatter cell in main loop
 	}
 
 	let prevCellWasMarkdown = false;
 
-	for (const cell of data.cells) {
+	for (let i = cellIndex; i < data.cells.length; i++) {
+		const cell = data.cells[i];
+
 		// Skip empty markdown cells
 		if (cell.kind === vscode.NotebookCellKind.Markup && !cell.value.trim()) {
 			continue;
@@ -435,168 +545,4 @@ function formatAttributes(attr: Attr): string {
  */
 function getQuartoLanguage(vscodeLanguageId: string): string {
 	return VSCODE_TO_QUARTO_MAP[vscodeLanguageId] || vscodeLanguageId;
-}
-
-/**
- * Serialize document metadata back to YAML front matter.
- */
-function serializeYamlFrontMatter(meta: Record<string, MetaValue>): string {
-	const plain = convertMetaToPlain(meta);
-	const yaml = serializeYaml(plain, 0);
-	return '---\n' + yaml + '---';
-}
-
-/**
- * Convert Pandoc MetaValue objects to plain JavaScript values.
- */
-function convertMetaToPlain(meta: Record<string, MetaValue>): Record<string, unknown> {
-	const result: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(meta)) {
-		result[key] = metaValueToPlain(value);
-	}
-	return result;
-}
-
-/**
- * Convert a single MetaValue to a plain JavaScript value.
- */
-function metaValueToPlain(value: MetaValue): unknown {
-	switch (value.t) {
-		case 'MetaString':
-			return ast.Meta.string(value);
-		case 'MetaBool':
-			return ast.Meta.bool(value);
-		case 'MetaInlines':
-			return inlinesToText(ast.Meta.inlines(value));
-		case 'MetaBlocks':
-			// For blocks, extract text content
-			return ast.Meta.blocks(value).map(block => extractTextContentFallback(block)).join('\n');
-		case 'MetaList':
-			return ast.Meta.list(value).map(metaValueToPlain);
-		case 'MetaMap':
-			return convertMetaToPlain(ast.Meta.map(value));
-		default:
-			return null;
-	}
-}
-
-/**
- * Convert inline nodes to plain text.
- */
-function inlinesToText(inlines: Inline[]): string {
-	return inlines.map(inline => {
-		switch (inline.t) {
-			case 'Str':
-				return inline.c;
-			case 'Space':
-				return ' ';
-			case 'SoftBreak':
-			case 'LineBreak':
-				return '\n';
-			case 'Strong':
-			case 'Emph':
-				return inlinesToText(inline.c);
-			case 'Code':
-				return inline.c[1];
-			case 'Link':
-			case 'Image':
-				return inlinesToText(inline.c[1]);
-			default:
-				return '';
-		}
-	}).join('');
-}
-
-/**
- * Simple YAML serializer for basic types.
- */
-function serializeYaml(value: unknown, indent: number): string {
-	const spaces = '  '.repeat(indent);
-
-	if (value === null || value === undefined) {
-		return 'null\n';
-	}
-
-	if (typeof value === 'string') {
-		// Check if string needs quoting
-		if (needsQuoting(value)) {
-			return `"${escapeYamlString(value)}"\n`;
-		}
-		return `${value}\n`;
-	}
-
-	if (typeof value === 'number') {
-		return `${value}\n`;
-	}
-
-	if (typeof value === 'boolean') {
-		return value ? 'true\n' : 'false\n';
-	}
-
-	if (Array.isArray(value)) {
-		if (value.length === 0) {
-			return '[]\n';
-		}
-		let result = '\n';
-		for (const item of value) {
-			const itemYaml = serializeYaml(item, indent + 1);
-			if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-				result += `${spaces}- ${itemYaml.trimStart()}`;
-			} else {
-				result += `${spaces}- ${itemYaml}`;
-			}
-		}
-		return result;
-	}
-
-	if (typeof value === 'object') {
-		const obj = value as Record<string, unknown>;
-		const keys = Object.keys(obj);
-		if (keys.length === 0) {
-			return '{}\n';
-		}
-		let result = indent === 0 ? '' : '\n';
-		for (const key of keys) {
-			const valueYaml = serializeYaml(obj[key], indent + 1);
-			if (typeof obj[key] === 'object' && obj[key] !== null) {
-				result += `${spaces}${key}:${valueYaml}`;
-			} else {
-				result += `${spaces}${key}: ${valueYaml}`;
-			}
-		}
-		return result;
-	}
-
-	return `${value}\n`;
-}
-
-/**
- * Check if a string needs quoting in YAML.
- */
-function needsQuoting(str: string): boolean {
-	// Quote if empty, starts/ends with whitespace, or contains special chars
-	if (str === '' || str.trim() !== str) {
-		return true;
-	}
-	// Quote if contains YAML special characters
-	if (/[:#\[\]{}|>&*!?,\n]/.test(str)) {
-		return true;
-	}
-	// Quote if it looks like a number or boolean
-	if (/^(true|false|yes|no|null|\d+\.?\d*|0x[0-9a-fA-F]+)$/i.test(str)) {
-		return true;
-	}
-	return false;
-}
-
-/**
- * Escape special characters in a YAML string.
- */
-function escapeYamlString(str: string): string {
-	return str
-		.replace(/\\/g, '\\\\')
-		.replace(/"/g, '\\"')
-		.replace(/\n/g, '\\n')
-		.replace(/\r/g, '\\r')
-		.replace(/\t/g, '\\t');
 }
