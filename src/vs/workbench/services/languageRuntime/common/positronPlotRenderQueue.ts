@@ -9,7 +9,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from './languageRuntimeService.js';
-import { PlotRenderFormat, PositronPlotComm, IntrinsicSize } from './positronPlotComm.js';
+import { PlotRenderFormat, PositronPlotComm, IntrinsicSize, PlotMetadata } from './positronPlotComm.js';
 import { padBase64 } from './utils.js';
 
 /**
@@ -17,13 +17,14 @@ import { padBase64 } from './utils.js';
  */
 export enum OperationType {
 	Render = 'render',
-	GetIntrinsicSize = 'get_intrinsic_size'
+	GetIntrinsicSize = 'get_intrinsic_size',
+	GetMetadata = 'get_metadata'
 }
 
 /**
  * The result of a plot operation.
  */
-export type PlotOperationResult = IRenderedPlot | IntrinsicSize | undefined;
+export type PlotOperationResult = IRenderedPlot | IntrinsicSize | PlotMetadata | undefined;
 
 /**
  * A rendered plot.
@@ -319,6 +320,29 @@ export class PositronPlotRenderQueue extends Disposable {
 	}
 
 	/**
+	 * Queue a metadata request.
+	 *
+	 * @param comm The comm to use for the operation
+	 */
+	public queueMetadataRequest(comm: PositronPlotComm): Promise<PlotMetadata> {
+		// Cancel any existing metadata requests for the same plot
+		this.cancelExistingOperations(comm, OperationType.GetMetadata);
+
+		const operationRequest: PlotOperationRequest = {
+			type: OperationType.GetMetadata
+		};
+
+		const deferredOperation = this.queueOperation(operationRequest, comm);
+		return deferredOperation.promise.then((result) => {
+			if (result && typeof result === 'object' && 'name' in result && 'kind' in result) {
+				return result as PlotMetadata;
+			} else {
+				throw new Error('Invalid metadata result');
+			}
+		});
+	}
+
+	/**
 	 * Cancel existing operations in the queue for the same plot and operation
 	 * type.  Used to avoid unnecessary work, e.g. when a new render request is
 	 * made before the previous one has started processing.
@@ -408,6 +432,18 @@ export class PositronPlotRenderQueue extends Disposable {
 			// Handle intrinsic size operation
 			queuedOperation.comm.getIntrinsicSize().then((intrinsicSize) => {
 				queuedOperation.operation.complete(intrinsicSize);
+			}).catch((err) => {
+				// Handle the error
+				queuedOperation.operation.error(err);
+			}).finally(() => {
+				// Mark processing as complete and process the next item in the queue
+				this._isProcessing = false;
+				this.processQueue();
+			});
+		} else if (operationRequest.type === OperationType.GetMetadata) {
+			// Handle metadata operation
+			queuedOperation.comm.getMetadata().then((metadata) => {
+				queuedOperation.operation.complete(metadata);
 			}).catch((err) => {
 				// Handle the error
 				queuedOperation.operation.error(err);

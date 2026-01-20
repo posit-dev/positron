@@ -958,6 +958,31 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	}
 
 	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 *
+	 * @param sessionId The session ID of the console instance.
+	 * @param executionId The execution ID of the input to reveal.
+	 */
+	revealExecution(sessionId: string, executionId: string): void {
+		// Find the console instance with the given session ID.
+		const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+		if (!consoleInstance) {
+			throw new Error(`Cannot reveal execution: no Positron console instance found for session ID ${sessionId}.`);
+		}
+
+		// Open the console view to ensure it's visible.
+		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+
+		// Set this console instance as active.
+		this.setActivePositronConsoleInstance(consoleInstance);
+
+		// Ask the console instance to reveal the execution.
+		if (!consoleInstance.revealExecution(executionId)) {
+			throw new Error(`Cannot reveal execution: execution ID ${executionId} not found in session ID ${sessionId}.`);
+		}
+	}
+
+	/**
 	 * Sets the active Positron console instance.
 	 * @param positronConsoleInstance
 	 */
@@ -1176,6 +1201,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private readonly _onDidAttachRuntime = this._register(
 		new Emitter<ILanguageRuntimeSession | undefined>);
+
+	/**
+	 * The onDidRequestRevealExecution event emitter.
+	 */
+	private readonly _onDidRequestRevealExecutionEmitter = this._register(new Emitter<string>);
 
 	/**
 	 * Provides access to the code editor, if it's available. Note that we generally prefer to
@@ -1472,6 +1502,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidAttachRuntime event.
 	 */
 	readonly onDidAttachSession = this._onDidAttachRuntime.event;
+
+	/**
+	 * onDidRequestRevealExecution event.
+	 */
+	readonly onDidRequestRevealExecution = this._onDidRequestRevealExecutionEmitter.event;
 
 	/**
 	 * Emitted when the width of the console changes.
@@ -1836,6 +1871,24 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		return this._runtimeItems.flatMap(runtimeItem =>
 			runtimeItem.getClipboardRepresentation(commentPrefix)
 		);
+	}
+
+	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 *
+	 * @param executionId The execution ID of the input to reveal.
+	 * @returns `true` if the execution was found and revealed, `false` otherwise.
+	 */
+	revealExecution(executionId: string): boolean {
+		// Try to find the activity item for this execution ID.
+		const activity = this._runtimeItemActivities.get(executionId);
+		if (!activity) {
+			return false;
+		}
+
+		// Fire the event to request the UI to reveal and highlight this execution.
+		this._onDidRequestRevealExecutionEmitter.fire(executionId);
+		return true;
 	}
 
 	//#endregion IPositronConsoleInstance Implementation

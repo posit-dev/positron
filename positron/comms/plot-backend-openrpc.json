@@ -44,6 +44,44 @@
 			}
 		},
 		{
+			"name": "get_metadata",
+			"summary": "Get metadata for the plot",
+			"description": "Get metadata for the plot",
+			"params": [],
+			"result": {
+				"required": true,
+				"schema": {
+					"name": "plot_metadata",
+					"description": "The plot's metadata",
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"description": "A unique, human-readable name for the plot"
+						},
+						"kind": {
+							"type": "string",
+							"description": "The kind of plot e.g. 'Matplotlib', 'ggplot2', etc."
+						},
+						"execution_id": {
+							"type": "string",
+							"description": "The ID of the code fragment that produced the plot"
+						},
+						"code": {
+							"description": "The code fragment that produced the plot",
+							"type": "string"
+						}
+					},
+					"required": [
+						"name",
+						"kind",
+						"execution_id",
+						"code"
+					]
+				}
+			}
+		},
+		{
 			"name": "render",
 			"summary": "Render a plot",
 			"description": "Requests a plot to be rendered. The plot data is returned in a base64-encoded string.",
