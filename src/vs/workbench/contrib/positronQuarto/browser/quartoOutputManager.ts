@@ -75,7 +75,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private readonly _viewZones = new Map<string, QuartoOutputViewZone>();
 	private readonly _outputsByCell = new Map<string, ICellOutput[]>();
 	private readonly _documentUri: URI | undefined;
-	private readonly _featureEnabled: boolean;
+	private _featureEnabled: boolean;
+	private _outputHandlingInitialized = false;
 
 	// Performance optimization: debounced view zone position updates
 	private _viewZoneUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -96,15 +97,42 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	) {
 		super();
 
-		// Check if feature is enabled and this is a Quarto document
-		this._featureEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		// Get document URI from editor model
 		const model = this._editor.getModel();
 		this._documentUri = model?.uri;
 
+		// Check if feature is enabled
+		this._featureEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+
+		// Always listen for configuration changes so we can initialize when feature is enabled
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
+				this._handleFeatureToggle();
+			}
+		}));
+
+		// Clean up when editor model changes
+		this._register(this._editor.onDidChangeModel(() => {
+			this._disposeAllViewZones();
+		}));
+
+		// Only initialize fully if feature is enabled and this is a Quarto document
 		if (!this._featureEnabled || !this._isQuartoDocument()) {
 			return;
 		}
 
+		this._initializeOutputHandling();
+	}
+
+	/**
+	 * Initialize output handling listeners and load cached outputs.
+	 * Called when feature is enabled and this is a Quarto document.
+	 */
+	private _initializeOutputHandling(): void {
+		if (this._outputHandlingInitialized) {
+			return;
+		}
+		this._outputHandlingInitialized = true;
 		this._logService.debug('[QuartoOutputContribution] Initializing for', this._documentUri?.toString());
 
 		// Load cached outputs
@@ -119,14 +147,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		// Listen for execution outputs
 		this._register(this._executionManager.onDidReceiveOutput(event => {
-			if (this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
+			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._handleOutput(event.cellId, event.output);
 			}
 		}));
 
 		// Listen for execution state changes to clear outputs on new execution
 		this._register(this._executionManager.onDidChangeExecutionState(event => {
-			if (this._documentUri &&
+			if (this._featureEnabled &&
+				this._documentUri &&
 				event.execution.documentUri.toString() === this._documentUri.toString() &&
 				event.execution.state === CellExecutionState.Running &&
 				event.previousState !== CellExecutionState.Running) {
@@ -137,25 +166,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		// Listen for model content changes to update view zone positions (debounced)
 		this._register(this._editor.onDidChangeModelContent(() => {
-			this._scheduleViewZonePositionUpdate();
-		}));
-
-		// Listen for configuration changes
-		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
-				this._handleFeatureToggle();
+			if (this._featureEnabled) {
+				this._scheduleViewZonePositionUpdate();
 			}
-		}));
-
-		// Clean up when editor model changes
-		this._register(this._editor.onDidChangeModel(() => {
-			this._disposeAllViewZones();
 		}));
 
 		// Listen to output manager service for split editor synchronization
 		// When another editor clears outputs, we should also clear
 		this._register(this._outputManager.onDidChangeOutputs(event => {
-			if (this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
+			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._syncOutputsFromService(event);
 			}
 		}));
@@ -449,13 +468,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	private _handleFeatureToggle(): void {
 		const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		this._featureEnabled = enabled;
 
 		if (!enabled) {
 			// Hide all view zones when feature is disabled
 			this._disposeAllViewZones();
 		} else if (this._isQuartoDocument()) {
-			// Restore outputs from cache when feature is re-enabled
-			this._loadCachedOutputs();
+			// Initialize output handling when feature is enabled
+			// This will also load cached outputs
+			this._initializeOutputHandling();
 		}
 	}
 
