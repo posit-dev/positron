@@ -9,7 +9,7 @@
 	align-items: center;
 	gap: 8px;
 	padding: 0px 1rem;
-	min-height: 24px;
+	height: 24px;
 
 	/* Visual separators from editor content above and outputs below */
 	border-top: 1px solid var(--vscode-widget-border);
@@ -37,6 +37,9 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	font-size: 16px; /* Ensure consistent codicon size */
 }
 
 .codicon.code-cell-footer-icon.success {

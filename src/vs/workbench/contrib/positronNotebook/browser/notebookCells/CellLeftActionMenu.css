@@ -49,6 +49,8 @@
 	gap: 1px;
 	background-color: transparent;
 	user-select: none;
+	color: var(--vscode-positronNotebook-cellFooterForeground);
+	margin-bottom: 10px; /* Try and vertically align execution order to cell footer contents */
 }
 
 .execution-order-badge-container span.execution-order-badge {
