@@ -21,7 +21,7 @@
 
 	/* Typography */
 	font-size: 11px;
-	color: var(--vscode-descriptionForeground);
+	color: var(--vscode-positronNotebook-cellFooterForeground);
 }
 
 .code-cell-footer-icon {
@@ -64,6 +64,5 @@
 /* Separator between duration and timestamp */
 .code-cell-footer-separator {
 	margin: 0 4px;
-	color: var(--vscode-descriptionForeground);
-	opacity: 0.6;
+	color: var(--vscode-positronNotebook-cellFooterForeground);
 }
