@@ -11,7 +11,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, SettingsFile, USER_SETTINGS_FILENAME, getFreeMemory, getCondensedProcessList, getLoadAverageAndCpuUsage } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
@@ -105,7 +105,16 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
+	// placeholder for area-specific fixtures that need to run before app starts
+	// e.g. changing settings that require an app reload
+	// see notebooks-positron/_test.setup.ts for example usage
+	beforeApp: [
+		async ({ }, use) => {
+			await use();
+		},
+		{ scope: 'worker' }],
+
+	app: [async ({ options, logsPath, logger, beforeApp: _beforeApp }, use, workerInfo) => {
 		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
 
 		try {
@@ -224,8 +233,18 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(settingsFixture);
 	}, { scope: 'worker' }],
 
+	// direct access to the settings file
+	// e.g. to apply area-specific settings before the app start
+	// see notebooks-positron/_test.setup.ts for example usage
+	settingsFile: [async ({ userDataDir }, use) => {
+		const manager = new SettingsFile(join(userDataDir, USER_SETTINGS_FILENAME));
+		await manager.backupIfExists();
+		await use(manager);
+		await manager.restoreFromBackup();
+	}, { scope: 'worker' }],
+
 	vsCodeSettings: [async ({ }, use) => {
-		const manager = new VscodeSettings(VscodeSettings.getVSCodeSettingsPath());
+		const manager = new SettingsFile(SettingsFile.getVSCodeSettingsPath());
 		await manager.backupIfExists();
 		await use(manager);
 		await manager.restoreFromBackup();
@@ -270,6 +289,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 		logger.log(endLog);
 		logger.log('');
+
+		// --- Start Positron ---
+		// Log system diagnostics at end of each test for monitoring resource usage
+		if (process.env.ENABLE_DIAGNOSTIC_LOGGING === 'true') {
+			try {
+				const freeMemory = getFreeMemory();
+				const processList = getCondensedProcessList();
+				const loadAvgAndCpu = getLoadAverageAndCpuUsage();
+				console.log(`Free Memory: ${freeMemory}`);
+				console.log(`Processes: ${processList}`);
+				console.log(`${loadAvgAndCpu}`);
+			} catch (error) {
+				console.log(`Error logging system diagnostics: ${error}`);
+			}
+		}
+		// --- End Positron ---
 	}, { scope: 'test', auto: true }],
 
 	metric: [async ({ logger, app }, use) => {
@@ -333,9 +368,9 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 });
 
 export { playwrightExpect as expect };
-export { TestTags as tags, WorkerFixtures };
+export { TestTags as tags };
 
-interface TestFixtures {
+export interface TestFixtures {
 	restartApp: Application;
 	tracing: any;
 	page: playwright.Page;
@@ -362,13 +397,14 @@ interface TestFixtures {
 	metric: RecordMetric;
 }
 
-interface WorkerFixtures {
+export interface WorkerFixtures {
 	suiteId: string;
 	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;
 	options: ApplicationOptions;
 	userDataDir: string;
+	beforeApp: void;
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
@@ -377,7 +413,8 @@ interface WorkerFixtures {
 		clear: () => Promise<void>;
 		remove: (settingsToRemove: string[]) => Promise<void>;
 	};
-	vsCodeSettings: VscodeSettings;
+	settingsFile: SettingsFile;
+	vsCodeSettings: SettingsFile;
 }
 
 export { CustomTestOptions };

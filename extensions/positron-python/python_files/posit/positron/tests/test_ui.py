@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -114,7 +114,20 @@ def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
 
     assert ui_comm.messages == [
         json_rpc_notification(
-            "open_editor", {"file": file, "line": line, "column": column, "kind": None}
+            "open_editor",
+            {"file": file, "line": line, "column": column, "kind": None, "pinned": True},
+        )
+    ]
+
+
+def test_open_editor_preview(ui_service: UiService, ui_comm: DummyComm) -> None:
+    file, line, column = "/Users/foo/bar/baz.py", 12, 34
+    ui_service.open_editor(file, line, column, pinned=False)
+
+    assert ui_comm.messages == [
+        json_rpc_notification(
+            "open_editor",
+            {"file": file, "line": line, "column": column, "kind": None, "pinned": False},
         )
     ]
 

@@ -7,7 +7,7 @@
 import './plotsContainer.css';
 
 // React.
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -45,7 +45,12 @@ interface PlotContainerProps {
  * The number of pixels (height or width) to use for the history portion of the
  * plots container.
  */
-export const HistoryPx = 100;
+export const HistoryPx = 110;
+
+/**
+ * The number of pixels (height) to use for the plot info header row.
+ */
+export const PlotInfoHeaderPx = 30;
 
 /**
  * PlotContainer component; holds the plot instances.
@@ -67,8 +72,67 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const historyPx = props.showHistory ? HistoryPx : 0;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
-	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx : props.height;
-	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
+	// Account for the plot info header when calculating plot dimensions
+	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx - PlotInfoHeaderPx : props.height - PlotInfoHeaderPx;
+	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - (historyPx + 1);
+
+	// Get the current plot instance
+	const currentPlotInstance = useMemo(() =>
+		positronPlotsContext.positronPlotInstances.find(
+			(plotInstance) => plotInstance.id === positronPlotsContext.selectedInstanceId
+		),
+		[positronPlotsContext.positronPlotInstances, positronPlotsContext.selectedInstanceId]
+	);
+
+	// State to track metadata updates and trigger re-renders
+	const [metadataVersion, setMetadataVersion] = React.useState(0);
+
+	// State to track session name updates and trigger re-renders
+	const [sessionNameVersion, setSessionNameVersion] = React.useState(0);
+
+	// Listen for metadata updates from the plots service (service-level event)
+	useEffect(() => {
+		const disposable = services.positronPlotsService.onDidUpdatePlotMetadata((plotId) => {
+			// Only trigger re-render if the updated plot is the current one
+			if (plotId === positronPlotsContext.selectedInstanceId) {
+				setMetadataVersion(v => v + 1);
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.positronPlotsService, positronPlotsContext.selectedInstanceId]);
+
+	// Listen for session name updates to update the displayed session name
+	useEffect(() => {
+		const disposable = services.runtimeSessionService.onDidUpdateSessionName((session) => {
+			// Only trigger re-render if the updated session is the current plot's session
+			if (currentPlotInstance && session.sessionId === currentPlotInstance.metadata.session_id) {
+				setSessionNameVersion(v => v + 1);
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.runtimeSessionService, currentPlotInstance]);
+
+	// Get the session name for the current plot
+	const sessionName = useMemo(() => {
+		if (!currentPlotInstance) {
+			return undefined;
+		}
+		const sessionId = currentPlotInstance.metadata.session_id;
+		const session = services.runtimeSessionService.getSession(sessionId);
+		if (session) {
+			// Use dynState.sessionName to get the current (possibly renamed) session name
+			return session.dynState.sessionName;
+		}
+		// Fallback to the language name from metadata if session is not found
+		return currentPlotInstance.metadata.language;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentPlotInstance, services.runtimeSessionService, metadataVersion, sessionNameVersion]);
+
+	// Get the plot name from metadata (reactive to metadata updates)
+	const plotName = useMemo(() => {
+		return currentPlotInstance?.metadata.name;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentPlotInstance, metadataVersion]);
 
 	// Plot history useEffect to handle scrolling, mouse wheel events, and keyboard navigation.
 	useEffect(() => {
@@ -85,7 +149,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const selectedPlot = plotHistory.querySelector('.selected');
 		if (selectedPlot) {
 			// If there is a selected plot, scroll it into view.
-			selectedPlot.scrollIntoView({ behavior: 'smooth' });
+			selectedPlot.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 		} else {
 			// If there isn't a selected plot, scroll the history to the end to
 			// show the most recently generated plot.
@@ -254,7 +318,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return;
 		}
 		const plotThumbnailElement = plotHistory.querySelector(
-			`.plot-thumbnail[data-plot-id="${plotId}"]`
+			`.plot-thumbnail-button[data-plot-id="${plotId}"]`
 		) as HTMLButtonElement;
 		if (plotThumbnailElement) {
 			plotThumbnailElement.focus();
@@ -296,6 +360,27 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const nextPlotInstance = positronPlotsContext.positronPlotInstances[currentPlotIndex + 1];
 		focusPlotThumbnail(nextPlotInstance.id);
 	}
+
+	/**
+	 * Navigates to the code that generated the current plot.
+	 */
+	const navigateToCode = () => {
+		if (!currentPlotInstance) {
+			return;
+		}
+		// If we have an execution ID, reveal the execution in the Positron
+		// Console; otherwise, just activate the session.
+		if (currentPlotInstance.metadata.execution_id) {
+			services.positronConsoleService.revealExecution(
+				currentPlotInstance.metadata.session_id,
+				currentPlotInstance.metadata.execution_id
+			);
+		} else {
+			services.positronConsoleService.setActivePositronConsoleSession(
+				currentPlotInstance.metadata.session_id
+			);
+		}
+	};
 
 	/**
 	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
@@ -341,17 +426,41 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		</div>;
 	};
 
+	// Render the plot info header showing the session name and plot name.
+	const renderPlotInfoHeader = () => {
+		if (!currentPlotInstance) {
+			return null;
+		}
+
+		// If no info to display, show a placeholder to maintain consistent height
+		if (!sessionName && !plotName) {
+			return <div className='plot-info-header'>
+				<span className='plot-info-text'>&nbsp;</span>
+			</div>;
+		}
+
+		return <div className='plot-info-header' style={{ height: PlotInfoHeaderPx }}>
+			<span className='plot-info-text'>
+				{sessionName && <button className='plot-session-name' onClick={navigateToCode}>{sessionName}</button>}
+				{plotName && <span className='plot-name'>{plotName}</span>}
+			</span>
+		</div>;
+	};
+
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
 		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge} tabIndex={0}>
-			<div className='selected-plot'>
-				{positronPlotsContext.positronPlotInstances.length === 0 &&
-					<div className='plot-placeholder'></div>}
-				{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
-					plotInstance.id === positronPlotsContext.selectedInstanceId &&
-					render(plotInstance)
-				))}
+			<div className='plot-content'>
+				{positronPlotsContext.positronPlotInstances.length > 0 && renderPlotInfoHeader()}
+				<div className='selected-plot'>
+					{positronPlotsContext.positronPlotInstances.length === 0 &&
+						<div className='plot-placeholder'></div>}
+					{positronPlotsContext.positronPlotInstances.map((plotInstance, index) => (
+						plotInstance.id === positronPlotsContext.selectedInstanceId &&
+						render(plotInstance)
+					))}
+				</div>
 			</div>
 			{props.showHistory && renderHistory()}
 		</div>

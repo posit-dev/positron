@@ -1563,8 +1563,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			// --- Start Positron ---
 			// Force opening in tabbed windows if `window.nativeTabs` is set to `true`.
 			// https://github.com/microsoft/vscode/issues/250042
-			const forceNewTabbedWindow = this.configurationService.getValue<boolean>('window.nativeTabs');
-			if (forceNewTabbedWindow || options.forceNewTabbedWindow) {
+			if (windowConfig?.nativeTabs || options.forceNewTabbedWindow) {
 				// --- End Positron ---
 				const activeWindow = this.getLastActiveWindow();
 				activeWindow?.addTabbedWindow(createdWindow);

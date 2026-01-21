@@ -90,6 +90,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 					outputId: output.outputId,
 					outputs: outputItems,
 				});
+
+				// Don't add widget outputs when there's no session available.
+				if (parsedOutput.preloadMessageResult === undefined) {
+					return;
+				}
 			}
 
 			parsedOutputs.push(parsedOutput);
