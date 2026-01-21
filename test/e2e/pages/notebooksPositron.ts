@@ -10,7 +10,7 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Sessions, SessionState } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 import { basename, relative } from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
@@ -67,7 +67,7 @@ export class PositronNotebooks extends Notebooks {
 	private searchDecoration = this.code.driver.page.locator('.findMatchInline');
 
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu, private sessions: Sessions) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
@@ -153,30 +153,7 @@ export class PositronNotebooks extends Notebooks {
 	// #region ACTIONS
 
 	/**
-	 * Action: Configure Positron notebook editor in settings.
-	 * @param settings - The settings fixture
-	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
-	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
-	 * @param enableNotebooks - Whether to enable Positron notebooks (defaults to true, set to false to explicitly disable)
-	 */
-	async setNotebookEditor(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		},
-		editor: 'positron' | 'default',
-		waitMs = 1000,
-		enableNotebooks = true
-	) {
-		await settings.set({
-			'positron.notebook.enabled': enableNotebooks,
-			'workbench.editorAssociations': editor === 'positron'
-				? { '*.ipynb': 'workbench.editor.positronNotebook' }
-				: {}
-		}, { waitMs });
-	}
-
-	/**
-	 * Action: Configure editor associations to use Positron notebook editor for .ipynb files.
+	 * Action: Enable Positron notebooks as the default editor.
 	 * @param settings - The settings fixture
 	 */
 	async enablePositronNotebooks(
@@ -184,11 +161,27 @@ export class PositronNotebooks extends Notebooks {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 	) {
-		const config: Record<string, unknown> = {
-			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
-		};
-		await settings.set(config, { reload: 'web' });
-		await this.sessions.expectNoStartUpMessaging();
+		await settings.set(
+			{ 'positron.notebook.enabled': true },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
+	}
+
+	/**
+	 * Action: Disable Positron notebooks as the default editor.
+	 * @param settings - The settings fixture
+	 */
+	async disablePositronNotebooks(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+	) {
+		await settings.set(
+			{ 'positron.notebook.enabled': false },
+			// Don't actually need a reload on web but it's a simple way
+			// to make sure the setting takes effect
+			{ reload: 'web' });
 	}
 
 	/**
@@ -215,7 +208,6 @@ export class PositronNotebooks extends Notebooks {
 		}
 
 		let totalCellsAdded = 0;
-		const keyboard = this.code.driver.page.keyboard;
 
 		if (codeCells > 0) {
 			for (let i = 0; i < codeCells; i++) {
@@ -229,7 +221,9 @@ export class PositronNotebooks extends Notebooks {
 		if (markdownCells > 0) {
 			for (let i = 0; i < markdownCells; i++) {
 				await this.addCell('markdown');
-				await keyboard.type(`### Cell ${totalCellsAdded}`);
+				const editor = this.editorAtIndex(totalCellsAdded);
+				await editor.focus();
+				await editor.pressSequentially(`### Cell ${totalCellsAdded}`);
 				await this.expectCellCountToBe(totalCellsAdded + 1);
 				await this.expectCellContentAtIndexToBe(totalCellsAdded, `### Cell ${totalCellsAdded}`);
 				totalCellsAdded++;

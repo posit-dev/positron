@@ -19,7 +19,7 @@ export function createTestPlotsServiceWithPlots(): TestPositronPlotsService {
 		id: 'test-plot-1',
 		session_id: 'test-session',
 		created: Date.now(),
-		parent_id: '',
+		execution_id: '',
 		code: 'plot(1:10)',
 		zoom_level: ZoomLevel.Fit,
 	});
@@ -28,7 +28,7 @@ export function createTestPlotsServiceWithPlots(): TestPositronPlotsService {
 		id: 'test-plot-2',
 		session_id: 'test-session',
 		created: Date.now() + 1000, // Created later
-		parent_id: '',
+		execution_id: '',
 		code: 'hist(rnorm(100))',
 		zoom_level: ZoomLevel.Fit,
 	});

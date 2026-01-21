@@ -177,6 +177,19 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	}
 
 	/**
+	 * Gets the default match pattern for this provider.
+	 *
+	 * This pattern is used by {@link markDefaultModel} to determine which model
+	 * should be marked as default when no user preference is configured.
+	 * Subclasses can override this to provide provider-specific defaults.
+	 *
+	 * @returns The default match pattern, or undefined to use first model as default
+	 */
+	protected getDefaultMatch(): string | undefined {
+		return this._config.model;
+	}
+
+	/**
 	 * Filters the available models based on user configuration and provider capabilities.
 	 *
 	 * This method applies configured filters to remove models that don't meet
@@ -190,7 +203,7 @@ export abstract class ModelProvider implements positron.ai.LanguageModelChatProv
 	 * @see {@link applyModelFilters} for filter implementation details
 	 */
 	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
-		return applyModelFilters(models, this.providerId, this.providerName);
+		return applyModelFilters(models, this.providerId, this.providerName, this.getDefaultMatch());
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -254,7 +254,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 				const editor: ITextResourceEditorInput = {
 					resource: file,
-					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
+					options: {
+						selection: { startLineNumber: ed.line, startColumn: ed.column },
+						pinned: ed.pinned ?? true
+					}
 				};
 				this._editorService.openEditor(editor);
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {

@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 import { expect } from '@playwright/test';
 
 const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
@@ -16,54 +17,34 @@ test.use({
 test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.beforeEach(async function ({ app, settings }) {
-		// Reset editor associations to default state before each test
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
-		// Verify default behavior - VS Code notebook editor should be used when no association is set
-		// This tests the fallback behavior when positron.notebook.enabled=true but no explicit association exists
-		await notebooks.openNotebook(NOTEBOOK_PATH);
-		await notebooksVscode.expectToBeVisible();
-
-		// Configure Positron as the default notebook editor
-		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
-
-		// Verify that newly opened notebooks now use the Positron editor
-		// The same notebook file should now open with the Positron interface instead of VS Code
+		// Positron notebooks are enabled by default for notebooks-positron tests
+		// Verify that opening a notebook uses the Positron editor
 		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
 		await notebooksPositron.expectToBeVisible();
 
-		// Reset to default configuration and verify VS Code editor is used again
-		// Close all editors first to ensure a clean state for the next test
+		// Switch to VS Code notebook editor and verify it works
 		await hotKeys.closeAllEditors();
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+		await notebooksPositron.disablePositronNotebooks(settings);
 
-		// Confirm that removing the association restores VS Code notebook editor
-		// This ensures the configuration change is properly applied and the fallback works
 		await notebooks.openNotebook(NOTEBOOK_PATH);
 		await notebooksVscode.expectToBeVisible();
+
+		// Switch back to Positron notebook editor and verify it works
+		await hotKeys.closeAllEditors();
+		await notebooksPositron.enablePositronNotebooks(settings);
+
+		await notebooksPositron.openNotebook(NOTEBOOK_PATH);
+		await notebooksPositron.expectToBeVisible();
 	});
 
 
 	test('Positron notebooks can open new untitled notebooks and saving works properly', { tag: [tags.WEB] },
-		async function ({ app, settings, runCommand, cleanup }) {
+		async function ({ app, runCommand, cleanup }) {
 			const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
-
-			// Configure Positron as the default notebook editor
-			await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 			// Create a new untitled notebook
 			await notebooks.createNewNotebook();
@@ -91,11 +72,8 @@ test.describe('Positron Notebooks: Open & Save', {
 			await cleanup.removeTestFiles([expectedFileName]);
 		});
 
-	test('Ghost editor issue: Positron notebook does not create duplicate VS Code notebook on reload with dirty notebook', async function ({ app, settings, hotKeys }) {
+	test('Ghost editor issue: Positron notebook does not create duplicate VS Code notebook on reload with dirty notebook', async function ({ app, hotKeys }) {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
-
-		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 		// Create a new notebook (which starts dirty)
 		await notebooks.createNewNotebook();

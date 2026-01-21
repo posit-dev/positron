@@ -87,7 +87,13 @@
 }
 
 .connections-items-container .animate-spin {
-	animation: spin 1s linear infinite;
+	animation: connections-spin 1s linear infinite;
+}
+
+@keyframes connections-spin {
+	100% {
+		transform: rotate(360deg);
+	}
 }
 
 .connections-item.selected {

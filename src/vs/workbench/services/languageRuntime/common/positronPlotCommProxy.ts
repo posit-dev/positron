@@ -157,6 +157,15 @@ export class PositronPlotCommProxy extends Disposable {
 	}
 
 	/**
+	 * Get metadata for the plot.
+	 *
+	 * @returns A promise that resolves to the plot metadata.
+	 */
+	public getMetadata(): ReturnType<typeof this._sessionRenderQueue.queueMetadataRequest> {
+		return this._sessionRenderQueue.queueMetadataRequest(this._comm);
+	}
+
+	/**
 	 * Renders a plot. The request is queued if a render is already in progress.
 	 *
 	 * @param request The render request to perform

@@ -194,6 +194,11 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 			this.reportClientOSInfo(telemetryService, logService);
 		});
 
+		// --- Start Positron ---
+		// Create the bootstrap extensions initializer separately so we can await its completion
+		const bootstrapInitializer = instantiationService.createInstance(PositronBootstrapExtensionsInitializer);
+		// --- End Positron ---
+
 		// Instantiate Contributions
 		this._register(combinedDisposable(
 			instantiationService.createInstance(CodeCacheCleaner, this.configuration.codeCachePath),
@@ -205,9 +210,13 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 			instantiationService.createInstance(UserDataProfilesCleaner),
 			// --- Start Positron ---
 			instantiationService.createInstance(DefaultExtensionsInitializer),
-			instantiationService.createInstance(PositronBootstrapExtensionsInitializer)
+			bootstrapInitializer
 			// --- End Positron ---
 		));
+
+		// --- Start Positron ---
+		await bootstrapInitializer.whenReady;
+		// --- End Positron ---
 	}
 
 	private async initServices(): Promise<IInstantiationService> {

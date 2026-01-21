@@ -212,6 +212,19 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	}
 
 	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 * @param sessionId The session ID of the console instance.
+	 * @param executionId The execution ID of the input to reveal.
+	 */
+	revealExecution(sessionId: string, executionId: string): void {
+		const instance = this._positronConsoleInstances.find(instance => instance.sessionId === sessionId);
+		if (instance) {
+			this.setActivePositronConsoleSession(sessionId);
+			instance.revealExecution(executionId);
+		}
+	}
+
+	/**
 	 * Creates a test code execution event.
 	 */
 	createTestCodeExecutedEvent(
@@ -279,6 +292,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidRequestRestartEmitter = new Emitter<void>();
 	private readonly _onDidAttachSessionEmitter = new Emitter<ILanguageRuntimeSession | undefined>();
 	private readonly _onDidChangeWidthInCharsEmitter = new Emitter<number>();
+	private readonly _onDidRequestRevealExecutionEmitter = new Emitter<string>();
 
 	private _state: PositronConsoleState = PositronConsoleState.Ready;
 	private _trace: boolean = false;
@@ -360,6 +374,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidAttachSession(): Event<ILanguageRuntimeSession | undefined> {
 		return this._onDidAttachSessionEmitter.event;
+	}
+
+	get onDidRequestRevealExecution(): Event<string> {
+		return this._onDidRequestRevealExecutionEmitter.event;
 	}
 
 	get onDidChangeWidthInChars(): Event<number> {
@@ -580,6 +598,16 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	 */
 	get attachedRuntimeSession(): ILanguageRuntimeSession | undefined {
 		return this._attachedRuntimeSession;
+	}
+
+	/**
+	 * Reveals and highlights the console input associated with the given execution ID.
+	 * @param executionId The execution ID of the input to reveal.
+	 * @returns `true` if the execution was found and revealed, `false` otherwise.
+	 */
+	revealExecution(executionId: string): boolean {
+		this._onDidRequestRevealExecutionEmitter.fire(executionId);
+		return true;
 	}
 
 	/**
