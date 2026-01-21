@@ -40,6 +40,7 @@ suite('OpenAIModelProvider', () => {
 		// Mock the applyModelFilters import
 		mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 		mockWorkspaceConfig.withArgs('models.include', []).returns([]);
+		mockWorkspaceConfig.withArgs('models.preference.byProvider', {}).returns({});
 
 		openAIModel = new OpenAIModelProvider(mockConfig);
 	});
@@ -104,7 +105,7 @@ suite('OpenAIModelProvider', () => {
 
 	suite('Model Resolution', () => {
 		let mockModelDefinitions: sinon.SinonStub;
-		let mockHelpers: { createModelInfo: sinon.SinonStub; isDefaultUserModel: sinon.SinonStub; markDefaultModel: sinon.SinonStub };
+		let mockHelpers: { createModelInfo: sinon.SinonStub; markDefaultModel: sinon.SinonStub };
 
 		setup(() => {
 			// Mock getAllModelDefinitions
@@ -113,7 +114,6 @@ suite('OpenAIModelProvider', () => {
 			// Mock helper functions
 			mockHelpers = {
 				createModelInfo: sinon.stub(helpersModule, 'createModelInfo'),
-				isDefaultUserModel: sinon.stub(helpersModule, 'isDefaultUserModel'),
 				markDefaultModel: sinon.stub(helpersModule, 'markDefaultModel')
 			};
 		});
@@ -122,7 +122,6 @@ suite('OpenAIModelProvider', () => {
 			// Restore specific stubs for this suite
 			mockModelDefinitions.restore();
 			mockHelpers.createModelInfo.restore();
-			mockHelpers.isDefaultUserModel.restore();
 			mockHelpers.markDefaultModel.restore();
 		});
 

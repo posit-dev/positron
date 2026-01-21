@@ -220,7 +220,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		// Render colorized lines.
 		return (
 			<div className={classNames}>
-				{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
+				<div className='progress-bar' />
 				{colorizedOutputLines.map((outputLine, index) =>
 					<div key={`outputLine-${index}`}>
 						<Prompt index={index} />
@@ -236,7 +236,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		// Render non-colorized lines.
 		return (
 			<div className={classNames}>
-				{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
+				<div className='progress-bar' />
 				{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 					<div key={outputLine.id}>
 						<Prompt index={index} />

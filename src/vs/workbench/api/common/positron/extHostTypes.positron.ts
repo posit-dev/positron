@@ -423,16 +423,6 @@ export enum CodeAttributionSource {
 	Script = 'script',
 }
 
-/**
- * Type of notebook cell
- */
-export enum NotebookCellType {
-	/** A code cell */
-	Code = 'code',
-
-	/** A markdown cell */
-	Markdown = 'markdown',
-}
 
 /**
  * The type of source that opened a preview.

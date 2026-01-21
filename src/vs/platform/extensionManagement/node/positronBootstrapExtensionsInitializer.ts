@@ -5,7 +5,7 @@
 import { IExtensionManagementService } from '../common/extensionManagement.js';
 import { IExtensionManifest } from '../../extensions/common/extensions.js';
 import { URI } from '../../../base/common/uri.js';
-import { join } from 'path';
+import { join } from '../../../base/common/path.js';
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { INativeEnvironmentService } from '../../environment/common/environment.js';
@@ -14,8 +14,14 @@ import { getErrorMessage } from '../../../base/common/errors.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { getSystemArchitecture } from '../../../base/node/arch.js';
+import { DeferredPromise } from '../../../base/common/async.js';
+
+const BOOTSTRAP_TIMEOUT_MS = 30000; // 30 seconds
 
 export class PositronBootstrapExtensionsInitializer extends Disposable {
+
+	private readonly _whenReady = new DeferredPromise<void>();
+	public readonly whenReady: Promise<void>;
 
 	constructor(
 		@INativeEnvironmentService private readonly environmentService: INativeEnvironmentService,
@@ -26,6 +32,19 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 	) {
 		super();
 
+		// whenReady resolves when bootstrap completes (or times out)
+		this.whenReady = this._whenReady.p;
+
+		const timeoutHandle = setTimeout(() => {
+			if (!this._whenReady.isSettled) {
+				this.logService.warn(`Bootstrap extensions installation timed out after ${BOOTSTRAP_TIMEOUT_MS}ms`);
+				this._whenReady.complete();
+			}
+		}, BOOTSTRAP_TIMEOUT_MS);
+
+		// Clean up timeout when the promise settles
+		this._whenReady.p.finally(() => clearTimeout(timeoutHandle));
+
 		const storageFilePath = join(this.environmentService.extensionsPath, '.version');
 		const currentVersion = `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`;
 
@@ -35,19 +54,25 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 			this.logService.info('First launch after first install, upgrade, or downgrade. Installing bootstrapped extensions');
 			this.installVSIXOnStartup()
 				.then(() => {
+					this.logService.info('Bootstrap extensions installed successfully');
 					try {
 						writeFileSync(storageFilePath, currentVersion);
 					} catch (error) {
 						this.logService.error('Error writing bootstrapped extension storage file', storageFilePath, getErrorMessage(error));
 					}
+					this._whenReady.complete();
 				})
 				.catch(error => {
 					this.logService.error('Error installing bootstrapped extensions', getErrorMessage(error));
+					// Complete anyway to avoid blocking startup
+					this._whenReady.complete();
 				});
 			this.cleanupOldExtensions(lastKnownVersion);
 
 		} else {
 			this.logService.info('Subsequent launch, skipping bootstrapped extensions');
+			// No installation needed, complete immediately
+			this._whenReady.complete();
 		}
 	}
 
@@ -102,7 +127,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 		const installedExtensions = await this.extensionManagementService.getInstalled();
 		await Promise.all(vsixFiles.map(async vsix => {
-			this.logService.info(`Installing ${sourceType} extension:`, vsix.resource.toString());
+			this.logService.debug(`Installing ${sourceType} extension:`, vsix.resource.toString());
 			try {
 				const vsixManifest: IExtensionManifest = await this.extensionManagementService.getManifest(vsix.resource);
 				const extensionId = vsixManifest.publisher + '.' + vsixManifest.name;
@@ -111,17 +136,17 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 				if (installedExtension) {
 					const installedVersion = installedExtension.manifest.version;
 					if (!this.isVSIXNewer(installedVersion, vsixManifest.version)) {
-						this.logService.info(`${sourceType} extension is already installed and is up to date:`, vsix.resource.toString());
+						this.logService.debug(`${sourceType} extension is already installed and is up to date:`, vsix.resource.toString());
 						return;
 					}
 				}
 				await this.extensionManagementService.install(vsix.resource, { donotIncludePackAndDependencies: true, keepExisting: false });
-				this.logService.info(`Successfully installed ${sourceType} extension:`, vsix.resource.toString());
+				this.logService.debug(`Successfully installed ${sourceType} extension:`, vsix.resource.toString());
 			} catch (error) {
 				this.logService.error(`Error installing ${sourceType} extension:`, vsix.resource.toString(), getErrorMessage(error));
 			}
 		}));
-		this.logService.info(`${sourceType} extensions initialized`, extensionsLocation.toString());
+		this.logService.debug(`${sourceType} extensions initialized`, extensionsLocation.toString());
 
 	}
 

@@ -89,7 +89,7 @@ interface DirectoryState {
 
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
-	const [name, setName] = React.useState({ value: props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
+	const [name, setName] = React.useState({ value: props.plotClient.metadata.name ?? props.plotClient.metadata.suggested_file_name ?? 'plot', valid: true });
 	const [format, setFormat] = React.useState(PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
 	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });

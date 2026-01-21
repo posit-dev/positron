@@ -28,7 +28,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		await verifyPyprojectTomlNotCreated(app);
 	});
 
-	test('Verify empty folder with git initialization', { tag: [tags.WIN] }, async function ({ app }) {
+	test('Verify empty folder with git initialization', async function ({ app }) {
 		const { newFolderFlow } = app.workbench;
 		const folderName = addRandomNumSuffix('empty-project-git');
 
@@ -40,6 +40,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		});
 
 		await newFolderFlow.verifyFolderCreation(folderName);
+		await app.code.wait(1000);
 		await verifyGitStatus(app);
 	});
 });

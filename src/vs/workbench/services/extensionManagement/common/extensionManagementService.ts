@@ -316,7 +316,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 
 	async installVSIX(vsix: URI, manifest: IExtensionManifest, options?: InstallOptions): Promise<ILocalExtension> {
 		// --- Start Positron ---
-		const compat = positronExtensionCompatibility(manifest);
+		const compat = positronExtensionCompatibility(manifest, this.productService);
 		if (!compat.compatible) {
 			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
 		}
@@ -436,6 +436,20 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 			return Promise.reject(`Invalid location ${extension.location.toString()}`);
 		}
 
+		// --- Start Positron ---
+		// Fetch manifest to check version compatibility before updating
+		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
+		if (!manifest) {
+			throw new Error(localize('Manifest is not found for update', "Updating Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
+		}
+
+		// Check Positron compatibility using the manifest
+		const compat = positronExtensionCompatibility(manifest, this.productService);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
+
 		const servers: IExtensionManagementServer[] = [];
 
 		// Update Language pack on local and remote servers
@@ -465,7 +479,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		// Check Positron compatibility for all extensions
 		for (let i = 0; i < extensions.length; i++) {
 			const { extension, options } = extensions[i];
-			const compat = positronExtensionCompatibility(extension);
+			const compat = positronExtensionCompatibility(manifests[i], this.productService);
 			if (!compat.compatible) {
 				results.set(extension.identifier.id.toLowerCase(), {
 					identifier: extension.identifier,
@@ -540,16 +554,17 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 	}
 
 	async installFromGallery(gallery: IGalleryExtension, installOptions?: InstallOptions, servers?: IExtensionManagementServer[]): Promise<ILocalExtension> {
-		// --- Start Positron ---
-		const compat = positronExtensionCompatibility(gallery);
-		if (!compat.compatible) {
-			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
-		}
-		// --- End Positron ---
 		const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
 		if (!manifest) {
 			throw new Error(localize('Manifest is not found', "Installing Extension {0} failed: Manifest is not found.", gallery.displayName || gallery.name));
 		}
+		// --- Start Positron ---
+		// Check compatibility using the manifest (which includes engines.positron if specified)
+		const compat = positronExtensionCompatibility(manifest, this.productService);
+		if (!compat.compatible) {
+			return Promise.reject(positronExtensionCompatibilityError(compat.reason));
+		}
+		// --- End Positron ---
 
 		if (installOptions?.context?.[EXTENSION_INSTALL_SKIP_PUBLISHER_TRUST_CONTEXT] !== true) {
 			await this.checkForTrustedPublishers([{ extension: gallery, manifest, checkForPackAndDependencies: !installOptions?.donotIncludePackAndDependencies }],);

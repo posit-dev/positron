@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,6 +19,8 @@ export const USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
 	'dataExplorer.summaryCollapsed';
 export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
+export const DATA_EXPLORER_ENABLE_PREVIEW_KEY =
+	'dataExplorer.enablePreview';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
@@ -38,6 +40,14 @@ export function DefaultDataExplorerSummaryLayout(
 	} else {
 		return PositronDataExplorerLayout.SummaryOnRight;
 	}
+}
+
+export function DataExplorerPreviewEnabled(
+	configurationService: IConfigurationService
+) {
+	return Boolean(
+		configurationService.getValue(DATA_EXPLORER_ENABLE_PREVIEW_KEY)
+	);
 }
 
 // Register the configuration setting
@@ -69,6 +79,20 @@ configurationRegistry.registerConfiguration({ // for summary layout
 			markdownDescription: localize(
 				'positron.dataExplorerSummaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
+			),
+		},
+	},
+});
+configurationRegistry.registerConfiguration({ // for preview mode
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[DATA_EXPLORER_ENABLE_PREVIEW_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.dataExplorerEnablePreview',
+				'Controls whether preview mode is used for Data Explorer tabs, similar to `#workbench.editor.enablePreview#` for regular editors. Preview tabs are shown in italics and are replaced by the next Data Explorer opened. Double-clicking or clicking the \'Keep Open\' option in its label context menu pins the tab.'
 			),
 		},
 	},

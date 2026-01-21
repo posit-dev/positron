@@ -493,8 +493,8 @@ export function serializeNotebookContext(
  */
 export function isNotebookModeEnabled(): boolean {
 	return vscode.workspace
-		.getConfiguration('positron.assistant.notebookMode')
-		.get('enable', false);
+		.getConfiguration('positron.notebook')
+		.get('enabled', false);
 }
 
 /**
