@@ -1,0 +1,242 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Main container for inline output view zone */
+.quarto-inline-output {
+	position: relative;
+	padding: 8px 12px;
+	padding-right: 32px; /* Space for close button */
+	margin: 4px 0;
+	background: var(--vscode-editor-inlineValuesBackground, var(--vscode-editor-background));
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+	border-radius: 4px;
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	line-height: var(--vscode-editor-line-height, 1.5);
+	overflow: auto;
+	max-height: 400px;
+	box-sizing: border-box;
+}
+
+/* Focus outline for keyboard navigation */
+.quarto-inline-output:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Close button */
+.quarto-output-close {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	opacity: 0.5;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+}
+
+.quarto-output-close:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.quarto-output-close:focus {
+	opacity: 1;
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Output content container */
+.quarto-output-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+/* Individual output item */
+.quarto-output-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Standard output (stdout) */
+.quarto-output-stdout {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+}
+
+/* Error output (stderr) */
+.quarto-output-stderr {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-errorForeground);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+}
+
+/* Error output container */
+.quarto-output-error {
+	padding: 8px;
+	background: var(--vscode-inputValidation-errorBackground);
+	border: 1px solid var(--vscode-inputValidation-errorBorder);
+	border-radius: 2px;
+	color: var(--vscode-errorForeground);
+}
+
+.quarto-output-error pre {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+}
+
+/* Image output container */
+.quarto-output-image-container {
+	display: flex;
+	justify-content: flex-start;
+	align-items: flex-start;
+}
+
+/* Image output */
+.quarto-output-image {
+	max-width: 100%;
+	height: auto;
+	border-radius: 2px;
+}
+
+/* HTML output */
+.quarto-output-html {
+	color: var(--vscode-foreground);
+}
+
+.quarto-output-html table {
+	border-collapse: collapse;
+	margin: 4px 0;
+}
+
+.quarto-output-html th,
+.quarto-output-html td {
+	border: 1px solid var(--vscode-panel-border);
+	padding: 4px 8px;
+}
+
+.quarto-output-html th {
+	background: var(--vscode-editor-lineHighlightBackground);
+	font-weight: bold;
+}
+
+/* Warning message for unsafe content */
+.quarto-output-warning {
+	padding: 4px 8px;
+	background: var(--vscode-inputValidation-warningBackground);
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	border-radius: 2px;
+	color: var(--vscode-inputValidation-warningForeground);
+	font-size: 12px;
+	margin-bottom: 4px;
+}
+
+/* High contrast theme support */
+.hc-black .quarto-inline-output,
+.hc-light .quarto-inline-output {
+	border-width: 2px;
+}
+
+.hc-black .quarto-output-close:focus,
+.hc-light .quarto-output-close:focus {
+	outline-width: 2px;
+}
+
+.hc-black .quarto-inline-output:focus,
+.hc-light .quarto-inline-output:focus {
+	outline-width: 2px;
+}
+
+/* Webview container for rich output (interactive plots, widgets) */
+.quarto-output-webview-container {
+	position: relative;
+	min-height: 100px;
+	max-height: 600px;
+	border: none;
+	background: var(--vscode-editor-background);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+/* Legacy selector for backward compatibility */
+.quarto-output-webview {
+	min-height: 100px;
+	border: none;
+	background: var(--vscode-editor-background);
+}
+
+/* Escaped HTML output (fallback when webview unavailable) */
+.quarto-output-html-escaped {
+	margin: 0;
+	padding: 8px;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	font-family: var(--vscode-editor-font-family);
+	font-size: calc(var(--vscode-editor-font-size) * 0.85);
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-textCodeBlock-background);
+	border-radius: 2px;
+	max-height: 200px;
+	overflow: auto;
+}
+
+/* Loading indicator for async content */
+.quarto-output-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.quarto-output-loading::before {
+	content: '';
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--vscode-progressBar-background);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: quarto-spin 1s linear infinite;
+}
+
+@keyframes quarto-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Truncation indicator */
+.quarto-output-truncated {
+	padding: 4px 8px;
+	background: var(--vscode-inputValidation-infoBackground);
+	border: 1px solid var(--vscode-inputValidation-infoBorder);
+	border-radius: 2px;
+	color: var(--vscode-inputValidation-infoForeground);
+	font-size: 12px;
+	font-style: italic;
+}
