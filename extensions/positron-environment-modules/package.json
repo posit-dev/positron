@@ -18,16 +18,19 @@
 			"properties": {
 				"positron.environmentModules.enabled": {
 					"type": "boolean",
+					"scope": "resource",
 					"default": true,
 					"description": "%configuration.enabled.description%"
 				},
 				"positron.environmentModules.moduleCommand": {
 					"type": "string",
+					"scope": "resource",
 					"default": "module",
 					"description": "%configuration.moduleCommand.description%"
 				},
 				"positron.environmentModules.initScript": {
 					"type": "string",
+					"scope": "resource",
 					"default": "",
 					"description": "%configuration.initScript.description%"
 				},
@@ -66,7 +69,8 @@
 			{
 				"command": "positron.environmentModules.refreshEnvironments",
 				"title": "%command.refreshEnvironments.title%",
-				"category": "Environment Modules"
+				"category": "Environment Modules",
+				"enablement": "isLinux && config.positron.environmentModules.enabled"
 			},
 			{
 				"command": "positron.environmentModules.diagnosticsReport",
