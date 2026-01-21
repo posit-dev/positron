@@ -70,19 +70,19 @@
 				"command": "positron.environmentModules.refreshEnvironments",
 				"title": "%command.refreshEnvironments.title%",
 				"category": "Environment Modules",
-				"enablement": "isLinux && config.positron.environmentModules.enabled"
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
 			},
 			{
 				"command": "positron.environmentModules.diagnosticsReport",
 				"title": "%command.diagnosticsReport.title%",
 				"category": "Environment Modules",
-				"enablement": "isLinux && config.positron.environmentModules.enabled"
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
 			},
 			{
 				"command": "positron.environmentModules.manageEnvironments",
 				"title": "%command.manageEnvironments.title%",
 				"category": "Environment Modules",
-				"enablement": "isLinux && config.positron.environmentModules.enabled"
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
 			}
 		]
 	},
