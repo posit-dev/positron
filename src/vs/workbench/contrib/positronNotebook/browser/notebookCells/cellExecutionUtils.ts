@@ -72,7 +72,7 @@ export function getRelativeTime(timestamp: number): string {
 	} else if (minutes > 0) {
 		return minutes === 1
 			? localize('cellExecution.minuteAgo', '1 minute ago')
-			: localize('cellExecution.minutesAgo', '{0} minutes ago', minutes);
+			: localize('cellExecution.minutesAgo', '{0} mins ago', minutes);
 	} else if (seconds > 0) {
 		return seconds === 1
 			? localize('cellExecution.secondAgo', '1 second ago')
