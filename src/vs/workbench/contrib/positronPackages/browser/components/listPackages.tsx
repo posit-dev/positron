@@ -25,7 +25,6 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ViewsProps } from '../positronPackages.js';
-// import { languageIdToName } from './schemaNavigation.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
@@ -211,7 +210,7 @@ export const ListPackages = (props: React.PropsWithChildren<ViewsProps>) => {
 						await doRefreshPackages(activeSession);
 					} catch (err) {
 						services.notificationService.notify({
-							message: `Failed to refresh packages: ${err.message}`,
+							message: localize('packages.getPackages.error.message', 'Failed to refresh packages: {0}', err.message),
 							severity: Severity.Error,
 							source: 'Packages',
 						});
@@ -261,7 +260,7 @@ const ActionBar = ({
 						<ActionBarButton
 							align='left'
 							ariaLabel=''
-							label={activeSession?.getLabel() ?? 'No active session'}
+							label={activeSession?.getLabel() ?? localize('packages.actionBar.noActiveSession', 'No active session')}
 							tooltip={''}
 						/>
 					</ActionBarRegion>
