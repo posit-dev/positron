@@ -809,8 +809,8 @@ class NativeWithModulesApi implements IDiscoveryAPI, Disposable {
     private async discoverModuleEnvironments(): Promise<PythonEnvInfo[]> {
         const envs: PythonEnvInfo[] = [];
 
-        // Only available on Unix-like systems
-        if (process.platform === 'win32') {
+        // Module systems are only supported on Linux
+        if (process.platform === 'win32' || process.platform === 'darwin') {
             return envs;
         }
 

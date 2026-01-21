@@ -7,7 +7,7 @@ This extension provides support for [Environment Modules](https://modules.readth
 
 The extension enables Positron to discover and use language runtimes (R, Python, etc.) that are managed by environment module systems. It:
 
-- **Detects module systems**: Automatically identifies Lmod or Environment Modules installations on Unix-like systems
+- **Detects module systems**: Automatically identifies Lmod or Environment Modules installations on Linux
 - **Discovers language runtimes**: Finds interpreters configured through module environments in user settings
 - **Provides language-agnostic API**: Exposes an API that language extensions can use to discover their interpreters
 - **Generates startup commands**: Creates the shell commands needed to load modules before launching interpreters

@@ -72,13 +72,13 @@
 				"command": "positron.environmentModules.diagnosticsReport",
 				"title": "%command.diagnosticsReport.title%",
 				"category": "Environment Modules",
-				"enablement": "!isWindows && config.positron.environmentModules.enabled"
+				"enablement": "isLinux && config.positron.environmentModules.enabled"
 			},
 			{
 				"command": "positron.environmentModules.manageEnvironments",
 				"title": "%command.manageEnvironments.title%",
 				"category": "Environment Modules",
-				"enablement": "!isWindows && config.positron.environmentModules.enabled"
+				"enablement": "isLinux && config.positron.environmentModules.enabled"
 			}
 		]
 	},

@@ -106,8 +106,8 @@ export class ModuleEnvironmentLocator extends Locator<BasicEnvInfo> {
     }
 
     private async *doIterEnvs(): IPythonEnvsIterator<BasicEnvInfo> {
-        // Module systems are only available on Unix-like systems
-        if (process.platform === 'win32') {
+        // Module systems are only supported on Linux
+        if (process.platform === 'win32' || process.platform === 'darwin') {
             return;
         }
 

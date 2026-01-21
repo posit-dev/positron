@@ -77,8 +77,8 @@ function parseRVersion(output: string): string | undefined {
  * Discover R binaries from module environments.
  */
 export async function discoverModuleBinaries(): Promise<RBinary[]> {
-	// Module systems are only available on Unix-like systems
-	if (process.platform === 'win32') {
+	// Module systems are only supported on Linux
+	if (process.platform === 'win32' || process.platform === 'darwin') {
 		return [];
 	}
 

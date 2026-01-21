@@ -198,8 +198,8 @@ class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 export async function activate(
 	context: vscode.ExtensionContext
 ): Promise<EnvironmentModulesApi> {
-	// Environment modules are not supported on Windows
-	if (process.platform === 'win32') {
+	// Environment modules are only supported on Linux
+	if (process.platform === 'win32' || process.platform === 'darwin') {
 		// Return a stub API that reports as unavailable
 		return {
 			onDidChangeConfiguration: new vscode.EventEmitter<void>().event,

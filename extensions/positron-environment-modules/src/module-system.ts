@@ -124,8 +124,8 @@ export async function detectModuleSystem(
 
 	logger.debug(`Detecting module system using shell: ${shell.name} (${shell.path})`);
 
-	// Module systems are typically only available on Unix-like systems
-	if (process.platform === 'win32') {
+	// Module systems are only supported on Linux
+	if (process.platform === 'win32' || process.platform === 'darwin') {
 		return {
 			available: false,
 			type: 'unknown',
