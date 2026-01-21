@@ -6,8 +6,9 @@
 /* Quarto Cell Toolbar Styles */
 
 .quarto-cell-toolbar {
-	display: inline-flex !important;
-	flex-direction: row !important;
+	position: absolute;
+	display: inline-flex;
+	flex-direction: row;
 	align-items: center;
 	gap: 2px;
 	padding: 2px 4px;
@@ -17,9 +18,6 @@
 	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 	z-index: 10;
 	white-space: nowrap;
-
-	/* Position half above, half below the anchor line */
-	transform: translateY(50%);
 
 	/* Hidden by default, shown when cursor is in cell */
 	visibility: hidden;

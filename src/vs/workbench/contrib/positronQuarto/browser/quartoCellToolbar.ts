@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IContentWidget, IContentWidgetPosition, ICodeEditor, ContentWidgetPositionPreference } from '../../../../editor/browser/editorBrowser.js';
+import { IOverlayWidget, IOverlayWidgetPosition, ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
@@ -15,19 +15,13 @@ import { QuartoCommandId } from './quartoCommands.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 
-// Debug helper - this will output to the browser console
-function debugLog(message: string): void {
-	console.log(`[QuartoCellToolbar] ${message}`);
-}
-
 /**
  * A toolbar widget that appears in the upper-right corner of Quarto code cells.
  * Provides buttons for Run Cell, Run Above, and Run Below actions.
- * The toolbar is positioned so it appears half above and half overlapping the first line of the cell.
+ * Uses an overlay widget for viewport-relative positioning.
  */
-export class QuartoCellToolbar extends Disposable implements IContentWidget {
-	readonly allowEditorOverflow = true;
-	readonly suppressMouseDown = true;
+export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
+	readonly allowEditorOverflow = false;
 
 	private readonly _domNode: HTMLElement;
 	private readonly _runButton: HTMLButtonElement;
@@ -39,7 +33,6 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 	private _visible = true;
 	private _isMouseOverToolbar = false;
 	private _isCursorInCell = false;
-	private _rightOffset = 10; // Offset from right edge of editor
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -54,9 +47,7 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 		private readonly _keybindingService: IKeybindingService
 	) {
 		super();
-		debugLog(`Constructor called for cell ${_cell.id} at line ${_cell.startLine}`);
 		this._domNode = this._createDomNode();
-		debugLog(`DOM node created: ${this._domNode.outerHTML.substring(0, 100)}...`);
 		this._runButton = this._domNode.querySelector('.quarto-toolbar-run')!;
 		this._runAboveButton = this._domNode.querySelector('.quarto-toolbar-run-above')!;
 		this._runBelowButton = this._domNode.querySelector('.quarto-toolbar-run-below')!;
@@ -66,24 +57,19 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 		this._setupKeyboardNavigation();
 		this._setupRichTooltips();
 		this._setupMouseTracking();
-		debugLog(`About to add content widget to editor, id: ${this.getId()}`);
-		this._editor.addContentWidget(this);
-		debugLog(`Content widget added`);
+		this._editor.addOverlayWidget(this);
 
-		// Listen for scroll changes to update horizontal position
+		// Listen for scroll and layout changes to update position
 		this._register(this._editor.onDidScrollChange(() => {
-			this._updateHorizontalPosition();
+			this._updatePosition();
 		}));
 
-		// Listen for layout changes
 		this._register(this._editor.onDidLayoutChange(() => {
-			this._updateHorizontalPosition();
+			this._updatePosition();
 		}));
 
-		// Initial position update (deferred to ensure DOM is ready)
-		requestAnimationFrame(() => {
-			this._updateHorizontalPosition();
-		});
+		// Initial position update
+		this._updatePosition();
 	}
 
 	getId(): string {
@@ -94,31 +80,45 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 		return this._domNode;
 	}
 
-	getPosition(): IContentWidgetPosition | null {
-		debugLog(`getPosition called for cell ${this._cell.id}, visible: ${this._visible}`);
-		if (!this._visible) {
-			debugLog(`getPosition returning null because not visible`);
-			return null;
-		}
+	getPosition(): IOverlayWidgetPosition | null {
+		// Return null - we position ourselves via _updatePosition()
+		return null;
+	}
 
-		// Position at the start of the first line of the cell
-		// The horizontal position is handled by CSS (positioned on right side)
-		const model = this._editor.getModel();
-		if (!model) {
-			debugLog(`getPosition returning null because no model`);
-			return null;
+	/**
+	 * Update the position of the toolbar based on the line position and editor layout.
+	 */
+	private _updatePosition(): void {
+		if (!this._visible) {
+			this._domNode.style.display = 'none';
+			return;
 		}
 
 		const lineNumber = this._cell.startLine;
-		const column = 1;
+		const lineTop = this._editor.getTopForLineNumber(lineNumber);
+		const scrollTop = this._editor.getScrollTop();
+		const layoutInfo = this._editor.getLayoutInfo();
 
-		debugLog(`getPosition returning line=${lineNumber}, column=${column}`);
+		// Calculate vertical position: line top relative to viewport, offset to appear half above
+		const lineHeight = this._editor.getOption(/* lineHeight */ 66);
+		const toolbarHeight = this._domNode.offsetHeight || 26;
+		const verticalOffset = (toolbarHeight - lineHeight) / 2;
+		const top = lineTop - scrollTop - verticalOffset;
 
-		return {
-			position: { lineNumber, column },
-			preference: [ContentWidgetPositionPreference.ABOVE],
-			positionAffinity: undefined
-		};
+		// Calculate horizontal position: right edge of content area
+		const rightOffset = 14;
+		const left = layoutInfo.width - layoutInfo.minimap.minimapWidth - layoutInfo.verticalScrollbarWidth - (this._domNode.offsetWidth || 80) - rightOffset;
+
+		// Check if the toolbar is within the visible viewport
+		const isInViewport = top >= -toolbarHeight && top <= layoutInfo.height;
+
+		if (isInViewport) {
+			this._domNode.style.display = '';
+			this._domNode.style.top = `${top}px`;
+			this._domNode.style.left = `${left}px`;
+		} else {
+			this._domNode.style.display = 'none';
+		}
 	}
 
 	/**
@@ -146,20 +146,19 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 	}
 
 	/**
-	 * Hide the toolbar (removes from DOM positioning).
+	 * Hide the toolbar.
 	 */
 	hide(): void {
 		this._visible = false;
-		this._editor.layoutContentWidget(this);
+		this._updatePosition();
 	}
 
 	/**
-	 * Show the toolbar (enables DOM positioning).
+	 * Show the toolbar.
 	 */
 	show(): void {
 		this._visible = true;
-		this._editor.layoutContentWidget(this);
-		this._updateHorizontalPosition();
+		this._updatePosition();
 	}
 
 	/**
@@ -210,23 +209,6 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 			this._isMouseOverToolbar = false;
 			this._updateVisualVisibility();
 		});
-	}
-
-	/**
-	 * Update the horizontal position of the toolbar to keep it on the right side of the editor.
-	 * Content widgets are positioned by the editor using 'left', so we calculate the proper
-	 * left value based on the editor's visible width and scroll position.
-	 */
-	private _updateHorizontalPosition(): void {
-		const layoutInfo = this._editor.getLayoutInfo();
-		const scrollLeft = this._editor.getScrollLeft();
-		const toolbarWidth = this._domNode.offsetWidth || 80; // Estimate if not yet rendered
-
-		// Calculate left position: visible width - toolbar width - offset + scroll position
-		// This positions the toolbar on the right side of the visible editor area
-		const leftPosition = layoutInfo.contentWidth - toolbarWidth - this._rightOffset + scrollLeft;
-
-		this._domNode.style.left = `${leftPosition}px`;
 	}
 
 	private _createDomNode(): HTMLElement {
@@ -405,7 +387,7 @@ export class QuartoCellToolbar extends Disposable implements IContentWidget {
 	}
 
 	override dispose(): void {
-		this._editor.removeContentWidget(this);
+		this._editor.removeOverlayWidget(this);
 		super.dispose();
 	}
 }
