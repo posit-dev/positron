@@ -300,6 +300,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				// The example plot is a Seaborn plot, so use that in the image locator.
 				const imgLocator = page.getByRole('img', { name: /seaborn 1/ });
 
+				await app.workbench.toasts.closeAll();
+
 				await app.workbench.plots.setThePlotZoom('Fit');
 				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
