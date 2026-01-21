@@ -62,8 +62,9 @@ export const usePositronPackagesState = (
 						...packages,
 						[sessionId]: [...list],
 					}));
-				} catch (_error) {
+				} catch (error) {
 					setPackages((packages) => ({ ...packages, [sessionId]: [] }));
+					throw error;
 				}
 			}
 		},
