@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -407,8 +407,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
 		if (this._kernel) {
-			const packages = await this._kernel.callMethod('get_installed_packages');
-			return JSON.parse(packages).map((pkg) => ({ id: pkg, name: pkg, displayName: pkg, version: '0.0.0' }));
+			try {
+				const packages = await this._kernel.callMethod('get_installed_packages');
+				return JSON.parse(packages).map((pkg) => ({ id: pkg, name: pkg, displayName: pkg, version: '0.0.0' }));
+			} catch (err) {
+				this._kernel?.emitJupyterLog(`Cannot get packages: ${err}`, vscode.LogLevel.Error);
+				throw err;
+			}
 		}
 
 		throw new Error(`Cannot get packages: kernel not started`);
