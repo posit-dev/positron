@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -215,6 +215,7 @@ species = pl.DataFrame({
 					// Wait up to 20 seconds for the Keep button to appear
 					await app.workbench.assistant.clickKeepButton();
 					console.log('Keep button clicked for sample_3');
+					await app.workbench.assistant.waitForResponseComplete();
 				} catch (error) {
 					// Keep button didn't appear or wasn't clickable
 					// Don't fail so the rest of the tests can continue
