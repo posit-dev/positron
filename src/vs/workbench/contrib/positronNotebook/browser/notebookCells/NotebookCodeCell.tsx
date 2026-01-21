@@ -48,11 +48,10 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	return (
 		<NotebookCellWrapper
 			cell={cell}
-			hasError={hasError}
 		>
 			<div className='positron-notebook-code-cell-contents'>
 				<div className='positron-notebook-editor-section'>
-					<CellLeftActionMenu cell={cell} hasError={hasError} />
+					<CellLeftActionMenu cell={cell} />
 					<div className='positron-notebook-editor-container'>
 						<CellEditorMonacoWidget cell={cell} />
 					</div>

@@ -15,13 +15,12 @@ import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNoteb
 
 interface CellLeftActionMenuProps {
 	cell: PositronNotebookCodeCell;
-	hasError: boolean;
 }
 
 /**
  * Left-side menu for notebook cells that displays the execution order badge ([1], [2], etc.).
  */
-export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) {
+export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	// Observed values
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 
@@ -39,7 +38,7 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 				{showPending ? (
 					<span className='execution-order-badge'>-</span>
 				) : executionOrder !== undefined ? (
-					<div className='execution-order-badge-container' data-has-error={hasError}>
+					<div className='execution-order-badge-container'>
 						<span className='execution-order-badge-bracket'>[</span>
 						<span className='execution-order-badge'> {String(executionOrder)} </span>
 						<span className='execution-order-badge-bracket'>]</span>

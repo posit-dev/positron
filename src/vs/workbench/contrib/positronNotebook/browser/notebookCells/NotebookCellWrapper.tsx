@@ -24,10 +24,9 @@ import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProv
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
-export function NotebookCellWrapper({ cell, children, hasError }: {
+export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
 	children: React.ReactNode;
-	hasError?: boolean;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
@@ -127,7 +126,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
-		data-has-error={hasError}
 		data-testid='notebook-cell'
 		role='article'
 		tabIndex={0}

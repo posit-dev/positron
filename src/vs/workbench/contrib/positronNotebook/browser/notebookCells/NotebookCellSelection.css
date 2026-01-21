@@ -7,7 +7,7 @@
  * Notebook Cell Selection and Border Styles
  *
  * This CSS file defines the border and selection styles for notebook cells.
- * Borders change color based on cell states (selected, editing, hover, error)
+ * Borders change color based on cell states (selected, editing, hover)
  * while maintaining a consistent width to prevent layout shifts.
  *
  * It also includes styles for assistant cell highlight animations used when AI modifies cells.
@@ -63,15 +63,6 @@
 	border-color: var(--vscode-editorWidget-border);
 }
 
-/* === Selection States: Error === */
-
-.positron-notebook-cell[data-has-error="true"]:not(.selected) .positron-notebook-editor-section,
-.positron-notebook-cell[data-has-error="true"].editing .positron-notebook-editor-section,
-.positron-notebook-code-cell[data-has-error="true"]:not(.selected) .positron-notebook-cell-outputs
-.positron-notebook-code-cell[data-has-error="true"].editing .positron-notebook-cell-outputs {
-	border-color: var(--vscode-errorForeground);
-}
-
 /* === Special Case: Code Cells with No Outputs === */
 
 .positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
@@ -92,11 +83,6 @@
 
 .positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
 	border-bottom-color: var(--vscode-editorWidget-border);
-}
-
-.positron-notebook-cell[data-has-error="true"].editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section,
-.positron-notebook-cell[data-has-error="true"]:not(.selected):has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
-	border-bottom-color: var(--vscode-errorForeground);
 }
 
 /* === Markdown Cells: Editor (when shown) === */

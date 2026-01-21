@@ -70,8 +70,3 @@ span.execution-order-badge {
 	font-family: var(--monaco-monospace-font);
 	cursor: pointer;
 }
-
-/* Error state styling - use error color for execution badge */
-.execution-order-badge-container[data-has-error="true"] {
-	color: var(--vscode-errorForeground);
-}

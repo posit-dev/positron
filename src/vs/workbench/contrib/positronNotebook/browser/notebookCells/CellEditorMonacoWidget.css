@@ -23,12 +23,6 @@
 	outline-offset: -1px;
 }
 
-/* When the parent cell has an error, highlight the editor with error color */
-.positron-notebook-cell[data-has-error="true"] .positron-cell-editor-monaco-widget:focus,
-.positron-notebook-cell[data-has-error="true"] .positron-cell-editor-monaco-widget:focus-within {
-	outline-color: var(--vscode-positronNotebook-error-color);
-}
-
 /* Ensure the editor container has minimum height for empty cells */
 .positron-monaco-editor-container {
 	min-height: 1rem;
