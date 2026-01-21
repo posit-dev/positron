@@ -281,6 +281,12 @@ jobs:
           echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
           npx playwright install msedge
 
+      - name: Set Report URL
+        uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
+          skip-summary: true
+
       - name: Run Playwright Tests
         shell: bash
         env:
