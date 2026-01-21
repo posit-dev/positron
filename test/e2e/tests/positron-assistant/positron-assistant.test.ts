@@ -203,10 +203,11 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 
 	/**
 	 * Test Case 1: Single Provider with Default Model
-	 * Verifies that when a user configures a default model for a provider,
-	 * the model picker shows "(default)" suffix next to the model name.
+	 * Verifies that when a user configures a default model for a provider:
+	 * 1. The model picker shows "(default)" suffix next to the model name
+	 * 2. The default model appears first in the vendor group
 	 */
-	test('Verify default model indicator shows for configured default model', async function ({ app, settings }) {
+	test('Verify default model indicator and ordering for single provider', async function ({ app, settings }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
 		await settings.set({
 			'positron.assistant.models.preference.byProvider': {
@@ -230,40 +231,10 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 			const nonDefaultModel = models.find(m => m.label === 'Echo');
 			expect(nonDefaultModel, 'Expected Echo Language Model to exist without "(default)" indicator').toBeDefined();
 			expect(nonDefaultModel?.isDefault).toBe(false);
-		}).toPass({ timeout: 30000 });
 
-		// Close the dropdown
-		await app.workbench.assistant.closeModelPickerDropdown();
-
-		// Clean up: reset the setting
-		await settings.set({
-			'positron.assistant.models.preference.byProvider': {}
-		});
-	});
-
-	/**
-	 * Test: Verify default model appears first in vendor group
-	 * When a default model is configured, it should be sorted to appear
-	 * first within its vendor's model list.
-	 */
-	test('Verify default model appears first in vendor group', async function ({ app, settings }) {
-		// Configure Echo Language Model v2 as default (it's normally listed second)
-		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'echo': 'Echo Language Model v2'
-			}
-		}, { reload: true });
-
-		await expect(async () => {
-			await app.workbench.assistant.pickModel();
-
-			// Get models for the Echo vendor
-			const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('ECHO');
-
-			// Verify we got the expected models
+			// Verify default model appears first in vendor group
+			const echoModels = await app.workbench.assistant.getModelPickerItemsForVendor('Echo');
 			expect(echoModels.length).toBeGreaterThanOrEqual(2);
-
-			// The default model (v2) should appear first
 			expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
 			expect(echoModels[0].isDefault).toBe(true);
 		}).toPass({ timeout: 30000 });
@@ -271,7 +242,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 		// Close the dropdown
 		await app.workbench.assistant.closeModelPickerDropdown();
 
-		// Clean up
+		// Clean up: reset the setting
 		await settings.set({
 			'positron.assistant.models.preference.byProvider': {}
 		});
@@ -335,10 +306,11 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 
 	/**
 	 * Test Case 2: Multiple Providers with Different Defaults
-	 * Verifies that when a user configures default models for multiple providers,
-	 * each provider shows its respective default model with "(default)" suffix.
+	 * Verifies that when a user configures default models for multiple providers:
+	 * 1. Each provider shows its respective default model with "(default)" suffix
+	 * 2. Each default model appears first in its vendor group
 	 */
-	test('Verify default model indicators for multiple providers', async function ({ app, settings }) {
+	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
 			'positron.assistant.models.preference.byProvider': {
@@ -353,9 +325,9 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			// Get all models from the picker
 			const models = await app.workbench.assistant.getModelPickerItems();
 
-			// Verify Anthropic default - Claude Haiku 3.5 should have "(default)"
+			// Verify Anthropic default - Claude Haiku 4.5 should have "(default)"
 			const anthropicDefault = models.find(m => m.label === 'Claude Haiku 4.5 (default)');
-			expect(anthropicDefault, 'Expected Claude Haiku 3.5 to have "(default)" indicator').toBeDefined();
+			expect(anthropicDefault, 'Expected Claude Haiku 4.5 to have "(default)" indicator').toBeDefined();
 			expect(anthropicDefault?.isDefault).toBe(true);
 
 			// Verify other Anthropic models do NOT have "(default)"
@@ -370,29 +342,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			// Verify other Echo model does NOT have "(default)"
 			const echoNonDefault = models.find(m => m.label === 'Echo' && !m.isDefault);
 			expect(echoNonDefault, 'Expected Echo to exist without "(default)" indicator').toBeDefined();
-		}).toPass({ timeout: 30000 });
 
-		// Close the dropdown
-		await app.workbench.assistant.closeModelPickerDropdown();
-	});
-
-	/**
-	 * Test: Verify each provider's default appears first in its vendor group
-	 * When defaults are configured for multiple providers, each default model
-	 * should be sorted to appear first within its respective vendor's model list.
-	 */
-	test('Verify default models appear first in their respective vendor groups', async function ({ app, settings }) {
-		// Configure defaults for both providers
-		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'anthropic-api': 'Claude Haiku 4.5',
-				'echo': 'Echo Language Model v2'
-			}
-		}, { reload: true });
-
-		await expect(async () => {
-			await app.workbench.assistant.pickModel();
-
+			// Verify default models appear first in their respective vendor groups
 			// Check Anthropic vendor group - Haiku should be first
 			const anthropicModels = await app.workbench.assistant.getModelPickerItemsForVendor('Anthropic');
 			expect(anthropicModels.length).toBeGreaterThanOrEqual(2);
