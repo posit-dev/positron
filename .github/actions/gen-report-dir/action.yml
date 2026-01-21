@@ -18,16 +18,16 @@ runs:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        # Fix GitHub masking: "***" → "e2e" (GitHub masks "e2e" as a secret)
-        # Keep full project name (e.g., "e2e-electron" stays as "e2e-electron")
-        # Use sed for reliable literal string replacement (bash glob escaping is unreliable here)
-        PROJECT=$(echo "${{ inputs.project }}" | sed 's/\*\*\*/e2e/g')
+        # Strip "e2e-" prefix from project name to avoid GitHub secret masking issues
+        # (GitHub masks "e2e" as "***" which breaks URLs)
+        # e.g., "e2e-electron" → "electron", "***-electron" → "electron"
+        PROJECT=$(echo "${{ inputs.project }}" | sed -e 's/^\*\*\*-//' -e 's/^e2e-//')
         echo "Project: $PROJECT"
 
         # Detect distro suffix (only for Linux)
         # Format: {project}[-{distro}]
-        # - Linux: e2e-electron-ubuntu, e2e-electron-rhel, etc.
-        # - Windows/Mac: no suffix (project already includes OS, e.g., e2e-windows)
+        # - Linux: electron-ubuntu, electron-rhel, etc.
+        # - Windows/Mac: electron, windows, etc.
         DISTRO_SUFFIX=""
         if [[ "$RUNNER_OS" == "Linux" ]] && [[ -f /etc/os-release ]]; then
           # Parse Linux distro from os-release
