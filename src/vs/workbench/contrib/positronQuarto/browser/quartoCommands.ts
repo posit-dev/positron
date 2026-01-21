@@ -14,6 +14,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { IQuartoExecutionManager } from './quartoExecutionManager.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
+import { IQuartoOutputManager } from './quartoOutputManager.js';
 import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 
@@ -413,6 +414,7 @@ registerAction2(class ClearAllOutputsAction extends Action2 {
 		// Extract all services synchronously before any async operations
 		const editorService = accessor.get(IEditorService);
 		const executionManager = accessor.get(IQuartoExecutionManager);
+		const outputManager = accessor.get(IQuartoOutputManager);
 
 		const context = getQuartoContext(editorService);
 		if (!context) {
@@ -421,7 +423,11 @@ registerAction2(class ClearAllOutputsAction extends Action2 {
 
 		const { documentUri } = context;
 
+		// Clear execution state (cancels pending, clears running)
 		executionManager.clearExecutionState(documentUri);
+
+		// Clear all output view zones
+		outputManager.clearAllOutputs(documentUri);
 	}
 });
 

@@ -12,11 +12,8 @@
 	background: var(--vscode-editor-inlineValuesBackground, var(--vscode-editor-background));
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
-	line-height: var(--vscode-editor-line-height, 1.5);
-	overflow: auto;
-	max-height: 400px;
+	/* Font is applied via JavaScript using editor font settings */
+	/* No overflow or max-height - renders at natural height, editor handles scrolling */
 	box-sizing: border-box;
 }
 
@@ -77,8 +74,9 @@
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	color: var(--vscode-foreground);
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 /* Error output (stderr) */
@@ -88,8 +86,9 @@
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	color: var(--vscode-errorForeground);
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 /* Error output container */
@@ -106,8 +105,9 @@
 	padding: 0;
 	white-space: pre-wrap;
 	word-wrap: break-word;
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
+	/* Font is inherited from container which uses editor font settings */
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 /* Image output container */
@@ -127,6 +127,8 @@
 /* HTML output */
 .quarto-output-html {
 	color: var(--vscode-foreground);
+	user-select: text;
+	-webkit-user-select: text;
 }
 
 .quarto-output-html table {
@@ -196,13 +198,12 @@
 	padding: 8px;
 	white-space: pre-wrap;
 	word-wrap: break-word;
-	font-family: var(--vscode-editor-font-family);
-	font-size: calc(var(--vscode-editor-font-size) * 0.85);
+	/* Font is inherited from container which uses editor font settings, but slightly smaller */
+	font-size: 0.85em;
 	color: var(--vscode-descriptionForeground);
 	background: var(--vscode-textCodeBlock-background);
 	border-radius: 2px;
-	max-height: 200px;
-	overflow: auto;
+	/* No max-height or overflow - renders at natural height */
 }
 
 /* Loading indicator for async content */

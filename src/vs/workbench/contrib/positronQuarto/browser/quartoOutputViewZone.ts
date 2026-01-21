@@ -15,16 +15,14 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
+import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
+import { ANSIOutput, ANSIOutputLine, ANSIOutputRun, ANSIColor, ANSIStyle } from '../../../../base/common/ansiOutput.js';
 
 /**
  * Minimum height for a view zone in pixels.
  */
 const MIN_VIEW_ZONE_HEIGHT = 24;
-
-/**
- * Maximum height for a view zone in pixels.
- */
-const MAX_VIEW_ZONE_HEIGHT = 400;
 
 /**
  * Options for creating a QuartoOutputViewZone.
@@ -99,8 +97,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._outputContainer.className = 'quarto-output-content';
 		this.domNode.appendChild(this._outputContainer);
 
+		// Apply editor font to the output container
+		this._applyEditorFont();
+
+		// Listen for font changes
+		this._register(this._editor.onDidChangeConfiguration(e => {
+			if (e.hasChanged(EditorOption.fontInfo)) {
+				this._applyEditorFont();
+			}
+		}));
+
 		// Set up keyboard navigation
 		this._setupKeyboardNavigation();
+	}
+
+	/**
+	 * Apply the editor's font settings to the output container.
+	 */
+	private _applyEditorFont(): void {
+		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
+		applyFontInfo(this._outputContainer, fontInfo);
 	}
 
 	/**
@@ -250,11 +266,18 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		icon.className = ThemeIcon.asClassName(Codicon.close);
 		button.appendChild(icon);
 
-		button.onclick = (e) => {
+		// Handle mousedown to prevent the editor from consuming the event
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+
+		// Handle click to clear outputs
+		button.addEventListener('click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
 			this.clearOutputs();
-		};
+		});
 
 		return button;
 	}
@@ -365,11 +388,135 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _renderText(content: string, type: 'stdout' | 'stderr'): HTMLElement {
-		const pre = document.createElement('pre');
-		pre.className = `quarto-output-${type}`;
-		pre.textContent = content;
-		pre.setAttribute('role', 'log');
-		return pre;
+		const container = document.createElement('div');
+		container.className = `quarto-output-${type}`;
+		container.setAttribute('role', 'log');
+
+		// Process ANSI escape sequences
+		const outputLines = ANSIOutput.processOutput(content);
+		this._renderAnsiOutputLines(outputLines, container);
+
+		return container;
+	}
+
+	/**
+	 * Render ANSI output lines into a container element.
+	 */
+	private _renderAnsiOutputLines(outputLines: readonly ANSIOutputLine[], container: HTMLElement): void {
+		for (const outputLine of outputLines) {
+			if (outputLine.outputRuns.length === 0) {
+				// Empty line
+				container.appendChild(document.createElement('br'));
+			} else {
+				const lineDiv = document.createElement('div');
+				for (const run of outputLine.outputRuns) {
+					const span = this._renderAnsiRun(run);
+					lineDiv.appendChild(span);
+				}
+				container.appendChild(lineDiv);
+			}
+		}
+	}
+
+	/**
+	 * Render a single ANSI output run as a styled span.
+	 */
+	private _renderAnsiRun(run: ANSIOutputRun): HTMLElement {
+		const span = document.createElement('span');
+		span.textContent = run.text;
+
+		if (run.format) {
+			// Apply styles
+			if (run.format.styles) {
+				for (const style of run.format.styles) {
+					this._applyAnsiStyle(span, style);
+				}
+			}
+
+			// Apply foreground color
+			if (run.format.foregroundColor) {
+				const color = this._resolveAnsiColor(run.format.foregroundColor, 'foreground');
+				if (color) {
+					span.style.color = color;
+				}
+			}
+
+			// Apply background color
+			if (run.format.backgroundColor) {
+				const color = this._resolveAnsiColor(run.format.backgroundColor, 'background');
+				if (color) {
+					span.style.backgroundColor = color;
+				}
+			}
+		}
+
+		return span;
+	}
+
+	/**
+	 * Apply an ANSI style to an element.
+	 */
+	private _applyAnsiStyle(element: HTMLElement, style: ANSIStyle): void {
+		switch (style) {
+			case ANSIStyle.Bold:
+				element.style.fontWeight = 'bold';
+				break;
+			case ANSIStyle.Dim:
+				element.style.fontWeight = 'lighter';
+				break;
+			case ANSIStyle.Italic:
+				element.style.fontStyle = 'italic';
+				break;
+			case ANSIStyle.Underlined:
+				element.style.textDecoration = 'underline';
+				break;
+			case ANSIStyle.DoubleUnderlined:
+				element.style.textDecoration = 'underline double';
+				break;
+			case ANSIStyle.CrossedOut:
+				element.style.textDecoration = 'line-through';
+				break;
+			case ANSIStyle.Hidden:
+				element.style.visibility = 'hidden';
+				break;
+		}
+	}
+
+	/**
+	 * Resolve an ANSI color to a CSS color value.
+	 */
+	private _resolveAnsiColor(color: ANSIColor | string, type: 'foreground' | 'background'): string | undefined {
+		// If it's a string starting with #, it's an RGB color
+		if (typeof color === 'string' && color.startsWith('#')) {
+			return color;
+		}
+
+		// Map ANSI colors to CSS variables
+		switch (color) {
+			case ANSIColor.Black:
+			case ANSIColor.Red:
+			case ANSIColor.Green:
+			case ANSIColor.Yellow:
+			case ANSIColor.Blue:
+			case ANSIColor.Magenta:
+			case ANSIColor.Cyan:
+			case ANSIColor.White:
+			case ANSIColor.BrightBlack:
+			case ANSIColor.BrightRed:
+			case ANSIColor.BrightGreen:
+			case ANSIColor.BrightYellow:
+			case ANSIColor.BrightBlue:
+			case ANSIColor.BrightMagenta:
+			case ANSIColor.BrightCyan:
+			case ANSIColor.BrightWhite:
+				return `var(--vscode-positronConsole-${color})`;
+			default:
+				// Unknown color type
+				if (typeof color === 'string') {
+					return color;
+				}
+				return undefined;
+		}
 	}
 
 	private _renderError(data: string): HTMLElement {
@@ -695,11 +842,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Measure actual content height
 		const contentHeight = this._outputContainer.scrollHeight;
 
-		// Clamp to reasonable bounds
-		const newHeight = Math.max(
-			MIN_VIEW_ZONE_HEIGHT,
-			Math.min(contentHeight + 16, MAX_VIEW_ZONE_HEIGHT) // +16 for padding
-		);
+		// Use natural height with minimum bound only (no max - scrolling is handled by the editor)
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, contentHeight + 16); // +16 for padding
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;
