@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IOverlayWidget, IOverlayWidgetPosition, ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { QuartoCodeCell } from '../common/quartoTypes.js';
@@ -97,7 +98,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		const layoutInfo = this._editor.getLayoutInfo();
 
 		// Calculate vertical position: line top relative to viewport, offset to appear half above
-		const lineHeight = this._editor.getOption(/* lineHeight */ 66);
+		const lineHeight = this._editor.getOption(EditorOption.lineHeight);
 		const toolbarHeight = this._domNode.offsetHeight || 26;
 		const verticalOffset = (toolbarHeight - lineHeight) / 2;
 		const top = lineTop - scrollTop - verticalOffset;
