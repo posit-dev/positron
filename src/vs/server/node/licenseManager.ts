@@ -94,35 +94,48 @@ async function validateLicenseFile(
 
 	// Extract the signature and JSON content
 	const jsonStartIndex = result.indexOf('{');
-	if (jsonStartIndex === -1) {
-		throw new Error(`License validation failed: No JSON content found in output. Raw output: ${result}`);
+	if (jsonStartIndex !== -1) {
+		try {
+			const jsonContent = result.slice(jsonStartIndex);
+			const output = JSON.parse(jsonContent) as LicenseVerifyOutput;
+
+			// Log license status if we successfully parsed JSON
+			console.log(`Successfully validated Positron license (Status: ${output.status}, Days left: ${output['days-left']})`);
+		} catch {
+			// JSON parsing failed, but license is still valid
+			console.log('Successfully validated Positron license (JSON details not available)');
+		}
+	} else {
+		// No JSON data found but verification passed
+		console.log('Successfully validated Positron license (no JSON details available)');
 	}
-
-	const jsonContent = result.slice(jsonStartIndex);
-	const output = JSON.parse(jsonContent) as LicenseVerifyOutput;
-
-	// Validate the output structure
-	if (!output.status || output['days-left'] === undefined) {
-		throw new Error('Invalid license verification response: missing required fields');
-	}
-
-	// Check the license status - only 'active' and 'evaluation' are valid
-	const validStatuses = ['active', 'evaluation'];
-	if (!validStatuses.includes(output.status.toLowerCase())) {
-		throw new Error(`Invalid license status: ${output.status}`);
-	}
-
-	// Check if the license has days left
-	if (output['days-left'] <= 0) {
-		throw new Error(
-			`License has expired. Days remaining: ${output['days-left']}. ` +
-			'Please contact your administrator to renew your license.'
-		);
-	}
-
-	console.log(`Successfully validated Positron license (Status: ${output.status}, Days left: ${output['days-left']})`);
 
 	return true;
+}
+
+
+/**
+ * Gets the platform-specific subdirectory for the license-manager binary.
+ * On macOS, this is 'darwin'. On Linux, this is 'linux/<arch>' where arch
+ * is determined by the system architecture (e.g., 'x86_64' or 'aarch64').
+ * @returns The platform subdirectory path
+ */
+function getPlatformSubdir(): string {
+	const platform = os.platform();
+	if (platform === 'darwin') {
+		return 'darwin';
+	} else if (platform === 'linux') {
+		const arch = os.arch();
+		// Map Node.js arch names to the directory names used by the build
+		const archMap: Record<string, string> = {
+			'x64': 'x86_64',
+			'arm64': 'aarch64',
+		};
+		const archDir = archMap[arch] || arch;
+		return path.join('linux', archDir);
+	}
+	// Fallback for other platforms
+	return platform;
 }
 
 /**
@@ -131,8 +144,8 @@ async function validateLicenseFile(
  * @returns The absolute path to the license-manager binary
  */
 function findLicenseManagerPath(installPath: string): string {
-
-	const licenseManagerPath = path.join(installPath, 'resources', 'activation', os.platform(), 'license-manager');
+	const platformSubdir = getPlatformSubdir();
+	const licenseManagerPath = path.join(installPath, 'resources', 'activation', platformSubdir, 'license-manager');
 
 	if (!fs.existsSync(licenseManagerPath)) {
 		throw new Error(`License manager binary not found at: ${licenseManagerPath}`);
