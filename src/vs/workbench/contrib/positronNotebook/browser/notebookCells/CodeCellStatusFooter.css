@@ -79,9 +79,8 @@
 	content: '';
 	position: absolute;
 	right: -7px; /* center the separator in the 13px gap between footer text */
-	top: 0px;
-	bottom: 0px;
+	top: -1px;
+	bottom: -1px;
 	width: 1px;
-	background-color: var(--vscode-positronNotebook-cellFooterForeground);
-	opacity: 0.6;
+	background-color: var(--vscode-widget-border);
 }
