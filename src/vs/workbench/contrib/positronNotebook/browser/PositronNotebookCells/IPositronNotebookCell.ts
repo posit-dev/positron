@@ -324,6 +324,10 @@ export type ParsedOutput = ParsedTextOutput |
 	content: string;
 } |
 {
+	type: 'markdown';
+	content: string;
+} |
+{
 	type: 'unknown';
 	content: string;
 };

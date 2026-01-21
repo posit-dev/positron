@@ -18,6 +18,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_e2e_debian:
+        description: "E2E Tests / Electron (Debian)"
+        required: false
+        default: false
+        type: boolean
       run_e2e_windows:
         description: "E2E Tests / Electron (Windows)"
         required: false
@@ -38,6 +43,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_e2e_browser_debian:
+        description: "E2E Tests / Chromium (Debian)"
+        required: false
+        default: false
+        type: boolean
       run_unit_tests:
         description: "Unit Tests"
         required: false
@@ -48,6 +58,11 @@ on:
         required: false
         default: false
         type: boolean
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: "latest"
+        type: string
       notify_on:
         description: "Slack notification on:"
         required: false
@@ -57,22 +72,48 @@ on:
           - failure
           - always
           - never
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+      enable_diagnostic_logging:
+        description: "Enable diagnostic logging"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
+  validate-commit:
+    name: validate-commit
+    if: ${{ inputs.commit != 'latest' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit exists
+        run: |
+          echo "Validating commit: ${{ inputs.commit }}"
+          if git cat-file -t "${{ inputs.commit }}" >/dev/null 2>&1; then
+            echo "✓ Commit ${{ inputs.commit }} exists"
+            git log -1 --format="  Subject: %s%n  Author: %an%n  Date: %ad" "${{ inputs.commit }}"
+          else
+            echo "✗ Commit ${{ inputs.commit }} does not exist in this repository"
+            echo "  Make sure you're using a full SHA and the commit has been pushed"
+            exit 1
+          fi
+
   setup:
     name: setup
-    if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (inputs.run_e2e_linux || inputs.run_e2e_browser) }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
 
   e2e-electron:
     name: e2e
     needs: [setup]
-    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_linux) }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -88,13 +129,17 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-windows:
     name: e2e
-    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_windows) }}
     uses: ./.github/workflows/test-e2e-windows-run.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ""
       project: "e2e-windows"
       display_name: "windows"
@@ -105,11 +150,12 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium:
     name: e2e
     needs: [setup]
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_browser) }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -125,13 +171,17 @@ jobs:
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
       max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-rhel:
     name: e2e
-    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_rhel  }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_rhel) }}
     uses: ./.github/workflows/test-e2e-rhel.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron (rhel)"
@@ -140,13 +190,17 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-rhel:
     name: e2e
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser_rhel }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_browser_rhel) }}
     uses: ./.github/workflows/test-e2e-rhel.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (rhel)"
@@ -155,13 +209,17 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-suse:
     name: e2e
-    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_suse  }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_suse) }}
     uses: ./.github/workflows/test-e2e-suse.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ""
       project: "e2e-electron"
       display_name: "electron (suse)"
@@ -170,13 +228,17 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-suse:
     name: e2e
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser_suse }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_browser_suse) }}
     uses: ./.github/workflows/test-e2e-suse.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
       grep: ""
       project: "e2e-chromium"
       display_name: "chromium (suse)"
@@ -185,25 +247,69 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-debian:
+    name: e2e
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_debian) }}
+    uses: ./.github/workflows/test-e2e-debian.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
+      grep: ""
+      project: "e2e-electron"
+      display_name: "electron (debian)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/debian' || 'electron/debian' }}
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: false
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-chromium-debian:
+    name: e2e
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_browser_debian) }}
+    uses: ./.github/workflows/test-e2e-debian.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      skip_cache: ${{ inputs.commit != 'latest' }}
+      grep: ""
+      project: "e2e-chromium"
+      display_name: "chromium (debian)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/debian' || 'chromium/debian' }}
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   unit-tests:
     name: test
-    if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_unit_tests) }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
 
   integration-tests:
     name: test
-    if: ${{ github.event_name == 'schedule' ||  inputs.run_integration_tests }}
+    needs: [validate-commit]
+    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_integration_tests) }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
     with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       pull_request: false
 
   slack-notify:
     if: always()
     needs:
-      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
+      [validate-commit, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, e2e-suse, e2e-chromium-suse, e2e-debian, e2e-chromium-debian, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}

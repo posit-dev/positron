@@ -19,6 +19,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -45,7 +46,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Configuration hooks to conditionally show the quick-fix buttons
 	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
-	const enableNotebookMode = usePositronConfiguration<boolean>('positron.assistant.notebookMode.enable');
+	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
 
 	// Only show buttons if assistant is enabled, notebook mode is enabled, and chat models are available

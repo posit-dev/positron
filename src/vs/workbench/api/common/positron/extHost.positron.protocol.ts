@@ -9,7 +9,8 @@ import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } fr
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
-import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
+import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
+import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
@@ -191,21 +192,6 @@ export interface ExtHostPlotsServiceShape {
 	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
 }
 
-// This is the same as the NotebookCell interface in the positron.d.ts file but
-// it's often co-imported with interfaces from here so we'll re-export it here.
-export type INotebookCellDTO = notebooks.NotebookCell;
-
-/**
- * Data transfer object for notebook context information.
- */
-export interface INotebookContextDTO {
-	uri: string;
-	kernelId?: string;
-	kernelLanguage?: string;
-	cellCount: number;
-	selectedCells: INotebookCellDTO[];
-	allCells?: INotebookCellDTO[];
-}
 
 /**
  * Data transfer object for notebook cell output information.

@@ -126,6 +126,10 @@ export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
 		return { type: 'html', content: message };
 	}
 
+	if (mime === 'text/markdown') {
+		return { type: 'markdown', content: message };
+	}
+
 	if (mime === 'image/png') {
 		return {
 			type: 'image',

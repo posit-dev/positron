@@ -1,16 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { getLanguageModels } from './models';
+import { AutoconfigureResult, getModelProviders } from './providers';
 import { completionModels } from './completion';
 import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
-import { PositLanguageModel } from './posit.js';
+import { PositModelProvider } from './providers/posit/positProvider.js';
 import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
@@ -156,11 +156,14 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
-	const autoconfiguredModels = getAutoconfiguredModels();
-	const allProviders = [...getLanguageModels(), ...completionModels];
+	// But exclude any that are already registered manually
+	// Use a Set for O(1) lookup instead of Array.some() which is O(n)
+	const registeredProviderIds = new Set(registeredModels?.map(rm => rm.provider));
+	const autoconfiguredModels = getAutoconfiguredModels().filter(m => !registeredProviderIds.has(m.provider));
+	const allProviders = [...getModelProviders(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
-	const providerAutoconfigureFns = new Map<string, () => Promise<{ signedIn: boolean; message?: string }>>();
+	const providerAutoconfigureFns = new Map<string, () => Promise<AutoconfigureResult>>();
 	for (const provider of allProviders) {
 		if ('autoconfigure' in provider && typeof provider.autoconfigure === 'function') {
 			providerAutoconfigureFns.set(provider.source.provider.id, provider.autoconfigure);
@@ -212,13 +215,13 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 								const result = await autoconfigureFn();
 								return {
 									...source,
-									signedIn: result.signedIn,
+									signedIn: result.configured,
 									defaults: {
 										...source.defaults,
 										autoconfigure: {
 											type: positron.ai.LanguageModelAutoconfigureType.Custom,
 											message: result.message ?? source.defaults.autoconfigure.message,
-											signedIn: result.signedIn
+											signedIn: result.configured
 										}
 									},
 								};
@@ -252,7 +255,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				break;
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
-				PositLanguageModel.cancelCurrentSignIn();
+				PositModelProvider.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
@@ -271,11 +274,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Create unique ID for the configuration
 	const id = randomUUID();
 
-	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
-	// Some models such as Anthropic can use either autoconfiguration or manual configuration;
-	// if an apiKey is provided, treat it as manual configuration
-	const providerSource = sources.find(source => source.provider.id === userConfig.provider);
-	const isAutoconfigured = !apiKey && providerSource?.defaults.autoconfigure !== undefined;
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
@@ -311,25 +309,15 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 
 	// Register the new model FIRST, before saving configuration
+	// Note: Autoconfigurable providers are registered upon extension activation, so don't need to be handled here.
+	// Likewise, the configuration dialog hides affordances to login/logout for autoconfigured models, so we'd never reach this state.
 	try {
 		await registerModel(newConfig, context, storage);
-
-		if (isAutoconfigured) {
-			// Track autoconfigured models in memory so they are returned by
-			// getAutoconfiguredModels()
-			addAutoconfiguredModel({
-				...newConfig,
-				apiKey: apiKey || ''
-			});
-		} else {
-			// Only save to persistent state for non-autoconfigured models
-			// Autoconfigured models (e.g., Copilot, env var based) are managed
-			// externally
-			await context.globalState.update(
-				'positron.assistant.models',
-				[...existingConfigs, newConfig]
-			);
-		}
+		// Update persistent storage with new configuration
+		await context.globalState.update(
+			'positron.assistant.models',
+			[...existingConfigs, newConfig]
+		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
@@ -377,13 +365,16 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 				await CopilotService.instance().signIn();
 				break;
 			case 'posit-ai':
-				await PositLanguageModel.signIn(storage);
+				await PositModelProvider.signIn(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
 		}
 
-		await saveModel(userConfig, sources, storage, context);
+		// Special case: Copilot handles saving its own configuration internally
+		if (userConfig.provider !== 'copilot-auth') {
+			await saveModel(userConfig, sources, storage, context);
+		}
 
 		PositronAssistantApi.get().notifySignIn(userConfig.provider);
 
@@ -405,7 +396,7 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			case 'posit-ai':
-				oauthCompleted = await PositLanguageModel.signOut(storage);
+				oauthCompleted = await PositModelProvider.signOut(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));

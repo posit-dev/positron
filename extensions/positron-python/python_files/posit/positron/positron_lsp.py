@@ -31,6 +31,7 @@ import os
 import re
 import threading
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -43,6 +44,7 @@ from .help_comm import ShowHelpTopicParams
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
 
+    from ._vendor.pygls.workspace.text_document import TextDocument
     from .positron_ipkernel import PositronShell
 
 logger = logging.getLogger(__name__)
@@ -138,6 +140,55 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return resolve_node(tree.body)
     except Exception:
         return None
+
+
+def _parse_os_imports(source: str) -> dict[str, str]:
+    """
+    Parse import statements to find os module imports.
+
+    Returns a mapping of alias -> 'os' for any imports of the os module.
+    Only supports `import os` and `import os as <alias>` forms.
+    Does NOT support `from os import ...` (out of scope).
+
+    Returns empty dict if source is empty, invalid, or has no os imports.
+    """
+    if not source or not source.strip():
+        return {}
+
+    imports: dict[str, str] = {}
+
+    # First try parsing the whole source
+    try:
+        tree = ast.parse(source, mode="exec")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "os":
+                        key = alias.asname if alias.asname else "os"
+                        imports[key] = "os"
+        return imports
+    except SyntaxError:
+        pass
+
+    # If whole source fails to parse (e.g., incomplete code during typing),
+    # try to extract and parse just the import statements
+    # Split by common statement separators and try each part
+    for part in re.split(r"[;\n]", source):
+        part = part.strip()
+        if not part.startswith("import "):
+            continue
+        try:
+            tree = ast.parse(part, mode="exec")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == "os":
+                            key = alias.asname if alias.asname else "os"
+                            imports[key] = "os"
+        except SyntaxError:
+            continue
+
+    return imports
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -450,25 +501,63 @@ def _handle_completion(
 
     # Get text before cursor for context
     text_before_cursor = line[: params.position.character]
+    text_after_cursor = line[params.position.character :]
 
-    # Check for dict key access pattern first (e.g., x[" or x[')
+    # Check for parameter completion first (e.g., inside a function call like "f(")
+    param_items = _get_parameter_completions(server, text_before_cursor)
+    if param_items:
+        items.extend(param_items)
+
+    # Determine if we're inside a function call
+    inside_function_call = bool(param_items) or _is_inside_function_call(text_before_cursor)
+
+    # Check for dict key access pattern (e.g., x[" or x[')
     # This includes DataFrame column access and environment variables
-    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*["\']([^"\']*)?$', text_before_cursor)
+    dict_key_match = re.search(r'(\w[\w\.]*)\s*\[\s*(["\'])([^"\']*)?$', text_before_cursor)
     if dict_key_match:
+        quote_char = dict_key_match.group(2)
+        # Check if there's already a closing quote after cursor
+        has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
         items.extend(
             _get_dict_key_completions(
-                server, dict_key_match.group(1), dict_key_match.group(2) or ""
+                server,
+                expr=dict_key_match.group(1),
+                prefix=dict_key_match.group(3) or "",
+                quote_char=quote_char,
+                has_closing_quote=has_closing_quote,
+                document=document,
             )
         )
-    elif "." in text_before_cursor:
-        # Attribute completion
-        items.extend(_get_attribute_completions(server, text_before_cursor))
-    elif trimmed_line.startswith((_LINE_MAGIC_PREFIX, _CELL_MAGIC_PREFIX)):
-        # Magic command completion only
-        pass  # Will add magics below
-    else:
-        # Namespace completions
-        items.extend(_get_namespace_completions(server, text_before_cursor))
+
+    # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
+    getenv_items = _get_getenv_completions(
+        server, text_before_cursor, text_after_cursor, document=document
+    )
+    items.extend(getenv_items)
+
+    # Check for path completions in bare string literals (not dict access, not getenv)
+    if not dict_key_match and not getenv_items:
+        path_items = _get_path_completions(
+            server, text_before_cursor, text_after_cursor, params.position
+        )
+        if path_items:
+            return types.CompletionList(is_incomplete=False, items=path_items)
+
+    if not dict_key_match:
+        if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
+            # Attribute completion (only if not inside a function call)
+            items.extend(_get_attribute_completions(server, text_before_cursor))
+        elif trimmed_line.startswith((_LINE_MAGIC_PREFIX, _CELL_MAGIC_PREFIX)):
+            # Magic command completion only
+            pass  # Will add magics below
+        else:
+            # Namespace completions - always include these so users can use positional arguments
+            # When inside a function call, don't filter by prefix to allow any namespace item
+            items.extend(
+                _get_namespace_completions(
+                    server, text_before_cursor, filter_prefix=not inside_function_call
+                )
+            )
 
     # Add magic completions if appropriate
     is_completing_attribute = "." in trimmed_line
@@ -480,10 +569,117 @@ def _handle_completion(
     return types.CompletionList(is_incomplete=False, items=items) if items else None
 
 
-def _get_namespace_completions(
+def _is_inside_function_call(text_before_cursor: str) -> bool:
+    """Check if the cursor is inside a function call (after an opening parenthesis)."""
+    # Count unmatched opening parentheses
+    paren_depth = 0
+    for c in text_before_cursor:
+        if c == "(":
+            paren_depth += 1
+        elif c == ")":
+            paren_depth -= 1
+    return paren_depth > 0
+
+
+def _get_parameter_completions(
     server: PositronLanguageServer, text_before_cursor: str
 ) -> list[types.CompletionItem]:
-    """Get completions from the shell's namespace."""
+    """Get parameter completions when inside a function call."""
+    if server.shell is None:
+        return []
+
+    # Find if we're inside a function call
+    func_end = _find_enclosing_paren(text_before_cursor)
+    if func_end < 0:
+        return []
+
+    # Extract function name/expression
+    func_expr = text_before_cursor[:func_end].rstrip()
+    match = re.search(r"([\w\.]+)$", func_expr)
+    if not match:
+        return []
+
+    func_name = match.group(1)
+
+    # Safely resolve the callable
+    obj = _safe_resolve_expression(server.shell.user_ns, func_name)
+    if obj is None or not callable(obj):
+        return []
+
+    # Parse arguments section to understand context
+    args_text = text_before_cursor[func_end + 1 :]
+
+    # Skip parameter completions if we're inside a string literal
+    if _is_inside_string(args_text):
+        return []
+
+    # Check if cursor is right after an "=" sign (meaning we're typing a value, not a parameter name)
+    # Pattern: look for "word=" at the end, possibly with a value started
+    if re.search(r"\w+\s*=\s*[^\s,]*$", args_text) and not args_text.rstrip().endswith(","):
+        # Cursor is positioned after "=" where a value should go, don't suggest parameters
+        return []
+
+    # Find all keyword arguments already provided (param=value)
+    already_provided = set()
+    # Match keyword arguments: word followed by = (but not at the very end being typed)
+    for match in re.finditer(r"(\w+)\s*=", args_text):
+        param_name = match.group(1)
+        # Only add to already_provided if it's followed by something (value or comma)
+        # and not being currently typed
+        end_pos = match.end()
+        if end_pos < len(args_text):
+            already_provided.add(param_name)
+
+    # Check if we're currently typing a partial parameter name
+    # Look for a partial word at the end that doesn't have "=" after it
+    partial_match = re.search(r"(?:^|,\s*)(\w+)$", args_text)
+    partial_prefix = partial_match.group(1) if partial_match else ""
+
+    items = []
+    try:
+        sig = inspect.signature(obj)
+        for i, param in enumerate(sig.parameters.values()):
+            # Skip *args and **kwargs style parameters
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                continue
+
+            # Skip parameters already provided
+            if param.name in already_provided:
+                continue
+
+            # If there's a partial prefix, only include parameters that start with it
+            if partial_prefix and not param.name.startswith(partial_prefix):
+                continue
+
+            # Create completion for parameter name with "="
+            items.append(
+                types.CompletionItem(
+                    label=f"{param.name}=",
+                    kind=types.CompletionItemKind.Variable,
+                    # Use "0" prefix to sort before namespace completions (which use "a")
+                    sort_text=f"0{i:03d}_{param.name}",
+                    detail="parameter",
+                )
+            )
+    except (ValueError, TypeError):
+        # Can't get signature for this callable
+        pass
+
+    return items
+
+
+def _get_namespace_completions(
+    server: PositronLanguageServer, text_before_cursor: str, *, filter_prefix: bool = True
+) -> list[types.CompletionItem]:
+    """Get completions from the shell's namespace.
+
+    Args:
+        server: The language server instance
+        text_before_cursor: The text before the cursor position
+        filter_prefix: If True, filter completions by the partial word being typed.
+                      If False, return all namespace items (useful when inside function calls
+                      where user might want to use items as positional arguments).
+    """
     if server.shell is None:
         return []
 
@@ -496,8 +692,8 @@ def _get_namespace_completions(
         # Skip private names unless explicitly typing underscore
         if name.startswith("_") and not prefix.startswith("_"):
             continue
-        # Filter by prefix
-        if not name.startswith(prefix):
+        # Filter by prefix if requested
+        if filter_prefix and not name.startswith(prefix):
             continue
 
         kind = _get_completion_kind(obj)
@@ -505,7 +701,7 @@ def _get_namespace_completions(
             types.CompletionItem(
                 label=name,
                 kind=kind,
-                sort_text=f"a{name}",  # Sort before other completions
+                sort_text=f"a{name}",  # Sort after parameter completions
                 detail=type(obj).__name__,
             )
         )
@@ -514,7 +710,13 @@ def _get_namespace_completions(
 
 
 def _get_dict_key_completions(
-    server: PositronLanguageServer, expr: str, prefix: str
+    server: PositronLanguageServer,
+    *,
+    expr: str,
+    prefix: str,
+    quote_char: str,
+    has_closing_quote: bool,
+    document: TextDocument | None = None,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -523,6 +725,15 @@ def _get_dict_key_completions(
     # Safely resolve the expression
     obj = _safe_resolve_expression(server.shell.user_ns, expr)
     if obj is None:
+        # Try static analysis fallback for os.environ
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if expr is "<alias>.environ" where alias maps to "os"
+            match = re.match(r"^(\w+)\.environ$", expr)
+            if match and os_imports.get(match.group(1)) == "os":
+                return _make_env_var_completions(
+                    prefix, quote_char, has_closing_quote=has_closing_quote
+                )
         return []
 
     items = []
@@ -532,8 +743,8 @@ def _get_dict_key_completions(
     if isinstance(obj, dict):
         keys = [str(k) for k in obj if isinstance(k, str)]
     elif _is_environ_like(obj):
-        # os.environ or similar
-        keys = list(os.environ.keys())
+        # os.environ or similar - use shared helper
+        return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
     elif _is_dataframe_like(obj):
         # pandas/polars DataFrame
         with contextlib.suppress(Exception):
@@ -547,13 +758,14 @@ def _get_dict_key_completions(
     for key in keys:
         if not key.startswith(prefix):
             continue
-        # Include closing quote in label
+        # Include closing quote only if it doesn't already exist
+        completion_text = key if has_closing_quote else f"{key}{quote_char}"
         items.append(
             types.CompletionItem(
-                label=f'{key}"',
+                label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
-                insert_text=f'{key}"',
+                insert_text=completion_text,
             )
         )
 
@@ -566,6 +778,345 @@ def _is_environ_like(obj: Any) -> bool:
     return type_name == "_Environ" or (
         hasattr(obj, "keys") and hasattr(obj, "__getitem__") and type_name.startswith("_Environ")
     )
+
+
+def _make_env_var_completions(
+    prefix: str,
+    quote_char: str,
+    *,
+    has_closing_quote: bool,
+) -> list[types.CompletionItem]:
+    """Create completion items for environment variables matching prefix."""
+    items = []
+    for key in os.environ:
+        if not key.startswith(prefix):
+            continue
+        completion_text = key if has_closing_quote else f"{key}{quote_char}"
+        items.append(
+            types.CompletionItem(
+                label=completion_text,
+                kind=types.CompletionItemKind.Field,
+                sort_text=f"a{key}",
+                insert_text=completion_text,
+            )
+        )
+    return items
+
+
+# --- Path Completion Helpers ---
+
+
+def _get_path_completion_base_dir(server: PositronLanguageServer) -> Path:
+    """Get the base directory for path completions.
+
+    Priority:
+    1. server._working_directory (notebook parent or custom workspace)
+    2. server.workspace.root_path (project root)
+    3. User's home directory (fallback)
+    """
+    # Priority 1: Working directory (notebook context)
+    if server._working_directory:  # noqa: SLF001
+        try:
+            return Path(server._working_directory)  # noqa: SLF001
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 2: Workspace root path
+    if server.workspace and server.workspace.root_path:
+        try:
+            return Path(server.workspace.root_path)
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 3: User's home directory
+    return Path.home()
+
+
+def _parse_partial_path(partial_path: str) -> tuple[str, str]:
+    """Parse a partial path into directory and filename components.
+
+    Examples:
+        "" → ("", "")
+        "my" → ("", "my")
+        "dir/" → ("dir/", "")
+        "dir/file" → ("dir/", "file")
+
+    Returns:
+        Tuple of (directory_part, filename_prefix)
+    """
+    if not partial_path:
+        return ("", "")
+
+    # Normalize path separators to os.sep for processing
+    normalized = partial_path.replace("/", os.sep)
+
+    # Check if path ends with separator (completing in a directory)
+    if normalized.endswith(os.sep):
+        return (partial_path, "")
+
+    # Split into directory and filename
+    directory, filename = os.path.split(normalized)
+
+    # Add trailing separator to directory if non-empty
+    if directory:
+        # Keep original separators in the directory part
+        dir_end = len(partial_path) - len(filename)
+        directory = partial_path[:dir_end]
+
+    return (directory, filename)
+
+
+def _scan_directory_for_completions(
+    base_dir: Path,
+    relative_dir: str,
+    filename_prefix: str,
+) -> list[tuple[str, bool]]:
+    """Scan a directory for matching filesystem entries.
+
+    Args:
+        base_dir: Base directory path
+        relative_dir: Relative directory from base (e.g., "subdir/")
+        filename_prefix: Prefix to filter results (e.g., "my")
+
+    Returns:
+        List of (name, is_directory) tuples for matching entries, sorted
+        with directories first, then files, alphabetically within each group.
+    """
+    try:
+        # Construct target directory
+        if relative_dir:
+            # Normalize separators and strip trailing separator
+            normalized_dir = relative_dir.replace("/", os.sep).rstrip(os.sep)
+            target_dir = base_dir / normalized_dir
+        else:
+            target_dir = base_dir
+
+        # Check if directory exists and is readable
+        if not target_dir.exists() or not target_dir.is_dir():
+            return []
+
+        results = []
+
+        # List directory contents
+        for entry in target_dir.iterdir():
+            entry_name = entry.name
+
+            # Skip hidden files unless prefix starts with "."
+            if entry_name.startswith(".") and not filename_prefix.startswith("."):
+                continue
+
+            # Filter by prefix (case-sensitive on Unix, case-insensitive on Windows)
+            if os.name == "nt":
+                if not entry_name.lower().startswith(filename_prefix.lower()):
+                    continue
+            else:
+                if not entry_name.startswith(filename_prefix):
+                    continue
+
+            # Add to results
+            is_directory = entry.is_dir()
+            results.append((entry_name, is_directory))
+
+        # Sort: directories first, then files, alphabetically within each group
+        results.sort(key=lambda x: (not x[1], x[0].lower()))
+
+        return results
+
+    except (OSError, PermissionError):
+        return []
+
+
+def _get_path_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+    position: types.Position,
+) -> list[types.CompletionItem]:
+    """Get filesystem path completions for string literals.
+
+    Provides incremental completions for paths, completing one segment at a time.
+    Directories get trailing slashes, files get auto-closed quotes.
+
+    Args:
+        server: The language server instance
+        text_before_cursor: Text before cursor position
+        text_after_cursor: Text after cursor position
+        position: Cursor position for text edit range
+
+    Returns:
+        List of completion items for matching filesystem paths
+    """
+    # Detect if cursor is inside a string literal
+    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    partial_path = string_match.group(2) or ""
+
+    # Check for closing quote after cursor
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+
+    # Get base directory
+    base_dir = _get_path_completion_base_dir(server)
+
+    # Parse partial path into directory and filename prefix
+    directory_part, filename_prefix = _parse_partial_path(partial_path)
+
+    # Scan directory for matches
+    entries = _scan_directory_for_completions(base_dir, directory_part, filename_prefix)
+    if not entries:
+        return []
+
+    # Create completion items
+    items = []
+    completion_range = types.Range(position, position)
+
+    for entry_name, is_directory in entries:
+        # Calculate what text to insert (incremental completion)
+        # Remove the prefix that user has already typed
+        remaining = entry_name[len(filename_prefix) :]
+
+        if is_directory:
+            # Directories get trailing separator, no auto-close quote
+            # Windows: escape backslash for string literal
+            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+        else:
+            # Files: auto-close quote if needed
+            completion_text = remaining if has_closing_quote else remaining + quote_char
+
+        # Use InsertReplaceEdit as expected by tests
+        text_edit = types.InsertReplaceEdit(
+            new_text=completion_text,
+            insert=completion_range,
+            replace=completion_range,
+        )
+
+        kind = types.CompletionItemKind.Folder if is_directory else types.CompletionItemKind.File
+
+        items.append(
+            types.CompletionItem(
+                label=entry_name,
+                kind=kind,
+                sort_text=f"0{entry_name}",  # Sort before namespace completions
+                text_edit=text_edit,
+            )
+        )
+
+    return items
+
+
+def _get_getenv_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+    document: TextDocument | None = None,
+) -> list[types.CompletionItem]:
+    """Get environment variable completions for os.getenv() calls.
+
+    Provides completions for the 'key' parameter (first positional or key=)
+    but not for the 'default' parameter.
+    """
+    # Quick early exit: skip expensive parsing if "getenv" isn't in the text
+    if server.shell is None or "getenv" not in text_before_cursor:
+        return []
+
+    # Check if cursor is inside a string literal (matches opening quote + optional prefix)
+    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    prefix = string_match.group(2) or ""
+    before_string = text_before_cursor[: string_match.start()]
+
+    # Check for keyword argument (e.g., "key=") - only complete for 'key', not 'default'
+    keyword_match = re.search(r"(\w+)\s*=\s*$", before_string)
+    if keyword_match and keyword_match.group(1) != "key":
+        return []
+
+    # Find the enclosing function call's opening parenthesis
+    func_paren_pos = _find_enclosing_paren(before_string)
+    if func_paren_pos < 0:
+        return []
+
+    # Extract and validate the function name
+    func_match = re.search(r"([\w\.]+)\s*$", before_string[:func_paren_pos])
+    if not func_match or not func_match.group(1).endswith("getenv"):
+        return []
+
+    # Verify it's actually os.getenv (from namespace or static import analysis)
+    func_name = func_match.group(1)
+    resolved = _safe_resolve_expression(server.shell.user_ns, func_name)
+    if resolved is not os.getenv:
+        # Try static analysis fallback
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if func_name is "<alias>.getenv" where alias maps to "os"
+            match = re.match(r"^(\w+)\.getenv$", func_name)
+            if not (match and os_imports.get(match.group(1)) == "os"):
+                return []
+        else:
+            return []
+
+    # For positional args, only complete the first argument (not 'default')
+    if not keyword_match:
+        args_text = before_string[func_paren_pos + 1 :]
+        if _count_arg_commas(args_text) > 0:
+            return []
+
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+    return _make_env_var_completions(prefix, quote_char, has_closing_quote=has_closing_quote)
+
+
+def _find_enclosing_paren(text: str) -> int:
+    """Find position of the opening parenthesis for the enclosing function call."""
+    depth = 0
+    for i in range(len(text) - 1, -1, -1):
+        c = text[i]
+        if c == ")":
+            depth += 1
+        elif c == "(":
+            if depth == 0:
+                return i
+            depth -= 1
+    return -1
+
+
+def _count_arg_commas(args_text: str) -> int:
+    """Count commas in function arguments, ignoring those inside strings or nested parens."""
+    count = 0
+    in_string = False
+    string_char = ""
+    depth = 0
+    for c in args_text:
+        if in_string:
+            if c == string_char:
+                in_string = False
+        elif c in "\"'":
+            in_string = True
+            string_char = c
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "," and depth == 0:
+            count += 1
+    return count
+
+
+def _is_inside_string(text: str) -> bool:
+    """Check if cursor is inside an unclosed string literal."""
+    in_string = False
+    string_char = ""
+    for c in text:
+        if in_string:
+            if c == string_char:
+                in_string = False
+        elif c in "\"'":
+            in_string = True
+            string_char = c
+    return in_string
 
 
 def _is_series_like(obj: Any) -> bool:
@@ -853,19 +1404,7 @@ def _handle_signature_help(
     text_before_cursor = line[: params.position.character]
 
     # Find function call context
-    # Simple approach: find the last unclosed parenthesis
-    paren_depth = 0
-    func_end = -1
-    for i in range(len(text_before_cursor) - 1, -1, -1):
-        c = text_before_cursor[i]
-        if c == ")":
-            paren_depth += 1
-        elif c == "(":
-            if paren_depth == 0:
-                func_end = i
-                break
-            paren_depth -= 1
-
+    func_end = _find_enclosing_paren(text_before_cursor)
     if func_end < 0:
         return None
 
@@ -928,9 +1467,9 @@ def _handle_signature_help(
         parameters=params_list,
     )
 
-    # Determine active parameter
+    # Determine active parameter (count commas, ignoring those inside strings/nested parens)
     args_text = text_before_cursor[func_end + 1 :]
-    active_param = args_text.count(",")
+    active_param = _count_arg_commas(args_text)
 
     return types.SignatureHelp(
         signatures=[signature_info],

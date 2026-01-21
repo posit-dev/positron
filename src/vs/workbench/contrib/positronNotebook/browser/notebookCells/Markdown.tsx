@@ -10,9 +10,6 @@ import './Markdown.css';
 import React from 'react';
 
 // Other dependencies.
-import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
-import { DeferredImage } from './DeferredImage.js';
-import { NotebookLink } from './NotebookLink.js';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -20,19 +17,18 @@ import { renderNotebookMarkdown } from '../markdownRenderer.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
 /**
- * Component that render markdown content from a string.
+ * Component that renders markdown content from a string using token-based rendering.
  * @param content: Markdown content to render in string form
  * @returns React element containing the rendered markdown.
  */
 export function Markdown({ content }: { content: string }) {
-
 	const renderedHtml = useMarkdown(content);
 
 	switch (renderedHtml.status) {
 		case 'error':
 			return <div className='positron-markdown-error'>{localize('errorRenderingMd', 'Error rendering markdown:')} {renderedHtml.errorMsg}</div>;
 		case 'rendering':
-			return <div className='positron-markdown-rendering' >{localize('renderingMd', "Rendering markdown...")}</div>;
+			return <div className='positron-markdown-rendering'>{localize('renderingMd', "Rendering markdown...")}</div>;
 		case 'success':
 			return <div className='positron-markdown-rendered'>{renderedHtml.nodes}</div>;
 	}
@@ -42,7 +38,7 @@ type MarkdownRenderResults = {
 	status: 'rendering';
 } | {
 	status: 'success';
-	nodes: React.ReactElement;
+	nodes: React.ReactElement[];
 } | {
 	status: 'error';
 	errorMsg: string;
@@ -56,28 +52,27 @@ function useMarkdown(content: string): MarkdownRenderResults {
 	});
 
 	React.useEffect(() => {
-
 		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
-			renderNotebookMarkdown(content, services.get(IExtensionService), services.languageService),
+			renderNotebookMarkdown(
+				content,
+				services.get(IExtensionService),
+				services.languageService
+			),
 			5000,
 		));
 
-		conversionCancellablePromise.then((html) => {
-			if (typeof html !== 'string') {
+		conversionCancellablePromise.then((elements) => {
+			if (!Array.isArray(elements)) {
 				setRenderedHtml({
 					status: 'error',
-					errorMsg: localize('noHtmlResult', 'Failed to render markdown: No HTML result returned')
+					errorMsg: localize('noReactResult', 'Failed to render markdown: Invalid result returned')
 				});
 				return;
 			}
+
 			setRenderedHtml({
 				status: 'success',
-				nodes: renderHtml(html, {
-					componentOverrides: {
-						img: DeferredImage,
-						a: (props) => <NotebookLink {...props} />
-					}
-				})
+				nodes: elements
 			});
 		}).catch((error) => {
 			setRenderedHtml({
@@ -91,4 +86,3 @@ function useMarkdown(content: string): MarkdownRenderResults {
 
 	return renderedHtml;
 }
-

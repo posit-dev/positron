@@ -38,7 +38,7 @@ The current notebook state (kernel info, cell contents, selection) is provided i
 
 **Add cells:** Use EditNotebookCells with `operation: 'add'`. Code cells are run by default (set `run: false` to skip execution). Returns outputs for code cells. When you add cell at index N, cells N+ shift to N+1, N+2, etc.
 
-**Delete cells:** Use EditNotebookCells with `operation: 'delete'` and `cellIndex`. When you delete cell at index N, cells N+1+ shift down to N, N+1, etc.
+**Delete cells:** Use EditNotebookCells with `operation: 'delete'` and `cellIndices` array (e.g., `[0]` for single cell, `[0,2,3]` for multiple). When you delete cells, higher indices shift down.
 
 **Execute cells:** Use RunNotebookCells with `cellIndices` (array). Consider cell dependencies and execution order. Example: `cellIndices: [0, 1, 3]`.
 

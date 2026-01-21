@@ -21,7 +21,6 @@ import { IActiveNotebookEditor } from '../../notebook/browser/notebookBrowser.js
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_COMMAND_MODE } from '../../positronNotebook/browser/positronNotebook.contribution.js';
-import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
 import { PositronNotebookInstance } from '../../positronNotebook/browser/PositronNotebookInstance.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { ActiveNotebookHasRunningRuntime, isNotebookEditorInput } from '../common/activeRuntimeNotebookContextManager.js';
@@ -170,8 +169,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 		try {
 			const restart = () => runtimeSessionService.restartSession(session.metadata.sessionId, context.source.debugMessage);
 			// Don't show a progress bar if using Positron notebooks
-			if (checkPositronNotebookEnabled(configurationService) &&
-				usingPositronNotebooks(configurationService)) {
+			if (usingPositronNotebooks(configurationService)) {
 				await restart();
 			} else {
 				await progressService.withProgress({
@@ -230,8 +228,7 @@ export class RuntimeNotebookKernelShutdownAction extends BaseRuntimeNotebookKern
 		try {
 			const shutdown = () => runtimeSessionService.shutdownNotebookSession(session.metadata.notebookUri, RuntimeExitReason.Shutdown, context.source.debugMessage);
 			// Don't show a progress bar if using Positron notebooks
-			if (checkPositronNotebookEnabled(configurationService) &&
-				usingPositronNotebooks(configurationService)) {
+			if (usingPositronNotebooks(configurationService)) {
 				await shutdown();
 			} else {
 				await progressService.withProgress({

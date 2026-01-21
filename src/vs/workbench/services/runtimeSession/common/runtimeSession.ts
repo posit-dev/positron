@@ -1117,7 +1117,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If there is a pending shutdown request for this notebook, return the existing promise.
 		const shuttingDownPromise = this._shuttingDownNotebooksByNotebookUri.get(notebookUri);
 		if (shuttingDownPromise && !shuttingDownPromise.isSettled) {
-			this._logService.debug(`Notebook ${notebookUri.toString()} is already shutting down. Returning existing promise`);
+			this._logService.info(`Notebook ${notebookUri.toString()} is already shutting down. Returning existing promise`);
 			return shuttingDownPromise.p;
 		}
 
@@ -1135,7 +1135,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Get the session to shutdown.
 		const session = await this.getActiveOrStartingNotebook(notebookUri);
 		if (!session) {
-			this._logService.debug(
+			this._logService.info(
 				`Aborting shutdown request for notebook ${notebookUri.toString()}. ` +
 				`No active session found`
 			);

@@ -55,6 +55,14 @@ if echo "$PR_BODY" | grep -q "@:suse-web"; then
 	echo "Found SUSE web tag in PR body. Setting to run RHEL web tests."
 	echo "suse_web_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
+if echo "$PR_BODY" | grep -q "@:debian-electron"; then
+	echo "Found Debian electron tag in PR body. Setting to run Debian electron tests."
+	echo "debian_electron_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:debian-web"; then
+	echo "Found Debian web tag in PR body. Setting to run Debian web tests."
+	echo "debian_web_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
 if echo "$PR_BODY" | grep -q "@:pyrefly"; then
 	echo "Found pyrefly tag in PR body. Setting to run pyrefly tests."
 	echo "pyrefly_tag_found=true" >> "$GITHUB_OUTPUT"

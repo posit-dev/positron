@@ -218,7 +218,10 @@ async function origMain(x64AppPath, arm64AppPath, asarRelativePath, outAppPath, 
         outAppPath,
         force: true,
         mergeASARs: true,
-        x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node}',
+        // --- Start Positron ---
+        // Add **/node_modules/fsevents/fsevents.node to the list of x64-only files
+        x64ArchFiles: '{*/kerberos.node,**/extensions/microsoft-authentication/dist/libmsalruntime.dylib,**/extensions/microsoft-authentication/dist/msal-node-runtime.node,**/node_modules/fsevents/fsevents.node}',
+        // --- End Positron ---
         filesToSkipComparison: (file) => {
             for (const expected of filesToSkip) {
                 if ((0, minimatch_1.default)(file, expected)) {

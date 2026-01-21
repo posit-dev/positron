@@ -11,6 +11,16 @@ name: "Test: E2E (Windows) — Sharded"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        required: false
+        description: "Skip restoring caches (use when testing a specific commit)"
+        type: boolean
+        default: false
       save_cache:
         required: false
         description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
@@ -81,6 +91,11 @@ on:
         description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
         type: number
         default: 10
+      enable_diagnostic_logging:
+        required: false
+        description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -107,6 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.commit || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -143,6 +159,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: 📦 Restore caches
+        if: ${{ !inputs.skip_cache }}
         id: restore-caches
         uses: ./.github/actions/restore-build-caches
 
@@ -184,6 +201,8 @@ jobs:
           # Note: test/e2e is installed in separate step below (not cached, always runs)
           # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Pre-install build directory (required by postinstall for gulp-merge-json)
             npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
@@ -200,6 +219,8 @@ jobs:
           retry_wait_seconds: 10
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Download platform-specific binaries for Windows
             # Wrapped in retry due to occasional GitHub API timeouts
             cd extensions
@@ -399,6 +420,12 @@ jobs:
           fi
           exit 0
 
+      - name: Set Report URL
+        uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
+          skip-summary: true
+
       - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
         id: bootstrap
@@ -429,6 +456,7 @@ jobs:
           USE_KEY: true
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
+          ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
@@ -493,6 +521,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
@@ -521,6 +551,8 @@ jobs:
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v7

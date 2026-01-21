@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -2187,8 +2187,8 @@ declare module 'positron' {
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
-			name: string;
-			provider: string;
+			displayName: string;
+			providerId: string;
 			id: string;
 
 			providerName: string;
@@ -2648,7 +2648,7 @@ declare module 'positron' {
 
 		/**
 		 * Scroll to a cell if it's out of view and auto-follow is enabled.
-		 * Respects the `positron.notebook.assistant.autoFollow` setting.
+		 * Respects the `positron.assistant.notebook.autoFollow` setting.
 		 * @param notebookUri The notebook URI as a string
 		 * @param cellIndex The index of the cell to scroll to
 		 */

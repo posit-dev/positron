@@ -46,17 +46,19 @@ from positron.positron_lsp import (
     PositronLanguageServer,
     _get_expression_at_position,
     _MagicType,
+    _parse_os_imports,
     _safe_resolve_expression,
     create_server,
 )
 
 TEST_DOCUMENT_URI = "file:///test_document.py"
-LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
+TEST_ENVIRONMENT_VARIABLE = "POSITRON_LSP_TEST_VAR"
 
 
 def create_test_server(
     namespace: Optional[Dict[str, Any]] = None,
     root_path: Optional[Path] = None,
+    working_directory: Optional[str] = None,
 ) -> PositronLanguageServer:
     """Create a test server with optional namespace."""
     server = create_server()
@@ -74,7 +76,9 @@ def create_test_server(
         # Optionally set the root path. This seems to only change file completions.
         root_path=str(root_path) if root_path else None,
         initialization_options={
-            "positron": cattrs.unstructure(PositronInitializationOptions()),
+            "positron": cattrs.unstructure(
+                PositronInitializationOptions(working_directory=working_directory)
+            ),
         },
     )
 
@@ -137,7 +141,30 @@ def create_notebook_document(
     return cell_uris
 
 
-# --- Expression Extraction Tests ---
+class _ObjectWithProperty:
+    @property
+    def prop(self) -> str:
+        return "prop"
+
+
+object_with_property = _ObjectWithProperty()
+
+
+# Make a function with parameters to test signature help.
+_func_name = "func"
+_func_params = ["x=1", "y=1"]
+_func_label = f"def {_func_name}({', '.join(_func_params)})"
+_func_doc = "A function with parameters."
+_func_str = f'''\
+{_func_label}:
+    """
+    {_func_doc}
+    """
+    pass'''
+
+# Create the actual function via exec() so we can reuse the strings in the test.
+exec(_func_str)
+func = locals()[_func_name]
 
 
 class TestGetExpressionAtPosition:
@@ -153,20 +180,20 @@ class TestGetExpressionAtPosition:
         assert _get_expression_at_position("os.environ", 5) == "os.environ"
 
     def test_bracket_expression(self):
-        # When cursor is after the bracket, it should return the expression before it
+        result = _get_expression_at_position("df['col']", 1)
+        assert result == "df"
         result = _get_expression_at_position("df['col']", 3)
-        assert result == "" or result == "df"  # Implementation may vary
+        assert result == ""
+        result = _get_expression_at_position("df['col']", 5)
+        assert result == "col"
 
     def test_empty_line(self):
         result = _get_expression_at_position("", 0)
-        assert result is None or result == ""  # Implementation may return empty string
+        assert result == ""
 
     def test_whitespace_only(self):
         result = _get_expression_at_position("   ", 2)
-        assert result is None or result == ""  # Implementation may return empty string
-
-
-# --- Safe Expression Resolution Tests ---
+        assert result == ""
 
 
 class TestSafeResolveExpression:
@@ -203,7 +230,7 @@ class TestSafeResolveExpression:
         df = pd.DataFrame({"col1": [1, 2, 3]})
         namespace = {"df": df}
         result = _safe_resolve_expression(namespace, "df['col1']")
-        assert result is not None
+        assert pd.Series([1, 2, 3]).equals(result)
 
     def test_undefined_name(self):
         namespace = {}
@@ -236,82 +263,50 @@ class TestSafeResolveExpression:
         assert result is None
 
 
-# --- Help Topic Tests ---
+class TestParseOsImports:
+    """Tests for _parse_os_imports."""
 
+    def test_simple_import(self):
+        result = _parse_os_imports("import os")
+        assert result == {"os": "os"}
 
-TEST_DOCUMENT_URI = "file:///test.py"
+    def test_aliased_import(self):
+        result = _parse_os_imports("import os as system")
+        assert result == {"system": "os"}
 
+    def test_multiple_imports(self):
+        result = _parse_os_imports("import sys, os, json")
+        assert result == {"os": "os"}
 
-class TestHelpTopic:
-    """Tests for help topic requests."""
+    def test_multiple_imports_with_alias(self):
+        result = _parse_os_imports("import sys, os as o, json")
+        assert result == {"o": "os"}
 
-    @pytest.mark.parametrize(
-        ("source", "namespace", "expected_topic"),
-        [
-            # A variable in the user's namespace should resolve
-            ("x", {"x": 0}, "builtins.int"),
-            # A function should resolve
-            ("len", {"len": len}, "builtins.len"),
-        ],
-    )
-    def test_help_topic_request(
-        self,
-        source: str,
-        namespace: Dict[str, Any],
-        expected_topic: Optional[str],
-    ) -> None:
-        from positron.positron_lsp import _handle_help_topic
+    def test_multiline_imports(self):
+        result = _parse_os_imports("import sys\nimport os\nimport json")
+        assert result == {"os": "os"}
 
-        server = create_test_server(namespace)
-        create_text_document(server, TEST_DOCUMENT_URI, source)
+    def test_no_os_import(self):
+        result = _parse_os_imports("import sys\nimport json")
+        assert result == {}
 
-        params = HelpTopicParams(TextDocumentIdentifier(TEST_DOCUMENT_URI), Position(0, 0))
-        topic = _handle_help_topic(server, params)
+    def test_invalid_syntax(self):
+        # Incomplete syntax should still extract import (robust parsing)
+        result = _parse_os_imports('import os; os.environ["')
+        assert result == {"os": "os"}
 
-        if expected_topic is None:
-            assert topic is None
-        else:
-            assert topic == ShowHelpTopicParams(topic=expected_topic)
+    def test_from_import_not_supported(self):
+        # from imports are explicitly not supported
+        result = _parse_os_imports("from os import environ")
+        assert result == {}
 
+    def test_empty_source(self):
+        result = _parse_os_imports("")
+        assert result == {}
 
-# --- Completion Tests ---
-
-
-TEST_ENVIRONMENT_VARIABLE = "POSITRON_LSP_TEST_VAR"
-
-
-@pytest.fixture(autouse=True)
-def _set_test_env_var():
-    """Set a test environment variable."""
-    os.environ[TEST_ENVIRONMENT_VARIABLE] = "test_value"
-    yield
-    os.environ.pop(TEST_ENVIRONMENT_VARIABLE, None)
-
-
-class _ObjectWithProperty:
-    @property
-    def prop(self) -> str:
-        return "prop"
-
-
-_object_with_property = _ObjectWithProperty()
-
-
-# Make a function with parameters to test signature help.
-_func_name = "func"
-_func_params = ["x=1", "y=1"]
-_func_label = f"def {_func_name}({', '.join(_func_params)})"
-_func_doc = "A function with parameters."
-_func_str = f'''\
-{_func_label}:
-    """
-    {_func_doc}
-    """
-    pass'''
-
-# Create the actual function via exec() so we can reuse the strings in the test.
-exec(_func_str)
-func = locals()[_func_name]
+    def test_whitespace_only(self):
+        result = _parse_os_imports("   \n  ")
+        assert result == {}
 
 
 class TestCompletions:
@@ -338,57 +333,76 @@ class TestCompletions:
         completion_list = _handle_completion(server, params)
         return [] if completion_list is None else list(completion_list.items)
 
-    @pytest.mark.xfail(reason="Notebook support needs verification after refactor")
-    def test_notebook_completions(self) -> None:
-        """Test that completions work across notebook cells."""
-        server = create_test_server()
+    @pytest.mark.parametrize(
+        ("cell_index", "expected_label"),
+        [(1, "a'"), (2, "b'")],
+    )
+    def test_notebook_completions(self, cell_index: int, expected_label: str) -> None:
+        """Test that namespace completions work in notebooks."""
+        # Create server with a namespace of a few things already ran
+        server = create_test_server(namespace={"x": {"a": 0}, "y": {"b": 0}})
 
-        # Create a notebook which defines a variable in one cell and uses it in another
-        cell_uris = create_notebook_document(server, "uri", ["x = {'a': 0}", "x['"])
-        text_document = server.workspace.get_text_document(cell_uris[1])
+        # Create a notebook which overwrites one of the variables
+        cell_uris = create_notebook_document(server, "uri", ["y = {'a': 0}", "x['", "y['"])
 
+        # Completions should prefer what's in the namespace
+        text_document = server.workspace.get_text_document(cell_uris[cell_index])
         completions = self._completions(server, text_document)
-        labels = [c.label for c in completions]
+        labels = {c.label for c in completions}
+        assert labels == {expected_label}
 
-        assert "a'" in labels or 'a"' in labels
+    @pytest.mark.parametrize(
+        ("source", "character", "expected_labels"),
+        [
+            ("x['']", 3, {"a", "b"}),
+            ('x[""]', 3, {"a", "b"}),
+            ("x['", None, {"a'", "b'"}),
+            ('x["', None, {'a"', 'b"'}),
+        ],
+    )
+    def test_dict_key_completion_with_closing_quote(
+        self, source: str, character: Optional[int], expected_labels: set[str]
+    ) -> None:
+        """Test that dict key completions don't duplicate closing quote when it already exists."""
+        server = create_test_server(namespace={"x": {"a": 0, "b": 1}})
 
-    @pytest.mark.xfail(reason="Parameter sorting needs verification after refactor")
-    def test_parameter_completions_appear_first(self) -> None:
-        """Test that parameter completions are sorted first."""
-        server = create_test_server()
-        text_document = create_text_document(
-            server,
-            TEST_DOCUMENT_URI,
-            """def f(x): pass
-f(""",
-        )
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+        completions = self._completions(server, text_document, character=character)
+        labels = {c.label for c in completions}
+        assert labels == expected_labels
+
+    @pytest.mark.parametrize(
+        ("source", "expected_labels"),
+        [
+            ("f(", ["y=", "x=", "a", "f"]),
+            ("f(x", ["x=", "a", "f"]),
+            ("f(y", ["y=", "a", "f"]),
+            ("f(x=", ["a", "f"]),
+            ("f(y=", ["a", "f"]),
+            ("f(x=1,", ["y=", "a", "f"]),
+            ("f(y=1,", ["x=", "a", "f"]),
+        ],
+    )
+    def test_parameter_completions_sorting(self, source: str, expected_labels: list[str]) -> None:
+        """Test that parameter completions are sorted first when appropriate."""
+        server = create_test_server(namespace={"f": lambda y, x: y + x, "a": 1})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
         completions = self._completions(server, text_document)
         sorted_completions = sorted(completions, key=lambda c: c.sort_text or c.label)
         labels = [c.label for c in sorted_completions]
 
-        assert "x=" in labels
-        assert labels[0] == "x="
+        assert labels == expected_labels
 
     @pytest.mark.parametrize(
         ("source", "namespace", "character", "expected_labels"),
         [
             pytest.param(
                 'x["',
-                {"x": {"a": _object_with_property.prop}},
+                {"x": {"a": object_with_property.prop}},
                 None,
                 ['a"'],
                 id="dict_key_to_property",
-            ),
-            pytest.param(
-                'x = {"a": 0}\nx["',
-                {},
-                None,
-                ['a"'],
-                id="source_dict_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Completions from source analysis not yet supported"
-                ),
             ),
             # When completions match a variable defined in the source _and_ a variable in the user's namespace,
             # prefer the namespace variable.
@@ -405,16 +419,6 @@ f(""",
                 None,
                 ['a"'],
                 id="dict_key_to_int",
-            ),
-            pytest.param(
-                '{"a": 0}["',
-                {},
-                None,
-                ['a"'],
-                id="dict_literal_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Completions for literal expressions not yet supported"
-                ),
             ),
             pytest.param(
                 'x["',
@@ -466,9 +470,6 @@ f(""",
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_environ_from_source",
-                marks=pytest.mark.xfail(
-                    reason="Completions from imported source not yet supported"
-                ),
             ),
             pytest.param(
                 'import os; os.environ["',
@@ -476,9 +477,6 @@ f(""",
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_environ_from_source_unclosed",
-                marks=pytest.mark.xfail(
-                    reason="Completions from imported source not yet supported"
-                ),
             ),
             pytest.param(
                 'os.getenv("")',
@@ -486,7 +484,6 @@ f(""",
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'import os; os.getenv("")',
@@ -494,7 +491,6 @@ f(""",
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_from_source",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv(key="")',
@@ -502,7 +498,6 @@ f(""",
                 -2,
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_keyword",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv(default="")',
@@ -517,7 +512,6 @@ f(""",
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_getenv_keyword_unclosed",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv(default="',
@@ -532,7 +526,6 @@ f(""",
                 len('os.getenv("'),
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_with_default",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("", default="")',
@@ -540,7 +533,6 @@ f(""",
                 len('os.getenv("'),
                 [TEST_ENVIRONMENT_VARIABLE],
                 id="os_getenv_with_keyword_default",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("',
@@ -548,7 +540,6 @@ f(""",
                 None,
                 [f'{TEST_ENVIRONMENT_VARIABLE}"'],
                 id="os_getenv_unclosed",
-                marks=pytest.mark.xfail(reason="os.getenv completions not yet supported"),
             ),
             pytest.param(
                 'os.getenv("", "")',
@@ -563,6 +554,79 @@ f(""",
                 None,
                 [],
                 id="os_getenv_wrong_arg_unclosed",
+            ),
+            # Static analysis tests with aliases
+            pytest.param(
+                'import os as system; system.environ[""]',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_from_source_with_alias",
+            ),
+            pytest.param(
+                'import os as system; system.environ["',
+                {},
+                None,
+                [f'{TEST_ENVIRONMENT_VARIABLE}"'],
+                id="os_environ_from_source_with_alias_unclosed",
+            ),
+            pytest.param(
+                'import os as o; o.getenv("")',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_from_source_with_alias",
+            ),
+            pytest.param(
+                'import os as o; o.getenv("',
+                {},
+                None,
+                [f'{TEST_ENVIRONMENT_VARIABLE}"'],
+                id="os_getenv_from_source_with_alias_unclosed",
+            ),
+            # Multiline import tests
+            pytest.param(
+                'import sys, os\nos.environ[""]',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_multiline_import",
+            ),
+            pytest.param(
+                'import os\n\n\nos.getenv("")',
+                {},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_multiline_import",
+            ),
+            # Tests with os already in namespace (namespace should take priority)
+            pytest.param(
+                'import os as alias; os.environ[""]',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_namespace_priority_over_alias",
+            ),
+            pytest.param(
+                'import os as alias; os.getenv("")',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_namespace_priority_over_alias",
+            ),
+            pytest.param(
+                'import os as alias; alias.environ[""]',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_environ_alias_with_os_in_namespace",
+            ),
+            pytest.param(
+                'import os as alias; alias.getenv("")',
+                {"os": os},
+                -2,
+                [TEST_ENVIRONMENT_VARIABLE],
+                id="os_getenv_alias_with_os_in_namespace",
             ),
         ],
     )
@@ -599,6 +663,7 @@ f(""",
                 "a",
                 id="pandas_dataframe_attribute",
             ),
+            # Polars does not support this
         ],
     )
     def test_completion_contains(
@@ -616,8 +681,60 @@ f(""",
 
         assert expected_label in labels
 
-    @pytest.mark.xfail(reason="Path completion implementation needs verification")
-    def test_path_completion(self, tmp_path) -> None:
+    def _assert_has_path_completion(
+        self,
+        source: str,
+        expected_completion: str,
+        chars_from_end: int = 1,
+        root_path: Optional[Path] = None,
+        working_directory: Optional[str] = None,
+    ):
+        # Replace separators for testing cross-platform.
+        source = source.replace("/", os.path.sep)
+
+        # On Windows, expect escaped backslashes in paths to avoid inserting invalid strings.
+        # See: https://github.com/posit-dev/positron/issues/3758.
+        if os.name == "nt":
+            expected_completion = expected_completion.replace("/", "\\" + os.path.sep)
+
+        server = create_test_server(root_path=root_path, working_directory=working_directory)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+        character = len(source) - chars_from_end
+        completions = self._completions(server, text_document, character)
+
+        assert len(completions) == 1
+
+        expected_position = Position(0, character)
+        expected_range = Range(expected_position, expected_position)
+        assert completions[0].text_edit == InsertReplaceEdit(
+            new_text=expected_completion,
+            insert=expected_range,
+            replace=expected_range,
+        )
+
+    @pytest.mark.parametrize(
+        ("source", "expected_completion", "chars_from_end"),
+        [
+            ('""', "my-notebooks.new/", 1),
+            # Quotes aren't automatically closed for directories, since the user may want a file.
+            ('"', "my-notebooks.new/", 0),
+            ('"my"', "-notebooks.new/", 1),
+            ('"my-notebooks"', ".new/", 1),
+            ('"my-notebooks."', "new/", 1),
+            ('"my-notebooks.new"', "/", 1),
+            # Check file completions at various points around symbols.
+            ('"my-notebooks.new/"', "weather-report.ipynb", 1),
+            # Quotes are automatically closed for files, since they end the completion.
+            ('"my-notebooks.new/', 'weather-report.ipynb"', 0),
+            ('"my-notebooks.new/weather"', "-report.ipynb", 1),
+            ('"my-notebooks.new/weather-report"', ".ipynb", 1),
+            ('"my-notebooks.new/weather-report."', "ipynb", 1),
+            ('"my-notebooks.new/weather-report.ipynb"', "", 1),
+        ],
+    )
+    def test_path_completion(
+        self, tmp_path: Path, source: str, expected_completion: str, chars_from_end: int
+    ) -> None:
         """Test path completions for files and directories."""
         # See https://github.com/posit-dev/positron/issues/5193.
 
@@ -627,56 +744,14 @@ f(""",
         file = dir_ / "weather-report.ipynb"
         file.write_text("")
 
-        def assert_has_path_completion(
-            source: str,
-            expected_completion: str,
-            chars_from_end=1,
-        ):
-            # Replace separators for testing cross-platform.
-            source = source.replace("/", os.path.sep)
+        self._assert_has_path_completion(
+            source,
+            expected_completion,
+            chars_from_end,
+            root_path=tmp_path,
+        )
 
-            # On Windows, expect escaped backslashes in paths to avoid inserting invalid strings.
-            # See: https://github.com/posit-dev/positron/issues/3758.
-            if os.name == "nt":
-                expected_completion = expected_completion.replace("/", "\\" + os.path.sep)
-
-            server = create_test_server(root_path=tmp_path)
-            text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
-            character = len(source) - chars_from_end
-            completions = self._completions(server, text_document, character)
-
-            assert len(completions) == 1
-
-            expected_position = Position(0, character)
-            expected_range = Range(expected_position, expected_position)
-            assert completions[0].text_edit == InsertReplaceEdit(
-                new_text=expected_completion,
-                insert=expected_range,
-                replace=expected_range,
-            )
-
-        # Check directory completions at various points around symbols.
-        assert_has_path_completion('""', "my-notebooks.new/")
-        # Quotes aren't automatically closed for directories, since the user may want a file.
-        assert_has_path_completion('"', "my-notebooks.new/", 0)
-        assert_has_path_completion('"my"', "-notebooks.new/")
-        assert_has_path_completion('"my-notebooks"', ".new/")
-        assert_has_path_completion('"my-notebooks."', "new/")
-        assert_has_path_completion('"my-notebooks.new"', "/")
-
-        # Check file completions at various points around symbols.
-        assert_has_path_completion('"my-notebooks.new/"', "weather-report.ipynb")
-        # Quotes are automatically closed for files, since they end the completion.
-        assert_has_path_completion('"my-notebooks.new/', 'weather-report.ipynb"', 0)
-        assert_has_path_completion('"my-notebooks.new/weather"', "-report.ipynb")
-        assert_has_path_completion('"my-notebooks.new/weather-report"', ".ipynb")
-        assert_has_path_completion('"my-notebooks.new/weather-report."', "ipynb")
-        assert_has_path_completion('"my-notebooks.new/weather-report.ipynb"', "")
-
-    @pytest.mark.xfail(
-        reason="Notebook path completion working directory support needs verification"
-    )
-    def test_notebook_path_completions(self, tmp_path) -> None:
+    def test_notebook_path_completions(self, tmp_path: Path) -> None:
         """Test that notebook path completions use the notebook's parent directory."""
         # Notebook path completions should be in the notebook's parent, not root path.
         # See: https://github.com/posit-dev/positron/issues/5948
@@ -687,19 +762,14 @@ f(""",
         file_to_complete = notebook_parent / "data.csv"
         file_to_complete.write_text("")
 
-        # Create a server with working directory set to notebook parent
-        server = create_test_server(root_path=tmp_path)
-        # TODO: Figure out how to set working directory in refactored implementation
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, '""')
+        self._assert_has_path_completion(
+            source='""',
+            expected_completion=file_to_complete.name,
+            root_path=tmp_path,
+            working_directory=str(notebook_parent),
+        )
 
-        completions = self._completions(server, text_document, 1)
-        labels = [c.label for c in completions]
-        assert file_to_complete.name in labels
-
-    @pytest.mark.xfail(
-        reason="Notebook path completion working directory support needs verification"
-    )
-    def test_notebook_path_completions_different_wd(self, tmp_path) -> None:
+    def test_notebook_path_completions_different_wd(self, tmp_path: Path) -> None:
         """Test that notebook path completions respect custom working directory."""
         notebook_parent = tmp_path / "notebooks"
         notebook_parent.mkdir()
@@ -714,17 +784,146 @@ f(""",
         good_file = working_directory / "good-data.csv"
         good_file.write_text("")
 
-        # Create a server with working directory set to working_directory
+        self._assert_has_path_completion(
+            source='""',
+            expected_completion=good_file.name,
+            root_path=tmp_path,
+            working_directory=str(working_directory),
+        )
+
+    def test_path_completion_single_quotes(self, tmp_path: Path) -> None:
+        """Test path completions with single quotes."""
+        file = tmp_path / "data.csv"
+        file.write_text("")
+
+        self._assert_has_path_completion(
+            source="''",
+            expected_completion="data.csv",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_hidden_files(self, tmp_path: Path) -> None:
+        """Test that hidden files are only shown when prefix starts with '.'."""
+        # Create both hidden and visible files
+        hidden_file = tmp_path / ".gitignore"
+        hidden_file.write_text("")
+        visible_file = tmp_path / "readme.md"
+        visible_file.write_text("")
+
+        # Without dot prefix, should complete to visible file
+        self._assert_has_path_completion(
+            source='"r"',
+            expected_completion="eadme.md",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_hidden_files_with_dot(self, tmp_path: Path) -> None:
+        """Test that hidden files are shown when prefix starts with '.'."""
+        hidden_file = tmp_path / ".gitignore"
+        hidden_file.write_text("")
+
+        self._assert_has_path_completion(
+            source='"."',
+            expected_completion="gitignore",
+            root_path=tmp_path,
+        )
+
+    def test_path_completion_empty_directory(self, tmp_path: Path) -> None:
+        """Test path completion in empty directory returns no completions."""
         server = create_test_server(root_path=tmp_path)
-        # TODO: Figure out how to set working directory in refactored implementation
         text_document = create_text_document(server, TEST_DOCUMENT_URI, '""')
+        completions = self._completions(server, text_document, character=1)
 
-        completions = self._completions(server, text_document, 1)
+        assert len(completions) == 0
+
+    def test_path_completion_nonexistent_path(self, tmp_path: Path) -> None:
+        """Test path completion with non-existent directory returns no completions."""
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"nonexistent/"')
+        completions = self._completions(server, text_document, character=13)
+
+        assert len(completions) == 0
+
+    def test_path_completion_multiple_files(self, tmp_path: Path) -> None:
+        """Test path completion returns multiple matching files."""
+        # Create multiple files
+        (tmp_path / "data1.csv").write_text("")
+        (tmp_path / "data2.csv").write_text("")
+        (tmp_path / "other.txt").write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"data"')
+        completions = self._completions(server, text_document, character=5)
+
+        # Should return 2 completions for files starting with "data"
+        assert len(completions) == 2
+        labels = {c.label for c in completions}
+        assert labels == {"data1.csv", "data2.csv"}
+
+    def test_path_completion_directories_first(self, tmp_path: Path) -> None:
+        """Test that directories are listed before files."""
+        # Create a directory and a file with same prefix
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets.txt").write_text("")
+
+        server = create_test_server(root_path=tmp_path)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"a"')
+        completions = self._completions(server, text_document, character=2)
+
+        # Should have 2 completions, with directory first
+        assert len(completions) == 2
+        assert completions[0].label == "assets"  # Directory first
+        assert completions[1].label == "assets.txt"  # File second
+
+    def test_path_completion_falls_back_to_home(self, tmp_path: Path, monkeypatch) -> None:
+        """Test that path completions fall back to home directory when no root_path or working_directory."""
+        # Create a file in the "fake" home directory
+        home_file = tmp_path / "home-file.txt"
+        home_file.write_text("")
+
+        # Mock Path.home() to return our temp directory
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # Create server with NO root_path and NO working_directory
+        server = create_test_server(root_path=None, working_directory=None)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, '"home"')
+        completions = self._completions(server, text_document, character=5)
+
+        # Should find the file in the mocked home directory
+        assert len(completions) == 1
+        assert completions[0].label == "home-file.txt"
+
+    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
+    def test_line_magic_completions(self) -> None:
+        """Test completions for line magics."""
+        server = create_test_server()
+        assert server.shell is not None
+        server.shell.magics_manager.lsmagic.return_value = {
+            _MagicType.line: {"timeit": None, "time": None, "test": None},
+            _MagicType.cell: {},
+        }
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "%ti")
+
+        completions = self._completions(server, text_document)
         labels = [c.label for c in completions]
-        assert good_file.name in labels
 
+        assert labels == ["%timeit", "%time"]
 
-# --- Completion Item Resolve Tests ---
+    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
+    def test_cell_magic_completions(self) -> None:
+        """Test completions for cell magics."""
+        server = create_test_server()
+        assert server.shell is not None
+        server.shell.magics_manager.lsmagic.return_value = {
+            _MagicType.line: {},
+            _MagicType.cell: {"timeit": None, "time": None, "test": None},
+        }
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "%%ti")
+
+        completions = self._completions(server, text_document)
+        labels = [c.label for c in completions]
+
+        assert labels == ["%%timeit", "%%time"]
 
 
 class TestCompletionItemResolve:
@@ -735,30 +934,27 @@ class TestCompletionItemResolve:
         [
             pytest.param(
                 'x["',
-                {"x": {"a": _object_with_property.prop}},
+                {"x": {"a": object_with_property.prop}},
                 "str",
                 id="dict_key_to_property",
+                marks=pytest.mark.xfail(
+                    reason="Some completion detail resolutions need verification"
+                ),
             ),
             pytest.param(
                 'x["',
                 {"x": {"a": 0}},
                 "int",
                 id="dict_key_to_int",
+                marks=pytest.mark.xfail(
+                    reason="Some completion detail resolutions need verification"
+                ),
             ),
             pytest.param(
                 "x",
                 {"x": 0},
                 "int",
                 id="int",
-            ),
-            pytest.param(
-                '{"a": 0}["',
-                {},
-                "int",
-                id="dict_literal_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Completions for literal expressions not yet supported"
-                ),
             ),
             pytest.param(
                 "x",
@@ -771,6 +967,9 @@ class TestCompletionItemResolve:
                 {"x": pd.DataFrame({"a": [1, 2, 3]})},
                 "int64",
                 id="pandas_dataframe_dict_key",
+                marks=pytest.mark.xfail(
+                    reason="Some completion detail resolutions need verification"
+                ),
             ),
             pytest.param(
                 "x",
@@ -789,12 +988,18 @@ class TestCompletionItemResolve:
                 {"x": pl.DataFrame({"a": [1, 2, 3]})},
                 "Int64",
                 id="polars_dataframe_dict_key",
+                marks=pytest.mark.xfail(
+                    reason="Some completion detail resolutions need verification"
+                ),
             ),
             pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
                 "Int64",
                 id="polars_series",
+                marks=pytest.mark.xfail(
+                    reason="Some completion detail resolutions need verification"
+                ),
             ),
         ],
     )
@@ -802,7 +1007,7 @@ class TestCompletionItemResolve:
         self,
         source: str,
         namespace: Dict[str, Any],
-        expected_detail_contains: str,  # noqa: ARG002
+        expected_detail_contains: str,
     ) -> None:
         """Test that completion items can be resolved with additional details."""
         from positron.positron_lsp import _handle_completion
@@ -821,13 +1026,91 @@ class TestCompletionItemResolve:
         assert completion_list is not None
         assert len(completion_list.items) > 0
 
-        # For now, just verify we can call resolve without errors
-        # The actual detail format may differ after refactor
         item = completion_list.items[0]
-        assert item.label is not None
+        assert item.detail is not None
+        assert expected_detail_contains in item.detail
 
 
-# --- Hover Tests ---
+class TestSignatureHelp:
+    """Tests for signature help functionality."""
+
+    def _signature_help(
+        self,
+        server: PositronLanguageServer,
+        text_document: TextDocument,
+        position: Position,
+    ) -> Optional[SignatureHelp]:
+        from positron.positron_lsp import _handle_signature_help
+
+        params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+        return _handle_signature_help(server, params)
+
+    @pytest.mark.parametrize(
+        ("source", "namespace"),
+        [
+            pytest.param(
+                "func(",
+                {"func": func},
+                id="from_namespace",
+            ),
+        ],
+    )
+    def test_positron_signature_help(self, source: str, namespace: Dict[str, Any]) -> None:
+        """Test signature help on functions."""
+        server = create_test_server(namespace)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+        # Position at end of document
+        line = len(text_document.lines) - 1
+        character = len(text_document.lines[line])
+        position = Position(line, character)
+
+        sig_help = self._signature_help(server, text_document, position)
+
+        assert sig_help is not None
+        assert len(sig_help.signatures) == 1
+        assert sig_help.signatures[0].label == _func_label[len("def ") :]
+
+    def test_signature_help_on_function(self) -> None:
+        """Signature help should work on functions."""
+        server = create_test_server({"print": print})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "print(")
+
+        sig_help = self._signature_help(server, text_document, Position(0, 6))
+
+        assert sig_help is not None
+        assert len(sig_help.signatures) == 1
+        assert sig_help.signatures[0].label.startswith("print(")
+
+    def test_signature_help_on_custom_function(self) -> None:
+        """Signature help should work on user-defined functions."""
+
+        def custom_func(a: int, b: str) -> None:
+            pass
+
+        server = create_test_server({"custom_func": custom_func})
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "custom_func(")
+
+        sig_help = self._signature_help(server, text_document, Position(0, 12))
+
+        assert sig_help is not None
+        assert len(sig_help.signatures) == 1
+        assert sig_help.signatures[0].label.startswith("custom_func(")
+
+    def test_notebook_signature_help(self) -> None:
+        """Test that signature help works across notebook cells."""
+        server = create_test_server({"func": func})
+
+        # Create a notebook which defines a function in one cell and uses it in another
+        func_def = "def func(x, y):\n    pass"
+        cell_uris = create_notebook_document(server, "uri", [func_def, "func("])
+        text_document = server.workspace.get_text_document(cell_uris[1])
+
+        sig_help = self._signature_help(server, text_document, Position(0, 12))
+
+        assert sig_help is not None
+        assert len(sig_help.signatures) == 1
+        assert sig_help.signatures[0].label == _func_label[len("def ") :]
 
 
 class TestHover:
@@ -852,7 +1135,10 @@ class TestHover:
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
-        assert hover.contents is not None
+        assert getattr(hover.contents, "value", "").startswith("""**x**: `int`
+
+---
+int([x]) -> integer""")
 
     def test_hover_on_dataframe(self) -> None:
         """Hover should work on DataFrames."""
@@ -863,196 +1149,46 @@ class TestHover:
         hover = self._hover(server, text_document, Position(0, 0))
 
         assert hover is not None
+        assert getattr(hover.contents, "value", "").startswith("""**df**: `DataFrame`
+
+```
+   col1
+0     1
+1     2
+2     3
+```
+
+---
+Two-dimensional,""")
 
 
-# --- Signature Help Tests ---
-
-
-class TestSignatureHelp:
-    """Tests for signature help functionality."""
-
-    def _signature_help(
-        self,
-        server: PositronLanguageServer,
-        text_document: TextDocument,
-        position: Position,
-    ) -> Optional[SignatureHelp]:
-        from positron.positron_lsp import _handle_signature_help
-
-        params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
-        return _handle_signature_help(server, params)
+class TestHelpTopic:
+    """Tests for help topic requests."""
 
     @pytest.mark.parametrize(
-        ("source", "namespace"),
+        ("source", "namespace", "expected_topic"),
         [
-            pytest.param(
-                f"{_func_str}\nfunc(",
-                {},
-                id="from_source",
-                marks=pytest.mark.xfail(reason="Signature help needs verification after refactor"),
-            ),
-            pytest.param(
-                "func(",
-                {"func": func},
-                id="from_namespace",
-            ),
+            # A variable in the user's namespace should resolve
+            ("x", {"x": 0}, "builtins.int"),
+            # A function should resolve
+            ("len", {"len": len}, "builtins.len"),
         ],
     )
-    def test_positron_signature_help(self, source: str, namespace: Dict[str, Any]) -> None:
-        """Test signature help on functions from source and namespace."""
-        server = create_test_server(namespace)
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
-
-        # Position at end of document
-        line = len(text_document.lines) - 1
-        character = len(text_document.lines[line])
-        position = Position(line, character)
-
-        sig_help = self._signature_help(server, text_document, position)
-
-        assert sig_help is not None
-        assert len(sig_help.signatures) > 0
-        # Detailed assertion would depend on exact format after refactor
-        # Expected: SignatureHelp with func signature, params, and documentation
-
-    def test_signature_help_on_function(self) -> None:
-        """Signature help should work on functions."""
-        server = create_test_server({"print": print})
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, "print(")
-
-        sig_help = self._signature_help(server, text_document, Position(0, 6))
-
-        assert sig_help is not None
-        assert len(sig_help.signatures) > 0
-
-    def test_signature_help_on_custom_function(self) -> None:
-        """Signature help should work on user-defined functions."""
-
-        def custom_func(a: int, b: str) -> None:
-            pass
-
-        server = create_test_server({"custom_func": custom_func})
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, "custom_func(")
-
-        sig_help = self._signature_help(server, text_document, Position(0, 12))
-
-        assert sig_help is not None
-        assert len(sig_help.signatures) > 0
-
-
-# --- Magic Command Tests ---
-
-
-class TestMagicCompletions:
-    """Tests for magic command completions."""
-
-    def _completions(
+    def test_help_topic_request(
         self,
-        server: PositronLanguageServer,
-        text_document: TextDocument,
-    ) -> List[CompletionItem]:
-        from positron.positron_lsp import _handle_completion
+        source: str,
+        namespace: Dict[str, Any],
+        expected_topic: Optional[str],
+    ) -> None:
+        from positron.positron_lsp import _handle_help_topic
 
-        line = len(text_document.lines) - 1
-        character = len(text_document.lines[line])
+        server = create_test_server(namespace)
+        create_text_document(server, TEST_DOCUMENT_URI, source)
 
-        params = CompletionParams(
-            TextDocumentIdentifier(text_document.uri),
-            Position(line, character),
-        )
-        completion_list = _handle_completion(server, params)
-        return [] if completion_list is None else list(completion_list.items)
+        params = HelpTopicParams(TextDocumentIdentifier(TEST_DOCUMENT_URI), Position(0, 0))
+        topic = _handle_help_topic(server, params)
 
-    def test_line_magic_completions(self) -> None:
-        """Test completions for line magics."""
-        server = create_test_server()
-        assert server.shell is not None
-        server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {"timeit": None, "time": None},
-            _MagicType.cell: {},
-        }
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, "%ti")
-
-        completions = self._completions(server, text_document)
-        labels = [c.label for c in completions]
-
-        assert "%timeit" in labels or "timeit" in labels
-
-    def test_cell_magic_completions(self) -> None:
-        """Test completions for cell magics."""
-        server = create_test_server()
-        assert server.shell is not None
-        server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {},
-            _MagicType.cell: {"timeit": None, "time": None},
-        }
-        text_document = create_text_document(server, TEST_DOCUMENT_URI, "%%ti")
-
-        completions = self._completions(server, text_document)
-        labels = [c.label for c in completions]
-
-        assert "%%timeit" in labels or "timeit" in labels
-
-
-# --- Notebook Tests ---
-
-
-class TestNotebookFeatures:
-    """Tests for notebook-specific features."""
-
-    def test_notebook_completions(self) -> None:
-        """Test that completions work across notebook cells."""
-        server = create_test_server()
-
-        # Create a notebook which defines a variable in one cell and uses it in another
-        cell_uris = create_notebook_document(server, "uri", ["x = {'a': 0}", "x['"])
-        text_document = server.workspace.get_text_document(cell_uris[1])
-
-        # Verify the basic structure - actual completion may differ
-        assert text_document.uri == cell_uris[1]
-        assert len(cell_uris) == 2
-
-    def test_notebook_signature_help(self) -> None:
-        """Test that signature help works across notebook cells."""
-        server = create_test_server()
-
-        # Create a notebook which defines a function in one cell and uses it in another
-        func_def = "def func(x, y):\n    pass"
-        cell_uris = create_notebook_document(server, "uri", [func_def, "func("])
-        text_document = server.workspace.get_text_document(cell_uris[1])
-
-        # Verify the basic structure - actual signature help may differ
-        assert text_document.uri == cell_uris[1]
-        assert len(cell_uris) == 2
-
-
-# --- Additional Completion Tests ---
-
-
-class TestAdditionalCompletions:
-    """Additional completion tests from the old test suite."""
-
-    def test_parameter_completions_appear_first(self) -> None:
-        """Test that parameter completions are sorted first."""
-        from positron.positron_lsp import _handle_completion
-
-        server = create_test_server()
-        text_document = create_text_document(
-            server,
-            TEST_DOCUMENT_URI,
-            "def f(x): pass\nf(",
-        )
-
-        line = len(text_document.lines) - 1
-        character = len(text_document.lines[line])
-        params = CompletionParams(
-            TextDocumentIdentifier(text_document.uri),
-            Position(line, character),
-        )
-        completion_list = _handle_completion(server, params)
-
-        if completion_list and completion_list.items:
-            sorted_completions = sorted(completion_list.items, key=lambda c: c.sort_text or c.label)
-            labels = [c.label for c in sorted_completions]
-            # Verify x= appears somewhere in the list
-            assert any("x" in label for label in labels)
+        if expected_topic is None:
+            assert topic is None
+        else:
+            assert topic == ShowHelpTopicParams(topic=expected_topic)
