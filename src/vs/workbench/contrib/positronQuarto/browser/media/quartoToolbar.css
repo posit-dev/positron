@@ -1,0 +1,100 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Quarto Cell Toolbar Styles */
+
+.quarto-cell-toolbar {
+	display: inline-flex !important;
+	flex-direction: row !important;
+	align-items: center;
+	gap: 2px;
+	padding: 2px 4px;
+	background-color: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+	z-index: 10;
+	white-space: nowrap;
+
+	/* Position half above, half below the anchor line */
+	transform: translateY(50%);
+
+	/* Hidden by default, shown when cursor is in cell */
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.quarto-cell-toolbar.visible {
+	visibility: visible;
+	opacity: 0.9;
+}
+
+.quarto-toolbar-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: none;
+	border-radius: 3px;
+	background-color: transparent;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+}
+
+.quarto-toolbar-btn:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.quarto-toolbar-btn:active {
+	background-color: var(--vscode-toolbar-activeBackground);
+}
+
+.quarto-toolbar-btn:focus {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.quarto-toolbar-btn:focus-visible {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+/* Run button specific styles */
+.quarto-toolbar-run .codicon-play {
+	color: var(--vscode-debugIcon-startForeground, #89d185);
+}
+
+.quarto-toolbar-run.running .codicon-debug-stop {
+	color: var(--vscode-debugIcon-stopForeground, #f48771);
+}
+
+/* Disabled state for buttons */
+.quarto-toolbar-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Animation for running state */
+.quarto-toolbar-run.running {
+	animation: quarto-toolbar-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes quarto-toolbar-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
+}
+
+/* Full opacity on hover */
+.quarto-cell-toolbar.visible:hover {
+	opacity: 1;
+}

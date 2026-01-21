@@ -19,8 +19,8 @@ import { QuartoOutputCacheService } from './quartoOutputCacheService.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { QuartoStatusBarIndicator } from './quartoStatusBarIndicator.js';
 import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
-import { QuartoCodeLensProvider } from './quartoCodeLensProvider.js';
 import { QuartoMultiLanguageWarning } from './quartoMultiLanguageWarning.js';
+import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
 import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
@@ -36,6 +36,7 @@ import './quartoCommands.js';
 // Import CSS styles
 import './media/quartoExecutionDecorations.css';
 import './media/quartoOutputViewZone.css';
+import './media/quartoToolbar.css';
 
 // Register services
 registerSingleton(IQuartoDocumentModelService, QuartoDocumentModelService, InstantiationType.Delayed);
@@ -48,6 +49,7 @@ registerSingleton(IQuartoOutputManager, QuartoOutputManagerService, Instantiatio
 registerEditorContribution(QuartoExecutionDecorations.ID, QuartoExecutionDecorations, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoOutputContribution.ID, QuartoOutputContribution, EditorContributionInstantiation.AfterFirstRender);
 registerEditorContribution(QuartoMultiLanguageWarning.ID, QuartoMultiLanguageWarning, EditorContributionInstantiation.AfterFirstRender);
+registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarController, EditorContributionInstantiation.AfterFirstRender);
 
 /**
  * Contribution that manages Quarto inline output functionality.
@@ -76,9 +78,6 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 
 		// Create the status bar indicator
 		this._register(instantiationService.createInstance(QuartoStatusBarIndicator));
-
-		// Create the CodeLens provider
-		this._register(instantiationService.createInstance(QuartoCodeLensProvider));
 
 		// Listen for configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
