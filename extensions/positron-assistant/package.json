@@ -471,6 +471,11 @@
             },
             "additionalProperties": false
           },
+          "positron.assistant.bedrock.inferenceProfileRegion": {
+            "type": "string",
+            "default": null,
+            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%"
+          },
           "positron.assistant.providerVariables.snowflake": {
             "type": "object",
             "default": {},
