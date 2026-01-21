@@ -14,6 +14,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { QuartoCommandId } from './quartoCommands.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { getWindow } from '../../../../base/browser/dom.js';
 
 /**
  * A toolbar widget that appears in the upper-right corner of Quarto code cells.
@@ -24,10 +25,10 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	readonly allowEditorOverflow = false;
 
 	private readonly _domNode: HTMLElement;
-	private readonly _runButton: HTMLButtonElement;
-	private readonly _runAboveButton: HTMLButtonElement;
-	private readonly _runBelowButton: HTMLButtonElement;
-	private readonly _buttons: HTMLButtonElement[];
+	private _runButton!: HTMLButtonElement;
+	private _runAboveButton!: HTMLButtonElement;
+	private _runBelowButton!: HTMLButtonElement;
+	private _buttons!: HTMLButtonElement[];
 	private readonly _hoverDisposables = this._register(new DisposableStore());
 	private _isRunning = false;
 	private _visible = true;
@@ -48,10 +49,6 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	) {
 		super();
 		this._domNode = this._createDomNode();
-		this._runButton = this._domNode.querySelector('.quarto-toolbar-run')!;
-		this._runAboveButton = this._domNode.querySelector('.quarto-toolbar-run-above')!;
-		this._runBelowButton = this._domNode.querySelector('.quarto-toolbar-run-below')!;
-		this._buttons = [this._runAboveButton, this._runButton, this._runBelowButton];
 
 		this._updateButtonVisibility();
 		this._setupKeyboardNavigation();
@@ -216,28 +213,28 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		container.className = 'quarto-cell-toolbar';
 
 		// Run Above button (only shown if not first cell)
-		const runAboveBtn = document.createElement('button');
-		runAboveBtn.className = 'quarto-toolbar-btn quarto-toolbar-run-above';
-		runAboveBtn.setAttribute('aria-label', localize('quarto.toolbar.runAbove.aria', 'Run all cells above this cell'));
-		runAboveBtn.setAttribute('tabindex', '0');
+		this._runAboveButton = document.createElement('button');
+		this._runAboveButton.className = 'quarto-toolbar-btn quarto-toolbar-run-above';
+		this._runAboveButton.setAttribute('aria-label', localize('quarto.toolbar.runAbove.aria', 'Run all cells above this cell'));
+		this._runAboveButton.setAttribute('tabindex', '0');
 		const runAboveIcon = document.createElement('span');
 		runAboveIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runAbove));
-		runAboveBtn.appendChild(runAboveIcon);
-		runAboveBtn.addEventListener('click', (e) => {
+		this._runAboveButton.appendChild(runAboveIcon);
+		this._runAboveButton.addEventListener('click', (e) => {
 			e.stopPropagation();
 			this._onRunAbove();
 		});
-		container.appendChild(runAboveBtn);
+		container.appendChild(this._runAboveButton);
 
 		// Run/Stop button
-		const runBtn = document.createElement('button');
-		runBtn.className = 'quarto-toolbar-btn quarto-toolbar-run';
-		runBtn.setAttribute('aria-label', localize('quarto.toolbar.runCell.aria', 'Run this cell'));
-		runBtn.setAttribute('tabindex', '0');
+		this._runButton = document.createElement('button');
+		this._runButton.className = 'quarto-toolbar-btn quarto-toolbar-run';
+		this._runButton.setAttribute('aria-label', localize('quarto.toolbar.runCell.aria', 'Run this cell'));
+		this._runButton.setAttribute('tabindex', '0');
 		const runIcon = document.createElement('span');
 		runIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.play));
-		runBtn.appendChild(runIcon);
-		runBtn.addEventListener('click', (e) => {
+		this._runButton.appendChild(runIcon);
+		this._runButton.addEventListener('click', (e) => {
 			e.stopPropagation();
 			if (this._isRunning) {
 				this._onStop();
@@ -245,21 +242,24 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 				this._onRun();
 			}
 		});
-		container.appendChild(runBtn);
+		container.appendChild(this._runButton);
 
 		// Run Below button (only shown if not last cell)
-		const runBelowBtn = document.createElement('button');
-		runBelowBtn.className = 'quarto-toolbar-btn quarto-toolbar-run-below';
-		runBelowBtn.setAttribute('aria-label', localize('quarto.toolbar.runBelow.aria', 'Run this cell and all cells below'));
-		runBelowBtn.setAttribute('tabindex', '0');
+		this._runBelowButton = document.createElement('button');
+		this._runBelowButton.className = 'quarto-toolbar-btn quarto-toolbar-run-below';
+		this._runBelowButton.setAttribute('aria-label', localize('quarto.toolbar.runBelow.aria', 'Run this cell and all cells below'));
+		this._runBelowButton.setAttribute('tabindex', '0');
 		const runBelowIcon = document.createElement('span');
 		runBelowIcon.classList.add(...ThemeIcon.asClassNameArray(Codicon.runBelow));
-		runBelowBtn.appendChild(runBelowIcon);
-		runBelowBtn.addEventListener('click', (e) => {
+		this._runBelowButton.appendChild(runBelowIcon);
+		this._runBelowButton.addEventListener('click', (e) => {
 			e.stopPropagation();
 			this._onRunBelow();
 		});
-		container.appendChild(runBelowBtn);
+		container.appendChild(this._runBelowButton);
+
+		// Store button array for keyboard navigation
+		this._buttons = [this._runAboveButton, this._runButton, this._runBelowButton];
 
 		return container;
 	}
@@ -300,7 +300,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	private _setupKeyboardNavigation(): void {
 		this._domNode.addEventListener('keydown', (e) => {
 			const visibleButtons = this._buttons.filter(btn => btn.style.display !== 'none');
-			const currentIndex = visibleButtons.indexOf(document.activeElement as HTMLButtonElement);
+			const currentIndex = visibleButtons.indexOf(getWindow(this._domNode).document.activeElement as HTMLButtonElement);
 
 			if (currentIndex === -1) {
 				return;
