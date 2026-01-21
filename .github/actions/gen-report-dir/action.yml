@@ -20,8 +20,8 @@ runs:
       run: |
         # Fix GitHub masking: "***" → "e2e" (GitHub masks "e2e" as a secret)
         # Keep full project name (e.g., "e2e-electron" stays as "e2e-electron")
-        PROJECT="${{ inputs.project }}"
-        PROJECT="${PROJECT//\*\*\*/e2e}"
+        # Use sed for reliable literal string replacement (bash glob escaping is unreliable here)
+        PROJECT=$(echo "${{ inputs.project }}" | sed 's/\*\*\*/e2e/g')
         echo "Project: $PROJECT"
 
         # Detect distro suffix (only for Linux)
