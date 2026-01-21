@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
+import { safeSetInnerHtml } from '../../../../base/browser/domSanitize.js';
 import { status as ariaStatus } from '../../../../base/browser/ui/aria/aria.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IViewZone } from '../../../../editor/browser/editorBrowser.js';
@@ -165,7 +166,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	clearOutputs(): void {
 		this._outputs = [];
-		this._outputContainer.innerHTML = '';
+		dom.clearNode(this._outputContainer);
 
 		// Dispose all webviews
 		this._disposeAllWebviews();
@@ -321,7 +322,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _renderAllOutputs(): void {
-		this._outputContainer.innerHTML = '';
+		dom.clearNode(this._outputContainer);
 		for (const output of this._outputs) {
 			this._renderOutput(output);
 		}
@@ -577,7 +578,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// For security, only render safe HTML (no scripts)
 		if (this._isSafeHtml(content)) {
-			container.innerHTML = content;
+			safeSetInnerHtml(container, content);
 		} else if (this._webviewService && this._session) {
 			// Use webview for unsafe HTML content
 			container.className = 'quarto-output-webview-container';
@@ -816,7 +817,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	private _showWebviewFallback(container: HTMLElement, output: ICellOutput): void {
 		// Remove any existing content
-		container.innerHTML = '';
+		dom.clearNode(container);
 
 		// Show a message that the output requires webview
 		const warning = document.createElement('div');
