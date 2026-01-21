@@ -104,23 +104,27 @@
 
 /* === Markdown Cells: Rendered Content (when editor hidden) === */
 
+/* Base border style that is transparent to prevent layout shift on hover */
 .positron-notebook-markdown-cell .positron-notebook-cell-outputs {
-	border: 1px solid var(--vscode-positronNotebook-border-color);
+	border: 1px solid transparent;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 }
 
+/* Show border when selected or editing */
 .positron-notebook-markdown-cell.selected .positron-notebook-cell-outputs,
 .positron-notebook-markdown-cell.editing .positron-notebook-cell-outputs {
 	border-color: var(--vscode-focusBorder);
 }
 
+/* Show border on hover */
 .positron-notebook-markdown-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
 	border-color: var(--vscode-editorWidget-border);
 }
 
-/* Empty markdown cell keeps dashed border */
+/* Empty markdown cell always shows dashed border */
 .positron-notebook-markdown-cell .positron-notebook-cell-outputs:has(.empty-output-msg) {
 	border-style: dashed;
+	border-color: var(--vscode-positronNotebook-border-color);
 }
 
 
