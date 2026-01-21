@@ -44,7 +44,8 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { ToolProgress } from '../../common/languageModelToolsService.js';
-import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { getUriForFileOpenOrInsideWorkspace, isFileExcludedFromAI } from './utils.js';
 
 const codeInstructions = `
 The edits will be automatically merged into the document and presented as a diff to the user.
@@ -116,6 +117,9 @@ export class EditTool implements IToolImpl {
 	constructor(
 		@IChatService private readonly chatService: IChatService,
 		@ICodeMapperService private readonly codeMapperService: ICodeMapperService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- End Positron ---
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@ILanguageModelIgnoredFilesService private readonly ignoredFilesService: ILanguageModelIgnoredFilesService,
 		@ITextFileService private readonly textFileService: ITextFileService,
@@ -180,6 +184,18 @@ export class EditTool implements IToolImpl {
 		if (await this.ignoredFilesService.fileIsIgnored(uri, token)) {
 			throw new Error(`File ${uri.fsPath} can't be edited because it is configured to be ignored by Copilot`);
 		}
+
+		// --- Start Positron ---
+		if (isFileExcludedFromAI(this.configurationService, uri.path)) {
+			throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
+		}
+		// --- End Positron ---
+
+		// --- Start Positron ---
+		if (isFileExcludedFromAI(this.configurationService, uri.path)) {
+			throw new Error(`File "${filePath}" is excluded from AI features by your aiExcludes settings.`);
+		}
+		// --- End Positron ---
 
 		const model = this.chatService.getSession(invocation.context?.sessionResource) as ChatModel;
 		const request = model.getRequests().at(-1)!;
@@ -311,7 +327,7 @@ export class EditTool implements IToolImpl {
 		};
 	}
 
-	async prepareToolInvocation(parameters: any, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
+	async prepareToolInvocation(parameters: unknown, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
 		return {
 			presentation: ToolInvocationPresentation.Hidden,
 		};

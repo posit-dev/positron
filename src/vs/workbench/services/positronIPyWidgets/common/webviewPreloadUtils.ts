@@ -46,7 +46,9 @@ const MIME_TYPES = {
 	POSITRON_WEBVIEW_FLAG: 'application/positron-webview-load.v0+json',
 	PLOTLY: 'application/vnd.plotly.v1+json',
 	PLAIN: 'text/plain',
-	HTML: 'text/html'
+	HTML: 'text/html',
+	WIDGET_VIEW: 'application/vnd.jupyter.widget-view+json',
+	WIDGET_STATE: 'application/vnd.jupyter.widget-state+json'
 } as const;
 
 /**
@@ -98,18 +100,33 @@ export function isWebviewDisplayMessage(mimeTypesOrMsg: string[] | ILanguageRunt
 		mimeTypeSet.has(MIME_TYPES.PLOTLY);
 }
 
+/**
+ * Checks if mime types represent a widget display.
+ * @param mimeTypes Array of mime types to check
+ * @returns True if contains widget MIME types
+ */
+export function isWidgetDisplayMessage(mimeTypes: string[]): boolean {
+	return mimeTypes.includes(MIME_TYPES.WIDGET_VIEW);
+}
 
 /**
  * Determines if a set of notebook cell outputs contains mime types that require webview handling.
  * This is used to check if outputs need special webview processing, either for:
- * 1. Display messages that create new webviews (e.g. interactive plots)
- * 2. Replay messages that need to be stored for later playback in webviews
+ * 1. Widget messages that create interactive widget webviews (e.g. ipywidgets)
+ * 2. Display messages that create new webviews (e.g. interactive plots)
+ * 3. Replay messages that need to be stored for later playback in webviews
  *
  * @param outputs Array of output objects containing mime types to check
- * @returns The type of webview message ('display', 'preload') or null if not handled
+ * @returns The type of webview message ('widget', 'display', 'preload') or null if not handled
  */
-export function getWebviewMessageType(outputs: { mime: string }[]): 'display' | 'preload' | null {
+export function getWebviewMessageType(outputs: { mime: string }[]): 'widget' | 'display' | 'preload' | null {
 	const mimeTypes = outputs.map(output => output.mime);
+
+	// Check for widgets FIRST (highest priority)
+	if (isWidgetDisplayMessage(mimeTypes)) {
+		return 'widget';
+	}
+
 	if (isWebviewDisplayMessage(mimeTypes)) {
 		return 'display';
 	}

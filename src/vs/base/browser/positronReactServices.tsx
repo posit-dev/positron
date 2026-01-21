@@ -46,6 +46,7 @@ import { ILanguageRuntimeService } from '../../workbench/services/languageRuntim
 import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
 import { IPositronModalDialogsService } from '../../workbench/services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IResourceUsageHistoryService } from '../../workbench/services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IPositronAssistantService } from '../../workbench/contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -118,6 +119,7 @@ export class PositronReactServices {
 		@IPositronNotebookOutputWebviewService public readonly positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronPlotsService public readonly positronPlotsService: IPositronPlotsService,
 		@IPositronPreviewService public readonly positronPreviewService: IPositronPreviewService,
+		@IResourceUsageHistoryService public readonly resourceUsageHistoryService: IResourceUsageHistoryService,
 		@IPositronTopActionBarService public readonly positronTopActionBarService: IPositronTopActionBarService,
 		@IPositronVariablesService public readonly positronVariablesService: IPositronVariablesService,
 		@IPositronWebviewPreloadService public readonly positronWebviewPreloadService: IPositronWebviewPreloadService,

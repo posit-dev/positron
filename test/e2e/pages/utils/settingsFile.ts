@@ -9,7 +9,7 @@ import os from 'os';
 
 const BACKUP_SUFFIX = '.playwright-backup';
 
-export class VscodeSettings {
+export class SettingsFile {
 	private readonly settingsPath: string;
 
 	constructor(settingsPath: string) {

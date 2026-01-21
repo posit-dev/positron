@@ -227,7 +227,6 @@ export abstract class AbstractExtensionsProfileScannerService extends Disposable
 			let storedProfileExtensions: IStoredProfileExtension[] | undefined;
 			try {
 				const content = await this.fileService.readFile(file);
-				this.logService.info(`Parsing JSON from ${file.toString()} with contents ${content.value.toString()}`);
 				storedProfileExtensions = JSON.parse(content.value.toString().trim() || '[]');
 			} catch (error) {
 				this.logService.error(`Extensions profile: Failed to read extensions from ${file.toString()}`, getErrorMessage(error));

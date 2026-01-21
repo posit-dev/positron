@@ -317,7 +317,13 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 			localize('terminal.integrated.detectLocale.off', "Do not set the `$LANG` environment variable."),
 			localize('terminal.integrated.detectLocale.on', "Always set the `$LANG` environment variable.")
 		],
-		default: 'auto'
+		// --- Start Positron ---
+		// Default to 'on' to ensure consistent locale behavior across platforms,
+		// particularly for R which can produce different results with C/POSIX locales.
+		// See: https://github.com/posit-dev/positron/issues/11054
+		// default: 'auto'
+		default: 'on'
+		// --- End Positron ---
 	},
 	[TerminalSettingId.GpuAcceleration]: {
 		type: 'string',

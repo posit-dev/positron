@@ -974,17 +974,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
 			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
 		} else if (!this.languageModelsService.currentProvider) {
-			// When Anthropic is the only supported provider, we can use a more specific message.
-			// TODO: remove this custom handling https://github.com/posit-dev/positron/issues/8301
-			const hasAdditionalModels = this.configurationService.getValue<string[]>('positron.assistant.enabledProviders')?.length > 0;
-
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = hasAdditionalModels
-				? localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider")
-				: localize('positronAssistant.addLanguageModelMessageAnthropic', "Add a Chat Provider");
-			welcomeText = hasAdditionalModels
-				? localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n")
-				: localize('positronAssistant.welcomeMessageAnthropic', "To use Positron Assistant Chat, you must first authenticate with Anthropic or Github.\n");
+			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
+			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant, you must first select and authenticate with a language model provider.");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");

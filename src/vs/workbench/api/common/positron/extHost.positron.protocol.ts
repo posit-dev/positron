@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
-import { RuntimeClientType, LanguageRuntimeSessionChannel, NotebookCellType } from './extHostTypes.positron.js';
+import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
+import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
@@ -60,10 +61,11 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
-	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;
+	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown>;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
+	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -78,15 +80,15 @@ export interface ExtHostLanguageRuntimeShape {
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionId?: string): void;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
-	$createClient(handle: number, id: string, type: RuntimeClientType, params: any, metadata?: any): Promise<void>;
+	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;
 	$removeClient(handle: number, id: string): void;
-	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
+	$sendClientMessage(handle: number, client_id: string, message_id: string, message: unknown): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
-	$callMethod(handle: number, method: string, args: any[]): Thenable<any>;
+	$callMethod(handle: number, method: string, args: unknown[]): Thenable<unknown>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
@@ -190,21 +192,6 @@ export interface ExtHostPlotsServiceShape {
 	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
 }
 
-// This is the same as the NotebookCell interface in the positron.d.ts file but
-// it's often co-imported with interfaces from here so we'll re-export it here.
-export type INotebookCellDTO = notebooks.NotebookCell;
-
-/**
- * Data transfer object for notebook context information.
- */
-export interface INotebookContextDTO {
-	uri: string;
-	kernelId?: string;
-	kernelLanguage?: string;
-	cellCount: number;
-	selectedCells: INotebookCellDTO[];
-	allCells?: INotebookCellDTO[];
-}
 
 /**
  * Data transfer object for notebook cell output information.
@@ -227,10 +214,12 @@ export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
 	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
 	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
+	$deleteCells(notebookUri: string, cellIndices: number[]): Promise<void>;
 	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
 	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
 	$moveCell(notebookUri: string, fromIndex: number, toIndex: number): Promise<void>;
 	$reorderCells(notebookUri: string, newOrder: number[]): Promise<void>;
+	$scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void>;
 }
 
 /**

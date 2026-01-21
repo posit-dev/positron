@@ -9,6 +9,7 @@ import { HotKeys } from './hotKeys.js';
 import { QuickAccess } from './quickaccess.js';
 
 
+const DEBUG_TOOLBAR = '.debug-toolbar';
 const GLYPH_AREA = '.margin-view-overlays>:nth-child';
 const BREAKPOINT_GLYPH = '.monaco-editor .codicon-debug-breakpoint';
 const STOP = `.debug-toolbar .action-label[aria-label*="Stop"]`;
@@ -38,9 +39,11 @@ export class Debug {
 	get callStack(): Locator { return this.code.driver.page.locator(DEBUG_CALL_STACK); }
 	stackAtIndex = (index: number) => this.callStack.locator(`.monaco-list-row[data-index="${index}"]`);
 	debugPane: Locator;
+	debugToolbar: Locator;
 
 	constructor(private code: Code, private hotKeys: HotKeys, private quickaccess: QuickAccess) {
 		this.debugPane = this.code.driver.page.locator('.debug-pane');
+		this.debugToolbar = this.code.driver.page.locator(DEBUG_TOOLBAR);
 	}
 
 	async setBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
@@ -159,6 +162,24 @@ export class Debug {
 		await test.step(`Verify debug pane contains: ${variableLabel}`, async () => {
 			await expect(this.debugVariablesSection).toBeVisible();
 			await expect(this.code.driver.page.getByLabel(variableLabel)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: The debug toolbar is visible
+	 */
+	async expectDebugToolbarVisible(): Promise<void> {
+		await test.step('Verify debug toolbar is visible', async () => {
+			await expect(this.debugToolbar).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: The debug variable pane is visible
+	 */
+	async expectDebugVariablePaneVisible(): Promise<void> {
+		await test.step('Verify debug variable pane is visible', async () => {
+			await expect(this.debugVariablesSection).toBeVisible();
 		});
 	}
 

@@ -27,6 +27,9 @@ import {
 import { areSameExtensions, ExtensionKey, getGalleryExtensionId, getGalleryExtensionTelemetryData, getLocalExtensionTelemetryData, isMalicious } from './extensionManagementUtil.js';
 import { ExtensionType, IExtensionManifest, isApplicationScopedExtension, TargetPlatform } from '../../extensions/common/extensions.js';
 import { areApiProposalsCompatible } from '../../extensions/common/extensionValidator.js';
+// --- Start Positron ---
+import { validatePositronExtensionManifest } from '../../extensions/common/positronExtensionValidator.js';
+// --- End Positron ---
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
@@ -69,10 +72,14 @@ function isPositronExtensionCompatible(extension: { name: string; publisher: str
 
 /**
  * Check if an extension is compatible with Positron
- * @param extension Extension to check
+ * @param extension Extension to check (gallery extension or manifest) - version checks are only done for manifests with Positron engine requirements
+ * @param productService Product service to get current Positron version
  * @returns Compatibility result with optional reason if incompatible
  */
-export function positronExtensionCompatibility(extension: { name: string; publisher: string; displayName?: string }): PositronExtensionCompatibility {
+export function positronExtensionCompatibility(
+	extension: { name: string; publisher: string; displayName?: string } | IGalleryExtension | IExtensionManifest,
+	productService?: IProductService
+): PositronExtensionCompatibility {
 	if (!isPositronExtensionCompatible(extension)) {
 		return {
 			compatible: false,
@@ -82,6 +89,30 @@ export function positronExtensionCompatibility(extension: { name: string; publis
 			)
 		};
 	}
+
+	// Check version compatibility for manifests with Positron engine requirements
+	if (productService?.positronVersion && extension.hasOwnProperty('engines')) {
+		const manifest = extension as IExtensionManifest;
+		if (manifest.engines?.positron) {
+			const validations = validatePositronExtensionManifest(
+				productService.positronVersion,
+				productService.date,
+				URI.file(''), // extension not yet installed; pass empty URI
+				manifest,
+				false // extensionIsBuiltin is set to false, because we are installing user requested extension, not a built-in one
+			);
+
+			// Return validation error if any exist (currently only one error is returned at a time)
+			if (validations.length > 0) {
+				const [, reason] = validations[0];
+				return {
+					compatible: false,
+					reason
+				};
+			}
+		}
+	}
+
 	return { compatible: true };
 }
 

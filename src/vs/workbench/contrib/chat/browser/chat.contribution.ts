@@ -244,7 +244,7 @@ configurationRegistry.registerConfiguration({
 		},
 		'chat.useCopilotParticipantsWithOtherProviders': {
 			type: 'boolean',
-			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider**.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
+			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider when Copilot participants are used**.\n\nFor example, if you enable this setting and you are using Anthropic as a provider, GitHub Copilot participants are available. When invoked, the participants may send data to Copilot models.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
 			default: false
 		},
 		// --- End Positron ---

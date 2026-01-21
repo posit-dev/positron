@@ -80,6 +80,7 @@ class MockRuntimeSession implements ILanguageRuntimeSession {
 	onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;
 	onDidReceiveRuntimeMessageIPyWidget = new Emitter<any>().event;
+	onDidUpdateResourceUsage = new Emitter<any>().event;
 
 	clientInstances: any[] = [];
 	lastUsed = Date.now();

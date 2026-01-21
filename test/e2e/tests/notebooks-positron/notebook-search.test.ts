@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -14,11 +15,8 @@ test.describe('Positron Notebooks: Search', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.WEB, tags.WIN]
 }, () => {
 
-	test.beforeAll(async ({ app, settings }) => {
+	test.beforeAll(async ({ app }) => {
 		const { notebooksPositron } = app.workbench;
-
-		// enable Positron Notebooks and open bitmap notebook
-		await notebooksPositron.enablePositronNotebooks(settings);
 		const notebookPath = path.join('workspaces', 'pokemon', 'pokemon.ipynb');
 		await notebooksPositron.openNotebook(notebookPath);
 	});

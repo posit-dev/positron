@@ -13,6 +13,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+	private readonly _onDidUpdateResourceUsage = new vscode.EventEmitter<positron.RuntimeResourceUsage>();
 	static messageId = 0;
 	private _executingCode: string | undefined;
 	private _executionCount = 0;
@@ -23,6 +24,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
+	onDidUpdateResourceUsage: vscode.Event<positron.RuntimeResourceUsage> = this._onDidUpdateResourceUsage.event;
 	dynState: positron.LanguageRuntimeDynState;
 
 	constructor(

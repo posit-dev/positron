@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -13,14 +14,6 @@ test.use({
 test.describe('Positron Notebooks: Kernel Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.SOFT_FAIL] // soft fail due to https://github.com/posit-dev/positron/issues/10546
 }, () => {
-
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
@@ -185,6 +178,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		const [, rSession] = await sessions.start(['python', 'r']);
 		await sessions.select(rSession.id);
+		const sessionCountBefore = await sessions.getSessionCount();
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
@@ -195,7 +189,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// open notebook console and ensure appears in session list
 		await notebooksPositron.kernel.openNotebookConsole();
-		await sessions.expectSessionCountToBe(3);
+		await sessions.expectSessionCountToBe(sessionCountBefore + 1, 'all');
 		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
 
 		// terminate notebook session

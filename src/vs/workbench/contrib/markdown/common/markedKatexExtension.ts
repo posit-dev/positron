@@ -18,6 +18,17 @@ export namespace MarkedKatexExtension {
 	// From https://github.com/UziTech/marked-katex-extension/blob/main/src/index.js
 	export interface MarkedKatexOptions extends KatexOptions { }
 
+	// --- Start Positron ---
+	// Token structure for KaTeX inline and block math expressions.
+	// Exported for use by token-based React renderers.
+	export interface KatexToken {
+		type: 'inlineKatex' | 'blockKatex';
+		raw: string;
+		text: string;
+		displayMode: boolean;
+	}
+	// --- End Positron ---
+
 	const blockRule = /^(\${1,2})\n((?:\\[^]|[^\\])+?)\n\1(?:\n|$)/;
 
 	export function extension(katex: typeof import('katex').default, options: MarkedKatexOptions = {}): marked.MarkedExtension {

@@ -18,6 +18,7 @@ pluginHeader.rules.header.meta.schema = false;
 import globals from 'globals';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
+import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
 // --- End Positron ---
 
 const ignores = fs.readFileSync(path.join(import.meta.dirname, '.eslint-ignore'), 'utf8')
@@ -140,9 +141,8 @@ export default tseslint.config(
 		],
 		plugins: {
 			'react': pluginReact,
-			// @ts-ignore
-			// This shows up with a red squiggly in the editor, but it works.
 			'react-hooks': pluginReactHooks,
+			'jsx-a11y': pluginJsxA11y,
 		},
 		settings: {
 			react: {
@@ -171,7 +171,9 @@ export default tseslint.config(
 					'reservedFirst': true,
 					'shorthandFirst': true
 				}
-			]
+			],
+			// Do not allow non-interactive elements to have interactive handlers
+			'jsx-a11y/no-static-element-interactions': 'error',
 		},
 	},
 	// --- End Positron ---

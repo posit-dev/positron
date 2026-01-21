@@ -36,10 +36,20 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 			hideIfBelowMinSize: true,
 		},
 		[Parts.AUXILIARYBAR_PART]: {
-			hidden: true,
 			size: '20%',
-			minSize: 180,
-		},
+			hidden: false,
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronSession',
+					opened: true,
+					views: [
+						{
+							id: 'workbench.panel.positronVariables',
+						},
+					]
+				},
+			]
+		}
 	},
 };
 

@@ -2,6 +2,7 @@ name: "Test: E2E Pyrefly (Ubuntu)"
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   id-token: write
@@ -15,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:64
-      options: --user 0:0
+      options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
@@ -56,6 +57,8 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: e2e-electron
 
       - name: 🧪 Run Playwright Tests - Electron
         shell: bash

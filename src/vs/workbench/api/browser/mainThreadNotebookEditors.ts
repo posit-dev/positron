@@ -10,7 +10,6 @@ import { IConfigurationService } from '../../../platform/configuration/common/co
 import { EditorActivation } from '../../../platform/editor/common/editor.js';
 // --- Start Positron ---
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
-import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
 /* Swap out implementations for narrower interfaces fulfilled by Positron notebooks
 and proxies that include Positron notebooks as well
 import { getNotebookEditorFromEditorPane, INotebookEditor, INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
@@ -121,8 +120,7 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		// --- Start Positron ---
 		// If Positron notebooks are enabled and set to default, use it.
 		// The editor resolver services uses the `override` to select the editor to open.
-		if (checkPositronNotebookEnabled(this._configurationService) &&
-			usingPositronNotebooks(this._configurationService)) {
+		if (usingPositronNotebooks(this._configurationService)) {
 			editorOptions.override = POSITRON_NOTEBOOK_EDITOR_ID;
 		}
 		// --- End Positron ---

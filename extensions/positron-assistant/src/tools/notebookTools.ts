@@ -151,7 +151,8 @@ interface EditNotebookCellsInput {
 	cellType?: 'code' | 'markdown';
 	index?: number;
 	content?: string;
-	cellIndex?: number;
+	cellIndex?: number;           // For update operation
+	cellIndices?: number[];        // For delete operation (array)
 	run?: boolean;
 	fromIndex?: number;
 	toIndex?: number;
@@ -234,27 +235,39 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 				}
 
 				case 'delete': {
-					// Try to fetch cell type for better message
-					let cellTypeLabel = 'cell';
-					if (cellIndex !== undefined) {
+					const { cellIndices } = options.input;
+
+					// Build confirmation message for multiple cells
+					let message: string;
+					if (!cellIndices || cellIndices.length === 0) {
+						message = vscode.l10n.t('Delete cells');
+					} else if (cellIndices.length === 1) {
+						// Try to fetch cell type for single cell
+						let cellTypeLabel = 'cell';
 						try {
-							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
+							const cell = await positron.notebooks.getCell(context.uri, cellIndices[0]);
 							if (cell) {
 								cellTypeLabel = cell.type === 'code' ? 'code cell' : 'markdown cell';
 							}
 						} catch (error) {
 							// Use default label if fetch fails
 						}
+						message = vscode.l10n.t('Delete {0} {1}? This cannot be undone.', cellTypeLabel, cellIndices[0]);
+					} else {
+						// Multiple cells
+						const cellList = cellIndices.length <= 5
+							? cellIndices.join(', ')
+							: `${cellIndices.slice(0, 5).join(', ')}, and ${cellIndices.length - 5} more`;
+						message = vscode.l10n.t('Delete {0} cells ({1})? This cannot be undone.', cellIndices.length, cellList);
 					}
 
-					const message = vscode.l10n.t('Delete {0} {1}? This cannot be undone.', cellTypeLabel, cellIndex);
 					return {
-						invocationMessage: vscode.l10n.t('Deleting notebook cell'),
+						invocationMessage: vscode.l10n.t('Deleting notebook cells'),
 						confirmationMessages: {
-							title: vscode.l10n.t('Delete Notebook Cell'),
+							title: vscode.l10n.t('Delete Notebook Cells'),
 							message: message
 						},
-						pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
+						pastTenseMessage: vscode.l10n.t('Deleted notebook cells'),
 					};
 				}
 
@@ -432,7 +445,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 							]);
 						}
 
-						// Get the cell to retrieve its URI
+						// Get the cell to retrieve its URI and editor state
 						const cell: positron.notebooks.NotebookCell | undefined = await positron.notebooks.getCell(context.uri, cellIndex);
 						if (!cell) {
 							return new vscode.LanguageModelToolResult([
@@ -440,49 +453,78 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 							]);
 						}
 
-						// Get the response stream from the participant service
-						const { response } = getChatRequestData(options.chatRequestId, participantService);
+						// Check if this is a markdown cell in preview mode
+						// editorShown is true when editor is shown, false when preview is shown
+						const isMarkdownInPreview = cell.type === 'markdown' && cell.editorShown === false;
 
-						// Apply the edit directly via response.textEdit()
-						// cell.id is the cell document URI string
-						const cellDocUri = vscode.Uri.parse(cell.id);
-						const cellDoc = await vscode.workspace.openTextDocument(cellDocUri);
-						const currentContent = cellDoc.getText();
+						// Check if diff view is enabled (defaults to true)
+						const showDiff = vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
 
-						// Only create edit if content actually changed
-						if (currentContent !== content) {
-							const edit = new vscode.TextEdit(
-								new vscode.Range(0, 0, cellDoc.lineCount, 0),
-								content
-							);
-							response.textEdit(cellDocUri, edit);
+						// Use direct update for: markdown in preview OR when diff view is disabled
+						if (isMarkdownInPreview || !showDiff) {
+							// Use API-based approach for direct updates
+							// This triggers visual feedback animation via handleAssistantCellModification
+							await positron.notebooks.updateCellContent(context.uri, cellIndex, content);
+
+							// The API call handles scrolling via handleAssistantCellModification
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(`Successfully updated cell ${cellIndex}`)
+							]);
+						} else {
+							// Use native diff view for code cells and markdown cells in edit mode
+							const { response } = getChatRequestData(options.chatRequestId, participantService);
+
+							// Apply the edit directly via response.textEdit()
+							// cell.id is the cell document URI string
+							const cellDocUri = vscode.Uri.parse(cell.id);
+							const cellDoc = await vscode.workspace.openTextDocument(cellDocUri);
+							const currentContent = cellDoc.getText();
+
+							// Only create edit if content actually changed
+							if (currentContent !== content) {
+								const edit = new vscode.TextEdit(
+									new vscode.Range(0, 0, cellDoc.lineCount, 0),
+									content
+								);
+								response.textEdit(cellDocUri, edit);
+							}
+
+							// Trigger scroll-to behavior for native diff edits
+							await positron.notebooks.scrollToCellIfNeeded(context.uri, cellIndex);
+
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(`Successfully proposed edit to cell ${cellIndex}`)
+							]);
 						}
-
-						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart(`Successfully proposed edit to cell ${cellIndex}`)
-						]);
 					}
 
 					case 'delete': {
-						// Validate required parameters for delete operation
-						if (cellIndex === undefined) {
+						const { cellIndices } = options.input;
+
+						// Validate required parameters
+						if (!cellIndices || cellIndices.length === 0) {
 							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart('Missing required parameter: cellIndex (index of cell to delete)')
+								new vscode.LanguageModelTextPart('Missing required parameter: cellIndices (array of cell indices to delete)')
 							]);
 						}
 
-						// Validate cell index
-						const validation = validateCellIndices([cellIndex], context.cellCount);
+						// Validate all cell indices
+						const validation = validateCellIndices(cellIndices, context.cellCount);
 						if (!validation.valid) {
 							return new vscode.LanguageModelToolResult([
 								new vscode.LanguageModelTextPart(validation.error!)
 							]);
 						}
 
-						await positron.notebooks.deleteCell(context.uri, cellIndex);
+						// Delete all cells
+						await positron.notebooks.deleteCells(context.uri, cellIndices);
+
+						const message = cellIndices.length === 1
+							? `Successfully deleted cell ${cellIndices[0]}`
+							: `Successfully deleted ${cellIndices.length} cells: ${cellIndices.join(', ')}`;
 
 						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart(`Successfully deleted cell ${cellIndex}`)
+							new vscode.LanguageModelTextPart(message)
 						]);
 					}
 
@@ -775,4 +817,3 @@ export function registerNotebookTools(
 		GetNotebookCellsTool
 	);
 }
-

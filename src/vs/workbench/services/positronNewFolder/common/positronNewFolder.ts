@@ -25,32 +25,37 @@ export enum NewFolderStartupPhase {
 	Initializing = 'initializing',
 
 	/**
-	 * Phase 2: The new folder is awaiting trust. If the workspace is not trusted, we cannot proceed with
+	 * Phase 2: The new folder is applying the appropriate layout for the folder template.
+	 * This phase occurs before trust is granted since layout changes don't require trust.
+	 */
+	ApplyLayout = 'applyLayout',
+
+	/**
+	 * Phase 3: The new folder is awaiting trust. If the workspace is not trusted, we cannot proceed with
 	 * initialization. The new folder service stays at `AwaitingTrust` until workspace trust is granted.
 	 */
 	AwaitingTrust = 'awaitingTrust',
 
 	/**
-	 * Phase 3: The new folder is running initialization tasks provided by extensions, such as creating the
+	 * Phase 4: The new folder is running initialization tasks provided by extensions, such as creating the
 	 * appropriate unsaved new file, initializing the git repository, etc., and starting the user-selected
 	 * interpreter.
 	*/
 	CreatingFolder = 'creatingFolder',
 
 	/**
-	 * Phase 4: The affiliated runtime for the new folder is starting.
+	 * Phase 5: The affiliated runtime for the new folder is starting.
 	 */
 	RuntimeStartup = 'runtimeStartup',
 
 	/**
-	 * Phase 5: The new folder is running post-initialization tasks that require the interpreter to be
+	 * Phase 6: The new folder is running post-initialization tasks that require the interpreter to be
 	 * ready, such as running renv::init() in R.
 	 */
-
 	PostInitialization = 'postInitialization',
 
 	/**
-	 * Phase 6: The new folder has been initialized.
+	 * Phase 7: The new folder has been initialized.
 	 */
 	Complete = 'complete',
 }
@@ -101,6 +106,7 @@ export interface NewFolderConfiguration {
 	readonly condaPythonVersion: string | undefined;
 	readonly uvPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
+	readonly openInNewWindow: boolean;
 }
 
 /**

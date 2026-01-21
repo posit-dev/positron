@@ -297,7 +297,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					await app.workbench.editor.playButton.click();
 					await app.workbench.plots.waitForCurrentPlot();
 				});
-				const imgLocator = page.getByRole('img', { name: /%run/ });
+				// The example plot is a Seaborn plot, so use that in the image locator.
+				const imgLocator = page.getByRole('img', { name: /seaborn 1/ });
 
 				await app.workbench.plots.setThePlotZoom('Fit');
 				await page.waitForTimeout(2000);

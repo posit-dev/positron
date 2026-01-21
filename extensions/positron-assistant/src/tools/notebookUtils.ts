@@ -491,10 +491,10 @@ export function serializeNotebookContext(
  *
  * @returns True if notebook mode is enabled, false otherwise
  */
-function isNotebookModeEnabled(): boolean {
+export function isNotebookModeEnabled(): boolean {
 	return vscode.workspace
-		.getConfiguration('positron.assistant.notebookMode')
-		.get('enable', false);
+		.getConfiguration('positron.notebook')
+		.get('enabled', false);
 }
 
 /**

@@ -1,0 +1,244 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.deletion-sentinel {
+	position: relative;
+	margin-left: 19px; /* 12px base + 7px to align with cell content area (no selection bar) */
+	/* Match spacing that AddCellButtons provides between live cells */
+	margin-bottom: calc(
+		var(--_positron-notebook-add-cell-buttons-height) +
+			var(--_positron-notebook-cell-gap)
+	);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	animation: sentinel-slide-in 0.3s ease-out;
+}
+
+/* Red deletion flash animation overlay */
+.deletion-sentinel-flash {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: var(--vscode-diffEditor-removedLineBackground, var(--vscode-diffEditor-removedTextBackground));
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	pointer-events: none;
+	animation: deletion-flash-fade 2s ease-in-out forwards;
+	z-index: 1;
+}
+
+@keyframes deletion-flash-fade {
+	0% { opacity: 0; }
+	25% { opacity: 0.3; }
+	100% { opacity: 0; }
+}
+
+.deletion-sentinel-content {
+	position: relative;
+	display: flex;
+	z-index: 2;
+}
+
+/* Main cell container */
+.deletion-sentinel-cell-container {
+	flex: 1;
+	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
+	border: var(--vscode-positronNotebook-border);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	opacity: 0.6; /* Make the whole cell look faded */
+	overflow: hidden;
+	position: relative; /* For pseudo-element positioning */
+}
+
+/* Progress bar as bottom border */
+.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 4px;
+	background: var(--vscode-progressBar-background);
+	border-radius: 0 0 var(--vscode-positronNotebook-cell-radius) 0; /* Only round right side where bar starts */
+	transform-origin: right;
+	animation: border-shrink var(--_countdown-duration, 10s) linear forwards;
+}
+
+/* Pause animation when hovering */
+.deletion-sentinel-cell-container[data-is-paused="true"]::after {
+	animation-play-state: paused;
+}
+
+@keyframes border-shrink {
+	from {
+		transform: scaleX(1);
+		opacity: 0.8;
+	}
+	to {
+		transform: scaleX(0);
+		opacity: 0.4;
+	}
+}
+
+/* Header section with message and actions */
+.deletion-sentinel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 12px;
+	background: var(--vscode-notifications-background);
+	border-bottom: 1px solid var(--vscode-widget-border);
+	gap: 12px;
+}
+
+.deletion-sentinel-message {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	opacity: 0.8;
+}
+
+.deletion-sentinel-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.deletion-sentinel-restore,
+.deletion-sentinel-dismiss {
+	min-width: 50px;
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
+/* Code preview section */
+.deletion-sentinel-code-preview {
+	padding: 8px 16px;
+	min-height: 2em;
+	max-height: 4.5em; /* Roughly 3 lines */
+	overflow: hidden;
+	position: relative;
+	font-family: var(
+		--vscode-positronNotebook-text-output-font-family,
+		var(--monaco-monospace-font)
+	);
+	font-size: var(--vscode-positronNotebook-text-output-font-size);
+}
+
+/* Fade out effect for truncated content */
+.deletion-sentinel-code-preview::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1.5em;
+	background: linear-gradient(
+		to bottom,
+		transparent,
+		var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background))
+	);
+	pointer-events: none;
+}
+
+/* Code/content preview - plain greyed-out text */
+.deletion-sentinel-code-preview .deletion-sentinel-code-text {
+	margin: 0;
+	white-space: pre;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	opacity: 0.7;
+	color: var(--vscode-foreground);
+}
+
+/* Empty cell placeholder */
+.deletion-sentinel-code-preview .empty-cell-placeholder {
+	font-style: italic;
+	opacity: 0.5;
+	color: var(--vscode-foreground);
+}
+
+/* Truncation indicator for longer cells */
+.deletion-sentinel-truncation-indicator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 16px 8px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-line {
+	flex: 1;
+	height: 1px;
+	background: var(--vscode-widget-border);
+}
+
+.deletion-sentinel-truncation-indicator .truncation-text {
+	white-space: nowrap;
+	font-style: italic;
+}
+
+@keyframes sentinel-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.deletion-sentinel-config-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 3px; /* Match other action buttons */
+	width: 22px; /* Square aspect ratio */
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	opacity: 0.8; /* Visible by default in header */
+	transition: opacity 200ms ease-in-out, background 200ms ease-in-out;
+}
+
+.deletion-sentinel-config-button:hover,
+.deletion-sentinel-config-button:focus {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* High contrast theme support */
+.hc-black .deletion-sentinel-cell-container,
+.hc-light .deletion-sentinel-cell-container {
+	border: 2px solid var(--vscode-widget-border);
+	opacity: 0.8;
+}
+
+.hc-black .deletion-sentinel-flash,
+.hc-light .deletion-sentinel-flash {
+	background-color: transparent;
+	border: 2px solid var(--vscode-diffEditor-removedLineBackground, var(--vscode-editorOverviewRuler-deletedForeground));
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.deletion-sentinel {
+		animation: none;
+	}
+	.deletion-sentinel-flash {
+		animation: none;
+		opacity: 0;
+	}
+	.deletion-sentinel-cell-container[data-has-timeout="true"]::after {
+		animation: none;
+		transform: scaleX(0.5); /* Show static 50% progress */
+	}
+}

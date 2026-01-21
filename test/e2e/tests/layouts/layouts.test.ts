@@ -135,10 +135,6 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			} catch (e) {
 				// No op if the sidebar isn't visible
 			}
-
-			// ------ Auxiliary Bar -------
-			// Should be collapsed
-			await expect(layouts.auxBar).not.toBeVisible();
 		});
 	});
 

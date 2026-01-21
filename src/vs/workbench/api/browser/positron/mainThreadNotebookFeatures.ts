@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
-import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
+import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
+import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
@@ -13,11 +13,14 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
 import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
+import { CellKind, CellEditType, ICellDto2 } from '../../../contrib/notebook/common/notebookCommon.js';
+import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/browser/cellClipboardUtils.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -32,6 +35,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IEditorService private readonly _editorService: IEditorService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@ILogService private readonly _logService: ILogService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// No initialization needed
 	}
@@ -44,6 +48,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	private mapCellToDTO(cell: IPositronNotebookCell): INotebookCellDTO {
 		const cellId = cell.uri.toString();
 		const isCodeCell = cell.isCodeCell();
+		const isMarkdownCell = cell.isMarkdownCell();
 		const cellOutputs = isCodeCell ? cell.outputs.get() : [];
 
 		// Map selection status: 'editing' -> 'active', others map directly
@@ -71,6 +76,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			baseDTO.lastRunSuccess = codeCell.lastRunSuccess.get();
 			baseDTO.lastExecutionDuration = codeCell.lastExecutionDuration.get();
 			baseDTO.lastRunEndTime = codeCell.lastRunEndTime.get();
+		}
+
+		// Add editorShown for markdown cells
+		if (isMarkdownCell) {
+			baseDTO.editorShown = cell.editorShown.get();
 		}
 
 		return baseDTO;
@@ -207,7 +217,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		instance.addCell(cellKind, index, false, content);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(index);
+		await instance.handleAssistantCellModification(index, 'add');
 
 		return index;
 	}
@@ -228,7 +238,65 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		instance.deleteCell(cells[cellIndex]);
+		const cellToDelete = cells[cellIndex];
+
+		// Capture complete cell data before deletion (outputs omitted for memory)
+		const cellData = cellToCellDtoForRestore(cellToDelete);
+
+		// Delete the cell
+		instance.deleteCell(cellToDelete);
+
+		// Add sentinel with complete cell data
+		instance.addDeletionSentinel(cellIndex, cellData);
+	}
+
+	/**
+	 * Deletes multiple cells from a notebook.
+	 * Creates individual deletion sentinels for each deleted cell.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndices Array of cell indices to delete.
+	 */
+	async $deleteCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			throw new Error(`No notebook found with URI: ${notebookUri}`);
+		}
+
+		const cells = instance.cells.get();
+
+		// Validate all indices first
+		const cellsToDelete: IPositronNotebookCell[] = [];
+		const cellDataForSentinels: Array<{ index: number; data: ICellDto2 }> = [];
+
+		for (const cellIndex of cellIndices) {
+			if (cellIndex < 0 || cellIndex >= cells.length) {
+				throw new Error(`Cell not found at index: ${cellIndex}`);
+			}
+
+			const cell = cells[cellIndex];
+			cellsToDelete.push(cell);
+
+			// Capture complete cell data before deletion
+			const cellData = cellToCellDtoForRestore(cell);
+			cellDataForSentinels.push({ index: cellIndex, data: cellData });
+		}
+
+		// Sort indices in descending order for sentinel creation
+		// (higher indices first so they don't shift during deletion)
+		cellDataForSentinels.sort((a, b) => b.index - a.index);
+
+		// Delete all cells at once (more efficient)
+		instance.deleteCells(cellsToDelete);
+
+		// Create individual sentinels for each deleted cell
+		// Process in descending order to maintain correct positions
+		for (const { index, data } of cellDataForSentinels) {
+			instance.addDeletionSentinel(index, data);
+		}
+
+		// Notify about assistant modification
+		const lowestIndex = Math.min(...cellIndices);
+		await instance.handleAssistantCellModification(lowestIndex, 'delete');
 	}
 
 	/**
@@ -286,7 +354,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(cellIndex);
+		await instance.handleAssistantCellModification(cellIndex, 'modify');
 	}
 
 	/**
@@ -402,7 +470,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		}], true, undefined, () => undefined, undefined, computeUndoRedo);
 
 		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(toIndex);
+		await instance.handleAssistantCellModification(toIndex, 'modify');
 	}
 
 	/**
@@ -500,6 +568,42 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		// Notify about assistant cell modification for follow mode (use first cell as reference)
 		await instance.handleAssistantCellModification(0);
+	}
+
+	/**
+	 * Scrolls to a cell if it's out of view and auto-follow is enabled.
+	 * Respects the `positron.assistant.notebook.autoFollow` setting.
+	 * @param notebookUri The URI of the notebook as a string.
+	 * @param cellIndex The index of the cell to scroll to.
+	 */
+	async $scrollToCellIfNeeded(notebookUri: string, cellIndex: number): Promise<void> {
+		const instance = this._getInstanceByUri(notebookUri);
+		if (!instance) {
+			return;
+		}
+
+		const cells = instance.cells.get();
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			return;
+		}
+
+		const cell = cells[cellIndex];
+		if (!cell) {
+			return;
+		}
+
+		// Check if cell is visible
+		const isVisible = cell.isInViewport();
+		if (!isVisible) {
+			// Check auto-follow setting
+			const autoFollow = this._configurationService.getValue<boolean>(
+				POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY
+			) ?? true;
+
+			if (autoFollow) {
+				await cell.reveal();
+			}
+		}
 	}
 
 	/**
