@@ -57,12 +57,23 @@
 .code-cell-footer-text {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: 13px; /* Space between duration and timestamp and adding 1px to account for vertical separator*/
 	white-space: nowrap;
 }
 
-/* Separator between duration and timestamp */
-.code-cell-footer-separator {
-	margin: 0 4px;
-	color: var(--vscode-positronNotebook-cellFooterForeground);
+/* Duration text with separator pseudo-element */
+.code-cell-footer-duration {
+	position: relative;
+}
+
+/* Vertical separator between duration and timestamp */
+.code-cell-footer-duration::after {
+	content: '';
+	position: absolute;
+	right: -7px; /* center the separator in the 13px gap between footer text */
+	top: 0px;
+	bottom: 0px;
+	width: 1px;
+	background-color: var(--vscode-positronNotebook-cellFooterForeground);
+	opacity: 0.6;
 }

@@ -123,8 +123,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 			return (
 				<span className='code-cell-footer-text'>
-					<span>{formattedDuration}</span>
-					<span className='code-cell-footer-separator'>|</span>
+					<span className='code-cell-footer-duration'>{formattedDuration}</span>
 					<span>{timeDisplay}</span>
 				</span>
 			);
