@@ -22,6 +22,14 @@
 	/* Typography */
 	font-size: 11px;
 	color: var(--vscode-positronNotebook-cellFooterForeground);
+
+	/* Override inherited cursor from .positron-notebook class */
+	cursor: default;
+}
+
+/* Override inherited cursor from .positron-notebook class for children spans */
+.positron-notebook-code-cell-footer span {
+	cursor: default;
 }
 
 .code-cell-footer-icon {
