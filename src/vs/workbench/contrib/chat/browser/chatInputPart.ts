@@ -571,11 +571,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 			// May need to switch current model if it's no longer in enabled providers
 			const currentModel = this._currentLanguageModel;
-			if (currentModel) {
-				const enabledProviders = this.positronAssistantConfigService.getEnabledProviders();
-				if (enabledProviders.length > 0 && !enabledProviders.includes(currentModel.metadata.vendor)) {
-					this.setCurrentLanguageModelToDefault();
-				}
+			if (currentModel && !this.positronAssistantConfigService.isProviderEnabled(currentModel.metadata.vendor)) {
+				this.setCurrentLanguageModelToDefault();
 			}
 		}));
 		// --- End Positron ---
@@ -733,7 +730,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			} else {
 				this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(e => {
 					// --- Start Positron ---
-					// Also search for the model partially and by name.
+					// Also search for the model partially and by name, and only restore if the provider is enabled.
 					/*
 					const persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
 					*/
@@ -750,6 +747,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 								break;
 							}
 						}
+					}
+					// Don't restore the model if its provider is disabled
+					if (persistedModel && !this.positronAssistantConfigService.isProviderEnabled(persistedModel.vendor)) {
+						persistedModel = undefined;
 					}
 					// --- End Positron ---
 
@@ -966,20 +967,19 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	// --- Start Positron ---
 	/**
 	 * Helper to filter models for user-selectable, mode-supported, and provider-enabled models.
-	 * If no providers are configured, provider filtering is skipped (all providers allowed).
 	 */
-	private filterAvailableModels(models: ILanguageModelChatMetadataAndIdentifier[], enabledProviders: string[]): ILanguageModelChatMetadataAndIdentifier[] {
+	private filterAvailableModels(models: ILanguageModelChatMetadataAndIdentifier[]): ILanguageModelChatMetadataAndIdentifier[] {
 		return models.filter(entry => {
+			// Must be from an enabled provider
+			if (!this.positronAssistantConfigService.isProviderEnabled(entry.metadata?.vendor)) {
+				return false;
+			}
 			// Must be user-selectable
 			if (!entry.metadata?.isUserSelectable) {
 				return false;
 			}
 			// Must be supported for the current mode/agent
 			if (!this.modelSupportedForDefaultAgent(entry)) {
-				return false;
-			}
-			// Must be from an enabled provider (unless no providers configured)
-			if (enabledProviders.length > 0 && !enabledProviders.includes(entry.metadata.vendor)) {
 				return false;
 			}
 			return true;
@@ -994,8 +994,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		// --- Start Positron ---
 		// Filter for user-selectable models that are supported in the current mode and enabled via config
-		const enabledProviders = this.positronAssistantConfigService.getEnabledProviders();
-		models = this.filterAvailableModels(models, enabledProviders);
+		models = this.filterAvailableModels(models);
 		// --- End Positron ---
 
 		if (models.length === 0 || models.some(m => m.metadata.isDefault) === false) {
@@ -1004,7 +1003,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			/*
 			models = cachedModels;
 			*/
-			models = this.filterAvailableModels(cachedModels, enabledProviders);
+			models = this.filterAvailableModels(cachedModels);
 			// --- End Positron ---
 		} else {
 			this.storageService.store('chat.cachedLanguageModels', models, StorageScope.APPLICATION, StorageTarget.MACHINE);

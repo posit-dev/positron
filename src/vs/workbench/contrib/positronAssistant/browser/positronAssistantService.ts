@@ -69,13 +69,6 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	}
 
 	getEnabledProviders(): string[] {
-		// Read individual provider enable settings using registered metadata
-		// This works before any providers have signed in, as metadata is registered during extension activation
-		//
-		// IMPORTANT: When adding a new provider to positron-assistant extension:
-		// 1. Add settingName to the provider's source.provider object in the extension
-		// 2. If the setting should be visible in the Settings UI, remove the "advanced" tag from the setting's  extensions/positron-assistant/package.json
-		// 3. registerProviderMetadata() is called during extension activation, which populates _providerMetadata
 		const enabledProviders: string[] = [];
 
 		for (const [providerId, metadata] of this._providerMetadata.entries()) {
@@ -87,6 +80,13 @@ export class PositronAssistantConfigurationService extends Disposable implements
 		}
 
 		return enabledProviders;
+	}
+
+	isProviderEnabled(providerId: string): boolean {
+		const enabledProviders = this.getEnabledProviders();
+		return enabledProviders.includes(providerId) ||
+			// Special case: 'copilot' vendor can be enabled via 'copilot-auth' setting
+			(providerId === 'copilot' && enabledProviders.includes('copilot-auth'));
 	}
 }
 

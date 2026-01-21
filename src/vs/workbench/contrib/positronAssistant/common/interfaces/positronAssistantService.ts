@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -152,12 +152,23 @@ export interface IPositronAssistantConfigurationService {
 	/**
 	 * Gets the list of enabled provider IDs from configuration.
 	 *
-	 * Reads from individual provider enable settings (positron.assistant.provider.<settingName>.enable)
-	 * and the deprecated 'positron.assistant.enabledProviders' array setting.
+	 * Should only be used after the Positron Assistant extension has finished activation,
+	 * as enabled providers are registered as part of the extension activation flow.
+	 *
+	 * Reads from individual provider enable settings (`positron.assistant.provider.<settingName>.enable`)
+	 * and the deprecated `positron.assistant.enabledProviders` array setting.
 	 *
 	 * @returns Array of enabled provider IDs
 	 */
 	getEnabledProviders(): string[];
+
+	/**
+	 * Check if a specific provider is enabled in Positron's provider configuration.
+	 *
+	 * @param providerId The provider ID to check (e.g., 'copilot', 'anthropic-api', 'openai-api')
+	 * @returns true if the provider is enabled, false otherwise
+	 */
+	isProviderEnabled(providerId: string): boolean;
 
 }
 //#endregion

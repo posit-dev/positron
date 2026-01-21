@@ -628,8 +628,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}));
 
 		// --- Start Positron ---
-		// Refresh welcome message when enabled providers change
-		this._register(this.positronAssistantConfigurationService.onChangeEnabledProviders(() => {
+		// Refresh welcome message when current provider changes (e.g., after authentication or provider disabled)
+		// This handles the transition between "Set Up" and "Welcome" states
+		this._register(this.languageModelsService.onDidChangeCurrentProvider(() => {
 			this._welcomeRenderScheduler.schedule();
 		}));
 		// --- End Positron ---
@@ -842,10 +843,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- Start Positron ---
 		// Don't show the input part if the assistant is disabled
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			const input = this.container.querySelector('.interactive-input-part') as HTMLElement;
-			if (input) {
-				dom.hide(input);
-			}
+			dom.hide(this.inputPart.element);
 		}
 		// --- End Positron ---
 
@@ -1322,18 +1320,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
 			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
-		} else if (this.positronAssistantConfigurationService.getEnabledProviders().length === 0) {
-			// No providers are enabled in settings
-			welcomeTitle = localize('positronAssistant.enableProviderTitle', "Enable a Language Model Provider");
-			const enableProviderMessage = localize('positronAssistant.enableProviderMessage', "Enable Provider");
-			welcomeText = localize('positronAssistant.noProvidersEnabled', "No language model providers are enabled. Enable at least one provider in Settings to start using Positron Assistant.");
-			welcomeText += `\n\n[${enableProviderMessage}](command:workbench.action.openSettings?%22positron.assistant.provider%20enable%22)`;
 		} else if (!this.languageModelsService.currentProvider) {
-			// Providers are enabled but not configured (not authenticated)
+			// No provider is configured/authenticated - show appropriate setup message
+			const hasEnabledProviders = this.positronAssistantConfigurationService.getEnabledProviders().length > 0;
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Configure Provider");
-			welcomeText = localize('positronAssistant.welcomeMessage', "You have enabled language model providers but haven't configured them yet. Select and authenticate with a provider to get started.");
-			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureProviders)`;
+
+			if (hasEnabledProviders) {
+				// Providers are enabled but user needs to sign in
+				const signInMessage = localize('positronAssistant.signInMessage', "Sign in to a provider");
+				welcomeText = localize('positronAssistant.signInSetupMessage', "To start using Positron Assistant, sign in to an enabled provider.");
+				welcomeText += `\n\n[${signInMessage}](command:positron-assistant.configureProviders)`;
+			} else {
+				// No providers enabled - need to enable first
+				const enableProviderMessage = localize('positronAssistant.enableProviderMessage', "Enable a provider");
+				welcomeText = localize('positronAssistant.enableSetupMessage', "To start using Positron Assistant, enable a provider in Settings.");
+				welcomeText += `\n\n[${enableProviderMessage}](command:workbench.action.openSettings?%22positron.assistant.provider%20enable%22)`;
+			}
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");

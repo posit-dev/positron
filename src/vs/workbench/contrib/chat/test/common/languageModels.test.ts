@@ -20,6 +20,9 @@ import { Event } from '../../../../../base/common/event.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+import { TestPositronAssistantConfigurationService } from '../../../../test/common/positronWorkbenchTestServices.js';
+// --- End Positron ---
 
 suite('LanguageModels', function () {
 
@@ -37,6 +40,7 @@ suite('LanguageModels', function () {
 					filterModels: []
 				}
 			}),
+			new TestPositronAssistantConfigurationService(),
 			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
@@ -250,6 +254,9 @@ suite('LanguageModels - When Clause', function () {
 
 		languageModelsWithWhen = new LanguageModelsService(
 			new TestConfigurationService(),
+			// --- Start Positron ---
+			new TestPositronAssistantConfigurationService(),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
