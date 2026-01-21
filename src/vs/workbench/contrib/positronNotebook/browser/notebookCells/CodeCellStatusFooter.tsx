@@ -119,7 +119,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	// Build ARIA label for accessibility
 	const getAriaLabel = () => {
 		if (isCurrentlyRunning) {
-			return localize('cellExecution.running', 'Currently running...');
+			return localize('cellExecution.running', 'Cell is executing');
 		}
 
 		if (isPending) {
@@ -128,15 +128,15 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 		if (hasTimingInfo && duration !== undefined && lastRunEndTime !== undefined) {
 			const status = hasError || lastRunSuccess === false
-				? localize('cellExecution.failed', 'Failed')
-				: localize('cellExecution.success', 'Success');
+				? localize('cellExecution.failed', 'Cell execution failed')
+				: localize('cellExecution.success', 'Cell execution succeeded');
 			const formattedDuration = formatCellDuration(duration);
 			const timeDisplay = getRelativeTime(lastRunEndTime);
 
 			return `${status}. ${formattedDuration}. ${timeDisplay}`;
 		}
 
-		return '';
+		return localize('cellExecution.statusIndicator', 'Cell execution status indicator');
 	};
 
 	return (
