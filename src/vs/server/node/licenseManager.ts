@@ -90,24 +90,45 @@ async function validateLicenseFile(
 
 	const licenseCommand = new LicenseCommand(licenseManagerPath);
 
+	// Execute verification command
 	const result = await licenseCommand.runLicenseCommand('verify', [licenseFilePath]);
 
-	// Extract the signature and JSON content
-	const jsonStartIndex = result.indexOf('{');
-	if (jsonStartIndex !== -1) {
-		try {
+	try {
+		// Look for JSON data in the output
+		const jsonStartIndex = result.indexOf('{');
+		if (jsonStartIndex !== -1) {
 			const jsonContent = result.slice(jsonStartIndex);
 			const output = JSON.parse(jsonContent) as LicenseVerifyOutput;
 
-			// Log license status if we successfully parsed JSON
-			console.log(`Successfully validated Positron license (Status: ${output.status}, Days left: ${output['days-left']})`);
-		} catch {
-			// JSON parsing failed, but license is still valid
-			console.log('Successfully validated Positron license (JSON details not available)');
+			// Simple status validation
+			const status = output.status?.toLowerCase() || '';
+			const daysLeft = output['days-left'];
+
+			// Handle known invalid states
+			if (status === 'expired' || daysLeft <= 0) {
+				throw new Error('License has expired. Please contact your administrator to renew your license.');
+			}
+
+			// Only accept active or evaluation licenses
+			if (status !== 'active' && status !== 'evaluation') {
+				throw new Error(`Invalid license status: ${output.status}`);
+			}
+
+			// License is valid
+			const daysLeftMsg = daysLeft !== undefined ? `Days left: ${daysLeft}` : 'Days left: unknown';
+			console.log(`Successfully validated Positron license (Status: ${output.status}, ${daysLeftMsg})`);
+		} else {
+			console.log('Successfully validated Positron license (no details available)');
 		}
-	} else {
-		// No JSON data found but verification passed
-		console.log('Successfully validated Positron license (no JSON details available)');
+	} catch (error) {
+		// Only throw errors related to license validation, not JSON parsing
+		if (error instanceof SyntaxError) {
+			// JSON parsing error - assume license is valid if command succeeded
+			console.log('Successfully validated Positron license (format details unavailable)');
+		} else {
+			// Rethrow license validation errors
+			throw error;
+		}
 	}
 
 	return true;
