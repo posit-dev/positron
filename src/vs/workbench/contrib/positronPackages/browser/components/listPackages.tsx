@@ -268,6 +268,7 @@ const ActionBar = ({
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRefreshObjects}
+							disabled={!activeSession}
 							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={positronRefreshObjects}
 							onPressed={onRefreshPackages}

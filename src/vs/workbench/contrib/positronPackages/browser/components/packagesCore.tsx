@@ -5,9 +5,8 @@
 
 import React from 'react';
 
-import { usePositronPackagesContext } from '../positronPackagesContext.js';
-import { ListPackages } from './listPackages.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ListPackages } from './listPackages.js';
 
 interface PackagesCoreProps {
 	readonly width: number;
@@ -18,15 +17,7 @@ interface PackagesCoreProps {
 export const PackagesCore = (
 	props: React.PropsWithChildren<PackagesCoreProps>,
 ) => {
-	const context = usePositronPackagesContext();
-
 	return (
-		<>
-			{context.activeSessionId === undefined ? (
-				<div>No active instance</div>
-			) : (
-				<ListPackages {...props} />
-			)}
-		</>
+		<ListPackages {...props} />
 	);
 };
