@@ -188,7 +188,7 @@ export class CopilotModelProvider extends ModelProvider {
 			displayName: 'GitHub Copilot',
 			settingName: 'githubCopilot'
 		},
-		supportedOptions: ['oauth'],
+		supportedOptions: ['oauth', 'autoconfigure'],
 		defaults: {
 			name: 'GitHub Copilot',
 			model: 'github-copilot',
