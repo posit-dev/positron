@@ -5,7 +5,7 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, verifyGitStatus, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, verifyGitStatus, verifyPyprojectTomlNotCreated, verifyGitFilesArePresent } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -40,7 +40,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		});
 
 		await newFolderFlow.verifyFolderCreation(folderName);
-		await app.code.wait(1000);
+		await verifyGitFilesArePresent(app);
 		await verifyGitStatus(app);
 	});
 });
