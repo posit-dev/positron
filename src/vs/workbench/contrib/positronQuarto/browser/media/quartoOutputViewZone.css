@@ -9,7 +9,7 @@
 	padding: 8px 12px;
 	padding-right: 32px; /* Space for close button */
 	margin: 4px 0;
-	background: var(--vscode-editorHoverWidget-background);
+	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
 	/* Font is applied via JavaScript using editor font settings */
