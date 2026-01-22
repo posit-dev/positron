@@ -257,3 +257,17 @@
 	font-size: 12px;
 	font-style: italic;
 }
+
+/* Widget-level error styling (when only output is an error) */
+.quarto-inline-output.quarto-output-error-only {
+	background: var(--vscode-inputValidation-errorBackground);
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Remove individual error styling when widget has error style */
+.quarto-inline-output.quarto-output-error-only .quarto-output-error {
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+}
