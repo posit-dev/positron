@@ -1037,7 +1037,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				cells: [
 					{
 						cellKind: type,
-						language: this.language,
+						language: type === CellKind.Code ? this.language : 'markdown',
 						mime: undefined,
 						outputs: [],
 						metadata: undefined,
