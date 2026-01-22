@@ -66,9 +66,10 @@
 /* === Special Case: No Footer (with outputs) === */
 
 /* Rounded corners ONLY on inner container - keeps outer borders straight */
-.positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) .positron-notebook-editor-container {
+.positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)):not(:has(.positron-notebook-cell-outputs.no-outputs)) .positron-notebook-editor-container {
 	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+	box-shadow: 0px 1px var(--vscode-editorWidget-border);
 }
 
 /* === Special Case: No Footer AND No Outputs === */
