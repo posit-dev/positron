@@ -40,7 +40,7 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -65,6 +65,7 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
+// Group IDs used to organize cell actions in menus and context menus
 enum PositronNotebookCellActionGroup {
 	Clipboard = '0_clipboard',
 	Insert = '1_insert',
@@ -695,7 +696,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.execute', "Run Cell"),
 			icon: ThemeIcon.fromId('notebook-execute'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
@@ -721,7 +724,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.stopExecution', "Stop Cell Execution"),
 			icon: ThemeIcon.fromId('primitive-square'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
@@ -878,6 +883,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('edit'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
@@ -913,6 +919,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('check'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
