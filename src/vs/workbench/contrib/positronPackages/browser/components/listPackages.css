@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+#packages-progress > .monaco-progress-container {
+	top: 0px;
+}
+
 .packages-list-container {
 	height: 100%;
 	position: relative;

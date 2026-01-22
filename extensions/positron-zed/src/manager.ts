@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -67,7 +67,7 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
 		const context = this._context;
 
-		const generator = async function* zositronZedLanguageRuntimes() {
+		const generator = async function* getPositronZedLanguageRuntimes() {
 			yield generateZedMetadata(
 				context,
 				'00000000-0000-0000-0000-000000000200',

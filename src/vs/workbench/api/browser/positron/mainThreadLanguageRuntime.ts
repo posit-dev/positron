@@ -12,7 +12,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -636,8 +636,32 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async getPackages(): Promise<Array<LanguageRuntimePackage>> {
+	async getPackages(): Promise<LanguageRuntimePackage[]> {
 		return this._proxy.$getPackages(this.handle);
+	}
+
+	async installPackages(packages: string[]): Promise<void> {
+		return this._proxy.$installPackages(this.handle, packages);
+	}
+
+	async uninstallPackages(packages: string[]): Promise<void> {
+		return this._proxy.$uninstallPackages(this.handle, packages);
+	}
+
+	async updatePackages(packages: string[]): Promise<void> {
+		return this._proxy.$updatePackages(this.handle, packages);
+	}
+
+	async updateAllPackages(): Promise<void> {
+		return this._proxy.$updateAllPackages(this.handle);
+	}
+
+	async searchPackages(query: string): Promise<ILanguageRuntimePackage[]> {
+		return this._proxy.$searchPackages(this.handle, query);
+	}
+
+	async searchPackageVersions(name: string): Promise<string[]> {
+		return this._proxy.$searchPackageVersions(this.handle, name);
 	}
 
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {

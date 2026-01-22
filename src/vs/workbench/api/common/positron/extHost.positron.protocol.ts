@@ -10,8 +10,8 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
-import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -92,7 +92,6 @@ export interface ExtHostLanguageRuntimeShape {
 	$callMethod(handle: number, method: string, args: unknown[]): Thenable<unknown>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
-	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
 	$listOutputChannelsLanguageRuntime(handle: number): Promise<LanguageRuntimeSessionChannel[]>;
 	$updateSessionNameLanguageRuntime(handle: number, sessionName: string): void;
@@ -101,6 +100,13 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
+	$getPackages(handle: number): Promise<LanguageRuntimePackage[]>;
+	$installPackages(handle: number, packages: string[]): Promise<void>;
+	$uninstallPackages(handle: number, packages: string[]): Promise<void>;
+	$updatePackages(handle: number, packages: string[]): Promise<void>;
+	$updateAllPackages(handle: number): Promise<void>;
+	$searchPackages(handle: number, query: string): Promise<LanguageRuntimePackage[]>;
+	$searchPackageVersions(handle: number, name: string): Promise<string[]>;
 }
 
 // This is the interface that the main process exposes to the extension host

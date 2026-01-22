@@ -349,6 +349,33 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         throw new Error(`Cannot get packages: kernel not started`);
     }
 
+    async searchPackages(query: string): Promise<positron.LanguageRuntimePackage[]> {
+        const response = await fetch('https://pypi.org/simple/', {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as {
+            projects: { name: string }[];
+        };
+
+        return json.projects
+            .map((x) => x.name)
+            .filter((x) => x.includes(query))
+            .map((x) => ({
+                id: x,
+                name: x,
+                displayName: x,
+                version: '0',
+            }));
+    }
+
+    async searchPackageVersions(name: string): Promise<string[]> {
+        const response = await fetch(`https://pypi.org/simple/${name}/`, {
+            headers: { Accept: 'application/vnd.pypi.simple.v1+json' },
+        });
+        const json = (await response.json()) as { versions: string[] };
+        return json.versions;
+    }
+
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
         // Use the bundled ipykernel if requested.
         const didUseBundledIpykernel = await this._addBundledIpykernelToPythonPath(interpreter, kernelSpec);

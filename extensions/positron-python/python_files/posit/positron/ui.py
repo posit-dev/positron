@@ -126,7 +126,7 @@ def _get_packages_installed(_kernel: "PositronIPyKernel", _params: List[JsonData
                 "displayName": canonicalize_name(dist.name),
                 "version": dist.version,
             }
-    return sorted(packages_dict.values(), key=lambda p: p["name"])
+    return sorted(packages_dict.values(), key=lambda p: p["displayName"])
 
 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {

@@ -232,8 +232,6 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
 
-	getPackages?(): Promise<Array<ILanguageRuntimePackage>>;
-
 	/** Show output log of the runtime */
 	showOutput(channel?: LanguageRuntimeSessionChannel): void;
 
@@ -248,6 +246,15 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Updates the session's name */
 	updateSessionName(sessionName: string): void;
+
+	getPackages?: () => Promise<ILanguageRuntimePackage[]>;
+	installPackages?: (packages: string[]) => Promise<void>;
+	uninstallPackages?: (packages: string[]) => Promise<void>;
+	updatePackages?: (packages: string[]) => Promise<void>;
+	updateAllPackages?: () => Promise<void>;
+
+	searchPackages?(query: string): Promise<ILanguageRuntimePackage[]>;
+	searchPackageVersions?(name: string): Promise<string[]>;
 }
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
@@ -612,7 +619,6 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
-
 }
 
 export { RuntimeClientType };

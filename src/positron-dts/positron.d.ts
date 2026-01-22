@@ -1172,6 +1172,7 @@ declare module 'positron' {
 	 * runtime, such as code execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
+
 		/** Information about the runtime that is only available after starting. */
 		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
 
@@ -1279,13 +1280,6 @@ declare module 'positron' {
 		forceQuit(): Thenable<void>;
 
 		/**
-		 * Get the list of installed packages in the runtime.
-		 *
-		 * @returns A list of installed packages on this runtime
-		 */
-		getPackages?(): Thenable<LanguageRuntimePackage[]>;
-
-		/**
 		 * Update the session name.
 		 *
 		 * @param sessionName The new session name
@@ -1310,6 +1304,41 @@ declare module 'positron' {
 		 * Show profiler log if supported.
 		 */
 		showProfile?(): Thenable<void>;
+
+		/**
+		 * Get list of installed packages.
+		 */
+		getPackages?(): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Install the list of packages.
+		 */
+		installPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update the list of packages. Package names can optionally include version if split using an '@'.
+		 */
+		updatePackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Update all installed packages.
+		 */
+		updateAllPackages?(): Thenable<void>;
+
+		/**
+		 * Uninstall the list of packages.
+		 */
+		uninstallPackages?(packages: string[]): Thenable<void>;
+
+		/**
+		 * Search a repository for packages matching the query.
+		 */
+		searchPackages?(query: string): Thenable<LanguageRuntimePackage[]>;
+
+		/**
+		 * Search a repository for available versions of a package.
+		 */
+		searchPackageVersions?(name: string): Thenable<string[]>;
 	}
 
 
