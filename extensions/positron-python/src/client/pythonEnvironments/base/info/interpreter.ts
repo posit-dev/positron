@@ -13,6 +13,29 @@ import { shellExecute } from '../../common/externalDependencies';
 import { copyPythonExecInfo, PythonExecInfo } from '../../exec';
 import { parseVersion } from './pythonVersion';
 
+// --- Start Positron ---
+/**
+ * Get the Architecture enum value from interpreter info.
+ * Prefers the explicit architecture field, falls back to is64Bit for compatibility.
+ */
+function getArchitectureFromInfo(raw: InterpreterInfoJson): Architecture {
+    if (raw.architecture) {
+        const normalized = raw.architecture.toLowerCase();
+        if (normalized === 'arm64' || normalized === 'aarch64') {
+            return Architecture.arm64;
+        }
+        if (normalized === 'x86_64' || normalized === 'amd64' || normalized === 'x64') {
+            return Architecture.x64;
+        }
+        if (normalized === 'x86' || normalized === 'i386' || normalized === 'i686') {
+            return Architecture.x86;
+        }
+    }
+    // Fall back to is64Bit for backward compatibility
+    return raw.is64Bit ? Architecture.x64 : Architecture.x86;
+}
+// --- End Positron ---
+
 export type InterpreterInformation = {
     arch: Architecture;
     executable: PythonExecutableInfo;
@@ -50,7 +73,10 @@ function extractInterpreterInfo(python: string, raw: InterpreterInfoJson): Inter
         }
     }
     return {
-        arch: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        // --- Start Positron ---
+        // arch: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        arch: getArchitectureFromInfo(raw),
+        // --- End Positron ---
         executable: {
             filename: python,
             sysPrefix: raw.sysPrefix,

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,6 +17,7 @@ import { InterpreterInformation, PythonEnvironment } from '../../client/pythonEn
 import { IServiceContainer } from '../../client/ioc/types';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { PythonVersion } from '../../client/pythonEnvironments/info/pythonVersion';
+import { Architecture } from '../../client/common/utils/platform';
 import { mock } from './utils';
 
 suite('Ipykernel', () => {
@@ -26,10 +27,12 @@ suite('Ipykernel', () => {
     let serviceContainer: IServiceContainer;
 
     setup(() => {
+        // Default to x64 architecture for tests
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
             version: mock<PythonVersion>({ major: 3, minor: 9 }),
+            architecture: Architecture.x64,
         });
 
         pythonExecutionService = mock<IPythonExecutionService>({
@@ -66,15 +69,43 @@ suite('Ipykernel', () => {
         });
     });
 
-    test('should bundle ipykernel for supported implementation and version', async () => {
+    test('should bundle ipykernel for supported implementation and version (x64)', async () => {
         // Start a console session with ipykernel bundle paths.
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
-        // Ipykernel bundles should be added to the PYTHONPATH.
-        const arch = os.arch();
+        // Ipykernel bundles should be added to the PYTHONPATH using the interpreter's architecture.
         assert.deepStrictEqual(ipykernelBundle.paths, [
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp39'),
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'x64', 'cp39'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'x64', 'cp3'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
+        ]);
+    });
+
+    test('should bundle ipykernel for arm64 interpreter architecture', async () => {
+        // Set interpreter to arm64 architecture
+        sinon.stub(interpreter, 'architecture').get(() => Architecture.arm64);
+
+        const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
+
+        // Ipykernel bundles should use arm64 path
+        assert.deepStrictEqual(ipykernelBundle.paths, [
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp39'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'arm64', 'cp3'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
+        ]);
+    });
+
+    test('should fall back to system architecture when interpreter architecture is unknown', async () => {
+        // Set interpreter architecture to unknown
+        sinon.stub(interpreter, 'architecture').get(() => Architecture.Unknown);
+
+        const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
+
+        // Should fall back to system architecture
+        const systemArch = os.arch();
+        assert.deepStrictEqual(ipykernelBundle.paths, [
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', systemArch, 'cp39'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', systemArch, 'cp3'),
             path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
         ]);
     });

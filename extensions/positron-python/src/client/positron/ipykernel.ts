@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,6 +13,28 @@ import { IWorkspaceService } from '../common/application/types';
 import { IPythonExecutionFactory } from '../common/process/types';
 import { traceWarn } from '../logging';
 import { EXTENSION_ROOT_DIR } from '../constants';
+import { Architecture } from '../common/utils/platform';
+
+/**
+ * Get the architecture string for bundle path selection.
+ * Returns 'arm64' or 'x64' based on the interpreter's architecture.
+ * Falls back to system architecture if interpreter architecture is unknown.
+ */
+function getInterpreterArchString(interpreter: PythonEnvironment): string {
+    if (interpreter.architecture === Architecture.arm64) {
+        return 'arm64';
+    }
+    if (interpreter.architecture === Architecture.x64) {
+        return 'x64';
+    }
+    // Fall back to system architecture if interpreter architecture is unknown.
+    // This can happen if we haven't yet queried the interpreter for its info.
+    const systemArch = os.arch();
+    traceWarn(
+        `Unknown interpreter architecture for ${interpreter.path}, falling back to system architecture: ${systemArch}`,
+    );
+    return systemArch;
+}
 
 /** Ipykernel bundle information. */
 export interface IpykernelBundle {
@@ -67,7 +89,8 @@ export async function getIpykernelBundle(
     }
 
     // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
-    const arch = os.arch();
+    // Use the interpreter's architecture, not the system architecture, to select the correct bundle.
+    const arch = getInterpreterArchString(interpreter);
     const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
     const paths = [
         path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, cpxSpecifier),
