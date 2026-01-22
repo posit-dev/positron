@@ -300,7 +300,7 @@ class VariablesService:
         comparison_cost = 0
 
         start = time.time()
-
+        logger.debug(f"Snapshotting namespace with {len(ns)} variables")
         for key, value in ns.items():
             if self._is_hidden(key, value):
                 continue
