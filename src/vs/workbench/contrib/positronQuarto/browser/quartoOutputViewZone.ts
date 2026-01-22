@@ -101,9 +101,6 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Apply editor font to the output container
 		this._applyEditorFont();
 
-		// Apply initial width based on editor layout
-		this._applyWidth();
-
 		// Listen for font changes
 		this._register(this._editor.onDidChangeConfiguration(e => {
 			if (e.hasChanged(EditorOption.fontInfo)) {
@@ -113,7 +110,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Listen for layout changes to update width
 		this._register(this._editor.onDidLayoutChange(() => {
-			this._applyWidth();
+			if (this._zoneId) {
+				this._applyWidth();
+			}
 		}));
 
 		// Set up keyboard navigation
@@ -130,14 +129,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	/**
 	 * Calculate the width for the view zone content area.
-	 * Accounts for scrollbar and minimap width to prevent overlap.
+	 * Uses the content width minus scrollbar to prevent overlap.
 	 */
 	private _getWidth(layoutInfo: EditorLayoutInfo): number {
-		return layoutInfo.width - layoutInfo.minimap.minimapWidth - layoutInfo.verticalScrollbarWidth;
+		// contentWidth is the content area width (excludes line numbers and minimap),
+		// but includes the scrollbar overlay area. Subtract scrollbar width and a small
+		// margin for visual padding.
+		return layoutInfo.contentWidth - layoutInfo.verticalScrollbarWidth - 4;
 	}
 
 	/**
 	 * Apply width to the view zone based on editor layout.
+	 * This must be called AFTER the zone is added because Monaco sets width: 100%
+	 * when adding zones, which would override any earlier width setting.
 	 */
 	private _applyWidth(): void {
 		const layoutInfo = this._editor.getLayoutInfo();
@@ -227,6 +231,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					accessor.removeZone(this._zoneId!);
 					this._zoneId = accessor.addZone(this);
 				});
+				// Re-apply width after zone is re-added
+				this._applyWidth();
 			}
 		}
 	}
@@ -242,6 +248,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._editor.changeViewZones(accessor => {
 			this._zoneId = accessor.addZone(this);
 		});
+
+		// Apply width AFTER zone is added because Monaco sets width: 100%
+		// when adding zones, which would override any earlier width setting
+		this._applyWidth();
 
 		// Set up resize observer after showing
 		this._setupResizeObserver();
@@ -882,6 +892,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				accessor.removeZone(this._zoneId!);
 				this._zoneId = accessor.addZone(this);
 			});
+			// Re-apply width after zone is re-added
+			this._applyWidth();
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}
