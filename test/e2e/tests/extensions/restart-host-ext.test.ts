@@ -30,6 +30,9 @@ test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, ()
 	});
 
 	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
+		// FIXME: Disabled for https://github.com/posit-dev/positron/pull/11407
+		test.skip(process.platform === 'win32', 'Skip on Windows');
+
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>>>');
