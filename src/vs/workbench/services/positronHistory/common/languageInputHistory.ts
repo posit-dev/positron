@@ -8,7 +8,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { CONTEXT_DEBUG_STATE } from '../../../contrib/debug/common/debug.js';
+import { getForegroundDebugState } from '../../../contrib/debug/common/debug.js';
 import { IInputHistoryEntry, inputHistorySizeSettingId } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
@@ -91,7 +91,7 @@ export class LanguageInputHistory extends Disposable {
 				const entry: IInputHistoryEntry = {
 					when: when,
 					input: languageRuntimeMessageInput.code,
-					debug: CONTEXT_DEBUG_STATE.getValue(this._contextKeyService)
+					debug: getForegroundDebugState(this._contextKeyService)
 				};
 				this._pendingEntries.push(entry);
 				this.delayedSave();

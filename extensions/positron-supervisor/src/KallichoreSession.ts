@@ -807,9 +807,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		debugType: string,
 		debugName: string,
 	): Promise<DapComm> {
-		const comm = new DapComm(this, targetName, debugType, debugName);
-		await comm.createComm();
-		return comm;
+		return DapComm.create(this, targetName, debugType, debugName);
 	}
 
 	/**
