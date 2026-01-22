@@ -925,9 +925,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async startDapMessageLoop(): Promise<void> {
 		LOGGER.info('Starting DAP loop');
 
-		let dapComm = undefined;
 		try {
-			dapComm = await this._dapComm;
+			const dapComm = await this._dapComm;
 			if (!dapComm?.comm) {
 				throw new Error('Must create comm before use');
 			}
@@ -948,7 +947,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 
 		LOGGER.info('Exiting DAP loop');
-		dapComm?.dispose();
+		(await this._dapComm)?.dispose();
 		this._dapComm = undefined;
 	}
 
