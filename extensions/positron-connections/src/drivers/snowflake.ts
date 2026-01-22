@@ -691,7 +691,7 @@ export class PythonSnowflakeDefaultConnectionDriver extends PythonSnowflakeDrive
 					'type': 'option',
 					'options': connections.map(conn => ({
 						'identifier': conn.name,
-						'title': conn.name,
+						'title': conn.account ? `${conn.name} (${conn.account})` : conn.name,
 					})),
 					'value': selectedDefault
 				}
