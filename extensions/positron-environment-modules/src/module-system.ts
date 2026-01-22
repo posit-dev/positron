@@ -5,6 +5,7 @@
 
 import { execSync, exec } from 'child_process';
 import * as fs from 'fs';
+import * as vscode from 'vscode';
 import * as path from 'path';
 import { ModuleSystemInfo } from './types.js';
 import { getLog } from './logger.js';
@@ -152,7 +153,7 @@ export async function detectModuleSystem(
 			const shellCommand = buildShellCommand(shell, 'type module');
 			const result = execSync(shellCommand, {
 				encoding: 'utf8',
-				timeout: 5000,
+				timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
 				stdio: ['pipe', 'pipe', 'pipe']
 			});
 			if (result.includes('module is a') || result.includes('module is ')) {
@@ -175,7 +176,7 @@ export async function detectModuleSystem(
 		const shellCommand = buildShellCommand(shell, 'type module');
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
-			timeout: 5000,
+			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
 			stdio: ['pipe', 'pipe', 'pipe']
 		});
 		if (result.includes('module is a') || result.includes('module is ')) {
@@ -243,7 +244,7 @@ async function detectModuleTypeFromCommand(
 		const shellCommand = buildShellCommand(effectiveShell, 'module --version 2>&1');
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
-			timeout: 5000
+			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000)
 		});
 		if (result.toLowerCase().includes('lmod')) {
 			return 'lmod';
@@ -281,7 +282,7 @@ export async function getModuleSystemVersion(
 
 		const result = execSync(fullCommand, {
 			encoding: 'utf8',
-			timeout: 5000,
+			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
 			stdio: ['pipe', 'pipe', 'pipe']
 		});
 
@@ -363,7 +364,7 @@ export async function executeWithModules(
 		logger.debug(`Executing with shell ${shell.name}: ${fullCommand}`);
 		exec(fullCommand, {
 			encoding: 'utf8',
-			timeout: 30000
+			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000)
 		}, (error, stdout, stderr) => {
 			if (stdout) {
 				logger.debug(stdout);

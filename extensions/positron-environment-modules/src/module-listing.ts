@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { execSync } from 'child_process';
 import { ModuleSystemInfo } from './types.js';
 import { getLog } from './logger.js';
@@ -43,7 +44,7 @@ export async function listAvailableModules(
 		logger.debug(`Listing modules with: ${fullCommand}`);
 		const output = execSync(fullCommand, {
 			encoding: 'utf8',
-			timeout: 30000,
+			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 30000),
 			stdio: ['pipe', 'pipe', 'pipe']
 		});
 
