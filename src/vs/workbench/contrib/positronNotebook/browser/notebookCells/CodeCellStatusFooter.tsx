@@ -43,15 +43,13 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const hasTimingInfo = hasDuration || hasCompletionTime;
 	const hasCurrentSessionContent = hasExecutionResult || isCurrentlyRunning || hasTimingInfo;
 
-	const isPending = executionStatus === 'pending';
-
 	// Check if cell has never been run (no execution order and no current session data)
 	const hasNeverBeenRun = !hasExecutionOrder && !hasExecutionResult && !isCurrentlyRunning;
+
 	// Check if we only have execution order from previous session (no current session data)
 	const wasRunInPreviousSession = hasExecutionOrder && !hasCurrentSessionContent;
-	// Check to determine if we show the footer at all
-	// Show the footer when the cell is pending, even if it has never been run
-	const hideFooter = (hasNeverBeenRun || wasRunInPreviousSession) && !isPending;
+
+	const isPending = executionStatus === 'pending';
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
@@ -118,6 +116,14 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	// Build ARIA label for accessibility
 	const getAriaLabel = () => {
+		if (hasNeverBeenRun) {
+			return localize('cellExecution.notYetRun', 'Cell not yet run');
+		}
+
+		if (wasRunInPreviousSession) {
+			return localize('cellExecution.notRunThisSession', 'Not run this session');
+		}
+
 		if (isCurrentlyRunning) {
 			return localize('cellExecution.running', 'Cell is executing');
 		}
@@ -140,19 +146,15 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	};
 
 	return (
-		hideFooter
-			? null
-			: (
-				<div
-					aria-label={getAriaLabel()}
-					aria-live={isCurrentlyRunning ? 'polite' : 'off'}
-					className='positron-notebook-code-cell-footer'
-					data-execution-status={dataExecutionStatus}
-					role='status'
-				>
-					{renderIcon()}
-					{renderText()}
-				</div>
-			)
+		<div
+			aria-label={getAriaLabel()}
+			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
+			className='positron-notebook-code-cell-footer'
+			data-execution-status={dataExecutionStatus}
+			role='status'
+		>
+			{renderIcon()}
+			{renderText()}
+		</div>
 	);
 }
