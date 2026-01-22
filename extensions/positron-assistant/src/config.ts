@@ -13,7 +13,7 @@ import { disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfig
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
-import { DEFAULT_MAX_CONNECTION_ATTEMPTS, PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 import { StoredModelConfig, SecretStorage, ModelConfig } from './configTypes.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
@@ -51,21 +51,8 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 	return fullConfigs;
 }
 
-export function getProviderTimeoutMs(): number {
-	const cfg = vscode.workspace.getConfiguration('positron.assistant');
-	const timeoutSec = cfg.get<number>('providerTimeout', 60);
-	return timeoutSec * 1000;
-}
-
-export function getMaxConnectionAttempts(): number {
-	const cfg = vscode.workspace.getConfiguration('positron.assistant');
-	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
-	if (maxAttempts < 1) {
-		log.warn(`Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
-		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
-	}
-	return maxAttempts;
-}
+// getProviderTimeoutMs and getMaxConnectionAttempts moved to providerConfig.ts
+// to avoid circular dependencies with provider imports.
 
 export async function showConfigurationDialog(
 	context: vscode.ExtensionContext,

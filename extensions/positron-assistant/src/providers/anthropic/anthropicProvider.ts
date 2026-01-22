@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelProvider } from '../base/modelProvider';
-import { getProviderTimeoutMs } from '../../config';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';

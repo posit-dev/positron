@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
 import { processMessages, toAIMessage } from '../../utils';
-import { getProviderTimeoutMs } from '../../config';
+import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { TokenUsage } from '../../tokens';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
 import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
