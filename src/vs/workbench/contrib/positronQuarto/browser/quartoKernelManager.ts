@@ -164,6 +164,20 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				}
 			}
 		}));
+
+		// Listen for runtime sessions starting (e.g., after window reload/restore)
+		// This allows us to adopt sessions that were restored by the runtime session service
+		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
+			const notebookUri = session.metadata.notebookUri;
+			if (notebookUri && notebookUri.path.endsWith('.qmd')) {
+				// Check if we're already tracking this session
+				const existing = this._documentKernels.get(notebookUri);
+				if (!existing || !existing.session) {
+					this._logService.debug(`[QuartoKernelManager] Session started for Quarto document, adopting: ${notebookUri.toString()}`);
+					this._tryAdoptExistingSession(notebookUri);
+				}
+			}
+		}));
 	}
 
 	/**
@@ -181,11 +195,85 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		await Promise.allSettled(shutdownPromises);
 	}
 
+	/**
+	 * Try to adopt an existing session from the runtime session service.
+	 * This handles the case where a session was started before a window reload
+	 * and we need to reconnect to it.
+	 *
+	 * @param documentUri The URI of the Quarto document.
+	 * @returns The adopted session, or undefined if no existing session was found.
+	 */
+	private _tryAdoptExistingSession(documentUri: URI): ILanguageRuntimeSession | undefined {
+		// Check if there's an existing session for this document in the runtime session service
+		const existingSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(documentUri);
+		if (!existingSession) {
+			return undefined;
+		}
+
+		// Check if the session is in a usable state
+		const state = existingSession.getRuntimeState();
+		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
+			return undefined;
+		}
+
+		this._logService.debug(`[QuartoKernelManager] Adopting existing session for ${documentUri.toString()}`);
+
+		// Create tracking info for this session
+		const info: DocumentKernelInfo = {
+			session: existingSession,
+			state: this._runtimeStateToKernelState(state),
+			language: existingSession.runtimeMetadata.languageId,
+			disposables: new DisposableStore(),
+			startupCancellation: undefined,
+		};
+
+		this._documentKernels.set(documentUri, info);
+
+		// Set up session event listeners
+		this._setupSessionListeners(documentUri, existingSession, info);
+
+		// Fire state change event so UI components update
+		this._onDidChangeKernelState.fire({
+			documentUri,
+			oldState: QuartoKernelState.None,
+			newState: info.state,
+			session: existingSession,
+		});
+
+		return existingSession;
+	}
+
+	/**
+	 * Convert a RuntimeState to a QuartoKernelState.
+	 */
+	private _runtimeStateToKernelState(runtimeState: RuntimeState): QuartoKernelState {
+		switch (runtimeState) {
+			case RuntimeState.Uninitialized:
+			case RuntimeState.Initializing:
+			case RuntimeState.Starting:
+				return QuartoKernelState.Starting;
+			case RuntimeState.Ready:
+			case RuntimeState.Idle:
+				return QuartoKernelState.Ready;
+			case RuntimeState.Busy:
+				return QuartoKernelState.Busy;
+			case RuntimeState.Exiting:
+			case RuntimeState.Offline:
+			case RuntimeState.Interrupting:
+			case RuntimeState.Restarting:
+				return QuartoKernelState.ShuttingDown;
+			case RuntimeState.Exited:
+				return QuartoKernelState.None;
+			default:
+				return QuartoKernelState.None;
+		}
+	}
+
 	async ensureKernelForDocument(
 		documentUri: URI,
 		token?: CancellationToken
 	): Promise<ILanguageRuntimeSession | undefined> {
-		// Check for existing session
+		// Check for existing session in our tracking
 		const existing = this._documentKernels.get(documentUri);
 		if (existing?.session) {
 			const state = existing.session.getRuntimeState();
@@ -202,16 +290,46 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			return this._waitForKernelReady(documentUri, token);
 		}
 
+		// Check for existing session from runtime session service (e.g., after window reload)
+		const adoptedSession = this._tryAdoptExistingSession(documentUri);
+		if (adoptedSession) {
+			const state = adoptedSession.getRuntimeState();
+			if (state !== RuntimeState.Exited && state !== RuntimeState.Uninitialized) {
+				return adoptedSession;
+			}
+		}
+
 		// Start a new session with retry logic
 		return this._startKernelWithRetry(documentUri, token);
 	}
 
 	getSessionForDocument(documentUri: URI): ILanguageRuntimeSession | undefined {
-		return this._documentKernels.get(documentUri)?.session;
+		// First check our tracked sessions
+		const tracked = this._documentKernels.get(documentUri)?.session;
+		if (tracked) {
+			return tracked;
+		}
+
+		// Check for existing session from runtime session service (e.g., after window reload)
+		const existingSession = this._tryAdoptExistingSession(documentUri);
+		return existingSession;
 	}
 
 	getKernelState(documentUri: URI): QuartoKernelState {
-		return this._documentKernels.get(documentUri)?.state ?? QuartoKernelState.None;
+		// First check our tracked sessions
+		const tracked = this._documentKernels.get(documentUri);
+		if (tracked) {
+			return tracked.state;
+		}
+
+		// Check for existing session from runtime session service (e.g., after window reload)
+		const existingSession = this._tryAdoptExistingSession(documentUri);
+		if (existingSession) {
+			// We just adopted the session, get the state from our tracking
+			return this._documentKernels.get(documentUri)?.state ?? QuartoKernelState.None;
+		}
+
+		return QuartoKernelState.None;
 	}
 
 	async shutdownKernelForDocument(documentUri: URI): Promise<void> {

@@ -279,4 +279,85 @@ test.describe('Quarto - Inline Output', {
 		// Verify the content is present
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 	});
+
+	test('Python - Verify kernel status persists after window reload', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_python', 'report.qmd');
+
+		// Close all editors first to ensure a clean state
+		// This is important when running in a suite where previous tests may have left state
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await page.waitForTimeout(1000);
+
+		// Open a Quarto document with Python code
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 17)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell to start the kernel
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear (confirms kernel executed code)
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Get the kernel label text - should show the runtime name (e.g., "Python 3.12.1")
+		// Wait for the kernel to be fully ready (not "Starting..." or "No Kernel")
+		const kernelLabel = kernelStatusWidget.locator('.kernel-label');
+		let initialKernelText: string | null = null;
+		await expect(async () => {
+			initialKernelText = await kernelLabel.textContent();
+			// Verify the kernel is running (label should NOT be "No Kernel" or "Starting...")
+			expect(initialKernelText).not.toBe('No Kernel');
+			expect(initialKernelText).not.toBe('Starting...');
+			expect(initialKernelText).toBeTruthy();
+		}).toPass({ timeout: 30000 });
+
+		// Wait for session to be fully ready and persisted before reload
+		// This ensures the session has been saved to storage
+		await page.waitForTimeout(2000);
+
+		// Reload the window
+		await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
+
+		// Wait for the reload to complete
+		// After reload, we need to wait for the editor and kernel status widget to appear again
+		await expect(editor).toBeVisible({ timeout: 60000 });
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// CRITICAL: The kernel status should still show the runtime name, not "No Kernel"
+		// This verifies that the QuartoKernelManager correctly reattaches to the existing session
+		// Use a retry pattern since session restoration may take some time after reload
+		const kernelLabelAfterReload = kernelStatusWidget.locator('.kernel-label');
+		await expect(async () => {
+			const kernelTextAfterReload = await kernelLabelAfterReload.textContent();
+			// The kernel should still be connected - the label should NOT be "No Kernel"
+			expect(kernelTextAfterReload).not.toBe('No Kernel');
+			expect(kernelTextAfterReload).toBeTruthy();
+			// Verify it's the same kernel name as before
+			expect(kernelTextAfterReload).toBe(initialKernelText);
+		}).toPass({ timeout: 30000 });
+	});
 });
