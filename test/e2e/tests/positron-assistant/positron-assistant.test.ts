@@ -263,14 +263,14 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 
 		// Only sign in to Anthropic if ANTHROPIC_KEY is provided
 		// Otherwise, assume already signed in via another method (e.g., OAuth)
-		if (process.env.ANTHROPIC_KEY) {
-			await app.workbench.assistant.clickAddModelButton();
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-			await app.workbench.assistant.clickSignInButton();
-			await app.workbench.assistant.verifySignOutButtonVisible();
-			await app.workbench.assistant.clickCloseButton();
-		}
+		// if (process.env.ANTHROPIC_KEY) {
+		// 	await app.workbench.assistant.clickAddModelButton();
+		// 	await app.workbench.assistant.selectModelProvider('anthropic-api');
+		// 	await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+		// 	await app.workbench.assistant.clickSignInButton();
+		// 	await app.workbench.assistant.verifySignOutButtonVisible();
+		// 	await app.workbench.assistant.clickCloseButton();
+		// }
 
 		// Sign in to Echo provider
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
@@ -294,14 +294,14 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		}).toPass({ timeout: 30000 });
 
 		// Only sign out of Anthropic if we signed in with API key
-		// if (process.env.ANTHROPIC_KEY) {
-		// 	await expect(async () => {
-		// 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		// 		await app.workbench.assistant.selectModelProvider('anthropic-api');
-		// 		await app.workbench.assistant.clickSignOutButton();
-		// 		await app.workbench.assistant.clickCloseButton();
-		// 	}).toPass({ timeout: 30000 });
-		// }
+		if (process.env.ANTHROPIC_KEY) {
+			await expect(async () => {
+				await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+				await app.workbench.assistant.selectModelProvider('anthropic-api');
+				await app.workbench.assistant.clickSignOutButton();
+				await app.workbench.assistant.clickCloseButton();
+			}).toPass({ timeout: 30000 });
+		}
 	});
 
 	/**
@@ -319,14 +319,13 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			}
 		}, { reload: true });
 
-		// Only sign out of Anthropic if we signed in with API key
 		if (process.env.ANTHROPIC_KEY) {
-			await expect(async () => {
-				await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-				await app.workbench.assistant.selectModelProvider('anthropic-api');
-				await app.workbench.assistant.clickSignOutButton();
-				await app.workbench.assistant.clickCloseButton();
-			}).toPass({ timeout: 30000 });
+			await app.workbench.assistant.clickAddModelButton();
+			await app.workbench.assistant.selectModelProvider('anthropic-api');
+			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+			await app.workbench.assistant.clickSignInButton();
+			await app.workbench.assistant.verifySignOutButtonVisible();
+			await app.workbench.assistant.clickCloseButton();
 		}
 
 		await expect(async () => {
