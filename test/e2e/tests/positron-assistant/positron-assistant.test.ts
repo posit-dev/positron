@@ -294,14 +294,14 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		}).toPass({ timeout: 30000 });
 
 		// Only sign out of Anthropic if we signed in with API key
-		if (process.env.ANTHROPIC_KEY) {
-			await expect(async () => {
-				await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-				await app.workbench.assistant.selectModelProvider('anthropic-api');
-				await app.workbench.assistant.clickSignOutButton();
-				await app.workbench.assistant.clickCloseButton();
-			}).toPass({ timeout: 30000 });
-		}
+		// if (process.env.ANTHROPIC_KEY) {
+		// 	await expect(async () => {
+		// 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		// 		await app.workbench.assistant.selectModelProvider('anthropic-api');
+		// 		await app.workbench.assistant.clickSignOutButton();
+		// 		await app.workbench.assistant.clickCloseButton();
+		// 	}).toPass({ timeout: 30000 });
+		// }
 	});
 
 	/**
@@ -318,6 +318,16 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 				'echo': 'Echo Language Model v2'
 			}
 		}, { reload: true });
+
+		// Only sign out of Anthropic if we signed in with API key
+		if (process.env.ANTHROPIC_KEY) {
+			await expect(async () => {
+				await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+				await app.workbench.assistant.selectModelProvider('anthropic-api');
+				await app.workbench.assistant.clickSignOutButton();
+				await app.workbench.assistant.clickCloseButton();
+			}).toPass({ timeout: 30000 });
+		}
 
 		await expect(async () => {
 			await app.workbench.assistant.pickModel();
