@@ -45,12 +45,17 @@ class LicenseCommand {
 	 * @returns The stdout from the command
 	 */
 	async runLicenseCommand(command: string, args: string[] = []): Promise<string> {
-		const { stdout } = await execFileAsync(
-			this.licenseManagerPath,
-			[command, ...args],
-			{ maxBuffer: 1024 * 1024, timeout: 10000 }
-		);
-		return stdout;
+		try {
+			const { stdout } = await execFileAsync(
+				this.licenseManagerPath,
+				[command, ...args],
+				{ maxBuffer: 1024 * 1024, timeout: 10000 }
+			);
+			return stdout;
+		} catch (error) {
+			const cmdString = `${this.licenseManagerPath} ${command} ${args.join(' ')}`;
+			throw new Error(`License manager command failed: ${cmdString}\nError: ${error.message}`);
+		}
 	}
 }
 
@@ -66,10 +71,9 @@ export async function validateWithManager(
 	installPath: string,
 	licenseFilePath: string,
 ): Promise<boolean> {
-	// Locate the license-manager binary
 	const licenseManagerPath = findLicenseManagerPath(installPath);
 	console.log('Checking Positron license from the POSITRON_LICENSE_FILE environment variable.');
-	return validateLicenseFile(licenseFilePath, licenseManagerPath);
+	return await validateLicenseFile(licenseFilePath, licenseManagerPath);
 }
 
 /**
@@ -172,7 +176,6 @@ function findLicenseManagerPath(installPath: string): string {
 		throw new Error(`License manager binary not found at: ${licenseManagerPath}`);
 	}
 
-	// Verify it's executable
 	try {
 		fs.accessSync(licenseManagerPath, fs.constants.X_OK);
 	} catch {
