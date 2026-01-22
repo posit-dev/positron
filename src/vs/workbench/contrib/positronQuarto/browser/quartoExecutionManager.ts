@@ -363,9 +363,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			await Promise.race([
 				deferred.p,
 				new Promise<void>((_, reject) => {
-					cts.token.onCancellationRequested(() => {
+					const cancellationListener = cts.token.onCancellationRequested(() => {
 						reject(new Error('Execution cancelled'));
 					});
+					disposables.add(cancellationListener);
 				}),
 			]);
 
@@ -400,8 +401,18 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		const { execution, deferred, disposables } = tracker;
 		const executionId = execution.executionId;
 
-		// Handle output messages
+		// Handle output messages (display_data)
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(message => {
+			if (message.parent_id !== executionId) {
+				return;
+			}
+			// Cast to ILanguageRuntimeMessageWebOutput to get resource_roots if available
+			const webMessage = message as ILanguageRuntimeMessageWebOutput;
+			this._handleOutputMessage(tracker, documentUri, message.data, webMessage);
+		}));
+
+		// Handle result messages (execute_result) - these are computation results like "2 + 3"
+		disposables.add(session.onDidReceiveRuntimeMessageResult(message => {
 			if (message.parent_id !== executionId) {
 				return;
 			}

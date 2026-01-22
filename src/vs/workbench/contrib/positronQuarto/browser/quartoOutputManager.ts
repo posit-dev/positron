@@ -74,7 +74,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	private readonly _viewZones = new Map<string, QuartoOutputViewZone>();
 	private readonly _outputsByCell = new Map<string, ICellOutput[]>();
-	private readonly _documentUri: URI | undefined;
+	private _documentUri: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
 
