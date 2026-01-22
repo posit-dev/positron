@@ -82,8 +82,8 @@
 	content: '';
 	position: absolute;
 	right: -7px; /* center the separator in the 13px gap between footer text */
-	top: -1px;
-	bottom: -1px;
+	top: 1px;
+	bottom: 1px;
 	width: 1px;
 	background-color: var(--vscode-widget-border);
 }

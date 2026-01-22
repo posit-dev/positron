@@ -50,7 +50,13 @@
 	background-color: transparent;
 	user-select: none;
 	color: var(--vscode-positronNotebook-cellFooterForeground);
-	margin-bottom: 10px; /* Try and vertically align execution order to cell footer contents */
+	margin-bottom: 7px; /* Try and vertically align execution order to cell footer contents */
+}
+
+/* Use ordinary text color when cell is selected */
+.positron-notebook-cell.selected .execution-order-badge-container,
+.positron-notebook-cell.editing .execution-order-badge-container {
+	color: var(--vscode-foreground);
 }
 
 .execution-order-badge-container span.execution-order-badge {
