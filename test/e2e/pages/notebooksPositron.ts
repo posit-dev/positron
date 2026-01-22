@@ -705,13 +705,14 @@ export class PositronNotebooks extends Notebooks {
 				await expect(footer).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
 
 				// Check for appropriate icon based on status
-				if (expectedContent.status === 'Cell is executing') {
+				const status = expectedContent.status;
+				if (status === 'Cell is executing') {
 					await expect(footer.locator('.code-cell-footer-icon.running')).toBeVisible({ timeout });
-				} else if (expectedContent.status === 'Cell is queued for execution') {
+				} else if (status === 'Cell is queued for execution') {
 					await expect(footer.locator('.code-cell-footer-icon.pending')).toBeVisible({ timeout });
-				} else if (expectedContent.status === 'Cell execution succeeded') {
+				} else if (status === 'Cell execution succeeded') {
 					await expect(footer.locator('.code-cell-footer-icon.success')).toBeVisible({ timeout });
-				} else if (expectedContent.status === 'Cell execution failed') {
+				} else if (status === 'Cell execution failed') {
 					await expect(footer.locator('.code-cell-footer-icon.error')).toBeVisible({ timeout });
 				}
 			}
