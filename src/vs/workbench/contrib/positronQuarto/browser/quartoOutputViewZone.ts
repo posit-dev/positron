@@ -67,6 +67,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Callback when outputs are cleared by user action
 	private _onClear: (() => void) | undefined;
 
+	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
+	private readonly _styledContainer: HTMLElement;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -82,21 +85,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this.afterLineNumber = afterLine;
 		this.heightInPx = MIN_VIEW_ZONE_HEIGHT;
 
-		// Create main container with accessibility attributes
+		// Create outer wrapper (Monaco controls this element's height)
 		this.domNode = document.createElement('div');
-		this.domNode.className = 'quarto-inline-output';
-		this.domNode.setAttribute('role', 'region');
-		this.domNode.setAttribute('aria-label', localize('quartoOutput', 'Cell output'));
-		this.domNode.setAttribute('tabindex', '0');
+		this.domNode.className = 'quarto-inline-output-wrapper';
+
+		// Create inner styled container (sizes to content, not stretched by Monaco)
+		this._styledContainer = document.createElement('div');
+		this._styledContainer.className = 'quarto-inline-output';
+		this._styledContainer.setAttribute('role', 'region');
+		this._styledContainer.setAttribute('aria-label', localize('quartoOutput', 'Cell output'));
+		this._styledContainer.setAttribute('tabindex', '0');
+		this.domNode.appendChild(this._styledContainer);
 
 		// Create close button
 		this._closeButton = this._createCloseButton();
-		this.domNode.appendChild(this._closeButton);
+		this._styledContainer.appendChild(this._closeButton);
 
 		// Create output container
 		this._outputContainer = document.createElement('div');
 		this._outputContainer.className = 'quarto-output-content';
-		this.domNode.appendChild(this._outputContainer);
+		this._styledContainer.appendChild(this._outputContainer);
 
 		// Apply editor font to the output container
 		this._applyEditorFont();
@@ -146,7 +154,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _applyWidth(): void {
 		const layoutInfo = this._editor.getLayoutInfo();
 		const width = this._getWidth(layoutInfo);
-		this.domNode.style.width = `${width}px`;
+		this._styledContainer.style.width = `${width}px`;
 	}
 
 	/**
@@ -178,7 +186,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._outputs.push(output);
 		this._renderOutput(output);
 		// Update error-only class after adding new output
-		this.domNode.classList.toggle('quarto-output-error-only', this._isErrorOnly());
+		this._styledContainer.classList.toggle('quarto-output-error-only', this._isErrorOnly());
 		this._updateHeight();
 		this._announceOutput(output);
 	}
@@ -324,7 +332,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _setupKeyboardNavigation(): void {
-		this.domNode.addEventListener('keydown', (e) => {
+		this._styledContainer.addEventListener('keydown', (e) => {
 			switch (e.key) {
 				case 'Escape':
 					// Return focus to editor
@@ -366,7 +374,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Check if all outputs are errors only
 		const isErrorOnly = this._isErrorOnly();
-		this.domNode.classList.toggle('quarto-output-error-only', isErrorOnly);
+		this._styledContainer.classList.toggle('quarto-output-error-only', isErrorOnly);
 
 		for (const output of this._outputs) {
 			this._renderOutput(output);
@@ -901,11 +909,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	private _updateHeight(): void {
-		// Measure actual content height
-		const contentHeight = this._outputContainer.scrollHeight;
+		// Measure the styled container's height (content + padding + border, but not margin)
+		const styledHeight = this._styledContainer.offsetHeight;
 
-		// Use natural height with minimum bound only (no max - scrolling is handled by the editor)
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, contentHeight + 20); // +20 for padding
+		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;

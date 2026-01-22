@@ -3,6 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/* Outer wrapper for view zone (Monaco sets height on this element) */
+.quarto-inline-output-wrapper {
+	/* No visible styling - just a container for Monaco to control */
+	box-sizing: border-box;
+}
+
 /* Main container for inline output view zone */
 .quarto-inline-output {
 	position: relative;
