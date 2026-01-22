@@ -111,9 +111,22 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Clean up when editor model changes
+		// Handle editor model changes (e.g., file closed and reopened)
 		this._register(this._editor.onDidChangeModel(() => {
 			this._disposeAllViewZones();
+			this._outputsByCell.clear();
+
+			// Update document URI for the new model
+			const newModel = this._editor.getModel();
+			this._documentUri = newModel?.uri;
+
+			// Reset initialization flag so we can re-initialize for the new document
+			this._outputHandlingInitialized = false;
+
+			// Re-check if this is a Quarto document and initialize if so
+			if (this._featureEnabled && this._isQuartoDocument()) {
+				this._initializeOutputHandling();
+			}
 		}));
 
 		// Only initialize fully if feature is enabled and this is a Quarto document

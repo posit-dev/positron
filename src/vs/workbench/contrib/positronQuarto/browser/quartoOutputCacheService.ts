@@ -225,6 +225,15 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		const key = documentUri.toString();
 		const cachePath = this._getCachePath(documentUri);
 
+		// First check if we already have the document in the in-memory cache.
+		// This handles the case where the file is closed and reopened before the
+		// debounced disk write completes - the in-memory cache will have the data.
+		const existingEntry = this._documentCaches.get(key);
+		if (existingEntry && existingEntry.cells.size > 0) {
+			this._logService.debug('[QuartoOutputCacheService] Using in-memory cache for', documentUri.toString());
+			return this._cacheEntryToCachedDocument(existingEntry);
+		}
+
 		try {
 			const exists = await this._fileService.exists(cachePath);
 			if (!exists) {
@@ -583,6 +592,28 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				quarto_cache_version: CACHE_VERSION,
 				last_updated: entry.lastUpdated,
 			},
+			cells,
+		};
+	}
+
+	/**
+	 * Convert in-memory cache entry to ICachedDocument format.
+	 */
+	private _cacheEntryToCachedDocument(entry: DocumentCacheEntry): ICachedDocument {
+		const cells: ICachedCellOutput[] = [];
+
+		for (const cellEntry of entry.cells.values()) {
+			cells.push({
+				cellId: cellEntry.cellId,
+				contentHash: cellEntry.contentHash,
+				label: cellEntry.label,
+				outputs: [...cellEntry.outputs],
+			});
+		}
+
+		return {
+			sourceUri: entry.sourceUri,
+			lastUpdated: entry.lastUpdated,
 			cells,
 		};
 	}

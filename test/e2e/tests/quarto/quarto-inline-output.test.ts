@@ -91,4 +91,78 @@ test.describe('Quarto - Inline Output', {
 		const outputItem = inlineOutput.locator('.quarto-output-item');
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
+
+	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_python', 'report.qmd');
+
+		// Open a Quarto document with Python code
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const statusBarIndicator = page.locator('.statusbar-item').filter({ hasText: /Quarto|Python/ });
+		await expect(statusBarIndicator.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 17)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content is present
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// Close the file
+		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+
+		// Wait for editor to close
+		await page.waitForTimeout(500);
+
+		// Reopen the same file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready again
+		await expect(editor).toBeVisible({ timeout: 10000 });
+		await page.waitForTimeout(1000);
+
+		// The cached output should still be visible after reopening
+		// Use retry pattern since loading is async
+		await expect(async () => {
+			// Scroll to where the output should be (after cell ends around line 25)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Check if the output is visible
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// Verify the content is present
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+	});
 });
