@@ -261,17 +261,6 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test.beforeAll('Enable Assistant and sign in to providers', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 
-		// Only sign in to Anthropic if ANTHROPIC_KEY is provided
-		// Otherwise, assume already signed in via another method (e.g., OAuth)
-		// if (process.env.ANTHROPIC_KEY) {
-		// 	await app.workbench.assistant.clickAddModelButton();
-		// 	await app.workbench.assistant.selectModelProvider('anthropic-api');
-		// 	await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-		// 	await app.workbench.assistant.clickSignInButton();
-		// 	await app.workbench.assistant.verifySignOutButtonVisible();
-		// 	await app.workbench.assistant.clickCloseButton();
-		// }
-
 		// Sign in to Echo provider
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('echo');
@@ -308,7 +297,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	 * Test Case 2: Multiple Providers with Different Defaults
 	 * Verifies that when a user configures default models for multiple providers:
 	 * 1. Each provider shows its respective default model with "(default)" suffix
-	 * 2. Each default model appears first in its vendor group
+	 * 2. Each default model appears first in its provider group
 	 */
 	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings }) {
 		// Configure defaults for both Anthropic and Echo providers
@@ -319,6 +308,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			}
 		}, { reload: true });
 
+		// Only sign in to Anthropic if ANTHROPIC_KEY is provided
+		// Otherwise, assume already signed in via another method (e.g., OAuth)
 		if (process.env.ANTHROPIC_KEY) {
 			await app.workbench.assistant.clickAddModelButton();
 			await app.workbench.assistant.selectModelProvider('anthropic-api');
