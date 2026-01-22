@@ -63,28 +63,30 @@
 	border-color: var(--vscode-editorWidget-border);
 }
 
-/* === Special Case: Code Cells with No Footer === */
+/* === Special Case: No Footer (with outputs) === */
 
-/* When footer is hidden (not in DOM), restore bottom border radius and border */
-.positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
-	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
-	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
-	border-bottom: 1px solid var(--vscode-positronNotebook-border-color);
-}
-
-/* Restore bottom border radius for editor container when footer is hidden */
+/* Rounded corners ONLY on inner container - keeps outer borders straight */
 .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) .positron-notebook-editor-container {
 	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
 	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
 }
 
-/* Update border color when no footer based on selection state */
-.positron-notebook-cell.selected .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)),
-.positron-notebook-cell.editing .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
+/* === Special Case: No Footer AND No Outputs === */
+
+/* Only add bottom border and rounded corners when NO outputs */
+.positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
+	border-bottom: 1px solid var(--vscode-positronNotebook-border-color);
+	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+}
+
+/* Update border color when no footer and no outputs based on selection state */
+.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)),
+.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
 	border-bottom-color: var(--vscode-focusBorder);
 }
 
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section:not(:has(.positron-notebook-code-cell-footer)) {
 	border-bottom-color: var(--vscode-editorWidget-border);
 }
 
