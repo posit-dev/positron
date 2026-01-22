@@ -732,6 +732,19 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: Cell footer has the expected aria-label.
+	 * @param cellIndex - The index of the cell whose footer to check.
+	 * @param expectedAriaLabel - The expected aria-label value.
+	 * @param timeout - Optional timeout for the expectation.
+	 */
+	async expectFooterAriaLabel(cellIndex: number, expectedAriaLabel: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect cell footer aria-label to be: ${expectedAriaLabel}`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toHaveAttribute('aria-label', expectedAriaLabel, { timeout });
+		});
+	}
+
+	/**
 	 * Verify: Cell execution status matches expected status.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedStatus - The expected execution status of the cell.
@@ -787,23 +800,6 @@ export class PositronNotebooks extends Notebooks {
 	async expectNoActiveSpinners(timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step('Expect no active spinners in notebook', async () => {
 			await expect(this.spinner).toHaveCount(0, { timeout });
-		});
-	}
-
-	/**
-	 * Verify: Cell footer visibility.
-	 * @param cellIndex - The index of the cell whose footer to check.
-	 * @param visible - Whether the footer should be visible (in DOM).
-	 * @param timeout - Timeout for the expectation.
-	 */
-	async expectFooterVisible(cellIndex: number, visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect cell footer at index ${cellIndex} to be ${visible ? 'visible' : 'hidden'}`, async () => {
-			const footer = this.cellFooterAtIndex(cellIndex);
-			if (visible) {
-				await expect(footer).toBeVisible({ timeout });
-			} else {
-				await expect(footer).toHaveCount(0, { timeout });
-			}
 		});
 	}
 

@@ -90,8 +90,8 @@ test.describe('Positron Notebooks: Cell Execution Footer', {
 			// Add a new cell but don't run it
 			await notebooksPositron.addCodeToCell(4, 'print("never run")', { run: false });
 
-			// Footer should not be visible for cells that have never been run
-			await notebooksPositron.expectFooterVisible(4, false);
+			// Footer should show "Not run this session" in aria-label
+			await notebooksPositron.expectFooterAriaLabel(4, 'Cell not yet run');
 		});
 	});
 });
