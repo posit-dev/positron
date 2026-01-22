@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoKernelManager, IQuartoKernelManager } from './quartoKernelManager.js';
@@ -17,7 +17,6 @@ import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecuti
 import { QuartoOutputManagerService, QuartoOutputContribution, IQuartoOutputManager } from './quartoOutputManager.js';
 import { QuartoOutputCacheService } from './quartoOutputCacheService.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { QuartoStatusBarIndicator } from './quartoStatusBarIndicator.js';
 import { QuartoExecutionDecorations } from './quartoExecutionDecorations.js';
 import { QuartoMultiLanguageWarning } from './quartoMultiLanguageWarning.js';
 import { QuartoCellToolbarController } from './quartoCellToolbarController.js';
@@ -26,6 +25,9 @@ import {
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
 } from '../common/positronQuartoConfig.js';
+import { MenuId } from '../../../../platform/actions/common/actions.js';
+import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
+import { QuartoKernelStatusBadge } from './QuartoKernelStatusBadge.js';
 
 // Import the configuration to ensure it's registered
 import '../common/positronQuartoConfig.js';
@@ -56,7 +58,6 @@ registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarCont
  * Responsible for:
  * - Tracking context keys for Quarto documents
  * - Updating context keys when editor or configuration changes
- * - Managing the status bar indicator
  */
 class QuartoInlineOutputContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.quartoInlineOutput';
@@ -68,16 +69,12 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		super();
 
 		// Initialize context keys
 		this._updateInlineOutputEnabled();
 		this._updateIsQuartoDocument();
-
-		// Create the status bar indicator
-		this._register(instantiationService.createInstance(QuartoStatusBarIndicator));
 
 		// Listen for configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -116,3 +113,18 @@ registerWorkbenchContribution2(
 	QuartoInlineOutputContribution,
 	WorkbenchPhase.AfterRestored
 );
+
+// Register the kernel status badge widget in the editor action bar
+PositronActionBarWidgetRegistry.registerWidget({
+	id: 'positronQuarto.kernelStatus',
+	menuId: MenuId.EditorActionsLeft,
+	order: 1, // Leftmost position
+	when: ContextKeyExpr.and(
+		QUARTO_INLINE_OUTPUT_ENABLED,
+		IS_QUARTO_DOCUMENT
+	),
+	selfContained: true,
+	componentFactory: (accessor) => {
+		return () => React.createElement(QuartoKernelStatusBadge, { accessor });
+	}
+});

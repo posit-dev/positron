@@ -43,9 +43,9 @@ test.describe('Quarto - Inline Output', {
 		await expect(editor).toBeVisible({ timeout: 10000 });
 
 		// Wait for the Quarto inline output feature to recognize this as a Quarto document
-		// The status bar indicator appears when the feature is enabled and a .qmd file is open
-		const statusBarIndicator = page.locator('.statusbar-item').filter({ hasText: /Quarto|Python/ });
-		await expect(statusBarIndicator.first()).toBeVisible({ timeout: 30000 });
+		// The kernel status widget appears in the editor action bar when the feature is enabled and a .qmd file is open
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
 		// Click on the editor to ensure focus
 		await editor.click();
@@ -114,8 +114,8 @@ test.describe('Quarto - Inline Output', {
 		await expect(editor).toBeVisible({ timeout: 10000 });
 
 		// Wait for the Quarto inline output feature to initialize
-		const statusBarIndicator = page.locator('.statusbar-item').filter({ hasText: /Quarto|Python/ });
-		await expect(statusBarIndicator.first()).toBeVisible({ timeout: 30000 });
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
 		// Click on the editor to ensure focus
 		await editor.click();
@@ -165,8 +165,8 @@ test.describe('Quarto - Inline Output', {
 		await expect(editor).toBeVisible({ timeout: 10000 });
 
 		// Wait for the Quarto inline output feature to initialize
-		const statusBarIndicator = page.locator('.statusbar-item').filter({ hasText: /Quarto|Python/ });
-		await expect(statusBarIndicator.first()).toBeVisible({ timeout: 30000 });
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
 		// Click on the editor to ensure focus
 		await editor.click();

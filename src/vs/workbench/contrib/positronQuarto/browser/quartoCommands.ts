@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -445,6 +445,10 @@ registerAction2(class RestartKernelAction extends Action2 {
 			category: QUARTO_CATEGORY,
 			f1: true,
 			precondition: QUARTO_PRECONDITION,
+			menu: {
+				id: MenuId.PositronQuartoKernelSubmenu,
+				order: 10,
+			},
 		});
 	}
 
@@ -482,6 +486,10 @@ registerAction2(class InterruptKernelAction extends Action2 {
 				when: QUARTO_PRECONDITION,
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyCode.Escape,
+			},
+			menu: {
+				id: MenuId.PositronQuartoKernelSubmenu,
+				order: 20,
 			},
 		});
 	}
