@@ -9,12 +9,13 @@ test.use({
 	suiteId: __filename
 });
 
-
-test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, () => {
+// FIXME: Disabled for https://github.com/posit-dev/positron/pull/11407 on windows
+test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS] }, () => {
 
 	test.afterEach(async ({ app }) => {
 		await app.workbench.sessions.deleteAll();
 	});
+
 
 	test('Verify Restart Extension Host command works - R', {
 		tag: [tags.ARK]

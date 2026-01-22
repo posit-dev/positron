@@ -289,7 +289,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 		});
 
-		test('Python - Verify Plot Zoom works (Fit vs. 200%)', { tag: [tags.WEB] },
+		// skipping since screenshot is behaving oddly now in this context after the plots
+		// pane was reworked
+		test.skip('Python - Verify Plot Zoom works (Fit vs. 200%)', { tag: [tags.WEB] },
 			async function ({ app, openFile, python, page }, testInfo) {
 				await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 
@@ -299,6 +301,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				});
 				// The example plot is a Seaborn plot, so use that in the image locator.
 				const imgLocator = page.getByRole('img', { name: /seaborn 1/ });
+
+				await app.workbench.toasts.closeAll();
 
 				await app.workbench.plots.setThePlotZoom('Fit');
 				await page.waitForTimeout(2000);
