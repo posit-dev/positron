@@ -61,8 +61,8 @@ suite('Model Definitions', () => {
 					identifier: 'user-claude'
 				}
 			];
-			// Test with individual models.custom setting
-			mockWorkspaceConfig.withArgs('models.custom.anthropic').returns(userModels);
+			// Test with individual models.overrides setting
+			mockWorkspaceConfig.withArgs('models.overrides.anthropic').returns(userModels);
 
 			const result = getAllModelDefinitions('anthropic-api');
 

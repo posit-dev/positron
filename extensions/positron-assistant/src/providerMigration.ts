@@ -48,6 +48,20 @@ function showMigrationNotification(
 	});
 }
 
+/**
+ * Migrates settings from an old key format to new per-provider keys.
+ *
+ * The old setting always takes precedence: if a value exists in the old setting,
+ * it will overwrite any existing value in the corresponding new per-provider setting.
+ * After migration, the old setting is removed.
+ *
+ * @param oldKey - The old setting key (e.g., 'models.custom')
+ * @param newKeyTemplate - Template for new keys with {name} placeholder (e.g., 'models.overrides.{name}')
+ * @param notificationKey - Setting key to track if user dismissed the notification
+ * @param notificationMessage - Message to show user after migration
+ * @param searchQuery - Settings search query for the "Show Settings" action
+ * @param processValue - Optional function to transform values before migration
+ */
 async function migrateSettings<T>(
 	oldKey: string,
 	newKeyTemplate: string,
@@ -86,12 +100,8 @@ async function migrateSettings<T>(
 
 			const newKey = newKeyTemplate.replace('{name}', settingName);
 
-			if (config.inspect(newKey)?.globalValue === undefined) {
-				await config.update(newKey, processedValue, vscode.ConfigurationTarget.Global);
-				log.info(`[${migrationName}] Migrated: ${newKey}`);
-			} else {
-				log.info(`[${migrationName}] Skipped: ${newKey} (already set)`);
-			}
+			await config.update(newKey, processedValue, vscode.ConfigurationTarget.Global);
+			log.info(`[${migrationName}] Migrated: ${newKey}`);
 		}
 
 		await config.update(oldKey, undefined, vscode.ConfigurationTarget.Global);
@@ -131,10 +141,10 @@ export async function performModelPreferencesMigration(): Promise<void> {
 export async function performCustomModelsMigration(): Promise<void> {
 	await migrateSettings<any[]>(
 		'models.custom',
-		'models.custom.{name}',
+		'models.overrides.{name}',
 		'hideCustomModelsMigrationNotification',
-		vscode.l10n.t(`Your 'positron.assistant.models.custom' setting has been migrated to individual custom model settings for each provider. The old setting has been removed.`),
-		'positron.assistant.models.custom',
+		vscode.l10n.t(`Your 'positron.assistant.models.custom' setting has been migrated to individual model override settings for each provider. The old setting has been removed.`),
+		'positron.assistant.models.overrides',
 		(_, value) => value.length > 0 ? value : null
 	);
 }

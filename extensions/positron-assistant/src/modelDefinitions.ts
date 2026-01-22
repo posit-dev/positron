@@ -16,7 +16,7 @@ export interface ModelDefinition {
 /**
  * Get custom models from VS Code settings for a specific provider.
  *
- * Reads from the individual provider setting (models.custom.<settingName>).
+ * Reads from the individual provider setting (models.overrides.<settingName>).
  * Legacy object-based settings are migrated on startup, so no fallback is needed.
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
@@ -26,7 +26,7 @@ export function getCustomModels(providerId: string): ModelDefinition[] {
 	const providerIdToSettingName = getProviderIdToSettingNameMap();
 	const settingName = providerIdToSettingName.get(providerId);
 	if (settingName) {
-		const individualModels = config.get<ModelDefinition[]>(`models.custom.${settingName}`);
+		const individualModels = config.get<ModelDefinition[]>(`models.overrides.${settingName}`);
 		if (individualModels && individualModels.length > 0) {
 			return individualModels;
 		}

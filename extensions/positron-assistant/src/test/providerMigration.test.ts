@@ -65,6 +65,15 @@ suite('Provider Migration Tests', () => {
 						settingName: 'openAI'
 					}
 				}
+			},
+			{
+				source: {
+					provider: {
+						id: 'azure',
+						displayName: 'Azure',
+						settingName: 'azure'
+					}
+				}
 			}
 		]);
 	});
@@ -75,18 +84,18 @@ suite('Provider Migration Tests', () => {
 
 	test('migrates from enabledProviders array to individual settings', async () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
-			globalValue: ['anthropic-api', 'copilot-auth', 'openai-api']
+			globalValue: ['anthropic-api', 'copilot-auth', 'azure']
 		});
 		stubs.mockInspect.withArgs('provider.anthropic.enable').returns({});
 		stubs.mockInspect.withArgs('provider.githubCopilot.enable').returns({});
-		stubs.mockInspect.withArgs('provider.openAI.enable').returns({});
+		stubs.mockInspect.withArgs('provider.azure.enable').returns({});
 
 		await performProviderMigration();
 
 		const calls = stubs.mockUpdate.getCalls();
 		const anthropicCall = calls.find(call => call.args[0] === 'provider.anthropic.enable');
 		const copilotCall = calls.find(call => call.args[0] === 'provider.githubCopilot.enable');
-		const openaiCall = calls.find(call => call.args[0] === 'provider.openAI.enable');
+		const azureCall = calls.find(call => call.args[0] === 'provider.azure.enable');
 		const removeCall = calls.find(call => call.args[0] === 'enabledProviders');
 
 		assert.ok(anthropicCall);
@@ -96,14 +105,14 @@ suite('Provider Migration Tests', () => {
 		assert.ok(copilotCall);
 		assert.strictEqual(copilotCall.args[1], true);
 
-		assert.ok(openaiCall);
-		assert.strictEqual(openaiCall.args[1], true);
+		assert.ok(azureCall);
+		assert.strictEqual(azureCall.args[1], true);
 
 		assert.ok(removeCall);
 		assert.strictEqual(removeCall.args[1], undefined);
 	});
 
-	test('does not overwrite existing individual settings', async () => {
+	test('overwrites existing individual settings (old value takes precedence)', async () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
 			globalValue: ['anthropic-api', 'openai-api']
 		});
@@ -118,7 +127,9 @@ suite('Provider Migration Tests', () => {
 		const anthropicCall = calls.find(call => call.args[0] === 'provider.anthropic.enable');
 		const openaiCall = calls.find(call => call.args[0] === 'provider.openAI.enable');
 
-		assert.ok(!anthropicCall);
+		// Old value takes precedence: anthropic should be overwritten to true
+		assert.ok(anthropicCall);
+		assert.strictEqual(anthropicCall.args[1], true);
 		assert.ok(openaiCall);
 		assert.strictEqual(openaiCall.args[1], true);
 	});
@@ -200,7 +211,7 @@ suite('Model Preferences Migration Tests', () => {
 		assert.strictEqual(removeCall.args[1], undefined);
 	});
 
-	test('does not overwrite existing model preference settings', async () => {
+	test('overwrites existing model preference settings (old value takes precedence)', async () => {
 		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
 			globalValue: {
 				'anthropic-api': 'claude-opus-4',
@@ -218,7 +229,9 @@ suite('Model Preferences Migration Tests', () => {
 		const anthropicCall = calls.find(call => call.args[0] === 'models.preference.anthropic');
 		const openaiCall = calls.find(call => call.args[0] === 'models.preference.openAI');
 
-		assert.ok(!anthropicCall);
+		// Old value takes precedence: anthropic should be overwritten to claude-opus-4
+		assert.ok(anthropicCall);
+		assert.strictEqual(anthropicCall.args[1], 'claude-opus-4');
 		assert.ok(openaiCall);
 		assert.strictEqual(openaiCall.args[1], 'gpt-4');
 	});
@@ -265,14 +278,14 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.custom.anthropic').returns({});
-		stubs.mockInspect.withArgs('models.custom.openAI').returns({});
+		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({});
+		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
 		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.custom.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.custom.openAI');
+		const anthropicCall = calls.find(call => call.args[0] === 'models.overrides.anthropic');
+		const openaiCall = calls.find(call => call.args[0] === 'models.overrides.openAI');
 		const removeCall = calls.find(call => call.args[0] === 'models.custom');
 
 		assert.ok(anthropicCall);
@@ -295,20 +308,20 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.custom.anthropic').returns({});
-		stubs.mockInspect.withArgs('models.custom.openAI').returns({});
+		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({});
+		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
 		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.custom.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.custom.openAI');
+		const anthropicCall = calls.find(call => call.args[0] === 'models.overrides.anthropic');
+		const openaiCall = calls.find(call => call.args[0] === 'models.overrides.openAI');
 
 		assert.ok(!anthropicCall);
 		assert.ok(openaiCall);
 	});
 
-	test('does not overwrite existing custom model settings', async () => {
+	test('overwrites existing custom model settings (old value takes precedence)', async () => {
 		stubs.mockInspect.withArgs('models.custom').returns({
 			globalValue: {
 				'anthropic-api': [
@@ -319,18 +332,20 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.custom.anthropic').returns({
+		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({
 			globalValue: [{ id: 'existing-model', name: 'Existing' }]
 		});
-		stubs.mockInspect.withArgs('models.custom.openAI').returns({});
+		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
 		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.custom.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.custom.openAI');
+		const anthropicCall = calls.find(call => call.args[0] === 'models.overrides.anthropic');
+		const openaiCall = calls.find(call => call.args[0] === 'models.overrides.openAI');
 
-		assert.ok(!anthropicCall);
+		// Old value takes precedence: anthropic should be overwritten with the old value
+		assert.ok(anthropicCall);
+		assert.deepStrictEqual(anthropicCall.args[1], [{ id: 'custom-claude', name: 'Custom Claude' }]);
 		assert.ok(openaiCall);
 	});
 });

@@ -432,6 +432,11 @@
         "type": "object",
         "title": "%configuration.modelPreferences.title%",
         "properties": {
+          "positron.assistant.models.preference.byProvider": {
+            "type": "object",
+            "markdownDeprecationMessage": "%configuration.models.preference.byProvider.deprecated.markdownDeprecationMessage%",
+            "description": "%configuration.models.preference.byProvider.deprecated.description%"
+          },
           "positron.assistant.models.preference.anthropic": {
             "type": "string",
             "default": "",
@@ -485,12 +490,16 @@
       },
       {
         "type": "object",
-        "title": "%configuration.models.custom.title%",
+        "title": "%configuration.models.overrides.title%",
         "properties": {
-          "positron.assistant.models.custom.anthropic": {
+          "positron.assistant.models.custom": {
+            "markdownDeprecationMessage": "%configuration.models.custom.deprecated.markdownDeprecationMessage%",
+            "description": "%configuration.models.custom.deprecated.description%"
+          },
+          "positron.assistant.models.overrides.anthropic": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.anthropic.description%",
+            "markdownDescription": "%configuration.models.overrides.anthropic.description%",
             "items": {
               "type": "object",
               "properties": {
@@ -529,10 +538,10 @@
               ]
             ]
           },
-          "positron.assistant.models.custom.amazonBedrock": {
+          "positron.assistant.models.overrides.amazonBedrock": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.amazonBedrock.description%",
+            "markdownDescription": "%configuration.models.overrides.amazonBedrock.description%",
             "items": {
               "type": "object",
               "properties": {
@@ -561,10 +570,10 @@
               ]
             }
           },
-          "positron.assistant.models.custom.snowflakeCortex": {
+          "positron.assistant.models.overrides.snowflakeCortex": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.snowflakeCortex.description%",
+            "markdownDescription": "%configuration.models.overrides.snowflakeCortex.description%",
             "items": {
               "type": "object",
               "properties": {
@@ -603,10 +612,10 @@
               ]
             ]
           },
-          "positron.assistant.models.custom.openAI": {
+          "positron.assistant.models.overrides.openAI": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.openAI.description%",
+            "markdownDescription": "%configuration.models.overrides.openAI.description%",
             "items": {
               "type": "object",
               "properties": {
@@ -643,10 +652,10 @@
               ]
             ]
           },
-          "positron.assistant.models.custom.customProvider": {
+          "positron.assistant.models.overrides.customProvider": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.customProvider.description%",
+            "markdownDescription": "%configuration.models.overrides.customProvider.description%",
             "items": {
               "type": "object",
               "properties": {
@@ -685,10 +694,10 @@
               ]
             ]
           },
-          "positron.assistant.models.custom.positAI": {
+          "positron.assistant.models.overrides.positAI": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.positAI.description%",
+            "markdownDescription": "%configuration.models.overrides.positAI.description%",
             "tags": [
               "advanced"
             ],
@@ -720,10 +729,10 @@
               ]
             }
           },
-          "positron.assistant.models.custom.azure": {
+          "positron.assistant.models.overrides.azure": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.azure.description%",
+            "markdownDescription": "%configuration.models.overrides.azure.description%",
             "tags": [
               "advanced"
             ],
@@ -755,10 +764,10 @@
               ]
             }
           },
-          "positron.assistant.models.custom.google": {
+          "positron.assistant.models.overrides.google": {
             "type": "array",
             "default": [],
-            "markdownDescription": "%configuration.models.custom.google.description%",
+            "markdownDescription": "%configuration.models.overrides.google.description%",
             "tags": [
               "advanced"
             ],
