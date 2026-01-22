@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
@@ -78,6 +78,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
 
+	// Track subscriptions from _initializeOutputHandling() separately so they can be
+	// disposed when the model changes, preventing duplicate event handlers
+	private readonly _outputHandlingDisposables = this._register(new DisposableStore());
+
 	// Performance optimization: debounced view zone position updates
 	private _viewZoneUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -116,6 +120,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._disposeAllViewZones();
 			this._outputsByCell.clear();
 
+			// Clear previous output handling subscriptions to prevent duplicates
+			this._outputHandlingDisposables.clear();
+
 			// Update document URI for the new model
 			const newModel = this._editor.getModel();
 			this._documentUri = newModel?.uri;
@@ -152,21 +159,22 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._loadCachedOutputs();
 
 		// Listen for kernel state changes to update session on view zones
-		this._register(this._kernelManager.onDidChangeKernelState(event => {
+		// Use _outputHandlingDisposables so subscriptions are cleared on model change
+		this._outputHandlingDisposables.add(this._kernelManager.onDidChangeKernelState(event => {
 			if (this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._updateViewZoneSessions();
 			}
 		}));
 
 		// Listen for execution outputs
-		this._register(this._executionManager.onDidReceiveOutput(event => {
+		this._outputHandlingDisposables.add(this._executionManager.onDidReceiveOutput(event => {
 			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._handleOutput(event.cellId, event.output);
 			}
 		}));
 
 		// Listen for execution state changes to clear outputs on new execution
-		this._register(this._executionManager.onDidChangeExecutionState(event => {
+		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
 				this._documentUri &&
 				event.execution.documentUri.toString() === this._documentUri.toString() &&
@@ -178,7 +186,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}));
 
 		// Listen for model content changes to update view zone positions (debounced)
-		this._register(this._editor.onDidChangeModelContent(() => {
+		this._outputHandlingDisposables.add(this._editor.onDidChangeModelContent(() => {
 			if (this._featureEnabled) {
 				this._scheduleViewZonePositionUpdate();
 			}
@@ -186,7 +194,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		// Listen to output manager service for split editor synchronization
 		// When another editor clears outputs, we should also clear
-		this._register(this._outputManager.onDidChangeOutputs(event => {
+		this._outputHandlingDisposables.add(this._outputManager.onDidChangeOutputs(event => {
 			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._syncOutputsFromService(event);
 			}
@@ -484,8 +492,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._featureEnabled = enabled;
 
 		if (!enabled) {
-			// Hide all view zones when feature is disabled
+			// Hide all view zones and clear subscriptions when feature is disabled
 			this._disposeAllViewZones();
+			this._outputHandlingDisposables.clear();
+			this._outputHandlingInitialized = false;
 		} else if (this._isQuartoDocument()) {
 			// Initialize output handling when feature is enabled
 			// This will also load cached outputs

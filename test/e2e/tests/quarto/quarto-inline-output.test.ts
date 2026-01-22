@@ -92,6 +92,67 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
 
+	test('Python - Verify output is not duplicated after opening multiple qmd files', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// This test verifies that outputs are not duplicated when multiple qmd files
+		// have been opened. There was a bug where event subscriptions accumulated
+		// without being disposed, causing outputs to be rendered multiple times.
+
+		// Open several qmd files to trigger multiple QuartoOutputContribution initializations
+		await openFile(join('workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await page.waitForTimeout(1000);
+
+		await openFile(join('workspaces', 'quarto_interactive', 'quarto_interactive.qmd'));
+		await page.waitForTimeout(1000);
+
+		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		await page.waitForTimeout(1000);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const statusBarIndicator = page.locator('.statusbar-item').filter({ hasText: /Quarto|Python/ });
+		await expect(statusBarIndicator.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 17)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// CRITICAL: Verify there is exactly ONE output view zone, not duplicates
+		// The bug caused outputs to appear multiple times when multiple qmd files were opened
+		const outputCount = await inlineOutput.count();
+		expect(outputCount).toBe(1);
+
+		// Verify the single output has exactly one output content area
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		const contentCount = await outputContent.count();
+		expect(contentCount).toBe(1);
+	});
+
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 		const filePath = join('workspaces', 'quarto_python', 'report.qmd');
