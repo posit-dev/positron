@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,7 +9,7 @@
 	padding: 8px 12px;
 	padding-right: 32px; /* Space for close button */
 	margin: 4px 0;
-	background: var(--vscode-editor-inlineValuesBackground, var(--vscode-editor-background));
+	background: var(--vscode-editorHoverWidget-background);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
 	/* Font is applied via JavaScript using editor font settings */
@@ -93,7 +93,7 @@
 	-webkit-user-select: text;
 }
 
-/* Error output container */
+/* Error output container (when widget contains non-error outputs too) */
 .quarto-output-error {
 	padding: 8px;
 	background: var(--vscode-inputValidation-errorBackground);
@@ -110,6 +110,20 @@
 	/* Font is inherited from container which uses editor font settings */
 	user-select: text;
 	-webkit-user-select: text;
+}
+
+/* Widget-level error styling (when only output is an error) */
+.quarto-inline-output.quarto-output-error-only {
+	background: var(--vscode-inputValidation-errorBackground);
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+/* Remove individual error styling when widget has error style */
+.quarto-inline-output.quarto-output-error-only .quarto-output-error {
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: 0;
 }
 
 /* Image output container */

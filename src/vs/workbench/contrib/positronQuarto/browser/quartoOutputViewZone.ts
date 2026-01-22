@@ -177,6 +177,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	addOutput(output: ICellOutput): void {
 		this._outputs.push(output);
 		this._renderOutput(output);
+		// Update error-only class after adding new output
+		this.domNode.classList.toggle('quarto-output-error-only', this._isErrorOnly());
 		this._updateHeight();
 		this._announceOutput(output);
 	}
@@ -361,9 +363,27 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	private _renderAllOutputs(): void {
 		dom.clearNode(this._outputContainer);
+
+		// Check if all outputs are errors only
+		const isErrorOnly = this._isErrorOnly();
+		this.domNode.classList.toggle('quarto-output-error-only', isErrorOnly);
+
 		for (const output of this._outputs) {
 			this._renderOutput(output);
 		}
+	}
+
+	/**
+	 * Check if all outputs contain only error items.
+	 */
+	private _isErrorOnly(): boolean {
+		if (this._outputs.length === 0) {
+			return false;
+		}
+		return this._outputs.every(output =>
+			output.items.length > 0 &&
+			output.items.every(item => item.mime === 'application/vnd.code.notebook.error')
+		);
 	}
 
 	private _renderOutput(output: ICellOutput): void {
@@ -563,9 +583,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		container.className = 'quarto-output-error';
 		container.setAttribute('role', 'alert');
 
+		let errorText: string;
 		try {
 			const errorData = JSON.parse(data);
-			const pre = document.createElement('pre');
 
 			// Format error output
 			const parts: string[] = [];
@@ -578,14 +598,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				parts.push(errorData.stack);
 			}
 
-			pre.textContent = parts.join('\n');
-			container.appendChild(pre);
+			errorText = parts.join('\n');
 		} catch {
 			// If not JSON, render as plain text
-			const pre = document.createElement('pre');
-			pre.textContent = data;
-			container.appendChild(pre);
+			errorText = data;
 		}
+
+		// Process ANSI escape sequences in error output
+		const pre = document.createElement('pre');
+		const outputLines = ANSIOutput.processOutput(errorText);
+		this._renderAnsiOutputLines(outputLines, pre);
+		container.appendChild(pre);
 
 		return container;
 	}
@@ -882,7 +905,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const contentHeight = this._outputContainer.scrollHeight;
 
 		// Use natural height with minimum bound only (no max - scrolling is handled by the editor)
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, contentHeight + 16); // +16 for padding
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, contentHeight + 20); // +20 for padding
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;
