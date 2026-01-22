@@ -209,11 +209,12 @@
             "default": true,
             "description": "%r.configuration.autoConvertFilePaths.description%"
           },
-          "positron.r.useBaseRForPackageDev": {
+          "positron.r.usePakForLocalPackageInstall": {
             "scope": "window",
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%r.configuration.useBaseRForPackageDev.description%"
+            "type": "string",
+            "enum": ["pak", "base"],
+            "default": "pak",
+            "markdownDescription": "%r.configuration.usePakForLocalPackageInstall.description%"
           }
         }
       },

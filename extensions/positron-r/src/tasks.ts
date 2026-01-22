@@ -34,9 +34,9 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	}
 	const binpath = RSessionManager.instance.getLastBinpath();
 
-	// Check if user wants to use base R for package development tasks
+	// Check which method to use for local package installation
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const useBaseR = config.get<boolean>('useBaseRForPackageDev') ?? false;
+	const installMethod = config.get<string>('usePakForLocalPackageInstall') ?? 'pak';
 
 	const taskData = [
 		{
@@ -46,7 +46,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			package: 'devtools',
 			envVars: { ... await prepCliEnvVars() }
 		},
-		useBaseR ? {
+		installMethod === 'base' ? {
 			task: 'r.task.packageInstall',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
 			cmdArgs: ['CMD', 'INSTALL', '--preclean', '--no-multiarch', '--with-keep.source', '.'],
