@@ -47,7 +47,6 @@ export class PositronNotebooks extends Notebooks {
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
 	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
-	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellFooterAtIndex = (index: number) => this.cell.nth(index).locator('.positron-notebook-code-cell-footer');
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
@@ -286,8 +285,6 @@ export class PositronNotebooks extends Notebooks {
 	): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}, edit mode: ${editMode}`, async () => {
 			const cell = this.cell.nth(cellIndex);
-			const cellType = await this.getCellType(cellIndex);
-			const isMarkdown = cellType === 'markdown';
 
 			await cell.click();
 
@@ -296,9 +293,9 @@ export class PositronNotebooks extends Notebooks {
 					isSelected: true,
 				});
 			} else {
-				if (editMode && isMarkdown) { await cell.dblclick(); }
-
-				if (!editMode) {
+				if (editMode) {
+					await this.editModeAtIndex(cellIndex);
+				} else {
 					await test.step('Exit edit mode', async () => {
 						// give the editor a moment to settle before toggling mode
 						await this.code.driver.page.waitForTimeout(500);
@@ -389,10 +386,10 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async editModeAtIndex(cellIndex: number): Promise<void> {
 		// Determine if cell is markdown or code and enter edit mode accordingly
-		const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-		ariaLabel === 'Markdown cell'
+		const cellType = await this.getCellType(cellIndex);
+		cellType === 'markdown'
 			? await this.cell.nth(cellIndex).dblclick()
-			: await this.cell.nth(cellIndex).click();
+			: await this.editorAtIndex(cellIndex).focus();
 	}
 
 	/**
@@ -896,15 +893,42 @@ export class PositronNotebooks extends Notebooks {
 
 
 	/**
-	 * Verify: Screenshot of rendered markdown at specified index matches expected screenshot.
-	 * @param index - The index of the markdown cell to check.
+	 * Verify: Screenshot of cell at specified index matches expected screenshot.
+	 * Includes padding above the cell to capture the action bar which is absolutely positioned.
+	 * @param index - The index of the cell to screenshot.
 	 * @param screenshotName - The name to use for the screenshot file.
 	 */
 	async expectScreenshotToMatch(index: number, screenshotName: string): Promise<void> {
-		await test.step(`Take/compare screenshot of cell output at index ${index}`, async () => {
-			const output = this.cellMarkdown(index);
-			await output.scrollIntoViewIfNeeded();
-			await expect(output).toBeVisible();
+		await test.step(`Take/compare screenshot of cell at index ${index}`, async () => {
+			const cellElement = this.cell.nth(index);
+			await cellElement.scrollIntoViewIfNeeded();
+			await expect(cellElement).toBeVisible();
+
+			// Get bounding box and calculate padding for action bar (positioned above the cell)
+			// The action bar is absolutely positioned above the cell, so we need to include its height
+			// Only include padding if the action bar is visible (has 'visible' class, not 'hidden')
+			const actionBarPadding = await cellElement.evaluate((el) => {
+				const actionBar = el.querySelector('.positron-notebooks-cell-action-bar.visible');
+				if (!actionBar) {
+					return 0;
+				}
+				const actionBarRect = actionBar.getBoundingClientRect();
+				const cellRect = el.getBoundingClientRect();
+				// Calculate how far the action bar extends above the cell
+				return Math.max(0, cellRect.top - actionBarRect.top);
+			});
+
+			const box = await cellElement.boundingBox();
+			if (!box) {
+				throw new Error(`Could not get bounding box for cell at index ${index}`);
+			}
+
+			const clip = {
+				x: box.x,
+				y: Math.max(0, box.y - actionBarPadding),
+				width: box.width,
+				height: box.height + actionBarPadding,
+			};
 
 			// Logging the screenshot path for easier debugging
 			const info = test.info();
@@ -916,20 +940,31 @@ export class PositronNotebooks extends Notebooks {
 				contentType: 'text/plain',
 			});
 
-			// Take screenshot and attach to report
-			const shot = await output.screenshot({ animations: 'disabled' });
+			// Mask dynamic content (execution time, duration) in the footer
+			const footerDuration = cellElement.locator('.code-cell-footer-duration');
+			const footerText = cellElement.locator('.code-cell-footer-text');
+			const mask = [footerDuration, footerText];
+
+			// Take screenshot of the page with clip region to include action bar
+			const shot = await this.code.driver.page.screenshot({
+				animations: 'disabled',
+				clip,
+				mask,
+			});
 			await info.attach(resolvedFile, {
 				body: shot,
 				contentType: 'image/png',
 			});
 
-			// Verify screenshot matches
-			// await expect(output).toHaveScreenshot('basic-markdown-render.png', {
-			// 	maxDiffPixelRatio: 0.05,
-			// 	animations: 'disabled',
-			// 	caret: 'hide',
-			// 	scale: 'css',
-			// });
+			// Verify screenshot matches using page screenshot with clip
+			await expect(this.code.driver.page).toHaveScreenshot(screenshotName, {
+				maxDiffPixelRatio: 0.05,
+				animations: 'disabled',
+				caret: 'hide',
+				scale: 'css',
+				clip,
+				mask,
+			});
 		});
 	}
 
