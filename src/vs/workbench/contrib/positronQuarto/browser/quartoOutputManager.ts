@@ -69,6 +69,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 	private readonly _viewZones = new Map<string, QuartoOutputViewZone>();
 	private readonly _outputsByCell = new Map<string, ICellOutput[]>();
+	// Track content hashes for each cell ID so we can find cells that moved
+	// (cell IDs include the index, which changes when cells are inserted/deleted)
+	private readonly _contentHashByCellId = new Map<string, string>();
 	private _documentUri: URI | undefined;
 	private _featureEnabled: boolean;
 	private _outputHandlingInitialized = false;
@@ -111,6 +114,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._register(this._editor.onDidChangeModel(() => {
 			this._disposeAllViewZones();
 			this._outputsByCell.clear();
+			this._contentHashByCellId.clear();
 
 			// Clear previous output handling subscriptions to prevent duplicates
 			this._outputHandlingDisposables.clear();
@@ -284,6 +288,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					continue;
 				}
 
+				// Track content hash for this cell so we can find it if it moves
+				this._contentHashByCellId.set(cell.id, cell.contentHash);
+
 				// Restore outputs for this cell
 				for (const output of cachedCell.outputs) {
 					// Store in memory
@@ -336,13 +343,16 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		// Add output to view zone
 		viewZone.addOutput(output);
 
-		// Save to cache
+		// Save to cache and track content hash
 		if (this._documentUri) {
 			const model = this._editor.getModel();
 			if (model) {
 				const quartoModel = this._documentModelService.getModel(model);
 				const cell = quartoModel.getCellById(cellId);
 				if (cell) {
+					// Track content hash so we can find this cell if it moves
+					this._contentHashByCellId.set(cellId, cell.contentHash);
+
 					this._cacheService.saveOutput(
 						this._documentUri,
 						cellId,
@@ -430,6 +440,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			this._viewZones.delete(cellId);
 		}
 		this._outputsByCell.delete(cellId);
+		this._contentHashByCellId.delete(cellId);
 
 		// Clear from cache
 		if (this._documentUri) {
@@ -446,6 +457,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	/**
 	 * Update view zone positions based on current cell positions.
 	 * Called after the document model re-parses to ensure we have fresh line numbers.
+	 *
+	 * When cells move (e.g., a new cell is inserted above), their IDs change because
+	 * cell IDs include the index. We use content hashes to find moved cells and remap
+	 * the view zones to their new IDs, preserving outputs across position changes.
 	 */
 	private _updateViewZonePositionsImmediate(): void {
 		const model = this._editor.getModel();
@@ -455,16 +470,66 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 
 		const quartoModel = this._documentModelService.getModel(model);
 
+		// Collect remappings and deletions to apply after iteration
+		// (can't modify maps while iterating)
+		const remappings: Array<{ oldId: string; newId: string; contentHash: string }> = [];
+		const deletions: string[] = [];
+
 		for (const [cellId, viewZone] of this._viewZones) {
 			const cell = quartoModel.getCellById(cellId);
 			if (cell) {
+				// Cell still exists with same ID - just update position
 				viewZone.updateAfterLineNumber(cell.endLine);
 			} else {
-				// Cell was deleted - remove the view zone
-				viewZone.dispose();
-				this._viewZones.delete(cellId);
-				this._outputsByCell.delete(cellId);
+				// Cell ID not found - check if the cell just moved (ID changed due to index shift)
+				const contentHash = this._contentHashByCellId.get(cellId);
+				if (contentHash) {
+					const movedCell = quartoModel.findCellByContentHash(contentHash);
+					if (movedCell) {
+						// Cell moved! Remap to new ID and update position
+						this._logService.debug('[QuartoOutputContribution] Cell moved from', cellId, 'to', movedCell.id);
+						viewZone.updateAfterLineNumber(movedCell.endLine);
+						remappings.push({ oldId: cellId, newId: movedCell.id, contentHash });
+					} else {
+						// Cell content hash no longer exists - cell was truly deleted
+						deletions.push(cellId);
+					}
+				} else {
+					// No content hash tracked - cell was truly deleted
+					deletions.push(cellId);
+				}
 			}
+		}
+
+		// Apply remappings
+		for (const { oldId, newId, contentHash } of remappings) {
+			const viewZone = this._viewZones.get(oldId);
+			const outputs = this._outputsByCell.get(oldId);
+
+			// Remove old entries
+			this._viewZones.delete(oldId);
+			this._outputsByCell.delete(oldId);
+			this._contentHashByCellId.delete(oldId);
+
+			// Add with new ID
+			if (viewZone) {
+				this._viewZones.set(newId, viewZone);
+			}
+			if (outputs) {
+				this._outputsByCell.set(newId, outputs);
+			}
+			this._contentHashByCellId.set(newId, contentHash);
+		}
+
+		// Apply deletions
+		for (const cellId of deletions) {
+			const viewZone = this._viewZones.get(cellId);
+			if (viewZone) {
+				viewZone.dispose();
+			}
+			this._viewZones.delete(cellId);
+			this._outputsByCell.delete(cellId);
+			this._contentHashByCellId.delete(cellId);
 		}
 	}
 

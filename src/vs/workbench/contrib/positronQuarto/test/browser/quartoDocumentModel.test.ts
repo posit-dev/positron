@@ -466,6 +466,74 @@ x = 1
 			// The cell ID should remain the same (content didn't change)
 			assert.strictEqual(model.cells[0].id, originalCellId, 'Cell ID should remain stable');
 		});
+
+		test('cell ID changes when a new cell is inserted above (but content hash is stable)', async () => {
+			// This test documents the current behavior where cell IDs include the index,
+			// so inserting a new cell at the top changes the IDs of all subsequent cells.
+			// The content hash, however, remains stable and can be used to track cells.
+			const content = `\`\`\`{python}
+x = 1
+\`\`\`
+
+\`\`\`{python}
+y = 2
+\`\`\`
+`;
+			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
+			disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			disposables.add(model);
+
+			// Initial state: two cells at indices 0 and 1
+			assert.strictEqual(model.cells.length, 2);
+			const originalCell0Id = model.cells[0].id;
+			const originalCell1Id = model.cells[1].id;
+			const cell0ContentHash = model.cells[0].contentHash;
+			const cell1ContentHash = model.cells[1].contentHash;
+
+			// IDs should start with their index
+			assert.ok(originalCell0Id.startsWith('0-'), 'First cell ID should start with 0-');
+			assert.ok(originalCell1Id.startsWith('1-'), 'Second cell ID should start with 1-');
+
+			// Insert a new cell at the top
+			textModel.applyEdits([{
+				range: {
+					startLineNumber: 1,
+					startColumn: 1,
+					endLineNumber: 1,
+					endColumn: 1
+				},
+				text: '```{python}\nz = 0\n```\n\n'
+			}]);
+
+			// Wait for debounce
+			await new Promise(resolve => setTimeout(resolve, 150));
+
+			// After inserting, we should have 3 cells
+			assert.strictEqual(model.cells.length, 3);
+
+			// The new cell is at index 0
+			assert.ok(model.cells[0].id.startsWith('0-'), 'New cell should be at index 0');
+
+			// The original cells have CHANGED IDs because their indices shifted
+			// This is the root cause of the bug - the output manager can't find cells by their old IDs
+			assert.ok(model.cells[1].id.startsWith('1-'), 'Original first cell should now be at index 1');
+			assert.ok(model.cells[2].id.startsWith('2-'), 'Original second cell should now be at index 2');
+			assert.notStrictEqual(model.cells[1].id, originalCell0Id, 'Original first cell ID should have changed');
+			assert.notStrictEqual(model.cells[2].id, originalCell1Id, 'Original second cell ID should have changed');
+
+			// However, content hashes remain stable
+			assert.strictEqual(model.cells[1].contentHash, cell0ContentHash, 'Content hash should be stable');
+			assert.strictEqual(model.cells[2].contentHash, cell1ContentHash, 'Content hash should be stable');
+
+			// The cells CAN be found by their content hash
+			const foundCell0 = model.findCellByContentHash(cell0ContentHash);
+			const foundCell1 = model.findCellByContentHash(cell1ContentHash);
+			assert.ok(foundCell0, 'Should be able to find original first cell by content hash');
+			assert.ok(foundCell1, 'Should be able to find original second cell by content hash');
+			assert.strictEqual(foundCell0.index, 1, 'Original first cell should now be at index 1');
+			assert.strictEqual(foundCell1.index, 2, 'Original second cell should now be at index 2');
+		});
 	});
 
 	suite('Change Events', () => {
