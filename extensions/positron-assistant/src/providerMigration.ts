@@ -7,6 +7,20 @@ import { log } from './extension.js';
 import { getModelProviders } from './providers/index.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 
+/**
+ * Converts old setting formats into a consistent array of [key, value] pairs.
+ *
+ * Old settings could be stored in two formats:
+ * - Array format: ['anthropic', 'openai'] → becomes [['anthropic', true], ['openai', true]]
+ * - Object format: { anthropic: 'claude-3' } → becomes [['anthropic', 'claude-3']]
+ */
+function normalizeToEntries<T>(oldValue: string[] | Record<string, T>): Array<[string, T]> {
+	if (Array.isArray(oldValue)) {
+		return oldValue.map(id => [id, true as T]);
+	}
+	return Object.entries(oldValue) as Array<[string, T]>;
+}
+
 export function getProviderIdToSettingNameMap(): Map<string, string> {
 	const map = new Map<string, string>();
 	for (const provider of getModelProviders()) {
@@ -60,15 +74,13 @@ function showMigrationNotification(
  * @param notificationKey - Setting key to track if user dismissed the notification
  * @param notificationMessage - Message to show user after migration
  * @param searchQuery - Settings search query for the "Show Settings" action
- * @param processValue - Optional function to transform values before migration
  */
 async function migrateSettings<T>(
 	oldKey: string,
 	newKeyTemplate: string,
 	notificationKey: string,
 	notificationMessage: string,
-	searchQuery: string,
-	processValue?: (providerId: string, value: T) => T | null
+	searchQuery: string
 ): Promise<void> {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const oldValue = config.inspect<Record<string, T> | string[]>(oldKey)?.globalValue;
@@ -80,41 +92,49 @@ async function migrateSettings<T>(
 	const migrationName = oldKey.replace(/\./g, '_');
 	log.info(`[${migrationName}] Migrating from global settings`);
 
-	try {
-		const providerMap = getProviderIdToSettingNameMap();
-		const entries: Array<[string, T]> = Array.isArray(oldValue)
-			? oldValue.map(id => [id, true as T])
-			: Object.entries(oldValue) as Array<[string, T]>;
+	const providerMap = getProviderIdToSettingNameMap();
+	const entries = normalizeToEntries<T>(oldValue);
 
-		for (const [providerId, value] of entries) {
-			const settingName = providerMap.get(providerId);
-			if (!settingName) {
-				log.warn(`[${migrationName}] Unknown provider ID: ${providerId}`);
-				continue;
-			}
-
-			const processedValue = processValue ? processValue(providerId, value) : value;
-			if (processedValue === null) {
-				continue;
-			}
-
-			const newKey = newKeyTemplate.replace('{name}', settingName);
-
-			await config.update(newKey, processedValue, vscode.ConfigurationTarget.Global);
-			log.info(`[${migrationName}] Migrated: ${newKey}`);
+	// Build list of updates to perform
+	const updates: Array<{ key: string; value: T }> = [];
+	for (const [providerId, value] of entries) {
+		const settingName = providerMap.get(providerId);
+		if (!settingName) {
+			log.warn(`[${migrationName}] Unknown provider '${providerId}' in 'positron.assistant.${oldKey}' was not migrated. Valid providers are: ${Array.from(providerMap.keys()).join(', ')}`);
+			continue;
 		}
 
+		// Skip empty arrays - nothing to migrate
+		if (Array.isArray(value) && value.length === 0) {
+			continue;
+		}
+
+		updates.push({ key: newKeyTemplate.replace('{name}', settingName), value });
+	}
+
+	// Apply all updates, continuing even if some fail
+	let successCount = 0;
+	let failureCount = 0;
+	for (const { key, value } of updates) {
+		try {
+			await config.update(key, value, vscode.ConfigurationTarget.Global);
+			log.info(`[${migrationName}] Migrated: ${key}`);
+			successCount++;
+		} catch (error) {
+			log.error(`[${migrationName}] Failed to migrate ${key}: ${JSON.stringify(error)}`);
+			failureCount++;
+		}
+	}
+
+	// Only remove old setting if at least some migrations succeeded
+	if (successCount > 0) {
+		log.info(`[${migrationName}] Removing old setting: ${JSON.stringify(oldValue)}`);
 		await config.update(oldKey, undefined, vscode.ConfigurationTarget.Global);
-		log.info(`[${migrationName}] Removed old setting`);
 
-		showMigrationNotification(config, notificationKey, notificationMessage, searchQuery);
-	} catch (error) {
-		log.error(`[${migrationName}] Migration failed: ${JSON.stringify(error, null, 2)}`);
-		if (oldKey === 'enabledProviders') {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t('Failed to migrate provider configuration: {0}', JSON.stringify(error))
-			);
-		}
+		const message = failureCount > 0
+			? `${notificationMessage} ${vscode.l10n.t('Some settings failed to migrate. Check the logs for details.')}`
+			: notificationMessage;
+		showMigrationNotification(config, notificationKey, message, searchQuery);
 	}
 }
 
@@ -144,7 +164,6 @@ export async function performCustomModelsMigration(): Promise<void> {
 		'models.overrides.{name}',
 		'hideCustomModelsMigrationNotification',
 		vscode.l10n.t(`Your 'positron.assistant.models.custom' setting has been migrated to individual model override settings for each provider. The old setting has been removed.`),
-		'positron.assistant.models.overrides',
-		(_, value) => value.length > 0 ? value : null
+		'positron.assistant.models.overrides'
 	);
 }

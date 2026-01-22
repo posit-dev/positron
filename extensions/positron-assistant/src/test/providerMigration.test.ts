@@ -17,22 +17,26 @@ import { TEST_PROVIDERS } from './utils.js';
 interface MockStubs {
 	mockInspect: sinon.SinonStub;
 	mockUpdate: sinon.SinonStub;
+	mockGet: sinon.SinonStub;
+	mockShowInformationMessage: sinon.SinonStub;
 }
 
 function setupMigrationTest(providers: any[]): MockStubs {
 	const mockInspect = sinon.stub();
 	const mockUpdate = sinon.stub().resolves();
+	const mockGet = sinon.stub().returns(false); // hideNotification defaults to false
 
 	sinon.stub(vscode.workspace, 'getConfiguration').callsFake(() => ({
 		inspect: mockInspect,
-		update: mockUpdate
+		update: mockUpdate,
+		get: mockGet
 	}) as unknown as vscode.WorkspaceConfiguration);
 
-	sinon.stub(vscode.window, 'showInformationMessage').resolves();
+	const mockShowInformationMessage = sinon.stub(vscode.window, 'showInformationMessage').resolves();
 	// eslint-disable-next-line local/code-no-any-casts
 	sinon.stub(providersModule, 'getModelProviders').returns(providers as any);
 
-	return { mockInspect, mockUpdate };
+	return { mockInspect, mockUpdate, mockGet, mockShowInformationMessage };
 }
 
 suite('Provider Migration Tests', () => {
@@ -74,24 +78,25 @@ suite('Provider Migration Tests', () => {
 	});
 
 	test('overwrites existing individual settings (old value takes precedence)', async () => {
+		// Simulate existing new-style setting that will be overwritten
+		stubs.mockInspect.withArgs('provider.anthropic.enable').returns({
+			globalValue: false
+		});
 		stubs.mockInspect.withArgs('enabledProviders').returns({
-			globalValue: ['anthropic-api', 'openai-api']
+			globalValue: ['anthropic-api']
 		});
 
 		await performProviderMigration();
 
 		const calls = stubs.mockUpdate.getCalls();
 		const anthropicCall = calls.find(call => call.args[0] === 'provider.anthropic.enable');
-		const openaiCall = calls.find(call => call.args[0] === 'provider.openAI.enable');
 
-		// Old value takes precedence: anthropic should be overwritten to true
+		// Old value takes precedence: anthropic should be overwritten from false to true
 		assert.ok(anthropicCall);
 		assert.strictEqual(anthropicCall.args[1], true);
-		assert.ok(openaiCall);
-		assert.strictEqual(openaiCall.args[1], true);
 	});
 
-	test('handles invalid provider IDs gracefully', async () => {
+	test('skips invalid provider IDs and continues migration', async () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
 			globalValue: ['invalid-provider-id', 'anthropic-api']
 		});
@@ -103,8 +108,11 @@ suite('Provider Migration Tests', () => {
 		const removeCall = calls.find(call => call.args[0] === 'enabledProviders');
 		const hasInvalidSetting = calls.some(call => call.args[0].includes('invalid'));
 
+		// Valid provider should be migrated
 		assert.ok(anthropicCall);
+		// Old setting should be removed
 		assert.ok(removeCall);
+		// Invalid provider should not create a setting
 		assert.ok(!hasInvalidSetting);
 	});
 
@@ -166,27 +174,6 @@ suite('Model Preferences Migration Tests', () => {
 		assert.strictEqual(removeCall.args[1], undefined);
 	});
 
-	test('overwrites existing model preference settings (old value takes precedence)', async () => {
-		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
-			globalValue: {
-				'anthropic-api': 'claude-opus-4',
-				'openai-api': 'gpt-4'
-			}
-		});
-
-		await performModelPreferencesMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.preference.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.preference.openAI');
-
-		// Old value takes precedence: anthropic should be overwritten to claude-opus-4
-		assert.ok(anthropicCall);
-		assert.strictEqual(anthropicCall.args[1], 'claude-opus-4');
-		assert.ok(openaiCall);
-		assert.strictEqual(openaiCall.args[1], 'gpt-4');
-	});
-
 	test('does nothing when byProvider is not set', async () => {
 		stubs.mockInspect.withArgs('models.preference.byProvider').returns({});
 
@@ -205,6 +192,25 @@ suite('Model Preferences Migration Tests', () => {
 
 		const calls = stubs.mockUpdate.getCalls();
 		assert.strictEqual(calls.length, 0);
+	});
+
+	test('skips invalid provider IDs in model preferences', async () => {
+		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
+			globalValue: {
+				'invalid-provider': 'some-model',
+				'anthropic-api': 'claude-opus-4'
+			}
+		});
+
+		await performModelPreferencesMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		// Anthropic should be migrated, invalid provider should not
+		const anthropicCall = calls.find(call => call.args[0] === 'models.preference.anthropic');
+		const invalidCall = calls.find(call => call.args[0].includes('invalid'));
+
+		assert.ok(anthropicCall);
+		assert.ok(!invalidCall);
 	});
 });
 
@@ -270,31 +276,6 @@ suite('Custom Models Migration Tests', () => {
 		assert.deepStrictEqual(openaiCall.args[1], [{ id: 'custom-gpt', name: 'Custom GPT' }]);
 	});
 
-	test('overwrites existing custom model settings (old value takes precedence)', async () => {
-		stubs.mockInspect.withArgs('models.custom').returns({
-			globalValue: {
-				'anthropic-api': [
-					{ id: 'custom-claude', name: 'Custom Claude' }
-				],
-				'openai-api': [
-					{ id: 'custom-gpt', name: 'Custom GPT' }
-				]
-			}
-		});
-
-		await performCustomModelsMigration();
-
-		const calls = stubs.mockUpdate.getCalls();
-		const anthropicCall = calls.find(call => call.args[0] === 'models.overrides.anthropic');
-		const openaiCall = calls.find(call => call.args[0] === 'models.overrides.openAI');
-
-		// Old value takes precedence: anthropic should be overwritten with the old value
-		assert.ok(anthropicCall);
-		assert.deepStrictEqual(anthropicCall.args[1], [{ id: 'custom-claude', name: 'Custom Claude' }]);
-		assert.ok(openaiCall);
-		assert.deepStrictEqual(openaiCall.args[1], [{ id: 'custom-gpt', name: 'Custom GPT' }]);
-	});
-
 	test('does nothing when models.custom is not set', async () => {
 		stubs.mockInspect.withArgs('models.custom').returns({});
 
@@ -313,5 +294,24 @@ suite('Custom Models Migration Tests', () => {
 
 		const calls = stubs.mockUpdate.getCalls();
 		assert.strictEqual(calls.length, 0);
+	});
+
+	test('skips invalid provider IDs in custom models', async () => {
+		stubs.mockInspect.withArgs('models.custom').returns({
+			globalValue: {
+				'invalid-provider': [{ id: 'custom-model', name: 'Custom' }],
+				'anthropic-api': [{ id: 'custom-claude', name: 'Custom Claude' }]
+			}
+		});
+
+		await performCustomModelsMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		// Anthropic should be migrated, invalid provider should not
+		const anthropicCall = calls.find(call => call.args[0] === 'models.overrides.anthropic');
+		const invalidCall = calls.find(call => call.args[0].includes('invalid'));
+
+		assert.ok(anthropicCall);
+		assert.ok(!invalidCall);
 	});
 });
