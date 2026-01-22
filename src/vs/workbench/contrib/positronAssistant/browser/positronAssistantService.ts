@@ -73,17 +73,6 @@ export class PositronAssistantConfigurationService extends Disposable implements
 
 		for (const [providerId, metadata] of this._providerMetadata.entries()) {
 			const settingKey = `positron.assistant.provider.${metadata.settingName}.enable`;
-			const inspection = this._configurationService.inspect<boolean>(settingKey);
-
-			// If the setting has no default value, it's a test/dynamically-registered provider
-			// without a package.json definition. Treat such providers as enabled by default.
-			// Test providers include echo and error from positron-assistant extension, as well as testLmVendor from vscode-api-tests.
-			const hasRegisteredSetting = inspection.defaultValue !== undefined;
-			if (!hasRegisteredSetting) {
-				enabledProviders.push(providerId);
-				continue;
-			}
-
 			const isEnabled = this._configurationService.getValue<boolean>(settingKey);
 			if (isEnabled) {
 				enabledProviders.push(providerId);
