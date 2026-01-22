@@ -68,9 +68,10 @@ const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Noteb
 // Group IDs used to organize cell actions in menus and context menus
 enum PositronNotebookCellActionGroup {
 	Clipboard = '0_clipboard',
-	Insert = '1_insert',
-	Order = '2_order',
-	Execution = '3_execution',
+	CellType = '1_celltype',
+	Insert = '2_insert',
+	Order = '3_order',
+	Execution = '4_execution',
 }
 
 /**
@@ -1190,6 +1191,100 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Change to Code cell - y key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToCode',
+			title: localize2('positronNotebook.cell.changeToCode', "Change to Code"),
+			icon: ThemeIcon.fromId('code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: CELL_CONTEXT_KEYS.isCode.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: CELL_CONTEXT_KEYS.isCode.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyY
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		// Change to code cell with kernel's default language
+		const kernelLanguage = notebook.kernel.get()?.supportedLanguages?.[0];
+		notebook.changeCellType(CellKind.Code, kernelLanguage);
+	}
+});
+
+// Change to Markdown cell - m key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToMarkdown',
+			title: localize2('positronNotebook.cell.changeToMarkdown', "Change to Markdown"),
+			icon: ThemeIcon.fromId('markdown'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyM
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Markup);
+	}
+});
+
+// Change to Raw cell - r key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToRaw',
+			title: localize2('positronNotebook.cell.changeToRaw', "Change to Raw"),
+			icon: ThemeIcon.fromId('file-code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyR
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Code, 'raw');
+	}
+});
 
 //#endregion Cell Commands
 

@@ -1093,6 +1093,98 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Changes a cell to a different kind (code or markdown) and/or changes its language.
+	 * The cell content is preserved, but outputs are cleared when converting to markdown.
+	 * @param targetKind The target cell kind to convert to
+	 * @param targetLanguage Optional target language. If not provided, uses notebook default for code cells or 'markdown' for markdown cells
+	 * @param cellToConvert The cell to convert. If not provided, converts the currently active cell
+	 */
+	changeCellType(targetKind: CellKind, targetLanguage?: string, cellToConvert?: IPositronNotebookCell): void {
+		const cell = cellToConvert ?? getActiveCell(this.selectionStateMachine.state.get());
+
+		if (!cell) {
+			return;
+		}
+
+		this._assertTextModel();
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const cellIndex = cell.index;
+
+		if (cellIndex < 0) {
+			return;
+		}
+
+		// Get the underlying cell model to access all properties
+		const cellModel = textModel.cells[cellIndex];
+		if (!cellModel) {
+			return;
+		}
+
+		// Determine the target language
+		const resolvedLanguage = targetLanguage ?? (targetKind === CellKind.Code ? this.language : 'markdown');
+
+		// Check if we only need a language change (same cell kind)
+		const needsKindChange = cell.kind !== targetKind;
+		const needsLanguageChange = cellModel.language !== resolvedLanguage;
+
+		if (!needsKindChange && !needsLanguageChange) {
+			return; // Nothing to do
+		}
+
+		// Preserve selection at the same index
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: cellIndex, end: cellIndex + 1 },
+			selections: [{ start: cellIndex, end: cellIndex + 1 }]
+		};
+
+		if (needsKindChange) {
+			// Replace the cell with a new cell of the target kind
+			// Preserve content, metadata, and outputs (outputs survive round-trip conversions)
+			textModel.applyEdits([
+				{
+					editType: CellEditType.Replace,
+					index: cellIndex,
+					count: 1,
+					cells: [
+						{
+							cellKind: targetKind,
+							language: resolvedLanguage,
+							mime: undefined,
+							outputs: cellModel.outputs,
+							metadata: cellModel.metadata,
+							source: cellModel.getValue()
+						}
+					]
+				}
+			],
+				true,
+				{
+					kind: SelectionStateType.Index,
+					focus: { start: cellIndex, end: cellIndex + 1 },
+					selections: [{ start: cellIndex, end: cellIndex + 1 }]
+				},
+				() => endSelections,
+				undefined,
+				computeUndoRedo
+			);
+		} else {
+			// Only language change needed
+			textModel.applyEdits([
+				{
+					editType: CellEditType.CellLanguage,
+					index: cellIndex,
+					language: resolvedLanguage
+				}
+			], true, undefined, () => undefined, undefined, computeUndoRedo);
+		}
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
 	 * Deletes a single cell from the notebook.
 	 * @param cellToDelete The cell to delete. If not provided, deletes the currently active cell
 	 */
