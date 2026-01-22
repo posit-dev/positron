@@ -82,6 +82,8 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Capture file tree before npm install (for cache validation)
             find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-before-npm-install.txt
 

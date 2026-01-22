@@ -144,6 +144,9 @@
   "extensionDependencies": [
     "positron.positron-supervisor"
   ],
+  "dependencies": {
+    "toml": "^3.0.0"
+  },
   "devDependencies": {
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",

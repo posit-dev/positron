@@ -252,7 +252,7 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Run Playwright Tests
+      - name: 🧪 Run Playwright Tests
         shell: bash
         env:
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers

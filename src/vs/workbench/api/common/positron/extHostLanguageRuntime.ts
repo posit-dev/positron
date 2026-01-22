@@ -23,6 +23,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
  * Interface for code execution observers
@@ -792,11 +793,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior);
+
+		// Revive the URI after RPC serialization so extensions get a proper Uri instance
+		let codeLocationRevived: positron.Utf8Location | undefined;
+		if (codeLocation) {
+			codeLocationRevived = {
+				uri: URI.revive(codeLocation.uri),
+				range: codeLocation.range,
+			};
+		}
+
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior, codeLocationRevived);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {

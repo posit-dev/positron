@@ -1,33 +1,35 @@
 name: "Generate Report Directory & Send to GH Summary"
-description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Step summary"
+description: "Generates a unique REPORT_DIR/REPORT_URL and optionally appends to GitHub Step summary"
 inputs:
   bucket-url:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
   project:
-    description: "Playwright project name (e.g., e2e-electron, e2e-firefox). The app-type is extracted from after the first hyphen."
+    description: "Playwright project name (e.g., e2e-electron, e2e-chromium)"
     required: true
+  skip-summary:
+    description: "Skip writing to GitHub Step Summary (use when setting URL before tests)"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        # Strip "e2e-" prefix (or "***-" when masked) from project name
-        # e.g., "e2e-electron" → "electron", but "inspect-ai" stays as "inspect-ai"
-        APP_TYPE="${{ inputs.project }}"
-        APP_TYPE="${APP_TYPE#e2e-}"
-        APP_TYPE="${APP_TYPE#***-}"
-        echo "Extracted app-type: $APP_TYPE"
+        # Strip "e2e-" prefix from project name to avoid GitHub secret masking issues
+        # (GitHub masks "e2e" as "***" which breaks URLs)
+        # e.g., "e2e-electron" → "electron", "***-electron" → "electron"
+        PROJECT=$(echo "${{ inputs.project }}" | sed -e 's/^\*\*\*-//' -e 's/^e2e-//')
+        echo "Project: $PROJECT"
 
-        # Detect platform and distro to construct project name
-        # Format: apptype-platform[-distro]
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          PROJECT_NAME="${APP_TYPE}-windows"
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          PROJECT_NAME="${APP_TYPE}-mac"
-        elif [[ -f /etc/os-release ]]; then
+        # Detect distro suffix (only for Linux)
+        # Format: {project}[-{distro}]
+        # - Linux: electron-ubuntu, electron-rhel, etc.
+        # - Windows/Mac: electron, windows, etc.
+        DISTRO_SUFFIX=""
+        if [[ "$RUNNER_OS" == "Linux" ]] && [[ -f /etc/os-release ]]; then
           # Parse Linux distro from os-release
           OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
           OS_ID_LIKE=$(grep "^ID_LIKE=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
@@ -46,12 +48,10 @@ runs:
               fi
               ;;
           esac
-          PROJECT_NAME="${APP_TYPE}-linux-${DISTRO}"
-        else
-          PROJECT_NAME="${APP_TYPE}-linux"
+          DISTRO_SUFFIX="-${DISTRO}"
         fi
 
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT_NAME}"
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT}${DISTRO_SUFFIX}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
@@ -62,5 +62,7 @@ runs:
         echo "Report URL: $REPORT_URL"
         echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
 
-        # Append REPORT_URL to the GitHub Step summary
-        echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
+        # Optionally append REPORT_URL to the GitHub Step summary
+        if [[ "${{ inputs.skip-summary }}" != "true" ]]; then
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
+        fi
