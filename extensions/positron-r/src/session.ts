@@ -209,9 +209,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		throw new Error(`Debugging is not supported in R sessions`);
 	}
 
-	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
+	execute(
+		code: string,
+		id: string,
+		mode: positron.RuntimeCodeExecutionMode,
+		errorBehavior: positron.RuntimeErrorBehavior,
+		codeLocation?: positron.Utf8Location,
+	): void {
 		if (this._kernel) {
-			this._kernel.execute(code, id, mode, errorBehavior);
+			this._kernel.execute(code, id, mode, errorBehavior, codeLocation);
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
 		}

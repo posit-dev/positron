@@ -706,10 +706,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param mode The execution mode
 	 * @param errorBehavior What to do if an error occurs
 	 */
-	execute(code: string,
+	execute(
+		code: string,
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
-		errorBehavior: positron.RuntimeErrorBehavior): void {
+		errorBehavior: positron.RuntimeErrorBehavior,
+		codeLocation?: positron.Utf8Location,
+	): void {
 
 		// Translate the parameters into a Jupyter execute request
 		const request: JupyterExecuteRequest = {
@@ -720,6 +723,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			allow_stdin: true,
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
+
+		if (codeLocation) {
+			request.positron = {
+				code_location: {
+					uri: codeLocation.uri.toString(),
+					range: codeLocation.range,
+				}
+			};
+		}
 
 		// Create and send the execute request
 		const execute = new ExecuteRequest(id, request);
