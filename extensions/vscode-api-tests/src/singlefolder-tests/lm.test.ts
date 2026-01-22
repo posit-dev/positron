@@ -27,25 +27,14 @@ suite('lm', function () {
 		capabilities: {}
 	};
 
-	// --- Start Positron ---
-	// Make async to allow for workspace configuration updates
-	/*
 	setup(function () {
-	*/
-	setup(async function () {
-	// --- End Positron ---
 		disposables = [];
-
 		// --- Start Positron ---
-		// Register the test provider metadata and enable it via settings
-		// so it's recognized by Positron's provider configuration service
 		positron.ai.registerProviderMetadata({
 			id: 'test-lm-vendor',
 			displayName: 'Test LM Vendor',
 			settingName: 'testLmVendor'
 		});
-		// Enable the test provider in settings
-		await vscode.workspace.getConfiguration('positron.assistant.provider.testLmVendor').update('enable', true, vscode.ConfigurationTarget.Global);
 		// --- End Positron ---
 	});
 
@@ -53,10 +42,6 @@ suite('lm', function () {
 		assertNoRpc();
 		await closeAllEditors();
 		disposeAll(disposables);
-		// --- Start Positron ---
-		// Clean up the test provider setting
-		await vscode.workspace.getConfiguration('positron.assistant.provider.testLmVendor').update('enable', undefined, vscode.ConfigurationTarget.Global);
-		// --- End Positron ---
 	});
 
 

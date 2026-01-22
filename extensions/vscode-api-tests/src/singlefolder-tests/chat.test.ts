@@ -10,31 +10,19 @@ import { DeferredPromise, asPromise, assertNoRpc, closeAllEditors, delay, dispos
 
 // --- Start Positron ---
 import * as positron from 'positron';
-// eslint-disable-next-line no-duplicate-imports
-import { ConfigurationTarget, workspace } from 'vscode';
 // --- End Positron ---
 
 suite('chat', () => {
 
 	let disposables: Disposable[] = [];
-	// --- Start Positron ---
-	// Make async to allow for workspace configuration updates
-	/*
 	setup(() => {
-	*/
-	setup(async () => {
-	// --- End Positron ---
 		disposables = [];
 		// --- Start Positron ---
-		// Register the test provider metadata and enable it via settings
-		// so it's recognized by Positron's provider configuration service
 		positron.ai.registerProviderMetadata({
 			id: 'test-lm-vendor',
 			displayName: 'Test LM Vendor',
 			settingName: 'testLmVendor'
 		});
-		// Enable the test provider in settings
-		await workspace.getConfiguration('positron.assistant.provider.testLmVendor').update('enable', true, ConfigurationTarget.Global);
 		// --- End Positron ---
 
 		// Register a dummy default model which is required for a participant request to go through
@@ -65,10 +53,6 @@ suite('chat', () => {
 		assertNoRpc();
 		await closeAllEditors();
 		disposeAll(disposables);
-		// --- Start Positron ---
-		// Clean up the test provider setting
-		await workspace.getConfiguration('positron.assistant.provider.testLmVendor').update('enable', undefined, ConfigurationTarget.Global);
-		// --- End Positron ---
 	});
 
 	function setupParticipant(second?: boolean): Event<{ request: ChatRequest; context: ChatContext }> {
