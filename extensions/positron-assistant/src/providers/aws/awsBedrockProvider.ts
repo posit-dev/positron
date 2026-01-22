@@ -15,7 +15,8 @@ import {
 	ListInferenceProfilesCommand
 } from '@aws-sdk/client-bedrock';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, SecretStorage, getStoredModels, expandConfigToSource } from '../../config';
+import { getStoredModels, expandConfigToSource } from '../../config';
+import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT } from '../../constants';
 import { AssistantError } from '../../extension';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';

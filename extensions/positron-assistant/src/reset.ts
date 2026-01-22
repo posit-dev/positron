@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
-import { getStoredModels, GlobalSecretStorage } from './config';
+import { getStoredModels } from './config';
+import { GlobalSecretStorage } from './configTypes.js';
 import { log } from './extension';
 import { disposeModels } from './modelRegistration';
 

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig, SecretStorage } from '../../config';
+import { ModelConfig, SecretStorage } from '../../configTypes.js';
 
 /**
  * Google Gemini model provider implementation.

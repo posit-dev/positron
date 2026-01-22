@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAzure, AzureOpenAIProvider } from '@ai-sdk/azure';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 
 /**
  * Azure OpenAI Service model provider implementation.

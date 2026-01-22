@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './extension';
-import { AutoconfigureResult } from './providers/index.js';
+import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 
 /**
  * Configuration for managed credentials on Posit Workbench.

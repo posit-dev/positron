@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';

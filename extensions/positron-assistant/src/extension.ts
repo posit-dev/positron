@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, expandConfigToSource, getStoredModels, GlobalSecretStorage, logStoredModels, SecretStorage, showConfigurationDialog } from './config';
+import { expandConfigToSource, getStoredModels, logStoredModels, showConfigurationDialog } from './config';
+import { EncryptedSecretStorage, GlobalSecretStorage, SecretStorage } from './configTypes.js';
 import { registerSupportedProviders, validateProvidersEnabled } from './providerConfiguration.js';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';

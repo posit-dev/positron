@@ -13,7 +13,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ModelConfig, SecretStorage } from '../config';
+import { ModelConfig, SecretStorage } from '../configTypes.js';
 
 // Import provider classes for use in utility functions
 import { ErrorModelProvider } from './test/errorProvider';
@@ -152,4 +152,3 @@ export function newLanguageModelChatProvider(config: ModelConfig, context: vscod
 	return new providerClass(config, context, storage);
 }
 
-export { AutoconfigureResult };

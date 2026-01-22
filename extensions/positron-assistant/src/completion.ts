@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { ModelConfig } from './config';
+import { ModelConfig } from './configTypes.js';
 
 /**
  * Models used for autocomplete/ghost text.

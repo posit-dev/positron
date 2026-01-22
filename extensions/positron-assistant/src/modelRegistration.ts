@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './providers';
-import { getModelConfigurations, ModelConfig, SecretStorage, StoredModelConfig } from './config';
+import { getModelConfigurations } from './config';
+import { ModelConfig, SecretStorage, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { AssistantError, log } from './extension';

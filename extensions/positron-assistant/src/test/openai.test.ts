@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { OpenAIModelProvider } from '../providers/openai/openaiProvider.js';
-import { ModelConfig } from '../config.js';
+import { ModelConfig } from '../configTypes.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import * as helpersModule from '../modelResolutionHelpers.js';
 import { DEFAULT_MODEL_CAPABILITIES } from '../constants.js';

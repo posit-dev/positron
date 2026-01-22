@@ -7,8 +7,8 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { ExtensionContext } from 'vscode';
-import { ModelConfig } from './config.js';
-import { AutoconfigureResult } from './providers/index.js';
+import { ModelConfig } from './configTypes.js';
+import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 import { ModelProvider } from './providers/base/modelProvider.js';
 
 const PROVIDER_ID = 'github';
