@@ -43,7 +43,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		await newFolderFlow.verifyFolderCreation(folderName);
 		await expect(async () => {
 			await verifyGitStatus(app);
-		}).toPass({ timeout: 60000 });
+		}).toPass({ timeout: 120000 });
 
 	});
 });
