@@ -450,7 +450,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Perform a cell action using keyboard shortcuts.
 	 * @param action - The action to perform: 'copy', 'cut', 'paste', 'undo', 'redo', 'delete', 'addCellBelow'.
 	 */
-	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow'): Promise<void> {
+	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow' | 'changeToCode' | 'changeToMarkdown' | 'changeToRaw'): Promise<void> {
 		await test.step(`Perform cell action: ${action}`, async () => {
 			// Note: We use direct keyboard shortcuts instead of hotKeys/clipboard helpers
 			// because Positron Notebooks uses Jupyter-style single-key shortcuts (C/X/V/Z)
@@ -476,6 +476,15 @@ export class PositronNotebooks extends Notebooks {
 					break;
 				case 'addCellBelow':
 					await this.code.driver.page.keyboard.press('KeyB');
+					break;
+				case 'changeToCode':
+					await this.code.driver.page.keyboard.press('KeyY');
+					break;
+				case 'changeToMarkdown':
+					await this.code.driver.page.keyboard.press('KeyM');
+					break;
+				case 'changeToRaw':
+					await this.code.driver.page.keyboard.press('KeyR');
 					break;
 				default:
 					throw new Error(`Unknown cell action: ${action}`);

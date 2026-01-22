@@ -1202,12 +1202,12 @@ registerAction2(class extends NotebookAction2 {
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 10,
-				when: CELL_CONTEXT_KEYS.isCode.toNegated()
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: PositronNotebookCellActionGroup.CellType,
 				order: 10,
-				when: CELL_CONTEXT_KEYS.isCode.toNegated()
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_COMMAND_MODE,
