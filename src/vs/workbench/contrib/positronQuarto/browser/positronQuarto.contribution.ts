@@ -24,7 +24,9 @@ import {
 	IS_QUARTO_DOCUMENT,
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
+	QUARTO_KERNEL_RUNNING,
 } from '../common/positronQuartoConfig.js';
+import { QuartoKernelState } from './quartoKernelManager.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { QuartoKernelStatusBadge } from './QuartoKernelStatusBadge.js';
@@ -64,17 +66,20 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 
 	private readonly _isQuartoDocumentKey = IS_QUARTO_DOCUMENT.bindTo(this._contextKeyService);
 	private readonly _inlineOutputEnabledKey = QUARTO_INLINE_OUTPUT_ENABLED.bindTo(this._contextKeyService);
+	private readonly _kernelRunningKey = QUARTO_KERNEL_RUNNING.bindTo(this._contextKeyService);
 
 	constructor(
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 	) {
 		super();
 
 		// Initialize context keys
 		this._updateInlineOutputEnabled();
 		this._updateIsQuartoDocument();
+		this._updateKernelRunning();
 
 		// Listen for configuration changes
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -86,6 +91,12 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		// Listen for active editor changes
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._updateIsQuartoDocument();
+			this._updateKernelRunning();
+		}));
+
+		// Listen for kernel state changes
+		this._register(this._quartoKernelManager.onDidChangeKernelState(() => {
+			this._updateKernelRunning();
 		}));
 	}
 
@@ -97,6 +108,19 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	private _updateIsQuartoDocument(): void {
 		const isQuarto = this._isQuartoFile(this._editorService.activeEditor?.resource?.path);
 		this._isQuartoDocumentKey.set(isQuarto);
+	}
+
+	private _updateKernelRunning(): void {
+		const uri = this._editorService.activeEditor?.resource;
+		if (uri && this._isQuartoFile(uri.path)) {
+			const state = this._quartoKernelManager.getKernelState(uri);
+			const isRunning = state === QuartoKernelState.Ready ||
+				state === QuartoKernelState.Busy ||
+				state === QuartoKernelState.Starting;
+			this._kernelRunningKey.set(isRunning);
+		} else {
+			this._kernelRunningKey.set(false);
+		}
 	}
 
 	private _isQuartoFile(path: string | undefined): boolean {
@@ -117,8 +141,8 @@ registerWorkbenchContribution2(
 // Register the kernel status badge widget in the editor action bar
 PositronActionBarWidgetRegistry.registerWidget({
 	id: 'positronQuarto.kernelStatus',
-	menuId: MenuId.EditorActionsLeft,
-	order: 1, // Leftmost position
+	menuId: MenuId.EditorActionsRight,
+	order: 100, // Rightmost position (same as notebook kernel status)
 	when: ContextKeyExpr.and(
 		QUARTO_INLINE_OUTPUT_ENABLED,
 		IS_QUARTO_DOCUMENT

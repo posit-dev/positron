@@ -37,6 +37,16 @@ export const IS_QUARTO_DOCUMENT = new RawContextKey<boolean>(
 	localize('isQuartoDocument', 'Whether the active editor is a Quarto document')
 );
 
+/**
+ * Context key for whether the active Quarto document has a running kernel.
+ * Used for conditionally showing kernel actions like shutdown.
+ */
+export const QUARTO_KERNEL_RUNNING = new RawContextKey<boolean>(
+	'positron.quartoKernelRunning',
+	false,
+	localize('quartoKernelRunning', 'Whether the active Quarto document has a running kernel')
+);
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
