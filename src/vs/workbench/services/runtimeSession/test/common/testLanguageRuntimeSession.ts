@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,7 +14,6 @@ import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { TestUiClientInstance } from '../../../languageRuntime/test/common/testUiClientInstance.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { LanguageRuntimePackage } from 'positron';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -301,10 +300,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async forceQuit(): Promise<void> {
 		throw new Error('Not implemented.');
-	}
-
-	async getPackages(): Promise<LanguageRuntimePackage[]> {
-		throw new Error('Method not implemented.');
 	}
 
 	showOutput(): void {

@@ -57,6 +57,9 @@ export const usePositronPackagesState = (
 			const session = services.runtimeSessionService.getSession(sessionId);
 			if (session) {
 				try {
+					if (!session.getPackages) {
+						throw new Error('Session does not support getting packages');
+					}
 					const list = await session.getPackages();
 					setPackages((packages) => ({
 						...packages,

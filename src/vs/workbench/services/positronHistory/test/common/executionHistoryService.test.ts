@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -26,7 +26,6 @@ import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRunti
 import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
-import { LanguageRuntimePackage } from 'positron';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -550,10 +549,6 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 
 	forceQuit(): Promise<void> {
-		throw new Error('Method not implemented.');
-	}
-
-	getPackages(): Promise<LanguageRuntimePackage[]> {
 		throw new Error('Method not implemented.');
 	}
 

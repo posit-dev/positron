@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -713,7 +713,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot get packages: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimeSessions[handle].getPackages();
+
+		const session = this._runtimeSessions[handle];
+		if (session.getPackages) {
+			return session.getPackages();
+		}
+
+		throw new Error(`Cannot get packages: session handle '${handle}' does not implement package retrieval.`);
 	}
 
 	async $restartSession(handle: number, workingDirectory?: string): Promise<void> {

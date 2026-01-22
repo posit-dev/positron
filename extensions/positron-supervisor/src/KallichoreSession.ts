@@ -1629,10 +1629,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	async getPackages(): Promise<positron.LanguageRuntimePackage[]> {
-		return [];
-	}
-
 	/**
 	 * Shows the profile output for this kernel, if any.
 	 */

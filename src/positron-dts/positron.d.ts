@@ -1248,7 +1248,7 @@ declare module 'positron' {
 		 *
 		 * @returns A list of installed packages on this runtime
 		 */
-		getPackages(): Thenable<LanguageRuntimePackage[]>;
+		getPackages?(): Thenable<LanguageRuntimePackage[]>;
 
 		/**
 		 * Update the session name.
