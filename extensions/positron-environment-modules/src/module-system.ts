@@ -151,9 +151,10 @@ export async function detectModuleSystem(
 		// Try to verify the module command is actually available
 		try {
 			const shellCommand = buildShellCommand(shell, 'type module');
+			const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 			const result = execSync(shellCommand, {
 				encoding: 'utf8',
-				timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
+				timeout,
 				stdio: ['pipe', 'pipe', 'pipe']
 			});
 			if (result.includes('module is a') || result.includes('module is ')) {
@@ -165,7 +166,14 @@ export async function detectModuleSystem(
 					command: 'module'
 				};
 			}
-		} catch {
+		} catch (error: any) {
+			// Check for timeout error
+			if (error.killed && error.signal === 'SIGTERM') {
+				logger.error(
+					`Module detection timed out after ${timeout}ms. ` +
+					`Increase the timeout using the 'positron.environmentModules.moduleLoadTimeout' setting.`
+				);
+			}
 			// MODULEPATH is set but module command not available, continue searching
 			logger.debug('MODULEPATH is set but module command not found in shell');
 		}
@@ -174,9 +182,10 @@ export async function detectModuleSystem(
 	// Check if 'module' command is already available (e.g., in login shells)
 	try {
 		const shellCommand = buildShellCommand(shell, 'type module');
+		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
-			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
+			timeout,
 			stdio: ['pipe', 'pipe', 'pipe']
 		});
 		if (result.includes('module is a') || result.includes('module is ')) {
@@ -188,7 +197,14 @@ export async function detectModuleSystem(
 				command: 'module'
 			};
 		}
-	} catch {
+	} catch (error: any) {
+		// Check for timeout error
+		if (error.killed && error.signal === 'SIGTERM') {
+			logger.error(
+				`Module detection timed out after ${timeout}ms. ` +
+				`Increase the timeout using the 'positron.environmentModules.moduleLoadTimeout' setting.`
+			);
+		}
 		// Command not found in login shell, continue checking init scripts
 	}
 
@@ -242,9 +258,10 @@ async function detectModuleTypeFromCommand(
 	const effectiveShell = shell || getShellConfig();
 	try {
 		const shellCommand = buildShellCommand(effectiveShell, 'module --version 2>&1');
+		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
-			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000)
+			timeout
 		});
 		if (result.toLowerCase().includes('lmod')) {
 			return 'lmod';
@@ -252,8 +269,16 @@ async function detectModuleTypeFromCommand(
 		if (result.includes('Modules') || result.includes('modules')) {
 			return 'environment-modules';
 		}
-	} catch {
-		// Ignore errors
+	} catch (error: any) {
+		// Check for timeout error
+		if (error.killed && error.signal === 'SIGTERM') {
+			const logger = getLog();
+			logger.error(
+				`Detecting module type timed out after ${timeout}ms. ` +
+				`Increase the timeout using the 'positron.environmentModules.moduleLoadTimeout' setting.`
+			);
+		}
+		// Ignore other errors
 	}
 	return 'unknown';
 }
@@ -279,10 +304,11 @@ export async function getModuleSystemVersion(
 			? `source "${initScript}" ${shell.chainOperator} module --version 2>&1`
 			: 'module --version 2>&1';
 		const fullCommand = buildShellCommand(shell, command);
+		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 
 		const result = execSync(fullCommand, {
 			encoding: 'utf8',
-			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000),
+			timeout,
 			stdio: ['pipe', 'pipe', 'pipe']
 		});
 
@@ -304,7 +330,16 @@ export async function getModuleSystemVersion(
 		}
 		// Return first non-empty line as fallback
 		return lines[0] || undefined;
-	} catch {
+	} catch (error: any) {
+		// Check for timeout error
+		if (error.killed && error.signal === 'SIGTERM') {
+			const logger = getLog();
+			const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
+			logger.error(
+				`Getting module version timed out after ${timeout}ms. ` +
+				`Increase the timeout using the 'positron.environmentModules.moduleLoadTimeout' setting.`
+			);
+		}
 		return undefined;
 	}
 }
@@ -362,9 +397,10 @@ export async function executeWithModules(
 
 	return new Promise((resolve, reject) => {
 		logger.debug(`Executing with shell ${shell.name}: ${fullCommand}`);
+		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		exec(fullCommand, {
 			encoding: 'utf8',
-			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000)
+			timeout
 		}, (error, stdout, stderr) => {
 			if (stdout) {
 				logger.debug(stdout);
@@ -373,7 +409,17 @@ export async function executeWithModules(
 				logger.warn(stderr);
 			}
 			if (error) {
-				reject(new Error(`Module command failed: ${stderr || error.message}`));
+				// Check if this is a timeout error
+				if (error.killed && error.signal === 'SIGTERM') {
+					reject(new Error(
+						`Module command timed out after ${timeout}ms. ` +
+						`Increase the timeout using the 'positron.environmentModules.moduleLoadTimeout' setting.\n` +
+						`Command: ${fullCommand}`
+					));
+				} else {
+					const errorMsg = error.message ? error.message : JSON.stringify(error);
+					reject(new Error(`Module command '${fullCommand}' failed: ${errorMsg}\n${stderr}`));
+				}
 			} else {
 				resolve(stdout.trim());
 			}
