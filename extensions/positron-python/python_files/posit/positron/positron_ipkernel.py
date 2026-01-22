@@ -11,6 +11,7 @@ import enum
 import logging
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Container, cast
@@ -539,6 +540,10 @@ class PositronIPyKernel(IPythonKernel):
         # Patch plotly to write HTML to temp file instead of starting a server
         patch_plotly_browser_renderer(self.session_mode)
 
+        # Add debug logging around stdout/stderr flush calls to diagnose hangs.
+        self._wrap_stream_flush(sys.stdout, "stdout")
+        self._wrap_stream_flush(sys.stderr, "stderr")
+
     @property
     def kernel_info(self):
         kernel_info = super().kernel_info
@@ -559,6 +564,29 @@ class PositronIPyKernel(IPythonKernel):
         parent: JsonRecord,
     ) -> None:
         self._publish_execute_input(code, parent, self.execution_count - 1)
+
+    def _wrap_stream_flush(self, stream: Any, name: str) -> None:
+        if stream is None or not self.log.isEnabledFor(logging.DEBUG):
+            return
+        try:
+            original_flush = stream.flush
+        except Exception:
+            return
+
+        if getattr(original_flush, "_positron_wrapped", False):
+            return
+
+        def flush(*args, **kwargs):  # type: ignore[no-untyped-def]
+            self.log.debug("flush %s start", name)
+            result = original_flush(*args, **kwargs)
+            self.log.debug("flush %s end", name)
+            return result
+
+        setattr(flush, "_positron_wrapped", True)
+        try:
+            stream.flush = flush  # type: ignore[assignment]
+        except Exception:
+            return
 
     def start(self) -> None:
         super().start()
