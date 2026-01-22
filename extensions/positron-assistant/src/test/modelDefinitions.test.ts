@@ -9,6 +9,7 @@ import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
 import { registerSupportedProviders } from '../providerConfiguration.js';
 import * as providersModule from '../providers';
+import { TEST_PROVIDERS } from './utils.js';
 
 suite('Model Definitions', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -21,29 +22,8 @@ suite('Model Definitions', () => {
 		}) as unknown as vscode.WorkspaceConfiguration);
 
 		// Mock getModelProviders to return test providers
-		// Note: We only mock the provider metadata needed for registerSupportedProviders()
-		const mockModels = [
-			{
-				source: {
-					provider: {
-						id: 'anthropic-api',
-						displayName: 'Anthropic',
-						settingName: 'anthropic'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'openai-api',
-						displayName: 'OpenAI',
-						settingName: 'openAI'
-					}
-				}
-			}
-		];
 		// eslint-disable-next-line local/code-no-any-casts
-		sinon.stub(providersModule, 'getModelProviders').returns(mockModels as any);
+		sinon.stub(providersModule, 'getModelProviders').returns(TEST_PROVIDERS as any);
 
 		// Register providers before running tests
 		registerSupportedProviders();

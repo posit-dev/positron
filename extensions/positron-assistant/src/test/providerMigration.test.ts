@@ -12,6 +12,7 @@ import {
 	performModelPreferencesMigration,
 	performCustomModelsMigration
 } from '../providerMigration.js';
+import { TEST_PROVIDERS } from './utils.js';
 
 interface MockStubs {
 	mockInspect: sinon.SinonStub;
@@ -38,44 +39,7 @@ suite('Provider Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest([
-			{
-				source: {
-					provider: {
-						id: 'anthropic-api',
-						displayName: 'Anthropic',
-						settingName: 'anthropic'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'copilot-auth',
-						displayName: 'GitHub Copilot',
-						settingName: 'githubCopilot'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'openai-api',
-						displayName: 'OpenAI',
-						settingName: 'openAI'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'azure',
-						displayName: 'Azure',
-						settingName: 'azure'
-					}
-				}
-			}
-		]);
+		stubs = setupMigrationTest(TEST_PROVIDERS);
 	});
 
 	teardown(() => {
@@ -86,9 +50,6 @@ suite('Provider Migration Tests', () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
 			globalValue: ['anthropic-api', 'copilot-auth', 'azure']
 		});
-		stubs.mockInspect.withArgs('provider.anthropic.enable').returns({});
-		stubs.mockInspect.withArgs('provider.githubCopilot.enable').returns({});
-		stubs.mockInspect.withArgs('provider.azure.enable').returns({});
 
 		await performProviderMigration();
 
@@ -116,10 +77,6 @@ suite('Provider Migration Tests', () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
 			globalValue: ['anthropic-api', 'openai-api']
 		});
-		stubs.mockInspect.withArgs('provider.anthropic.enable').returns({
-			globalValue: false
-		});
-		stubs.mockInspect.withArgs('provider.openAI.enable').returns({});
 
 		await performProviderMigration();
 
@@ -138,7 +95,6 @@ suite('Provider Migration Tests', () => {
 		stubs.mockInspect.withArgs('enabledProviders').returns({
 			globalValue: ['invalid-provider-id', 'anthropic-api']
 		});
-		stubs.mockInspect.withArgs('provider.anthropic.enable').returns({});
 
 		await performProviderMigration();
 
@@ -151,32 +107,33 @@ suite('Provider Migration Tests', () => {
 		assert.ok(removeCall);
 		assert.ok(!hasInvalidSetting);
 	});
+
+	test('does nothing when enabledProviders is not set', async () => {
+		stubs.mockInspect.withArgs('enabledProviders').returns({});
+
+		await performProviderMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
+	});
+
+	test('does nothing when enabledProviders is empty array', async () => {
+		stubs.mockInspect.withArgs('enabledProviders').returns({
+			globalValue: []
+		});
+
+		await performProviderMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
+	});
 });
 
 suite('Model Preferences Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest([
-			{
-				source: {
-					provider: {
-						id: 'anthropic-api',
-						displayName: 'Anthropic',
-						settingName: 'anthropic'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'openai-api',
-						displayName: 'OpenAI',
-						settingName: 'openAI'
-					}
-				}
-			}
-		]);
+		stubs = setupMigrationTest(TEST_PROVIDERS);
 	});
 
 	teardown(() => {
@@ -190,8 +147,6 @@ suite('Model Preferences Migration Tests', () => {
 				'openai-api': 'gpt-4'
 			}
 		});
-		stubs.mockInspect.withArgs('models.preference.anthropic').returns({});
-		stubs.mockInspect.withArgs('models.preference.openAI').returns({});
 
 		await performModelPreferencesMigration();
 
@@ -218,10 +173,6 @@ suite('Model Preferences Migration Tests', () => {
 				'openai-api': 'gpt-4'
 			}
 		});
-		stubs.mockInspect.withArgs('models.preference.anthropic').returns({
-			globalValue: 'claude-sonnet-4'
-		});
-		stubs.mockInspect.withArgs('models.preference.openAI').returns({});
 
 		await performModelPreferencesMigration();
 
@@ -235,32 +186,33 @@ suite('Model Preferences Migration Tests', () => {
 		assert.ok(openaiCall);
 		assert.strictEqual(openaiCall.args[1], 'gpt-4');
 	});
+
+	test('does nothing when byProvider is not set', async () => {
+		stubs.mockInspect.withArgs('models.preference.byProvider').returns({});
+
+		await performModelPreferencesMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
+	});
+
+	test('does nothing when byProvider is empty object', async () => {
+		stubs.mockInspect.withArgs('models.preference.byProvider').returns({
+			globalValue: {}
+		});
+
+		await performModelPreferencesMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
+	});
 });
 
 suite('Custom Models Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest([
-			{
-				source: {
-					provider: {
-						id: 'anthropic-api',
-						displayName: 'Anthropic',
-						settingName: 'anthropic'
-					}
-				}
-			},
-			{
-				source: {
-					provider: {
-						id: 'openai-api',
-						displayName: 'OpenAI',
-						settingName: 'openAI'
-					}
-				}
-			}
-		]);
+		stubs = setupMigrationTest(TEST_PROVIDERS);
 	});
 
 	teardown(() => {
@@ -278,8 +230,6 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({});
-		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
@@ -308,8 +258,6 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({});
-		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
@@ -319,6 +267,7 @@ suite('Custom Models Migration Tests', () => {
 
 		assert.ok(!anthropicCall);
 		assert.ok(openaiCall);
+		assert.deepStrictEqual(openaiCall.args[1], [{ id: 'custom-gpt', name: 'Custom GPT' }]);
 	});
 
 	test('overwrites existing custom model settings (old value takes precedence)', async () => {
@@ -332,10 +281,6 @@ suite('Custom Models Migration Tests', () => {
 				]
 			}
 		});
-		stubs.mockInspect.withArgs('models.overrides.anthropic').returns({
-			globalValue: [{ id: 'existing-model', name: 'Existing' }]
-		});
-		stubs.mockInspect.withArgs('models.overrides.openAI').returns({});
 
 		await performCustomModelsMigration();
 
@@ -347,5 +292,26 @@ suite('Custom Models Migration Tests', () => {
 		assert.ok(anthropicCall);
 		assert.deepStrictEqual(anthropicCall.args[1], [{ id: 'custom-claude', name: 'Custom Claude' }]);
 		assert.ok(openaiCall);
+		assert.deepStrictEqual(openaiCall.args[1], [{ id: 'custom-gpt', name: 'Custom GPT' }]);
+	});
+
+	test('does nothing when models.custom is not set', async () => {
+		stubs.mockInspect.withArgs('models.custom').returns({});
+
+		await performCustomModelsMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
+	});
+
+	test('does nothing when models.custom is empty object', async () => {
+		stubs.mockInspect.withArgs('models.custom').returns({
+			globalValue: {}
+		});
+
+		await performCustomModelsMigration();
+
+		const calls = stubs.mockUpdate.getCalls();
+		assert.strictEqual(calls.length, 0);
 	});
 });
