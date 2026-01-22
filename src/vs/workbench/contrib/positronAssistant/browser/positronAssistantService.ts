@@ -85,7 +85,7 @@ export class PositronAssistantConfigurationService extends Disposable implements
 	isProviderEnabled(providerId: string): boolean {
 		const enabledProviders = this.getEnabledProviders();
 		return enabledProviders.includes(providerId) ||
-			// Special case: 'copilot' vendor can be enabled via 'copilot-auth' setting
+			// Special case: 'copilot' vendor is enabled via 'copilot-auth' provider id's setting
 			(providerId === 'copilot' && enabledProviders.includes('copilot-auth'));
 	}
 }
