@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
 import { addRandomNumSuffix, verifyGitStatus, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
@@ -40,7 +41,9 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		});
 
 		await newFolderFlow.verifyFolderCreation(folderName);
-		await app.code.wait(1000);
-		await verifyGitStatus(app);
+		await expect(async () => {
+			await verifyGitStatus(app);
+		}).toPass({ timeout: 120000 });
+
 	});
 });
