@@ -16,7 +16,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { EditorOption } from '../../../../editor/common/config/editorOptions.js';
+import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
 import { ANSIOutput, ANSIOutputLine, ANSIOutputRun, ANSIColor, ANSIStyle } from '../../../../base/common/ansiOutput.js';
 
@@ -101,11 +101,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Apply editor font to the output container
 		this._applyEditorFont();
 
+		// Apply initial width based on editor layout
+		this._applyWidth();
+
 		// Listen for font changes
 		this._register(this._editor.onDidChangeConfiguration(e => {
 			if (e.hasChanged(EditorOption.fontInfo)) {
 				this._applyEditorFont();
 			}
+		}));
+
+		// Listen for layout changes to update width
+		this._register(this._editor.onDidLayoutChange(() => {
+			this._applyWidth();
 		}));
 
 		// Set up keyboard navigation
@@ -118,6 +126,23 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
 		applyFontInfo(this._outputContainer, fontInfo);
+	}
+
+	/**
+	 * Calculate the width for the view zone content area.
+	 * Accounts for scrollbar and minimap width to prevent overlap.
+	 */
+	private _getWidth(layoutInfo: EditorLayoutInfo): number {
+		return layoutInfo.width - layoutInfo.minimap.minimapWidth - layoutInfo.verticalScrollbarWidth;
+	}
+
+	/**
+	 * Apply width to the view zone based on editor layout.
+	 */
+	private _applyWidth(): void {
+		const layoutInfo = this._editor.getLayoutInfo();
+		const width = this._getWidth(layoutInfo);
+		this.domNode.style.width = `${width}px`;
 	}
 
 	/**
@@ -162,7 +187,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Clear all outputs.
+	 * Clear all outputs and hide the view zone.
+	 * Called when the user clicks the close button.
 	 */
 	clearOutputs(): void {
 		this._outputs = [];
@@ -171,7 +197,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Dispose all webviews
 		this._disposeAllWebviews();
 
-		this._updateHeight();
+		// Hide the view zone when outputs are cleared
+		this.hide();
+
 		this._onClear?.();
 	}
 

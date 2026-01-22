@@ -165,6 +165,9 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 	private readonly _onDidChangeCells = this._register(new Emitter<QuartoCellChangeEvent>());
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent> = this._onDidChangeCells.event;
 
+	private readonly _onDidParse = this._register(new Emitter<void>());
+	readonly onDidParse: Event<void> = this._onDidParse.event;
+
 	private readonly _onDidChangeLanguage = this._register(new Emitter<string | undefined>());
 	readonly onDidChangeLanguage: Event<string | undefined> = this._onDidChangeLanguage.event;
 
@@ -313,6 +316,10 @@ export class QuartoDocumentModel extends Disposable implements IQuartoDocumentMo
 		}
 
 		this._jupyterKernel = parsed.jupyterKernel;
+
+		// Always fire onDidParse after re-parsing, even if cells didn't change.
+		// This allows listeners to update positions based on fresh cell line numbers.
+		this._onDidParse.fire();
 	}
 
 	private _parse(content: string): ParsedDocument {

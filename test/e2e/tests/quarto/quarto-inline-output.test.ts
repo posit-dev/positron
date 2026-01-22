@@ -153,6 +153,59 @@ test.describe('Quarto - Inline Output', {
 		expect(contentCount).toBe(1);
 	});
 
+	test('Python - Verify clicking X button clears inline output', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Open a Quarto document with Python code
+		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 17)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output is present
+		await expect(inlineOutput).toBeVisible({ timeout: 10000 });
+
+		// Find and click the close button (X)
+		const closeButton = inlineOutput.locator('.quarto-output-close');
+		await expect(closeButton).toBeVisible({ timeout: 5000 });
+
+		// Click the X button to clear the output
+		await closeButton.click({ force: false }); // Use force: false to ensure it's actually clickable
+
+		// Wait for the output to be removed from the DOM
+		await expect(inlineOutput).not.toBeVisible({ timeout: 5000 });
+	});
+
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 		const filePath = join('workspaces', 'quarto_python', 'report.qmd');

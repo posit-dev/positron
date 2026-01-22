@@ -40,6 +40,8 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 3px;
+	z-index: 10; /* Ensure button is above other content */
+	pointer-events: auto; /* Ensure button receives mouse events */
 }
 
 .quarto-output-close:hover {

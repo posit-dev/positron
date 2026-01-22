@@ -37,10 +37,10 @@ print("Hello")
 			assert.strictEqual(model.cells.length, 1);
 			const cell = model.cells[0];
 			assert.strictEqual(cell.language, 'python');
-			assert.strictEqual(cell.startLine, 6);
-			assert.strictEqual(cell.endLine, 8);
-			assert.strictEqual(cell.codeStartLine, 7);
-			assert.strictEqual(cell.codeEndLine, 7);
+			assert.strictEqual(cell.startLine, 5);
+			assert.strictEqual(cell.endLine, 7);
+			assert.strictEqual(cell.codeStartLine, 6);
+			assert.strictEqual(cell.codeEndLine, 6);
 			assert.strictEqual(cell.index, 0);
 		});
 
@@ -381,6 +381,93 @@ x = 1
 		});
 	});
 
+	suite('Cell Position Updates', () => {
+		test('cell positions update when line is deleted above cell', async () => {
+			// This test verifies that cell positions update correctly when lines
+			// are deleted above the cell - reproducing the bug where view zones
+			// don't shift up when lines are deleted.
+			const content = `Some text above
+
+\`\`\`{python}
+x = 1
+\`\`\`
+`;
+			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
+			disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			disposables.add(model);
+
+			// Initial state: cell starts at line 3, ends at line 5
+			assert.strictEqual(model.cells.length, 1);
+			assert.strictEqual(model.cells[0].startLine, 3);
+			assert.strictEqual(model.cells[0].endLine, 5);
+
+			const originalCellId = model.cells[0].id;
+
+			// Delete the first line ("Some text above")
+			textModel.applyEdits([{
+				range: {
+					startLineNumber: 1,
+					startColumn: 1,
+					endLineNumber: 2,
+					endColumn: 1
+				},
+				text: ''
+			}]);
+
+			// Wait for debounce (100ms + buffer)
+			await new Promise(resolve => setTimeout(resolve, 150));
+
+			// After deleting the line, cell should now start at line 2, end at line 4
+			assert.strictEqual(model.cells.length, 1);
+			assert.strictEqual(model.cells[0].startLine, 2, 'Cell startLine should shift up after line deletion');
+			assert.strictEqual(model.cells[0].endLine, 4, 'Cell endLine should shift up after line deletion');
+
+			// The cell ID should remain the same (content didn't change)
+			assert.strictEqual(model.cells[0].id, originalCellId, 'Cell ID should remain stable');
+		});
+
+		test('cell positions update when line is added above cell', async () => {
+			const content = `\`\`\`{python}
+x = 1
+\`\`\`
+`;
+			const textModel = createTextModel(content, null, undefined, URI.file('/test.qmd'));
+			disposables.add(textModel);
+			const model = new QuartoDocumentModel(textModel, logService);
+			disposables.add(model);
+
+			// Initial state: cell starts at line 1, ends at line 3
+			assert.strictEqual(model.cells.length, 1);
+			assert.strictEqual(model.cells[0].startLine, 1);
+			assert.strictEqual(model.cells[0].endLine, 3);
+
+			const originalCellId = model.cells[0].id;
+
+			// Add a line at the beginning
+			textModel.applyEdits([{
+				range: {
+					startLineNumber: 1,
+					startColumn: 1,
+					endLineNumber: 1,
+					endColumn: 1
+				},
+				text: 'New line above\n'
+			}]);
+
+			// Wait for debounce
+			await new Promise(resolve => setTimeout(resolve, 150));
+
+			// After adding the line, cell should now start at line 2, end at line 4
+			assert.strictEqual(model.cells.length, 1);
+			assert.strictEqual(model.cells[0].startLine, 2, 'Cell startLine should shift down after line addition');
+			assert.strictEqual(model.cells[0].endLine, 4, 'Cell endLine should shift down after line addition');
+
+			// The cell ID should remain the same (content didn't change)
+			assert.strictEqual(model.cells[0].id, originalCellId, 'Cell ID should remain stable');
+		});
+	});
+
 	suite('Change Events', () => {
 		test('fires onDidChangeCells when cells change', async () => {
 			const content = `\`\`\`{python}
@@ -393,9 +480,9 @@ x = 1
 			disposables.add(model);
 
 			let changeEventFired = false;
-			model.onDidChangeCells(() => {
+			disposables.add(model.onDidChangeCells(() => {
 				changeEventFired = true;
-			});
+			}));
 
 			// Modify the text model - add a new cell
 			textModel.applyEdits([{
@@ -426,9 +513,9 @@ x = 1
 			disposables.add(model);
 
 			let newLanguage: string | undefined;
-			model.onDidChangeLanguage(lang => {
+			disposables.add(model.onDidChangeLanguage(lang => {
 				newLanguage = lang;
-			});
+			}));
 
 			// Replace python cell with R cell
 			textModel.applyEdits([{

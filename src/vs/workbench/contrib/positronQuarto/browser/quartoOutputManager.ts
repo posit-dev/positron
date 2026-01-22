@@ -61,11 +61,6 @@ export interface IQuartoOutputManager {
 }
 
 /**
- * Debounce delay for view zone position updates (ms).
- */
-const VIEW_ZONE_UPDATE_DEBOUNCE = 50;
-
-/**
  * Editor contribution that manages output view zones for a single editor.
  * One instance per editor that displays a Quarto document.
  */
@@ -81,9 +76,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// Track subscriptions from _initializeOutputHandling() separately so they can be
 	// disposed when the model changes, preventing duplicate event handlers
 	private readonly _outputHandlingDisposables = this._register(new DisposableStore());
-
-	// Performance optimization: debounced view zone position updates
-	private _viewZoneUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
@@ -185,12 +177,21 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Listen for model content changes to update view zone positions (debounced)
-		this._outputHandlingDisposables.add(this._editor.onDidChangeModelContent(() => {
-			if (this._featureEnabled) {
-				this._scheduleViewZonePositionUpdate();
-			}
-		}));
+		// Listen for document model re-parsing to update view zone positions.
+		// We listen to onDidParse instead of onDidChangeModelContent because onDidParse
+		// fires after the document model has re-parsed, ensuring we always have fresh
+		// cell line numbers. This fixes the bug where view zone positions would not
+		// update correctly when lines were deleted above a cell.
+		const model = this._editor.getModel();
+		if (model) {
+			const quartoModel = this._documentModelService.getModel(model);
+			this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
+				if (this._featureEnabled) {
+					// No debounce needed - the document model is already parsed
+					this._updateViewZonePositionsImmediate();
+				}
+			}));
+		}
 
 		// Listen to output manager service for split editor synchronization
 		// When another editor clears outputs, we should also clear
@@ -242,12 +243,6 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	override dispose(): void {
-		// Clear pending timeouts
-		if (this._viewZoneUpdateTimeout) {
-			clearTimeout(this._viewZoneUpdateTimeout);
-			this._viewZoneUpdateTimeout = undefined;
-		}
-
 		this._disposeAllViewZones();
 		super.dispose();
 	}
@@ -449,22 +444,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	/**
-	 * Schedule a debounced view zone position update.
-	 * This is called frequently during typing, so we debounce to avoid excessive updates.
-	 */
-	private _scheduleViewZonePositionUpdate(): void {
-		if (this._viewZoneUpdateTimeout) {
-			clearTimeout(this._viewZoneUpdateTimeout);
-		}
-
-		this._viewZoneUpdateTimeout = setTimeout(() => {
-			this._viewZoneUpdateTimeout = undefined;
-			this._updateViewZonePositionsImmediate();
-		}, VIEW_ZONE_UPDATE_DEBOUNCE);
-	}
-
-	/**
-	 * Actually update view zone positions.
+	 * Update view zone positions based on current cell positions.
+	 * Called after the document model re-parses to ensure we have fresh line numbers.
 	 */
 	private _updateViewZonePositionsImmediate(): void {
 		const model = this._editor.getModel();

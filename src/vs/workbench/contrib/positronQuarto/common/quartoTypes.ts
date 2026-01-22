@@ -121,6 +121,13 @@ export interface IQuartoDocumentModel extends IDisposable {
 	readonly onDidChangeCells: Event<QuartoCellChangeEvent>;
 
 	/**
+	 * Fired after the document is re-parsed.
+	 * This fires on every re-parse, even if cells didn't change (e.g., when cells just move).
+	 * Use this to update positions that depend on cell line numbers.
+	 */
+	readonly onDidParse: Event<void>;
+
+	/**
 	 * Fired when primary language changes.
 	 */
 	readonly onDidChangeLanguage: Event<string | undefined>;
