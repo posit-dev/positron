@@ -69,10 +69,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** The Jupyter kernel-based session implementing the Language Runtime API */
 	private _kernel?: JupyterLanguageRuntimeSession;
 
-	/** Returns the DAP comm, or undefined if not started */
-	private async dapComm(): Promise<DapComm | undefined> {
-		return this._dapComm;
-	}
 	private _dapComm?: Promise<DapComm>;
 
 	/** The emitter for language runtime messages */
@@ -772,7 +768,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 			await Promise.all([
 				this._activateLsp(),
-				this.dapComm().then(dap => dap?.connect()),
+				this._dapComm?.then(dap => dap.connect()),
 			]);
 		});
 	}
@@ -809,7 +805,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 			await Promise.all([
 				this._deactivateLsp(),
-				this.dapComm().then(dap => dap?.disconnect()),
+				this._dapComm?.then(dap => dap.disconnect()),
 			]);
 		});
 	}
@@ -966,7 +962,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		} else if (state === positron.RuntimeState.Exited) {
 			await Promise.all([
 				this.deactivateServices('session exited'),
-				this.dapComm().then(dap => dap?.dispose()),
+				this._dapComm?.then(dap => dap.dispose()),
 			]);
 		}
 	}
