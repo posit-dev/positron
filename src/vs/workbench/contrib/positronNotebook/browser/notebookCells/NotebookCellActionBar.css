@@ -21,12 +21,12 @@
 	display: flex;
 	gap: var(--_positron-notebooks-cell-action-bar-button-gap);
 
+	/* Base state: action bar hidden by default */
+	visibility: hidden;
+
+	/* Always show action bar when cell is active (selected) */
 	&.visible {
 		visibility: visible;
-	}
-
-	&.hidden {
-		visibility: hidden;
 	}
 
 	.action-button {
@@ -75,4 +75,9 @@
 		width: 1px;
 		background-color: var(--vscode-positronNotebook-action-bar-border-color);
 	}
+}
+
+/* Show action bar when cell is hovered */
+.positron-notebook-cell:hover .positron-notebooks-cell-action-bar {
+	visibility: visible;
 }

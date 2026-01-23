@@ -58,7 +58,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	return <div
 		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
-		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : 'hidden'}`}
+		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : ''}`}
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
