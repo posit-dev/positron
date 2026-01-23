@@ -165,6 +165,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				disabled={options.disabled}
 				onPressed={e => {
 					dismiss();
+					options.onWillSelect?.();
 					if (options.commandId) {
 						services.commandService.executeCommand(options.commandId);
 					}

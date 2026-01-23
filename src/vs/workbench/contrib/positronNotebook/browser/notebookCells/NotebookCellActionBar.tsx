@@ -75,7 +75,9 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
+				cell={cell}
 				hoverManager={instance.hoverManager}
+				instance={instance}
 				menuActions={submenuActions}
 			/>
 		) : null}

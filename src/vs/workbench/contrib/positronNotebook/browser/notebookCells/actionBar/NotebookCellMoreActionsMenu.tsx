@@ -15,9 +15,13 @@ import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/ac
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 interface NotebookCellMoreActionsMenuProps {
+	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
+	instance: IPositronNotebookInstance;
 	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
 }
 
@@ -28,7 +32,9 @@ const moreCellActions = localize('moreCellActions', 'More Cell Actions');
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
+	cell,
 	hoverManager,
+	instance,
 	menuActions,
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
@@ -40,7 +46,7 @@ export function NotebookCellMoreActionsMenu({
 		}
 
 		try {
-			const entries = buildMoreActionsMenuItems(menuActions);
+			const entries = buildMoreActionsMenuItems(cell, menuActions, instance);
 
 			setIsMenuOpen(true);
 
