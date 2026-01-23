@@ -59,7 +59,9 @@ function getPlatformTag(arch) {
         return arch === 'arm64' ? 'win_arm64' : 'win_amd64';
     }
     if (platform === 'linux') {
-        return arch === 'arm64' ? 'manylinux_2_17_aarch64' : 'manylinux_2_17_x86_64';
+        // Use manylinux_2_28 to support newer packages like psutil 7.x
+        // This requires glibc 2.28+, available in Ubuntu 20.04+ and RHEL 8+
+        return arch === 'arm64' ? 'manylinux_2_28_aarch64' : 'manylinux_2_28_x86_64';
     }
     throw new Error(`Unsupported platform: ${platform}`);
 }
