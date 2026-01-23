@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -123,6 +123,9 @@ export class ModuleEnvironmentLocator extends Locator<BasicEnvInfo> {
         }
 
         const environments = await api.getEnvironmentsForLanguage('python');
+
+        // clear any previously cached metadata
+        moduleMetadataMap.clear();
 
         for (const [envName, _config] of environments) {
             traceInfo(`[ModuleEnvironmentLocator] Discovering Python from module environment: ${envName}`);

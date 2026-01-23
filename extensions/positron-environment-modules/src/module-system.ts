@@ -152,10 +152,10 @@ export async function detectModuleSystem(
 	// Check if MODULEPATH is set - this indicates modules may already be initialized
 	if (checkModulePath()) {
 		logger.debug(`MODULEPATH is set: ${process.env.MODULEPATH}`);
+		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		// Try to verify the module command is actually available
 		try {
 			const shellCommand = buildShellCommand(shell, 'type module');
-			const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 			const result = execSync(shellCommand, {
 				encoding: 'utf8',
 				timeout,
@@ -184,9 +184,9 @@ export async function detectModuleSystem(
 	}
 
 	// Check if 'module' command is already available (e.g., in login shells)
+	const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 	try {
 		const shellCommand = buildShellCommand(shell, 'type module');
-		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
 			timeout,
@@ -260,9 +260,9 @@ async function detectModuleTypeFromCommand(
 	shell?: ShellConfig
 ): Promise<'lmod' | 'environment-modules' | 'unknown'> {
 	const effectiveShell = shell || getShellConfig();
+	const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 	try {
 		const shellCommand = buildShellCommand(effectiveShell, 'module --version 2>&1');
-		const timeout = vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 5000);
 		const result = execSync(shellCommand, {
 			encoding: 'utf8',
 			timeout
