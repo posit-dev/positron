@@ -1,11 +1,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+# --- Start Positron ---
+# ruff: noqa: I001
+# --- End Positron ---
 
 import json
 import sys
 
 # --- Start Positron ---
-import platform  # noqa: I001
+import platform
 # --- End Positron ---
 
 obj = {}
