@@ -49,6 +49,7 @@ suite('Python Runtime Session', () => {
     let serviceContainer: IServiceContainer;
     let kernelSpec: JupyterKernelSpec;
     let kernel: JupyterLanguageRuntimeSession;
+    let pathExistsStub: sinon.SinonStub;
 
     setup(() => {
         disposables = [];
@@ -190,7 +191,7 @@ suite('Python Runtime Session', () => {
         vscode.workspace.getConfiguration = () => nullConfig;
 
         // Stub fs.pathExists so getIpykernelBundle returns valid bundle paths
-        sinon.stub(fs, 'pathExists').resolves(true);
+        pathExistsStub = sinon.stub(fs, 'pathExists').resolves(true);
     });
 
     function createSession(
@@ -245,24 +246,8 @@ suite('Python Runtime Session', () => {
     });
 
     test('Start: dont bundle ipykernel if disabled', async () => {
-        // Stub fs.pathExists to return false so getIpykernelBundle returns disabled
-        sinon.restore(); // Clear previous stubs
-        sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'positron.positron-supervisor') {
-                return {
-                    id: '',
-                    extensionPath: '',
-                    extensionKind: vscode.ExtensionKind.UI,
-                    isActive: true,
-                    packageJSON: {},
-                    exports: { createSession: sinon.stub().resolves(kernel) },
-                    extensionUri: vscode.Uri.parse(''),
-                    activate: () => Promise.resolve({ createSession: sinon.stub().resolves(kernel) }),
-                };
-            }
-            return undefined;
-        });
-        sinon.stub(fs, 'pathExists').resolves(false); // Bundle paths don't exist
+        // Change pathExists stub to return false so getIpykernelBundle returns disabled
+        pathExistsStub.resolves(false);
 
         const session = createSession(positron.LanguageRuntimeSessionMode.Console);
         await session.start();

@@ -74,6 +74,10 @@ suite('Ipykernel', () => {
         });
     });
 
+    teardown(() => {
+        sinon.restore();
+    });
+
     test('should bundle ipykernel for supported implementation and version', async () => {
         // Start a console session with ipykernel bundle paths.
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
