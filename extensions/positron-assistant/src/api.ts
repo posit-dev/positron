@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -376,6 +376,17 @@ export function getEnabledTools(
 		// or if the user is signed into Copilot and has opted-in to always
 		// include Copilot tools.
 		const shouldIncludeCopilotTools = (usingCopilotModel || copilotEnabled && alwaysIncludeCopilotTools);
+
+		// Special filtering for Copilot tools in Ask mode.
+		if (copilotTool && isAskMode && !tool.tags.includes('vscode_codesearch')) {
+			// In Positron Ask mode with a non-Copilot model, only include
+			// Copilot tools that are tagged with 'vscode_codesearch' to allow
+			// use of code search functionality but *not* general Copilot tools.
+
+			// Adapted from extensions/positron-copilot-chat/src/extension/intents/node/askAgentIntent.ts:35
+			// Possibly revisit this logic in the future as Copilot evolves.
+			continue;
+		}
 
 		// Enable Copilot tools only if shouldIncludeCopilotTools is true; otherwise, enable if agent mode or tool is tagged 'positron-assistant'.
 		const enableTool = copilotTool
