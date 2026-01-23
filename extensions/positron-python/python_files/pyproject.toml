@@ -1,7 +1,7 @@
 [tool.pyright]
 # --- Start Positron ---
-# Ignore vendored dependencies
-exclude = ['lib', 'posit/positron/_vendor']
+# Ignore vendored dependencies and virtual environments
+exclude = ['lib', 'posit/positron/_vendor', '.venv']
 # Search vendored dependencies for imports
 extraPaths = ['lib/python', 'posit/positron/_vendor']
 # --- End Positron ---

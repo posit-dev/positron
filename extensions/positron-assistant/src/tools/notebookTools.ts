@@ -457,14 +457,18 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						// editorShown is true when editor is shown, false when preview is shown
 						const isMarkdownInPreview = cell.type === 'markdown' && cell.editorShown === false;
 
-						if (isMarkdownInPreview) {
-							// Use API-based approach for markdown cells in preview mode
+						// Check if diff view is enabled (defaults to true)
+						const showDiff = vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
+
+						// Use direct update for: markdown in preview OR when diff view is disabled
+						if (isMarkdownInPreview || !showDiff) {
+							// Use API-based approach for direct updates
 							// This triggers visual feedback animation via handleAssistantCellModification
 							await positron.notebooks.updateCellContent(context.uri, cellIndex, content);
 
 							// The API call handles scrolling via handleAssistantCellModification
 							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart(`Successfully updated markdown cell ${cellIndex} with visual feedback`)
+								new vscode.LanguageModelTextPart(`Successfully updated cell ${cellIndex}`)
 							]);
 						} else {
 							// Use native diff view for code cells and markdown cells in edit mode

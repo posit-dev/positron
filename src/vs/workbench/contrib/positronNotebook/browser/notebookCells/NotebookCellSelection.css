@@ -3,167 +3,130 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/* Define common properties for the selection bar */
-.positron-notebook-cell {
-	--_positron-notebook-selection-bar-radius: var(--vscode-positronNotebook-cell-radius);
-	--_positron-notebook-selection-bar-width: 7px;
-	--_positron-notebook-selection-bar-top-offset: 5px;
-	--_positron-notebook-selection-bar-inset: 0;
-}
+/*
+ * Notebook Cell Selection and Border Styles
+ *
+ * This CSS file defines the border and selection styles for notebook cells.
+ * Borders change color based on cell states (selected, editing, hover)
+ * while maintaining a consistent width to prevent layout shifts.
+ *
+ * It also includes styles for assistant cell highlight animations used when AI modifies cells.
+ */
 
-/* We need to overpower the upstream .monaco-workbench [tabindex="0"]:focus selector here */
-.monaco-workbench div.positron-notebook-cell.positron-notebook-code-cell[tabindex="0"]:focus {
-	/* When the cell is selected via tab navigation we need to move the focus
-	ring out so it's not covered up by the selection bar */
-	outline-offset: 0px;
-}
+/* === Code Cells: Editor + Footer Container === */
 
-/* Base styles for selected and editing states */
-.positron-notebook-cell.selected,
-.positron-notebook-cell.editing {
-	position: relative;
-}
-
-/* Position containers relative for selection bar placement */
-.positron-notebook-cell.selected .positron-notebook-editor-container,
-.positron-notebook-cell.selected .positron-notebook-cell-outputs,
-.positron-notebook-cell.editing .positron-notebook-editor-container,
-.positron-notebook-cell.editing .positron-notebook-cell-outputs,
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
-	position: relative;
-}
-
-/* Add permanent left padding to editor container to make room for selection bar */
-.positron-notebook-editor-container {
-	position: relative;
-	padding-left: var(--_positron-notebook-selection-bar-width);
-}
-
-/* Permanent spacer/selection bar for editor - always visible, changes color when selected */
-.positron-notebook-editor-container::after {
-	content: "";
-	position: absolute;
-	width: var(--_positron-notebook-selection-bar-width);
-	/* Match the cell editor background */
-	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
-	left: 0; /* Align with focus ring by removing gap */
-	top: var(--_positron-notebook-selection-bar-inset);
-	bottom: var(--_positron-notebook-selection-bar-inset);
-	border: var(--vscode-positronNotebook-border);
-	border-right: none;
-	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
-	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
-	transition: border-bottom-left-radius 0.15s ease;
-}
-
-/* When selected/editing or on hover when NOT selected/editing: remove bottom rounding by default */
-.positron-notebook-cell.selected .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing .positron-notebook-editor-container::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container::after {
+.positron-notebook-editor-section {
+	border: 1px solid var(--vscode-positronNotebook-border-color);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+	border-bottom: none; /* Footer connects seamlessly to outputs below */
 }
 
-/* When selected/editing: change to focus color */
-.positron-notebook-cell.selected .positron-notebook-editor-container::after,
-.positron-notebook-cell.editing .positron-notebook-editor-container::after {
-	background-color: var(--vscode-focusBorder);
+.positron-notebook-code-cell .positron-notebook-editor-container {
+	overflow: hidden; /* Clip editor content to rounded corners */
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
 }
 
-/* On hover, when NOT selected/editing: change to hover color and remove borders */
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container::after {
-	background-color: var(--vscode-editorWidget-border);
-	border: none;
-}
+/* === Code Cells: Outputs Container === */
 
-/* Selection bar for outputs - conditional (only when selected/editing OR on hover when not selected/editing) */
-.positron-notebook-cell.selected .positron-notebook-cell-outputs::after,
-.positron-notebook-cell.editing .positron-notebook-cell-outputs::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs::after {
-	content: "";
-	position: absolute;
-	width: var(--_positron-notebook-selection-bar-width);
-	background-color: var(--vscode-focusBorder);
-	/* Push bar down slightly so there's a gap between the editor and outputs */
-	top: var(--_positron-notebook-selection-bar-top-offset);
-	bottom: var(--_positron-notebook-selection-bar-inset);
-	left: 0; /* Align with focus ring by removing gap */
-	border: var(--vscode-positronNotebook-border);
-	border-right: none;
-	/* Don't round top corner for outputs bar to make it look like a continuous bar*/
+.positron-notebook-code-cell .positron-notebook-cell-outputs {
+	border: 1px solid var(--vscode-positronNotebook-border-color);
+	border-top: none;
+	/* Seamlessly connect the output border to the code cell editor+footer */
+	border-radius: var(--vscode-positronNotebook-cell-radius);
 	border-top-left-radius: 0;
-	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+	border-top-right-radius: 0;
+	overflow: hidden;
 }
 
-/* When selected/editing: use focus color */
-.positron-notebook-cell.selected .positron-notebook-cell-outputs::after,
-.positron-notebook-cell.editing .positron-notebook-cell-outputs::after {
-	background-color: var(--vscode-focusBorder);
+/* === Selection States: Selected === */
+
+.positron-notebook-cell.selected .positron-notebook-editor-section,
+.positron-notebook-code-cell.selected .positron-notebook-cell-outputs {
+	border-color: var(--vscode-focusBorder);
 }
 
-/* When hovering and not selected/editing: use hover color and remove borders */
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs::after {
-	background-color: var(--vscode-editorWidget-border);
-	border: none;
+/* === Selection States: Editing === */
+
+.positron-notebook-cell.editing .positron-notebook-editor-section,
+.positron-notebook-code-cell.editing .positron-notebook-cell-outputs {
+	border-color: var(--vscode-focusBorder);
 }
 
-/* Restore bottom rounding when no outputs are shown */
-.positron-notebook-cell {
-	/* Code cells with no outputs */
-	&.selected:has(.positron-notebook-cell-outputs.no-outputs),
-	&.editing:has(.positron-notebook-cell-outputs.no-outputs),
-	&:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) {
-		.positron-notebook-editor-container::after {
-			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
-		}
-	}
+/* === Selection States: Hover (when not selected/editing) === */
 
-	/* Markdown cells in edit mode (no output element) */
-	&.selected:not(:has(.positron-notebook-cell-outputs)),
-	&.editing:not(:has(.positron-notebook-cell-outputs)),
-	&:not(.selected):not(.editing):hover:not(:has(.positron-notebook-cell-outputs)) {
-		.positron-notebook-editor-container::after {
-			border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
-		}
-	}
-}
-
-/* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
-.positron-notebook-cell.selected:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::after,
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::after  {
-	top: var(--_positron-notebook-selection-bar-inset);
-	left: 0; /* Align with focus ring by removing gap */
-	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
-}
-
-/* Hide the editor selection bar when the editor is hidden (e.g., collapsed markdown cells) */
-.positron-notebook-editor-container.editor-hidden::after {
-	display: none;
-}
-
-/* Error state styling - use error color instead of focus color when selected */
-.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-editor-container::after,
-.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-cell-outputs::after {
-	background-color: var(--vscode-errorForeground);
-}
-
-/* When hovering, for empty markdown cells: change border to solid line with hover color */
-.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-markdown-rendered:has(.empty-output-msg) {
-	border-style: solid;
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-section,
+.positron-notebook-code-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
 	border-color: var(--vscode-editorWidget-border);
 }
 
-/* When hovering, for non-empty markdown cells with hidden editor: add outline (to prevent layout shift) with hover color */
-.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-markdown-rendered:not(:has(.empty-output-msg)) {
-	outline: 1px solid var(--vscode-editorWidget-border);
+/* === Special Case: Code Cells with No Outputs === */
+
+.positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom: 1px solid var(--vscode-positronNotebook-border-color);
+}
+
+/* Make bottom border of code cell footer transparent when there are no outputs to avoid double border while maintaining static height */
+.positron-notebook-code-cell:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-code-cell-footer {
+	border-bottom-color: transparent;
+}
+
+/* Update the border color for code cells with no outputs based on the selection state */
+.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section,
+.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+	border-bottom-color: var(--vscode-focusBorder);
+}
+
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-section {
+	border-bottom-color: var(--vscode-editorWidget-border);
+}
+
+/* === Markdown Cells: Editor (when shown) === */
+
+.positron-notebook-markdown-cell .positron-notebook-editor-container:not(.editor-hidden) {
+	border: 1px solid var(--vscode-positronNotebook-border-color);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	overflow: hidden;
+}
+
+.positron-notebook-cell.selected .positron-notebook-editor-container:not(.editor-hidden),
+.positron-notebook-cell.editing .positron-notebook-editor-container:not(.editor-hidden) {
+	border-color: var(--vscode-focusBorder);
+}
+
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container:not(.editor-hidden) {
+	border-color: var(--vscode-editorWidget-border);
+}
+
+/* === Markdown Cells: Rendered Content (when editor hidden) === */
+
+/* Base border style that is transparent to prevent layout shift on hover */
+.positron-notebook-markdown-cell .positron-notebook-cell-outputs {
+	border: 1px solid transparent;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 }
 
-/* Respect user's motion preferences */
-@media (prefers-reduced-motion: reduce) {
-	.positron-notebook-editor-container::after {
-		transition: none;
-	}
+/* Show border when selected or editing */
+.positron-notebook-markdown-cell.selected .positron-notebook-cell-outputs,
+.positron-notebook-markdown-cell.editing .positron-notebook-cell-outputs {
+	border-color: var(--vscode-focusBorder);
 }
+
+/* Show border on hover */
+.positron-notebook-markdown-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs {
+	border-color: var(--vscode-editorWidget-border);
+}
+
+/* Empty markdown cell always shows dashed border */
+.positron-notebook-markdown-cell .positron-notebook-cell-outputs:has(.empty-output-msg) {
+	border-style: dashed;
+	border-color: var(--vscode-positronNotebook-border-color);
+}
+
 
 /* Assistant cell highlight animation - used when AI modifies cells */
 .positron-notebook-cell.assistant-highlight {

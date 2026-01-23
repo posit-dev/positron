@@ -20,6 +20,7 @@ import { PlotRenderSettings } from '../../../services/positronPlots/common/posit
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -78,7 +79,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$disposeLanguageRuntime(handle: number): Promise<void>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
-	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionId?: string): void;
+	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, codeLocation?: ICodeLocation, executionId?: string): void;
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus>;
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: unknown, metadata?: unknown): Promise<void>;
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>>;

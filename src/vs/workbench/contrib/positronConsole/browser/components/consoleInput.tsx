@@ -49,7 +49,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../serv
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { CONTEXT_DEBUG_STATE } from '../../../debug/common/debug.js';
+import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 
 // Position enumeration.
 const enum Position {
@@ -98,18 +98,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const shouldExecuteOnStartRef = useRef(false);
 
 	/**
-	 * Gets the appropriate history navigator based on the current debug state.
-	 * Uses the default navigator when debug state is 'inactive' or undefined,
-	 * and debug navigator for all other debug states.
+	 * Gets the appropriate history navigator based on whether a debug session
+	 * with toolbar is active. Uses the debug navigator when a session is active
+	 * with the toolbar visible, and the default navigator otherwise (including
+	 * when the debug toolbar is suppressed by an extension, e.g. positron-r).
 	 *
 	 * @returns The appropriate HistoryNavigator2 or undefined if none exists.
 	 */
 	const getHistoryNavigator = () => {
-		const debugState = CONTEXT_DEBUG_STATE.getValue(services.contextKeyService);
-		if (!debugState || debugState === 'inactive') {
-			return historyNavigatorRef.current;
+		if (isForegroundDebugSession(services.contextKeyService)) {
+			return debugHistoryNavigatorRef.current;
 		}
-		return debugHistoryNavigatorRef.current;
+		return historyNavigatorRef.current;
 	};
 
 	/**
@@ -555,12 +555,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.KeyR: {
 				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					const isDebugMode = isForegroundDebugSession(services.contextKeyService);
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
 						).filter(entry => {
-							// Filter out debug entries.
-							return !entry.debug || entry.debug === 'inactive';
+							// Show debug entries when in debug mode, non-debug entries otherwise.
+							const isDebugEntry = entry.debug && entry.debug !== 'inactive';
+							return isDebugMode ? isDebugEntry : !isDebugEntry;
 						});
 					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
@@ -624,12 +626,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// If the cmd or ctrl key is pressed, and the history
 					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
+					const isDebugMode = isForegroundDebugSession(services.contextKeyService);
 					const entries =
 						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
 						).filter(entry => {
-							// Filter out debug entries.
-							return !entry.debug || entry.debug === 'inactive';
+							// Show debug entries when in debug mode, non-debug entries otherwise.
+							const isDebugEntry = entry.debug && entry.debug !== 'inactive';
+							return isDebugMode ? isDebugEntry : !isDebugEntry;
 						});
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
@@ -1075,14 +1079,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// If the code isn't empty and run interactively or non-interactively, add it to the history.
 			if (trimmedCode.length && (mode === RuntimeCodeExecutionMode.Interactive || mode === RuntimeCodeExecutionMode.NonInteractive)) {
-				const debugState = CONTEXT_DEBUG_STATE.getValue(services.contextKeyService);
-				const isDebugMode = debugState && debugState !== 'inactive';
+				const isDebugMode = isForegroundDebugSession(services.contextKeyService);
 
-				// Creates an IInputHistoryEntry.
 				const createInputHistoryEntry = (): IInputHistoryEntry => ({
 					when: new Date().getTime(),
 					input: trimmedCode,
-					debug: debugState
+					debug: getForegroundDebugState(services.contextKeyService)
 				});
 
 				// Add the history entry to the appropriate navigator based on debug state.
