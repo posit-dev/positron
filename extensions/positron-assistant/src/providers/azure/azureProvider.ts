@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { createAzure, AzureOpenAIProvider } from '@ai-sdk/azure';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../configTypes.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Azure OpenAI Service model provider implementation.
@@ -49,11 +50,7 @@ export class AzureModelProvider extends VercelModelProvider implements positron.
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'azure',
-			displayName: 'Azure',
-			settingName: 'azure'
-		},
+		provider: PROVIDER_METADATA.azure,
 		supportedOptions: ['resourceName', 'apiKey', 'toolCalls'],
 		defaults: {
 			name: 'GPT 4o',

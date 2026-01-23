@@ -24,6 +24,7 @@ import { getAllModelDefinitions } from '../../modelDefinitions';
 import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from '../../pwb';
 import { PositronAssistantApi } from '../../api';
 import { registerModelWithAPI } from '../../modelRegistration';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Environment variables for AWS Bedrock configuration.
@@ -95,11 +96,7 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'amazon-bedrock',
-			displayName: 'Amazon Bedrock',
-			settingName: 'amazonBedrock'
-		},
+		provider: PROVIDER_METADATA.amazonBedrock,
 		supportedOptions: ['toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Claude 4 Sonnet Bedrock',

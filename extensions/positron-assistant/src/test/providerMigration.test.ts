@@ -6,13 +6,12 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import * as providersModule from '../providers';
 import {
 	performProviderMigration,
 	performModelPreferencesMigration,
 	performCustomModelsMigration
 } from '../providerMigration.js';
-import { TEST_PROVIDERS } from './utils.js';
+import { stubGetModelProviders } from './utils.js';
 
 interface MockStubs {
 	mockInspect: sinon.SinonStub;
@@ -21,7 +20,7 @@ interface MockStubs {
 	mockShowInformationMessage: sinon.SinonStub;
 }
 
-function setupMigrationTest(providers: any[]): MockStubs {
+function setupMigrationTest(): MockStubs {
 	const mockInspect = sinon.stub();
 	const mockUpdate = sinon.stub().resolves();
 	const mockGet = sinon.stub().returns(false); // hideNotification defaults to false
@@ -33,8 +32,7 @@ function setupMigrationTest(providers: any[]): MockStubs {
 	}) as unknown as vscode.WorkspaceConfiguration);
 
 	const mockShowInformationMessage = sinon.stub(vscode.window, 'showInformationMessage').resolves();
-	// eslint-disable-next-line local/code-no-any-casts
-	sinon.stub(providersModule, 'getModelProviders').returns(providers as any);
+	stubGetModelProviders();
 
 	return { mockInspect, mockUpdate, mockGet, mockShowInformationMessage };
 }
@@ -43,7 +41,7 @@ suite('Provider Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest(TEST_PROVIDERS);
+		stubs = setupMigrationTest();
 	});
 
 	teardown(() => {
@@ -141,7 +139,7 @@ suite('Model Preferences Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest(TEST_PROVIDERS);
+		stubs = setupMigrationTest();
 	});
 
 	teardown(() => {
@@ -218,7 +216,7 @@ suite('Custom Models Migration Tests', () => {
 	let stubs: MockStubs;
 
 	setup(() => {
-		stubs = setupMigrationTest(TEST_PROVIDERS);
+		stubs = setupMigrationTest();
 	});
 
 	teardown(() => {

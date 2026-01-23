@@ -15,6 +15,7 @@ import {
 	checkForUpdatedSnowflakeCredentials
 } from './snowflakeAuth';
 import { autoconfigureWithManagedCredentials, SNOWFLAKE_MANAGED_CREDENTIALS } from '../../pwb';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Snowflake Cortex model provider implementation.
@@ -27,11 +28,7 @@ export class SnowflakeModelProvider extends OpenAIModelProvider {
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'snowflake-cortex',
-			displayName: 'Snowflake Cortex',
-			settingName: 'snowflakeCortex'
-		},
+		provider: PROVIDER_METADATA.snowflake,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Snowflake Cortex',

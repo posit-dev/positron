@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
 import { log } from './extension.js';
-import { getProviderIdToSettingNameMap } from './providerMigration.js';
+import { getSettingNameForProvider } from './providerMetadata.js';
 
 /**
  * Type definition for token limits configuration from user settings.
@@ -210,9 +210,9 @@ export function markDefaultModel(
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	let defaultModelIndex = -1;
 
+	const settingName = getSettingNameForProvider(provider);
+
 	// Try individual provider setting
-	const providerIdToSettingName = getProviderIdToSettingNameMap();
-	const settingName = providerIdToSettingName.get(provider);
 	if (settingName) {
 		const individualPref = config.get<string>(`models.preference.${settingName}`);
 		if (individualPref) {

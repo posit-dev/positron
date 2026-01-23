@@ -12,8 +12,7 @@ import {
 	registerSupportedProviders,
 	validateProvidersEnabled
 } from '../providerConfiguration.js';
-import * as providersModule from '../providers';
-import { TEST_PROVIDERS } from './utils.js';
+import { stubGetModelProviders } from './utils.js';
 
 suite('Provider Configuration Tests', () => {
 	let mockGetConfiguration: sinon.SinonStub;
@@ -41,8 +40,7 @@ suite('Provider Configuration Tests', () => {
 		sinon.stub(positron.ai, 'registerProviderMetadata');
 
 		// Mock getModelProviders to return test providers
-		// eslint-disable-next-line local/code-no-any-casts
-		sinon.stub(providersModule, 'getModelProviders').returns(TEST_PROVIDERS as any);
+		stubGetModelProviders();
 
 		// Register providers before running tests
 		registerSupportedProviders();

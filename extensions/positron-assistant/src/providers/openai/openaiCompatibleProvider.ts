@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import { OpenAIModelProvider } from './openaiProvider';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * OpenAI-compatible model provider implementation.
@@ -45,11 +46,7 @@ import { OpenAIModelProvider } from './openaiProvider';
 export class OpenAICompatibleModelProvider extends OpenAIModelProvider implements positron.ai.LanguageModelChatProvider {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'openai-compatible',
-			displayName: 'Custom Provider',
-			settingName: 'customProvider'
-		},
+		provider: PROVIDER_METADATA.customProvider,
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
 			name: 'Custom Provider',

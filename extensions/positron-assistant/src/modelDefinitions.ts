@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getProviderIdToSettingNameMap } from './providerMigration.js';
+import { getSettingNameForProvider } from './providerMetadata.js';
 
 export interface ModelDefinition {
 	name: string;
@@ -21,10 +21,8 @@ export interface ModelDefinition {
  */
 export function getCustomModels(providerId: string): ModelDefinition[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const settingName = getSettingNameForProvider(providerId);
 
-	// Get individual provider setting
-	const providerIdToSettingName = getProviderIdToSettingNameMap();
-	const settingName = providerIdToSettingName.get(providerId);
 	if (settingName) {
 		const individualModels = config.get<ModelDefinition[]>(`models.overrides.${settingName}`);
 		if (individualModels && individualModels.length > 0) {

@@ -12,6 +12,7 @@ import { recordTokenUsage, recordRequestTokenUsage } from '../../extension';
 import { toAIMessage } from '../../utils';
 import { ModelProvider } from '../base/modelProvider';
 import { markDefaultModel } from '../../modelResolutionHelpers';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Test provider that echoes back user input.
@@ -32,11 +33,7 @@ export class EchoModelProvider extends ModelProvider {
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
 		signedIn: false,
-		provider: {
-			id: 'echo',
-			displayName: 'Echo',
-			settingName: 'echo'
-		},
+		provider: PROVIDER_METADATA.echo,
 		supportedOptions: [],
 		defaults: {
 			name: 'Echo Language Model',

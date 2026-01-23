@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { ModelProvider } from '../base/modelProvider';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Test provider that always throws errors.
@@ -28,11 +29,7 @@ export class ErrorModelProvider extends ModelProvider {
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
 		signedIn: false,
-		provider: {
-			id: 'error',
-			displayName: 'Error Language Model',
-			settingName: 'error'
-		},
+		provider: PROVIDER_METADATA.error,
 		supportedOptions: [],
 		defaults: {
 			name: 'Error Language Model',

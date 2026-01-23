@@ -3,6 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as sinon from 'sinon';
+import { PROVIDER_METADATA } from '../providerMetadata.js';
+import * as providersModule from '../providers';
+
 export function mock<T>(obj: Partial<T>): T {
 	return obj as T;
 }
@@ -10,42 +14,17 @@ export function mock<T>(obj: Partial<T>): T {
 /**
  * Shared test provider definitions for use across test files.
  * Each provider has the minimal structure needed for mocking getModelProviders().
+ * Automatically derived from PROVIDER_METADATA.
  */
-export const TEST_PROVIDERS = [
-	{
-		source: {
-			provider: {
-				id: 'anthropic-api',
-				displayName: 'Anthropic',
-				settingName: 'anthropic'
-			}
-		}
-	},
-	{
-		source: {
-			provider: {
-				id: 'copilot-auth',
-				displayName: 'GitHub Copilot',
-				settingName: 'githubCopilot'
-			}
-		}
-	},
-	{
-		source: {
-			provider: {
-				id: 'openai-api',
-				displayName: 'OpenAI',
-				settingName: 'openAI'
-			}
-		}
-	},
-	{
-		source: {
-			provider: {
-				id: 'azure',
-				displayName: 'Azure',
-				settingName: 'azure'
-			}
-		}
-	}
-];
+export const TEST_PROVIDERS = Object.values(PROVIDER_METADATA).map(provider => ({
+	source: { provider }
+}));
+
+/**
+ * Stubs getModelProviders() to return TEST_PROVIDERS.
+ * Call this in your test setup() and sinon.restore() in teardown().
+ */
+export function stubGetModelProviders(): sinon.SinonStub {
+	// eslint-disable-next-line local/code-no-any-casts
+	return sinon.stub(providersModule, 'getModelProviders').returns(TEST_PROVIDERS as any);
+}

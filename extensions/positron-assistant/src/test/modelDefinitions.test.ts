@@ -8,8 +8,7 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { getAllModelDefinitions } from '../modelDefinitions.js';
 import { registerSupportedProviders } from '../providerConfiguration.js';
-import * as providersModule from '../providers';
-import { TEST_PROVIDERS } from './utils.js';
+import { stubGetModelProviders } from './utils.js';
 
 suite('Model Definitions', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
@@ -22,8 +21,7 @@ suite('Model Definitions', () => {
 		}) as unknown as vscode.WorkspaceConfiguration);
 
 		// Mock getModelProviders to return test providers
-		// eslint-disable-next-line local/code-no-any-casts
-		sinon.stub(providersModule, 'getModelProviders').returns(TEST_PROVIDERS as any);
+		stubGetModelProviders();
 
 		// Register providers before running tests
 		registerSupportedProviders();
