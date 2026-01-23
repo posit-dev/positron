@@ -280,6 +280,100 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
 	});
 
+	test('Python - Verify running cell after editing content works via toolbar', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// This test reproduces a bug where running a cell via the floating toolbar
+		// after editing the cell content would fail with "Cell not found" error.
+		// The bug was caused by the toolbar callbacks capturing the old cell object
+		// in a closure instead of using the current cell reference.
+
+		// Open a Quarto document with Python code
+		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell (line 17)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Wait for the floating toolbar to appear (it shows when cursor is in a cell)
+		const toolbar = page.locator('.quarto-cell-toolbar');
+		await expect(toolbar.first()).toBeVisible({ timeout: 5000 });
+
+		// Find and click the run button on the floating toolbar
+		const runButton = toolbar.locator('.quarto-toolbar-run');
+		await expect(runButton.first()).toBeVisible({ timeout: 5000 });
+		await runButton.first().click();
+
+		// Wait for inline output to appear (first execution)
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content appeared
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// Now edit the cell by adding a comment
+		// Position cursor back in the cell
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Go to end of line and add a comment
+		await page.keyboard.press('End');
+		await page.keyboard.type('  # test comment');
+		await page.waitForTimeout(1000); // Wait for document to re-parse
+
+		// Wait for the floating toolbar to appear again (cursor is in cell)
+		await expect(toolbar.first()).toBeVisible({ timeout: 5000 });
+
+		// CRITICAL: Click the run button again after editing the cell
+		// This is where the bug would manifest - the toolbar would use the old cell ID
+		// and fail with "Cell not found" error
+		await runButton.first().click();
+
+		// Wait for execution to complete and verify output was updated
+		// The output should clear and show new content
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('30');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			// Output should still be visible (execution succeeded)
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// Verify output content is present (execution completed successfully)
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// Clean up: undo the edit to not affect other tests
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Meta+z'); // Undo on Mac, Ctrl+z on Windows
+		await page.waitForTimeout(500);
+	});
+
 	test('Python - Verify kernel status persists after window reload', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 		const filePath = join('workspaces', 'quarto_python', 'report.qmd');

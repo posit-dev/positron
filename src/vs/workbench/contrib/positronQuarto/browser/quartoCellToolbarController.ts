@@ -177,10 +177,11 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 				cell,
 				i,
 				cells.length,
-				() => this._runCell(cell),
-				() => this._stopCell(cell),
-				() => this._runCellsAbove(cells, i),
-				() => this._runCellAndBelow(cells, i),
+				// Use toolbar.cell instead of captured cell to get the current cell after updates
+				() => this._runCell(toolbar.cell),
+				() => this._stopCell(toolbar.cell),
+				() => this._runCellsAboveFromToolbar(toolbar),
+				() => this._runCellAndBelowFromToolbar(toolbar),
 				this._hoverService,
 				this._keybindingService
 			);
@@ -286,10 +287,11 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 					addedCell,
 					addedCell.index,
 					totalCells,
-					() => this._runCell(addedCell),
-					() => this._stopCell(addedCell),
-					() => this._runCellsAbove(cells, addedCell.index),
-					() => this._runCellAndBelow(cells, addedCell.index),
+					// Use toolbar.cell instead of captured cell to get the current cell after updates
+					() => this._runCell(toolbar.cell),
+					() => this._stopCell(toolbar.cell),
+					() => this._runCellsAboveFromToolbar(toolbar),
+					() => this._runCellAndBelowFromToolbar(toolbar),
 					this._hoverService,
 					this._keybindingService
 				);
@@ -459,26 +461,34 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	}
 
 	/**
-	 * Execute all cells above the specified cell index.
+	 * Execute all cells above the toolbar's current cell.
+	 * Gets fresh cell list from document model to handle cell changes.
 	 */
-	private async _runCellsAbove(cells: readonly QuartoCodeCell[], index: number): Promise<void> {
+	private async _runCellsAboveFromToolbar(toolbar: QuartoCellToolbar): Promise<void> {
 		const model = this._editor.getModel();
 		if (!model) {
 			return;
 		}
-		const cellsToRun = cells.slice(0, index);
+		const quartoModel = this._documentModelService.getModel(model);
+		const cells = quartoModel.cells;
+		const currentIndex = toolbar.cell.index;
+		const cellsToRun = cells.slice(0, currentIndex);
 		await this._executionManager.executeCells(model.uri, [...cellsToRun]);
 	}
 
 	/**
-	 * Execute the specified cell and all cells below it.
+	 * Execute the toolbar's current cell and all cells below it.
+	 * Gets fresh cell list from document model to handle cell changes.
 	 */
-	private async _runCellAndBelow(cells: readonly QuartoCodeCell[], index: number): Promise<void> {
+	private async _runCellAndBelowFromToolbar(toolbar: QuartoCellToolbar): Promise<void> {
 		const model = this._editor.getModel();
 		if (!model) {
 			return;
 		}
-		const cellsToRun = cells.slice(index);
+		const quartoModel = this._documentModelService.getModel(model);
+		const cells = quartoModel.cells;
+		const currentIndex = toolbar.cell.index;
+		const cellsToRun = cells.slice(currentIndex);
 		await this._executionManager.executeCells(model.uri, [...cellsToRun]);
 	}
 
