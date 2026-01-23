@@ -300,7 +300,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
-			'positron.assistant.models.preference.anthropic-api': 'Claude Haiku 4.5',
+			'positron.assistant.models.preference.anthropic': 'Claude Haiku 4.5',
 			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
