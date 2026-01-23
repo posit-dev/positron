@@ -62,7 +62,9 @@ suite('DebugModel', () => {
 
 				const disposable = new DisposableStore();
 				const storage = disposable.add(new TestStorageService());
-				const model = new DebugModel(disposable.add(new MockDebugStorage(storage)), upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), undefined!, new NullLogService());
+				// --- Start Positron ---
+				const model = new DebugModel(disposable.add(new MockDebugStorage(storage)), upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), undefined!, new NullLogService(), <any>{ getAdapterManager: () => ({ shouldVerifyBreakpointsInDirtyDocuments: () => false }) });
+				// --- End Positron ---
 				disposable.add(model);
 
 				let top1Resolved = false;

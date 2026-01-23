@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 import { expect } from '@playwright/test';
 
 test.use({
@@ -14,13 +15,6 @@ test.use({
 test.describe('Notebook Cell Reordering', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('Action Bar: swap 1st and 2nd cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;

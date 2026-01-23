@@ -44,7 +44,7 @@ export interface RuntimeActivityProps {
 export const RuntimeActivity = (props: RuntimeActivityProps) => {
 	// Render.
 	return (
-		<div className='runtime-activity'>
+		<div className='runtime-activity' data-execution-id={props.runtimeItemActivity.id}>
 			{props.runtimeItemActivity.activityItems.filter(activityItem => !activityItem.isHidden).map(activityItem => {
 
 				if (activityItem instanceof ActivityItemInput) {

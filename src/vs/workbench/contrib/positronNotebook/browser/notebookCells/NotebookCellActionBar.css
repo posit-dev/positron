@@ -2,10 +2,16 @@
  *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/* Define common properties for the cell action bar */
+.positron-notebooks-cell-action-bar  {
+	--_positron-notebooks-cell-action-bar-button-gap: 0.25rem;
+}
+
 .positron-notebooks-cell-action-bar {
 	position: absolute;
 	top: calc(var(--vscode-positronNotebook-action-bar-inset) * -1);
-	right: var(--vscode-positronNotebook-action-bar-inset);
+	left: var(--vscode-positronNotebook-action-bar-inset);
 	z-index: 10;
 	border-width: 1px;
 	border-color: var(--vscode-positronNotebook-action-bar-border-color);
@@ -13,7 +19,7 @@
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 	background-color: var(--vscode-positronNotebook-action-bar-background);
 	display: flex;
-	gap: 0.25rem;
+	gap: var(--_positron-notebooks-cell-action-bar-button-gap);
 
 	&.visible {
 		visibility: visible;
@@ -52,5 +58,21 @@
 		&.disabled {
 			color: var(--vscode-positronActionBar-disabledForeground);
 		}
+	}
+
+	/* Ensure relative positioning for the separator pseudo-element we are adding below */
+	.action-button.primary-action {
+		position: relative;
+	}
+
+	/* Add separator pseudo-element after primary action buttons (run/stop, edit) */
+	.action-button.primary-action::after {
+		content: '';
+		position: absolute;
+		right: calc((var(--_positron-notebooks-cell-action-bar-button-gap) * -1) / 2); /* Separator should be centered in between the gap */
+		top: 4px;
+		bottom: 4px;
+		width: 1px;
+		background-color: var(--vscode-positronNotebook-action-bar-border-color);
 	}
 }

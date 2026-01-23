@@ -63,7 +63,7 @@ import { NotebookRendererMessagingService } from './services/notebookRendererMes
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
 // --- Start Positron ---
-import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 // --- End Positron ---
 
 // Editor Controller
@@ -848,7 +848,7 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		// If this is a .ipynb file and Positron notebooks are enabled,
 		// let the Positron handler take care of it
 		if (workingCopy.resource.path.endsWith('.ipynb') &&
-			checkPositronNotebookEnabled(this._configurationService)) {
+			usingPositronNotebooks(this._configurationService)) {
 			return false;
 		}
 		// --- End Positron ---

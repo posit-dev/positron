@@ -20,6 +20,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -41,6 +42,19 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 
 	const hasSubmenuActions = submenuActions.length > 0;
 
+	// Process actions and identify which ones are primary actions based on group ID
+	const actionsWithMetadata = leftActions
+		.flatMap(([groupId, actions]) =>
+			actions.map(action => ({
+				action,
+				isPrimary: groupId === PositronNotebookCellActionBarLeftGroup.Primary
+			}))
+		);
+
+	// Find the index of the last primary action so we know where to place
+	// the separator between primary actions and all other actions
+	const lastPrimaryIndex = actionsWithMetadata.findLastIndex(item => item.isPrimary);
+
 	return <div
 		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
@@ -48,16 +62,15 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
-		{leftActions
-			.flatMap(([_group, actions]) => actions)
-			.map(action => (
-				<CellActionButton
-					key={action.id}
-					action={action}
-					cell={cell}
-					hoverManager={instance.hoverManager}
-				/>
-			))}
+		{actionsWithMetadata.map((item, index) => (
+			<CellActionButton
+				key={item.action.id}
+				action={item.action}
+				cell={cell}
+				hoverManager={instance.hoverManager}
+				showSeparator={index === lastPrimaryIndex}
+			/>
+		))}
 
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (

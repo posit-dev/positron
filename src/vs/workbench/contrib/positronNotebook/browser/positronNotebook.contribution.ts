@@ -5,6 +5,7 @@
 
 // Notebook editor extensions
 import './contrib/find/positronNotebookFind.contribution.js';
+import './contrib/assistant/positronNotebookAssistant.contribution.js';
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -29,7 +30,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { checkPositronNotebookEnabled, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from './positronNotebookExperimentalConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -39,7 +40,7 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -64,11 +65,13 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
+// Group IDs used to organize cell actions in menus and context menus
 enum PositronNotebookCellActionGroup {
 	Clipboard = '0_clipboard',
-	Insert = '1_insert',
-	Order = '2_order',
-	Execution = '3_execution',
+	CellType = '1_celltype',
+	Insert = '2_insert',
+	Order = '3_order',
+	Execution = '4_execution',
 }
 
 /**
@@ -86,19 +89,35 @@ class PositronNotebookContribution extends Disposable {
 	) {
 		super();
 
-		// Only register the editor if the feature is enabled
-		if (checkPositronNotebookEnabled(this.configurationService)) {
-			this.registerEditor();
-		}
+		this.registerEditor();
 	}
 
 	private registerEditor(): void {
+		// Determine notebook/cell editor priority based on whether Positron notebooks are enabled
+		const getPriority = () => usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.default
+			: RegisteredEditorPriority.option;
+
+		const getCellPriority = () => usingPositronNotebooks(this.configurationService)
+			? RegisteredEditorPriority.exclusive
+			: RegisteredEditorPriority.option;
+
 		const notebookEditorInfo: RegisteredEditorInfo = {
 			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
-			detail: localize('positronNotebook.detail', "Provided by Positron"),
-			priority: RegisteredEditorPriority.option
+			detail: localize('positronNotebook.detail', "Native .ipynb Support (Alpha)"),
+			priority: getPriority(),
 		};
+		const notebookCellEditorInfo: RegisteredEditorInfo =
+			{ ...notebookEditorInfo, priority: getCellPriority() };
+
+		// Listen for configuration changes to update priorities dynamically
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY)) {
+				notebookEditorInfo.priority = getPriority();
+				notebookCellEditorInfo.priority = getCellPriority();
+			}
+		}));
 
 		// Register for .ipynb files
 		this._register(this.editorResolverService.registerEditor(
@@ -180,7 +199,7 @@ class PositronNotebookContribution extends Disposable {
 			// The editor resolver service expects a single handler with 'exclusive' priority.
 			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
-			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+			notebookCellEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
@@ -224,15 +243,11 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IWorkingCopyEditorService private readonly workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly extensionService: IExtensionService,
-		@INotebookService private readonly notebookService: INotebookService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@INotebookService private readonly notebookService: INotebookService
 	) {
 		super();
 
-		// Only install handler if Positron notebooks are enabled
-		if (checkPositronNotebookEnabled(this.configurationService)) {
-			this.installHandler();
-		}
+		this.installHandler();
 	}
 
 	private async installHandler(): Promise<void> {
@@ -241,12 +256,8 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// Only handle .ipynb files when Positron notebooks are enabled
+		// Always handle .ipynb files
 		if (!workingCopy.resource.path.endsWith('.ipynb')) {
-			return false;
-		}
-
-		if (!checkPositronNotebookEnabled(this.configurationService)) {
 			return false;
 		}
 
@@ -686,7 +697,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.execute', "Run Cell"),
 			icon: ThemeIcon.fromId('notebook-execute'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
@@ -712,7 +725,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.stopExecution', "Stop Cell Execution"),
 			icon: ThemeIcon.fromId('primitive-square'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
@@ -869,6 +884,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('edit'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
@@ -904,6 +920,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('check'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
@@ -1174,6 +1191,100 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Change to Code cell - y key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToCode',
+			title: localize2('positronNotebook.cell.changeToCode', "Change to Code"),
+			icon: ThemeIcon.fromId('code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyY
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		// Change to code cell with kernel's default language
+		const kernelLanguage = notebook.kernel.get()?.supportedLanguages?.[0];
+		notebook.changeCellType(CellKind.Code, kernelLanguage);
+	}
+});
+
+// Change to Markdown cell - m key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToMarkdown',
+			title: localize2('positronNotebook.cell.changeToMarkdown', "Change to Markdown"),
+			icon: ThemeIcon.fromId('markdown'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyM
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Markup);
+	}
+});
+
+// Change to Raw cell - r key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToRaw',
+			title: localize2('positronNotebook.cell.changeToRaw', "Change to Raw"),
+			icon: ThemeIcon.fromId('file-code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyR
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Code, 'raw');
+	}
+});
 
 //#endregion Cell Commands
 
@@ -1371,7 +1482,7 @@ registerAction2(class extends NotebookAction2 {
 				displayTitle: true
 			},
 			toggled: {
-				condition: ContextKeyExpr.equals('config.positron.notebook.assistant.autoFollow', true),
+				condition: ContextKeyExpr.equals('config.positron.assistant.notebook.autoFollow', true),
 				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
 				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
 			},
@@ -1382,13 +1493,12 @@ registerAction2(class extends NotebookAction2 {
 				when: ContextKeyExpr.and(
 					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 					ContextKeyExpr.has('config.positron.assistant.enable'),
-					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
 				)
 			}
 		});
 	}
 
-	override runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
+	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
 		const configurationService = accessor.get(IConfigurationService);
 		const currentValue = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
 		configurationService.updateValue(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, !currentValue);

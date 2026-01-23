@@ -29,7 +29,6 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
 import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
@@ -184,8 +183,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 					`Runtime kernel ${this.id} executed cells for notebook`,
 				);
 				// Don't show a progress bar if using Positron notebooks
-				if (checkPositronNotebookEnabled(this._configurationService) &&
-					usingPositronNotebooks(this._configurationService)) {
+				if (usingPositronNotebooks(this._configurationService)) {
 					session = await ensureSessionStartedForNotebook();
 				} else {
 					session = await this._progressService.withProgress({

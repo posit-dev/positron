@@ -13,3 +13,87 @@
 .vs-dark .dark-filter-auto .plot-thumbnail img.plot {
 	filter: invert(1) hue-rotate(180deg);
 }
+
+/**
+ * Plot info header showing session name and plot name.
+ */
+.plots-container .plot-info-header {
+	display: flex;
+	align-items: center;
+	padding: 0 4px;
+	flex-shrink: 0;
+	overflow: hidden;
+	background-color: var(--vscode-editor-background);
+}
+
+.plots-container .plot-info-header .plot-info-text {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.plots-container .plot-info-header .plot-session-name {
+	font-size: 11px;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+	padding: 3px 5px;
+	border-radius: 5px;
+	border: 1px solid var(--vscode-panel-border);
+	margin-right: 4px;
+	background: none;
+	cursor: pointer;
+}
+
+.plots-container .plot-info-header .plot-name {
+	font-size: 12px;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+	margin-right: 5px;
+}
+
+.plots-container .plot-info-header .plot-code-button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
+	padding: 2px 4px;
+	background: none;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	max-width: 200px;
+	overflow: hidden;
+}
+
+.plots-container .plot-info-header .plot-code-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.plots-container .plot-info-header .plot-code-button .plot-code-text {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.plots-container .plot-info-header .plot-code-button .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-foreground);
+	opacity: 0.8;
+}
+
+.plots-container .plot-info-header .plot-code-button .codicon-chevron-down {
+	font-size: 10px;
+	margin-left: 2px;
+}
+
+.plots-container .plot-info-header .plot-code-button:hover .plot-code-text,
+.plots-container .plot-info-header .plot-code-button:hover .codicon {
+	opacity: 1;
+}

@@ -137,5 +137,32 @@ app = Dash(__name__)
 `;
             assert.strictEqual(getFramework(code), 'dash');
         });
+
+        test('should only match app creation when import is for the same library', () => {
+            const code = `
+from flask import Flask
+
+app = Dash(__name__)
+`;
+            assert.strictEqual(getFramework(code), 'flask');
+        });
+
+        test('should detect FastAPI app with matching import and app creation', () => {
+            const code = `
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+@app.middleware("http")                                                     
+async def logging_middleware(request: Request, call_next):                  
+  req_body = await request.body()  
+`;
+            assert.strictEqual(getFramework(code), 'fastapi');
+        });
     });
 });

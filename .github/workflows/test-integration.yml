@@ -3,6 +3,11 @@ name: "Test: Integration"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       pull_request:
         required: false
         type: boolean
@@ -31,6 +36,8 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
@@ -71,6 +78,8 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Install node-gyp (required by some packages)
             npm i --global node-gyp
 

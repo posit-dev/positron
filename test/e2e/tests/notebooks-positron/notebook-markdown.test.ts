@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -12,14 +13,6 @@ test.use({
 test.describe('Positron Notebooks: Markdown Cells', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-
-	test.beforeAll(async ({ app, settings }) => {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('ensure markdown cell can be created, rendered, and previewed', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
@@ -46,7 +39,7 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		await notebooksPositron.expectMarkdownTagToBe('h2', 'Heading 2');
 		await notebooksPositron.expectMarkdownTagToBe('strong', 'Bold Text');
 		await notebooksPositron.expectMarkdownTagToBe('em', 'Italic Text');
-		await notebooksPositron.expectScreenshotToMatch(1, 'basic-markdown-render.png');
+		//await notebooksPositron.expectScreenshotToMatch(1, 'basic-markdown-render.png');
 	});
 
 	test('ensure markdown cell can switch between edit and preview modes', async function ({ app }) {

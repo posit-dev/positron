@@ -154,6 +154,12 @@ export class MockDebugService implements IDebugService {
 		throw new Error('not implemented');
 	}
 
+	// --- Start Positron ---
+	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void {
+		throw new Error('not implemented');
+	}
+	// --- End Positron ---
+
 	getModel(): IDebugModel {
 		throw new Error('not implemented');
 	}
@@ -297,6 +303,12 @@ export class MockSession implements IDebugSession {
 	setName(name: string): void {
 		throw new Error('not implemented');
 	}
+
+	// --- Start Positron ---
+	setSuppressDebugToolbar(value: boolean): void {
+		throw new Error('not implemented');
+	}
+	// --- End Positron ---
 
 	getSourceForUri(modelUri: uri): Source {
 		throw new Error('not implemented');
@@ -692,6 +704,11 @@ export class MockDebugAdapter extends AbstractDebugAdapter {
 export class MockDebugStorage extends DebugStorage {
 
 	constructor(storageService: IStorageService) {
-		super(storageService, undefined!, undefined!, new NullLogService());
+		// --- Start Positron ---
+		// Old code:
+		// super(storageService, undefined!, undefined!, new NullLogService());
+		// eslint-disable-next-line local/code-no-any-casts
+		super(storageService, undefined!, undefined!, new NullLogService(), <any>{ getAdapterManager: () => ({ shouldVerifyBreakpointsInDirtyDocuments: () => false }) });
+		// --- End Positron ---
 	}
 }
