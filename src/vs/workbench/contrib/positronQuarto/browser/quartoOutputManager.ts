@@ -169,15 +169,25 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Listen for execution state changes to clear outputs on new execution
+		// Listen for execution state changes to clear outputs on new execution and update view zone button
 		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
 				this._documentUri &&
-				event.execution.documentUri.toString() === this._documentUri.toString() &&
-				event.execution.state === CellExecutionState.Running &&
-				event.previousState !== CellExecutionState.Running) {
+				event.execution.documentUri.toString() === this._documentUri.toString()) {
+
+				const cellId = event.execution.cellId;
+				const isRunning = event.execution.state === CellExecutionState.Running;
+
+				// Update view zone button state
+				const viewZone = this._viewZones.get(cellId);
+				if (viewZone) {
+					viewZone.setExecuting(isRunning);
+				}
+
 				// Clear outputs when execution starts
-				this._clearCellOutputs(event.execution.cellId);
+				if (isRunning && event.previousState !== CellExecutionState.Running) {
+					this._clearCellOutputs(cellId);
+				}
 			}
 		}));
 
@@ -410,6 +420,17 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				outputs: [],
 			});
 		};
+
+		// Set up interrupt callback
+		viewZone.onInterrupt = () => {
+			if (this._documentUri) {
+				this._executionManager.cancelExecution(this._documentUri, cellId);
+			}
+		};
+
+		// Set initial execution state
+		const executionState = this._executionManager.getExecutionState(cellId);
+		viewZone.setExecuting(executionState === CellExecutionState.Running);
 
 		// Show the view zone
 		viewZone.show();

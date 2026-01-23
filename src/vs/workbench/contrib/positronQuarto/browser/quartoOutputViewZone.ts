@@ -67,8 +67,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Callback when outputs are cleared by user action
 	private _onClear: (() => void) | undefined;
 
+	// Callback when execution should be interrupted
+	private _onInterrupt: (() => void) | undefined;
+
+	// Whether the cell is currently executing
+	private _isExecuting = false;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
+
+	// Icon element inside the close button (for switching between close and stop icons)
+	private _buttonIcon!: HTMLSpanElement;
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -169,6 +178,40 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	set onClear(callback: (() => void) | undefined) {
 		this._onClear = callback;
+	}
+
+	/**
+	 * Set callback for when execution should be interrupted.
+	 */
+	set onInterrupt(callback: (() => void) | undefined) {
+		this._onInterrupt = callback;
+	}
+
+	/**
+	 * Set whether the cell is currently executing.
+	 * Updates the button to show stop or close icon accordingly.
+	 */
+	setExecuting(isExecuting: boolean): void {
+		if (this._isExecuting === isExecuting) {
+			return;
+		}
+		this._isExecuting = isExecuting;
+		this._updateButtonForExecutionState();
+	}
+
+	/**
+	 * Update the button appearance based on execution state.
+	 */
+	private _updateButtonForExecutionState(): void {
+		if (this._isExecuting) {
+			this._buttonIcon.className = ThemeIcon.asClassName(Codicon.debugStop);
+			this._closeButton.setAttribute('aria-label', localize('interruptExecution', 'Interrupt execution'));
+			this._closeButton.title = localize('interruptExecution', 'Interrupt execution');
+		} else {
+			this._buttonIcon.className = ThemeIcon.asClassName(Codicon.close);
+			this._closeButton.setAttribute('aria-label', localize('clearOutput', 'Clear output'));
+			this._closeButton.title = localize('clearOutput', 'Clear output');
+		}
 	}
 
 	/**
@@ -310,10 +353,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		button.setAttribute('aria-label', localize('clearOutput', 'Clear output'));
 		button.title = localize('clearOutput', 'Clear output');
 
-		// Use codicon for close button
-		const icon = document.createElement('span');
-		icon.className = ThemeIcon.asClassName(Codicon.close);
-		button.appendChild(icon);
+		// Use codicon for close button - store reference in _buttonIcon for later updates
+		this._buttonIcon = document.createElement('span');
+		this._buttonIcon.className = ThemeIcon.asClassName(Codicon.close);
+		button.appendChild(this._buttonIcon);
 
 		// Handle mousedown to prevent the editor from consuming the event
 		button.addEventListener('mousedown', (e) => {
@@ -321,11 +364,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			e.stopPropagation();
 		});
 
-		// Handle click to clear outputs
+		// Handle click to clear outputs or interrupt execution
 		button.addEventListener('click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			this.clearOutputs();
+			if (this._isExecuting) {
+				this._onInterrupt?.();
+			} else {
+				this.clearOutputs();
+			}
 		});
 
 		return button;
