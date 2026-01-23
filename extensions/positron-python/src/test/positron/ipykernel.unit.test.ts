@@ -95,6 +95,8 @@ suite('Ipykernel', () => {
     test('should use interpreter architecture for arm64 interpreter', async () => {
         // Set interpreter to arm64 architecture
         sinon.stub(interpreter, 'architecture').get(() => Architecture.arm64);
+        // Stub fs.pathExists to return true so tests pass on CI where arm64 bundles may not exist
+        sinon.stub(fs, 'pathExists').resolves(true);
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
@@ -121,6 +123,8 @@ suite('Ipykernel', () => {
                 architecture: Architecture.arm64,
             }),
         );
+        // Stub fs.pathExists to return true so tests pass on CI where arm64 bundles may not exist
+        sinon.stub(fs, 'pathExists').resolves(true);
 
         const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
 
