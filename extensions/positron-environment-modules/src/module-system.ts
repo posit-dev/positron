@@ -135,14 +135,18 @@ export async function detectModuleSystem(
 	}
 
 	// Check custom init script first
-	if (customInitScript && fs.existsSync(customInitScript)) {
-		const type = await detectModuleType(customInitScript);
-		return {
-			available: true,
-			type,
-			initPath: customInitScript,
-			command: 'module'
-		};
+	if (customInitScript) {
+		if (fs.existsSync(customInitScript)) {
+			const type = await detectModuleType(customInitScript);
+			return {
+				available: true,
+				type,
+				initPath: customInitScript,
+				command: 'module'
+			};
+		} else {
+			logger.warn(`Custom module init script not found: ${customInitScript}`);
+		}
 	}
 
 	// Check if MODULEPATH is set - this indicates modules may already be initialized
