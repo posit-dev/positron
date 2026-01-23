@@ -186,7 +186,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant and sign in to Echo provider', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -194,7 +194,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		await expect(async () => {
-			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.runConfigureProviders();
 			await app.workbench.assistant.selectModelProvider('echo');
 			await app.workbench.assistant.clickSignOutButton();
 			await app.workbench.assistant.clickCloseButton();
@@ -210,9 +210,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 	test('Verify default model indicator and ordering for single provider', async function ({ app, settings }) {
 		// Configure the Echo Language Model v2 as the default for the echo provider
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'echo': 'Echo Language Model v2'
-			}
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
 		// Open the model picker dropdown
@@ -244,7 +242,7 @@ test.describe('Positron Assistant Model Picker Default Indicator', { tag: [tags.
 
 		// Clean up: reset the setting
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {}
+			'positron.assistant.models.preference.echo': ''
 		});
 	});
 
@@ -262,7 +260,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		await app.workbench.assistant.openPositronAssistantChat();
 
 		// Sign in to Echo provider
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.runConfigureProviders();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -271,12 +269,12 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test.afterAll('Sign out of providers and clean up', async function ({ app, settings }) {
 		// Clean up settings
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {}
+			'positron.assistant.models.preference.echo': ''
 		});
 
 		// Sign out of Echo provider
 		await expect(async () => {
-			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.runConfigureProviders();
 			await app.workbench.assistant.selectModelProvider('echo');
 			await app.workbench.assistant.clickSignOutButton();
 			await app.workbench.assistant.clickCloseButton();
@@ -285,7 +283,7 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 		// Only sign out of Anthropic if we signed in with API key
 		if (process.env.ANTHROPIC_KEY) {
 			await expect(async () => {
-				await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+				await app.workbench.assistant.runConfigureProviders();
 				await app.workbench.assistant.selectModelProvider('anthropic-api');
 				await app.workbench.assistant.clickSignOutButton();
 				await app.workbench.assistant.clickCloseButton();
@@ -302,10 +300,8 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 	test('Verify default model indicators and ordering for multiple providers', async function ({ app, settings }) {
 		// Configure defaults for both Anthropic and Echo providers
 		await settings.set({
-			'positron.assistant.models.preference.byProvider': {
-				'anthropic-api': 'Claude Haiku 4.5',
-				'echo': 'Echo Language Model v2'
-			}
+			'positron.assistant.models.preference.anthropic-api': 'Claude Haiku 4.5',
+			'positron.assistant.models.preference.echo': 'Echo Language Model v2'
 		}, { reload: true });
 
 		// Only sign in to Anthropic if ANTHROPIC_KEY is provided

@@ -100,7 +100,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
-			await app.workbench.quickaccess.runCommand(`positron-assistant.configureProviders`);
+			await app.workbench.assistant.runConfigureProviders();
 			await app.workbench.assistant.selectModelProvider('anthropic-api');
 			await app.workbench.assistant.clickSignOutButton();
 		}
