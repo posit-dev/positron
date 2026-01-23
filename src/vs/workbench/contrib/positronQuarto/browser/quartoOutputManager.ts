@@ -170,14 +170,35 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}));
 
 		// Listen for execution state changes to clear outputs on new execution
+		// and update execution status display
 		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
 				this._documentUri &&
-				event.execution.documentUri.toString() === this._documentUri.toString() &&
-				event.execution.state === CellExecutionState.Running &&
-				event.previousState !== CellExecutionState.Running) {
-				// Clear outputs when execution starts
-				this._clearCellOutputs(event.execution.cellId);
+				event.execution.documentUri.toString() === this._documentUri.toString()) {
+
+				const cellId = event.execution.cellId;
+
+				if (event.execution.state === CellExecutionState.Running &&
+					event.previousState !== CellExecutionState.Running) {
+					// Clear outputs when execution starts
+					this._clearCellOutputs(cellId);
+
+					// Start execution status display on the view zone
+					// Note: The view zone may not exist yet - it gets created when first output arrives
+					const viewZone = this._viewZones.get(cellId);
+					if (viewZone) {
+						viewZone.startExecution(event.execution.startTime ?? Date.now());
+					}
+				} else if (event.previousState === CellExecutionState.Running &&
+					(event.execution.state === CellExecutionState.Completed ||
+						event.execution.state === CellExecutionState.Error ||
+						event.execution.state === CellExecutionState.Idle)) {
+					// Stop execution status display
+					const viewZone = this._viewZones.get(cellId);
+					if (viewZone) {
+						viewZone.stopExecution();
+					}
+				}
 			}
 		}));
 
@@ -411,8 +432,21 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			});
 		};
 
+		// Set up interrupt callback
+		viewZone.onInterrupt = () => {
+			if (this._documentUri) {
+				this._kernelManager.interruptKernelForDocument(this._documentUri);
+			}
+		};
+
 		// Show the view zone
 		viewZone.show();
+
+		// Check if the cell is currently executing and start execution display if so
+		const executionState = this._executionManager.getExecutionState(cellId);
+		if (executionState === CellExecutionState.Running) {
+			viewZone.startExecution(Date.now());
+		}
 
 		return viewZone;
 	}

@@ -15,7 +15,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType, ILanguageRuntimeResourceUsage } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
 import { applyFontInfo } from '../../../../editor/browser/config/domFontInfo.js';
 import { ANSIOutput, ANSIOutputLine, ANSIOutputRun, ANSIColor, ANSIStyle } from '../../../../base/common/ansiOutput.js';
@@ -40,6 +40,11 @@ export interface QuartoOutputViewZoneOptions {
 	/** Optional runtime session for webview creation */
 	readonly session?: ILanguageRuntimeSession;
 }
+
+/**
+ * Callback for interrupting execution.
+ */
+export type InterruptCallback = () => void;
 
 /**
  * View zone for displaying Quarto cell output inline in the editor.
@@ -67,8 +72,22 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Callback when outputs are cleared by user action
 	private _onClear: (() => void) | undefined;
 
+	// Callback for interrupting execution
+	private _onInterrupt: InterruptCallback | undefined;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
+
+	// Execution status elements
+	private readonly _executionStatusContainer: HTMLElement;
+	private readonly _interruptButton: HTMLButtonElement;
+	private readonly _executionSpinner: HTMLElement;
+	private readonly _executionTimeElement: HTMLElement;
+	private readonly _cpuUsageElement: HTMLElement;
+	private _isExecuting = false;
+	private _executionStartTime: number | undefined;
+	private _executionTimerHandle: ReturnType<typeof setInterval> | undefined;
+	private readonly _resourceUsageDisposables = this._register(new DisposableStore());
 
 	constructor(
 		private readonly _editor: ICodeEditor,
@@ -101,6 +120,29 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._closeButton = this._createCloseButton();
 		this._styledContainer.appendChild(this._closeButton);
 
+		// Create execution status container (positioned outside view zone, in editor overlay)
+		this._executionStatusContainer = document.createElement('div');
+		this._executionStatusContainer.className = 'quarto-execution-status';
+
+		// Create interrupt button with spinner
+		this._interruptButton = this._createInterruptButton();
+		this._executionSpinner = document.createElement('div');
+		this._executionSpinner.className = 'quarto-execution-spinner';
+		this._interruptButton.insertBefore(this._executionSpinner, this._interruptButton.firstChild);
+		this._executionStatusContainer.appendChild(this._interruptButton);
+
+		// Create execution time display
+		this._executionTimeElement = document.createElement('div');
+		this._executionTimeElement.className = 'quarto-execution-time';
+		this._executionStatusContainer.appendChild(this._executionTimeElement);
+
+		// Create CPU usage display
+		this._cpuUsageElement = document.createElement('div');
+		this._cpuUsageElement.className = 'quarto-cpu-usage';
+		this._executionStatusContainer.appendChild(this._cpuUsageElement);
+
+		// Execution status is appended to editor DOM in show(), not to the view zone
+
 		// Create output container
 		this._outputContainer = document.createElement('div');
 		this._outputContainer.className = 'quarto-output-content';
@@ -116,10 +158,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			}
 		}));
 
-		// Listen for layout changes to update width
+		// Listen for layout changes to update width and execution status position
 		this._register(this._editor.onDidLayoutChange(() => {
 			if (this._zoneId) {
 				this._applyWidth();
+				this._updateExecutionStatusPosition();
+			}
+		}));
+
+		// Listen for scroll changes to update execution status position
+		this._register(this._editor.onDidScrollChange(() => {
+			if (this._zoneId) {
+				// Use requestAnimationFrame to ensure DOM has updated after scroll
+				requestAnimationFrame(() => {
+					this._updateExecutionStatusPosition();
+				});
 			}
 		}));
 
@@ -158,6 +211,34 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Update the position of the execution status container.
+	 * Positions it to the left of the view zone, outside its bounds.
+	 */
+	private _updateExecutionStatusPosition(): void {
+		if (!this._zoneId) {
+			return;
+		}
+
+		// Get the bounding rect of the styled container relative to the editor
+		const editorDom = this._editor.getDomNode();
+		if (!editorDom) {
+			return;
+		}
+
+		const editorRect = editorDom.getBoundingClientRect();
+		const containerRect = this._styledContainer.getBoundingClientRect();
+
+		// Position the execution status to the left of the container
+		// Use fixed positioning relative to the editor container
+		const top = containerRect.top - editorRect.top + 4; // 4px from top of container
+		const left = containerRect.left - editorRect.left - 35; // 35px to the left of container
+
+		this._executionStatusContainer.style.position = 'absolute';
+		this._executionStatusContainer.style.top = `${top}px`;
+		this._executionStatusContainer.style.left = `${left}px`;
+	}
+
+	/**
 	 * Get the current outputs.
 	 */
 	get outputs(): readonly ICellOutput[] {
@@ -172,11 +253,167 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Set callback for when interrupt is requested.
+	 */
+	set onInterrupt(callback: InterruptCallback | undefined) {
+		this._onInterrupt = callback;
+	}
+
+	/**
 	 * Update the runtime session for webview creation.
 	 * Call this when the kernel session becomes available.
 	 */
 	setSession(session: ILanguageRuntimeSession | undefined): void {
 		this._session = session;
+		// Update resource usage listener
+		this._setupResourceUsageListener();
+	}
+
+	/**
+	 * Start execution status display.
+	 * @param startTime The time when execution started (ms since epoch)
+	 */
+	startExecution(startTime: number): void {
+		this._isExecuting = true;
+		this._executionStartTime = startTime;
+
+		// Show the execution status container
+		this._styledContainer.classList.add('executing');
+
+		// Update the time display immediately and start timer
+		this._updateExecutionTime();
+		this._startExecutionTimer();
+
+		// Set up resource usage listener
+		this._setupResourceUsageListener();
+
+		// Update visibility based on output count
+		this._updateExecutionStatusVisibility();
+	}
+
+	/**
+	 * Stop execution status display.
+	 */
+	stopExecution(): void {
+		this._isExecuting = false;
+		this._executionStartTime = undefined;
+
+		// Stop the timer
+		this._stopExecutionTimer();
+
+		// Clear resource usage listener
+		this._resourceUsageDisposables.clear();
+
+		// Hide the execution status container
+		this._updateExecutionStatusVisibility();
+		this._executionTimeElement.textContent = '';
+		this._cpuUsageElement.textContent = '';
+	}
+
+	/**
+	 * Update CPU usage from resource usage event.
+	 */
+	updateResourceUsage(usage: ILanguageRuntimeResourceUsage): void {
+		if (!this._isExecuting) {
+			return;
+		}
+		this._cpuUsageElement.textContent = `${Math.round(usage.cpu_percent)}% CPU`;
+		this._updateExecutionStatusVisibility();
+	}
+
+	/**
+	 * Check if cell is currently executing.
+	 */
+	get isExecuting(): boolean {
+		return this._isExecuting;
+	}
+
+	/**
+	 * Set up listener for resource usage updates from the session.
+	 */
+	private _setupResourceUsageListener(): void {
+		this._resourceUsageDisposables.clear();
+		if (this._session && this._isExecuting) {
+			this._resourceUsageDisposables.add(
+				this._session.onDidUpdateResourceUsage(usage => {
+					this.updateResourceUsage(usage);
+				})
+			);
+		}
+	}
+
+	/**
+	 * Start the timer to update execution time display.
+	 */
+	private _startExecutionTimer(): void {
+		this._stopExecutionTimer();
+		this._executionTimerHandle = setInterval(() => {
+			this._updateExecutionTime();
+		}, 1000);
+	}
+
+	/**
+	 * Stop the execution time timer.
+	 */
+	private _stopExecutionTimer(): void {
+		if (this._executionTimerHandle !== undefined) {
+			clearInterval(this._executionTimerHandle);
+			this._executionTimerHandle = undefined;
+		}
+	}
+
+	/**
+	 * Update the execution time display.
+	 */
+	private _updateExecutionTime(): void {
+		if (!this._executionStartTime) {
+			return;
+		}
+		const elapsed = Math.floor((Date.now() - this._executionStartTime) / 1000);
+		this._executionTimeElement.textContent = `${elapsed}s`;
+	}
+
+	/**
+	 * Update visibility of execution status elements based on output line count.
+	 * Only show interrupt button if single line; show all three if multiple lines.
+	 */
+	private _updateExecutionStatusVisibility(): void {
+		if (!this._isExecuting) {
+			this._executionStatusContainer.classList.remove('visible', 'show-details');
+			return;
+		}
+
+		this._executionStatusContainer.classList.add('visible');
+
+		// Count output lines to determine what to show
+		const hasMultipleLines = this._hasMultipleOutputLines();
+		this._executionStatusContainer.classList.toggle('show-details', hasMultipleLines);
+	}
+
+	/**
+	 * Check if there are multiple lines of output.
+	 */
+	private _hasMultipleOutputLines(): boolean {
+		// Count elements in the output container that represent output lines
+		let lineCount = 0;
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				if (item.mime === 'application/vnd.code.notebook.stdout' ||
+					item.mime === 'text/plain' ||
+					item.mime === 'application/vnd.code.notebook.stderr') {
+					// Count newlines in text content
+					const lines = item.data.split('\n').filter(line => line.length > 0);
+					lineCount += lines.length;
+				} else {
+					// Other items (images, html, errors) count as a line
+					lineCount++;
+				}
+				if (lineCount > 1) {
+					return true;
+				}
+			}
+		}
+		return lineCount > 1;
 	}
 
 	/**
@@ -189,6 +426,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._styledContainer.classList.toggle('quarto-output-error-only', this._isErrorOnly());
 		this._updateHeight();
 		this._announceOutput(output);
+		// Update execution status visibility based on new output count
+		this._updateExecutionStatusVisibility();
 	}
 
 	/**
@@ -241,8 +480,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					accessor.removeZone(this._zoneId!);
 					this._zoneId = accessor.addZone(this);
 				});
-				// Re-apply width after zone is re-added
+				// Re-apply width and execution status position after zone is re-added
 				this._applyWidth();
+				this._updateExecutionStatusPosition();
 			}
 		}
 	}
@@ -263,6 +503,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// when adding zones, which would override any earlier width setting
 		this._applyWidth();
 
+		// Append execution status to editor's DOM container (outside view zone)
+		const editorDom = this._editor.getDomNode();
+		if (editorDom && !this._executionStatusContainer.parentElement) {
+			editorDom.appendChild(this._executionStatusContainer);
+		}
+
+		// Position execution status relative to view zone
+		this._updateExecutionStatusPosition();
+
 		// Set up resize observer after showing
 		this._setupResizeObserver();
 	}
@@ -279,6 +528,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			accessor.removeZone(this._zoneId!);
 		});
 		this._zoneId = undefined;
+
+		// Remove execution status from editor DOM
+		this._executionStatusContainer.remove();
 
 		this._disposeResizeObserver();
 	}
@@ -299,6 +551,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 	override dispose(): void {
 		this.hide();
+		this._stopExecutionTimer();
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
 		super.dispose();
@@ -326,6 +579,33 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			e.preventDefault();
 			e.stopPropagation();
 			this.clearOutputs();
+		});
+
+		return button;
+	}
+
+	private _createInterruptButton(): HTMLButtonElement {
+		const button = document.createElement('button');
+		button.className = 'quarto-interrupt-button';
+		button.setAttribute('aria-label', localize('interruptExecution', 'Interrupt execution'));
+		button.title = localize('interruptExecution', 'Interrupt execution');
+
+		// Use codicon for stop button
+		const icon = document.createElement('span');
+		icon.className = ThemeIcon.asClassName(Codicon.debugStop);
+		button.appendChild(icon);
+
+		// Handle mousedown to prevent the editor from consuming the event
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+
+		// Handle click to interrupt execution
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this._onInterrupt?.();
 		});
 
 		return button;
@@ -923,8 +1203,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 				accessor.removeZone(this._zoneId!);
 				this._zoneId = accessor.addZone(this);
 			});
-			// Re-apply width after zone is re-added
+			// Re-apply width and execution status position after zone is re-added
 			this._applyWidth();
+			this._updateExecutionStatusPosition();
 		} else if (!this._zoneId) {
 			this.heightInPx = newHeight;
 		}
