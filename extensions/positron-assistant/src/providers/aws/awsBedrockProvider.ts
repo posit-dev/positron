@@ -98,14 +98,23 @@ export class AWSModelProvider extends VercelModelProvider implements positron.ai
 	static DEFAULT_MAX_TOKENS_OUTPUT = 8192;
 
 	/**
+	 * Maps AWS region prefixes to Bedrock inference profile regions.
+	 * Most regions use the same prefix, but some differ
+	 */
+	private static readonly REGION_PREFIX_MAP: Record<string, string> = {
+		'ap': 'apac',
+	};
+
+	/**
 	 * Derives the inference profile region from an AWS region.
 	 * AWS regions follow pattern: {region}-{zone}-{number}
 	 *
-	 * @param awsRegion The AWS region (e.g., 'us-east-1')
-	 * @returns The inference profile region prefix (e.g., 'us', 'eu')
+	 * @param awsRegion The AWS region (e.g., 'us-east-1', 'ap-southeast-1')
+	 * @returns The inference profile region prefix (e.g., 'us', 'apac')
 	 */
 	static deriveInferenceProfileRegion(awsRegion: string): string {
-		return awsRegion.split('-')[0];
+		const prefix = awsRegion.split('-')[0];
+		return this.REGION_PREFIX_MAP[prefix] ?? prefix;
 	}
 
 	static source: positron.ai.LanguageModelSource = {
