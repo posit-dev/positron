@@ -38,7 +38,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 
 	constructor(
 		private readonly _editor: ICodeEditor,
-		private readonly _cell: QuartoCodeCell,
+		private _cell: QuartoCodeCell,
 		private _cellIndex: number,
 		private _totalCells: number,
 		private readonly _onRun: () => void,
@@ -129,6 +129,19 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 			this._totalCells = totalCells;
 			this._updateButtonVisibility();
 		}
+	}
+
+	/**
+	 * Update the cell reference and position.
+	 * This allows the toolbar to be reused when cell content changes
+	 * instead of being destroyed and recreated.
+	 */
+	updateCell(cell: QuartoCodeCell, cellIndex: number, totalCells: number): void {
+		this._cell = cell;
+		this._cellIndex = cellIndex;
+		this._totalCells = totalCells;
+		this._updateButtonVisibility();
+		this._updatePosition();
 	}
 
 	/**

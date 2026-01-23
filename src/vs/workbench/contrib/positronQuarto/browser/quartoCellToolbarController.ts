@@ -10,7 +10,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
-import { QuartoCodeCell, IQuartoDocumentModel } from '../common/quartoTypes.js';
+import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -116,9 +116,9 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		}));
 
 		// Listen for cell changes in the document model
-		this._disposables.add(this._quartoModel.onDidChangeCells(() => {
-			this._logService.debug('[QuartoCellToolbarController] Cells changed, rebuilding toolbars');
-			this._rebuildToolbars();
+		this._disposables.add(this._quartoModel.onDidChangeCells((event) => {
+			this._logService.debug('[QuartoCellToolbarController] Cells changed, updating toolbars incrementally');
+			this._handleCellChanges(event);
 			// Re-evaluate cursor position after cells change
 			this._updateToolbarVisibilityForCursor();
 		}));
@@ -194,6 +194,122 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		}
 
 		this._logService.debug(`[QuartoCellToolbarController] Total toolbars created: ${this._toolbars.size}`);
+	}
+
+	/**
+	 * Handle incremental cell changes without destroying all toolbars.
+	 * This prevents flickering when typing in cells.
+	 */
+	private _handleCellChanges(event: QuartoCellChangeEvent): void {
+		const model = this._editor.getModel();
+		if (!model) {
+			return;
+		}
+
+		const quartoModel = this._documentModelService.getModel(model);
+		const cells = quartoModel.cells;
+		const totalCells = cells.length;
+
+		// Build index-based mappings for removed and added cells
+		// This helps us match unlabeled cells that appear as removed+added when content changes
+		const removedByIndex = new Map<number, string>();
+		for (const removedId of event.removed) {
+			const toolbar = this._toolbars.get(removedId);
+			if (toolbar) {
+				removedByIndex.set(toolbar.cell.index, removedId);
+			}
+		}
+
+		const addedByIndex = new Map<number, QuartoCodeCell>();
+		for (const addedCell of event.added) {
+			addedByIndex.set(addedCell.index, addedCell);
+		}
+
+		// Track which removed cells were matched with added cells at the same index
+		const matchedRemovedIds = new Set<string>();
+		const matchedAddedIds = new Set<string>();
+
+		// Match removed+added at same index (unlabeled cell content changes)
+		for (const [index, removedId] of removedByIndex) {
+			const addedCell = addedByIndex.get(index);
+			if (addedCell) {
+				const toolbar = this._toolbars.get(removedId);
+				if (toolbar) {
+					this._logService.debug(`[QuartoCellToolbarController] Reusing toolbar at index ${index}: ${removedId} -> ${addedCell.id}`);
+					// Update the toolbar with new cell data instead of disposing it
+					toolbar.updateCell(addedCell, addedCell.index, totalCells);
+					// Re-map the toolbar under the new cell ID
+					this._toolbars.delete(removedId);
+					this._toolbars.set(addedCell.id, toolbar);
+					matchedRemovedIds.add(removedId);
+					matchedAddedIds.add(addedCell.id);
+				}
+			}
+		}
+
+		// Handle truly removed cells - dispose their toolbars
+		for (const removedId of event.removed) {
+			if (matchedRemovedIds.has(removedId)) {
+				continue; // Already handled as a match with an added cell
+			}
+			const toolbar = this._toolbars.get(removedId);
+			if (toolbar) {
+				this._logService.debug(`[QuartoCellToolbarController] Disposing toolbar for removed cell ${removedId}`);
+				toolbar.dispose();
+				this._toolbars.delete(removedId);
+			}
+		}
+
+		// Handle modified cells - update existing toolbars with new cell data
+		// The modified map contains oldId -> newCell mapping
+		for (const [oldId, newCell] of event.modified) {
+			const toolbar = this._toolbars.get(oldId);
+			if (toolbar) {
+				this._logService.debug(`[QuartoCellToolbarController] Updating toolbar for modified cell ${oldId} -> ${newCell.id}`);
+				// Update the toolbar with new cell data
+				toolbar.updateCell(newCell, newCell.index, totalCells);
+				// Re-map the toolbar under the new cell ID
+				this._toolbars.delete(oldId);
+				this._toolbars.set(newCell.id, toolbar);
+			}
+		}
+
+		// Handle truly added cells - create new toolbars
+		for (const addedCell of event.added) {
+			if (matchedAddedIds.has(addedCell.id)) {
+				continue; // Already handled as a match with a removed cell
+			}
+			if (!this._toolbars.has(addedCell.id)) {
+				this._logService.debug(`[QuartoCellToolbarController] Creating toolbar for added cell ${addedCell.id}`);
+				const toolbar = new QuartoCellToolbar(
+					this._editor,
+					addedCell,
+					addedCell.index,
+					totalCells,
+					() => this._runCell(addedCell),
+					() => this._stopCell(addedCell),
+					() => this._runCellsAbove(cells, addedCell.index),
+					() => this._runCellAndBelow(cells, addedCell.index),
+					this._hoverService,
+					this._keybindingService
+				);
+
+				// Set initial execution state
+				const state = this._executionManager.getExecutionState(addedCell.id);
+				toolbar.setExecutionState(state);
+
+				this._toolbars.set(addedCell.id, toolbar);
+			}
+		}
+
+		// Update cell positions for all existing toolbars that weren't modified
+		// This ensures button visibility (run above/below) is correct after cells change
+		for (const [id, toolbar] of this._toolbars) {
+			const cell = quartoModel.getCellById(id);
+			if (cell) {
+				toolbar.updateCellPosition(cell.index, totalCells);
+			}
+		}
 	}
 
 	/**
