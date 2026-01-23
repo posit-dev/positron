@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { log } from './extension.js';
+import { log } from './log.js';
 
 /**
  * Creates a custom fetch function for OpenAI-compatible providers that handles:

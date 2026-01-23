@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { IS_RUNNING_ON_PWB } from './constants';
-import { log } from './extension';
+import { log } from './log.js';
 import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 
 /**

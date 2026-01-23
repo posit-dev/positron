@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { getModelProviders } from './providers';
 import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 import { completionModels } from './completion';
-import { log } from './extension';
+import { log } from './log.js';
 import { clearTokenUsage } from './tokens';
 import { disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfiguredModel } from './modelRegistration';
 import { CopilotService } from './copilot.js';

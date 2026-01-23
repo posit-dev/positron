@@ -23,7 +23,7 @@ import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
-import { BufferedLogOutputChannel } from './logBuffer.js';
+import { log } from './log.js';
 import { resetAssistantState } from './reset.js';
 import { performSettingsMigrations } from './providerMigration.js';
 import { disposeModels, registerModels } from './modelRegistration';
@@ -40,10 +40,6 @@ export class AssistantError extends Error {
 		super(message);
 	}
 }
-
-export const log = new BufferedLogOutputChannel(
-	vscode.window.createOutputChannel('Assistant', { log: true })
-);
 
 function registerConfigureProvidersCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(

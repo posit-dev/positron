@@ -10,7 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration } from '../../config';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
-import { log } from '../../extension.js';
+import { log } from '../../log.js';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../tokens.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
 import { ModelProvider } from '../base/modelProvider.js';

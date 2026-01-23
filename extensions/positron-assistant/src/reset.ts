@@ -8,7 +8,7 @@ import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { getStoredModels } from './config';
 import { GlobalSecretStorage } from './configTypes.js';
-import { log } from './extension';
+import { log } from './log.js';
 import { disposeModels } from './modelRegistration';
 
 function formatError(error: unknown): string {

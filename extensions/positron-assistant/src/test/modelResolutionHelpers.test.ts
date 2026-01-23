@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import * as extensionModule from '../extension.js';
+import * as logModule from '../log.js';
 import * as modelDefinitionsModule from '../modelDefinitions.js';
 import {
 	findMatchingModelIndex,
@@ -39,8 +39,8 @@ suite('Model Resolution Helpers', () => {
 			error: sinon.stub()
 		};
 
-		// Mock the extension module
-		sinon.stub(extensionModule, 'log').value(mockLog);
+		// Mock the log module
+		sinon.stub(logModule, 'log').value(mockLog);
 	});
 
 	teardown(() => {

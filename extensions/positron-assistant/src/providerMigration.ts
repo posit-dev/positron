@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { log } from './extension.js';
+import { log } from './log.js';
 import { getModelProviders } from './providers/index.js';
 import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
 

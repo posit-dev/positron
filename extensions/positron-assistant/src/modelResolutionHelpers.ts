@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { getAllModelDefinitions } from './modelDefinitions.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, MIN_TOKEN_LIMIT, DEFAULT_MODEL_CAPABILITIES } from './constants.js';
-import { log } from './extension.js';
+import { log } from './log.js';
 import { getSettingNameForProvider } from './providerMetadata.js';
 
 /**
