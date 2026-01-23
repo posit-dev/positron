@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -380,9 +380,9 @@ export async function createJupyterKernelSpec(
 
 	// If this R is from a module environment, use the pre-computed startup command
 	if (packagerMetadata && isModuleMetadata(packagerMetadata)) {
-		if (process.platform === 'win32') {
-			// Module systems are typically not available on Windows
-			LOGGER.warn('Module environments are not supported on Windows');
+		if (process.platform === 'win32' || process.platform === 'darwin') {
+			// Module systems are typically not available on Windows or macOS
+			LOGGER.warn('Module environments are not supported on Windows or macOS');
 		} else {
 			// Use the pre-computed startup command from the module resolver
 			startup_command = packagerMetadata.startupCommand;
