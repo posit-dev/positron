@@ -32,15 +32,6 @@ import { disposeModels, registerModels } from './modelRegistration';
 
 let assistantEnabled = false;
 
-/**
- * An error thrown by the assistant that can optionally be displayed to the user.
- */
-export class AssistantError extends Error {
-	constructor(message: string, public readonly display: boolean = true) {
-		super(message);
-	}
-}
-
 function registerConfigureProvidersCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureProviders', async (providerId?: string) => {

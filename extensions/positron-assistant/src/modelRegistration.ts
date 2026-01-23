@@ -10,7 +10,7 @@ import { getModelConfigurations } from './config';
 import { ModelConfig, SecretStorage, StoredModelConfig } from './configTypes.js';
 import { newCompletionProvider } from './completion';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
-import { AssistantError } from './extension';
+import { AssistantError } from './errors';
 import { log } from './log.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
