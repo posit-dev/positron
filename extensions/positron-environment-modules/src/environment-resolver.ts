@@ -26,6 +26,7 @@ export async function resolveModuleInterpreter(
 		// Build a command to find the interpreter using 'which'
 		// Try each binary name in order until one is found
 		let interpreterPath: string | undefined;
+		let errorMessages: string[] = [];
 
 		for (const binaryName of options.interpreterBinaryNames) {
 			try {
@@ -38,13 +39,17 @@ export async function resolveModuleInterpreter(
 					interpreterPath = whichResult;
 					break;
 				}
-			} catch {
-				// Try next binary name
+			} catch (error) {
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				errorMessages.push(`which ${binaryName}: ${errorMsg}`);
 			}
 		}
 
 		if (!interpreterPath) {
 			logger.warn(`Could not find interpreter for environment "${options.environmentName}" using binaries: ${options.interpreterBinaryNames.join(', ')}`);
+			for (const msg of errorMessages) {
+				logger.warn(msg);
+			}
 			return undefined;
 		}
 
