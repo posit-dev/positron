@@ -8,8 +8,7 @@ import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
 import { processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
-import { TokenUsage } from '../../tokens';
-import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
+import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tokens';
 import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
@@ -350,9 +349,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			recordRequestTokenUsage(requestId, this.providerId, tokens);
 		}
 
-		if (this._context) {
-			recordTokenUsage(this._context, this.providerId, tokens);
-		}
+		recordTokenUsage(this.providerId, tokens);
 
 		this.logger.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
 	}

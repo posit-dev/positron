@@ -10,7 +10,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration } from '../../config';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
-import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
+import { log } from '../../extension.js';
+import { recordRequestTokenUsage, recordTokenUsage } from '../../tokens.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
 import { ModelProvider } from '../base/modelProvider.js';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
@@ -416,9 +417,9 @@ export class PositModelProvider extends ModelProvider {
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;

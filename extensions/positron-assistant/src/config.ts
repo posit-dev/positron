@@ -8,7 +8,8 @@ import { randomUUID } from 'crypto';
 import { getModelProviders } from './providers';
 import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 import { completionModels } from './completion';
-import { clearTokenUsage, log } from './extension';
+import { log } from './extension';
+import { clearTokenUsage } from './tokens';
 import { disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfiguredModel } from './modelRegistration';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
@@ -389,7 +390,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 
 	disposeModels(id);
 
-	clearTokenUsage(context, targetConfig.provider);
+	clearTokenUsage(targetConfig.provider);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 

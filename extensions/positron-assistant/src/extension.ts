@@ -16,9 +16,8 @@ import { registerCopilotService } from './copilot.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { generateNotebookSuggestions, type NotebookSuggestionsResult } from './notebookSuggestions.js';
-import { TokenUsage, TokenTracker } from './tokens.js';
+import { initializeTokenTracking } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
-import { AnthropicModelProvider } from './providers/anthropic/anthropicProvider.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
@@ -32,7 +31,6 @@ import { disposeModels, registerModels } from './modelRegistration';
 // (Authentication provider is registered via registerCopilotAuthProvider)
 
 let assistantEnabled = false;
-let tokenTracker: TokenTracker;
 
 /**
  * An error thrown by the assistant that can optionally be displayed to the user.
@@ -244,42 +242,11 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	return participantService;
 }
 
-export function recordTokenUsage(context: vscode.ExtensionContext, provider: string, tokens: TokenUsage) {
-	tokenTracker.addTokens(provider, tokens);
-}
-
-export function clearTokenUsage(context: vscode.ExtensionContext, provider: string) {
-	tokenTracker.clearTokens(provider);
-}
-
-// Registry to store token usage by request ID for individual requests
-const requestTokenUsage = new Map<string, { tokens: TokenUsage; provider: string }>();
-
-export function recordRequestTokenUsage(requestId: string, provider: string, tokens: TokenUsage) {
-	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
-
-	enabledProviders.push(AnthropicModelProvider.source.provider.id); // ensure anthropicId is always included
-
-	if (!enabledProviders.includes(provider)) {
-		return; // Skip if token counting is disabled for this provider
-	}
-
-	requestTokenUsage.set(requestId, { provider, tokens });
-	// Clean up old entries to prevent memory leaks
-	setTimeout(() => {
-		requestTokenUsage.delete(requestId);
-	}, 30000); // Clean up after 30 seconds
-}
-
-export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; provider: string } | undefined {
-	return requestTokenUsage.get(requestId);
-}
-
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
-	tokenTracker = new TokenTracker(context);
+	initializeTokenTracking(context);
 
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');

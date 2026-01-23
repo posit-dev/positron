@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, DEFAULT_MODEL_CAPABILITIES } from '../../constants';
-import { recordTokenUsage, recordRequestTokenUsage } from '../../extension';
+import { recordTokenUsage, recordRequestTokenUsage } from '../../tokens';
 import { toAIMessage } from '../../utils';
 import { ModelProvider } from '../base/modelProvider';
 import { markDefaultModel } from '../../modelResolutionHelpers';
@@ -105,7 +105,7 @@ export class EchoModelProvider extends ModelProvider {
 			const inputTokens = await this.provideTokenCount(model, inputText, token);
 			const outputTokens = await this.provideTokenCount(model, response, token);
 			tokenUsage = { inputTokens, outputTokens, cachedTokens: 0 };
-			recordTokenUsage(this._context, this.providerId, tokenUsage);
+			recordTokenUsage(this.providerId, tokenUsage);
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {

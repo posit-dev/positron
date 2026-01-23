@@ -11,8 +11,8 @@ import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from '../../utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants.js';
-import { recordTokenUsage, recordRequestTokenUsage, log } from '../../extension.js';
-import { TokenUsage } from '../../tokens.js';
+import { log } from '../../extension.js';
+import { TokenUsage, recordTokenUsage, recordRequestTokenUsage } from '../../tokens.js';
 import { getAllModelDefinitions } from '../../modelDefinitions.js';
 import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers.js';
 import { LanguageModelDataPartMimeType } from '../../types.js';
@@ -302,9 +302,9 @@ export class AnthropicModelProvider extends ModelProvider implements positron.ai
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
