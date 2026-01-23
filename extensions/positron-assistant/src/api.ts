@@ -379,7 +379,7 @@ export function getEnabledTools(
 
 		// Special filtering for Copilot tools in Ask mode.
 		if (copilotTool && isAskMode && !tool.tags.includes('vscode_codesearch')) {
-			// In Positron Ask mode with a non-Copilot model, only include
+			// In Positron Ask mode, only include
 			// Copilot tools that are tagged with 'vscode_codesearch' to allow
 			// use of code search functionality but *not* general Copilot tools.
 
