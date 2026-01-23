@@ -7,6 +7,9 @@ import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IJSONSchema, IJSONSchemaMap } from '../../../../base/common/jsonSchema.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
+// --- Start Positron ---
+import { URI } from '../../../../base/common/uri.js';
+// --- End Positron ---
 import Severity from '../../../../base/common/severity.js';
 import * as strings from '../../../../base/common/strings.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -347,6 +350,23 @@ export class AdapterManager extends Disposable implements IAdapterManager {
 			.filter(d => d.enabled && d.interestedInLanguage(languageId));
 		// Return true if at least one interested debugger supports UI launch
 		return interestedDebuggers.some(d => d.supportsUiLaunch !== false);
+	}
+
+	shouldSendBreakpointsOnAllSaves(languageId: string): boolean {
+		const interestedDebuggers = this.debuggers
+			.filter(d => d.enabled && d.interestedInLanguage(languageId));
+		// Return true if at least one interested debugger wants breakpoints on all saves
+		return interestedDebuggers.some(d => d.sendBreakpointsOnAllSaves === true);
+	}
+
+	shouldVerifyBreakpointsInDirtyDocuments(uri: URI): boolean {
+		const languageId = this.languageService.guessLanguageIdByFilepathOrFirstLine(uri);
+		if (!languageId) {
+			return false;
+		}
+		const interestedDebuggers = this.debuggers
+			.filter(d => d.enabled && d.interestedInLanguage(languageId));
+		return interestedDebuggers.some(d => d.verifyBreakpointsInDirtyDocuments === true);
 	}
 	// --- End Positron ---
 

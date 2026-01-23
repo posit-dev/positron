@@ -20,3 +20,9 @@ export const POSITRON_EXECUTE_CELL_COMMAND_ID = 'positronNotebook.cell.execute';
 export function usingPositronNotebooks(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
 }
+
+// Group IDs used to visually differentiate actions in the cell action bar
+// Primary actions are shown more prominently than others
+export enum PositronNotebookCellActionBarLeftGroup {
+	Primary = '0_primary',
+}

@@ -1371,6 +1371,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			stopDebugging(session?: vscode.DebugSession) {
 				return extHostDebugService.stopDebugging(session);
 			},
+			// --- Start Positron ---
+			setSuppressDebugToolbar(session: vscode.DebugSession, suppress: boolean) {
+				return extHostDebugService.setSuppressDebugToolbar(session, suppress);
+			},
+			// --- End Positron ---
 			addBreakpoints(breakpoints: readonly vscode.Breakpoint[]) {
 				return extHostDebugService.addBreakpoints(breakpoints);
 			},

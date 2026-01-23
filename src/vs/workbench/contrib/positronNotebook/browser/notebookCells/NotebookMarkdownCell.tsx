@@ -35,20 +35,18 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 			</div>
 			{!editorShown
 				? (
-					<div className='cell-contents positron-notebook-cell-outputs'>
-						<div
-							className='positron-notebook-markdown-rendered'
-							onDoubleClick={() => cell.toggleEditor()}
-						>
-							{
-								markdownString.length > 0
-									? <Markdown content={markdownString} />
-									: <div className='empty-output-msg'>
-										{emptyMarkdownCell}
-										{doubleClickToEdit}
-									</div>
-							}
-						</div>
+					<div
+						className='cell-contents positron-notebook-cell-outputs'
+						onDoubleClick={() => cell.toggleEditor()}
+					>
+						{
+							markdownString.length > 0
+								? <Markdown content={markdownString} />
+								: <div className='empty-output-msg'>
+									{emptyMarkdownCell}
+									{doubleClickToEdit}
+								</div>
+						}
 					</div>
 				)
 				: null

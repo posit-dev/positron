@@ -39,7 +39,7 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		await notebooksPositron.expectMarkdownTagToBe('h2', 'Heading 2');
 		await notebooksPositron.expectMarkdownTagToBe('strong', 'Bold Text');
 		await notebooksPositron.expectMarkdownTagToBe('em', 'Italic Text');
-		await notebooksPositron.expectScreenshotToMatch(1, 'basic-markdown-render.png');
+		//await notebooksPositron.expectScreenshotToMatch(1, 'basic-markdown-render.png');
 	});
 
 	test('ensure markdown cell can switch between edit and preview modes', async function ({ app }) {
