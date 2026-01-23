@@ -48,6 +48,8 @@ if (!archsToBundle.every((a) => a === 'x64' || a === 'arm64' || a === 'universal
 
 /**
  * Get the pip platform tag for a given architecture.
+ * Only used for macOS and Windows where we do cross-architecture bundling.
+ * Linux uses pip's auto-detection instead.
  */
 function getPlatformTag(arch) {
     if (platform === 'darwin') {
@@ -58,12 +60,7 @@ function getPlatformTag(arch) {
     if (platform === 'win32') {
         return arch === 'arm64' ? 'win_arm64' : 'win_amd64';
     }
-    if (platform === 'linux') {
-        // Use manylinux_2_28 to support newer packages like psutil 7.x
-        // This requires glibc 2.28+, available in Ubuntu 20.04+ and RHEL 8+
-        return arch === 'arm64' ? 'manylinux_2_28_aarch64' : 'manylinux_2_28_x86_64';
-    }
-    throw new Error(`Unsupported platform: ${platform}`);
+    throw new Error(`Unsupported platform for cross-architecture bundling: ${platform}`);
 }
 // --- End Positron ---
 
@@ -382,11 +379,11 @@ async function bundleIPykernel() {
                 './python_files/ipykernel_requirements/cpx-requirements.txt',
             ]);
         }
-    } else {
-        // Bundle architecture-specific libraries for each required architecture.
-        // On Windows, this bundles both x64 and arm64. On Linux, only the current arch.
+    } else if (platform === 'win32') {
+        // Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation.
+        // Must specify --platform for cross-architecture installation.
         for (const arch of archsToBundle) {
-            fancyLog(`Bundling ipykernel for architecture: ${ansiColors.cyan(arch)}`);
+            fancyLog(`Bundling ipykernel for Windows architecture: ${ansiColors.cyan(arch)}`);
 
             // CPython 3 requirements (specific to platform and architecture).
             await pipInstall([
@@ -426,6 +423,46 @@ async function bundleIPykernel() {
                     './python_files/ipykernel_requirements/cpx-requirements.txt',
                 ]);
             }
+        }
+    } else {
+        // Linux: Bundle only for the current architecture. No --platform flag needed;
+        // pip will auto-detect the correct platform for the running system.
+        const arch = systemArch;
+        fancyLog(`Bundling ipykernel for Linux architecture: ${ansiColors.cyan(arch)}`);
+
+        // CPython 3 requirements (specific to architecture).
+        await pipInstall([
+            '--target',
+            `./python_files/lib/ipykernel/${arch}/cp3`,
+            '--implementation',
+            'cp',
+            '--python-version',
+            minimumPythonVersion,
+            '--abi',
+            'abi3',
+            '-r',
+            './python_files/ipykernel_requirements/cp3-requirements.txt',
+        ]);
+
+        // Remove tornado test folder immediately after installing CPython 3 requirements
+        await removeTornadoTestFolder(arch);
+
+        // CPython 3.x requirements (specific to architecture and Python version).
+        for (const pythonVersion of pythonVersions) {
+            const shortVersion = pythonVersion.replace('.', '');
+            const abi = `cp${shortVersion}`;
+            await pipInstall([
+                '--target',
+                `./python_files/lib/ipykernel/${arch}/${abi}`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                pythonVersion,
+                '--abi',
+                abi,
+                '-r',
+                './python_files/ipykernel_requirements/cpx-requirements.txt',
+            ]);
         }
     }
 }
