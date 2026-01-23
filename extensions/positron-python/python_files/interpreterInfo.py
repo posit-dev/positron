@@ -5,7 +5,7 @@ import json
 import sys
 
 # --- Start Positron ---
-import platform
+import platform  # noqa: I001
 # --- End Positron ---
 
 obj = {}
