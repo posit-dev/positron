@@ -13,7 +13,7 @@ import { getLog } from './logger.js';
 /**
  * Shell configuration for executing module commands
  */
-interface ShellConfig {
+export interface ShellConfig {
 	/** The shell executable name (e.g., 'bash', 'zsh') */
 	name: string;
 	/** The full path to the shell */
@@ -30,7 +30,7 @@ interface ShellConfig {
  * Get the user's configured shell and its configuration.
  * Falls back to bash if the shell cannot be determined or is unsupported.
  */
-function getShellConfig(): ShellConfig {
+export function getShellConfig(): ShellConfig {
 	const shellPath = process.env.SHELL || '/bin/bash';
 	const shellName = path.basename(shellPath);
 
@@ -72,7 +72,7 @@ function getShellConfig(): ShellConfig {
 /**
  * Build a shell command string for executing in a login shell.
  */
-function buildShellCommand(shell: ShellConfig, command: string): string {
+export function buildShellCommand(shell: ShellConfig, command: string): string {
 	// Quote the command appropriately for the shell
 	const quotedCommand = command.replace(/'/g, "'\\''");
 	return `${shell.path} ${shell.loginArgs.join(' ')} '${quotedCommand}'`;

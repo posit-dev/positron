@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { execSync } from 'child_process';
 import { ModuleSystemInfo } from './types.js';
 import { getLog } from './logger.js';
+import { getShellConfig, buildShellCommand } from './module-system.js';
 
 /**
  * List available modules from the module system.
@@ -35,10 +36,12 @@ export async function listAvailableModules(
 		: 'module avail -t 2>&1';
 
 	// Execute in login shell with module system initialized
+	const shell = getShellConfig();
 	const initScript = moduleSystemInfo.initPath;
-	const fullCommand = initScript
-		? `bash -l -c 'source "${initScript}" && ${command}'`
-		: `bash -l -c '${command}'`;
+	const fullCommandStr = initScript
+		? `source "${initScript}" ${shell.chainOperator} ${command}`
+		: command;
+	const fullCommand = buildShellCommand(shell, fullCommandStr);
 
 	try {
 		logger.debug(`Listing modules with: ${fullCommand}`);
