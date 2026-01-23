@@ -24,28 +24,28 @@ import { Architecture } from '../common/utils/platform';
  * @param interpreterPath The interpreter path (for logging purposes).
  */
 function getArchString(architecture: Architecture | undefined, interpreterPath: string): string {
-	if (architecture === Architecture.arm64) {
-		return 'arm64';
-	}
-	if (architecture === Architecture.x64) {
-		return 'x64';
-	}
-	// Fall back to system architecture if interpreter architecture is unknown.
-	// This can happen if we haven't yet queried the interpreter for its info.
-	const systemArch = os.arch();
-	traceWarn(
-		`Unknown interpreter architecture for ${interpreterPath}, falling back to system architecture: ${systemArch}`,
-	);
-	return systemArch;
+    if (architecture === Architecture.arm64) {
+        return 'arm64';
+    }
+    if (architecture === Architecture.x64) {
+        return 'x64';
+    }
+    // Fall back to system architecture if interpreter architecture is unknown.
+    // This can happen if we haven't yet queried the interpreter for its info.
+    const systemArch = os.arch();
+    traceWarn(
+        `Unknown interpreter architecture for ${interpreterPath}, falling back to system architecture: ${systemArch}`,
+    );
+    return systemArch;
 }
 
 /** Ipykernel bundle information. */
 export interface IpykernelBundle {
-	/** If bundling is disabled, the reason for it. */
-	disabledReason?: string;
+    /** If bundling is disabled, the reason for it. */
+    disabledReason?: string;
 
-	/** Paths to be appended to the PYTHONPATH environment variable in this order, if bundling is enabled. */
-	paths?: string[];
+    /** Paths to be appended to the PYTHONPATH environment variable in this order, if bundling is enabled. */
+    paths?: string[];
 }
 
 /**
@@ -56,74 +56,74 @@ export interface IpykernelBundle {
  * @param resource The resource to scope setting to.
  */
 export async function getIpykernelBundle(
-	interpreter: PythonEnvironment,
-	serviceContainer: IServiceContainer,
-	resource?: vscode.Uri,
+    interpreter: PythonEnvironment,
+    serviceContainer: IServiceContainer,
+    resource?: vscode.Uri,
 ): Promise<IpykernelBundle> {
-	// Get the required services.
-	const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-	const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+    // Get the required services.
+    const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+    const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
 
-	// Check if bundling ipykernel is enabled for the resource.
-	const useBundledIpykernel = workspaceService
-		.getConfiguration('python', resource)
-		.get<boolean>('useBundledIpykernel', true);
-	if (!useBundledIpykernel) {
-		return { disabledReason: 'useBundledIpykernel setting is disabled' };
-	}
+    // Check if bundling ipykernel is enabled for the resource.
+    const useBundledIpykernel = workspaceService
+        .getConfiguration('python', resource)
+        .get<boolean>('useBundledIpykernel', true);
+    if (!useBundledIpykernel) {
+        return { disabledReason: 'useBundledIpykernel setting is disabled' };
+    }
 
-	// Check if ipykernel is bundled for the interpreter version.
-	// (defined in scripts/pip-compile-ipykernel.py).
-	if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(interpreter.version?.minor)) {
-		return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
-	}
+    // Check if ipykernel is bundled for the interpreter version.
+    // (defined in scripts/pip-compile-ipykernel.py).
+    if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(interpreter.version?.minor)) {
+        return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
+    }
 
-	// Get fresh interpreter information if implementation or architecture is not available.
-	// This is important because cached interpreter metadata may have stale architecture info
-	// (e.g., from before platform.machine() detection was added to interpreterInfo.py).
-	let { implementation, architecture } = interpreter;
-	if (implementation === undefined || architecture === undefined || architecture === Architecture.Unknown) {
-		const pythonExecutionService = await pythonExecutionFactory.create({ pythonPath: interpreter.path });
-		const interpreterInfo = await pythonExecutionService.getInterpreterInformation();
-		if (interpreterInfo) {
-			implementation = interpreterInfo.implementation;
-			architecture = interpreterInfo.architecture;
-		}
-	}
+    // Get fresh interpreter information if implementation or architecture is not available.
+    // This is important because cached interpreter metadata may have stale architecture info
+    // (e.g., from before platform.machine() detection was added to interpreterInfo.py).
+    let { implementation, architecture } = interpreter;
+    if (implementation === undefined || architecture === undefined || architecture === Architecture.Unknown) {
+        const pythonExecutionService = await pythonExecutionFactory.create({ pythonPath: interpreter.path });
+        const interpreterInfo = await pythonExecutionService.getInterpreterInformation();
+        if (interpreterInfo) {
+            implementation = interpreterInfo.implementation;
+            architecture = interpreterInfo.architecture;
+        }
+    }
 
-	// Check if ipykernel is bundled for the interpreter implementation.
-	// (defined in scripts/pip-compile-ipykernel.py).
-	if (implementation !== 'cpython') {
-		return { disabledReason: `unsupported interpreter implementation: ${implementation}` };
-	}
+    // Check if ipykernel is bundled for the interpreter implementation.
+    // (defined in scripts/pip-compile-ipykernel.py).
+    if (implementation !== 'cpython') {
+        return { disabledReason: `unsupported interpreter implementation: ${implementation}` };
+    }
 
-	// Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
-	// Use the interpreter's architecture, not the system architecture, to select the correct bundle.
-	const arch = getArchString(architecture, interpreter.path);
-	const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
+    // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
+    // Use the interpreter's architecture, not the system architecture, to select the correct bundle.
+    const arch = getArchString(architecture, interpreter.path);
+    const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
 
-	// On macOS, packages have different wheel availability:
-	// - cpx packages (pyzmq): Only have universal2 wheels, stored in universal2/cpXX
-	// - cp3 packages (psutil, tornado): Only have arch-specific wheels, stored in {arch}/cp3
-	// On other platforms, all native packages are architecture-specific.
-	const cpxPath =
-		os.platform() === 'darwin'
-			? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', cpxSpecifier)
-			: path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, cpxSpecifier);
+    // On macOS, packages have different wheel availability:
+    // - cpx packages (pyzmq): Only have universal2 wheels, stored in universal2/cpXX
+    // - cp3 packages (psutil, tornado): Only have arch-specific wheels, stored in {arch}/cp3
+    // On other platforms, all native packages are architecture-specific.
+    const cpxPath =
+        os.platform() === 'darwin'
+            ? path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'universal2', cpxSpecifier)
+            : path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, cpxSpecifier);
 
-	const paths = [
-		cpxPath,
-		path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
-		path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
-	];
+    const paths = [
+        cpxPath,
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
+    ];
 
-	for (const path of paths) {
-		if (!(await fs.pathExists(path))) {
-			// This shouldn't happen. Did something go wrong during `npm install`?
-			traceWarn(`ipykernel bundle path does not exist: ${path}`);
-			return { disabledReason: `bundle path does not exist: ${path}` };
-		}
-	}
+    for (const path of paths) {
+        if (!(await fs.pathExists(path))) {
+            // This shouldn't happen. Did something go wrong during `npm install`?
+            traceWarn(`ipykernel bundle path does not exist: ${path}`);
+            return { disabledReason: `bundle path does not exist: ${path}` };
+        }
+    }
 
-	return { paths };
+    return { paths };
 }
