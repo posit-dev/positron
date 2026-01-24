@@ -384,9 +384,21 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         if (platform === 'darwin') {
             console.log(`Installing Positron to ${installDir}`);
 
+            // Verify the DMG was downloaded successfully before attempting to mount
+            const fileStats = await fs.stat(downloadPath);
+            console.log(`Downloaded DMG file size: ${fileStats.size} bytes`);
+            if (fileStats.size < 1000000) {
+                // DMG files should be at least 1MB - if smaller, likely corrupted or incomplete
+                throw new Error(
+                    `Downloaded DMG file appears to be corrupted or incomplete. ` +
+                        `Expected at least 1MB, got ${fileStats.size} bytes.`,
+                );
+            }
+
             // Mount the dmg with retry logic - hdiutil can be flaky on CI runners
             // due to disk arbitration timing issues or resource contention.
-            spawnSyncCommandWithRetry('hdiutil', ['attach', '-quiet', '-nobrowse', downloadPath]);
+            // Note: We intentionally don't use -quiet so we can see error output.
+            spawnSyncCommandWithRetry('hdiutil', ['attach', '-nobrowse', '-noverify', downloadPath]);
 
             const volumeMount = path.join('/Volumes', path.basename(fileName, '.dmg'));
             try {
@@ -399,7 +411,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             } finally {
                 // Unmount the dmg with retry logic - detach can also fail if the
                 // volume is still in use or being indexed.
-                spawnSyncCommandWithRetry('hdiutil', ['detach', '-quiet', '-force', volumeMount]);
+                spawnSyncCommandWithRetry('hdiutil', ['detach', '-force', volumeMount]);
             }
 
             // Mark as complete for subsequent runs.
