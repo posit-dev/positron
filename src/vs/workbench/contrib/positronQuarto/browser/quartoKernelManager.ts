@@ -25,7 +25,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ITextModel } from '../../../../editor/common/model.js';
 import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 
 export const IQuartoKernelManager = createDecorator<IQuartoKernelManager>('quartoKernelManager');
 
@@ -142,7 +142,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Clean up sessions when documents are closed
 		this._register(this._editorService.onDidCloseEditor(e => {
 			const uri = e.editor.resource;
-			if (uri && uri.path.endsWith('.qmd')) {
+			if (uri && isQuartoOrRmdFile(uri.path)) {
 				// Delay cleanup slightly to handle editor tabs being moved
 				setTimeout(() => {
 					// Check if the document is still open in any editor
@@ -169,7 +169,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// This allows us to adopt sessions that were restored by the runtime session service
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 			const notebookUri = session.metadata.notebookUri;
-			if (notebookUri && notebookUri.path.endsWith('.qmd')) {
+			if (notebookUri && isQuartoOrRmdFile(notebookUri.path)) {
 				// Check if we're already tracking this session
 				const existing = this._documentKernels.get(notebookUri);
 				if (!existing || !existing.session) {

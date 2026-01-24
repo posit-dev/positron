@@ -25,6 +25,7 @@ import {
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
 	QUARTO_KERNEL_RUNNING,
+	isQuartoOrRmdFile,
 } from '../common/positronQuartoConfig.js';
 import { QuartoKernelState } from './quartoKernelManager.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
@@ -124,10 +125,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	}
 
 	private _isQuartoFile(path: string | undefined): boolean {
-		if (!path) {
-			return false;
-		}
-		return path.endsWith('.qmd');
+		return isQuartoOrRmdFile(path);
 	}
 }
 

@@ -14,7 +14,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { QuartoOutputViewZone } from './quartoOutputViewZone.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 
@@ -262,8 +262,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	private _isQuartoDocument(): boolean {
-		const path = this._documentUri?.path;
-		return path !== undefined && path.endsWith('.qmd');
+		return isQuartoOrRmdFile(this._documentUri?.path);
 	}
 
 	/**

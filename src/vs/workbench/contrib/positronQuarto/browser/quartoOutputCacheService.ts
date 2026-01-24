@@ -21,6 +21,7 @@ import {
 	ICellOutputItem,
 	DEFAULT_CACHE_CONFIG,
 } from '../common/quartoExecutionTypes.js';
+import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 
 // Cache directory name within global storage
 const CACHE_DIR_NAME = 'quarto-inline-outputs';
@@ -153,8 +154,8 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				continue;
 			}
 
-			// Only handle .qmd files
-			if (!source.path.endsWith('.qmd') && !target.path.endsWith('.qmd')) {
+			// Only handle Quarto/RMarkdown files
+			if (!isQuartoOrRmdFile(source.path) && !isQuartoOrRmdFile(target.path)) {
 				continue;
 			}
 

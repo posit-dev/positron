@@ -15,6 +15,7 @@ import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
+import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 import { RuntimeStatus, RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
@@ -64,7 +65,7 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 	// State
 	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() => {
 		const uri = editorService.activeEditor?.resource;
-		return uri?.path.endsWith('.qmd') ? uri : undefined;
+		return isQuartoOrRmdFile(uri?.path) ? uri : undefined;
 	});
 
 	const [kernelState, setKernelState] = React.useState<QuartoKernelState>(() => {
@@ -88,10 +89,10 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 		// Listen for active editor changes
 		disposables.add(editorService.onDidActiveEditorChange(() => {
 			const uri = editorService.activeEditor?.resource;
-			if (uri?.path.endsWith('.qmd')) {
+			if (isQuartoOrRmdFile(uri?.path)) {
 				setDocumentUri(uri);
-				setKernelState(quartoKernelManager.getKernelState(uri));
-				const session = quartoKernelManager.getSessionForDocument(uri);
+				setKernelState(quartoKernelManager.getKernelState(uri!));
+				const session = quartoKernelManager.getSessionForDocument(uri!);
 				setRuntimeName(session?.runtimeMetadata.runtimeName);
 			} else {
 				setDocumentUri(undefined);

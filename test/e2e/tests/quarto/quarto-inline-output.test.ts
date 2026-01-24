@@ -374,6 +374,68 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 	});
 
+	test('R - Verify inline output appears after running a code cell in Rmd file', async function ({ app, openFile, r }) {
+		const page = app.code.driver.page;
+
+		// Open an R Markdown document with R code
+		await openFile(join('workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to recognize this as a Quarto/Rmd document
+		// The kernel status widget appears in the editor action bar when the feature is enabled
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Use "Go to Line" command to position cursor in the R code cell
+		// The basicRmd.rmd file has a "basicconsole" chunk at lines 63-68:
+		// Line 63: ```{r basicconsole}
+		// Line 64: x <- 1:10
+		// Line 65: y <- round(rnorm(10, x, 1), 2)
+		// Line 66: df <- data.frame(x, y)
+		// Line 67: df
+		// Line 68: ```
+		// This chunk outputs a data frame, so it will produce visible output.
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('66');
+		await page.keyboard.press('Enter');
+
+		// Wait for cursor to be positioned
+		await page.waitForTimeout(500);
+
+		// Run the current cell using the command
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll/retry since the output takes time to appear after kernel execution
+		await expect(async () => {
+			// Scroll editor to show the area after the cell where output appears
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('75');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Now check if the output element is visible
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output container has content
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// Verify there is at least one output item
+		const outputItem = inlineOutput.locator('.quarto-output-item');
+		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
+	});
+
 	test('Python - Verify kernel status persists after window reload', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 		const filePath = join('workspaces', 'quarto_python', 'report.qmd');

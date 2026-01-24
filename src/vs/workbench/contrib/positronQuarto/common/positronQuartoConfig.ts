@@ -79,3 +79,17 @@ configurationRegistry.registerConfiguration({
 export function usingQuartoInlineOutput(configurationService: IConfigurationService): boolean {
 	return configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
 }
+
+/**
+ * Helper function to check if a file path is a Quarto or RMarkdown document.
+ * Supports .qmd (Quarto), .Rmd and .rmd (R Markdown) extensions.
+ * @param path The file path to check
+ * @returns true if the path is a Quarto or RMarkdown document
+ */
+export function isQuartoOrRmdFile(path: string | undefined): boolean {
+	if (!path) {
+		return false;
+	}
+	const lowerPath = path.toLowerCase();
+	return lowerPath.endsWith('.qmd') || lowerPath.endsWith('.rmd');
+}
