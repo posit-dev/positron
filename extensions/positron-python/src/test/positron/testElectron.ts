@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -64,9 +64,62 @@ function spawnSyncCommand(command: string, args?: string[]): string {
         throw result.error;
     }
     if (result.status !== 0) {
-        throw new Error(`Command failed: ${command}, stderr: ${result.stderr.toString()}`);
+        const stderr = result.stderr?.toString() || '(no stderr)';
+        const stdout = result.stdout?.toString() || '(no stdout)';
+        throw new Error(
+            `Command failed: ${command} ${args?.join(' ') || ''}\n` +
+                `Exit code: ${result.status}\n` +
+                `Signal: ${result.signal || 'none'}\n` +
+                `Stderr: ${stderr}\n` +
+                `Stdout: ${stdout}`,
+        );
     }
     return result.stdout.toString();
+}
+
+/**
+ * Helper to execute a command with retry logic for flaky operations.
+ * Uses exponential backoff between retries.
+ *
+ * @param command The command to execute.
+ * @param args The arguments to pass to the command.
+ * @param maxRetries Maximum number of retry attempts (default: 3).
+ * @param baseDelayMs Base delay between retries in milliseconds (default: 1000).
+ * @returns The stdout of the command.
+ */
+function spawnSyncCommandWithRetry(
+    command: string,
+    args?: string[],
+    maxRetries: number = 3,
+    baseDelayMs: number = 1000,
+): string {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return spawnSyncCommand(command, args);
+        } catch (error) {
+            lastError = error as Error;
+            if (attempt < maxRetries) {
+                const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+                console.warn(
+                    `Command '${command} ${args?.join(' ') || ''}' failed (attempt ${attempt}/${maxRetries}). ` +
+                        `Retrying in ${delayMs}ms...\n` +
+                        `Error: ${lastError.message}`,
+                );
+                // Synchronous sleep
+                const waitUntil = Date.now() + delayMs;
+                while (Date.now() < waitUntil) {
+                    // Busy wait - not ideal but we need synchronous behavior here
+                }
+            }
+        }
+    }
+
+    throw new Error(
+        `Command '${command} ${args?.join(' ') || ''}' failed after ${maxRetries} attempts.\n` +
+            `Last error: ${lastError?.message}`,
+    );
 }
 
 /**
@@ -144,8 +197,8 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     const headers: Record<string, string> = {
-        Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
-        'User-Agent': USER_AGENT, // eslint-disable-line
+        Accept: 'application/vnd.github.v3.raw',
+        'User-Agent': USER_AGENT,
     };
     // If we have a githubPat, set it for better rate limiting.
     if (githubPat) {
@@ -331,8 +384,9 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         if (platform === 'darwin') {
             console.log(`Installing Positron to ${installDir}`);
 
-            // Mount the dmg.
-            spawnSyncCommand('hdiutil', ['attach', '-quiet', downloadPath]);
+            // Mount the dmg with retry logic - hdiutil can be flaky on CI runners
+            // due to disk arbitration timing issues or resource contention.
+            spawnSyncCommandWithRetry('hdiutil', ['attach', '-quiet', '-nobrowse', downloadPath]);
 
             const volumeMount = path.join('/Volumes', path.basename(fileName, '.dmg'));
             try {
@@ -343,8 +397,9 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
                 rmrf.sync(targetPath);
                 await fs.copy(appPath, targetPath);
             } finally {
-                // Unmount the dmg.
-                spawnSyncCommand('hdiutil', ['detach', '-quiet', volumeMount]);
+                // Unmount the dmg with retry logic - detach can also fail if the
+                // volume is still in use or being indexed.
+                spawnSyncCommandWithRetry('hdiutil', ['detach', '-quiet', '-force', volumeMount]);
             }
 
             // Mark as complete for subsequent runs.
