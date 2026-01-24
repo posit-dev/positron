@@ -14,6 +14,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeOutputKind, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeMessageType } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { EditorLayoutInfo, EditorOption } from '../../../../editor/common/config/editorOptions.js';
@@ -783,6 +784,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			webview.webview.claim(this, editorWindow, undefined);
 			webview.webview.layoutWebviewOverElement(webviewContainer);
 
+			// Listen for webview messages to get the actual content height
+			// The webview sends webviewMetrics messages with bodyScrollHeight when content loads/resizes
+			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
+				if (isHTMLOutputWebviewMessage(message) && webviewContainer) {
+					// Set the container height to match the webview content height
+					// Cap at a reasonable maximum to prevent extremely tall outputs
+					const maxHeight = 800;
+					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
+					webviewContainer.style.height = `${boundedHeight}px`;
+					// Update the view zone height and re-layout the webview
+					this._updateHeight();
+					webview.webview.layoutWebviewOverElement(webviewContainer);
+				}
+			}));
+
 			// Update height when webview renders
 			this._webviewDisposables.add(webview.onDidRender(() => {
 				this._updateHeight();
@@ -863,6 +879,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			const editorWindow = dom.getWindow(this.domNode);
 			webview.webview.claim(this, editorWindow, undefined);
 			webview.webview.layoutWebviewOverElement(container);
+
+			// Listen for webview messages to get the actual content height
+			this._webviewDisposables.add(webview.webview.onMessage(({ message }) => {
+				if (isHTMLOutputWebviewMessage(message) && container) {
+					const maxHeight = 800;
+					const boundedHeight = Math.min(message.bodyScrollHeight, maxHeight);
+					container.style.height = `${boundedHeight}px`;
+					this._updateHeight();
+					webview.webview.layoutWebviewOverElement(container);
+				}
+			}));
 
 			// Update height when webview renders
 			this._webviewDisposables.add(webview.onDidRender(() => {
