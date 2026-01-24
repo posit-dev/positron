@@ -78,51 +78,6 @@ function spawnSyncCommand(command: string, args?: string[]): string {
 }
 
 /**
- * Helper to execute a command with retry logic for flaky operations.
- * Uses exponential backoff between retries.
- *
- * @param command The command to execute.
- * @param args The arguments to pass to the command.
- * @param maxRetries Maximum number of retry attempts (default: 3).
- * @param baseDelayMs Base delay between retries in milliseconds (default: 1000).
- * @returns The stdout of the command.
- */
-function spawnSyncCommandWithRetry(
-    command: string,
-    args?: string[],
-    maxRetries: number = 3,
-    baseDelayMs: number = 1000,
-): string {
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            return spawnSyncCommand(command, args);
-        } catch (error) {
-            lastError = error as Error;
-            if (attempt < maxRetries) {
-                const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
-                console.warn(
-                    `Command '${command} ${args?.join(' ') || ''}' failed (attempt ${attempt}/${maxRetries}). ` +
-                        `Retrying in ${delayMs}ms...\n` +
-                        `Error: ${lastError.message}`,
-                );
-                // Synchronous sleep
-                const waitUntil = Date.now() + delayMs;
-                while (Date.now() < waitUntil) {
-                    // Busy wait - not ideal but we need synchronous behavior here
-                }
-            }
-        }
-    }
-
-    throw new Error(
-        `Command '${command} ${args?.join(' ') || ''}' failed after ${maxRetries} attempts.\n` +
-            `Last error: ${lastError?.message}`,
-    );
-}
-
-/**
  * Download and unzip the latest Positron release to the vscode test cache directory.
  * Roughly equivalent to `downloadAndUnzipVSCode` from `@vscode/test-electron`.
  */
@@ -267,6 +222,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     // Get releases from the Positron CDN instead of GitHub releases
+    // Note: GitHub's macos-latest runners use Apple Silicon (arm64)
     const cdnResponse = await httpsGetAsync({
         headers: {
             'User-Agent': USER_AGENT,
@@ -274,7 +230,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         method: 'GET',
         protocol: 'https:',
         hostname: 'cdn.posit.co',
-        path: '/positron/dailies/mac/universal/releases.json',
+        path: '/positron/dailies/mac/arm64/releases.json',
     });
 
     let cdnResponseBody = '';
@@ -304,7 +260,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let suffix: string;
     switch (platform) {
         case 'darwin':
-            suffix = '.dmg';
+            suffix = '.zip';
             break;
         default: {
             throw new Error(`Unsupported platform: ${platform}.`);
@@ -339,8 +295,9 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let url: URL | undefined;
     switch (platform) {
         case 'darwin':
-            fileName = `Positron-${version}-universal${suffix}`;
-            url = new URL(`https://cdn.posit.co/positron/dailies/mac/universal/${fileName}`);
+            // arm64 builds use the format: Positron-darwin-{version}-arm64.zip
+            fileName = `Positron-darwin-${version}-arm64${suffix}`;
+            url = new URL(`https://cdn.posit.co/positron/dailies/mac/arm64/${fileName}`);
             break;
         default:
             throw new Error(`Unsupported platform: ${platform}`);
@@ -384,35 +341,23 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         if (platform === 'darwin') {
             console.log(`Installing Positron to ${installDir}`);
 
-            // Verify the DMG was downloaded successfully before attempting to mount
+            // Verify the ZIP was downloaded successfully before attempting to extract
             const fileStats = await fs.stat(downloadPath);
-            console.log(`Downloaded DMG file size: ${fileStats.size} bytes`);
+            console.log(`Downloaded ZIP file size: ${fileStats.size} bytes`);
             if (fileStats.size < 1000000) {
-                // DMG files should be at least 1MB - if smaller, likely corrupted or incomplete
+                // ZIP files should be at least 1MB - if smaller, likely corrupted or incomplete
                 throw new Error(
-                    `Downloaded DMG file appears to be corrupted or incomplete. ` +
+                    `Downloaded ZIP file appears to be corrupted or incomplete. ` +
                         `Expected at least 1MB, got ${fileStats.size} bytes.`,
                 );
             }
 
-            // Mount the dmg with retry logic - hdiutil can be flaky on CI runners
-            // due to disk arbitration timing issues or resource contention.
-            // Note: We intentionally don't use -quiet so we can see error output.
-            spawnSyncCommandWithRetry('hdiutil', ['attach', '-nobrowse', '-noverify', downloadPath]);
+            // Remove any existing installation
+            const targetPath = path.join(installDir, 'Positron.app');
+            rmrf.sync(targetPath);
 
-            const volumeMount = path.join('/Volumes', path.basename(fileName, '.dmg'));
-            try {
-                const appPath = path.join(volumeMount, 'Positron.app');
-                const targetPath = path.join(installDir, 'Positron.app');
-
-                // Copy the app to the install directory.
-                rmrf.sync(targetPath);
-                await fs.copy(appPath, targetPath);
-            } finally {
-                // Unmount the dmg with retry logic - detach can also fail if the
-                // volume is still in use or being indexed.
-                spawnSyncCommandWithRetry('hdiutil', ['detach', '-force', volumeMount]);
-            }
+            // Extract the ZIP file directly to the install directory
+            spawnSyncCommand('unzip', ['-q', downloadPath, '-d', installDir]);
 
             // Mark as complete for subsequent runs.
             await fs.writeFile(completeFile, version.trim(), 'utf-8');
