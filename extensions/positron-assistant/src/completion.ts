@@ -174,7 +174,7 @@ class OpenAILegacyCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!(await positron.ai.areCompletionsEnabled(document.uri))) {
 			return [];
 		}
 

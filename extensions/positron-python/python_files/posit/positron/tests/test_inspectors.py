@@ -1016,3 +1016,41 @@ def test_truncated_display_value(value, snapshot, monkeypatch) -> None:
         assert is_truncated, f"Expected value to be truncated: {value!r}, got {display_value!r}"
 
         value = [value]
+
+
+@pytest.mark.parametrize(
+    "iterator_factory",
+    [
+        pytest.param(lambda: map(int, ["1", "2", "3"]), id="map"),
+        pytest.param(lambda: filter(None, [1, 2, 3]), id="filter"),
+        pytest.param(lambda: zip([1, 2], [3, 4]), id="zip"),
+        pytest.param(lambda: (x for x in [1, 2, 3]), id="generator"),
+    ],
+)
+def test_iterators_not_consumed(iterator_factory: Callable) -> None:
+    """
+    Test that iterator objects are not consumed during inspection.
+
+    This is a regression test for https://github.com/posit-dev/positron/issues/9230
+    where Python's map() objects were incorrectly routed to MapInspector (designed
+    for Mapping types like dict), causing the iterator to be consumed.
+    """
+    iterator = iterator_factory()
+
+    # Get the inspector and call methods that are called during variable inspection
+    inspector = get_inspector(iterator)
+
+    # MapInspector should NOT be used for iterator types
+    assert type(inspector).__name__ != "MapInspector", (
+        f"Iterator {type(iterator).__name__} should not use MapInspector"
+    )
+
+    # Get display value - this should NOT consume the iterator
+    _ = inspector.get_display_value()
+
+    # The iterator should still yield its first element
+    first_element = next(iterator)
+    assert first_element is not None, (
+        f"Iterator {type(iterator).__name__} was consumed during inspection. "
+        f"Expected first element but got StopIteration."
+    )

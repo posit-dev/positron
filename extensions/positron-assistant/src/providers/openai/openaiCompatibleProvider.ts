@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { OpenAIModelProvider } from './openaiProvider';
+import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
 import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
@@ -66,5 +68,34 @@ export class OpenAICompatibleModelProvider extends OpenAIModelProvider implement
 	 */
 	override get baseUrl() {
 		return (this._config.baseUrl ?? OpenAICompatibleModelProvider.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+
+	/**
+	 * Initializes the OpenAI-compatible provider with chat wrapper.
+	 *
+	 * Creates an OpenAI provider that uses the `/v1/chat/completions` endpoint
+	 * instead of the newer `/v1/responses` endpoint. This ensures compatibility
+	 * with providers like Snowflake, OpenRouter, and custom OpenAI-compatible
+	 * deployments that only support the older chat completions API.
+	 *
+	 * The wrapper routes all model calls to the `.chat()` method, which forces
+	 * the use of the `/v1/chat/completions` endpoint.
+	 */
+	protected override initializeProvider() {
+		const baseProvider = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: createOpenAICompatibleFetch(this.providerName)
+		});
+
+		// Create a callable wrapper that routes to .chat() for the default call
+		// This ensures OpenAI-compatible providers use v1/chat/completions instead of v1/responses
+		const chatWrapper = ((modelId: string) => baseProvider.chat(modelId)) as OpenAIProvider;
+
+		// Copy over any additional properties/methods from the base provider
+		Object.assign(chatWrapper, baseProvider);
+
+		// Override the callable to always use chat
+		this.aiProvider = chatWrapper;
 	}
 }

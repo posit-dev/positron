@@ -4,40 +4,195 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { log } from './log.js';
+import type { OpenAI } from 'openai';
 
 /**
- * Creates a custom fetch function for OpenAI-compatible providers that handles:
- * 1. Request body transformations (max_tokens -> max_completion_tokens, temperature removal)
- *     - This is a stop-gap solution until we update to AI SDK v5, which addresses these issues.
- * 2. Response transformations (empty role fields -> "assistant")
+ * Types representing potentially malformed ChatCompletionChunk responses from OpenAI-compatible
+ * providers. These types relax the strict OpenAI SDK types to accept known deviations that
+ * cause validation errors in the AI SDK.
+ *
+ * Known issues from providers (e.g., Snowflake Cortex):
+ *
+ * 1. Empty role field:
+ *    - Expected: `{ "role": "assistant" }`
+ *    - Broken:   `{ "role": "" }`
+ *
+ * 2. Empty tool arguments for no-parameter tools:
+ *    - Expected: `{ "arguments": "{}" }`
+ *    - Broken:   `{ "arguments": "" }`
+ *
+ * 3. Empty tool call type:
+ *    - Expected: `{ "type": "function" }`
+ *    - Broken:   `{ "type": "" }`
  */
-export function createOpenAICompatibleFetch(providerName: string): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
-	return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
-		// Handle request body transformations
-		if (init?.method === 'POST' && init?.body) {
-			init = transformRequestBody(init, providerName);
-		}
 
-		log.debug(`[${providerName}] [DEBUG] Making request to: ${input}`);
-		const response = await fetch(input, init);
-		log.debug(`[${providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
+/**
+ * Relaxed tool call function type.
+ * - `arguments` is optional (may be missing or empty string instead of valid JSON)
+ */
+type PossiblyBrokenToolCallFunction = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall.Function, 'arguments'> & {
+	arguments?: string;
+};
 
-		// Handle response transformations for streaming responses
-		return transformStreamingResponse(response, providerName);
+/**
+ * Relaxed tool call type.
+ * - `function` uses the relaxed PossiblyBrokenToolCallFunction type
+ * - `type` accepts empty string '' (some providers send `"type": ""` instead of `"function"`)
+ */
+type PossiblyBrokenToolCall = Omit<OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall, 'function' | 'type'> & {
+	function: PossiblyBrokenToolCallFunction;
+	type?: 'function' | '';
+};
+
+/**
+ * Relaxed delta type.
+ * - `role` accepts empty string '' (some providers send `"role": ""` instead of `"assistant"`)
+ * - `tool_calls` uses relaxed PossiblyBrokenToolCall type
+ */
+type PossiblyBrokenDelta = Omit<OpenAI.ChatCompletionChunk.Choice.Delta, 'role' | 'tool_calls'> & {
+	role?: OpenAI.ChatCompletionChunk.Choice.Delta['role'] | '';
+	tool_calls?: Array<PossiblyBrokenToolCall>;
+};
+
+/**
+ * Relaxed ChatCompletionChunk type that uses PossiblyBrokenDelta for choices.
+ */
+export type PossiblyBrokenChatCompletionChunk = Omit<OpenAI.ChatCompletionChunk, 'choices'> & {
+	choices: Array<Omit<OpenAI.ChatCompletionChunk.Choice, 'delta'> & {
+		delta: PossiblyBrokenDelta;
+	}>;
+};
+
+
+/**
+ * Fixes a possibly broken ChatCompletionChunk by ensuring all required fields exist
+ * with valid types. This converts a PossiblyBrokenChatCompletionChunk into a proper OpenAI.ChatCompletionChunk.
+ * @param chunk The possibly broken chunk to fix
+ * @returns A properly typed OpenAI.ChatCompletionChunk with all required fields populated
+ */
+export function fixPossiblyBrokenChatCompletionChunk(
+	chunk: PossiblyBrokenChatCompletionChunk,
+	noArgTools: string[] = [],
+	providerName?: string): OpenAI.ChatCompletionChunk {
+
+	const choices: OpenAI.ChatCompletionChunk.Choice[] = chunk.choices.map((choice) => {
+		// Fix empty tool arguments: some providers return '' for no-parameter tools,
+		// but the AI SDK expects valid JSON '{}'
+		// Fix empty tool type: some providers return '' but AI SDK expects 'function'
+		const fixedToolCalls = choice.delta.tool_calls?.map((toolCall): OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall => {
+			const { name, arguments: args } = toolCall.function;
+			const isNoArgTool = name && noArgTools.includes(name);
+			const hasEmptyArgs = args === '';
+			const hasEmptyType = toolCall.type === '';
+
+			const fixedFunction = (isNoArgTool && hasEmptyArgs)
+				? { ...toolCall.function, arguments: '{}' }
+				: toolCall.function;
+			const fixedFunctionType = hasEmptyType ? 'function' : toolCall.type || 'function';
+
+			if (isNoArgTool && hasEmptyArgs) {
+				log.debug(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${name}`);
+			}
+
+			if (hasEmptyType) {
+				log.debug(`[${providerName}] Converting empty tool type to 'function' for tool: ${name || '(unnamed)'}`);
+			}
+
+			return {
+				...toolCall,
+				function: fixedFunction,
+				type: fixedFunctionType,
+			};
+		});
+
+		return {
+			...choice,
+			delta: {
+				...choice.delta,
+				// Fix empty role: some providers return '' but AI SDK expects 'assistant'
+				role: choice.delta.role || 'assistant',
+				// Fix tool_calls: use fixed array if available, omit if null/undefined
+				// Some providers send tool_calls: null which may cause validation issues
+				tool_calls: fixedToolCalls,
+			},
+		};
+	});
+
+
+
+	return {
+		id: chunk.id,
+		choices,
+		created: chunk.created,
+		model: chunk.model,
+		object: 'chat.completion.chunk',
+		service_tier: chunk.service_tier,
+		system_fingerprint: chunk.system_fingerprint,
+		usage: chunk.usage as OpenAI.CompletionUsage | undefined,
 	};
 }
 
 /**
- * Transforms the request body to handle OpenAI API deprecations and compatibility issues
+ * Type guard to check if an object might be a ChatCompletionChunk, even if malformed.
+ * This is a permissive check that only verifies the object has the basic shape
+ * of a chat completion chunk (has 'object' field equal to 'chat.completion.chunk').
+ * @param obj The object to check
+ * @returns True if the object appears to be a ChatCompletionChunk (possibly malformed)
  */
-function transformRequestBody(init: RequestInit, providerName: string): RequestInit {
+function isChatCompletionChunk(obj: unknown): obj is PossiblyBrokenChatCompletionChunk {
+	return (
+		typeof obj === 'object' &&
+		obj !== null &&
+		'id' in obj &&
+		'created' in obj &&
+		'model' in obj &&
+		'choices' in obj &&
+		Array.isArray(obj.choices) &&
+		'object' in obj &&
+		obj.object === 'chat.completion.chunk'
+	);
+}
+
+
+/**
+ * Creates a custom fetch function for OpenAI-compatible providers that handles:
+ * 1. Request body transformations (max_tokens -> max_completion_tokens for Snowflake compatibility)
+ * 2. Response transformations (empty role fields -> "assistant")
+ */
+export function createOpenAICompatibleFetch(providerName: string): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
+	return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+		log.debug(`[${providerName}] [DEBUG] Making request to: ${input}`);
+
+		let noArgTools: string[] = [];
+
+		// Transform the request body if needed
+		const transformedInit = transformRequestBody(init, providerName, (tools) => {
+			noArgTools = tools;
+		});
+
+		const response = await fetch(input, transformedInit);
+		log.debug(`[${providerName}] [DEBUG] Response status: ${response.status} ${response.statusText}`);
+
+		// Handle response transformations for streaming responses
+		return transformStreamingResponse(response, providerName, noArgTools);
+	};
+}
+
+/**
+ * Transforms the request body to fix OpenAI-compatible provider issues.
+ * Specifically, converts max_tokens to max_completion_tokens for providers like Snowflake
+ * that require the newer parameter name.
+ */
+function transformRequestBody(init: RequestInit | undefined, providerName: string, onNoArgToolsFound?: (noArgTools: string[]) => void): RequestInit | undefined {
+	if (!init?.body || typeof init.body !== 'string') {
+		return init;
+	}
+
 	try {
 		const bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
 		const requestBody = JSON.parse(bodyStr);
 
 		log.debug(`[${providerName}] [DEBUG] Original request body:`, JSON.stringify(requestBody, null, 2));
-
-		let bodyModified = false;
 
 		// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
 		// is deprecated for models such as GPT-5.
@@ -48,38 +203,65 @@ function transformRequestBody(init: RequestInit, providerName: string): RequestI
 			log.debug(`[${providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
 			requestBody.max_completion_tokens = requestBody.max_tokens;
 			delete requestBody.max_tokens;
-			bodyModified = true;
 		}
 
-		// Remove temperature parameter, as the default 0 value is not supported by some models.
-		// `temperature` is no longer set to 0 by default in AI SDK v5.
-		// Example error message without this fix:
-		// [OpenAI] [gpt-5]' Error in chat response: {"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}
-		if (requestBody.temperature !== undefined) {
-			log.debug(`[${providerName}] [DEBUG] Removing temperature parameter to avoid unsupported value error`);
-			delete requestBody.temperature;
-			bodyModified = true;
+		// Transform 'developer' role to 'system' for providers that don't support it.
+		// The 'developer' role was introduced by OpenAI for newer models, but many
+		// OpenAI-compatible providers only support 'system', 'user', 'assistant', 'tool', 'function'.
+		// Example error without this fix:
+		// [Custom Provider] Error: 'role' must be one of 'system', 'assistant', 'tool', or 'function'
+		if (requestBody.messages && Array.isArray(requestBody.messages)) {
+			for (const message of requestBody.messages) {
+				if (message.role === 'developer') {
+					log.debug(`[${providerName}] Converting 'developer' role to 'system' for compatibility`);
+					message.role = 'system';
+				}
+			}
 		}
 
-		if (bodyModified) {
-			log.debug(`[${providerName}] [DEBUG] Final request body:`, JSON.stringify(requestBody, null, 2));
-			return {
-				...init,
-				body: JSON.stringify(requestBody)
-			};
+		// Transform tools to be compatible with OpenAI-compatible providers
+		// Some providers don't support the 'strict' field in tool function definitions
+		if (requestBody.tools && Array.isArray(requestBody.tools)) {
+			log.debug(`[${providerName}] Request contains ${requestBody.tools.length} tools: ${requestBody.tools.map((t: any) => t.function?.name || t.name).join(', ')}`);
+
+			// Identify tools that take no arguments
+			// These tools will have their empty argument strings fixed in the response transformer
+			const noArgTools = requestBody.tools
+				.filter((t: any) => {
+					const params = t.function?.parameters;
+					// Check if parameters is empty or has no properties
+					return !params || !params.properties || Object.keys(params.properties).length === 0;
+				})
+				.map((t: any) => t.function?.name);
+
+			if (onNoArgToolsFound && noArgTools.length > 0) {
+				onNoArgToolsFound(noArgTools);
+			}
+
+			for (const tool of requestBody.tools) {
+				if (tool.function && tool.function.strict !== undefined) {
+					delete tool.function.strict;
+					log.debug(`[${providerName}] Removed 'strict' field from tool: ${tool.function.name}`);
+				}
+			}
+			log.trace(`[${providerName}] Tools payload: ${JSON.stringify(requestBody.tools)}`);
 		}
-	} catch (error) {
-		// If we can't parse the body, just proceed with the original request
-		log.warn(`[${providerName}] Failed to parse request body for parameter handling: ${error}`);
+
+		return {
+			...init,
+			body: JSON.stringify(requestBody)
+		};
+	} catch (parseError) {
+		// If we can't parse the body, return unchanged
+		log.debug(`[${providerName}] Could not parse request body for transformation`);
+		return init;
 	}
-
-	return init;
 }
 
 /**
  * Transforms streaming responses to fix OpenAI-compatible provider issues
  */
-function transformStreamingResponse(response: Response, providerName: string): Response {
+function transformStreamingResponse(response: Response, providerName: string, noArgTools: string[] = []): Response {
 	// Only process streaming responses
 	const contentType = response.headers.get('content-type');
 	if (!contentType?.includes('text/event-stream')) {
@@ -94,7 +276,7 @@ function transformStreamingResponse(response: Response, providerName: string): R
 		new TransformStream({
 			transform(chunk, controller) {
 				const text = new TextDecoder().decode(chunk);
-				const transformedText = transformServerSentEvents(text, providerName);
+				const transformedText = transformServerSentEvents(text, providerName, noArgTools);
 				controller.enqueue(new TextEncoder().encode(transformedText));
 			}
 		})
@@ -108,9 +290,9 @@ function transformStreamingResponse(response: Response, providerName: string): R
 }
 
 /**
- * Transforms Server-Sent Events text by properly parsing JSON and fixing empty role fields
+ * Transforms Server-Sent Events text by properly parsing JSON and fixing ChatCompletionChunks
  */
-function transformServerSentEvents(text: string, providerName: string): string {
+function transformServerSentEvents(text: string, providerName: string, noArgTools: string[] = []): string {
 	const lines = text.split('\n');
 	const transformedLines: string[] = [];
 
@@ -120,17 +302,15 @@ function transformServerSentEvents(text: string, providerName: string): string {
 			try {
 				const jsonStr = line.slice(6); // Remove 'data: ' prefix
 				const data = JSON.parse(jsonStr);
-
-				// Fix empty role fields in delta objects within choices array
-				if (data.choices && Array.isArray(data.choices)) {
-					for (const choice of data.choices) {
-						if (choice.delta && typeof choice.delta === 'object' && choice.delta.role === '') {
-							choice.delta.role = 'assistant';
-						}
-					}
+				// Check if it's a possibly broken chunk and fix it
+				// Otherwise, keep the original line
+				if (isChatCompletionChunk(data)) {
+					const fixedChunk = fixPossiblyBrokenChatCompletionChunk(data, noArgTools, providerName);
+					transformedLines.push(`data: ${JSON.stringify(fixedChunk)}`);
+				} else {
+					transformedLines.push(line);
 				}
 
-				transformedLines.push(`data: ${JSON.stringify(data)}`);
 			} catch (parseError) {
 				// If we can't parse the JSON, keep the original line
 				// This handles malformed JSON or non-JSON data lines gracefully

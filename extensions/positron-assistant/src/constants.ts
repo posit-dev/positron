@@ -85,3 +85,6 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
 	toolCalling: true,
 	agentMode: true,
 } as const;
+
+/** The default max steps for an agent execution */
+export const DEFAULT_MAX_STEPS = 50;

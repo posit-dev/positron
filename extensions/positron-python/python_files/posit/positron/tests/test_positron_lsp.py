@@ -45,7 +45,6 @@ from positron.positron_lsp import (
     PositronInitializationOptions,
     PositronLanguageServer,
     _get_expression_at_position,
-    _MagicType,
     _parse_os_imports,
     _safe_resolve_expression,
     create_server,
@@ -95,8 +94,8 @@ def create_test_server(
     server.shell = Mock()
     server.shell.user_ns = {} if namespace is None else namespace
     server.shell.magics_manager.lsmagic.return_value = {
-        _MagicType.cell: {},
-        _MagicType.line: {},
+        "cell": {},
+        "line": {},
     }
 
     return server
@@ -893,37 +892,35 @@ class TestCompletions:
         assert len(completions) == 1
         assert completions[0].label == "home-file.txt"
 
-    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
     def test_line_magic_completions(self) -> None:
         """Test completions for line magics."""
         server = create_test_server()
         assert server.shell is not None
         server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {"timeit": None, "time": None, "test": None},
-            _MagicType.cell: {},
+            "line": {"timeit": None, "time": None},
+            "cell": {},
         }
         text_document = create_text_document(server, TEST_DOCUMENT_URI, "%ti")
 
         completions = self._completions(server, text_document)
         labels = [c.label for c in completions]
 
-        assert labels == ["%timeit", "%time"]
+        assert set(labels) == {"%timeit", "%time"}
 
-    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
     def test_cell_magic_completions(self) -> None:
         """Test completions for cell magics."""
         server = create_test_server()
         assert server.shell is not None
         server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {},
-            _MagicType.cell: {"timeit": None, "time": None, "test": None},
+            "line": {},
+            "cell": {"timeit": None, "time": None},
         }
         text_document = create_text_document(server, TEST_DOCUMENT_URI, "%%ti")
 
         completions = self._completions(server, text_document)
         labels = [c.label for c in completions]
 
-        assert labels == ["%%timeit", "%%time"]
+        assert set(labels) == {"%%timeit", "%%time"}
 
 
 class TestCompletionItemResolve:

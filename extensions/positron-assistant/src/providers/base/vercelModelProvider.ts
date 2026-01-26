@@ -53,7 +53,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * This function creates a language model instance given a model ID and optional configuration.
 	 * Subclasses must set this in their {@link initializeProvider} method.
 	 */
-	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	protected aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModel;
 
 	/**
 	 * Additional options passed to the AI provider when creating model instances.
@@ -155,10 +155,9 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const { bedrockCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
 
 		// Convert all messages to the Vercel AI format
-		const aiMessages: ai.CoreMessage[] = toAIMessage(
+		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent,
-			bedrockCacheBreakpoint
+			toolResultExperimentalContent
 		);
 
 		// Set up tools if provided
@@ -169,17 +168,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = options.modelOptions?.requestId;
 
-		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
-			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: getMaxTokens(aiModel.modelId, 'output', this._config.provider, this._config.maxOutputTokens, this.providerName),
 		});
 
 		await this.handleStreamResponse(result, model, progress, token, requestId);
@@ -210,10 +207,10 @@ export abstract class VercelModelProvider extends ModelProvider {
 				input_schema.type = 'object';
 			}
 
-			acc[tool.name] = ai.tool({
-				description: tool.description,
-				parameters: ai.jsonSchema(input_schema),
-			});
+			acc[tool.name] = {
+				description: tool.description || '',
+				inputSchema: ai.jsonSchema(input_schema),
+			} as ai.Tool;
 			return acc;
 		}, {});
 	}
@@ -261,21 +258,15 @@ export abstract class VercelModelProvider extends ModelProvider {
 				break;
 			}
 
-			if (part.type === 'reasoning') {
-				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
-			}
-
 			if (part.type === 'text-delta') {
-				accumulatedTextDeltas.push(part.textDelta);
-				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
+				accumulatedTextDeltas.push(part.text);
+				progress.report(new vscode.LanguageModelTextPart(part.text));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
+				this.logger.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with input: ${JSON.stringify(part.input)}`);
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.input));
 			}
 
 			if (part.type === 'error') {
@@ -324,8 +315,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const usage = await result.usage;
 		const metadata = await result.providerMetadata;
 		const tokens: TokenUsage = {
-			inputTokens: usage.promptTokens,
-			outputTokens: usage.completionTokens,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
 			cachedTokens: 0,
 			providerMetadata: metadata,
 		};
@@ -375,7 +366,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 				id: model.identifier,
 				name: model.name,
 				family: this.providerId,
-				version: this.aiProvider ? this.aiProvider(model.identifier).specificationVersion : '1.0',
+				version: '',
 				provider: this.providerId,
 				providerName: this.providerName,
 				capabilities: this.capabilities,
