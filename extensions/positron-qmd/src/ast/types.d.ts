@@ -40,7 +40,7 @@ export interface Location {
 }
 
 /** Base AST node with type tag and source info */
-interface BaseNode {
+export interface Node {
 	/** Node type discriminator */
 	t: string;
 	/** Index into astContext.sourceInfoPool for byte offsets */
@@ -63,61 +63,61 @@ export type Target = [url: string, title: string];
 //#region Inline Nodes
 
 /** Text string */
-export interface Str extends BaseNode {
+export interface Str extends Node {
 	t: 'Str';
 	/** Text content */
 	c: string;
 }
 
 /** Inter-word space */
-export interface Space extends BaseNode {
+export interface Space extends Node {
 	t: 'Space';
 }
 
 /** Soft line break (rendered as space or newline depending on context) */
-export interface SoftBreak extends BaseNode {
+export interface SoftBreak extends Node {
 	t: 'SoftBreak';
 }
 
 /** Hard line break */
-export interface LineBreak extends BaseNode {
+export interface LineBreak extends Node {
 	t: 'LineBreak';
 }
 
 /** Bold text */
-export interface Strong extends BaseNode {
+export interface Strong extends Node {
 	t: 'Strong';
 	/** Inline content */
 	c: Inline[];
 }
 
 /** Italic text */
-export interface Emph extends BaseNode {
+export interface Emph extends Node {
 	t: 'Emph';
 	/** Inline content */
 	c: Inline[];
 }
 
 /** Inline code */
-export interface Code extends BaseNode {
+export interface Code extends Node {
 	t: 'Code';
 	c: [attributes: Attr, text: string];
 }
 
 /** Hyperlink */
-export interface Link extends BaseNode {
+export interface Link extends Node {
 	t: 'Link';
 	c: [attributes: Attr, inlines: Inline[], target: Target];
 }
 
 /** Image */
-export interface Image extends BaseNode {
+export interface Image extends Node {
 	t: 'Image';
 	c: [attributes: Attr, altText: Inline[], target: Target];
 }
 
 /** Footnote or endnote */
-export interface Note extends BaseNode {
+export interface Note extends Node {
 	t: 'Note';
 	/** Note content as blocks */
 	c: Block[];
@@ -141,27 +141,27 @@ export type Inline =
 //#region Block Nodes
 
 /** Section header (h1-h6) */
-export interface Header extends BaseNode {
+export interface Header extends Node {
 	t: 'Header';
 	c: [level: number, attributes: Attr, inlines: Inline[]];
 }
 
 /** Paragraph */
-export interface Para extends BaseNode {
+export interface Para extends Node {
 	t: 'Para';
 	/** Paragraph content */
 	c: Inline[];
 }
 
 /** Plain text (not wrapped in paragraph tags) */
-export interface Plain extends BaseNode {
+export interface Plain extends Node {
 	t: 'Plain';
 	/** Plain content */
 	c: Inline[];
 }
 
 /** Unordered (bullet) list */
-export interface BulletList extends BaseNode {
+export interface BulletList extends Node {
 	t: 'BulletList';
 	/** List items, each item is an array of blocks */
 	c: Block[][];
@@ -188,37 +188,37 @@ export type ListNumberDelim =
 export type ListAttributes = [startNumber: number, style: { t: ListNumberStyle }, delimiter: { t: ListNumberDelim }];
 
 /** Ordered (numbered) list */
-export interface OrderedList extends BaseNode {
+export interface OrderedList extends Node {
 	t: 'OrderedList';
 	c: [listAttributes: ListAttributes, items: Block[][]];
 }
 
 /** Block quote */
-export interface BlockQuote extends BaseNode {
+export interface BlockQuote extends Node {
 	t: 'BlockQuote';
 	/** Quoted content */
 	c: Block[];
 }
 
 /** Fenced or indented code block */
-export interface CodeBlock extends BaseNode {
+export interface CodeBlock extends Node {
 	t: 'CodeBlock';
 	c: [attributes: Attr, text: string];
 }
 
 /** Horizontal rule (thematic break) */
-export interface HorizontalRule extends BaseNode {
+export interface HorizontalRule extends Node {
 	t: 'HorizontalRule';
 }
 
 /** Generic block container (div) */
-export interface Div extends BaseNode {
+export interface Div extends Node {
 	t: 'Div';
 	c: [attributes: Attr, blocks: Block[]];
 }
 
 /** Raw content in a specific format (e.g., HTML, LaTeX) */
-export interface RawBlock extends BaseNode {
+export interface RawBlock extends Node {
 	t: 'RawBlock';
 	c: [format: string, content: string];
 }
@@ -264,7 +264,7 @@ export interface ColSpec {
 }
 
 /** Table */
-export interface Table extends BaseNode {
+export interface Table extends Node {
 	t: 'Table';
 	c: [attributes: Attr, caption: Inline[], colSpecs: ColSpec[], head: TableHead, bodies: TableBody[], foot: TableFoot];
 }

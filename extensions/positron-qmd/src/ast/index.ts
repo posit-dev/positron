@@ -24,6 +24,7 @@ import type {
 	MetaList,
 	MetaMap,
 	MetaBool,
+	Node,
 	RawBlock,
 } from './types';
 
@@ -172,6 +173,12 @@ export const ast = {
 		/** Get end column (1-indexed) */
 		endCol: (l: Location): number => l.e.c,
 	},
+
+	/** Get start byte offset from any node, or undefined if no location info */
+	startOffset: (node: Node): number | undefined => node.l?.b.o,
+
+	/** Get end byte offset from any node, or undefined if no location info */
+	endOffset: (node: Node): number | undefined => node.l?.e.o,
 
 	Meta: {
 		/** Get string value from MetaString */

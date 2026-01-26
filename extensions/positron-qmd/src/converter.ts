@@ -179,11 +179,11 @@ function convertBlocksToCells(
 	for (const block of blocks) {
 		if (block.t === 'CodeBlock') {
 			// Flush pending markdown, capping at the start of this code block
-			flushMarkdownBlocks(block.l ? ast.Loc.startOffset(block.l) : undefined);
+			flushMarkdownBlocks(ast.startOffset(block));
 			cells.push(createCodeCell(block));
 		} else if (block.t === 'RawBlock') {
 			// Flush pending markdown, capping at the start of this code block
-			flushMarkdownBlocks(block.l ? ast.Loc.startOffset(block.l) : undefined);
+			flushMarkdownBlocks(ast.startOffset(block));
 			cells.push(createRawBlockCell(block));
 		} else {
 			// Accumulate markdown blocks
@@ -278,8 +278,8 @@ function extractRawTextForBlocks(
 	const lastBlock = blocks[blocks.length - 1];
 
 	// Try to get positions from Location property first
-	let startOffset = firstBlock.l ? ast.Loc.startOffset(firstBlock.l) : undefined;
-	let endOffset = lastBlock.l ? ast.Loc.endOffset(lastBlock.l) : undefined;
+	let startOffset = ast.startOffset(firstBlock);
+	let endOffset = ast.endOffset(lastBlock);
 
 	if (startOffset === undefined || endOffset === undefined) {
 		console.warn('[QMD Converter] Missing location info for blocks, using fallback extraction', {
@@ -350,8 +350,10 @@ function extractRawTextForBlock(
 	context: ConversionContext
 ): string {
 	// Try Location property first (byte offsets)
-	if (block.l) {
-		return extractByteRange(context, ast.Loc.startOffset(block.l), ast.Loc.endOffset(block.l)).trim();
+	const startOffset = ast.startOffset(block);
+	const endOffset = ast.endOffset(block);
+	if (startOffset !== undefined && endOffset !== undefined) {
+		return extractByteRange(context, startOffset, endOffset).trim();
 	}
 
 	// Fallback to source info pool (byte offsets)
