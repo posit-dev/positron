@@ -927,60 +927,69 @@ class TestCompletionItemResolve:
     """Tests for completion item resolve functionality."""
 
     @pytest.mark.parametrize(
-        ("source", "namespace", "expected_detail_contains"),
+        ("source", "namespace", "expected_detail_contains", "expected_doc_contains"),
         [
             pytest.param(
                 'x["',
                 {"x": {"a": object_with_property.prop}},
                 "str",
+                None,
                 id="dict_key_to_property",
             ),
             pytest.param(
                 'x["',
                 {"x": {"a": 0}},
                 "int",
+                None,
                 id="dict_key_to_int",
             ),
             pytest.param(
                 "x",
                 {"x": 0},
                 "int",
+                None,
                 id="int",
             ),
             pytest.param(
                 "x",
                 {"x": pd.DataFrame({"col1": [1, 2, 3]})},
-                "DataFrame",
+                "DataFrame (3 x 1)",
+                "col1",
                 id="pandas_dataframe",
             ),
             pytest.param(
                 'x["',
                 {"x": pd.DataFrame({"a": [1, 2, 3]})},
-                "int64: [1, 2, 3]",
+                "int64 (3)",
+                "dtype: int64",
                 id="pandas_dataframe_dict_key",
             ),
             pytest.param(
                 "x",
-                {"x": pd.Series({"a": 0})},
-                "Series",
+                {"x": pd.Series([1, 2, 3])},
+                "int64 (3)",
+                "dtype: int64",
                 id="pandas_series",
             ),
             pytest.param(
                 "x",
                 {"x": pl.DataFrame({"col1": [1, 2, 3]})},
-                "DataFrame",
+                "DataFrame (3 x 1)",
+                "col1",
                 id="polars_dataframe",
             ),
             pytest.param(
                 'x["',
                 {"x": pl.DataFrame({"a": [1, 2, 3]})},
-                "Int64: [1, 2, 3]",
+                "Int64 (3)",
+                "1",
                 id="polars_dataframe_dict_key",
             ),
             pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
-                "Series",
+                "Int64 (3)",
+                "1",
                 id="polars_series",
             ),
         ],
@@ -990,6 +999,7 @@ class TestCompletionItemResolve:
         source: str,
         namespace: Dict[str, Any],
         expected_detail_contains: str,
+        expected_doc_contains: Optional[str],
     ) -> None:
         """Test that completion items can be resolved with additional details."""
         from positron.positron_lsp import _handle_completion, _handle_completion_resolve
@@ -1019,14 +1029,20 @@ class TestCompletionItemResolve:
             assert item.data.get("type") == "dict_key"
             assert "expr" in item.data
             assert "key" in item.data
-            # Call resolve to get the detail
-            resolved_item = _handle_completion_resolve(server, item)
-            assert resolved_item.detail is not None
-            assert expected_detail_contains in resolved_item.detail
-        else:
-            # Non-dict completions have detail set immediately
-            assert item.detail is not None
-            assert expected_detail_contains in item.detail
+
+        resolved_item = _handle_completion_resolve(server, item)
+        assert resolved_item.detail is not None
+        assert expected_detail_contains in resolved_item.detail
+
+        # Check documentation preview for DataFrame/Series
+        if expected_doc_contains is not None:
+            assert resolved_item.documentation is not None
+            doc_value = (
+                resolved_item.documentation.value
+                if hasattr(resolved_item.documentation, "value")
+                else str(resolved_item.documentation)
+            )
+            assert expected_doc_contains in doc_value
 
 
 class TestSignatureHelp:
