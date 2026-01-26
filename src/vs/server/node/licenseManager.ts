@@ -36,10 +36,18 @@ class LicenseManager {
 	 */
 	async runCommand(command: string, args: string[] = []): Promise<string> {
 		try {
+			// Set LD_LIBRARY_PATH to the directory containing the license-manager binary
+			// so it can find its shared libraries
+			const licenseManagerDir = path.dirname(this.licenseManagerPath);
+			const env = {
+				...process.env,
+				LD_LIBRARY_PATH: licenseManagerDir,
+			};
+
 			const { stdout } = await execFileAsync(
 				this.licenseManagerPath,
 				[command, ...args],
-				{ maxBuffer: 1024 * 1024, timeout: 10000 }
+				{ maxBuffer: 1024 * 1024, timeout: 10000, env }
 			);
 			return stdout;
 		} catch (error) {
