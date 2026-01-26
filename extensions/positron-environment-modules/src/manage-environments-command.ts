@@ -169,7 +169,7 @@ async function createNewEnvironmentWizard(
 
 	const selectedModules = await vscode.window.showQuickPick(moduleItems, {
 		title: vscode.l10n.t('Create Module Environment - Step 3 of 3'),
-		placeHolder: vscode.l10n.t('Select modules to load (in order of selection)'),
+		placeHolder: vscode.l10n.t('Select modules to load'),
 		canPickMany: true
 	});
 
