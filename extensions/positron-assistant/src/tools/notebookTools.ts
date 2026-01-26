@@ -10,6 +10,7 @@ import { log } from '../extension.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
+import { resolveAssistantSetting } from '../notebookMetadata.js';
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -457,8 +458,11 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						// editorShown is true when editor is shown, false when preview is shown
 						const isMarkdownInPreview = cell.type === 'markdown' && cell.editorShown === false;
 
-						// Check if diff view is enabled (defaults to true)
-						const showDiff = vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
+						// Check if diff view is enabled (notebook metadata first, then global config)
+						const notebookEditor = vscode.window.activeNotebookEditor;
+						const showDiff = notebookEditor
+							? resolveAssistantSetting(notebookEditor.notebook, 'showDiff', 'positron.assistant.notebook.showDiff', true)
+							: vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
 
 						// Use direct update for: markdown in preview OR when diff view is disabled
 						if (isMarkdownInPreview || !showDiff) {

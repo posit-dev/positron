@@ -26,6 +26,12 @@ import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IChatEditingService, IChatEditingSession, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/chatEditingService.js';
+import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY } from '../../common/positronNotebookConfig.js';
+import { CellEditType, NotebookDocumentMetadata } from '../../../notebook/common/notebookCommon.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
@@ -34,6 +40,11 @@ const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant T
 const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant');
 const settingsAriaLabel = localize('assistantPanel.settings.openLabel', 'Open Notebook AI Settings');
 const settingsTooltip = localize('assistantPanel.settings.openTooltip', 'Open Notebook AI Settings');
+const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show diff for edits');
+const showDiffUseGlobalOn = localize('assistantPanel.showDiff.useGlobalOn', 'Use global setting (on)');
+const showDiffUseGlobalOff = localize('assistantPanel.showDiff.useGlobalOff', 'Use global setting (off)');
+const showDiffAlways = localize('assistantPanel.showDiff.always', 'Always show diff');
+const showDiffNever = localize('assistantPanel.showDiff.never', 'Never show diff');
 
 /**
  * Panel state for tracking notebook availability
@@ -49,6 +60,11 @@ type PanelState = {
 };
 
 /**
+ * ShowDiff override type for notebook-specific setting.
+ */
+export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
+
+/**
  * AssistantPanelProps interface.
  * Services are passed directly as props (explicit dependency pattern).
  */
@@ -58,11 +74,14 @@ export interface AssistantPanelProps {
 	/** Promise that resolves to the notebook instance (used when initialNotebook is undefined) */
 	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined;
 	renderer: PositronModalReactRenderer;
+	chatEditingService: IChatEditingService;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
+	dialogService: IDialogService;
 	notificationService: INotificationService;
 	logService: ILogService;
 	preferencesService: IPreferencesService;
-	onActionSelected: (query: string, mode: ChatModeKind) => void;
+	onActionSelected: (query: string, mode: ChatModeKind) => void | Promise<void>;
 }
 
 /**
@@ -162,6 +181,9 @@ interface ReadyStateProps {
 	commandService: ICommandService;
 	logService: ILogService;
 	notificationService: INotificationService;
+	showDiffOverride: ShowDiffOverride;
+	globalShowDiff: boolean;
+	onShowDiffChanged: (value: ShowDiffOverride) => void;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
 }
@@ -177,28 +199,201 @@ const ReadyState = ({
 	commandService,
 	logService,
 	notificationService,
+	showDiffOverride,
+	globalShowDiff,
+	onShowDiffChanged,
 	onActionSelected,
 	onClose
-}: ReadyStateProps) => (
-	<>
-		<AssistantPanelContext
-			context={notebookContext}
-			isLoading={isLoadingContext}
-		/>
-		<div className='assistant-panel-section-divider' />
-		<div className='assistant-panel-section-header'>
-			{actionsHeader}
-		</div>
-		<AssistantPanelActions
-			commandService={commandService}
-			logService={logService}
-			notebook={notebook}
-			notificationService={notificationService}
-			onActionSelected={onActionSelected}
-			onClose={onClose}
-		/>
-	</>
-);
+}: ReadyStateProps) => {
+	// Get the label for the "use global setting" option
+	const useGlobalLabel = globalShowDiff ? showDiffUseGlobalOn : showDiffUseGlobalOff;
+
+	// Handle dropdown change
+	const handleShowDiffChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+		const value = e.target.value;
+		if (value === 'global') {
+			onShowDiffChanged(undefined);
+		} else if (value === 'showDiff') {
+			onShowDiffChanged('showDiff');
+		} else if (value === 'noDiff') {
+			onShowDiffChanged('noDiff');
+		}
+	};
+
+	// Get current dropdown value
+	const dropdownValue = showDiffOverride ?? 'global';
+
+	return (
+		<>
+			<AssistantPanelContext
+				context={notebookContext}
+				isLoading={isLoadingContext}
+			/>
+			<div className='assistant-panel-section-divider' />
+			<div className='assistant-panel-section-header'>
+				{actionsHeader}
+			</div>
+			<AssistantPanelActions
+				commandService={commandService}
+				logService={logService}
+				notebook={notebook}
+				notificationService={notificationService}
+				onActionSelected={onActionSelected}
+				onClose={onClose}
+			/>
+			<div className='assistant-panel-settings-section'>
+				<div className='assistant-panel-setting-row'>
+					<label className='assistant-panel-setting-label' htmlFor='show-diff-select'>
+						{showDiffLabel}
+					</label>
+					<select
+						className='assistant-panel-setting-select'
+						id='show-diff-select'
+						value={dropdownValue}
+						onChange={handleShowDiffChange}
+					>
+						<option value='global'>{useGlobalLabel}</option>
+						<option value='showDiff'>{showDiffAlways}</option>
+						<option value='noDiff'>{showDiffNever}</option>
+					</select>
+				</div>
+			</div>
+		</>
+	);
+};
+
+/**
+ * Helper to read showDiff override from notebook metadata.
+ */
+function getShowDiffOverrideFromNotebook(notebook: IPositronNotebookInstance): ShowDiffOverride {
+	const metadata = notebook.textModel?.metadata;
+	const positron = metadata?.positron as Record<string, unknown> | undefined;
+	const assistant = positron?.assistant as Record<string, unknown> | undefined;
+	return assistant?.showDiff as ShowDiffOverride;
+}
+
+/**
+ * Helper to update showDiff override in notebook metadata.
+ */
+async function updateShowDiffOverrideInNotebook(
+	notebook: IPositronNotebookInstance,
+	value: ShowDiffOverride,
+	logService: ILogService
+): Promise<void> {
+	const textModel = notebook.textModel;
+	if (!textModel) {
+		logService.warn('Cannot update notebook metadata: no text model available');
+		return;
+	}
+
+	const currentMetadata = { ...textModel.metadata };
+	const currentPositron = (currentMetadata.positron as Record<string, unknown>) ?? {};
+	const currentAssistant = (currentPositron.assistant as Record<string, unknown>) ?? {};
+
+	// Build new assistant metadata
+	const newAssistant: Record<string, unknown> = { ...currentAssistant };
+	if (value === undefined) {
+		delete newAssistant.showDiff;
+	} else {
+		newAssistant.showDiff = value;
+	}
+
+	// Build new positron metadata
+	const newPositron: Record<string, unknown> = {
+		...currentPositron,
+		assistant: Object.keys(newAssistant).length > 0 ? newAssistant : undefined
+	};
+	if (!newPositron.assistant) {
+		delete newPositron.assistant;
+	}
+
+	// Build new root metadata
+	const newMetadata: NotebookDocumentMetadata = {
+		...currentMetadata,
+		positron: Object.keys(newPositron).length > 0 ? newPositron : undefined
+	};
+	if (!newMetadata.positron) {
+		delete newMetadata.positron;
+	}
+
+	// Update the notebook metadata using applyEdits
+	textModel.applyEdits([{
+		editType: CellEditType.DocumentMetadata,
+		metadata: newMetadata
+	}], true, undefined, () => undefined, undefined, true);
+}
+
+/**
+ * Information about pending diffs for a notebook.
+ */
+interface PendingDiffsInfo {
+	hasPending: boolean;
+	session: IChatEditingSession | undefined;
+	entry: IModifiedFileEntry | undefined;
+}
+
+/**
+ * Find pending diffs for a notebook in any editing session.
+ * Sessions are iterated in recency order, so the first match wins.
+ */
+function findPendingDiffs(
+	chatEditingService: IChatEditingService,
+	notebookUri: URI
+): PendingDiffsInfo {
+	// Iterate through all editing sessions (first matching session wins as they are recency-sorted)
+	for (const session of chatEditingService.editingSessionsObs.get()) {
+		// Get entry for this notebook URI
+		const entry = session.getEntry(notebookUri);
+
+		// Check if entry has pending changes
+		if (entry && entry.state.get() === ModifiedFileEntryState.Modified) {
+			return { hasPending: true, session, entry };
+		}
+	}
+
+	return { hasPending: false, session: undefined, entry: undefined };
+}
+
+// Localized strings for pending diffs confirmation dialog.
+const pendingDiffsTitle = localize('positronNotebook.assistant.pendingDiffs.title', 'Pending Edits');
+const pendingDiffsMessage = localize('positronNotebook.assistant.pendingDiffs.message',
+	'You have unconfirmed edits in this notebook. What would you like to do with them?');
+const acceptPendingLabel = localize('positronNotebook.assistant.acceptPending', 'Accept Pending Edits');
+const rejectPendingLabel = localize('positronNotebook.assistant.rejectPending', 'Reject Pending Edits');
+
+/**
+ * Show a confirmation dialog for pending diffs when changing the diff view setting.
+ * @returns 'accept' if user chose to accept, 'reject' if user chose to reject, 'cancel' if cancelled
+ */
+async function showPendingDiffsConfirmation(
+	entry: IModifiedFileEntry,
+	dialogService: IDialogService
+): Promise<'accept' | 'reject' | 'cancel'> {
+	const { result } = await dialogService.prompt({
+		title: pendingDiffsTitle,
+		message: pendingDiffsMessage,
+		type: 'info',
+		cancelButton: true,
+		buttons: [
+			{
+				label: acceptPendingLabel,
+				run: async () => {
+					await entry.accept();
+					return 'accept' as const;
+				}
+			},
+			{
+				label: rejectPendingLabel,
+				run: async () => {
+					await entry.reject();
+					return 'reject' as const;
+				}
+			}
+		],
+	});
+
+	return result ?? 'cancel';
+}
 
 /**
  * AssistantPanel component.
@@ -210,7 +405,10 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		initialNotebook,
 		notebookPromise,
 		renderer,
+		chatEditingService,
 		commandService,
+		configurationService,
+		dialogService,
 		notificationService,
 		logService,
 		preferencesService,
@@ -223,6 +421,20 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 	// State for notebook context (only used when ready)
 	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);
 	const [isLoadingContext, setIsLoadingContext] = useState(true);
+
+	// State for show diff setting
+	const [showDiffOverride, setShowDiffOverride] = useState<ShowDiffOverride>(undefined);
+	const globalShowDiff = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY) ?? true;
+
+	// Load showDiff override from notebook metadata when notebook becomes available
+	useEffect(() => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		const override = getShowDiffOverrideFromNotebook(panelState.notebook);
+		setShowDiffOverride(override);
+	}, [panelState]);
 
 	// Fetch notebook context when notebook becomes available
 	useEffect(() => {
@@ -262,6 +474,37 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		onActionSelected(query, mode);
 	};
 
+	const handleShowDiffChanged = async (value: ShowDiffOverride) => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		// Check for pending diffs
+		const { hasPending, entry } = findPendingDiffs(
+			chatEditingService,
+			panelState.notebook.uri
+		);
+
+		if (hasPending && entry) {
+			// Show confirmation dialog
+			const action = await showPendingDiffsConfirmation(entry, dialogService);
+
+			if (action === 'cancel') {
+				// User cancelled, don't change the setting
+				return;
+			}
+
+			// User either accepted or rejected, now apply the setting change
+			// (accept/reject was already handled by the dialog buttons)
+			setShowDiffOverride(value);
+			updateShowDiffOverrideInNotebook(panelState.notebook, value, logService);
+		} else {
+			// No pending diffs, apply immediately
+			setShowDiffOverride(value);
+			updateShowDiffOverrideInNotebook(panelState.notebook, value, logService);
+		}
+	};
+
 	// Determine content based on state
 	const renderContent = () => {
 		switch (panelState.status) {
@@ -273,13 +516,16 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 				return (
 					<ReadyState
 						commandService={commandService}
+						globalShowDiff={globalShowDiff}
 						isLoadingContext={isLoadingContext}
 						logService={logService}
 						notebook={panelState.notebook}
 						notebookContext={notebookContext}
 						notificationService={notificationService}
+						showDiffOverride={showDiffOverride}
 						onActionSelected={handleActionSelected}
 						onClose={handleClose}
+						onShowDiffChanged={handleShowDiffChanged}
 					/>
 				);
 		}
