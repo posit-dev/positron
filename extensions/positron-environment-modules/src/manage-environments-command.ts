@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { EnvironmentModulesApi } from './api.js';
 import { ModuleEnvironmentConfig, ModuleSystemInfo } from './types.js';
 import { listAvailableModules } from './module-listing.js';
-import { log } from './extension.js';
+import { log } from './logger.js';
 
 /**
  * Handle the "Manage Module Environments" command

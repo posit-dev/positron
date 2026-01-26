@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { execSync } from 'child_process';
 import { ModuleSystemInfo } from './types.js';
-import { getLog } from './logger.js';
+import { log } from './logger.js';
 import { getShellConfig, buildShellCommand } from './module-system.js';
 
 /**
@@ -21,8 +21,6 @@ import { getShellConfig, buildShellCommand } from './module-system.js';
 export async function listAvailableModules(
 	moduleSystemInfo: ModuleSystemInfo
 ): Promise<string[]> {
-	const logger = getLog();
-
 	if (!moduleSystemInfo.available) {
 		return [];
 	}
@@ -44,7 +42,7 @@ export async function listAvailableModules(
 	const fullCommand = buildShellCommand(shell, fullCommandStr);
 
 	try {
-		logger.debug(`Listing modules with: ${fullCommand}`);
+		log.debug(`Listing modules with: ${fullCommand}`);
 		const output = execSync(fullCommand, {
 			encoding: 'utf8',
 			timeout: vscode.workspace.getConfiguration('positron.environmentModules').get<number>('moduleLoadTimeout', 30000),
@@ -58,10 +56,10 @@ export async function listAvailableModules(
 			.map(line => line.trim())
 			.filter(line => line.length > 0 && !line.endsWith(':'));
 
-		logger.info(`Found ${modules.length} available modules`);
+		log.info(`Found ${modules.length} available modules`);
 		return modules;
 	} catch (error) {
-		logger.warn(`Failed to list available modules: ${error}`);
+		log.warn(`Failed to list available modules: ${error}`);
 		return [];
 	}
 }

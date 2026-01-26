@@ -16,25 +16,7 @@ import { detectModuleSystem, buildModuleLoadCommand, getModuleSystemVersion } fr
 import { resolveModuleInterpreter } from './environment-resolver.js';
 import { manageEnvironmentsCommand } from './manage-environments-command.js';
 import { listAvailableModules } from './module-listing.js';
-
-let _log: vscode.LogOutputChannel | undefined;
-export const log = {
-	get channel(): vscode.LogOutputChannel {
-		if (!_log) {
-			_log = vscode.window.createOutputChannel('Environment Modules', { log: true });
-		}
-		return _log;
-	},
-	info(message: string) {
-		this.channel.info(message);
-	},
-	warn(message: string) {
-		this.channel.warn(message);
-	},
-	error(message: string) {
-		this.channel.error(message);
-	}
-};
+import { log, getOutputChannel, getLogBuffer } from './logger.js';
 
 class EnvironmentModulesApiImpl implements EnvironmentModulesApi {
 	private _onDidChangeConfiguration = new vscode.EventEmitter<void>();
@@ -235,9 +217,7 @@ export async function activate(
 	}
 
 	log.info('Activating positron-environment-modules extension');
-	if (_log) {
-		context.subscriptions.push(_log);
-	}
+	context.subscriptions.push(getOutputChannel());
 
 	const api = new EnvironmentModulesApiImpl(context);
 
@@ -397,11 +377,29 @@ async function generateDiagnosticsReport(api: EnvironmentModulesApiImpl): Promis
 		lines.push('');
 	}
 
+	// Extension Logs
+	lines.push('## Extension Logs');
+	lines.push('');
+
+	const logEntries = getLogBuffer();
+	if (logEntries.length === 0) {
+		lines.push('No log entries captured.');
+	} else {
+		lines.push(`Last ${logEntries.length} log entries:`);
+		lines.push('');
+		lines.push('```');
+		for (const entry of logEntries) {
+			const timestamp = entry.timestamp.toISOString();
+			const level = entry.level.toUpperCase().padEnd(5);
+			lines.push(`[${timestamp}] ${level} ${entry.message}`);
+		}
+		lines.push('```');
+	}
+	lines.push('');
+
 	return lines.join('\n');
 }
 
 export function deactivate() {
-	if (_log) {
-		log.info('Deactivating positron-environment-modules extension');
-	}
+	log.info('Deactivating positron-environment-modules extension');
 }

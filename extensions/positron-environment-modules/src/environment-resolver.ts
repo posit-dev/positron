@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { ModuleEnvironmentConfig, ModuleResolvedInterpreter, ResolveInterpreterOptions } from './types.js';
 import { executeWithModules, buildModuleLoadCommand } from './module-system.js';
-import { getLog } from './logger.js';
+import { log } from './logger.js';
 
 
 /**
@@ -20,13 +20,11 @@ export async function resolveModuleInterpreter(
 	options: ResolveInterpreterOptions,
 	initScript?: string
 ): Promise<ModuleResolvedInterpreter | undefined> {
-	const logger = getLog();
-
 	try {
 		// Build a command to find the interpreter using 'which'
 		// Try each binary name in order until one is found
 		let interpreterPath: string | undefined;
-		let errorMessages: string[] = [];
+		const errorMessages: string[] = [];
 
 		for (const binaryName of options.interpreterBinaryNames) {
 			try {
@@ -46,9 +44,9 @@ export async function resolveModuleInterpreter(
 		}
 
 		if (!interpreterPath) {
-			logger.warn(`Could not find interpreter for environment "${options.environmentName}" using binaries: ${options.interpreterBinaryNames.join(', ')}`);
+			log.warn(`Could not find interpreter for environment "${options.environmentName}" using binaries: ${options.interpreterBinaryNames.join(', ')}`);
 			for (const msg of errorMessages) {
-				logger.warn(msg);
+				log.warn(msg);
 			}
 			return undefined;
 		}
@@ -63,7 +61,7 @@ export async function resolveModuleInterpreter(
 				initScript
 			);
 		} catch (error) {
-			logger.warn(`Failed to get version for interpreter at ${interpreterPath}: ${error}`);
+			log.warn(`Failed to get version for interpreter at ${interpreterPath}: ${error}`);
 			versionOutput = '';
 		}
 
@@ -73,7 +71,7 @@ export async function resolveModuleInterpreter(
 		// Build the startup command
 		const startupCommand = buildModuleLoadCommand(config.modules, initScript);
 
-		logger.info(`Resolved interpreter from module environment "${options.environmentName}": ${interpreterPath} (${version})`);
+		log.info(`Resolved interpreter from module environment "${options.environmentName}": ${interpreterPath} (${version})`);
 
 		return {
 			environmentName: options.environmentName,
@@ -83,7 +81,7 @@ export async function resolveModuleInterpreter(
 			startupCommand
 		};
 	} catch (error) {
-		logger.error(`Failed to resolve interpreter for environment "${options.environmentName}": ${error}`);
+		log.error(`Failed to resolve interpreter for environment "${options.environmentName}": ${error}`);
 		return undefined;
 	}
 }
