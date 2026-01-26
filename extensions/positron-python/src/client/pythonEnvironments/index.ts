@@ -79,12 +79,12 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
     if (shouldUseNativeLocator()) {
         const finder = getNativePythonFinder(ext.context);
         // --- Start Positron ---
-        // On Unix-alike, use the wrapper that combines native locator with
+        // On Linux, use the wrapper that combines the native locator with
         // module environments
         const api =
-            getOSType() === OSType.Windows
-                ? createNativeEnvironmentsApi(finder)
-                : createNativeEnvironmentsApiWithModules(finder);
+            getOSType() === OSType.Linux
+                ? createNativeEnvironmentsApiWithModules(finder)
+                : createNativeEnvironmentsApi(finder);
         // --- End Positron ---
         ext.disposables.push(api);
         registerNewDiscoveryForIOC(
