@@ -175,12 +175,11 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[0].languageId, 'julia');
 	});
 
-	test('should store code cell attributes in metadata', async () => {
+	test('should store fence info in metadata', async () => {
 		const result = await deserialize('```{python}\n#| echo: false\nprint("hello")\n```');
 
-		assert.ok(result.cells[0].metadata?.qmdAttributes, 'Should have qmdAttributes');
-		const [, classes] = result.cells[0].metadata.qmdAttributes;
-		assert.ok(classes.includes('python') || classes.includes('{python}'));
+		assert.ok(result.cells[0].metadata?.qmdFenceInfo, 'Should have qmdFenceInfo');
+		assert.strictEqual(result.cells[0].metadata.qmdFenceInfo, '{python}');
 	});
 
 	test('should open empty document with no cells', async () => {
@@ -419,16 +418,15 @@ suite('NotebookData to QMD Serializer', () => {
 		assert.ok(result.includes(':::'));
 	});
 
-	test('should preserve original code cell attributes', () => {
-		// Create a cell with original qmdAttributes metadata
+	test('should preserve raw fence info', () => {
 		const cell = codeCell('x = 1', 'python', {
-			qmdAttributes: ['myid', ['{python}'], [['label', 'fig-1']]]
+			qmdFenceInfo: '{python #myid label="fig-1"}'
 		});
 		const result = serialize([cell]);
 
-		// Should reconstruct the attributes
-		assert.ok(result.includes('```{python'));
+		assert.ok(result.includes('```{python #myid label="fig-1"}'));
 	});
+
 });
 
 suite('Deserialize with cell markers', () => {
@@ -644,5 +642,14 @@ suite('Round-trip serialization', () => {
 		// No frontmatter cell
 		assert.notStrictEqual(notebook.cells[0].metadata?.qmdCellType, 'frontmatter');
 		assert.strictEqual(notebook.cells[0].kind, vscode.NotebookCellKind.Markup);
+	});
+
+	test('should round-trip code block with id and label', async () => {
+		const original = '```{python #fig-plot label="My Plot"}\nimport matplotlib\n```\n';
+		const notebook = await deserialize(original);
+		const serialized = convertFromNotebookData(notebook);
+
+		assert.ok(serialized.includes('#fig-plot'), 'Should preserve id');
+		assert.ok(serialized.includes('label="My Plot"'), 'Should preserve label keyval');
 	});
 });
