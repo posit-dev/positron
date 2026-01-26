@@ -934,18 +934,12 @@ class TestCompletionItemResolve:
                 {"x": {"a": object_with_property.prop}},
                 "str",
                 id="dict_key_to_property",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 'x["',
                 {"x": {"a": 0}},
                 "int",
                 id="dict_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
@@ -962,11 +956,8 @@ class TestCompletionItemResolve:
             pytest.param(
                 'x["',
                 {"x": pd.DataFrame({"a": [1, 2, 3]})},
-                "int64",
+                "int64: [1, 2, 3]",
                 id="pandas_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
@@ -983,20 +974,14 @@ class TestCompletionItemResolve:
             pytest.param(
                 'x["',
                 {"x": pl.DataFrame({"a": [1, 2, 3]})},
-                "Int64",
+                "Int64: [1, 2, 3]",
                 id="polars_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
-                "Int64",
+                "Series",
                 id="polars_series",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
         ],
     )
@@ -1007,7 +992,7 @@ class TestCompletionItemResolve:
         expected_detail_contains: str,
     ) -> None:
         """Test that completion items can be resolved with additional details."""
-        from positron.positron_lsp import _handle_completion
+        from positron.positron_lsp import _handle_completion, _handle_completion_resolve
 
         server = create_test_server(namespace)
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
@@ -1024,8 +1009,24 @@ class TestCompletionItemResolve:
         assert len(completion_list.items) > 0
 
         item = completion_list.items[0]
-        assert item.detail is not None
-        assert expected_detail_contains in item.detail
+
+        # Dict key completions defer detail to resolve for performance
+        is_dict_key_completion = '["' in source or "['" in source
+        if is_dict_key_completion:
+            # Verify detail is not set initially and data has expected structure
+            assert item.detail is None
+            assert item.data is not None
+            assert item.data.get("type") == "dict_key"
+            assert "expr" in item.data
+            assert "key" in item.data
+            # Call resolve to get the detail
+            resolved_item = _handle_completion_resolve(server, item)
+            assert resolved_item.detail is not None
+            assert expected_detail_contains in resolved_item.detail
+        else:
+            # Non-dict completions have detail set immediately
+            assert item.detail is not None
+            assert expected_detail_contains in item.detail
 
 
 class TestSignatureHelp:
