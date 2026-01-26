@@ -168,11 +168,21 @@ test.describe('Positron Notebooks: Plaintext Notebooks', {
 						[
 							{
 								c: 'Hello',
+								l: {
+									b: { c: 3, l: 5, o: 23 },
+									e: { c: 8, l: 5, o: 28 },
+									f: 0
+								},
 								s: 4,
 								t: 'Str'
 							}
 						]
 					],
+					l: {
+						b: { c: 1, l: 5, o: 21 },
+						e: { c: 1, l: 6, o: 29 },
+						f: 0
+					},
 					s: 5,
 					t: 'Header'
 				}
@@ -182,6 +192,11 @@ test.describe('Positron Notebooks: Plaintext Notebooks', {
 					c: [
 						{
 							c: 'Test',
+							l: {
+								b: { c: 8, l: 2, o: 11 },
+								e: { c: 12, l: 2, o: 15 },
+								f: 0
+							},
 							s: 3,
 							t: 'Str'
 						}
