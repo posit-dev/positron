@@ -28,6 +28,51 @@ import type {
 	RawBlock,
 } from './types';
 
+/** Get start byte offset from any node, or undefined if no location info */
+export function startOffset(node: Node): number | undefined {
+	return node.l?.b.o;
+}
+
+/** Get end byte offset from any node, or undefined if no location info */
+export function endOffset(node: Node): number | undefined {
+	return node.l?.e.o;
+}
+
+/** Get text content from a CodeBlock or RawBlock */
+export function content(block: CodeBlock | RawBlock): string {
+	return block.c[1];
+}
+
+/** Get language from first class (e.g., '{python}' or 'python') */
+export function language(block: CodeBlock): string | undefined {
+	return block.c[0][1][0];
+}
+
+/** Get attributes from a node that has Attr at c[0] (CodeBlock, Div, Link, Image, Code, etc.) */
+export function attributes(node: { c: [Attr, ...unknown[]] }): Attr {
+	return node.c[0];
+}
+
+/** Get format from a RawBlock (e.g., 'html', 'latex') */
+export function format(block: RawBlock): string {
+	return block.c[0];
+}
+
+/** Get identifier from an Attr tuple */
+export function id(attr: Attr): string {
+	return attr[0];
+}
+
+/** Get classes from an Attr tuple */
+export function classes(attr: Attr): string[] {
+	return attr[1];
+}
+
+/** Get key-value pairs from an Attr tuple */
+export function keyvals(attr: Attr): AttrKeyValue[] {
+	return attr[2];
+}
+
 /**
  * AST node accessor helpers.
  *
@@ -43,22 +88,13 @@ import type {
  * }
  * ```
  */
-export const ast = {
+export const helpers = {
 	CodeBlock: {
-		/** Get the code text content */
-		text: (b: CodeBlock): string => b.c[1],
-
-		/** Get the full attribute tuple [id, classes, keyvals] */
-		attr: (b: CodeBlock): Attr => b.c[0],
-
 		/** Get the identifier */
 		id: (b: CodeBlock): string => b.c[0][0],
 
 		/** Get CSS classes */
 		classes: (b: CodeBlock): string[] => b.c[0][1],
-
-		/** Get language from first class (e.g., '{python}' or 'python') */
-		language: (b: CodeBlock): string | undefined => b.c[0][1][0],
 
 		/** Get key-value attributes */
 		keyvals: (b: CodeBlock): AttrKeyValue[] => b.c[0][2],
@@ -82,13 +118,6 @@ export const ast = {
 		inlines: (b: Header): Inline[] => b.c[2],
 	},
 
-	RawBlock: {
-		/** Get format (e.g., 'html', 'latex') */
-		format: (b: RawBlock): string => b.c[0],
-
-		/** Get raw content */
-		content: (b: RawBlock): string => b.c[1],
-	},
 
 	Div: {
 		/** Get the full attribute tuple */
@@ -173,12 +202,6 @@ export const ast = {
 		/** Get end column (1-indexed) */
 		endCol: (l: Location): number => l.e.c,
 	},
-
-	/** Get start byte offset from any node, or undefined if no location info */
-	startOffset: (node: Node): number | undefined => node.l?.b.o,
-
-	/** Get end byte offset from any node, or undefined if no location info */
-	endOffset: (node: Node): number | undefined => node.l?.e.o,
 
 	Meta: {
 		/** Get string value from MetaString */

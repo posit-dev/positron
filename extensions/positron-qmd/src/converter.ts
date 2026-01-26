@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import { TextDecoder, TextEncoder } from 'util';
-import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo, Attr, ast } from './ast/index.js';
+import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo } from './ast/index.js';
+import * as ast from './ast/index.js';
 
 /** Marker comment to separate consecutive markdown cells */
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
@@ -180,7 +181,7 @@ function convertBlocksToCells(
 		if (block.t === 'CodeBlock') {
 			// Flush pending markdown, capping at the start of this code block
 			flushMarkdownBlocks(ast.startOffset(block));
-			cells.push(createCodeCell(block));
+			cells.push(createCodeCell(block, context));
 		} else if (block.t === 'RawBlock') {
 			// Flush pending markdown, capping at the start of this code block
 			flushMarkdownBlocks(ast.startOffset(block));
@@ -197,9 +198,9 @@ function convertBlocksToCells(
 	return cells;
 }
 
-function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
-	const code = ast.CodeBlock.text(block);
-	const rawLanguage = ast.CodeBlock.language(block) ?? '';
+function createCodeCell(block: CodeBlock, context: ConversionContext): vscode.NotebookCellData {
+	const code = ast.content(block);
+	const rawLanguage = ast.language(block) ?? '';
 	const language = QUARTO_LANGUAGE_MAP[rawLanguage.toLowerCase()] || rawLanguage || 'text';
 
 	const cell = new vscode.NotebookCellData(
@@ -208,19 +209,43 @@ function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
 		language
 	);
 
-	// Store original attributes in metadata for round-trip
-	cell.metadata = {
-		qmdAttributes: ast.CodeBlock.attr(block),
-	};
+	// Store raw fence info for round-trip (e.g., "{python #fig-plot label='My Plot'}")
+	const fenceInfo = extractFenceInfo(block, context);
+	if (fenceInfo) {
+		cell.metadata = { qmdFenceInfo: fenceInfo };
+	}
 
 	return cell;
+}
+
+/**
+ * Extract the raw fence info string from a code block (e.g., "{python #id .class}").
+ * This preserves exact formatting for round-trip serialization.
+ */
+function extractFenceInfo(block: CodeBlock, context: ConversionContext): string | undefined {
+	const startOffset = ast.startOffset(block);
+	if (startOffset === undefined) {
+		return undefined;
+	}
+
+	// Find the first line of the code block (the fence line)
+	let endOfLine = startOffset;
+	while (endOfLine < context.sourceBytes.length && context.sourceBytes[endOfLine] !== 0x0A) {
+		endOfLine++;
+	}
+
+	const fenceLine = extractByteRange(context, startOffset, endOfLine).trim();
+
+	// Extract the part after the backticks (e.g., "{python #id}" from "```{python #id}")
+	const match = fenceLine.match(/^`{3,}(.*)$/);
+	return match?.[1] || undefined;
 }
 
 function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
 	return new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
-		ast.RawBlock.content(block),
-		ast.RawBlock.format(block) || 'text' // 'latex', 'html', etc.
+		ast.content(block),
+		ast.format(block) || 'text' // 'latex', 'html', etc.
 	);
 }
 
@@ -432,78 +457,19 @@ function serializeCodeCell(cell: vscode.NotebookCellData): string {
 	const language = cell.languageId;
 	const code = cell.value;
 
-	// Check if we have original attributes to preserve
-	const qmdAttributes = cell.metadata?.qmdAttributes as Attr | undefined;
-
-	let fenceInfo: string;
-	if (qmdAttributes) {
-		// Reconstruct from original attributes
-		fenceInfo = formatAttributes(qmdAttributes);
-	} else {
-		// Map VS Code language ID to Quarto format
-		const quartoLang = getQuartoLanguage(language);
-		fenceInfo = quartoLang ? `{${quartoLang}}` : '';
+	// Use raw fence info if available (preserves exact formatting)
+	const qmdFenceInfo = cell.metadata?.qmdFenceInfo as string | undefined;
+	if (qmdFenceInfo) {
+		return '```' + qmdFenceInfo + '\n' + code + '\n```';
 	}
+
+	// Otherwise generate fence info from language
+	const quartoLang = getQuartoLanguage(language);
+	const fenceInfo = quartoLang ? `{${quartoLang}}` : '';
 
 	return '```' + fenceInfo + '\n' + code + '\n```';
 }
 
-/**
- * Format code block attributes back to Quarto syntax.
- * Handles the Attr tuple: [id, classes, keyvals]
- */
-function formatAttributes(attr: Attr): string {
-	const id = ast.Attr.id(attr);
-	const classes = ast.Attr.classes(attr);
-	const keyvals = ast.Attr.keyvals(attr);
-
-	// If we have classes with braces, use them directly (they came from Quarto)
-	// e.g., ['{python}'] or ['python']
-	const mainClass = classes[0] || '';
-
-	// If already has braces, use as-is
-	if (mainClass.startsWith('{') && mainClass.endsWith('}')) {
-		// Check for additional attributes
-		if (!id && classes.length === 1 && keyvals.length === 0) {
-			return mainClass;
-		}
-	}
-
-	// Build attribute string
-	const parts: string[] = [];
-
-	// Add main language class
-	if (mainClass) {
-		// Strip braces if present, we'll add them
-		const lang = mainClass.replace(/^\{|\}$/g, '');
-		parts.push(lang);
-	}
-
-	// Add id if present
-	if (id) {
-		parts.push(`#${id}`);
-	}
-
-	// Add additional classes
-	for (let i = 1; i < classes.length; i++) {
-		parts.push(`.${classes[i]}`);
-	}
-
-	// Add key-value pairs
-	for (const [key, value] of keyvals) {
-		if (value) {
-			parts.push(`${key}="${value}"`);
-		} else {
-			parts.push(key);
-		}
-	}
-
-	if (parts.length === 0) {
-		return '';
-	}
-
-	return `{${parts.join(' ')}}`;
-}
 
 /**
  * Get Quarto language name from VS Code language ID.
