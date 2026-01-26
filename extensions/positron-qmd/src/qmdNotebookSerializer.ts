@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import { QmdParser } from './parser.js';
-import { convertToNotebookData, convertFromNotebookData } from './converter.js';
+import { deserialize } from './deserialize.js';
+import { serialize } from './serialize.js';
 import { TextDecoder, TextEncoder } from 'util';
 
 /**
@@ -32,7 +33,7 @@ export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 		try {
 			const qmdDoc = await this._parser.parse(textContent);
 			// Pass source text to converter for source location extraction
-			return convertToNotebookData(qmdDoc, textContent);
+			return deserialize(qmdDoc, textContent);
 		} catch (error) {
 			this._log.error(`Failed to parse QMD file: ${error}`);
 			throw error;
@@ -43,7 +44,7 @@ export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 		data: vscode.NotebookData,
 		_token: vscode.CancellationToken
 	): Promise<Uint8Array> {
-		const qmdText = convertFromNotebookData(data);
+		const qmdText = serialize(data);
 		return new TextEncoder().encode(qmdText);
 	}
 }

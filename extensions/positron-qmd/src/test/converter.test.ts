@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { QmdParser } from '../parser.js';
 import { QmdNotebookSerializer } from '../qmdNotebookSerializer.js';
-import { convertFromNotebookData } from '../converter.js';
+import { serialize as serializeNotebook } from '../serialize.js';
 import { captureLogs } from './util/captureLogs.js';
 import { TextEncoder } from 'util';
 
@@ -248,7 +248,7 @@ suite('NotebookData to QMD Serializer', () => {
 	function serialize(cells: vscode.NotebookCellData[], metadata?: Record<string, unknown>): string {
 		const notebook = new vscode.NotebookData(cells);
 		notebook.metadata = metadata;
-		return convertFromNotebookData(notebook);
+		return serializeNotebook(notebook);
 	}
 
 	function codeCell(code: string, language: string, metadata?: Record<string, unknown>): vscode.NotebookCellData {
@@ -525,7 +525,7 @@ suite('Round-trip serialization', () => {
 	test('should round-trip simple document', async () => {
 		const original = '# Hello\n\n```{python}\nprint("world")\n```\n';
 		const notebook = await deserialize(original);
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells.length, notebook.cells.length);
@@ -544,7 +544,7 @@ suite('Round-trip serialization', () => {
 			markdownCell('# Cell 3'),
 		]);
 
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells.length, 4);
@@ -566,7 +566,7 @@ suite('Round-trip serialization', () => {
 			codeCell('z = 3', 'julia'),
 		]);
 
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells[0].languageId, 'python');
@@ -578,7 +578,7 @@ suite('Round-trip serialization', () => {
 		const code = 'def foo():\n    return 42\n\nprint(foo())';
 		const notebook = new vscode.NotebookData([codeCell(code, 'python')]);
 
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells[0].value, code);
@@ -594,7 +594,7 @@ suite('Round-trip serialization', () => {
 			markdownCell('# Conclusion'),
 		]);
 
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells.length, 6);
@@ -610,7 +610,7 @@ suite('Round-trip serialization', () => {
 	test('should round-trip document with frontmatter', async () => {
 		const original = '---\ntitle: Test Document\nauthor: Test Author\n---\n\n# Content\n\n```{python}\nprint("hello")\n```\n';
 		const notebook = await deserialize(original);
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		// Should have frontmatter, markdown, and code cells
@@ -625,7 +625,7 @@ suite('Round-trip serialization', () => {
 	test('should preserve frontmatter formatting on round-trip', async () => {
 		const original = '---\n# Comment preserved\ntitle: "Test"\nitems:\n  - one\n  - two\n---\n\nContent';
 		const notebook = await deserialize(original);
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 
 		// Should preserve YAML comments and formatting
 		assert.ok(serialized.includes('# Comment preserved'));
@@ -647,7 +647,7 @@ suite('Round-trip serialization', () => {
 	test('should round-trip code block with id and label', async () => {
 		const original = '```{python #fig-plot label="My Plot"}\nimport matplotlib\n```\n';
 		const notebook = await deserialize(original);
-		const serialized = convertFromNotebookData(notebook);
+		const serialized = serializeNotebook(notebook);
 
 		assert.ok(serialized.includes('#fig-plot'), 'Should preserve id');
 		assert.ok(serialized.includes('label="My Plot"'), 'Should preserve label keyval');
