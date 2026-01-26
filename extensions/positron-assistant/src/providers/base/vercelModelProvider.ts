@@ -195,24 +195,35 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 */
 	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
 		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
-			// Some providers require a type for all tool input schemas
-			const input_schema = tool.inputSchema as Record<string, any> ?? {
-				type: 'object',
-				properties: {},
-				required: [],
-			};
+			// Some providers require type, properties, and required for all tool input schemas
+			const baseSchema = tool.inputSchema as Record<string, any> ?? {};
+			const missingFields: string[] = [];
 
-			// Ensure schema has a type field
-			if (!input_schema.type) {
-				this.logger.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
-				input_schema.type = 'object';
-				input_schema.properties = {};
+			if (!baseSchema.type) {
+				missingFields.push('type');
 			}
+			if (!baseSchema.properties) {
+				missingFields.push('properties');
+			}
+			if (!baseSchema.required) {
+				missingFields.push('required');
+			}
+
+			if (missingFields.length > 0) {
+				this.logger.warn(`Tool '${tool.name}' is missing input schema fields: ${missingFields.join(', ')}; using defaults`);
+			}
+
+			const input_schema: Record<string, any> = {
+				...baseSchema,
+				type: baseSchema.type ?? 'object',
+				properties: baseSchema.properties ?? {},
+				required: baseSchema.required ?? [],
+			};
 
 			acc[tool.name] = {
 				description: tool.description || '',
 				inputSchema: ai.jsonSchema(input_schema),
-			} as ai.Tool;
+			};
 			return acc;
 		}, {});
 	}
