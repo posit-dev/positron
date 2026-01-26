@@ -360,44 +360,7 @@ function extractRawTextForBlock(
 		return extractByteRange(context, sourceInfo.startOffset, sourceInfo.endOffset).trim();
 	}
 
-	// Last resort: extract text content from AST
-	// Some blocks like HorizontalRule have no content
-	if (block.t !== 'HorizontalRule') {
-		return extractTextContentFallback(block.c);
-	}
-	return '';
-}
-
-/**
- * Fallback text extraction when source info is unavailable.
- * Recursively extracts string content from AST nodes.
- */
-function extractTextContentFallback(content: unknown): string {
-	if (typeof content === 'string') {
-		return content;
-	}
-	if (Array.isArray(content)) {
-		return content.map(extractTextContentFallback).join('');
-	}
-	if (content && typeof content === 'object') {
-		const node = content as { t?: string; c?: unknown };
-		if (node.t === 'Str') {
-			return node.c as string;
-		}
-		if (node.t === 'Space') {
-			return ' ';
-		}
-		if (node.t === 'SoftBreak') {
-			return '\n';
-		}
-		if (node.t === 'LineBreak') {
-			return '\n';
-		}
-		if (node.c !== undefined) {
-			return extractTextContentFallback(node.c);
-		}
-	}
-	return '';
+	throw new Error(`[QMD Converter] Block of type '${block.t}' is missing source location info`);
 }
 
 // =============================================================================
