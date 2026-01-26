@@ -5,8 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
-import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
+import { OpenAIProvider } from '@ai-sdk/openai';
 import {
 	detectSnowflakeCredentials,
 	extractSnowflakeError,
@@ -66,12 +65,9 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 				this._config.baseUrl = result.credentials.baseUrl;
 			}
 
-			// Recreate the provider with updated credentials
-			this.aiProvider = createOpenAI({
-				apiKey: result.credentials.token,
-				baseURL: this.baseUrl,
-				fetch: createOpenAICompatibleFetch(this.providerName)
-			});
+			// Recreate the provider with updated credentials using the parent's initializeProvider
+			// which properly wraps the provider to use /v1/chat/completions endpoint
+			this.initializeProvider();
 
 			this.logger.info(`Refreshed credentials for account: ${result.credentials.account}`);
 		}
