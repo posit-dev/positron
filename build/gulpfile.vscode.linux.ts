@@ -21,6 +21,8 @@ import { promisify } from 'util';
 
 // --- Start Positron ---
 import { positronBuildNumber } from './utils.ts';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 // --- End Positron ---
 
 const exec = promisify(cp.exec);
