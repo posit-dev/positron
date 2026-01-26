@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo } from './ast/index.js';
 import * as ast from './ast/index.js';
+import { TextDecoder, TextEncoder } from 'util';
 
 const QUARTO_LANGUAGE_MAP: Record<string, string> = {
 	'python': 'python',
