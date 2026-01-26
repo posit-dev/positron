@@ -22,7 +22,9 @@ interface NotebookCellMoreActionsMenuProps {
 	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
 	instance: IPositronNotebookInstance;
+	isMenuOpen: boolean;
 	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	setIsMenuOpen: (isOpen: boolean) => void;
 }
 
 const moreCellActions = localize('moreCellActions', 'More Cell Actions');
@@ -35,10 +37,12 @@ export function NotebookCellMoreActionsMenu({
 	cell,
 	hoverManager,
 	instance,
+	isMenuOpen,
 	menuActions,
+	setIsMenuOpen,
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
 	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {

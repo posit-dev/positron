@@ -32,6 +32,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
+	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);
@@ -58,7 +59,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	return <div
 		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
-		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : ''}`}
+		className={`positron-notebooks-cell-action-bar ${isActiveCell || isMenuOpen ? 'visible' : ''}`}
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
@@ -78,7 +79,9 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 				cell={cell}
 				hoverManager={instance.hoverManager}
 				instance={instance}
+				isMenuOpen={isMenuOpen}
 				menuActions={submenuActions}
+				setIsMenuOpen={setIsMenuOpen}
 			/>
 		) : null}
 
