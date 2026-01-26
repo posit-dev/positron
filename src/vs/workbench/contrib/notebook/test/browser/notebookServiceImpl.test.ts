@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
+import { observableValue } from '../../../../../base/common/observable.js';
+// --- End Positron ---
 import assert from 'assert';
 import { Event } from '../../../../../base/common/event.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -28,6 +32,12 @@ suite('NotebookProviderInfoStore', function () {
 	test('Can\'t open untitled notebooks in test #119363', function () {
 		const instantiationService = workbenchInstantiationService(undefined, disposables);
 		const store = new NotebookProviderInfoStore(
+			// --- Start Positron ---
+			new class extends mock<IPositronNotebookService>() {
+				override enabled = observableValue('enabled', false);
+				override plainTextNotebooksEnabled = observableValue('plainTextNotebooksEnabled', false);
+			},
+			// --- End Positron ---
 			new class extends mock<IStorageService>() {
 				override get() { return ''; }
 				override store() { }
