@@ -220,6 +220,24 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[1].languageId, 'r');
 		assert.strictEqual(result.cells[2].languageId, 'julia');
 	});
+
+	test('should handle HorizontalRule in markdown', async () => {
+		const result = await deserialize('# Before\n\n---\n\n# After');
+
+		assert.strictEqual(result.cells.length, 1);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[0].value, '# Before\n\n---\n\n# After');
+	});
+
+	test('should handle HorizontalRule between code blocks', async () => {
+		const result = await deserialize('```{python}\nx = 1\n```\n\n---\n\n```{python}\ny = 2\n```');
+
+		assert.strictEqual(result.cells.length, 3);
+		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Code);
+		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
+		assert.strictEqual(result.cells[1].value, '---');
+		assert.strictEqual(result.cells[2].kind, vscode.NotebookCellKind.Code);
+	});
 });
 
 suite('NotebookData to QMD Serializer', () => {
@@ -592,17 +610,7 @@ suite('Round-trip serialization', () => {
 	});
 
 	test('should round-trip document with frontmatter', async () => {
-		const original = `---
-title: Test Document
-author: Test Author
----
-
-# Content
-
-\`\`\`{python}
-print("hello")
-\`\`\`
-`;
+		const original = '---\ntitle: Test Document\nauthor: Test Author\n---\n\n# Content\n\n```{python}\nprint("hello")\n```\n';
 		const notebook = await deserialize(original);
 		const serialized = convertFromNotebookData(notebook);
 		const roundTripped = await deserialize(serialized);
@@ -617,15 +625,7 @@ print("hello")
 	});
 
 	test('should preserve frontmatter formatting on round-trip', async () => {
-		const original = `---
-# Comment preserved
-title: "Test"
-items:
-  - one
-  - two
----
-
-Content`;
+		const original = '---\n# Comment preserved\ntitle: "Test"\nitems:\n  - one\n  - two\n---\n\nContent';
 		const notebook = await deserialize(original);
 		const serialized = convertFromNotebookData(notebook);
 
