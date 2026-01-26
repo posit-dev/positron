@@ -38,13 +38,13 @@ const loadingText = localize('assistantPanel.loading', 'Preparing notebook assis
 const closeButtonLabel = localize('assistantPanel.close', 'Close');
 const actionsHeader = localize('assistantPanel.actions.header', 'Ask Assistant To');
 const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant');
-const settingsAriaLabel = localize('assistantPanel.settings.openLabel', 'Open Notebook AI Settings');
-const settingsTooltip = localize('assistantPanel.settings.openTooltip', 'Open Notebook AI Settings');
-const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show diff for edits');
-const showDiffUseGlobalOn = localize('assistantPanel.showDiff.useGlobalOn', 'Use global setting (on)');
-const showDiffUseGlobalOff = localize('assistantPanel.showDiff.useGlobalOff', 'Use global setting (off)');
-const showDiffAlways = localize('assistantPanel.showDiff.always', 'Always show diff');
-const showDiffNever = localize('assistantPanel.showDiff.never', 'Never show diff');
+const settingsHeader = localize('assistantPanel.settings.header', 'Notebook Settings');
+const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show edit diffs');
+const showDiffTooltip = localize('assistantPanel.showDiff.tooltip', 'When enabled, assistant edits appear as inline diffs so you can review changes before accepting them');
+const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global');
+const yesLabel = localize('assistantPanel.yes', 'yes');
+const noLabel = localize('assistantPanel.no', 'no');
+const openGlobalSettingsLabel = localize('assistantPanel.settings.openGlobal', 'Open global settings');
 
 /**
  * Panel state for tracking notebook availability
@@ -184,6 +184,7 @@ interface ReadyStateProps {
 	showDiffOverride: ShowDiffOverride;
 	globalShowDiff: boolean;
 	onShowDiffChanged: (value: ShowDiffOverride) => void;
+	onOpenSettings: () => void;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
 }
@@ -202,29 +203,71 @@ const ReadyState = ({
 	showDiffOverride,
 	globalShowDiff,
 	onShowDiffChanged,
+	onOpenSettings,
 	onActionSelected,
 	onClose
 }: ReadyStateProps) => {
-	// Get the label for the "use global setting" option
-	const useGlobalLabel = globalShowDiff ? showDiffUseGlobalOn : showDiffUseGlobalOff;
-
-	// Handle dropdown change
-	const handleShowDiffChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-		const value = e.target.value;
-		if (value === 'global') {
-			onShowDiffChanged(undefined);
-		} else if (value === 'showDiff') {
-			onShowDiffChanged('showDiff');
-		} else if (value === 'noDiff') {
-			onShowDiffChanged('noDiff');
-		}
-	};
-
-	// Get current dropdown value
-	const dropdownValue = showDiffOverride ?? 'global';
+	// Effective value: use override if set, otherwise use global
+	const effectiveShowDiff = showDiffOverride !== undefined
+		? showDiffOverride === 'showDiff'
+		: globalShowDiff;
 
 	return (
 		<>
+			<div className='assistant-panel-section-header'>
+				{settingsHeader}
+			</div>
+			<div className='assistant-panel-settings-section'>
+				<div className='assistant-panel-setting-row' title={showDiffTooltip}>
+					{/* Setting label */}
+					<span className='assistant-panel-setting-label'>{showDiffLabel}</span>
+
+					{/* Controls aligned right */}
+					<div className='assistant-panel-setting-controls'>
+						{/* Follow global checkbox */}
+						<label className='assistant-panel-follow-global-label'>
+							{followGlobalLabel}
+							<input
+								checked={showDiffOverride === undefined}
+								className='assistant-panel-checkbox'
+								type='checkbox'
+								onChange={(e) => {
+									if (e.target.checked) {
+										onShowDiffChanged(undefined);
+									} else {
+										onShowDiffChanged(globalShowDiff ? 'showDiff' : 'noDiff');
+									}
+								}}
+							/>
+							<span className='assistant-panel-checkbox-indicator' />
+						</label>
+
+						{/* Yes/No toggle - styled like ActionBarToggle */}
+						<div className='assistant-panel-toggle'>
+							<button
+								aria-checked={effectiveShowDiff}
+								aria-label={showDiffLabel}
+								className={`toggle-container ${showDiffOverride === undefined ? 'disabled' : ''}`}
+								disabled={showDiffOverride === undefined}
+								onClick={() => onShowDiffChanged(effectiveShowDiff ? 'noDiff' : 'showDiff')}
+							>
+								<div className={`toggle-button left ${effectiveShowDiff ? 'highlighted' : ''}`}>
+									{yesLabel}
+								</div>
+								<div className={`toggle-button right ${!effectiveShowDiff ? 'highlighted' : ''}`}>
+									{noLabel}
+								</div>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<button className='assistant-panel-settings-link' onClick={onOpenSettings}>
+					<span className='codicon codicon-gear' />
+					<span className='assistant-panel-settings-link-text'>{openGlobalSettingsLabel}</span>
+				</button>
+			</div>
+			<div className='assistant-panel-section-divider' />
 			<AssistantPanelContext
 				context={notebookContext}
 				isLoading={isLoadingContext}
@@ -241,23 +284,6 @@ const ReadyState = ({
 				onActionSelected={onActionSelected}
 				onClose={onClose}
 			/>
-			<div className='assistant-panel-settings-section'>
-				<div className='assistant-panel-setting-row'>
-					<label className='assistant-panel-setting-label' htmlFor='show-diff-select'>
-						{showDiffLabel}
-					</label>
-					<select
-						className='assistant-panel-setting-select'
-						id='show-diff-select'
-						value={dropdownValue}
-						onChange={handleShowDiffChange}
-					>
-						<option value='global'>{useGlobalLabel}</option>
-						<option value='showDiff'>{showDiffAlways}</option>
-						<option value='noDiff'>{showDiffNever}</option>
-					</select>
-				</div>
-			</div>
 		</>
 	);
 };
@@ -525,6 +551,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 						showDiffOverride={showDiffOverride}
 						onActionSelected={handleActionSelected}
 						onClose={handleClose}
+						onOpenSettings={handleOpenSettings}
 						onShowDiffChanged={handleShowDiffChanged}
 					/>
 				);
@@ -540,12 +567,6 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			width={400}
 			onCancel={handleClose}
 		>
-			<button
-				aria-label={settingsAriaLabel}
-				className='assistant-panel-settings-icon codicon codicon-settings-gear'
-				title={settingsTooltip}
-				onClick={handleOpenSettings}
-			/>
 			<ContentArea>
 				<div className='assistant-panel-content'>
 					{renderContent()}
