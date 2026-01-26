@@ -6,6 +6,9 @@
 			// Look at the [README](../test/mcp/README.md) to see what arguments are supported
 			"args": ["run", "start-stdio"],
 			"cwd": "${workspaceFolder}/test/mcp"
+		},
+		"ai-sdk-5-migration": {
+			"url": "https://ai-sdk-5-migration-mcp-server.vercel.app/api/mcp"
 		}
 	},
 	"inputs": []

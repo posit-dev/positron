@@ -299,12 +299,13 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 
 	// Add new configuration
+	// Spread otherConfig first so our explicit values (especially id) take precedence
 	const newConfig: StoredModelConfig = {
+		...otherConfig,
 		id,
 		name,
 		model,
 		baseUrl,
-		...otherConfig,
 	};
 
 
