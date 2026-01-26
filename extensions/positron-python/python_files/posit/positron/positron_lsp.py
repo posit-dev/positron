@@ -40,6 +40,7 @@ from ._vendor.pygls.io_ import run_async
 from ._vendor.pygls.lsp.server import LanguageServer
 from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
 from .help_comm import ShowHelpTopicParams
+from .inspectors import _get_collection_display_value
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
@@ -760,16 +761,45 @@ def _get_dict_key_completions(
             continue
         # Include closing quote only if it doesn't already exist
         completion_text = key if has_closing_quote else f"{key}{quote_char}"
+        detail = _get_dict_value_detail(obj, key)
         items.append(
             types.CompletionItem(
                 label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
                 insert_text=completion_text,
+                detail=detail,
             )
         )
 
     return items
+
+
+def _get_dict_value_detail(obj: Any, key: str) -> str | None:
+    """Get the detail string for a dict-like key's value.
+
+    Args:
+        obj: The dict-like object (dict, DataFrame, Series)
+        key: The key to look up
+
+    Returns:
+        A string describing the type/dtype of the value, or None if unavailable
+    """
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            value = obj.get(key)
+            if value is not None:
+                return type(value).__name__
+        elif _is_dataframe_like(obj):
+            # Get dtype and preview for DataFrame column
+            column = obj[key]
+            dtype = str(column.dtype)
+            preview, _ = _get_collection_display_value(column, prefix="[", suffix="]", level=1)
+            return f"{dtype}: {preview}"
+        elif _is_series_like(obj):
+            value = obj[key]
+            return type(value).__name__
+    return None
 
 
 def _is_environ_like(obj: Any) -> bool:

@@ -937,18 +937,12 @@ class TestCompletionItemResolve:
                 {"x": {"a": object_with_property.prop}},
                 "str",
                 id="dict_key_to_property",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 'x["',
                 {"x": {"a": 0}},
                 "int",
                 id="dict_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
@@ -965,11 +959,8 @@ class TestCompletionItemResolve:
             pytest.param(
                 'x["',
                 {"x": pd.DataFrame({"a": [1, 2, 3]})},
-                "int64",
+                "int64: [1, 2, 3]",
                 id="pandas_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
@@ -986,20 +977,14 @@ class TestCompletionItemResolve:
             pytest.param(
                 'x["',
                 {"x": pl.DataFrame({"a": [1, 2, 3]})},
-                "Int64",
+                "Int64: [1, 2, 3]",
                 id="polars_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
-                "Int64",
+                "Series",
                 id="polars_series",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
         ],
     )
