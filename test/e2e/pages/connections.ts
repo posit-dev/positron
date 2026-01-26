@@ -20,6 +20,7 @@ export class Connections {
 	connectIcon: Locator;
 	connectionItems: Locator;
 	resumeConnectionButton: Locator;
+	currentConnectionName: Locator;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
@@ -27,6 +28,7 @@ export class Connections {
 		this.connectIcon = code.driver.page.locator('.codicon-arrow-circle-right');
 		this.connectionItems = code.driver.page.locator('.connections-list-item');
 		this.resumeConnectionButton = code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Resume Connection' });
+		this.currentConnectionName = code.driver.page.locator('.connections-instance-details .connection-name');
 	}
 
 	async openConnectionsNodes(nodes: string[]) {
@@ -50,7 +52,18 @@ export class Connections {
 	}
 
 	async viewConnection(name: string) {
-		await this.connectionItems.filter({ hasText: name }).locator(this.connectIcon).click();
+		// Check if we're already viewing this connection (wait up to 1s for UI to settle)
+		let isAlreadyViewing = false;
+		try {
+			await this.currentConnectionName.filter({ hasText: name }).waitFor({ state: 'visible', timeout: 5000 });
+			isAlreadyViewing = true;
+		} catch {
+			// Not already viewing this connection
+		}
+
+		if (!isAlreadyViewing) {
+			await this.connectionItems.filter({ hasText: name }).locator(this.connectIcon).click();
+		}
 	}
 
 	async openTree() {
