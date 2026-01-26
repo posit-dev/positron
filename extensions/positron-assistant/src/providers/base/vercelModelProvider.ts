@@ -206,6 +206,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			if (!input_schema.type) {
 				this.logger.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 				input_schema.type = 'object';
+				input_schema.properties = {};
 			}
 
 			acc[tool.name] = {
