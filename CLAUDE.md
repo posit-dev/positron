@@ -23,6 +23,10 @@ Positron is a next-generation data science IDE built on VS Code, designed for Py
 ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
 ```
 
+**NEVER run direct TypeScript compilation** (`npx tsc`, `tsc --noEmit`, etc.) on this project—it's too large and will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:
+1. Check daemon status first
+2. Ask the user about any compilation errors shown by daemons
+
 **Essential workflows:**
 - **Launching Positron**: Read `.claude/launch-positron.md` for non-blocking launch protocol
 - **Build system**: Read `.claude/build-system.md` for detailed daemon management
