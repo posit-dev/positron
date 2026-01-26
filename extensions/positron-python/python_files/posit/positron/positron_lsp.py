@@ -761,14 +761,14 @@ def _get_dict_key_completions(
             continue
         # Include closing quote only if it doesn't already exist
         completion_text = key if has_closing_quote else f"{key}{quote_char}"
-        detail = _get_dict_value_detail(obj, key)
+        # Defer detail computation to completionItem/resolve for performance
         items.append(
             types.CompletionItem(
                 label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
                 insert_text=completion_text,
-                detail=detail,
+                data={"type": "dict_key", "expr": expr, "key": key},
             )
         )
 
@@ -1340,6 +1340,16 @@ def _handle_completion_resolve(
     magic = server._magic_completions.get(params.label)  # noqa: SLF001
     if magic:
         params.detail, params.documentation = magic
+        return params
+
+    # Handle dict key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "dict_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail = _get_dict_value_detail(obj, key)
         return params
 
     # Try to get more info from namespace
