@@ -202,6 +202,17 @@ export class PythonRedshiftIAMDriver extends PythonRedshiftDriverBase implements
 		const clusterIdentifier = inputs.find(input => input.id === 'cluster_identifier')?.value ?? '';
 		const profile = inputs.find(input => input.id === 'profile')?.value ?? '';
 		const dbUser = inputs.find(input => input.id === 'db_user')?.value ?? '';
+
+		// If profile is provided, include it; otherwise omit the parameter
+		const profileParam = profile
+			? `\n\tprofile=${JSON.stringify(profile)},`
+			: '';
+
+		// If db_user is provided, include it; otherwise omit the parameter
+		const dbUserParam = dbUser
+			? `\n\tdb_user=${JSON.stringify(dbUser)}`
+			: '';
+
 		return `import redshift_connector
 
 conn = redshift_connector.connect(
@@ -209,9 +220,7 @@ conn = redshift_connector.connect(
 	host=${JSON.stringify(host)},
 	database=${JSON.stringify(database)},
 	port=${port},
-	cluster_identifier=${JSON.stringify(clusterIdentifier)},
-	profile=${JSON.stringify(profile)},
-	db_user=${JSON.stringify(dbUser)}
+	cluster_identifier=${JSON.stringify(clusterIdentifier)},${profileParam}${dbUserParam}
 )
 %connection_show conn
 `;
