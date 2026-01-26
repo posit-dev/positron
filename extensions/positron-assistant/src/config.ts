@@ -194,7 +194,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			})
 			.map(async (source) => {
 				// Handle autoconfigurable providers
-				if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+				if (!source.signedIn && 'autoconfigure' in source.defaults && source.defaults.autoconfigure) {
 					// Resolve environment variables
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
