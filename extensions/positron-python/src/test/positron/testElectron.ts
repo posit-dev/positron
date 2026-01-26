@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -64,7 +64,15 @@ function spawnSyncCommand(command: string, args?: string[]): string {
         throw result.error;
     }
     if (result.status !== 0) {
-        throw new Error(`Command failed: ${command}, stderr: ${result.stderr.toString()}`);
+        const stderr = result.stderr?.toString() || '(no stderr)';
+        const stdout = result.stdout?.toString() || '(no stdout)';
+        throw new Error(
+            `Command failed: ${command} ${args?.join(' ') || ''}\n` +
+                `Exit code: ${result.status}\n` +
+                `Signal: ${result.signal || 'none'}\n` +
+                `Stderr: ${stderr}\n` +
+                `Stdout: ${stdout}`,
+        );
     }
     return result.stdout.toString();
 }
@@ -144,8 +152,8 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     const headers: Record<string, string> = {
-        Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
-        'User-Agent': USER_AGENT, // eslint-disable-line
+        Accept: 'application/vnd.github.v3.raw',
+        'User-Agent': USER_AGENT,
     };
     // If we have a githubPat, set it for better rate limiting.
     if (githubPat) {
@@ -214,6 +222,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     // Get releases from the Positron CDN instead of GitHub releases
+    // Note: GitHub's macos-latest runners use Apple Silicon (arm64)
     const cdnResponse = await httpsGetAsync({
         headers: {
             'User-Agent': USER_AGENT,
@@ -221,7 +230,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         method: 'GET',
         protocol: 'https:',
         hostname: 'cdn.posit.co',
-        path: '/positron/dailies/mac/universal/releases.json',
+        path: '/positron/dailies/mac/arm64/releases.json',
     });
 
     let cdnResponseBody = '';
@@ -251,7 +260,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let suffix: string;
     switch (platform) {
         case 'darwin':
-            suffix = '.dmg';
+            suffix = '.zip';
             break;
         default: {
             throw new Error(`Unsupported platform: ${platform}.`);
@@ -286,8 +295,9 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let url: URL | undefined;
     switch (platform) {
         case 'darwin':
-            fileName = `Positron-${version}-universal${suffix}`;
-            url = new URL(`https://cdn.posit.co/positron/dailies/mac/universal/${fileName}`);
+            // arm64 builds use the format: Positron-darwin-{version}-arm64.zip
+            fileName = `Positron-darwin-${version}-arm64${suffix}`;
+            url = new URL(`https://cdn.posit.co/positron/dailies/mac/arm64/${fileName}`);
             break;
         default:
             throw new Error(`Unsupported platform: ${platform}`);
@@ -331,21 +341,23 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         if (platform === 'darwin') {
             console.log(`Installing Positron to ${installDir}`);
 
-            // Mount the dmg.
-            spawnSyncCommand('hdiutil', ['attach', '-quiet', downloadPath]);
-
-            const volumeMount = path.join('/Volumes', path.basename(fileName, '.dmg'));
-            try {
-                const appPath = path.join(volumeMount, 'Positron.app');
-                const targetPath = path.join(installDir, 'Positron.app');
-
-                // Copy the app to the install directory.
-                rmrf.sync(targetPath);
-                await fs.copy(appPath, targetPath);
-            } finally {
-                // Unmount the dmg.
-                spawnSyncCommand('hdiutil', ['detach', '-quiet', volumeMount]);
+            // Verify the ZIP was downloaded successfully before attempting to extract
+            const fileStats = await fs.stat(downloadPath);
+            console.log(`Downloaded ZIP file size: ${fileStats.size} bytes`);
+            if (fileStats.size < 1000000) {
+                // ZIP files should be at least 1MB - if smaller, likely corrupted or incomplete
+                throw new Error(
+                    `Downloaded ZIP file appears to be corrupted or incomplete. ` +
+                        `Expected at least 1MB, got ${fileStats.size} bytes.`,
+                );
             }
+
+            // Remove any existing installation
+            const targetPath = path.join(installDir, 'Positron.app');
+            rmrf.sync(targetPath);
+
+            // Extract the ZIP file directly to the install directory
+            spawnSyncCommand('unzip', ['-q', downloadPath, '-d', installDir]);
 
             // Mark as complete for subsequent runs.
             await fs.writeFile(completeFile, version.trim(), 'utf-8');
