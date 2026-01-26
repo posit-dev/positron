@@ -26,6 +26,7 @@ from positron._vendor.lsprotocol.types import (
     HoverParams,
     InitializeParams,
     InsertReplaceEdit,
+    MarkupContent,
     MarkupKind,
     NotebookCell,
     NotebookCellKind,
@@ -1039,8 +1040,8 @@ class TestCompletionItemResolve:
             assert resolved_item.documentation is not None
             doc_value = (
                 resolved_item.documentation.value
-                if hasattr(resolved_item.documentation, "value")
-                else str(resolved_item.documentation)
+                if isinstance(resolved_item.documentation, MarkupContent)
+                else resolved_item.documentation
             )
             assert expected_doc_contains in doc_value
 
