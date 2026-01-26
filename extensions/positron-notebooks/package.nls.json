@@ -1,0 +1,12 @@
+{
+	"walkthrough.notebooks.welcome.title": "Get Started with the Positron Notebook (Alpha)",
+	"walkthrough.notebooks.welcome.description": "Learn how to work with notebooks in Positron for data science workflows!",
+	"walkthrough.notebooks.panesAndUI.title": "Get to know the Positron UI",
+	"walkthrough.notebooks.panesAndUI.description": "Explore the panes and layout options designed for working with notebooks\n[Customize your layout](command:workbench.action.customizeLayout)",
+	"walkthrough.notebooks.interpreter.title": "Select a Python interpreter",
+	"walkthrough.notebooks.interpreter.description": "Choose the Python environment for your notebook\n[Select an interpreter](command:workbench.action.language.runtime.selectSession)",
+	"walkthrough.notebooks.aiAssistant.title": "AI for the Positron Notebook",
+	"walkthrough.notebooks.aiAssistant.description": "Get help writing and refinding notebook code with the AI assistant\n[Open the Assistant](command:workbench.action.chat.open)",
+	"walkthrough.notebooks.optIn.title": "Try the Positron Notebook",
+	"walkthrough.notebooks.optIn.description": "Enable the new Positron Notebook editor\n[Open Settings](command:positronNotebookHelpers.walkthrough.enableNotebook)"
+}
