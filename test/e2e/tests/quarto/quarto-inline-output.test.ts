@@ -36,7 +36,7 @@ test.describe('Quarto - Inline Output', {
 		const page = app.code.driver.page;
 
 		// Open a Quarto document with Python code
-		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
 
 		// Wait for the editor to be ready
 		const editor = page.locator('.monaco-editor').first();
@@ -52,9 +52,9 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Use "Go to Line" command to position cursor in the Python code cell
-		// The file has frontmatter (lines 1-9), markdown (lines 11-13), then code cell starting line 15
+		// simple_plot.qmd: frontmatter (1-5), heading (7), code cell starts at line 9
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('12');
 		await page.keyboard.press('Enter');
 
 		// Wait for cursor to be positioned
@@ -70,12 +70,12 @@ test.describe('Quarto - Inline Output', {
 		const inlineOutput = page.locator('.quarto-inline-output');
 
 		// Monaco virtualizes content - the view zone won't be in the DOM until we scroll to it.
-		// The cell ends around line 25, so scroll to line 30 to ensure the output area is visible.
+		// The cell ends at line 19, so scroll to line 25 to ensure the output area is visible.
 		// We need to poll/retry since the output takes time to appear after kernel execution.
 		await expect(async () => {
 			// Scroll editor to show the area after the cell where output appears
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 
@@ -106,7 +106,7 @@ test.describe('Quarto - Inline Output', {
 		await openFile(join('workspaces', 'quarto_interactive', 'quarto_interactive.qmd'));
 		await page.waitForTimeout(1000);
 
-		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
 		await page.waitForTimeout(1000);
 
 		// Wait for the editor to be ready
@@ -121,9 +121,9 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 17)
+		// Position cursor in the Python code cell (line 12)
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('12');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -136,7 +136,7 @@ test.describe('Quarto - Inline Output', {
 		// Poll until output appears (includes kernel startup time)
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
@@ -157,7 +157,7 @@ test.describe('Quarto - Inline Output', {
 		const page = app.code.driver.page;
 
 		// Open a Quarto document with Python code
-		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
 
 		// Wait for the editor to be ready
 		const editor = page.locator('.monaco-editor').first();
@@ -171,9 +171,9 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 17)
+		// Position cursor in the Python code cell (line 12)
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('12');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -186,7 +186,7 @@ test.describe('Quarto - Inline Output', {
 		// Poll until output appears (includes kernel startup time)
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
@@ -195,12 +195,20 @@ test.describe('Quarto - Inline Output', {
 		// Verify the output is present
 		await expect(inlineOutput).toBeVisible({ timeout: 10000 });
 
-		// Find and click the close button (X)
+		// Find the close button (X)
 		const closeButton = inlineOutput.locator('.quarto-output-close');
 		await expect(closeButton).toBeVisible({ timeout: 5000 });
 
+		// Scroll to make sure the output area is in view by going to a line after the cell
+		// This uses Monaco's native scrolling rather than scrollIntoViewIfNeeded which
+		// can cause erratic horizontal scrolling
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('20');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
 		// Click the X button to clear the output
-		await closeButton.click({ force: false }); // Use force: false to ensure it's actually clickable
+		await closeButton.click();
 
 		// Wait for the output to be removed from the DOM
 		await expect(inlineOutput).not.toBeVisible({ timeout: 5000 });
@@ -208,7 +216,7 @@ test.describe('Quarto - Inline Output', {
 
 	test('Python - Verify inline output persists after closing and reopening file', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
-		const filePath = join('workspaces', 'quarto_python', 'report.qmd');
+		const filePath = join('workspaces', 'quarto_inline_output', 'simple_plot.qmd');
 
 		// Open a Quarto document with Python code
 		await openFile(filePath);
@@ -225,9 +233,9 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 17)
+		// Position cursor in the Python code cell (line 12)
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('12');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -240,7 +248,7 @@ test.describe('Quarto - Inline Output', {
 		// Poll until output appears (includes kernel startup time)
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
@@ -266,9 +274,9 @@ test.describe('Quarto - Inline Output', {
 		// The cached output should still be visible after reopening
 		// Use retry pattern since loading is async
 		await expect(async () => {
-			// Scroll to where the output should be (after cell ends around line 25)
+			// Scroll to where the output should be (after cell ends at line 19)
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 
@@ -288,8 +296,8 @@ test.describe('Quarto - Inline Output', {
 		// The bug was caused by the toolbar callbacks capturing the old cell object
 		// in a closure instead of using the current cell reference.
 
-		// Open a Quarto document with Python code
-		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		// Open a Quarto document designed for edit testing
+		await openFile(join('workspaces', 'quarto_inline_output', 'editable_cell.qmd'));
 
 		// Wait for the editor to be ready
 		const editor = page.locator('.monaco-editor').first();
@@ -303,9 +311,10 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 17)
+		// Position cursor in the Python code cell (line 13)
+		// editable_cell.qmd: frontmatter (1-5), heading (7), description (9), cell starts line 11
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('13');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -322,7 +331,7 @@ test.describe('Quarto - Inline Output', {
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('20');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
@@ -335,7 +344,7 @@ test.describe('Quarto - Inline Output', {
 		// Now edit the cell by adding a comment
 		// Position cursor back in the cell
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('13');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -356,7 +365,7 @@ test.describe('Quarto - Inline Output', {
 		// The output should clear and show new content
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('20');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			// Output should still be visible (execution succeeded)
@@ -365,20 +374,13 @@ test.describe('Quarto - Inline Output', {
 
 		// Verify output content is present (execution completed successfully)
 		await expect(outputContent).toBeVisible({ timeout: 10000 });
-
-		// Clean up: undo the edit to not affect other tests
-		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
-		await page.keyboard.press('Enter');
-		await page.keyboard.press('Meta+z'); // Undo on Mac, Ctrl+z on Windows
-		await page.waitForTimeout(500);
 	});
 
 	test('R - Verify inline output appears after running a code cell in Rmd file', async function ({ app, openFile, r }) {
 		const page = app.code.driver.page;
 
-		// Open an R Markdown document with R code
-		await openFile(join('workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+		// Open a simple R Markdown document with R code
+		await openFile(join('workspaces', 'quarto_inline_output', 'simple_r.rmd'));
 
 		// Wait for the editor to be ready
 		const editor = page.locator('.monaco-editor').first();
@@ -394,16 +396,10 @@ test.describe('Quarto - Inline Output', {
 		await page.waitForTimeout(500);
 
 		// Use "Go to Line" command to position cursor in the R code cell
-		// The basicRmd.rmd file has a "basicconsole" chunk at lines 63-68:
-		// Line 63: ```{r basicconsole}
-		// Line 64: x <- 1:10
-		// Line 65: y <- round(rnorm(10, x, 1), 2)
-		// Line 66: df <- data.frame(x, y)
-		// Line 67: df
-		// Line 68: ```
+		// simple_r.rmd: frontmatter (1-5), heading (7), cell starts line 9
 		// This chunk outputs a data frame, so it will produce visible output.
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('66');
+		await page.keyboard.type('11');
 		await page.keyboard.press('Enter');
 
 		// Wait for cursor to be positioned
@@ -419,7 +415,7 @@ test.describe('Quarto - Inline Output', {
 		await expect(async () => {
 			// Scroll editor to show the area after the cell where output appears
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('75');
+			await page.keyboard.type('20');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 
@@ -439,8 +435,8 @@ test.describe('Quarto - Inline Output', {
 	test('Python - Verify text can be selected via click and drag in inline output', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 
-		// Open a Quarto document with Python code
-		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+		// Open a Quarto document with text output for selection testing
+		await openFile(join('workspaces', 'quarto_inline_output', 'text_output.qmd'));
 
 		// Wait for the editor to be ready
 		const editor = page.locator('.monaco-editor').first();
@@ -454,25 +450,11 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Go to the end of the file to add a new cell with text output
+		// Position cursor in the Python code cell (line 13)
+		// text_output.qmd: frontmatter (1-5), heading (7), description (9), cell starts line 11
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('999');
+		await page.keyboard.type('13');
 		await page.keyboard.press('Enter');
-		await page.waitForTimeout(500);
-
-		// Add a new Python code cell that prints text (not a plot)
-		await page.keyboard.press('End');
-		await page.keyboard.press('Enter');
-		await page.keyboard.press('Enter');
-		await page.keyboard.type('```{python}');
-		await page.keyboard.press('Enter');
-		await page.keyboard.type('print("Hello World from Quarto inline output test")');
-		await page.keyboard.press('Enter');
-		await page.keyboard.type('```');
-		await page.waitForTimeout(500);
-
-		// Position cursor inside the new cell
-		await page.keyboard.press('ArrowUp');
 		await page.waitForTimeout(500);
 
 		// Run the current cell
@@ -483,9 +465,9 @@ test.describe('Quarto - Inline Output', {
 
 		// Poll until output appears (includes kernel startup time)
 		await expect(async () => {
-			// Scroll to bottom where the new cell is
+			// Scroll to show the area after the cell where output appears
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('999');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
@@ -534,13 +516,19 @@ test.describe('Quarto - Inline Output', {
 		// CRITICAL: Verify that text was actually selected via click and drag
 		// The bug caused no text to be selected because Monaco intercepted mouse events
 		expect(selectedText.length).toBeGreaterThan(0);
-		// Verify the selection contains expected text (may start slightly offset)
-		expect(selectedText).toContain('World');
+		// Verify the selection contains text from the output (could be from any line)
+		// The output has: "Hello World...", "This is additional text...", "Line three..."
+		const containsOutputText = selectedText.includes('World') ||
+			selectedText.includes('Hello') ||
+			selectedText.includes('additional') ||
+			selectedText.includes('text') ||
+			selectedText.includes('Line');
+		expect(containsOutputText).toBe(true);
 	});
 
 	test('Python - Verify kernel status persists after window reload', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
-		const filePath = join('workspaces', 'quarto_python', 'report.qmd');
+		const filePath = join('workspaces', 'quarto_inline_output', 'simple_plot.qmd');
 
 		// Close all editors first to ensure a clean state
 		// This is important when running in a suite where previous tests may have left state
@@ -562,9 +550,9 @@ test.describe('Quarto - Inline Output', {
 		await editor.click();
 		await page.waitForTimeout(500);
 
-		// Position cursor in the Python code cell (line 17)
+		// Position cursor in the Python code cell (line 12)
 		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-		await page.keyboard.type('17');
+		await page.keyboard.type('12');
 		await page.keyboard.press('Enter');
 		await page.waitForTimeout(500);
 
@@ -575,7 +563,7 @@ test.describe('Quarto - Inline Output', {
 		const inlineOutput = page.locator('.quarto-inline-output');
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('30');
+			await page.keyboard.type('25');
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
 			await expect(inlineOutput).toBeVisible({ timeout: 1000 });

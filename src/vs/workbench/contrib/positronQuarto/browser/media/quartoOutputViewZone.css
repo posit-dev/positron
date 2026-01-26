@@ -31,6 +31,7 @@
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
+	top: 2px;
 	/* Font is applied via JavaScript using editor font settings */
 	/* No overflow or max-height - renders at natural height, editor handles scrolling */
 	box-sizing: border-box;
