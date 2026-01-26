@@ -310,7 +310,7 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 		// --- Start Positron ---
 
 		// External modules (React, etc.)
-		const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname); }));
+		const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname ?? ''); }));
 
 		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
@@ -534,9 +534,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 }
 
 // --- Start Positron ---
-function updateIcon(cwd, executablePath, icon) {
-	return cb => {
-		rcedit(path.join(cwd, executablePath), { icon }, cb);
+function updateIcon(cwd: string, executablePath: string, icon: string) {
+	return async () => {
+		await rcedit(path.join(cwd, executablePath), { icon });
 	};
 }
 // --- End Positron ---
@@ -629,9 +629,9 @@ BUILD_TARGETS.forEach(buildTarget => {
 
 		if (platform === 'win32') {
 			// --- Start Positron ---
-			const cwd = path.join(path.dirname(root), destinationFolderName);
-			tasks.push(patchWin32DependenciesTask(cwd));
+			tasks.push(patchWin32DependenciesTask(destinationFolderName));
 
+			const cwd = path.join(path.dirname(root), destinationFolderName);
 			const executablePath = `${product.nameShort}.exe`;
 			const iconPath = path.join(cwd, 'resources', 'app', 'resources', 'win32', 'positron.ico');
 			tasks.push(updateIcon(cwd, executablePath, iconPath));
