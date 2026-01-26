@@ -1369,7 +1369,7 @@
     "@ai-sdk/anthropic": "^2.0.53",
     "@ai-sdk/azure": "^2.0.78",
     "@ai-sdk/google": "^2.0.44",
-"@ai-sdk/openai": "^2.0.76",
+    "@ai-sdk/openai": "^2.0.76",
     "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",
     "@stylistic/eslint-plugin": "^2.9.0",
