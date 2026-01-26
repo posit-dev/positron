@@ -17302,6 +17302,14 @@ declare module 'vscode' {
 		 * @param suppress Whether to suppress the debug toolbar.
 		 */
 		export function setSuppressDebugToolbar(session: DebugSession, suppress: boolean): void;
+
+		/**
+		 * Sets whether the debug status bar styling should be suppressed during a running debug session.
+		 *
+		 * @param session The {@link DebugSession debug session} to modify.
+		 * @param suppress Whether to suppress the debug status bar styling.
+		 */
+		export function setSuppressDebugStatusbar(session: DebugSession, suppress: boolean): void;
 		// --- End Positron ---
 
 		/**

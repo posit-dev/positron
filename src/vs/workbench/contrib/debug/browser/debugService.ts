@@ -1020,6 +1020,11 @@ export class DebugService implements IDebugService {
 		}
 	}
 
+	setSessionSuppressDebugStatusbar(session: IDebugSession, suppress: boolean): void {
+		session.setSuppressDebugStatusbar(suppress);
+		this._onDidChangeState.fire(this.state);
+	}
+
 	/**
 	 * Computes the debugUx value based on current state and session suppression.
 	 * Returns 'simple' (welcome view) when there's no foreground debug session.

@@ -1806,6 +1806,7 @@ export interface MainThreadDebugServiceShape extends IDisposable {
 	$setDebugSessionName(id: DebugSessionUUID, name: string): void;
 	// --- Start Positron ---
 	$setSuppressDebugToolbar(sessionId: DebugSessionUUID, suppress: boolean): void;
+	$setSuppressDebugStatusbar(sessionId: DebugSessionUUID, suppress: boolean): void;
 	// --- End Positron ---
 	$customDebugAdapterRequest(id: DebugSessionUUID, command: string, args: any): Promise<any>;
 	$getDebugProtocolBreakpoint(id: DebugSessionUUID, breakpoinId: string): Promise<DebugProtocol.Breakpoint | undefined>;

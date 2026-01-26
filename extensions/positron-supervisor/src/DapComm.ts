@@ -92,6 +92,7 @@ export class DapComm {
 
 		const debugOptions: vscode.DebugSessionOptions = {
 			suppressDebugToolbar: true,
+			suppressDebugStatusbar: true,
 		};
 
 		return new DapComm(
@@ -167,6 +168,7 @@ export class DapComm {
 				// Cancel any pending stop handler. We debounce these to avoid flickering.
 				this._stopDebug.cancel();
 				vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
+				vscode.debug.setSuppressDebugStatusbar(this.debugSession(), false);
 				break;
 			}
 
@@ -176,6 +178,7 @@ export class DapComm {
 				this._stopDebug.schedule(() => {
 					if (this._debugSession) {
 						vscode.debug.setSuppressDebugToolbar(this._debugSession, true);
+						vscode.debug.setSuppressDebugStatusbar(this._debugSession, true);
 					}
 				});
 				break;

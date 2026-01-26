@@ -113,11 +113,7 @@ export class StatusBarColorProvider implements IWorkbenchContribution {
 }
 
 export function isStatusbarInDebugMode(state: State, sessions: IDebugSession[]): boolean {
-	// --- Start Positron ---
-	// Also check suppressDebugToolbar for background sessions (e.g., permanent
-	// DAP session for R breakpoints) that shouldn't trigger debug mode styling.
-	if (state === State.Inactive || state === State.Initializing || sessions.every(s => s.suppressDebugStatusbar || s.suppressDebugToolbar || s.configuration?.noDebug)) {
-		// --- End Positron ---
+	if (state === State.Inactive || state === State.Initializing || sessions.every(s => s.suppressDebugStatusbar || s.configuration?.noDebug)) {
 		return false;
 	}
 

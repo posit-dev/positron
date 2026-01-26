@@ -443,6 +443,7 @@ export interface IDebugSession extends ITreeElement, IDisposable {
 
 	// --- Start Positron ---
 	setSuppressDebugToolbar(value: boolean): void;
+	setSuppressDebugStatusbar(value: boolean): void;
 	// --- End Positron ---
 
 	getSourceForUri(modelUri: uri): Source | undefined;
@@ -1384,6 +1385,10 @@ export interface IDebugService {
 	 * Sets the suppressDebugToolbar option for a running debug session.
 	 */
 	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void;
+	/**
+	 * Sets the suppressDebugStatusbar option for a running debug session.
+	 */
+	setSessionSuppressDebugStatusbar(session: IDebugSession, suppress: boolean): void;
 	// --- End Positron ---
 
 	/**
