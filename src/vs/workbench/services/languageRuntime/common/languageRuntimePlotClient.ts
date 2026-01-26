@@ -52,11 +52,17 @@ export interface IPositronPlotMetadata {
 	/** The plot's moment of creation, in milliseconds since the Epoch */
 	created: number;
 
+	/** The kind of the plot (e.g. 'Matplotlib', 'ggplot2', etc.) */
+	kind?: string;
+
+	/** A unique, human-readable name for the plot */
+	name?: string;
+
+	/** The execution ID that created the plot */
+	execution_id?: string;
+
 	/** The code that created the plot, if known. */
 	code: string;
-
-	/** The plot's parent message ID; useful for jumping to associated spot in the console */
-	parent_id: string;
 
 	/** The ID of the runtime session that created the plot */
 	session_id: string;
@@ -174,6 +180,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private readonly _zoomLevelEmitter = new Emitter<ZoomLevel>();
 
 	/**
+	 * Event that fires when the plot's metadata is updated.
+	 */
+	onDidUpdateMetadata: Event<IPositronPlotMetadata>;
+	private readonly _updateMetadataEmitter = new Emitter<IPositronPlotMetadata>();
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _commProxy The proxy than handles comm requests
@@ -237,6 +249,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect the zoom level emitter event
 		this.onDidChangeZoomLevel = this._zoomLevelEmitter.event;
+
+		// Connect the metadata update emitter event
+		this.onDidUpdateMetadata = this._updateMetadataEmitter.event;
 
 		// Listen to our own state changes
 		this._register(this.onDidChangeState((state) => {
@@ -306,6 +321,14 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	public getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
 		return this._commProxy.getIntrinsicSize();
+	}
+
+	/**
+	 * Notifies listeners that the plot's metadata has been updated.
+	 * This should be called after the metadata object has been modified.
+	 */
+	public notifyMetadataUpdated(): void {
+		this._updateMetadataEmitter.fire(this.metadata);
 	}
 
 	get sizingPolicy() {

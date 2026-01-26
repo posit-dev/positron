@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -52,6 +52,7 @@ import { IPositronVariablesInstance } from '../../../services/positronVariables/
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -254,7 +255,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 				const editor: ITextResourceEditorInput = {
 					resource: file,
-					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
+					options: {
+						selection: { startLineNumber: ed.line, startColumn: ed.column },
+						pinned: ed.pinned ?? true
+					}
 				};
 				this._editorService.openEditor(editor);
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
@@ -476,9 +480,24 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$openResource(this.handle, resource);
 	}
 
-	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+	execute(
+		code: string,
+		id: string,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior,
+		attribution?: IConsoleCodeAttribution,
+	): void {
 		this._lastUsed = Date.now();
-		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
+
+		let codeLocation: ICodeLocation | undefined = undefined;
+
+		// For now we only provide source locations for scripts, but we might be
+		// able to provide it for notebooks as well
+		if (attribution?.source === CodeAttributionSource.Script) {
+			codeLocation = attribution.metadata?.codeLocation;
+		}
+
+		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation);
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {

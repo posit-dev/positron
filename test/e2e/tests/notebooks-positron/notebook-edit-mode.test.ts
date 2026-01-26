@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename
@@ -12,14 +13,6 @@ test.use({
 test.describe('Notebook Edit Mode', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
-
 
 	test('Clicking/dbl clicking into cell focuses editor and enters into edit mode', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
@@ -117,10 +110,16 @@ test.describe('Notebook Edit Mode', {
 
 		// Create a new notebook with 2 cells
 		await notebooksPositron.newNotebook({ codeCells: 2 });
+		await notebooksPositron.kernel.select('Python');
 
 		// Enter edit mode in cell 0
 		await notebooksPositron.selectCellAtIndex(0);
 		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+
+		// Needs an expression to break at
+		await keyboard.press('Enter');
+		await keyboard.type('1 + 1');
+		await app.workbench.quickaccess.runCommand('Debug: Toggle Breakpoint');
 
 		// Test: Execute cell and select below: Shift+Enter
 		await keyboard.press('Shift+Enter');

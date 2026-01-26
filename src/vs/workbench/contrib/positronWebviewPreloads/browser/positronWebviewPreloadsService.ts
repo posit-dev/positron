@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
@@ -15,6 +15,7 @@ import { UiFrontendEvent } from '../../../services/languageRuntime/common/positr
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
 
 /**
  * Format of output from a notebook cell
@@ -30,6 +31,12 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	/** Map of holoviz messages keyed by session ID. */
 	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
 	private readonly _messagesByNotebookId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
+
+	/** Map of created ipywidgets webviews keyed by output ID for Positron notebooks. */
+	private readonly _widgetWebviewsByOutputId = new Map<string, Promise<INotebookOutputWebview>>();
+
+	/** Map tracking which output IDs belong to which notebook for cache cleanup. */
+	private readonly _outputIdsByNotebookId = new Map<string, Set<string>>();
 
 	/**
 	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
@@ -48,6 +55,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
 	) {
 		super();
 
@@ -123,6 +131,21 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		const messagesForNotebook: ILanguageRuntimeMessageWebOutput[] = [];
 		this._messagesByNotebookId.set(notebookId, messagesForNotebook);
+
+		// Initialize output ID tracking for this notebook
+		this._outputIdsByNotebookId.set(notebookId, new Set());
+
+		// Clean up webview cache entries when notebook is disposed
+		disposables.add(toDisposable(() => {
+			const outputIds = this._outputIdsByNotebookId.get(notebookId);
+			if (outputIds) {
+				// Remove all cached webview promises for this notebook's outputs
+				outputIds.forEach(outputId => this._widgetWebviewsByOutputId.delete(outputId));
+				this._outputIdsByNotebookId.delete(notebookId);
+			}
+			this._messagesByNotebookId.delete(notebookId);
+			this._notebookToDisposablesMap.delete(notebookId);
+		}));
 	}
 
 	static notebookMessageToRuntimeOutput(message: NotebookOutput, kind: RuntimeOutputKind): ILanguageRuntimeMessageWebOutput {
@@ -139,7 +162,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 				acc[output.mime] = output.data.toString();
 				return acc;
 				// eslint-disable-next-line local/code-no-dangerous-type-assertions
-			}, {} as Record<string, any>)
+			}, {} as Record<string, unknown>)
 		};
 	}
 
@@ -177,6 +200,45 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			RuntimeOutputKind.WebviewPreload
 		);
 
+		// Widget messages (e.g., ipywidgets) need to create a widget webview
+		if (messageType === 'widget') {
+			// Check if we already have a webview for this output (from previous creation)
+			const existingWebview = this._widgetWebviewsByOutputId.get(runtimeOutput.id);
+			if (existingWebview) {
+				// Double-check that the widget instance was also successfully created
+				if (!this._positronIPyWidgetsService.hasPositronNotebookWidgetInstance(runtimeOutput.id)) {
+					this._widgetWebviewsByOutputId.delete(runtimeOutput.id);
+				} else {
+					return {
+						preloadMessageType: messageType,
+						webview: existingWebview
+					};
+				}
+			}
+
+			// Check if session is available before attempting widget creation
+			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(instance.uri);
+			if (!session) {
+				// Session doesn't exist yet - skip widget creation, will retry when session attaches
+				return undefined;
+			}
+
+			// Create webview and handle failures by removing from cache
+			const webviewPromise = this._createNotebookWidgetWebview(instance, session, runtimeOutput)
+				.catch(err => {
+					// Remove from cache on failure to allow retry
+					this._widgetWebviewsByOutputId.delete(runtimeOutput.id);
+					throw err;
+				});
+
+			// Cache the webview Promise for subsequent calls
+			this._widgetWebviewsByOutputId.set(runtimeOutput.id, webviewPromise);
+			return {
+				preloadMessageType: messageType,
+				webview: webviewPromise
+			};
+		}
+
 		// Display messages (e.g., interactive plots) need to create a new webview immediately
 		// and return it for rendering
 		if (messageType === 'display') {
@@ -191,6 +253,69 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
 	}
+	/**
+	 * Create a webview for an IPyWidget output from a Positron Notebook.
+	 * Creates a per-output messaging channel to enable proper communication
+	 * between the output's webview and the kernel.
+	 *
+	 * @param instance The notebook instance the output belongs to.
+	 * @param session The notebook session (already validated to exist)
+	 * @param displayMessage The output message to display.
+	 * @returns The created webview
+	 */
+	private async _createNotebookWidgetWebview(
+		instance: IPositronNotebookInstance,
+		session: ILanguageRuntimeSession,
+		displayMessage: ILanguageRuntimeMessageWebOutput
+	): Promise<INotebookOutputWebview> {
+		// Grab disposables for this notebook
+		const disposables = this._notebookToDisposablesMap.get(instance.getId());
+		if (!disposables) {
+			throw new Error(`[PositronWebviewPreloadService]: Could not find disposables for notebook ${instance.getId()}`);
+		}
+
+		// Track this output ID for cache cleanup when notebook is disposed
+		const outputIds = this._outputIdsByNotebookId.get(instance.getId());
+		if (outputIds) {
+			outputIds.add(displayMessage.id);
+		}
+
+		// Create the per-output messaging and IPyWidgets instance first.
+		// This must happen before the webview is created so the messaging channel
+		// is ready when the webview starts communicating with the kernel
+		const widgetDisposable = this._positronIPyWidgetsService.createPositronNotebookWidgetInstance(
+			session,
+			displayMessage.id
+		);
+
+		// Store the ipywidgets instance disposable so it is cleaned up with the notebook
+		disposables.add(widgetDisposable);
+
+		// Now create the webview for the output
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
+			id: displayMessage.id,
+			runtime: session,
+			output: displayMessage,
+			viewType: 'jupyter-notebook'
+		});
+
+		if (!webview) {
+			// Clean up the ipywidgets instance if webview creation fails
+			widgetDisposable.dispose();
+			throw new Error(`[PositronWebviewPreloadService]: Failed to create webview for output ${displayMessage.id} in notebook ${instance.uri.toString()}`);
+		}
+
+		// Track the webview for disposal when the notebook closes
+		disposables.add(webview);
+
+		// Also clean up cache entry when webview is disposed
+		disposables.add(toDisposable(() => {
+			this._widgetWebviewsByOutputId.delete(displayMessage.id);
+		}));
+
+		return webview;
+	}
+
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.
 	 * Alerts the plots pane that a new plot is ready.

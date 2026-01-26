@@ -8,7 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ITextModel } from '../../../../editor/common/model.js';
-import { IRange } from '../../../../editor/common/core/range.js';
+import { IRange, Range } from '../../../../editor/common/core/range.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -24,7 +24,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IStatementRange, StatementRangeProvider } from '../../../../editor/common/languages.js';
+import { IStatementRange, StatementRangeProvider, Location } from '../../../../editor/common/languages.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -32,8 +32,11 @@ import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKe
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IDebugService } from '../../debug/common/debug.js';
+import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { createCodeLocation, ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
@@ -79,13 +82,15 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
  */
 async function executeCodeInConsole(
 	code: string,
-	position: Position,
-	model: ITextModel,
+	cursorLocation: Location,
+	codeLocation: ICodeLocation | undefined,
 	services: {
 		editorService: IEditorService;
 		languageService: ILanguageService;
 		notificationService: INotificationService;
 		positronConsoleService: IPositronConsoleService;
+		debugService: IDebugService;
+		textFileService: ITextFileService;
 	},
 	opts: {
 		allowIncomplete?: boolean;
@@ -94,7 +99,7 @@ async function executeCodeInConsole(
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
 ): Promise<boolean> {
-	const { editorService, languageService, notificationService, positronConsoleService } = services;
+	const { editorService, languageService, notificationService, positronConsoleService, debugService, textFileService } = services;
 
 	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
@@ -114,13 +119,16 @@ async function executeCodeInConsole(
 	const attribution: IConsoleCodeAttribution = {
 		source: CodeAttributionSource.Script,
 		metadata: {
-			file: model.uri.path,
-			position: {
-				line: position.lineNumber,
-				column: position.column
-			},
+			cursorLocation,
+			codeLocation,
 		}
 	};
+
+	// If the document is dirty, send breakpoints to the debug adapter before executing code
+	const documentUri = cursorLocation.uri;
+	if (textFileService.isDirty(documentUri)) {
+		await debugService.sendBreakpoints(documentUri, true);
+	}
 
 	// Ask the Positron console service to execute the code. Do not focus the console as
 	// this will rip focus away from the editor.
@@ -341,6 +349,8 @@ export function registerPositronConsoleActions() {
 			const modelService = accessor.get(IModelService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const debugService = accessor.get(IDebugService);
+			const textFileService = accessor.get(ITextFileService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -387,10 +397,14 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute.
 			const selection = editor?.getSelection();
 
+			// Track the source and range of the executed code (with UTF-8 byte offsets)
+			let codeLocation: ICodeLocation | undefined = undefined;
+
 			// If we have a selection and it isn't empty, then we use its contents (even if it
 			// only contains whitespace or comments) and also retain the user's selection location.
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
+				codeLocation = createCodeLocation(model, model.uri, selection);
 				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 				// This attempts to address https://github.com/posit-dev/positron/issues/1177
 				// by tacking a newline onto multiline, indented Python code fragments. This allows
@@ -429,6 +443,7 @@ export function registerPositronConsoleActions() {
 					// range provider returns, even if it is an empty string, as it should have
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
+					codeLocation = createCodeLocation(model, model.uri, statementRange.range);
 
 					if (advance) {
 						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
@@ -486,16 +501,23 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
+			const cursorLocation: Location = {
+				uri: model.uri,
+				range: Range.fromPositions(position, position),
+			};
+
 			// Use the helper function to execute the code
 			await executeCodeInConsole(
 				code,
-				position,
-				model,
+				cursorLocation,
+				codeLocation,
 				{
 					editorService,
 					languageService,
 					notificationService,
-					positronConsoleService
+					positronConsoleService,
+					debugService,
+					textFileService
 				},
 				{
 					allowIncomplete: opts.allowIncomplete,
@@ -718,6 +740,8 @@ export function registerPositronConsoleActions() {
 		const languageService = accessor.get(ILanguageService);
 		const notificationService = accessor.get(INotificationService);
 		const positronConsoleService = accessor.get(IPositronConsoleService);
+		const debugService = accessor.get(IDebugService);
+		const textFileService = accessor.get(ITextFileService);
 
 		// If there is no active editor, there is nothing to execute.
 		const editor = editorService.activeTextEditorControl as IEditor;
@@ -770,16 +794,23 @@ export function registerPositronConsoleActions() {
 			return;
 		}
 
+		const cursorLocation: Location = {
+			uri: model.uri,
+			range: Range.fromPositions(position, position),
+		};
+
 		// Use the helper function to execute the code
 		await executeCodeInConsole(
 			code,
-			position,
-			model,
+			cursorLocation,
+			undefined,
 			{
 				editorService,
 				languageService,
 				notificationService,
-				positronConsoleService
+				positronConsoleService,
+				debugService,
+				textFileService
 			},
 			{
 				allowIncomplete: opts.allowIncomplete,

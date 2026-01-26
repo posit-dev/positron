@@ -467,7 +467,7 @@ if [[ -z $SERVER_RUNNING_PROCESS ]]; then
 	SERVER_CONNECTION_TOKEN="${crypto.randomUUID()}"
 	echo $SERVER_CONNECTION_TOKEN > $SERVER_TOKENFILE
 
-	$SERVER_SCRIPT --start-server --host=127.0.0.1 $SERVER_LISTEN_FLAG $SERVER_INITIAL_EXTENSIONS --connection-token-file $SERVER_TOKENFILE --telemetry-level off --enable-remote-auto-shutdown --accept-server-license-terms &> $SERVER_LOGFILE &
+	$SERVER_SCRIPT --start-server --host=127.0.0.1 $SERVER_LISTEN_FLAG $SERVER_INITIAL_EXTENSIONS --connection-token-file $SERVER_TOKENFILE --server-data-dir $SERVER_DATA_DIR --telemetry-level off --enable-remote-auto-shutdown --accept-server-license-terms &> $SERVER_LOGFILE &
 	echo $! > $SERVER_PIDFILE
 else
 	echo "Server script is already running $SERVER_SCRIPT"

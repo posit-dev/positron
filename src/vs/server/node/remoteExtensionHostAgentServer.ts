@@ -741,13 +741,16 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables);
 
 	// --- Start Positron ---
-	instantiationService.invokeFunction((accessor) => {
+	// Wait for bootstrap extensions to complete before continuing with server setup.
+	// This ensures the extension host will see the bootstrap extensions when it scans.
+	await instantiationService.invokeFunction(async (accessor) => {
 		const environmentService = accessor.get(INativeEnvironmentService);
 		const extensionManagementService = accessor.get(IExtensionManagementService);
 		const fileService = accessor.get(IFileService);
 		const productService = accessor.get(IProductService);
 		const logService = accessor.get(ILogService);
-		new PositronBootstrapExtensionsInitializer(environmentService, extensionManagementService, fileService, productService, logService);
+		const bootstrapInitializer = new PositronBootstrapExtensionsInitializer(environmentService, extensionManagementService, fileService, productService, logService);
+		await bootstrapInitializer.whenReady;
 	});
 	// --- End Positron ---
 

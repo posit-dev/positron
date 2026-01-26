@@ -235,6 +235,13 @@ export class DebugSession implements IDebugSession {
 		return this._options.suppressDebugToolbar ?? false;
 	}
 
+	// --- Start Positron ---
+	setSuppressDebugToolbar(value: boolean): void {
+		this._options.suppressDebugToolbar = value;
+		this._onDidChangeState.fire();
+	}
+	// --- End Positron ---
+
 	get suppressDebugView(): boolean {
 		return this._options.suppressDebugView ?? false;
 	}
@@ -1383,7 +1390,10 @@ export class DebugSession implements IDebugSession {
 							}
 
 							if (thread.stoppedDetails && !token.isCancellationRequested) {
-								if (thread.stoppedDetails.reason === 'breakpoint' && this.configurationService.getValue<IDebugConfiguration>('debug').openDebug === 'openOnDebugBreak' && !this.suppressDebugView) {
+								// --- Start Positron ---
+								// Also check suppressDebugToolbar for background sessions
+								if (thread.stoppedDetails.reason === 'breakpoint' && this.configurationService.getValue<IDebugConfiguration>('debug').openDebug === 'openOnDebugBreak' && !this.suppressDebugView && !this.suppressDebugToolbar) {
+									// --- End Positron ---
 									await this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
 								}
 

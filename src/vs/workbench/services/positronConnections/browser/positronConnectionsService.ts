@@ -42,7 +42,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	) {
 		super();
 
-		this.driverManager = new PositronConnectionsDriverManager(this);
+		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.

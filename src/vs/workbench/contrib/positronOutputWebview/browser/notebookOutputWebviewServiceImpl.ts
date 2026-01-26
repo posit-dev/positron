@@ -5,6 +5,7 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { Event } from '../../../../base/common/event.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -351,7 +352,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		);
 
 		// When the webview is ready to receive messages, send the render requests.
-		notebookOutputWebview.onDidInitialize(() => {
+		// Use Event.once to automatically dispose the subscription after it fires
+		Event.once(notebookOutputWebview.onDidInitialize)(() => {
 			// Loop through all the messages and render them in the webview
 			for (let i = 0; i < messagesInfo.length; i++) {
 				const { output: message, mimeType, renderer } = messagesInfo[i];
@@ -394,6 +396,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	/* Hide the logo and 'loaded' message for bokeh plots */
 	div:has(> .bk-notebook-logo) {
 		display: none;
+	}
+
+
+	/* Prevent inner scrollbar for ipywidgets by ensuring the container properly contains child margins */
+	.positron-output-container {
+		display: flow-root;
 	}
 </style>`;
 }
