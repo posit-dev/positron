@@ -313,14 +313,14 @@ class HoverAdapter {
 			return undefined;
 		}
 		// --- Start Positron ---
-		// Filter out hovers that only contain "Unknown" text (possibly in a markdown code block).
+		// Filter out hovers that end with the text "Unknown" (possibly in a markdown code block).
 		// This is because that's the literal message Pyrefly sends when it has no useful hover info to provide.
 		const contentsText = extractPlainTextFromMarkdown(
 			value.contents
 				.map(c => typeof c === 'string' ? c : typeof c === 'object' && 'value' in c ? c.value : '')
 				.join('')
 		);
-		if (contentsText === 'Unknown') {
+		if (contentsText.endsWith('Unknown')) {
 			return undefined;
 		}
 		// --- End Positron ---

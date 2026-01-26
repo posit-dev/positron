@@ -1358,6 +1358,12 @@ def get_inspector(value: T) -> PositronInspector[T]:
         qualname = _get_simplified_qualname(value)
     inspector_cls = INSPECTOR_CLASSES.get(qualname)
 
+    # Guard: MapInspector should only be used for Mapping types, not map() iterators.
+    # Python's builtin map() has qualname 'map' which collides with the 'map' key
+    # intended for Mapping types like dict.
+    if inspector_cls is MapInspector and not isinstance(value, Mapping):
+        inspector_cls = None
+
     if inspector_cls is None:
         # Otherwise, look for an inspector by kind
         kind = _get_kind(value)
