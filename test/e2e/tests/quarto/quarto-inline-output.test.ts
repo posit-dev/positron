@@ -436,6 +436,108 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
 
+	test('Python - Verify text can be selected via click and drag in inline output', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Open a Quarto document with Python code
+		await openFile(join('workspaces', 'quarto_python', 'report.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Go to the end of the file to add a new cell with text output
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('999');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Add a new Python code cell that prints text (not a plot)
+		await page.keyboard.press('End');
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('```{python}');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('print("Hello World from Quarto inline output test")');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('```');
+		await page.waitForTimeout(500);
+
+		// Position cursor inside the new cell
+		await page.keyboard.press('ArrowUp');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			// Scroll to bottom where the new cell is
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('999');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content is present and contains text (not a webview/plot)
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// Get the text element containing stdout output
+		const outputText = inlineOutput.locator('.quarto-output-stdout').first();
+		await expect(outputText).toBeVisible({ timeout: 5000 });
+
+		// Verify it contains our expected text
+		await expect(outputText).toContainText('Hello World');
+
+		// Get the bounding box of the output text
+		const boundingBox = await outputText.boundingBox();
+		expect(boundingBox).not.toBeNull();
+
+		// Clear any existing selection first
+		await page.evaluate(() => window.getSelection()?.removeAllRanges());
+
+		// Perform a click-and-drag gesture to select text within the output
+		// Start at the beginning of the output text and drag across it
+		const startX = boundingBox!.x + 10;
+		const startY = boundingBox!.y + boundingBox!.height / 2;
+		const endX = boundingBox!.x + Math.min(boundingBox!.width - 10, 200);
+		const endY = startY;
+
+		// Use page.mouse for fine-grained control
+		await page.mouse.move(startX, startY);
+		await page.mouse.down();
+		await page.mouse.move(endX, endY, { steps: 10 });
+		await page.mouse.up();
+
+		// Wait a moment for the selection to register
+		await page.waitForTimeout(200);
+
+		// Get the current text selection from the page
+		const selectedText = await page.evaluate(() => {
+			const selection = window.getSelection();
+			return selection ? selection.toString().trim() : '';
+		});
+
+		// CRITICAL: Verify that text was actually selected via click and drag
+		// The bug caused no text to be selected because Monaco intercepted mouse events
+		expect(selectedText.length).toBeGreaterThan(0);
+		// Verify the selection contains expected text (may start slightly offset)
+		expect(selectedText).toContain('World');
+	});
+
 	test('Python - Verify kernel status persists after window reload', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 		const filePath = join('workspaces', 'quarto_python', 'report.qmd');

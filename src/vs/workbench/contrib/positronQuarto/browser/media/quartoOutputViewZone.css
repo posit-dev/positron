@@ -7,13 +7,26 @@
 .quarto-inline-output-wrapper {
 	/* No visible styling - just a container for Monaco to control */
 	box-sizing: border-box;
+	/* Ensure the wrapper receives mouse events even when Monaco tries to suppress them */
+	pointer-events: auto !important;
+	/* Enable text selection - override Monaco's user-select: none on .lines-content */
+	user-select: text !important;
+	-webkit-user-select: text !important;
+
+	/*
+	Position above Monaco's view-lines element to receive mouse events and enable text selection.
+	Monaco's view-lines sits on top of view-zones in DOM order, so we need z-index to fix this.
+	*/
+	position: relative;
+	z-index: 5;
 }
 
 /* Main container for inline output view zone */
 .quarto-inline-output {
 	position: relative;
 	padding: 8px 12px;
-	padding-right: 32px; /* Space for close button */
+	padding-right: 32px;
+	/* Space for close button */
 	margin: 4px 0;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
@@ -46,8 +59,10 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 3px;
-	z-index: 10; /* Ensure button is above other content */
-	pointer-events: auto; /* Ensure button receives mouse events */
+	z-index: 10;
+	/* Ensure button is above other content */
+	pointer-events: auto;
+	/* Ensure button receives mouse events */
 }
 
 .quarto-output-close:hover {

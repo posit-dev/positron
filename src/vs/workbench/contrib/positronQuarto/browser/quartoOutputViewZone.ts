@@ -51,6 +51,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	public afterLineNumber: number;
 	public heightInPx: number;
 	public readonly domNode: HTMLElement;
+	// Keep as false so Monaco does NOT call preventDefault() on mousedown,
+	// which would prevent browser text selection from working.
 	public readonly suppressMouseDown = false;
 
 	/**
@@ -147,6 +149,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Set up keyboard navigation
 		this._setupKeyboardNavigation();
+
+		// Set up mouse event handling for text selection
+		this._setupTextSelection();
 	}
 
 	/**
@@ -409,6 +414,26 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 					break;
 			}
 		});
+	}
+
+	/**
+	 * Set up mouse/pointer event handling to enable text selection within the view zone.
+	 * With z-index set in CSS, the view zone now sits above Monaco's view-lines element,
+	 * so we just need to stop propagation to prevent Monaco from handling the events.
+	 */
+	private _setupTextSelection(): void {
+		// Stop propagation of mouse events on the output container to allow
+		// native browser text selection instead of Monaco's handling
+		const stopEvent = (e: Event) => {
+			e.stopPropagation();
+		};
+
+		this._outputContainer.addEventListener('mousedown', stopEvent);
+		this._outputContainer.addEventListener('mousemove', stopEvent);
+		this._outputContainer.addEventListener('mouseup', stopEvent);
+		this._outputContainer.addEventListener('pointerdown', stopEvent);
+		this._outputContainer.addEventListener('pointermove', stopEvent);
+		this._outputContainer.addEventListener('pointerup', stopEvent);
 	}
 
 	private _setupResizeObserver(): void {
