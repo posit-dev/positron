@@ -1382,13 +1382,10 @@ export interface IDebugService {
 
 	// --- Start Positron ---
 	/**
-	 * Sets the suppressDebugToolbar option for a running debug session.
+	 * Sets whether a debug session is in the foreground (actively debugging) or background.
+	 * Foreground sessions show the debug toolbar and status bar styling.
 	 */
-	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void;
-	/**
-	 * Sets the suppressDebugStatusbar option for a running debug session.
-	 */
-	setSessionSuppressDebugStatusbar(session: IDebugSession, suppress: boolean): void;
+	setSessionForeground(session: IDebugSession, foreground: boolean): void;
 	// --- End Positron ---
 
 	/**

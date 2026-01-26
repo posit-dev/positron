@@ -1000,8 +1000,9 @@ export class DebugService implements IDebugService {
 	}
 
 	// --- Start Positron ---
-	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void {
-		session.setSuppressDebugToolbar(suppress);
+	setSessionForeground(session: IDebugSession, foreground: boolean): void {
+		session.setSuppressDebugToolbar(!foreground);
+		session.setSuppressDebugStatusbar(!foreground);
 
 		// Update debugUx to show/hide welcome view based on suppression
 		const debugUxValue = this.computeDebugUxValue();
@@ -1012,17 +1013,12 @@ export class DebugService implements IDebugService {
 		this._onDidChangeState.fire(this.state);
 
 		// When bringing a session to the foreground, open the debug pane based on user settings
-		if (!suppress && !session.suppressDebugView) {
+		if (foreground && !session.suppressDebugView) {
 			const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
 			if (openDebug !== 'neverOpen') {
 				this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
 			}
 		}
-	}
-
-	setSessionSuppressDebugStatusbar(session: IDebugSession, suppress: boolean): void {
-		session.setSuppressDebugStatusbar(suppress);
-		this._onDidChangeState.fire(this.state);
 	}
 
 	/**

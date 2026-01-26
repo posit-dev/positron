@@ -167,8 +167,7 @@ export class DapComm {
 			case 'start_debug': {
 				// Cancel any pending stop handler. We debounce these to avoid flickering.
 				this._stopDebug.cancel();
-				vscode.debug.setSuppressDebugToolbar(this.debugSession(), false);
-				vscode.debug.setSuppressDebugStatusbar(this.debugSession(), false);
+				vscode.debug.setDebugSessionForeground(this.debugSession(), true);
 				break;
 			}
 
@@ -177,8 +176,7 @@ export class DapComm {
 				// prevents flickering in the debug pane.
 				this._stopDebug.schedule(() => {
 					if (this._debugSession) {
-						vscode.debug.setSuppressDebugToolbar(this._debugSession, true);
-						vscode.debug.setSuppressDebugStatusbar(this._debugSession, true);
+						vscode.debug.setDebugSessionForeground(this._debugSession, false);
 					}
 				});
 				break;

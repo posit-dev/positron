@@ -54,8 +54,7 @@ export interface IExtHostDebugService extends ExtHostDebugServiceShape {
 	startDebugging(folder: vscode.WorkspaceFolder | undefined, nameOrConfig: string | vscode.DebugConfiguration, options: vscode.DebugSessionOptions): Promise<boolean>;
 	stopDebugging(session?: vscode.DebugSession): Promise<void>;
 	// --- Start Positron ---
-	setSuppressDebugToolbar(session: vscode.DebugSession, suppress: boolean): void;
-	setSuppressDebugStatusbar(session: vscode.DebugSession, suppress: boolean): void;
+	setDebugSessionForeground(session: vscode.DebugSession, foreground: boolean): void;
 	// --- End Positron ---
 	registerDebugConfigurationProvider(type: string, provider: vscode.DebugConfigurationProvider, trigger: vscode.DebugConfigurationProviderTriggerKind): vscode.Disposable;
 	registerDebugAdapterDescriptorFactory(extension: IExtensionDescription, type: string, factory: vscode.DebugAdapterDescriptorFactory): vscode.Disposable;
@@ -506,12 +505,8 @@ export abstract class ExtHostDebugServiceBase extends DisposableCls implements I
 	}
 
 	// --- Start Positron ---
-	public setSuppressDebugToolbar(session: vscode.DebugSession, suppress: boolean): void {
-		this._debugServiceProxy.$setSuppressDebugToolbar(session.id, suppress);
-	}
-
-	public setSuppressDebugStatusbar(session: vscode.DebugSession, suppress: boolean): void {
-		this._debugServiceProxy.$setSuppressDebugStatusbar(session.id, suppress);
+	public setDebugSessionForeground(session: vscode.DebugSession, foreground: boolean): void {
+		this._debugServiceProxy.$setDebugSessionForeground(session.id, foreground);
 	}
 	// --- End Positron ---
 
