@@ -54,6 +54,10 @@ export class SnowflakeModelProvider extends OpenAICompatibleModelProvider {
 	 * Check if connections.toml has been modified since our last check and update token if needed.
 	 */
 	private async checkForUpdatedCredentials(): Promise<void> {
+		// Only check for updates if autoconfigure was set successfully at session start
+		if (!this._config.autoconfigure?.signedIn) {
+			return;
+		}
 		const result = await checkForUpdatedSnowflakeCredentials(
 			this.lastConnectionsTomlCheck,
 			this._config.apiKey
