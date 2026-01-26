@@ -606,4 +606,112 @@ test.describe('Quarto - Inline Output', {
 			expect(kernelTextAfterReload).toBe(initialKernelText);
 		}).toPass({ timeout: 30000 });
 	});
+
+	test('Python - Verify copy button appears in inline output and shows success feedback', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Open a Quarto document with text output
+		await openFile(join('workspaces', 'quarto_inline_output', 'copy_output_test.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the text output cell (around line 12)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('12');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('18');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the copy button exists
+		const copyButton = inlineOutput.locator('.quarto-output-copy');
+		await expect(copyButton).toBeVisible({ timeout: 5000 });
+
+		// Click the copy button
+		await copyButton.click();
+
+		// Verify the button shows success state (green check icon)
+		// The button should have 'copy-success' class after clicking
+		await expect(copyButton).toHaveClass(/copy-success/, { timeout: 2000 });
+
+		// Wait for the success state to revert (after 1.5 seconds)
+		await page.waitForTimeout(2000);
+		await expect(copyButton).not.toHaveClass(/copy-success/, { timeout: 2000 });
+	});
+
+	test('Python - Verify copy output command copies text from cell output', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+
+		// Open a Quarto document with text output
+		await openFile(join('workspaces', 'quarto_inline_output', 'text_output.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the code cell (line 13)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('13');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('20');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Position cursor back inside the cell before running the copy command
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('13');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Use the copy output command
+		await app.workbench.quickaccess.runCommand('positronQuarto.copyOutput');
+
+		// Verify the copy button shows success feedback
+		// This confirms the copy command executed successfully
+		const copyButton = inlineOutput.locator('.quarto-output-copy');
+		await expect(copyButton).toHaveClass(/copy-success/, { timeout: 2000 });
+
+		// Note: We can't verify clipboard contents in E2E tests due to browser permission restrictions
+		// The success feedback indicates the copy operation completed successfully
+	});
 });

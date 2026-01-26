@@ -12,6 +12,7 @@ import { localize } from '../../../../nls.js';
 import { ICellOutput, ICellOutputItem } from '../common/quartoExecutionTypes.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Event as VSEvent, Emitter } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
@@ -25,6 +26,23 @@ import { ANSIOutput, ANSIOutputLine, ANSIOutputRun, ANSIColor, ANSIStyle } from 
  * Minimum height for a view zone in pixels.
  */
 const MIN_VIEW_ZONE_HEIGHT = 24;
+
+/**
+ * Type of content to copy from output.
+ */
+export type CopyOutputContent =
+	| { type: 'text'; text: string }
+	| { type: 'image'; dataUrl: string };
+
+/**
+ * Request to copy output content.
+ */
+export interface CopyOutputRequest {
+	/** The cell ID */
+	readonly cellId: string;
+	/** The content to copy */
+	readonly content: CopyOutputContent;
+}
 
 /**
  * Options for creating a QuartoOutputViewZone.
@@ -94,6 +112,17 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Icon element inside the close button (for switching between close and stop icons)
 	private _buttonIcon!: HTMLSpanElement;
 
+	// Copy button
+	private readonly _copyButton: HTMLButtonElement;
+	// Icon element inside the copy button (for switching between copy and check icons)
+	private _copyButtonIcon!: HTMLSpanElement;
+	// Timeout for reverting copy button back to copy icon
+	private _copyButtonTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	// Event emitted when copy is requested (signals to outer code to perform clipboard operation)
+	private readonly _onCopyRequested = this._register(new Emitter<CopyOutputRequest>());
+	readonly onCopyRequested: VSEvent<CopyOutputRequest> = this._onCopyRequested.event;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -121,9 +150,19 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._styledContainer.setAttribute('tabindex', '0');
 		this.domNode.appendChild(this._styledContainer);
 
+		// Create button container for close and copy buttons
+		const buttonContainer = document.createElement('div');
+		buttonContainer.className = 'quarto-output-button-container';
+
 		// Create close button
 		this._closeButton = this._createCloseButton();
-		this._styledContainer.appendChild(this._closeButton);
+		buttonContainer.appendChild(this._closeButton);
+
+		// Create copy button
+		this._copyButton = this._createCopyButton();
+		buttonContainer.appendChild(this._copyButton);
+
+		this._styledContainer.appendChild(buttonContainer);
 
 		// Create output container
 		this._outputContainer = document.createElement('div');
@@ -363,6 +402,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this.hide();
 		this._disposeResizeObserver();
 		this._disposeAllWebviews();
+		if (this._copyButtonTimeout) {
+			clearTimeout(this._copyButtonTimeout);
+		}
 		super.dispose();
 	}
 
@@ -395,6 +437,151 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		});
 
 		return button;
+	}
+
+	private _createCopyButton(): HTMLButtonElement {
+		const button = document.createElement('button');
+		button.className = 'quarto-output-copy';
+		button.setAttribute('aria-label', localize('copyOutput', 'Copy output'));
+		button.title = localize('copyOutput', 'Copy output');
+
+		// Use codicon for copy button
+		this._copyButtonIcon = document.createElement('span');
+		this._copyButtonIcon.className = ThemeIcon.asClassName(Codicon.copy);
+		button.appendChild(this._copyButtonIcon);
+
+		// Handle mousedown to prevent the editor from consuming the event
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+
+		// Handle click to trigger copy
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this._handleCopyClick();
+		});
+
+		return button;
+	}
+
+	/**
+	 * Handle click on the copy button.
+	 * Determines what content to copy and emits the copy request event.
+	 */
+	private _handleCopyClick(): void {
+		const content = this._getContentToCopy();
+		if (content) {
+			this._onCopyRequested.fire({
+				cellId: this.cellId,
+				content,
+			});
+		}
+	}
+
+	/**
+	 * Get the content to copy from the outputs.
+	 * Priority:
+	 * - If any output contains an image, copy the first image
+	 * - Otherwise, concatenate all text content
+	 */
+	private _getContentToCopy(): CopyOutputContent | undefined {
+		// First pass: look for images
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				if (item.mime.startsWith('image/')) {
+					// Return the first image found
+					const dataUrl = item.data.startsWith('data:')
+						? item.data
+						: `data:${item.mime};base64,${item.data}`;
+					return { type: 'image', dataUrl };
+				}
+			}
+		}
+
+		// Second pass: collect all text content
+		const textParts: string[] = [];
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				const text = this._extractTextFromItem(item);
+				if (text) {
+					textParts.push(text);
+				}
+			}
+		}
+
+		if (textParts.length > 0) {
+			return { type: 'text', text: textParts.join('\n') };
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Extract text content from an output item.
+	 */
+	private _extractTextFromItem(item: ICellOutputItem): string | undefined {
+		const { mime, data } = item;
+
+		if (mime === 'application/vnd.code.notebook.stdout' ||
+			mime === 'text/plain' ||
+			mime === 'application/vnd.code.notebook.stderr') {
+			return data;
+		}
+
+		if (mime === 'application/vnd.code.notebook.error') {
+			try {
+				const errorData = JSON.parse(data);
+				const parts: string[] = [];
+				if (errorData.name) {
+					parts.push(`${errorData.name}: ${errorData.message || ''}`);
+				} else if (errorData.message) {
+					parts.push(errorData.message);
+				}
+				if (errorData.stack) {
+					parts.push(errorData.stack);
+				}
+				return parts.join('\n');
+			} catch {
+				return data;
+			}
+		}
+
+		if (mime === 'text/markdown') {
+			return data;
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Show visual feedback that the copy was successful.
+	 * Changes the copy button icon to a green checkmark briefly.
+	 */
+	showCopySuccess(): void {
+		// Clear any existing timeout
+		if (this._copyButtonTimeout) {
+			clearTimeout(this._copyButtonTimeout);
+		}
+
+		// Change to check icon with success styling
+		this._copyButtonIcon.className = ThemeIcon.asClassName(Codicon.check);
+		this._copyButton.classList.add('copy-success');
+
+		// Revert back to copy icon after a delay
+		this._copyButtonTimeout = setTimeout(() => {
+			this._copyButtonIcon.className = ThemeIcon.asClassName(Codicon.copy);
+			this._copyButton.classList.remove('copy-success');
+			this._copyButtonTimeout = undefined;
+		}, 1500);
+	}
+
+	/**
+	 * Check if there is any content that can be copied.
+	 */
+	hasCopiableContent(): boolean {
+		return this._getContentToCopy() !== undefined;
 	}
 
 	private _setupKeyboardNavigation(): void {

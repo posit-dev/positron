@@ -43,11 +43,20 @@
 	outline-offset: -1px;
 }
 
-/* Close button */
-.quarto-output-close {
+/* Button container for close and copy buttons */
+.quarto-output-button-container {
 	position: absolute;
 	top: 4px;
 	right: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	z-index: 10;
+}
+
+/* Shared button styles */
+.quarto-output-close,
+.quarto-output-copy {
 	width: 22px;
 	height: 22px;
 	padding: 0;
@@ -60,21 +69,30 @@
 	align-items: center;
 	justify-content: center;
 	border-radius: 3px;
-	z-index: 10;
-	/* Ensure button is above other content */
 	pointer-events: auto;
-	/* Ensure button receives mouse events */
 }
 
-.quarto-output-close:hover {
+.quarto-output-close:hover,
+.quarto-output-copy:hover {
 	opacity: 1;
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
-.quarto-output-close:focus {
+.quarto-output-close:focus,
+.quarto-output-copy:focus {
 	opacity: 1;
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
+}
+
+/* Copy button success state */
+.quarto-output-copy.copy-success {
+	opacity: 1;
+	color: var(--vscode-testing-iconPassed, #388A34);
+}
+
+.quarto-output-copy.copy-success:hover {
+	background: transparent;
 }
 
 /* Output content container */
@@ -203,7 +221,9 @@
 }
 
 .hc-black .quarto-output-close:focus,
-.hc-light .quarto-output-close:focus {
+.hc-light .quarto-output-close:focus,
+.hc-black .quarto-output-copy:focus,
+.hc-light .quarto-output-copy:focus {
 	outline-width: 2px;
 }
 

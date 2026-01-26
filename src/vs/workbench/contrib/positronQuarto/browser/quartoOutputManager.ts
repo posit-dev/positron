@@ -11,9 +11,12 @@ import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { QuartoOutputViewZone } from './quartoOutputViewZone.js';
+import { QuartoOutputViewZone, CopyOutputRequest } from './quartoOutputViewZone.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { IQuartoExecutionManager, ICellOutput, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
@@ -93,6 +96,8 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILogService private readonly _logService: ILogService,
 		@IQuartoOutputManager private readonly _outputManager: IQuartoOutputManager,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -254,6 +259,114 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	clearAllOutputs(): void {
 		this._disposeAllViewZones();
 		this._outputsByCell.clear();
+	}
+
+	/**
+	 * Copy output for the cell at the given line number.
+	 * Returns true if copy was initiated, false if no output exists for the cell.
+	 */
+	copyOutputForCellAtLine(lineNumber: number): boolean {
+		const model = this._editor.getModel();
+		if (!model) {
+			return false;
+		}
+
+		// Get the cell at this line
+		const quartoModel = this._documentModelService.getModel(model);
+		const cell = quartoModel.getCellAtLine(lineNumber);
+		if (!cell) {
+			return false;
+		}
+
+		// Get the view zone for this cell
+		const viewZone = this._viewZones.get(cell.id);
+		if (!viewZone || !viewZone.hasCopiableContent()) {
+			return false;
+		}
+
+		// Get the content to copy and handle it
+		const content = this._getContentToCopyFromViewZone(viewZone);
+		if (content) {
+			this._handleCopyRequest({ cellId: cell.id, content }, viewZone);
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get the content to copy from a view zone.
+	 * This duplicates the logic in QuartoOutputViewZone._getContentToCopy
+	 * since we can't access private methods.
+	 */
+	private _getContentToCopyFromViewZone(viewZone: QuartoOutputViewZone): CopyOutputRequest['content'] | undefined {
+		const outputs = viewZone.outputs;
+
+		// First pass: look for images
+		for (const output of outputs) {
+			for (const item of output.items) {
+				if (item.mime.startsWith('image/')) {
+					const dataUrl = item.data.startsWith('data:')
+						? item.data
+						: `data:${item.mime};base64,${item.data}`;
+					return { type: 'image', dataUrl };
+				}
+			}
+		}
+
+		// Second pass: collect all text content
+		const textParts: string[] = [];
+		for (const output of outputs) {
+			for (const item of output.items) {
+				const text = this._extractTextFromItem(item);
+				if (text) {
+					textParts.push(text);
+				}
+			}
+		}
+
+		if (textParts.length > 0) {
+			return { type: 'text', text: textParts.join('\n') };
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Extract text content from an output item.
+	 */
+	private _extractTextFromItem(item: ICellOutputItem): string | undefined {
+		const { mime, data } = item;
+
+		if (mime === 'application/vnd.code.notebook.stdout' ||
+			mime === 'text/plain' ||
+			mime === 'application/vnd.code.notebook.stderr') {
+			return data;
+		}
+
+		if (mime === 'application/vnd.code.notebook.error') {
+			try {
+				const errorData = JSON.parse(data);
+				const parts: string[] = [];
+				if (errorData.name) {
+					parts.push(`${errorData.name}: ${errorData.message || ''}`);
+				} else if (errorData.message) {
+					parts.push(errorData.message);
+				}
+				if (errorData.stack) {
+					parts.push(errorData.stack);
+				}
+				return parts.join('\n');
+			} catch {
+				return data;
+			}
+		}
+
+		if (mime === 'text/markdown') {
+			return data;
+		}
+
+		return undefined;
 	}
 
 	override dispose(): void {
@@ -427,6 +540,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		};
 
+		// Set up copy handler
+		this._outputHandlingDisposables.add(viewZone.onCopyRequested(request => {
+			this._handleCopyRequest(request, viewZone);
+		}));
+
 		// Set initial execution state
 		const executionState = this._executionManager.getExecutionState(cellId);
 		viewZone.setExecuting(executionState === CellExecutionState.Running);
@@ -435,6 +553,26 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		viewZone.show();
 
 		return viewZone;
+	}
+
+	/**
+	 * Handle a copy request from a view zone.
+	 * Copies the content to clipboard and shows visual feedback.
+	 */
+	private async _handleCopyRequest(request: CopyOutputRequest, viewZone: QuartoOutputViewZone): Promise<void> {
+		try {
+			if (request.content.type === 'text') {
+				await this._clipboardService.writeText(request.content.text);
+			} else if (request.content.type === 'image') {
+				await this._clipboardService.writeImage(request.content.dataUrl);
+			}
+			// Show success feedback
+			viewZone.showCopySuccess();
+		} catch (error) {
+			// Show error notification
+			this._logService.error('[QuartoOutputContribution] Copy failed:', error);
+			this._notificationService.error(localize('copyOutputFailed', 'Failed to copy output to clipboard'));
+		}
 	}
 
 	/**

@@ -19,6 +19,7 @@ import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { QuartoOutputContribution } from './quartoOutputManager.js';
 
 /**
  * Command IDs for Quarto execution commands.
@@ -35,6 +36,7 @@ export const enum QuartoCommandId {
 	InterruptKernel = 'positronQuarto.interruptKernel',
 	ShutdownKernel = 'positronQuarto.shutdownKernel',
 	ChangeKernel = 'positronQuarto.changeKernel',
+	CopyOutput = 'positronQuarto.copyOutput',
 }
 
 /**
@@ -638,5 +640,48 @@ registerAction2(class ChangeKernelAction extends Action2 {
 
 			quickPick.show();
 		});
+	}
+});
+
+/**
+ * Copy the output of the cell at the current cursor position.
+ * Copies images if available, otherwise copies text content.
+ */
+registerAction2(class CopyOutputAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.CopyOutput,
+			title: {
+				value: localize('quarto.copyOutput', 'Copy Cell Output'),
+				original: 'Copy Cell Output',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return;
+		}
+
+		const { editor } = context;
+		const position = editor.getPosition();
+		if (!position) {
+			return;
+		}
+
+		// Get the QuartoOutputContribution from the editor
+		const contribution = editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		if (!contribution) {
+			return;
+		}
+
+		// Copy output for the cell at the cursor position
+		contribution.copyOutputForCellAtLine(position.lineNumber);
 	}
 });
