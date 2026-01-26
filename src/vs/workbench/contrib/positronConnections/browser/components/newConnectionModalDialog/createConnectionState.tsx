@@ -17,6 +17,8 @@ import Severity from '../../../../../../base/common/severity.js';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
+import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
@@ -201,6 +203,23 @@ interface FormElementProps {
 	onChange: (value: string) => void;
 }
 
+/**
+ * Determines whether to use a dropdown instead of radio buttons for option inputs.
+ * Uses dropdown when:
+ * - There are more than 3 options, OR
+ * - Any option title exceeds 30 characters
+ */
+const shouldUseDropdown = (options: { identifier: string; title: string }[]): boolean => {
+	const MAX_OPTIONS_FOR_RADIO = 3;
+	const MAX_TITLE_LENGTH = 30;
+
+	if (options.length > MAX_OPTIONS_FOR_RADIO) {
+		return true;
+	}
+
+	return options.some(option => option.title.length > MAX_TITLE_LENGTH);
+};
+
 const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 	const { label, value: defaultValue = '', type, options } = props.input;
 
@@ -215,21 +234,42 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 				></LabeledTextInput>
 			</div>;
 		case 'option':
+			if (!options || options.length === 0) {
+				return <div className='labeled-input'><label className='label'>
+					<span className='label-text'>{label}</span>
+					<p>
+						{(() => localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided'))()}
+					</p>
+				</label></div>;
+			}
+
+			if (shouldUseDropdown(options)) {
+				const entries = options.map(option => new DropDownListBoxItem({
+					identifier: option.identifier,
+					title: option.title,
+					value: option.identifier
+				}));
+
+				return <div className='labeled-input'><label className='label'>
+					<span className='label-text'>{label}</span>
+					<DropDownListBox
+						entries={entries}
+						selectedIdentifier={defaultValue || options[0].identifier}
+						title={label}
+						onSelectionChanged={(item) => props.onChange(item.options.identifier)}
+					/>
+				</label></div>;
+			}
+
 			return <div className='labeled-input'><label className='label'>
 				<span className='label-text'>{label}</span>
-				{
-					options && options.length > 0 ?
-						<RadioGroup
-							entries={options.map(option => ({ options: option }))}
-							initialSelectionId={options[0].identifier}
-							labelledBy={label}
-							name={label}
-							onSelectionChanged={(option) => props.onChange(option)}
-						/>
-						: <p>
-							{(() => localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided'))()}
-						</p>
-				}
+				<RadioGroup
+					entries={options.map(option => ({ options: option }))}
+					initialSelectionId={defaultValue || options[0].identifier}
+					labelledBy={label}
+					name={label}
+					onSelectionChanged={(option) => props.onChange(option)}
+				/>
 			</label></div>;
 		case 'string':
 		default:

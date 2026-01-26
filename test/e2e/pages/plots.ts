@@ -45,7 +45,7 @@ export class Plots {
 		this.nextPlotButton = this.code.driver.page.locator(NEXT_PLOT_BUTTON);
 		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
 		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
-		this.plotSizeButton = this.plotButton.filter({ hasText: /Auto|Square|Portrait|Landscape|Fill|Matplotlib|Auto|Intrinsic/ });
+		this.plotSizeButton = this.plotButton.filter({ hasText: /Auto|Square|Portrait|Landscape|Fill|matplotlib|Auto|Intrinsic/ });
 		this.savePlotFromPlotsPaneButton = this.code.driver.page.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
 		this.savePlotFromEditorButton = this.code.driver.page.getByRole('button', { name: 'Save Plot From Active Editor' });
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);

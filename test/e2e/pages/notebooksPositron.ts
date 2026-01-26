@@ -48,8 +48,8 @@ export class PositronNotebooks extends Notebooks {
 	private executionOrderBadgeAtIndex = (index: number) => this.cell.nth(index).locator('.execution-order-badge');
 	private executionStatusBadgeWrapperAtIndex = (index: number) => this.cell.nth(index).locator('.execution-status-badge-wrapper');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
-	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
-	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
+	private cellFooterAtIndex = (index: number) => this.cell.nth(index).locator('.positron-notebook-code-cell-footer');
+	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/Cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /Delete Cell/i });
 	viewMarkdown = this.code.driver.page.getByRole('button', { name: 'View markdown' });
@@ -376,15 +376,6 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Move the mouse away from the notebook area to close any open tooltips/popups.
-	 */
-	async moveMouseAway(): Promise<void> {
-		await this.code.driver.page.waitForTimeout(500);
-		await this.code.driver.page.mouse.move(0, 0);
-		await expect(this.cellInfoToolTip).toHaveCount(0);
-	}
-
-	/**
 	 * Action: Hover over the execution status badge for a cell to trigger the execution info tooltip.
 	 * @param cellIndex - The index of the cell whose execution badge to hover.
 	 */
@@ -459,7 +450,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Perform a cell action using keyboard shortcuts.
 	 * @param action - The action to perform: 'copy', 'cut', 'paste', 'undo', 'redo', 'delete', 'addCellBelow'.
 	 */
-	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow'): Promise<void> {
+	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow' | 'changeToCode' | 'changeToMarkdown' | 'changeToRaw'): Promise<void> {
 		await test.step(`Perform cell action: ${action}`, async () => {
 			// Note: We use direct keyboard shortcuts instead of hotKeys/clipboard helpers
 			// because Positron Notebooks uses Jupyter-style single-key shortcuts (C/X/V/Z)
@@ -485,6 +476,15 @@ export class PositronNotebooks extends Notebooks {
 					break;
 				case 'addCellBelow':
 					await this.code.driver.page.keyboard.press('KeyB');
+					break;
+				case 'changeToCode':
+					await this.code.driver.page.keyboard.press('KeyY');
+					break;
+				case 'changeToMarkdown':
+					await this.code.driver.page.keyboard.press('KeyM');
+					break;
+				case 'changeToRaw':
+					await this.code.driver.page.keyboard.press('KeyR');
 					break;
 				default:
 					throw new Error(`Unknown cell action: ${action}`);
@@ -687,47 +687,69 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Verify: Cell info tooltip contains expected content.
-	 * @param cellIndex - The index of the cell whose execution badge to hover for triggering the tooltip.
+	 * Verify: Cell footer contains expected execution info.
+	 * @param cellIndex - The index of the cell whose footer to check.
 	 * @param expectedContent - Object with expected content to verify.
 	 *                          Use RegExp for fields where exact match is not feasible (e.g., duration, completed time).
 	 * @param timeout - Optional timeout for the expectation.
 	 */
-	async expectToolTipToContain(
+	async expectFooterToContain(
 		cellIndex: number,
-		expectedContent: { duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
+		expectedContent: { duration?: RegExp; status?: 'Cell execution succeeded' | 'Cell execution failed' | 'Cell is executing' | 'Cell is queued for execution'; completed?: RegExp },
 		timeout = DEFAULT_TIMEOUT
 	): Promise<void> {
-		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
-			await this.hoverExecutionBadge(cellIndex);
-			await expect(this.cellInfoToolTip).toBeVisible({ timeout });
+		await test.step(`Expect cell footer to contain: ${JSON.stringify(expectedContent)}`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toBeVisible({ timeout });
 
-			const labelMap: Record<keyof typeof expectedContent, string> = {
-				duration: 'Duration',
-				status: 'Status',
-				completed: 'Completed'
-			};
+			// Check status via data-execution-status attribute
+			if (expectedContent.status) {
+				const statusMap: Record<string, string> = {
+					'Cell execution succeeded': 'idle',
+					'Cell execution failed': 'idle',
+					'Cell is executing': 'running',
+					'Cell is queued for execution': 'pending'
+				};
+				const expectedStatus = statusMap[expectedContent.status];
+				await expect(footer).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
 
-			const getValueLocator = (label: string) =>
-				this.code.driver.page
-					.locator('.popup-label-text', { hasText: label })
-					.locator('..')
-					.locator('.popup-value-text');
-
-			for (const key of Object.keys(expectedContent) as (keyof typeof expectedContent)[]) {
-				const expectedValue = expectedContent[key];
-				if (expectedValue !== undefined) {
-					if (key === 'status' && expectedValue === 'Currently running...') {
-						// Special case when cell is actively running: check for label, not value
-						const labelLocator = this.code.driver.page.locator('.popup-label', { hasText: 'Currently running...' });
-						await expect(labelLocator).toBeVisible({ timeout });
-					} else {
-						const valueLocator = getValueLocator(labelMap[key]);
-						const expectedText = expectedValue instanceof RegExp ? expectedValue : expectedValue.toString();
-						await expect(valueLocator).toContainText(expectedText, { timeout });
-					}
+				// Check for appropriate icon based on status
+				const status = expectedContent.status;
+				if (status === 'Cell is executing') {
+					await expect(footer.locator('.code-cell-footer-icon.running')).toBeVisible({ timeout });
+				} else if (status === 'Cell is queued for execution') {
+					await expect(footer.locator('.code-cell-footer-icon.pending')).toBeVisible({ timeout });
+				} else if (status === 'Cell execution succeeded') {
+					await expect(footer.locator('.code-cell-footer-icon.success')).toBeVisible({ timeout });
+				} else if (status === 'Cell execution failed') {
+					await expect(footer.locator('.code-cell-footer-icon.error')).toBeVisible({ timeout });
 				}
 			}
+
+			// Check duration if provided
+			if (expectedContent.duration) {
+				const durationText = footer.locator('.code-cell-footer-duration');
+				await expect(durationText).toContainText(expectedContent.duration, { timeout });
+			}
+
+			// Check completion time if provided
+			if (expectedContent.completed) {
+				const footerText = footer.locator('.code-cell-footer-text');
+				await expect(footerText).toContainText(expectedContent.completed, { timeout });
+			}
+		});
+	}
+
+	/**
+	 * Verify: Cell footer has the expected aria-label.
+	 * @param cellIndex - The index of the cell whose footer to check.
+	 * @param expectedAriaLabel - The expected aria-label value.
+	 * @param timeout - Optional timeout for the expectation.
+	 */
+	async expectFooterAriaLabel(cellIndex: number, expectedAriaLabel: string, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect cell footer aria-label to be: ${expectedAriaLabel}`, async () => {
+			const footer = this.cellFooterAtIndex(cellIndex);
+			await expect(footer).toHaveAttribute('aria-label', expectedAriaLabel, { timeout });
 		});
 	}
 
@@ -787,22 +809,6 @@ export class PositronNotebooks extends Notebooks {
 	async expectNoActiveSpinners(timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step('Expect no active spinners in notebook', async () => {
 			await expect(this.spinner).toHaveCount(0, { timeout });
-		});
-	}
-
-	/**
-	 * Verify: Cell info tooltip visibility.
-	 * @param visible - Whether the tooltip should be visible.
-	 * @param timeout - Timeout for the expectation.
-	 */
-	async expectToolTipVisible(visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect cell info tooltip to be ${visible ? 'visible' : 'hidden'}`, async () => {
-			const assertion = expect(this.cellInfoToolTip);
-			if (visible) {
-				await assertion.toBeVisible({ timeout });
-			} else {
-				await assertion.not.toBeVisible({ timeout });
-			}
 		});
 	}
 

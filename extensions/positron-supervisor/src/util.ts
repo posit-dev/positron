@@ -248,3 +248,42 @@ export function isEnumMember<T extends Record<string, unknown>>(value: unknown, 
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export class Debounced implements vscode.Disposable {
+	private timeout?: NodeJS.Timeout;
+	private pendingAction?: () => void;
+
+	constructor(private readonly delayMs: number) { }
+
+	schedule(action: () => void): void {
+		this.cancel();
+		this.pendingAction = action;
+		this.timeout = setTimeout(() => {
+			this.timeout = undefined;
+			this.pendingAction = undefined;
+			action();
+		}, this.delayMs);
+	}
+
+	cancel(): void {
+		if (this.timeout) {
+			clearTimeout(this.timeout);
+			this.timeout = undefined;
+			this.pendingAction = undefined;
+		}
+	}
+
+	flush(): void {
+		if (this.timeout) {
+			clearTimeout(this.timeout);
+			this.timeout = undefined;
+			const action = this.pendingAction;
+			this.pendingAction = undefined;
+			action?.();
+		}
+	}
+
+	dispose(): void {
+		this.cancel();
+	}
+}

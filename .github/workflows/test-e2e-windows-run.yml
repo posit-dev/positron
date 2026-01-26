@@ -201,6 +201,8 @@ jobs:
           # Note: test/e2e is installed in separate step below (not cached, always runs)
           # See https://github.com/posit-dev/positron/issues/3481 for why retry is needed (windows-process-tree failures)
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Pre-install build directory (required by postinstall for gulp-merge-json)
             npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
@@ -217,6 +219,8 @@ jobs:
           retry_wait_seconds: 10
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Download platform-specific binaries for Windows
             # Wrapped in retry due to occasional GitHub API timeouts
             cd extensions
@@ -416,6 +420,12 @@ jobs:
           fi
           exit 0
 
+      - name: Set Report URL
+        uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
+          skip-summary: true
+
       - name: 🧪 Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_tests != true }}
         id: bootstrap
@@ -541,6 +551,8 @@ jobs:
 
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
+        with:
+          project: ${{ inputs.project }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v7

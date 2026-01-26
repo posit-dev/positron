@@ -11,6 +11,7 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeS
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
+import { IConsoleCodeAttribution } from '../../positronConsole/common/positronConsoleCodeExecution.js';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -182,10 +183,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	openResource(resource: URI | string): Thenable<boolean>;
 
 	/** Execute code in the runtime */
-	execute(code: string,
+	execute(
+		code: string,
 		id: string,
 		mode: RuntimeCodeExecutionMode,
-		errorBehavior: RuntimeErrorBehavior): void;
+		errorBehavior: RuntimeErrorBehavior,
+		attribution?: IConsoleCodeAttribution,
+	): void;
 
 	/** Test a code fragment for completeness */
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;

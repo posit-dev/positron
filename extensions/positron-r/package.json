@@ -707,12 +707,19 @@
         "when": "isRPackage"
       }
     ],
+    "breakpoints": [
+      {
+        "language": "r"
+      }
+    ],
     "debuggers": [
       {
         "type": "ark",
         "label": "R Debugger",
         "languages": ["r"],
-        "supportsUiLaunch": false
+        "supportsUiLaunch": false,
+        "sendBreakpointsOnAllSaves": true,
+        "verifyBreakpointsInDirtyDocuments": true
       }
     ],
     "notebookRenderer": [
@@ -962,7 +969,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.222"
+      "ark": "0.1.224"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

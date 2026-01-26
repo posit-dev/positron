@@ -156,7 +156,10 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
-	const autoconfiguredModels = getAutoconfiguredModels();
+	// But exclude any that are already registered manually
+	// Use a Set for O(1) lookup instead of Array.some() which is O(n)
+	const registeredProviderIds = new Set(registeredModels?.map(rm => rm.provider));
+	const autoconfiguredModels = getAutoconfiguredModels().filter(m => !registeredProviderIds.has(m.provider));
 	const allProviders = [...getModelProviders(), ...completionModels];
 
 	// Build a map of provider IDs to their autoconfigure functions
@@ -191,7 +194,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			})
 			.map(async (source) => {
 				// Handle autoconfigurable providers
-				if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+				if (!source.signedIn && 'autoconfigure' in source.defaults && source.defaults.autoconfigure) {
 					// Resolve environment variables
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
@@ -271,11 +274,6 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	// Create unique ID for the configuration
 	const id = randomUUID();
 
-	// Check if this provider uses autoconfiguration (should not be saved to persistent state)
-	// Some models such as Anthropic can use either autoconfiguration or manual configuration;
-	// if an apiKey is provided, treat it as manual configuration
-	const providerSource = sources.find(source => source.provider.id === userConfig.provider);
-	const isAutoconfigured = !apiKey && providerSource?.defaults.autoconfigure !== undefined;
 
 	// Filter out sources that use autoconfiguration for required field validation
 	sources = sources.filter(source => source.defaults.autoconfigure === undefined);
@@ -301,35 +299,26 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 
 	// Add new configuration
+	// Spread otherConfig first so our explicit values (especially id) take precedence
 	const newConfig: StoredModelConfig = {
+		...otherConfig,
 		id,
 		name,
 		model,
 		baseUrl,
-		...otherConfig,
 	};
 
 
 	// Register the new model FIRST, before saving configuration
+	// Note: Autoconfigurable providers are registered upon extension activation, so don't need to be handled here.
+	// Likewise, the configuration dialog hides affordances to login/logout for autoconfigured models, so we'd never reach this state.
 	try {
 		await registerModel(newConfig, context, storage);
-
-		if (isAutoconfigured) {
-			// Track autoconfigured models in memory so they are returned by
-			// getAutoconfiguredModels()
-			addAutoconfiguredModel({
-				...newConfig,
-				apiKey: apiKey || ''
-			});
-		} else {
-			// Only save to persistent state for non-autoconfigured models
-			// Autoconfigured models (e.g., Copilot, env var based) are managed
-			// externally
-			await context.globalState.update(
-				'positron.assistant.models',
-				[...existingConfigs, newConfig]
-			);
-		}
+		// Update persistent storage with new configuration
+		await context.globalState.update(
+			'positron.assistant.models',
+			[...existingConfigs, newConfig]
+		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
@@ -383,7 +372,10 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
 		}
 
-		await saveModel(userConfig, sources, storage, context);
+		// Special case: Copilot handles saving its own configuration internally
+		if (userConfig.provider !== 'copilot-auth') {
+			await saveModel(userConfig, sources, storage, context);
+		}
 
 		PositronAssistantApi.get().notifySignIn(userConfig.provider);
 

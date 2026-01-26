@@ -77,6 +77,12 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 		this._register(new Emitter<string>());
 
 	/**
+	 * The onDidUpdatePlotMetadata event emitter.
+	 */
+	private readonly _onDidUpdatePlotMetadataEmitter =
+		this._register(new Emitter<string>());
+
+	/**
 	 * The onDidReplacePlots event emitter.
 	 */
 	private readonly _onDidReplacePlotsEmitter =
@@ -200,6 +206,11 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * The onDidRemovePlot event.
 	 */
 	readonly onDidRemovePlot = this._onDidRemovePlotEmitter.event;
+
+	/**
+	 * The onDidUpdatePlotMetadata event.
+	 */
+	readonly onDidUpdatePlotMetadata = this._onDidUpdatePlotMetadataEmitter.event;
 
 	/**
 	 * The onDidReplacePlots event.

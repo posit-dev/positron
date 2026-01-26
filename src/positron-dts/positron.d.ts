@@ -229,6 +229,37 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A position in a document using UTF-8 byte offsets.
+	 * This is used to losslessly communicate file or line offsets to backends.
+	 */
+	export interface Utf8Position {
+		/** 0-based line number */
+		readonly line: number;
+		/** 0-based column offset in UTF-8 bytes */
+		readonly character: number;
+	}
+
+	/**
+	 * A range in a document using UTF-8 byte offsets for character positions.
+	 */
+	export interface Utf8Range {
+		readonly start: Utf8Position;
+		readonly end: Utf8Position;
+	}
+
+	/**
+	 * A location in a document using UTF-8 byte offsets for character positions.
+	 *
+	 * This is a variant of vscode.Location where character offsets are in UTF-8 bytes
+	 * rather than UTF-16 code units. Use this when communicating with kernels that
+	 * need byte-based source positions.
+	 */
+	export interface Utf8Location {
+		readonly uri: vscode.Uri;
+		readonly range: Utf8Range;
+	}
+
+	/**
 	 * LanguageRuntimeExit is an interface that defines an event occurring when a
 	 * language runtime exits.
 	 */
@@ -1109,12 +1140,16 @@ declare module 'positron' {
 		 * @param id The ID of the code
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
+		 * @param codeLocation Optionally, the location of `code` in the source editor.
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
-		execute(code: string,
+		execute(
+			code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
+			errorBehavior: RuntimeErrorBehavior,
+			codeLocation?: Utf8Location,
+		): void;
 
 		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the

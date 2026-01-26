@@ -20,7 +20,9 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
+import { Markdown } from './Markdown.js';
 
 
 interface CellOutputsSectionProps {
@@ -29,7 +31,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
 	return (
-		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? 'has-outputs' : 'no-outputs'}`} data-testid='cell-output'>
+		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'}`} data-testid='cell-output'>
 			<div className='positron-notebook-code-cell-outputs-inner'>
 				{outputs?.map((output) => (
 					<CellOutput key={output.outputId} {...output} />
@@ -46,14 +48,14 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	return (
 		<NotebookCellWrapper
 			cell={cell}
-			hasError={hasError}
 		>
 			<div className='positron-notebook-code-cell-contents'>
 				<div className='positron-notebook-editor-section'>
-					<CellLeftActionMenu cell={cell} hasError={hasError} />
+					<CellLeftActionMenu cell={cell} />
 					<div className='positron-notebook-editor-container'>
 						<CellEditorMonacoWidget cell={cell} />
 					</div>
+					<CodeCellStatusFooter cell={cell} hasError={hasError} />
 				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
@@ -82,6 +84,8 @@ function CellOutput(output: NotebookCellOutputs) {
 			return <img alt='output image' src={parsed.dataUrl} />;
 		case 'html':
 			return renderHtml(parsed.content);
+		case 'markdown':
+			return <Markdown content={parsed.content} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}

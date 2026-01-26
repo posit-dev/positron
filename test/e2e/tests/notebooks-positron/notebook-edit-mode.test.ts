@@ -110,10 +110,16 @@ test.describe('Notebook Edit Mode', {
 
 		// Create a new notebook with 2 cells
 		await notebooksPositron.newNotebook({ codeCells: 2 });
+		await notebooksPositron.kernel.select('Python');
 
 		// Enter edit mode in cell 0
 		await notebooksPositron.selectCellAtIndex(0);
 		await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: true });
+
+		// Needs an expression to break at
+		await keyboard.press('Enter');
+		await keyboard.type('1 + 1');
+		await app.workbench.quickaccess.runCommand('Debug: Toggle Breakpoint');
 
 		// Test: Execute cell and select below: Shift+Enter
 		await keyboard.press('Shift+Enter');

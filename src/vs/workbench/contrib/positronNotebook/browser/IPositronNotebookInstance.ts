@@ -262,6 +262,16 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
+	 * Changes a cell to a different kind (code or markdown) and/or changes its language.
+	 * Cell content, metadata, and outputs are all preserved (outputs survive round-trip conversions).
+	 *
+	 * @param targetKind The target cell kind to convert to
+	 * @param targetLanguage Optional target language. If not provided, uses notebook default for code cells or 'markdown' for markdown cells
+	 * @param cell Optional cell to convert. If not provided, converts the currently active cell
+	 */
+	changeCellType(targetKind: CellKind, targetLanguage?: string, cell?: IPositronNotebookCell): void;
+
+	/**
 	 * Removes a cell from the notebook.
 	 *
 	 * @param cell Optional cell to delete. If not provided, deletes the currently active cell

@@ -1,0 +1,70 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Plot thumbnail name label - positioned at the bottom of the thumbnail.
+ */
+.plot-thumbnail-name {
+	padding: 1px 4px;
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	color: var(--vscode-list-inactiveSelectionForeground);
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 3px;
+	font-size: 9px;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	z-index: 1;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.plot-thumbnail.selected .plot-thumbnail-name {
+	background-color: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+	border-color: var(--vscode-focusBorder);
+}
+
+.plot-thumbnail-name-text {
+	display: block;
+	max-width: 72px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.plot-thumbnail-button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 4px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	height: 100%;
+	width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+.plot-thumbnail-button .image-wrapper {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.plot-thumbnail-button .image-wrapper img {
+	max-width: 100%;
+	max-height: 64px;
+	object-fit: contain;
+}
+
+/* When no name is present, image can use more vertical space */
+.plot-thumbnail-button:not(:has(.plot-thumbnail-name)) .image-wrapper img {
+	max-height: 82px;
+}

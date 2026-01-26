@@ -1,17 +1,57 @@
 name: "Generate Report Directory & Send to GH Summary"
-description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Step summary"
+description: "Generates a unique REPORT_DIR/REPORT_URL and optionally appends to GitHub Step summary"
 inputs:
   bucket-url:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
+  project:
+    description: "Playwright project name (e.g., e2e-electron, e2e-chromium)"
+    required: true
+  skip-summary:
+    description: "Skip writing to GitHub Step Summary (use when setting URL before tests)"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
     - name: Generate REPORT_DIR
       shell: bash
       run: |
-        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}"
+        # Strip "e2e-" prefix from project name to avoid GitHub secret masking issues
+        # (GitHub masks "e2e" as "***" which breaks URLs)
+        # e.g., "e2e-electron" → "electron", "***-electron" → "electron"
+        PROJECT=$(echo "${{ inputs.project }}" | sed -e 's/^\*\*\*-//' -e 's/^e2e-//')
+        echo "Project: $PROJECT"
+
+        # Detect distro suffix (only for Linux)
+        # Format: {project}[-{distro}]
+        # - Linux: electron-ubuntu, electron-rhel, etc.
+        # - Windows/Mac: electron, windows, etc.
+        DISTRO_SUFFIX=""
+        if [[ "$RUNNER_OS" == "Linux" ]] && [[ -f /etc/os-release ]]; then
+          # Parse Linux distro from os-release
+          OS_ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+          OS_ID_LIKE=$(grep "^ID_LIKE=" /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "")
+          case "$OS_ID" in
+            ubuntu) DISTRO="ubuntu" ;;
+            debian) DISTRO="debian" ;;
+            rhel|rocky|centos|fedora|almalinux) DISTRO="rhel" ;;
+            opensuse|opensuse-leap|opensuse-tumbleweed|sles) DISTRO="suse" ;;
+            *)
+              # Check ID_LIKE for derivatives
+              if [[ "$OS_ID_LIKE" == *"ubuntu"* ]]; then DISTRO="ubuntu"
+              elif [[ "$OS_ID_LIKE" == *"debian"* ]]; then DISTRO="debian"
+              elif [[ "$OS_ID_LIKE" == *"rhel"* || "$OS_ID_LIKE" == *"centos"* || "$OS_ID_LIKE" == *"fedora"* ]]; then DISTRO="rhel"
+              elif [[ "$OS_ID_LIKE" == *"suse"* || "$OS_ID_LIKE" == *"opensuse"* ]]; then DISTRO="suse"
+              else DISTRO="linux"
+              fi
+              ;;
+          esac
+          DISTRO_SUFFIX="-${DISTRO}"
+        fi
+
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-${PROJECT}${DISTRO_SUFFIX}"
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
@@ -22,5 +62,7 @@ runs:
         echo "Report URL: $REPORT_URL"
         echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
 
-        # Append REPORT_URL to the GitHub Step summary
-        echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
+        # Optionally append REPORT_URL to the GitHub Step summary
+        if [[ "${{ inputs.skip-summary }}" != "true" ]]; then
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
+        fi

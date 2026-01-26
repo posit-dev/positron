@@ -31,6 +31,7 @@ import os
 import re
 import threading
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generator, Optional
 
 from ._vendor import attrs, cattrs
@@ -39,10 +40,12 @@ from ._vendor.pygls.io_ import run_async
 from ._vendor.pygls.lsp.server import LanguageServer
 from ._vendor.pygls.protocol import LanguageServerProtocol, lsp_method
 from .help_comm import ShowHelpTopicParams
+from .inspectors import _get_collection_display_value
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
 
+    from ._vendor.pygls.workspace.text_document import TextDocument
     from .positron_ipkernel import PositronShell
 
 logger = logging.getLogger(__name__)
@@ -138,6 +141,55 @@ def _safe_resolve_expression(namespace: dict[str, Any], expr: str) -> Any | None
         return resolve_node(tree.body)
     except Exception:
         return None
+
+
+def _parse_os_imports(source: str) -> dict[str, str]:
+    """
+    Parse import statements to find os module imports.
+
+    Returns a mapping of alias -> 'os' for any imports of the os module.
+    Only supports `import os` and `import os as <alias>` forms.
+    Does NOT support `from os import ...` (out of scope).
+
+    Returns empty dict if source is empty, invalid, or has no os imports.
+    """
+    if not source or not source.strip():
+        return {}
+
+    imports: dict[str, str] = {}
+
+    # First try parsing the whole source
+    try:
+        tree = ast.parse(source, mode="exec")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "os":
+                        key = alias.asname if alias.asname else "os"
+                        imports[key] = "os"
+        return imports
+    except SyntaxError:
+        pass
+
+    # If whole source fails to parse (e.g., incomplete code during typing),
+    # try to extract and parse just the import statements
+    # Split by common statement separators and try each part
+    for part in re.split(r"[;\n]", source):
+        part = part.strip()
+        if not part.startswith("import "):
+            continue
+        try:
+            tree = ast.parse(part, mode="exec")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name == "os":
+                            key = alias.asname if alias.asname else "os"
+                            imports[key] = "os"
+        except SyntaxError:
+            continue
+
+    return imports
 
 
 def _get_expression_at_position(line: str, character: int) -> str:
@@ -474,11 +526,23 @@ def _handle_completion(
                 prefix=dict_key_match.group(3) or "",
                 quote_char=quote_char,
                 has_closing_quote=has_closing_quote,
+                document=document,
             )
         )
 
     # Check for os.getenv() completions (e.g., os.getenv(" or os.getenv(key=")
-    items.extend(_get_getenv_completions(server, text_before_cursor, text_after_cursor))
+    getenv_items = _get_getenv_completions(
+        server, text_before_cursor, text_after_cursor, document=document
+    )
+    items.extend(getenv_items)
+
+    # Check for path completions in bare string literals (not dict access, not getenv)
+    if not dict_key_match and not getenv_items:
+        path_items = _get_path_completions(
+            server, text_before_cursor, text_after_cursor, params.position
+        )
+        if path_items:
+            return types.CompletionList(is_incomplete=False, items=path_items)
 
     if not dict_key_match:
         if "." in text_before_cursor and "(" not in text_before_cursor.split(".")[-1]:
@@ -653,6 +717,7 @@ def _get_dict_key_completions(
     prefix: str,
     quote_char: str,
     has_closing_quote: bool,
+    document: TextDocument | None = None,
 ) -> list[types.CompletionItem]:
     """Get dict key completions for dict-like objects (dict, DataFrame, Series, os.environ)."""
     if server.shell is None:
@@ -661,6 +726,15 @@ def _get_dict_key_completions(
     # Safely resolve the expression
     obj = _safe_resolve_expression(server.shell.user_ns, expr)
     if obj is None:
+        # Try static analysis fallback for os.environ
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if expr is "<alias>.environ" where alias maps to "os"
+            match = re.match(r"^(\w+)\.environ$", expr)
+            if match and os_imports.get(match.group(1)) == "os":
+                return _make_env_var_completions(
+                    prefix, quote_char, has_closing_quote=has_closing_quote
+                )
         return []
 
     items = []
@@ -687,16 +761,45 @@ def _get_dict_key_completions(
             continue
         # Include closing quote only if it doesn't already exist
         completion_text = key if has_closing_quote else f"{key}{quote_char}"
+        # Defer detail computation to completionItem/resolve for performance
         items.append(
             types.CompletionItem(
                 label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
                 insert_text=completion_text,
+                data={"type": "dict_key", "expr": expr, "key": key},
             )
         )
 
     return items
+
+
+def _get_dict_value_detail(obj: Any, key: str) -> str | None:
+    """Get the detail string for a dict-like key's value.
+
+    Args:
+        obj: The dict-like object (dict, DataFrame, Series)
+        key: The key to look up
+
+    Returns:
+        A string describing the type/dtype of the value, or None if unavailable
+    """
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            value = obj.get(key)
+            if value is not None:
+                return type(value).__name__
+        elif _is_dataframe_like(obj):
+            # Get dtype and preview for DataFrame column
+            column = obj[key]
+            dtype = str(column.dtype)
+            preview, _ = _get_collection_display_value(column, prefix="[", suffix="]", level=1)
+            return f"{dtype}: {preview}"
+        elif _is_series_like(obj):
+            value = obj[key]
+            return type(value).__name__
+    return None
 
 
 def _is_environ_like(obj: Any) -> bool:
@@ -730,10 +833,214 @@ def _make_env_var_completions(
     return items
 
 
+# --- Path Completion Helpers ---
+
+
+def _get_path_completion_base_dir(server: PositronLanguageServer) -> Path:
+    """Get the base directory for path completions.
+
+    Priority:
+    1. server._working_directory (notebook parent or custom workspace)
+    2. server.workspace.root_path (project root)
+    3. User's home directory (fallback)
+    """
+    # Priority 1: Working directory (notebook context)
+    if server._working_directory:  # noqa: SLF001
+        try:
+            return Path(server._working_directory)  # noqa: SLF001
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 2: Workspace root path
+    if server.workspace and server.workspace.root_path:
+        try:
+            return Path(server.workspace.root_path)
+        except (ValueError, TypeError):
+            pass
+
+    # Priority 3: User's home directory
+    return Path.home()
+
+
+def _parse_partial_path(partial_path: str) -> tuple[str, str]:
+    """Parse a partial path into directory and filename components.
+
+    Examples:
+        "" → ("", "")
+        "my" → ("", "my")
+        "dir/" → ("dir/", "")
+        "dir/file" → ("dir/", "file")
+
+    Returns:
+        Tuple of (directory_part, filename_prefix)
+    """
+    if not partial_path:
+        return ("", "")
+
+    # Normalize path separators to os.sep for processing
+    normalized = partial_path.replace("/", os.sep)
+
+    # Check if path ends with separator (completing in a directory)
+    if normalized.endswith(os.sep):
+        return (partial_path, "")
+
+    # Split into directory and filename
+    directory, filename = os.path.split(normalized)
+
+    # Add trailing separator to directory if non-empty
+    if directory:
+        # Keep original separators in the directory part
+        dir_end = len(partial_path) - len(filename)
+        directory = partial_path[:dir_end]
+
+    return (directory, filename)
+
+
+def _scan_directory_for_completions(
+    base_dir: Path,
+    relative_dir: str,
+    filename_prefix: str,
+) -> list[tuple[str, bool]]:
+    """Scan a directory for matching filesystem entries.
+
+    Args:
+        base_dir: Base directory path
+        relative_dir: Relative directory from base (e.g., "subdir/")
+        filename_prefix: Prefix to filter results (e.g., "my")
+
+    Returns:
+        List of (name, is_directory) tuples for matching entries, sorted
+        with directories first, then files, alphabetically within each group.
+    """
+    try:
+        # Construct target directory
+        if relative_dir:
+            # Normalize separators and strip trailing separator
+            normalized_dir = relative_dir.replace("/", os.sep).rstrip(os.sep)
+            target_dir = base_dir / normalized_dir
+        else:
+            target_dir = base_dir
+
+        # Check if directory exists and is readable
+        if not target_dir.exists() or not target_dir.is_dir():
+            return []
+
+        results = []
+
+        # List directory contents
+        for entry in target_dir.iterdir():
+            entry_name = entry.name
+
+            # Skip hidden files unless prefix starts with "."
+            if entry_name.startswith(".") and not filename_prefix.startswith("."):
+                continue
+
+            # Filter by prefix (case-sensitive on Unix, case-insensitive on Windows)
+            if os.name == "nt":
+                if not entry_name.lower().startswith(filename_prefix.lower()):
+                    continue
+            else:
+                if not entry_name.startswith(filename_prefix):
+                    continue
+
+            # Add to results
+            is_directory = entry.is_dir()
+            results.append((entry_name, is_directory))
+
+        # Sort: directories first, then files, alphabetically within each group
+        results.sort(key=lambda x: (not x[1], x[0].lower()))
+
+        return results
+
+    except (OSError, PermissionError):
+        return []
+
+
+def _get_path_completions(
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str,
+    position: types.Position,
+) -> list[types.CompletionItem]:
+    """Get filesystem path completions for string literals.
+
+    Provides incremental completions for paths, completing one segment at a time.
+    Directories get trailing slashes, files get auto-closed quotes.
+
+    Args:
+        server: The language server instance
+        text_before_cursor: Text before cursor position
+        text_after_cursor: Text after cursor position
+        position: Cursor position for text edit range
+
+    Returns:
+        List of completion items for matching filesystem paths
+    """
+    # Detect if cursor is inside a string literal
+    string_match = re.search(r'(["\'])([^"\']*)?$', text_before_cursor)
+    if not string_match:
+        return []
+
+    quote_char = string_match.group(1)
+    partial_path = string_match.group(2) or ""
+
+    # Check for closing quote after cursor
+    has_closing_quote = text_after_cursor.lstrip().startswith(quote_char)
+
+    # Get base directory
+    base_dir = _get_path_completion_base_dir(server)
+
+    # Parse partial path into directory and filename prefix
+    directory_part, filename_prefix = _parse_partial_path(partial_path)
+
+    # Scan directory for matches
+    entries = _scan_directory_for_completions(base_dir, directory_part, filename_prefix)
+    if not entries:
+        return []
+
+    # Create completion items
+    items = []
+    completion_range = types.Range(position, position)
+
+    for entry_name, is_directory in entries:
+        # Calculate what text to insert (incremental completion)
+        # Remove the prefix that user has already typed
+        remaining = entry_name[len(filename_prefix) :]
+
+        if is_directory:
+            # Directories get trailing separator, no auto-close quote
+            # Windows: escape backslash for string literal
+            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+        else:
+            # Files: auto-close quote if needed
+            completion_text = remaining if has_closing_quote else remaining + quote_char
+
+        # Use InsertReplaceEdit as expected by tests
+        text_edit = types.InsertReplaceEdit(
+            new_text=completion_text,
+            insert=completion_range,
+            replace=completion_range,
+        )
+
+        kind = types.CompletionItemKind.Folder if is_directory else types.CompletionItemKind.File
+
+        items.append(
+            types.CompletionItem(
+                label=entry_name,
+                kind=kind,
+                sort_text=f"0{entry_name}",  # Sort before namespace completions
+                text_edit=text_edit,
+            )
+        )
+
+    return items
+
+
 def _get_getenv_completions(
     server: PositronLanguageServer,
     text_before_cursor: str,
     text_after_cursor: str,
+    document: TextDocument | None = None,
 ) -> list[types.CompletionItem]:
     """Get environment variable completions for os.getenv() calls.
 
@@ -768,11 +1075,19 @@ def _get_getenv_completions(
     if not func_match or not func_match.group(1).endswith("getenv"):
         return []
 
-    # Verify it's actually os.getenv
+    # Verify it's actually os.getenv (from namespace or static import analysis)
     func_name = func_match.group(1)
     resolved = _safe_resolve_expression(server.shell.user_ns, func_name)
     if resolved is not os.getenv:
-        return []
+        # Try static analysis fallback
+        if document is not None:
+            os_imports = _parse_os_imports(document.source)
+            # Check if func_name is "<alias>.getenv" where alias maps to "os"
+            match = re.match(r"^(\w+)\.getenv$", func_name)
+            if not (match and os_imports.get(match.group(1)) == "os"):
+                return []
+        else:
+            return []
 
     # For positional args, only complete the first argument (not 'default')
     if not keyword_match:
@@ -1025,6 +1340,16 @@ def _handle_completion_resolve(
     magic = server._magic_completions.get(params.label)  # noqa: SLF001
     if magic:
         params.detail, params.documentation = magic
+        return params
+
+    # Handle dict key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "dict_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail = _get_dict_value_detail(obj, key)
         return params
 
     # Try to get more info from namespace
