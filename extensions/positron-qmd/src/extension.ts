@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { ExtensionEnablement } from './util/extensionEnablement.js';
 import { DisposableStore } from './util/disposable.js';
 import { QmdParserService } from './parserService.js';
-import { QmdNotebookSerializer } from './qmdNotebookSerializer.js';
+import { QmdNotebookSerializer } from './notebookSerializer.js';
 
 /** Extension log output channel */
 export let log: vscode.LogOutputChannel;

@@ -25,10 +25,6 @@ export function serialize(data: vscode.NotebookData): string {
 	for (let i = cellIndex; i < data.cells.length; i++) {
 		const cell = data.cells[i];
 
-		if (cell.kind === vscode.NotebookCellKind.Markup && !cell.value.trim()) {
-			continue;
-		}
-
 		if (cell.kind === vscode.NotebookCellKind.Markup) {
 			if (prevCellWasMarkdown) {
 				parts.push(CELL_BOUNDARY_MARKER);

@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { QmdParser } from '../parser.js';
-import { QmdNotebookSerializer } from '../qmdNotebookSerializer.js';
+import { QmdNotebookSerializer } from '../notebookSerializer.js';
 import { serialize as serializeNotebook } from '../serialize.js';
 import { captureLogs } from './util/captureLogs.js';
 import { TextEncoder } from 'util';
@@ -383,16 +383,16 @@ suite('NotebookData to QMD Serializer', () => {
 		assert.ok(result.startsWith('# Content'));
 	});
 
-	test('should skip empty markdown cells', () => {
+	test('should preserve empty markdown cells', () => {
 		const result = serialize([
 			markdownCell('# Title'),
 			markdownCell(''),
 			markdownCell('# Another'),
 		]);
 
-		// Should only have one marker (between Title and Another), not two
+		// Should have two markers (Title -> empty -> Another)
 		const markers = (result.match(/<!-- cell -->/g) || []).length;
-		assert.strictEqual(markers, 1);
+		assert.strictEqual(markers, 2);
 	});
 
 	test('should handle code cell with execution options in content', () => {
@@ -468,15 +468,17 @@ suite('Deserialize with cell markers', () => {
 	test('should handle marker at document start', async () => {
 		const result = await deserialize('<!-- cell -->\n\n# Content');
 
-		assert.strictEqual(result.cells.length, 1);
-		assert.strictEqual(result.cells[0].value.trim(), '# Content');
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].value, '');
+		assert.strictEqual(result.cells[1].value, '# Content');
 	});
 
 	test('should handle marker at document end', async () => {
 		const result = await deserialize('# Content\n\n<!-- cell -->');
 
-		assert.strictEqual(result.cells.length, 1);
-		assert.strictEqual(result.cells[0].value.trim(), '# Content');
+		assert.strictEqual(result.cells.length, 2);
+		assert.strictEqual(result.cells[0].value, '# Content');
+		assert.strictEqual(result.cells[1].value, '');
 	});
 });
 

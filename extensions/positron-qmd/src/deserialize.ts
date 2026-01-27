@@ -122,17 +122,9 @@ function createMarkdownCells(
 	const text = decoder.decode(bytes);
 	const parts = text.split(CELL_MARKER_REGEX);
 
-	const cells: vscode.NotebookCellData[] = [];
-	for (const part of parts) {
-		const value = trimTrailingNewline(part);
-		if (value) {
-			cells.push(new vscode.NotebookCellData(
-				vscode.NotebookCellKind.Markup,
-				value,
-				'markdown'
-			));
-		}
-	}
-
-	return cells;
+	return parts.map(part => new vscode.NotebookCellData(
+		vscode.NotebookCellKind.Markup,
+		trimTrailingNewline(part),
+		'markdown'
+	));
 }
