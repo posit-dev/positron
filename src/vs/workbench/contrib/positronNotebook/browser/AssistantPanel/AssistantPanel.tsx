@@ -27,9 +27,8 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 import { CancelablePromise } from '../../../../../base/common/async.js';
 import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IChatEditingService, IChatEditingSession, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/chatEditingService.js';
+import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
-import { URI } from '../../../../../base/common/uri.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY } from '../../common/positronNotebookConfig.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
 import { ShowDiffOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
@@ -78,9 +77,6 @@ type PanelState = {
  *   4. Register global fallback in positronNotebookConfig.ts
  */
 
-// Re-export ShowDiffOverride for consumers of this module
-export type { ShowDiffOverride } from '../../common/notebookAssistantMetadata.js';
-
 /**
  * AssistantPanelProps interface.
  * Services are passed directly as props (explicit dependency pattern).
@@ -99,55 +95,6 @@ export interface AssistantPanelProps {
 	logService: ILogService;
 	preferencesService: IPreferencesService;
 	onActionSelected: (query: string, mode: ChatModeKind) => void | Promise<void>;
-}
-
-/**
- * Hook to wait for notebook instance availability via promise.
- * If initialNotebook is provided, returns ready state immediately.
- * Otherwise awaits the notebookPromise.
- */
-function useWaitForNotebook(
-	initialNotebook: IPositronNotebookInstance | undefined,
-	notebookPromise: CancelablePromise<IPositronNotebookInstance> | undefined,
-	logService: ILogService
-): PanelState {
-	const [state, setState] = useState<PanelState>(() =>
-		initialNotebook
-			? { status: 'ready', notebook: initialNotebook }
-			: { status: 'pending' }
-	);
-
-	useEffect(() => {
-		// If already ready or no promise to wait for, nothing to do
-		if (state.status === 'ready' || !notebookPromise) {
-			return;
-		}
-
-		let disposed = false;
-
-		notebookPromise
-			.then(notebook => {
-				if (!disposed) {
-					setState({ status: 'ready', notebook });
-				}
-			})
-			.catch(error => {
-				if (!disposed && !isCancellationError(error)) {
-					logService.error('Failed to get notebook instance:', error);
-					setState({
-						status: 'error',
-						message: error instanceof Error ? error.message : String(error)
-					});
-				}
-				// On cancellation, do nothing - component is likely unmounting
-			});
-
-		return () => {
-			disposed = true;
-		};
-	}, [notebookPromise, state.status, logService]);
-
-	return state;
 }
 
 /**
@@ -305,37 +252,6 @@ const ReadyState = ({
 	);
 };
 
-/**
- * Information about pending diffs for a notebook.
- */
-interface PendingDiffsInfo {
-	hasPending: boolean;
-	session: IChatEditingSession | undefined;
-	entry: IModifiedFileEntry | undefined;
-}
-
-/**
- * Find pending diffs for a notebook in any editing session.
- * Sessions are iterated in recency order, so the first match wins.
- */
-function findPendingDiffs(
-	chatEditingService: IChatEditingService,
-	notebookUri: URI
-): PendingDiffsInfo {
-	// Iterate through all editing sessions (first matching session wins as they are recency-sorted)
-	for (const session of chatEditingService.editingSessionsObs.get()) {
-		// Get entry for this notebook URI
-		const entry = session.getEntry(notebookUri);
-
-		// Check if entry has pending changes
-		if (entry && entry.state.get() === ModifiedFileEntryState.Modified) {
-			return { hasPending: true, session, entry };
-		}
-	}
-
-	return { hasPending: false, session: undefined, entry: undefined };
-}
-
 // Localized strings for pending diffs confirmation dialog.
 const pendingDiffsTitle = localize('positronNotebook.assistant.pendingDiffs.title', 'Pending Edits');
 const pendingDiffsMessage = localize('positronNotebook.assistant.pendingDiffs.message',
@@ -397,8 +313,43 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		onActionSelected
 	} = props;
 
+	// Panel state for tracking notebook availability
+	const [panelState, setPanelState] = useState<PanelState>(() =>
+		initialNotebook
+			? { status: 'ready', notebook: initialNotebook }
+			: { status: 'pending' }
+	);
+
 	// Wait for notebook availability via promise
-	const panelState = useWaitForNotebook(initialNotebook, notebookPromise, logService);
+	useEffect(() => {
+		// If already ready or no promise to wait for, nothing to do
+		if (panelState.status === 'ready' || !notebookPromise) {
+			return;
+		}
+
+		let disposed = false;
+
+		notebookPromise
+			.then(notebook => {
+				if (!disposed) {
+					setPanelState({ status: 'ready', notebook });
+				}
+			})
+			.catch(error => {
+				if (!disposed && !isCancellationError(error)) {
+					logService.error('Failed to get notebook instance:', error);
+					setPanelState({
+						status: 'error',
+						message: error instanceof Error ? error.message : String(error)
+					});
+				}
+				// On cancellation, do nothing - component is likely unmounting
+			});
+
+		return () => {
+			disposed = true;
+		};
+	}, [notebookPromise, panelState.status, logService]);
 
 	// State for notebook context (only used when ready)
 	const [notebookContext, setNotebookContext] = useState<INotebookContextDTO | undefined>(undefined);
@@ -461,15 +412,19 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			return;
 		}
 
-		// Check for pending diffs
-		const { hasPending, entry } = findPendingDiffs(
-			chatEditingService,
-			panelState.notebook.uri
-		);
+		// Check for pending diffs in any editing session
+		let pendingEntry: IModifiedFileEntry | undefined;
+		for (const session of chatEditingService.editingSessionsObs.get()) {
+			const entry = session.getEntry(panelState.notebook.uri);
+			if (entry && entry.state.get() === ModifiedFileEntryState.Modified) {
+				pendingEntry = entry;
+				break;
+			}
+		}
 
-		if (hasPending && entry) {
+		if (pendingEntry) {
 			// Show confirmation dialog - if cancelled, don't change the setting
-			const action = await showPendingDiffsConfirmation(entry, dialogService);
+			const action = await showPendingDiffsConfirmation(pendingEntry, dialogService);
 			if (action === 'cancel') {
 				return;
 			}
