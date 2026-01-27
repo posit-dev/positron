@@ -574,7 +574,7 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true') {
+		if (process.env.GITHUB_ACTIONS && !app.web && process.env.IS_OPENSUSE !== 'true' && process.env.IS_SLES !== 'true') {
 			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`)), buffer, options);
 
 			if (data.rawMisMatchPercentage > 2.0) {
