@@ -13,97 +13,6 @@ import { TextEncoder } from 'util';
 
 const EXTENSION_ID = 'positron.positron-qmd';
 
-suite('Block offset investigation', () => {
-	let parser: QmdParser;
-
-	suiteSetup(async () => {
-		const extension = vscode.extensions.getExtension(EXTENSION_ID);
-		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
-		parser = new QmdParser(extension.extensionUri);
-	});
-
-	test('check block offsets for frontmatter + markdown', async () => {
-		const content = '---\ntitle: Test\n---\n\n# Heading';
-		const doc = await parser.parse(content);
-		console.log('\n=== Frontmatter + Heading ===');
-		console.log('Content:', JSON.stringify(content));
-		console.log('Content length:', content.length);
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-
-	test('check block offsets for markdown + code', async () => {
-		const content = '# Intro\n\n```{python}\nprint("hi")\n```';
-		const doc = await parser.parse(content);
-		console.log('\n=== Markdown + Code ===');
-		console.log('Content:', JSON.stringify(content));
-		console.log('Content length:', content.length);
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-
-	test('check block offsets for code + markdown', async () => {
-		const content = '```{python}\nx = 1\n```\n\n# Results';
-		const doc = await parser.parse(content);
-		console.log('\n=== Code + Markdown ===');
-		console.log('Content:', JSON.stringify(content));
-		console.log('Content length:', content.length);
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-
-	test('check block offsets with extra newlines in markdown', async () => {
-		const content = '# Title\n\n\n\nParagraph with extra newlines above.';
-		const doc = await parser.parse(content);
-		console.log('\n=== Extra newlines in markdown ===');
-		console.log('Content:', JSON.stringify(content));
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-
-	test('check block offsets with trailing newlines', async () => {
-		const content = '# Title\n\n\n';
-		const doc = await parser.parse(content);
-		console.log('\n=== Trailing newlines ===');
-		console.log('Content:', JSON.stringify(content));
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-
-	test('check block offsets with leading newlines before code', async () => {
-		const content = '# Title\n\n\n\n```{python}\nx = 1\n```';
-		const doc = await parser.parse(content);
-		console.log('\n=== Leading newlines before code ===');
-		console.log('Content:', JSON.stringify(content));
-		for (const block of doc.blocks) {
-			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
-			if (block.l) {
-				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
-			}
-		}
-	});
-});
-
 suite('QMD to NotebookData Converter', () => {
 	captureLogs();
 
@@ -612,16 +521,28 @@ suite('Round-trip serialization', () => {
 		return new vscode.NotebookCellData(vscode.NotebookCellKind.Markup, content, 'markdown');
 	}
 
-	test('should round-trip simple document', async () => {
+	test('qmd -> notebook -> qmd should preserve exact content', async () => {
 		const original = '# Hello\n\n```{python}\nprint("world")\n```\n';
 		const notebook = await deserialize(original);
+		const serialized = serializeNotebook(notebook);
+
+		assert.strictEqual(serialized, original);
+	});
+
+	test('notebook -> qmd -> notebook should preserve exact content', async () => {
+		const notebook = new vscode.NotebookData([
+			markdownCell('# Hello'),
+			codeCell('print("world")', 'python'),
+		]);
+
 		const serialized = serializeNotebook(notebook);
 		const roundTripped = await deserialize(serialized);
 
 		assert.strictEqual(roundTripped.cells.length, notebook.cells.length);
 		for (let i = 0; i < notebook.cells.length; i++) {
 			assert.strictEqual(roundTripped.cells[i].kind, notebook.cells[i].kind);
-			assert.strictEqual(roundTripped.cells[i].value.trim(), notebook.cells[i].value.trim());
+			assert.strictEqual(roundTripped.cells[i].value, notebook.cells[i].value);
+			assert.strictEqual(roundTripped.cells[i].languageId, notebook.cells[i].languageId);
 		}
 	});
 
