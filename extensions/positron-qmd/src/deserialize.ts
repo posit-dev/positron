@@ -6,15 +6,10 @@
 import * as vscode from 'vscode';
 import { QmdDocument, Block, CodeBlock, RawBlock } from './ast/index.js';
 import * as ast from './ast/index.js';
+import { CELL_MARKER_REGEX, QUARTO_TO_VSCODE_LANGUAGE } from './constants.js';
 import { TextDecoder } from 'util';
 
-const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
-	'ojs': 'javascript',
-};
-
-const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
-const TRAILING_NEWLINE_REGEX = /\r?\n$/;
-
+/** Convert parsed QMD document to VS Code NotebookData */
 export function deserialize(
 	doc: QmdDocument,
 	content: Uint8Array
@@ -38,10 +33,12 @@ export function deserialize(
 	return notebookData;
 }
 
+/** Remove trailing newline from string */
 function trimTrailingNewline(s: string): string {
-	return s.replace(TRAILING_NEWLINE_REGEX, '');
+	return s.replace(/\r?\n$/, '');
 }
 
+/** Create YAML frontmatter cell if document has metadata */
 function createFrontmatterCell(
 	doc: QmdDocument,
 	content: Uint8Array,
@@ -61,6 +58,7 @@ function createFrontmatterCell(
 	return cell;
 }
 
+/** Convert document blocks to notebook cells, grouping markdown blocks together */
 function createContentCells(
 	doc: QmdDocument,
 	content: Uint8Array,
@@ -93,6 +91,7 @@ function createContentCells(
 	return cells;
 }
 
+/** Create code cell from executable code block */
 function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
 	const code = ast.content(block);
 	const rawLanguage = ast.language(block) ?? '';
@@ -104,6 +103,7 @@ function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
 	);
 }
 
+/** Create code cell from raw block (e.g., latex, html) */
 function createRawCell(block: RawBlock): vscode.NotebookCellData {
 	return new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
@@ -112,6 +112,7 @@ function createRawCell(block: RawBlock): vscode.NotebookCellData {
 	);
 }
 
+/** Create markdown cells from consecutive non-code blocks, splitting on cell markers */
 function createMarkdownCells(
 	blocks: Block[],
 	content: Uint8Array,

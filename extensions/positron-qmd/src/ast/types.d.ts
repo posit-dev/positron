@@ -4,17 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Pandoc AST type definitions.
- *
- * Type names match Pandoc's native naming (e.g., `CodeBlock`, `Para`, `Str`).
- * All node types have a `t` discriminator for TypeScript narrowing:
- *
- * @example
- * ```typescript
- * if (block.t === 'CodeBlock') {
- *   // block is narrowed to CodeBlock
- * }
- * ```
+ * Quarto-extended Pandoc AST type definitions.
  */
 
 //#region Common Types
