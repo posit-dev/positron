@@ -88,11 +88,7 @@ export function deserialize(
 		cells.push(cell);
 	}
 
-	const contentCells = convertBlocksToCells(
-		doc.blocks,
-		content,
-		frontmatter?.endOffset
-	);
+	const contentCells = convertBlocksToCells(doc.blocks, content);
 	cells.push(...contentCells);
 
 	const notebookData = new vscode.NotebookData(cells);
@@ -105,15 +101,14 @@ export function deserialize(
 
 function convertBlocksToCells(
 	blocks: Block[],
-	content: Uint8Array,
-	minStartOffset?: number
+	content: Uint8Array
 ): vscode.NotebookCellData[] {
 	const cells: vscode.NotebookCellData[] = [];
 	let pendingMarkdownBlocks: Block[] = [];
 
 	const flushMarkdownBlocks = (maxEndOffset?: number) => {
 		if (pendingMarkdownBlocks.length > 0) {
-			cells.push(...createMarkdownCells(pendingMarkdownBlocks, content, minStartOffset, maxEndOffset));
+			cells.push(...createMarkdownCells(pendingMarkdownBlocks, content, maxEndOffset));
 			pendingMarkdownBlocks = [];
 		}
 	};
@@ -181,15 +176,14 @@ function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
 function createMarkdownCells(
 	blocks: Block[],
 	content: Uint8Array,
-	minStartOffset: number | undefined,
 	maxEndOffset: number | undefined
 ): vscode.NotebookCellData[] {
-	const text = extractRawTextForBlocks(blocks, content, minStartOffset, maxEndOffset);
+	const text = extractRawTextForBlocks(blocks, content, maxEndOffset);
 	const parts = text.split(CELL_MARKER_REGEX);
 
 	const cells: vscode.NotebookCellData[] = [];
 	for (const part of parts) {
-		const trimmed = part.trim();
+		const trimmed = trimTrailingNewlines(part);
 		if (trimmed) {
 			cells.push(new vscode.NotebookCellData(
 				vscode.NotebookCellKind.Markup,
@@ -202,10 +196,17 @@ function createMarkdownCells(
 	return cells;
 }
 
+function trimTrailingNewlines(text: string): string {
+	let end = text.length;
+	while (end > 0 && (text[end - 1] === '\n' || text[end - 1] === '\r')) {
+		end--;
+	}
+	return text.slice(0, end);
+}
+
 function extractRawTextForBlocks(
 	blocks: Block[],
 	content: Uint8Array,
-	minStartOffset: number | undefined,
 	maxEndOffset: number | undefined
 ): string {
 	if (blocks.length === 0) {
@@ -215,23 +216,15 @@ function extractRawTextForBlocks(
 	const firstBlock = blocks[0];
 	const lastBlock = blocks[blocks.length - 1];
 
-	let startOffset = ast.startOffset(firstBlock);
+	const startOffset = ast.startOffset(firstBlock);
 	let endOffset = ast.endOffset(lastBlock);
 
 	if (startOffset === undefined || endOffset === undefined) {
 		throw new Error(`[QMD Converter] Missing location info for blocks: ${firstBlock.t} to ${lastBlock.t}`);
 	}
 
-	if (minStartOffset !== undefined && startOffset < minStartOffset) {
-		startOffset = minStartOffset;
-	}
-
 	if (maxEndOffset !== undefined && maxEndOffset > startOffset && endOffset > maxEndOffset) {
 		endOffset = maxEndOffset;
-	}
-
-	if (endOffset <= startOffset) {
-		throw new Error(`[QMD Converter] Invalid offset range: ${startOffset} to ${endOffset}`);
 	}
 
 	return new TextDecoder().decode(content.slice(startOffset, endOffset));
