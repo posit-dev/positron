@@ -1,4 +1,4 @@
-With Positron Notebooks, you have access to multiple tools out of the box to help you interrogate your data.
+With the Positron Notebook Editor, you have access to multiple tools out of the box to help you interrogate your data.
 
 
 Give these features a try by exploring them with the [demo notebook](https://github.com/posit-dev/positron-demos-notebooks):
@@ -15,13 +15,12 @@ Give these features a try by exploring them with the [demo notebook](https://git
 
 <img src="./images/2-variables-pane.png" alt="Positron Variables Pane" width="600">
 
-3. **Launch the Data Explorer**: Click the `spreadsheet icon` to the right of a dataframe to launch the [Data Explorer](https://positron.posit.co/data-explorer.html?utm_source=positron-inapp-walkthrough).
+3. **Launch the Data Explorer**: Click the `spreadsheet` icon to the right of a dataframe to launch the [Data Explorer](https://positron.posit.co/data-explorer.html?utm_source=positron-inapp-walkthrough).
 
 	In the Data Explorer you can:
 	- Sort columns by clicking on column headers
 	- Filter data using the filter bar
 	- View automatic summary statistics
-	- Copy data to clipboard
 	- Export filtered results
 
 <img src="./images/3-data-explorer-stats.png" alt="Positron Data Explorer" width="600">

@@ -9,5 +9,5 @@ Although there are known rough edges with our Alpha release, we are releasing no
 * [Report a bug](https://github.com/posit-dev/positron/issues)
 
 
-Thank you for being an early adopter! Your feedback during this Alpha phase is invaluable in helping us build the best notebook experience for data scientists.
+Thank you for being an early adopter! Your feedback helps is build better tools for data scientists.
 

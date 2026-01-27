@@ -44,7 +44,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.reloadWindow();
 
 			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Get Started with Positron Notebook (Alpha)']);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
@@ -52,7 +52,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 				'Get Started with Python Development',
 				'Migrating from VSCode to Positron',
 				'Migrating from RStudio to Positron',
-				'Get Started with Positron Notebook (Alpha)',
+				'Explore the Positron Notebook Editor in Alpha',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher'
 			]);

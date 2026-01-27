@@ -1,4 +1,4 @@
-Check your setup by looking at the top right session selector. If you already have an appropriate Python version selected, skip to Explore your data.
+Check your setup by looking at the top right interpreter selector. If you already have an appropriate Python version selected, skip to Explore your data.
 
 #### Select an interpreter:
 You can select a specific interpreter for your project by using the [Select Interpreter Session](command:workbench.action.language.runtime.selectSession) command.
