@@ -28,11 +28,36 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 	);
 }
 
+type InstallMethod = 'pak' | 'base';
+
+function getPackageInstallTask(installMethod: InstallMethod) {
+	if (installMethod === 'base') {
+		return {
+			task: 'r.task.packageInstall',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
+			shellArgs: ['CMD', 'INSTALL', '--preclean', '--no-multiarch', '--with-keep.source', '.'],
+			package: null,
+			envVars: null
+		};
+	}
+	return {
+		task: 'r.task.packageInstall',
+		message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
+		rcode: 'pak::local_install(upgrade = FALSE)',
+		package: 'pak',
+		envVars: null
+	};
+}
+
 export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.Task[]> {
 	if (!RSessionManager.instance.hasLastBinpath()) {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
 	const binpath = RSessionManager.instance.getLastBinpath();
+
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const installMethod = config.get<InstallMethod>('localPackageInstallMethod', 'pak');
+
 	const taskData = [
 		{
 			task: 'r.task.packageCheck',
@@ -41,13 +66,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			package: 'devtools',
 			envVars: { ... await prepCliEnvVars() }
 		},
-		{
-			task: 'r.task.packageInstall',
-			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
-			rcode: 'pak::local_install(upgrade = FALSE)',
-			package: 'pak',
-			envVars: null
-		},
+		getPackageInstallTask(installMethod),
 		{
 			task: 'r.task.packageTest',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
@@ -68,13 +87,14 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	];
 
 	return taskData.map(data => {
-		let taskEnv = {};
+		const taskEnv = {};
 
 		if (data.envVars) {
 			Object.assign(taskEnv, data.envVars);
 		}
 
 		let exec: vscode.ProcessExecution | vscode.ShellExecution;
+
 		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
 			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
 			// specifically encountered with PowerShell.
@@ -92,9 +112,12 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			// both bash and PowerShell, on Windows, so make sure to test any
 			// changes on Windows.
 			// https://github.com/posit-dev/positron/issues/9216
+			const shellArgs = 'shellArgs' in data
+				? data.shellArgs
+				: ['--quiet', '--no-restore', '--no-save', '-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }];
 			exec = new vscode.ShellExecution(
 				{ value: binpath, quoting: vscode.ShellQuoting.Strong },
-				['--quiet', '--no-restore', '--no-save', '-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+				shellArgs,
 				{ env: taskEnv }
 			);
 		}
