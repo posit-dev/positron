@@ -10,7 +10,24 @@ import { log } from '../extension.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
-import { resolveAssistantSetting } from '../notebookMetadata.js';
+/**
+ * Resolve showDiff setting: notebook metadata first, then global config fallback.
+ */
+function resolveShowDiffSetting(
+	notebook: vscode.NotebookDocument,
+	globalConfigKey: string,
+	defaultValue: boolean
+): boolean {
+	const positron = notebook.metadata?.positron as Record<string, unknown> | undefined;
+	const assistant = positron?.assistant as Record<string, unknown> | undefined;
+	const override = assistant?.showDiff as 'showDiff' | 'noDiff' | undefined;
+
+	if (override !== undefined) {
+		return override === 'showDiff';
+	}
+
+	return vscode.workspace.getConfiguration().get(globalConfigKey, defaultValue);
+}
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -461,7 +478,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						// Check if diff view is enabled (notebook metadata first, then global config)
 						const notebookEditor = vscode.window.activeNotebookEditor;
 						const showDiff = notebookEditor
-							? resolveAssistantSetting(notebookEditor.notebook, 'showDiff', 'positron.assistant.notebook.showDiff', true)
+							? resolveShowDiffSetting(notebookEditor.notebook, 'positron.assistant.notebook.showDiff', true)
 							: vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
 
 						// Use direct update for: markdown in preview OR when diff view is disabled
