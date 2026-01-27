@@ -1,0 +1,89 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook-code-cell-footer {
+	/* Layout */
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0px 1rem;
+	height: 24px;
+
+	/* Visual separators from editor content above and outputs below */
+	border-top: 1px solid var(--vscode-widget-border);
+	background-color: var(--vscode-notebook-cellEditorBackground);
+	border-bottom: 1px solid var(--vscode-widget-border);
+	/* Footer has rounded bottom corners (acts as bottom of editor section) */
+	border-bottom-left-radius: var(--vscode-positronNotebook-cell-radius);
+	border-bottom-right-radius: var(--vscode-positronNotebook-cell-radius);
+
+	/* Typography */
+	font-size: 11px;
+	color: var(--vscode-positronNotebook-cellFooterForeground);
+
+	/* Override inherited cursor from .positron-notebook class */
+	cursor: default;
+}
+
+/* Override inherited cursor from .positron-notebook class for children spans */
+.positron-notebook-code-cell-footer span {
+	cursor: default;
+}
+
+.code-cell-footer-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	font-size: 16px; /* Ensure consistent codicon size */
+}
+
+.codicon.code-cell-footer-icon.success {
+	color: var(--vscode-notebookStatusSuccessIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.error {
+	color: var(--vscode-notebookStatusErrorIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.pending {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+}
+
+.codicon.code-cell-footer-icon.running {
+	color: var(--vscode-notebookStatusRunningIcon-foreground);
+	animation: code-cell-spin 1.5s linear infinite;
+}
+
+@keyframes code-cell-spin {
+	100% {
+		transform:rotate(360deg);
+	}
+}
+
+.code-cell-footer-text {
+	display: flex;
+	align-items: center;
+	gap: 13px; /* Space between duration and timestamp and adding 1px to account for vertical separator*/
+	white-space: nowrap;
+}
+
+/* Duration text with separator pseudo-element */
+.code-cell-footer-duration {
+	position: relative;
+}
+
+/* Vertical separator between duration and timestamp */
+.code-cell-footer-duration::after {
+	content: '';
+	position: absolute;
+	right: -7px; /* center the separator in the 13px gap between footer text */
+	top: 1px;
+	bottom: 1px;
+	width: 1px;
+	background-color: var(--vscode-widget-border);
+}

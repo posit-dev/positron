@@ -6,5 +6,8 @@
 		{
 			"path": "./extensions/positron-python"
 		}
-	]
+	],
+	"settings": {
+		"search.followSymlinks": false
+    }
 }

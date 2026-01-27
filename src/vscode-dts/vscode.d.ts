@@ -17294,6 +17294,17 @@ declare module 'vscode' {
 		 */
 		export function stopDebugging(session?: DebugSession): Thenable<void>;
 
+		// --- Start Positron ---
+		/**
+		 * Sets whether a debug session is in the foreground (actively debugging) or background.
+		 * Foreground sessions show the debug toolbar and switch the status bar to debugging styling.
+		 *
+		 * @param session The {@link DebugSession debug session} to modify.
+		 * @param foreground Whether the session should be in the foreground.
+		 */
+		export function setDebugSessionForeground(session: DebugSession, foreground: boolean): void;
+		// --- End Positron ---
+
 		/**
 		 * Add breakpoints.
 		 * @param breakpoints The breakpoints to add.

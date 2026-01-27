@@ -26,6 +26,7 @@ from positron._vendor.lsprotocol.types import (
     HoverParams,
     InitializeParams,
     InsertReplaceEdit,
+    MarkupContent,
     MarkupKind,
     NotebookCell,
     NotebookCellKind,
@@ -45,7 +46,6 @@ from positron.positron_lsp import (
     PositronInitializationOptions,
     PositronLanguageServer,
     _get_expression_at_position,
-    _MagicType,
     _parse_os_imports,
     _safe_resolve_expression,
     create_server,
@@ -95,8 +95,8 @@ def create_test_server(
     server.shell = Mock()
     server.shell.user_ns = {} if namespace is None else namespace
     server.shell.magics_manager.lsmagic.return_value = {
-        _MagicType.cell: {},
-        _MagicType.line: {},
+        "cell": {},
+        "line": {},
     }
 
     return server
@@ -893,113 +893,105 @@ class TestCompletions:
         assert len(completions) == 1
         assert completions[0].label == "home-file.txt"
 
-    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
     def test_line_magic_completions(self) -> None:
         """Test completions for line magics."""
         server = create_test_server()
         assert server.shell is not None
         server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {"timeit": None, "time": None, "test": None},
-            _MagicType.cell: {},
+            "line": {"timeit": None, "time": None},
+            "cell": {},
         }
         text_document = create_text_document(server, TEST_DOCUMENT_URI, "%ti")
 
         completions = self._completions(server, text_document)
         labels = [c.label for c in completions]
 
-        assert labels == ["%timeit", "%time"]
+        assert set(labels) == {"%timeit", "%time"}
 
-    @pytest.mark.xfail(reason="Not sure exactly why this is failing; needs investigation")
     def test_cell_magic_completions(self) -> None:
         """Test completions for cell magics."""
         server = create_test_server()
         assert server.shell is not None
         server.shell.magics_manager.lsmagic.return_value = {
-            _MagicType.line: {},
-            _MagicType.cell: {"timeit": None, "time": None, "test": None},
+            "line": {},
+            "cell": {"timeit": None, "time": None},
         }
         text_document = create_text_document(server, TEST_DOCUMENT_URI, "%%ti")
 
         completions = self._completions(server, text_document)
         labels = [c.label for c in completions]
 
-        assert labels == ["%%timeit", "%%time"]
+        assert set(labels) == {"%%timeit", "%%time"}
 
 
 class TestCompletionItemResolve:
     """Tests for completion item resolve functionality."""
 
     @pytest.mark.parametrize(
-        ("source", "namespace", "expected_detail_contains"),
+        ("source", "namespace", "expected_detail_contains", "expected_doc_contains"),
         [
             pytest.param(
                 'x["',
                 {"x": {"a": object_with_property.prop}},
                 "str",
+                None,
                 id="dict_key_to_property",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 'x["',
                 {"x": {"a": 0}},
                 "int",
+                None,
                 id="dict_key_to_int",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
                 {"x": 0},
                 "int",
+                None,
                 id="int",
             ),
             pytest.param(
                 "x",
                 {"x": pd.DataFrame({"col1": [1, 2, 3]})},
-                "DataFrame",
+                "DataFrame (3 x 1)",
+                "col1",
                 id="pandas_dataframe",
             ),
             pytest.param(
                 'x["',
                 {"x": pd.DataFrame({"a": [1, 2, 3]})},
-                "int64",
+                "int64 (3)",
+                "dtype: int64",
                 id="pandas_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
-                {"x": pd.Series({"a": 0})},
-                "Series",
+                {"x": pd.Series([1, 2, 3])},
+                "int64 (3)",
+                "dtype: int64",
                 id="pandas_series",
             ),
             pytest.param(
                 "x",
                 {"x": pl.DataFrame({"col1": [1, 2, 3]})},
-                "DataFrame",
+                "DataFrame (3 x 1)",
+                "col1",
                 id="polars_dataframe",
             ),
             pytest.param(
                 'x["',
                 {"x": pl.DataFrame({"a": [1, 2, 3]})},
-                "Int64",
+                "Int64 (3)",
+                "1",
                 id="polars_dataframe_dict_key",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
             pytest.param(
                 "x",
                 {"x": pl.Series([1, 2, 3])},
-                "Int64",
+                "Int64 (3)",
+                "1",
                 id="polars_series",
-                marks=pytest.mark.xfail(
-                    reason="Some completion detail resolutions need verification"
-                ),
             ),
         ],
     )
@@ -1008,9 +1000,10 @@ class TestCompletionItemResolve:
         source: str,
         namespace: Dict[str, Any],
         expected_detail_contains: str,
+        expected_doc_contains: Optional[str],
     ) -> None:
         """Test that completion items can be resolved with additional details."""
-        from positron.positron_lsp import _handle_completion
+        from positron.positron_lsp import _handle_completion, _handle_completion_resolve
 
         server = create_test_server(namespace)
         text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
@@ -1027,8 +1020,30 @@ class TestCompletionItemResolve:
         assert len(completion_list.items) > 0
 
         item = completion_list.items[0]
-        assert item.detail is not None
-        assert expected_detail_contains in item.detail
+
+        # Dict key completions defer detail to resolve for performance
+        is_dict_key_completion = '["' in source or "['" in source
+        if is_dict_key_completion:
+            # Verify detail is not set initially and data has expected structure
+            assert item.detail is None
+            assert item.data is not None
+            assert item.data.get("type") == "dict_key"
+            assert "expr" in item.data
+            assert "key" in item.data
+
+        resolved_item = _handle_completion_resolve(server, item)
+        assert resolved_item.detail is not None
+        assert expected_detail_contains in resolved_item.detail
+
+        # Check documentation preview for DataFrame/Series
+        if expected_doc_contains is not None:
+            assert resolved_item.documentation is not None
+            doc_value = (
+                resolved_item.documentation.value
+                if isinstance(resolved_item.documentation, MarkupContent)
+                else resolved_item.documentation
+            )
+            assert expected_doc_contains in doc_value
 
 
 class TestSignatureHelp:

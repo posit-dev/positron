@@ -381,27 +381,25 @@ export type CommBackendMessage =
  * Disposing the `DapComm` automatically disposes of the nested `Comm`.
  */
 export interface DapComm {
-	/** The `targetName` passed to the constructor. */
+	/** The `targetName` passed to `create()`. */
 	readonly targetName: string;
 
-	/** The `debugType` passed to the constructor. */
+	/** The `debugType` passed to `create()`. */
 	readonly debugType: string;
 
-	/** The `debugName` passed to the constructor. */
+	/** The `debugName` passed to `create()`. */
 	readonly debugName: string;
 
 	/**
 	 * The comm for the DAP.
 	 * Use it to receive messages or make notifications and requests.
-	 * Defined after `createServerComm()` has been called.
 	 */
-	readonly comm?: Comm;
+	readonly comm: Comm;
 
 	/**
 	 * The port on which the DAP server is listening.
-	 * Defined after `createServerComm()` has been called.
 	 */
-	readonly serverPort?: number;
+	readonly port: number;
 
 	/**
 	 * Handle a message received via `this.comm.receiver`.
@@ -423,6 +421,12 @@ export interface DapComm {
 	 * handle or reject it in that case.
 	 */
 	handleMessage(msg: any): Promise<boolean>;
+
+	/** Connect to the DAP server. */
+	connect(): Promise<void>;
+
+	/** Disconnect from the DAP server. */
+	disconnect(): Promise<void>;
 
 	/**
 	 * Dispose of the underlying comm.
