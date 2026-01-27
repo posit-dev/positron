@@ -6,16 +6,14 @@ This prompt provides context for working with Positron's reusable UI components,
 
 Always search before creating new UI controls:
 
-```bash
-# Find React components in Positron directories
-Glob: **/positron**/components/*.tsx
-Glob: **/positronComponents/**/*.tsx
+**Find React components in Positron directories:**
+- Glob: `**/positron**/components/*.tsx`
+- Glob: `**/positronComponents/**/*.tsx`
 
-# Search for specific control types
-Grep: "toggle" --glob "*.tsx" --glob "*positron*"
-Grep: "ScreenReaderOnly" --type tsx
-Grep: "Modal" --glob "*positron*.tsx"
-```
+**Search for specific control types:**
+- Grep: `"toggle"` with glob `*.tsx` and `*positron*`
+- Grep: `"ScreenReaderOnly"` with type `tsx`
+- Grep: `"Modal"` with glob `*positron*.tsx`
 
 ## Component Categories
 
@@ -67,11 +65,8 @@ For custom controls needing hidden native inputs, search for `ScreenReaderOnly` 
 ```
 
 ### Finding CSS Patterns
-```bash
-# Search for similar styling patterns
-Grep: "\.toggle" --glob "*.css" --glob "*positron*"
-Grep: "\.button" --glob "*.css" --glob "*positron*"
-```
+- Grep: `"\.toggle"` with glob `*.css` and `*positron*`
+- Grep: `"\.button"` with glob `*.css` and `*positron*`
 
 ## Common Patterns
 
@@ -87,12 +82,10 @@ Look for existing modal implementations to understand the framework pattern.
 
 ### Feature-Specific Components
 Each Positron feature has its own components directory. Search by feature name:
-```bash
-Glob: **/positronDataExplorer/**/components/*.tsx
-Glob: **/positronVariables/**/components/*.tsx
-Glob: **/positronPlots/**/components/*.tsx
-Glob: **/positronConsole/**/components/*.tsx
-```
+- Glob: `**/positronDataExplorer/**/components/*.tsx`
+- Glob: `**/positronVariables/**/components/*.tsx`
+- Glob: `**/positronPlots/**/components/*.tsx`
+- Glob: `**/positronConsole/**/components/*.tsx`
 
 ## Tips
 
