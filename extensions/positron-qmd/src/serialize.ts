@@ -7,13 +7,9 @@ import * as vscode from 'vscode';
 
 const CELL_BOUNDARY_MARKER = '<!-- cell -->';
 
-const VSCODE_TO_QUARTO_MAP: Record<string, string> = {
-	'python': 'python',
-	'r': 'r',
-	'julia': 'julia',
+// TODO: Make an inverse of the other map?
+const VSCODE_TO_QUARTO_LANGUAGE: Record<string, string> = {
 	'javascript': 'ojs',
-	'mermaid': 'mermaid',
-	'dot': 'dot',
 };
 
 export function serialize(data: vscode.NotebookData): string {
@@ -58,11 +54,12 @@ function serializeCodeCell(cell: vscode.NotebookCellData): string {
 	const code = cell.value;
 
 	const qmdFenceInfo = cell.metadata?.qmdFenceInfo as string | undefined;
+	// TODO: Just error if there's no qmdFencInfo
 	if (qmdFenceInfo) {
 		return '```' + qmdFenceInfo + '\n' + code + '\n```';
 	}
 
-	const quartoLang = VSCODE_TO_QUARTO_MAP[language] || language;
+	const quartoLang = VSCODE_TO_QUARTO_LANGUAGE[language] || language;
 	const fenceInfo = quartoLang ? `{${quartoLang}}` : '';
 
 	return '```' + fenceInfo + '\n' + code + '\n```';

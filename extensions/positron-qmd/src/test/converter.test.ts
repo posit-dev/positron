@@ -13,6 +13,97 @@ import { TextEncoder } from 'util';
 
 const EXTENSION_ID = 'positron.positron-qmd';
 
+suite('Block offset investigation', () => {
+	let parser: QmdParser;
+
+	suiteSetup(async () => {
+		const extension = vscode.extensions.getExtension(EXTENSION_ID);
+		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
+		parser = new QmdParser(extension.extensionUri);
+	});
+
+	test('check block offsets for frontmatter + markdown', async () => {
+		const content = '---\ntitle: Test\n---\n\n# Heading';
+		const doc = await parser.parse(content);
+		console.log('\n=== Frontmatter + Heading ===');
+		console.log('Content:', JSON.stringify(content));
+		console.log('Content length:', content.length);
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+
+	test('check block offsets for markdown + code', async () => {
+		const content = '# Intro\n\n```{python}\nprint("hi")\n```';
+		const doc = await parser.parse(content);
+		console.log('\n=== Markdown + Code ===');
+		console.log('Content:', JSON.stringify(content));
+		console.log('Content length:', content.length);
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+
+	test('check block offsets for code + markdown', async () => {
+		const content = '```{python}\nx = 1\n```\n\n# Results';
+		const doc = await parser.parse(content);
+		console.log('\n=== Code + Markdown ===');
+		console.log('Content:', JSON.stringify(content));
+		console.log('Content length:', content.length);
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+
+	test('check block offsets with extra newlines in markdown', async () => {
+		const content = '# Title\n\n\n\nParagraph with extra newlines above.';
+		const doc = await parser.parse(content);
+		console.log('\n=== Extra newlines in markdown ===');
+		console.log('Content:', JSON.stringify(content));
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+
+	test('check block offsets with trailing newlines', async () => {
+		const content = '# Title\n\n\n';
+		const doc = await parser.parse(content);
+		console.log('\n=== Trailing newlines ===');
+		console.log('Content:', JSON.stringify(content));
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+
+	test('check block offsets with leading newlines before code', async () => {
+		const content = '# Title\n\n\n\n```{python}\nx = 1\n```';
+		const doc = await parser.parse(content);
+		console.log('\n=== Leading newlines before code ===');
+		console.log('Content:', JSON.stringify(content));
+		for (const block of doc.blocks) {
+			console.log(`Block ${block.t}:`, JSON.stringify(block.l));
+			if (block.l) {
+				console.log(`  Text: "${content.slice(block.l.b.o, block.l.e.o)}"`);
+			}
+		}
+	});
+});
+
 suite('QMD to NotebookData Converter', () => {
 	captureLogs();
 
@@ -650,5 +741,29 @@ suite('Round-trip serialization', () => {
 
 		assert.ok(serialized.includes('#fig-plot'), 'Should preserve id');
 		assert.ok(serialized.includes('label="My Plot"'), 'Should preserve label keyval');
+	});
+
+	test('should preserve extra newlines in markdown content', async () => {
+		const notebook = new vscode.NotebookData([
+			markdownCell('# Title\n\n\n\nParagraph with extra newlines above.'),
+		]);
+
+		const serialized = serializeNotebook(notebook);
+		const roundTripped = await deserialize(serialized);
+
+		assert.strictEqual(roundTripped.cells.length, 1);
+		assert.strictEqual(roundTripped.cells[0].value, '# Title\n\n\n\nParagraph with extra newlines above.');
+	});
+
+	test('should preserve leading whitespace in markdown content', async () => {
+		const notebook = new vscode.NotebookData([
+			markdownCell('   Indented text'),
+		]);
+
+		const serialized = serializeNotebook(notebook);
+		const roundTripped = await deserialize(serialized);
+
+		assert.strictEqual(roundTripped.cells.length, 1);
+		assert.strictEqual(roundTripped.cells[0].value, '   Indented text');
 	});
 });
