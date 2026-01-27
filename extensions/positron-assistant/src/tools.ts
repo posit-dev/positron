@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,6 +12,69 @@ import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
 import { registerNotebookTools } from './tools/notebookTools.js';
 import { CreateNotebookTool } from './tools/createNotebook.js';
+
+
+/**
+ * Result of resolving variable names to access keys.
+ */
+export interface ResolveVariableNamesResult {
+	/** The resolved access key paths for each requested variable name */
+	accessKeys: Array<Array<string>>;
+	/** Whether all requested names were found */
+	allFound: boolean;
+	/** Names that were not found in the session */
+	notFound: string[];
+}
+
+/**
+ * Resolves variable names to access keys by looking up variables in the session.
+ * If a name matches a variable's display_name, the corresponding access_key is returned.
+ * If any requested name is not found, returns access keys for ALL variables in the session
+ * to help the model discover available variables.
+ *
+ * @param sessionId The session ID to look up variables in.
+ * @param variableNames An array of variable names to resolve.
+ * @returns A result containing access keys, whether all were found, and any not-found names.
+ */
+export async function resolveVariableNamesToAccessKeys(
+	sessionId: string,
+	variableNames: string[]
+): Promise<ResolveVariableNamesResult> {
+	// Get all root-level variables to build a name -> access_key map
+	const allVariables = await positron.runtime.getSessionVariables(sessionId);
+	const rootVariables = allVariables[0] || [];
+
+	// Build a map from display_name to access_key
+	const nameToAccessKey = new Map<string, string>();
+	for (const variable of rootVariables) {
+		nameToAccessKey.set(variable.display_name, variable.access_key);
+	}
+
+	// Check which names are not found
+	const notFound = variableNames.filter((name) => !nameToAccessKey.has(name));
+
+	// If any name is not found, return all variables to help the model discover what's available
+	if (notFound.length > 0) {
+		const allAccessKeys = rootVariables.map((v) => [v.access_key]);
+		return {
+			accessKeys: allAccessKeys,
+			allFound: false,
+			notFound
+		};
+	}
+
+	// All names found - resolve each to its access key
+	const accessKeys = variableNames.map((name) => {
+		const accessKey = nameToAccessKey.get(name)!;
+		return [accessKey];
+	});
+
+	return {
+		accessKeys,
+		allFound: true,
+		notFound: []
+	};
+}
 
 
 /**
@@ -262,7 +325,7 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(getPlotTool);
 
-	const inspectVariablesTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.InspectVariables, {
+	const inspectVariablesTool = vscode.lm.registerTool<{ sessionIdentifier: string; variableNames: Array<string> }>(PositronAssistantToolName.InspectVariables, {
 		/**
 		 * Called to inspect one or more variables in the current session.
 		 *
@@ -280,14 +343,27 @@ export function registerAssistantTools(
 				]);
 			}
 
+			// Resolve variable names to access keys
+			const variableNames = options.input.variableNames || [];
+			let accessKeys: Array<Array<string>> | undefined;
+			let notFoundMessage = '';
+
+			if (variableNames.length > 0) {
+				const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+				accessKeys = resolved.accessKeys;
+				if (!resolved.allFound) {
+					notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available variables instead.\n\n`;
+				}
+			}
+
 			// Call the Positron API to get the session variables
 			const result = await positron.runtime.getSessionVariables(
 				options.input.sessionIdentifier,
-				options.input.accessKeys);
+				accessKeys);
 
 			// Return the result as a JSON string to the model
 			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(JSON.stringify(result))
+				new vscode.LanguageModelTextPart(notFoundMessage + JSON.stringify(result))
 			]);
 		}
 	});
@@ -309,7 +385,7 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(inspectVariablesTool);
 
-	const getTableSummaryTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.GetTableSummary, {
+	const getTableSummaryTool = vscode.lm.registerTool<{ sessionIdentifier: string; variableNames: Array<string> }>(PositronAssistantToolName.GetTableSummary, {
 		/**
 		 * Called to get a summary information for one or more tabular datasets in the current session.
 		 * @param options The options for the tool invocation.
@@ -339,15 +415,23 @@ export function registerAssistantTools(
 				]);
 			}
 
+			// Resolve variable names to access keys
+			const variableNames = options.input.variableNames || [];
+			const resolved = await resolveVariableNamesToAccessKeys(options.input.sessionIdentifier, variableNames);
+			let notFoundMessage = '';
+			if (!resolved.allFound) {
+				notFoundMessage = `Note: The following variable names were not found: ${resolved.notFound.join(', ')}. Returning all available table summaries instead.\n\n`;
+			}
+
 			// Call the Positron API to get the session variable data summaries
 			const result = await positron.runtime.querySessionTables(
 				options.input.sessionIdentifier,
-				options.input.accessKeys,
+				resolved.accessKeys,
 				['summary_stats']);
 
 			// Return the result as a JSON string to the model
 			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(JSON.stringify(result))
+				new vscode.LanguageModelTextPart(notFoundMessage + JSON.stringify(result))
 			]);
 		}
 	});
