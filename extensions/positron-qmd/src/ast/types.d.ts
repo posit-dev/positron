@@ -346,18 +346,46 @@ export type MetaValue =
 
 //#region Source Mapping
 
-/**
- * Compact source info entry in sourceInfoPool.
- * Format: {"r": [start, end], "t": type_code, "d": data}
- */
-export interface SourceInfoPoolEntry {
-	/** Range [startOffset, endOffset] */
+export interface OriginalSourceInfo {
+	t: 0;
+	/** Absolute byte offsets [start, end] in the source file */
 	r: [start: number, end: number];
-	/** Type code: 0=Original (from file), 1=Substring (child of another entry) */
-	t: number;
-	/** Data: file_id for type 0, parent_id for type 1 */
+	/** File ID (index into astContext.files) */
 	d: number;
 }
+
+export interface SubstringSourceInfo {
+	t: 1;
+	/** Relative byte offsets [start, end] within parent's range */
+	r: [start: number, end: number];
+	/** Parent source info pool index */
+	d: number;
+}
+
+/** Segment within a concatenated source: [sourceId, offsetInConcat, length] */
+export type ConcatSegment = [sourceId: number, offsetInConcat: number, length: number];
+
+export interface ConcatSourceInfo {
+	t: 2;
+	/** Unused (typically [0, 0]) */
+	r: [start: number, end: number];
+	/** Array of segments: [[source_id, offset_in_concat, length], ...] */
+	d: ConcatSegment[];
+}
+
+export interface FilterProvenanceSourceInfo {
+	t: 3;
+	/** Byte offsets [start, end] */
+	r: [start: number, end: number];
+	/** [parent_id, ...] - created by Lua filter */
+	d: number[];
+}
+
+export type SourceInfo =
+	| OriginalSourceInfo
+	| SubstringSourceInfo
+	| ConcatSourceInfo
+	| FilterProvenanceSourceInfo;
 
 /** AST context containing source mapping information */
 export interface ASTContext {
@@ -366,7 +394,7 @@ export interface ASTContext {
 	/** Maps top-level metadata keys to source info pool indices */
 	metaTopLevelKeySources: Record<string, number>;
 	/** Pool of source info entries, referenced by Node.s */
-	sourceInfoPool: SourceInfoPoolEntry[];
+	sourceInfoPool: SourceInfo[];
 }
 
 //#endregion Source Mapping
