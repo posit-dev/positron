@@ -92,6 +92,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						createPyprojectToml: result.createPyprojectToml,
 						pythonEnvProviderId: result.pythonEnvProviderId,
 						pythonEnvProviderName: result.pythonEnvProviderName,
+						pythonEnvName: result.pythonEnvName,
 						installIpykernel: result.installIpykernel,
 						condaPythonVersion: result.condaPythonVersion,
 						uvPythonVersion: result.uvPythonVersion,
