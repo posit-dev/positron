@@ -13,12 +13,32 @@ const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
 };
 
 const BRACE_REGEX = /^\{|\}$/g;
-const FENCE_LINE_REGEX = /^`{3,}(.*)$/;
+const FENCE_LINE_REGEX = /^`{3,}(?<info>.*)$/;
 const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
 const TRAILING_NEWLINE_REGEX = /\r?\n$/;
+const LINE_FEED = 0x0A;
 
 function trimTrailingNewline(s: string): string {
 	return s.replace(TRAILING_NEWLINE_REGEX, '');
+}
+
+function createFrontmatterCell(
+	doc: QmdDocument,
+	content: Uint8Array,
+	decoder: TextDecoder
+): vscode.NotebookCellData | undefined {
+	const bytes = ast.frontmatterBytes(doc, content);
+	if (!bytes) {
+		return undefined;
+	}
+	const value = trimTrailingNewline(decoder.decode(bytes));
+	const cell = new vscode.NotebookCellData(
+		vscode.NotebookCellKind.Code,
+		value,
+		'yaml'
+	);
+	cell.metadata = { qmdCellType: 'frontmatter' };
+	return cell;
 }
 
 export function deserialize(
@@ -28,19 +48,12 @@ export function deserialize(
 	const decoder = new TextDecoder();
 	const cells: vscode.NotebookCellData[] = [];
 
-	const frontmatter = ast.frontmatterBytes(doc, content);
-	if (frontmatter) {
-		const value = trimTrailingNewline(decoder.decode(frontmatter));
-		const cell = new vscode.NotebookCellData(
-			vscode.NotebookCellKind.Code,
-			value,
-			'yaml'
-		);
-		cell.metadata = { qmdCellType: 'frontmatter' };
-		cells.push(cell);
+	const frontmatterCell = createFrontmatterCell(doc, content, decoder);
+	if (frontmatterCell) {
+		cells.push(frontmatterCell);
 	}
 
-	const contentCells = convertBlocksToCells(doc.blocks, content, decoder);
+	const contentCells = convertBlocksToCells(doc, content, decoder);
 	cells.push(...contentCells);
 
 	const notebookData = new vscode.NotebookData(cells);
@@ -52,33 +65,33 @@ export function deserialize(
 }
 
 function convertBlocksToCells(
-	blocks: Block[],
+	doc: QmdDocument,
 	content: Uint8Array,
 	decoder: TextDecoder
 ): vscode.NotebookCellData[] {
 	const cells: vscode.NotebookCellData[] = [];
-	let pendingMarkdownBlocks: Block[] = [];
 
-	const flushMarkdownBlocks = () => {
-		if (pendingMarkdownBlocks.length > 0) {
-			cells.push(...createMarkdownCells(pendingMarkdownBlocks, content, decoder));
-			pendingMarkdownBlocks = [];
+	let pendingBlocks: Block[] = [];
+	const flush = () => {
+		if (pendingBlocks.length > 0) {
+			cells.push(...createMarkdownCells(pendingBlocks, content, decoder));
+			pendingBlocks = [];
 		}
 	};
 
-	for (const block of blocks) {
+	for (const block of doc.blocks) {
 		if (block.t === 'CodeBlock') {
-			flushMarkdownBlocks();
+			flush();
 			cells.push(createCodeCell(block, content, decoder));
 		} else if (block.t === 'RawBlock') {
-			flushMarkdownBlocks();
+			flush();
 			cells.push(createRawBlockCell(block));
 		} else {
-			pendingMarkdownBlocks.push(block);
+			pendingBlocks.push(block);
 		}
 	}
 
-	flushMarkdownBlocks();
+	flush();
 
 	return cells;
 }
@@ -102,20 +115,20 @@ function createCodeCell(block: CodeBlock, content: Uint8Array, decoder: TextDeco
 	return cell;
 }
 
+// Extracts fence info (e.g., "{python #myid label='fig-1'}") for round-trip preservation.
+// Note: Executable code blocks ({python}) shouldn't have fence attributes;
+// they use #| comments instead. This is kept for edge cases.
 function extractFenceInfo(block: CodeBlock, content: Uint8Array, decoder: TextDecoder): string | undefined {
 	const startOffset = ast.startOffset(block);
 	if (startOffset === undefined) {
 		return undefined;
 	}
 
-	let endOfLine = startOffset;
-	while (endOfLine < content.length && content[endOfLine] !== 0x0A) {
-		endOfLine++;
-	}
-
-	const fenceLine = decoder.decode(content.slice(startOffset, endOfLine)).trim();
+	const endOfLine = content.indexOf(LINE_FEED, startOffset);
+	const lineEnd = endOfLine === -1 ? content.length : endOfLine;
+	const fenceLine = decoder.decode(content.subarray(startOffset, lineEnd));
 	const match = fenceLine.match(FENCE_LINE_REGEX);
-	return match?.[1] || undefined;
+	return match?.groups?.info || undefined;
 }
 
 function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
