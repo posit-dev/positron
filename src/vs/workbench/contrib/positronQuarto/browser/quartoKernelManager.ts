@@ -142,7 +142,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// Clean up sessions when documents are closed
 		this._register(this._editorService.onDidCloseEditor(e => {
 			const uri = e.editor.resource;
-			if (uri && isQuartoOrRmdFile(uri.path)) {
+			// Check if this is a Quarto document by extension OR if we're tracking it
+			// (the latter handles untitled documents that don't have a .qmd extension)
+			if (uri && (isQuartoOrRmdFile(uri.path) || this._documentKernels.has(uri))) {
 				// Delay cleanup slightly to handle editor tabs being moved
 				setTimeout(() => {
 					// Check if the document is still open in any editor
@@ -169,7 +171,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		// This allows us to adopt sessions that were restored by the runtime session service
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
 			const notebookUri = session.metadata.notebookUri;
-			if (notebookUri && isQuartoOrRmdFile(notebookUri.path)) {
+			// Check by extension OR if the session's notebookUri matches what we track
+			// (this handles untitled documents that may not have .qmd extension)
+			if (notebookUri && (isQuartoOrRmdFile(notebookUri.path) || this._documentKernels.has(notebookUri))) {
 				// Check if we're already tracking this session
 				const existing = this._documentKernels.get(notebookUri);
 				if (!existing || !existing.session) {

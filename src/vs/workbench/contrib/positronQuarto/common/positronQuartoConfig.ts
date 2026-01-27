@@ -81,6 +81,13 @@ export function usingQuartoInlineOutput(configurationService: IConfigurationServ
 }
 
 /**
+ * Language IDs that indicate a Quarto or RMarkdown document.
+ * The Quarto extension sets these language modes for .qmd and .rmd files,
+ * as well as for untitled documents created via "Quarto: New Document".
+ */
+export const QUARTO_LANGUAGE_IDS = ['quarto', 'rmd'];
+
+/**
  * Helper function to check if a file path is a Quarto or RMarkdown document.
  * Supports .qmd (Quarto), .Rmd and .rmd (R Markdown) extensions.
  * @param path The file path to check
@@ -92,4 +99,27 @@ export function isQuartoOrRmdFile(path: string | undefined): boolean {
 	}
 	const lowerPath = path.toLowerCase();
 	return lowerPath.endsWith('.qmd') || lowerPath.endsWith('.rmd');
+}
+
+/**
+ * Helper function to check if a document is a Quarto or RMarkdown document.
+ * This function supports both saved files (by path extension) and untitled files
+ * (by language ID). Use this when you have access to the model's language ID.
+ *
+ * @param path The file path to check (can be undefined for untitled files)
+ * @param languageId The language ID of the document model (e.g., 'quarto', 'rmd')
+ * @returns true if the document is a Quarto or RMarkdown document
+ */
+export function isQuartoDocument(path: string | undefined, languageId: string | undefined): boolean {
+	// First check by file extension (for saved files)
+	if (isQuartoOrRmdFile(path)) {
+		return true;
+	}
+
+	// Then check by language ID (for untitled files or when extension check fails)
+	if (languageId && QUARTO_LANGUAGE_IDS.includes(languageId.toLowerCase())) {
+		return true;
+	}
+
+	return false;
 }

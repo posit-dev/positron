@@ -17,7 +17,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 
@@ -115,8 +115,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Handle editor model changes (e.g., file closed and reopened)
+		// Handle editor model changes (e.g., file closed and reopened, or untitled saved to file)
 		this._register(this._editor.onDidChangeModel(() => {
+			// Capture the previous URI before updating
+			const previousUri = this._documentUri;
+
 			this._disposeAllViewZones();
 			this._outputsByCell.clear();
 			this._contentHashByCellId.clear();
@@ -127,6 +130,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			// Update document URI for the new model
 			const newModel = this._editor.getModel();
 			this._documentUri = newModel?.uri;
+
+			// Handle untitled->saved transition: transfer cache from old URI to new URI
+			// This happens when a user saves an untitled Quarto document to a file
+			if (previousUri && this._documentUri &&
+				previousUri.scheme === 'untitled' &&
+				this._documentUri.scheme === 'file' &&
+				this._isQuartoDocument()) {
+				this._transferCacheFromUntitled(previousUri, this._documentUri);
+			}
 
 			// Reset initialization flag so we can re-initialize for the new document
 			this._outputHandlingInitialized = false;
@@ -375,7 +387,78 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	private _isQuartoDocument(): boolean {
-		return isQuartoOrRmdFile(this._documentUri?.path);
+		const model = this._editor.getModel();
+		return isQuartoDocument(this._documentUri?.path, model?.getLanguageId());
+	}
+
+	/**
+	 * Transfer cached outputs from an untitled document to a saved file.
+	 * This is called when a user saves an untitled Quarto document to a file.
+	 * The cached outputs need to be moved to the new file URI so they persist.
+	 *
+	 * This method also restores the in-memory output state and creates view zones
+	 * so that outputs are immediately visible after the save completes.
+	 */
+	private _transferCacheFromUntitled(fromUri: URI, toUri: URI): void {
+		this._logService.debug('[QuartoOutputContribution] Transferring cache from untitled to file:',
+			fromUri.toString(), '->', toUri.toString());
+
+		// Get the cached outputs for the old (untitled) document
+		const cachedOutputs = this._cacheService.getCachedOutputs(fromUri);
+		if (cachedOutputs.size === 0) {
+			this._logService.debug('[QuartoOutputContribution] No cached outputs to transfer');
+			return;
+		}
+
+		// Copy each cell's outputs to the new location
+		const model = this._editor.getModel();
+		if (!model) {
+			return;
+		}
+
+		const quartoModel = this._documentModelService.getModel(model);
+		this._logService.debug('[QuartoOutputContribution] Transfer: found', cachedOutputs.size, 'cached cells,',
+			quartoModel.cells.length, 'cells in new model');
+
+		let transferredCount = 0;
+		for (const [cellId, outputs] of cachedOutputs) {
+			// Try to find the cell by ID first
+			let cell = quartoModel.getCellById(cellId);
+
+			// If not found by ID, try to find by content hash
+			// (cell IDs include index which could differ if whitespace/parsing changed)
+			if (!cell) {
+				// Extract content hash from old cell ID (format: index-hashPrefix-label)
+				const parts = cellId.split('-');
+				if (parts.length >= 2) {
+					const hashPrefix = parts[1];
+					// Find cell with matching hash prefix
+					cell = quartoModel.cells.find(c => c.contentHash.startsWith(hashPrefix));
+				}
+			}
+
+			if (cell) {
+				// Save outputs to cache under the new file URI
+				for (const output of outputs) {
+					this._cacheService.saveOutput(toUri, cell.id, cell.contentHash, cell.label, output);
+				}
+
+				// Also restore the in-memory output state so view zones can be created
+				// This is needed because onDidChangeModel clears _outputsByCell before calling this method
+				this._outputsByCell.set(cell.id, [...outputs]);
+				this._contentHashByCellId.set(cell.id, cell.contentHash);
+
+				transferredCount++;
+				this._logService.debug('[QuartoOutputContribution] Transferred outputs for cell', cellId, '-> new cell', cell.id);
+			} else {
+				this._logService.debug('[QuartoOutputContribution] Could not find matching cell for', cellId);
+			}
+		}
+
+		// Clear the old cache
+		this._cacheService.clearCache(fromUri);
+
+		this._logService.debug('[QuartoOutputContribution] Successfully transferred', transferredCount, 'cells to', toUri.toString());
 	}
 
 	/**
@@ -387,11 +470,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		}
 
 		try {
-			const cachedDoc = await this._cacheService.loadCache(this._documentUri);
-			if (!cachedDoc || cachedDoc.cells.length === 0) {
-				this._logService.debug('[QuartoOutputContribution] No cached outputs to restore');
-				return;
-			}
+			let cachedDoc = await this._cacheService.loadCache(this._documentUri);
 
 			const model = this._editor.getModel();
 			if (!model) {
@@ -399,6 +478,26 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 
 			const quartoModel = this._documentModelService.getModel(model);
+
+			// If no cache found, try to find cache by content hash
+			// This handles two cases:
+			// 1. A file document that was just saved from an untitled document
+			// 2. An untitled document that got a different URI after window reload
+			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
+				quartoModel.cells.length > 0) {
+
+				const contentHashes = quartoModel.cells.map(c => c.contentHash);
+				cachedDoc = await this._cacheService.findCacheByContentHash(this._documentUri, contentHashes);
+
+				if (cachedDoc) {
+					this._logService.debug('[QuartoOutputContribution] Found cache by content hash match');
+				}
+			}
+
+			if (!cachedDoc || cachedDoc.cells.length === 0) {
+				this._logService.debug('[QuartoOutputContribution] No cached outputs to restore');
+				return;
+			}
 			let restoredCount = 0;
 
 			for (const cachedCell of cachedDoc.cells) {

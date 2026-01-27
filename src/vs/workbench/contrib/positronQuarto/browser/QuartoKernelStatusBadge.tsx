@@ -15,7 +15,8 @@ import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
-import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { RuntimeStatus, RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
@@ -52,6 +53,25 @@ interface QuartoKernelStatusBadgeProps {
 }
 
 /**
+ * Helper function to get URI and language ID from the active editor.
+ * Returns undefined if the active editor is not a Quarto document.
+ */
+function getQuartoDocumentFromEditor(editorService: IEditorService): URI | undefined {
+	const uri = editorService.activeEditor?.resource;
+	const activeEditor = editorService.activeTextEditorControl;
+
+	// Get language ID from the editor model if available
+	let languageId: string | undefined;
+	if (activeEditor && 'getModel' in activeEditor) {
+		const model = (activeEditor as ICodeEditor).getModel();
+		languageId = model?.getLanguageId();
+	}
+
+	// Check if this is a Quarto document (by extension or language ID)
+	return isQuartoDocument(uri?.path, languageId) ? uri : undefined;
+}
+
+/**
  * React component that displays Quarto kernel status in the editor action bar.
  * Shows the current kernel state with an appropriate status icon and label.
  */
@@ -64,8 +84,7 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 
 	// State
 	const [documentUri, setDocumentUri] = React.useState<URI | undefined>(() => {
-		const uri = editorService.activeEditor?.resource;
-		return isQuartoOrRmdFile(uri?.path) ? uri : undefined;
+		return getQuartoDocumentFromEditor(editorService);
 	});
 
 	const [kernelState, setKernelState] = React.useState<QuartoKernelState>(() => {
@@ -88,11 +107,11 @@ export function QuartoKernelStatusBadge({ accessor }: QuartoKernelStatusBadgePro
 
 		// Listen for active editor changes
 		disposables.add(editorService.onDidActiveEditorChange(() => {
-			const uri = editorService.activeEditor?.resource;
-			if (isQuartoOrRmdFile(uri?.path)) {
-				setDocumentUri(uri);
-				setKernelState(quartoKernelManager.getKernelState(uri!));
-				const session = quartoKernelManager.getSessionForDocument(uri!);
+			const quartoUri = getQuartoDocumentFromEditor(editorService);
+			if (quartoUri) {
+				setDocumentUri(quartoUri);
+				setKernelState(quartoKernelManager.getKernelState(quartoUri));
+				const session = quartoKernelManager.getSessionForDocument(quartoUri);
 				setRuntimeName(session?.runtimeMetadata.runtimeName);
 			} else {
 				setDocumentUri(undefined);

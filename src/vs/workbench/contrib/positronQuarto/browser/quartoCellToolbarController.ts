@@ -12,7 +12,7 @@ import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 
@@ -93,10 +93,11 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			return;
 		}
 
-		// Check if this is a Quarto or RMarkdown document
+		// Check if this is a Quarto or RMarkdown document (by extension or language ID)
 		const uri = model.uri;
-		this._logService.debug(`[QuartoCellToolbarController] File path: ${uri.path}`);
-		if (!isQuartoOrRmdFile(uri.path)) {
+		const languageId = model.getLanguageId();
+		this._logService.debug(`[QuartoCellToolbarController] File path: ${uri.path}, language: ${languageId}`);
+		if (!isQuartoDocument(uri.path, languageId)) {
 			this._logService.debug('[QuartoCellToolbarController] Not a Quarto/RMarkdown file, skipping');
 			return;
 		}

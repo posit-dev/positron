@@ -25,8 +25,9 @@ import {
 	POSITRON_QUARTO_INLINE_OUTPUT_KEY,
 	QUARTO_INLINE_OUTPUT_ENABLED,
 	QUARTO_KERNEL_RUNNING,
-	isQuartoOrRmdFile,
+	isQuartoDocument,
 } from '../common/positronQuartoConfig.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { QuartoKernelState } from './quartoKernelManager.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
@@ -107,13 +108,13 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 	}
 
 	private _updateIsQuartoDocument(): void {
-		const isQuarto = this._isQuartoFile(this._editorService.activeEditor?.resource?.path);
+		const isQuarto = this._isQuartoFile();
 		this._isQuartoDocumentKey.set(isQuarto);
 	}
 
 	private _updateKernelRunning(): void {
 		const uri = this._editorService.activeEditor?.resource;
-		if (uri && this._isQuartoFile(uri.path)) {
+		if (uri && this._isQuartoFile()) {
 			const state = this._quartoKernelManager.getKernelState(uri);
 			const isRunning = state === QuartoKernelState.Ready ||
 				state === QuartoKernelState.Busy ||
@@ -124,8 +125,22 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		}
 	}
 
-	private _isQuartoFile(path: string | undefined): boolean {
-		return isQuartoOrRmdFile(path);
+	/**
+	 * Check if the active editor is a Quarto document.
+	 * Checks both file extension and language ID to support untitled documents.
+	 */
+	private _isQuartoFile(): boolean {
+		const uri = this._editorService.activeEditor?.resource;
+		const activeEditor = this._editorService.activeTextEditorControl;
+
+		// Get language ID from the editor model if available
+		let languageId: string | undefined;
+		if (activeEditor && 'getModel' in activeEditor) {
+			const model = (activeEditor as ICodeEditor).getModel();
+			languageId = model?.getLanguageId();
+		}
+
+		return isQuartoDocument(uri?.path, languageId);
 	}
 }
 

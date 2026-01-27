@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
 
 /**
  * Editor contribution that warns users when a Quarto document contains multiple languages.
@@ -61,7 +61,8 @@ export class QuartoMultiLanguageWarning extends Disposable implements IEditorCon
 	}
 
 	private _isQuartoDocument(): boolean {
-		return isQuartoOrRmdFile(this._documentUri?.path);
+		const model = this._editor.getModel();
+		return isQuartoDocument(this._documentUri?.path, model?.getLanguageId());
 	}
 
 	private _checkForMultiLanguage(): void {

@@ -15,7 +15,7 @@ import { IQuartoExecutionManager } from './quartoExecutionManager.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager } from './quartoOutputManager.js';
-import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { IS_QUARTO_DOCUMENT, QUARTO_INLINE_OUTPUT_ENABLED, QUARTO_KERNEL_RUNNING, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -75,7 +75,7 @@ function getQuartoContext(editorService: IEditorService): {
 	}
 
 	const uri = textModel.uri;
-	if (!isQuartoOrRmdFile(uri.path)) {
+	if (!isQuartoDocument(uri.path, textModel.getLanguageId())) {
 		return undefined;
 	}
 

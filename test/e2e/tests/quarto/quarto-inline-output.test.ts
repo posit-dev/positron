@@ -714,4 +714,136 @@ test.describe('Quarto - Inline Output', {
 		// Note: We can't verify clipboard contents in E2E tests due to browser permission restrictions
 		// The success feedback indicates the copy operation completed successfully
 	});
+
+	test('Python - Verify inline output works in untitled Quarto document and persists through save', async function ({ app, runCommand }) {
+		const page = app.code.driver.page;
+		const { quickInput } = app.workbench;
+
+		// Generate a unique filename for saving later
+		const savedFileName = `untitled-test-${Math.random().toString(36).substring(7)}.qmd`;
+
+		// Step 1: Create a new untitled Quarto document using the Quarto extension command
+		await runCommand('quarto.newDocument');
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to recognize this as a Quarto document
+		// The kernel status widget should appear even for untitled documents
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Step 2: Add a simple Python code chunk to the document
+		// Go to end of document and add content
+		await editor.click();
+		await page.waitForTimeout(500);
+		await page.keyboard.press('ControlOrMeta+End');
+		await page.waitForTimeout(200);
+
+		// Add some newlines first
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Enter');
+
+		// Type the code fence opening - use individual key presses for backticks
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.type('{python}');
+		await page.keyboard.press('Enter');
+
+		// Type the Python code
+		await page.keyboard.type('print("Hello from untitled!")');
+		await page.keyboard.press('Enter');
+
+		// Type the closing fence
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+
+		await page.waitForTimeout(1500); // Wait for document to parse
+
+		// Verify the cell toolbar appeared (should show run button)
+		const cellToolbar = page.locator('.quarto-cell-toolbar');
+		await expect(cellToolbar.first()).toBeVisible({ timeout: 10000 });
+
+		// Step 3: Click the run button on the cell toolbar
+		const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
+		await runButton.click();
+
+		// Step 4: Verify that the chunk output is shown inline
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			// Scroll to show the area after the cell where output appears
+			await runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output content is present and contains our expected text
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		const outputText = inlineOutput.locator('.quarto-output-stdout');
+		await expect(outputText).toContainText('Hello from untitled!');
+
+		// Step 5: Save the document to a file on disk
+		// Wait for the cache write debounce to complete before saving
+		// The cache service uses a 1000ms debounce, so wait a bit longer to ensure it's flushed
+		await page.waitForTimeout(1500);
+		await runCommand('workbench.action.files.saveAs', { keepOpen: true });
+		await quickInput.waitForQuickInputOpened();
+
+		// Type the filename (it will save to the workspace folder)
+		await quickInput.type(join(app.workspacePathOrFolder, savedFileName));
+		await quickInput.clickOkButton();
+
+		// Wait for save to complete - verify the tab name changed to the saved filename
+		const { editors } = app.workbench;
+		await editors.waitForActiveTab(savedFileName, false);
+
+		// Wait for the Quarto inline output feature to reinitialize for the saved file
+		// The kernel status widget should still be visible after save
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+		await page.waitForTimeout(1000); // Give time for cache transfer and view zone recreation
+
+		// Verify the output is still visible after saving
+		await expect(async () => {
+			await runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		await expect(outputText).toContainText('Hello from untitled!');
+
+		// Step 6: Reload the page and verify output persists (cache bound to saved file)
+		await runCommand('workbench.action.reloadWindow');
+
+		// Wait for the editor to be ready again after reload
+		await expect(editor).toBeVisible({ timeout: 60000 });
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Wait for the cache service to load cached outputs
+		await page.waitForTimeout(2000);
+
+		// Scroll to where output should be and verify it's still there
+		await expect(async () => {
+			await runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		await expect(outputText).toContainText('Hello from untitled!');
+
+		// Cleanup: Close the file without saving further changes
+		await runCommand('workbench.action.closeActiveEditor');
+	});
 });

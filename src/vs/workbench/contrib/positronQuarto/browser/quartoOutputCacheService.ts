@@ -501,6 +501,154 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		return result;
 	}
 
+	findAndTransferFromUntitled(fileUri: URI, contentHashes: string[]): ICachedDocument | undefined {
+		if (contentHashes.length === 0) {
+			return undefined;
+		}
+
+		// Look for an untitled document cache that has matching content hashes
+		for (const [key, entry] of this._documentCaches) {
+			// Only check untitled documents
+			if (!key.startsWith('untitled:')) {
+				continue;
+			}
+
+			// Check if any cells in this cache match our content hashes
+			let matchCount = 0;
+			for (const cellEntry of entry.cells.values()) {
+				if (contentHashes.includes(cellEntry.contentHash)) {
+					matchCount++;
+				}
+			}
+
+			// If we found matches, this is likely the same document
+			// We require at least one match, and ideally all cells should match
+			if (matchCount > 0) {
+				this._logService.debug('[QuartoOutputCacheService] Found matching untitled cache:',
+					key, 'with', matchCount, 'matching cells');
+
+				// Transfer the cache to the new file URI
+				const fileKey = fileUri.toString();
+				const newEntry: DocumentCacheEntry = {
+					sourceUri: fileKey,
+					lastUpdated: Date.now(),
+					cells: new Map(entry.cells),
+				};
+
+				// Update the cell IDs to match the new document's cell structure
+				// (cell IDs include index, which might differ)
+				// For now, we keep the same cell entries - they'll be matched by content hash
+
+				this._documentCaches.set(fileKey, newEntry);
+				this.markDirty(fileUri);
+
+				// Clear the old untitled cache
+				this._documentCaches.delete(key);
+				this._dirtyDocuments.delete(key);
+				const timeout = this._writeTimeouts.get(key);
+				if (timeout) {
+					clearTimeout(timeout);
+					this._writeTimeouts.delete(key);
+				}
+
+				// Convert to cached document format
+				return this._cacheEntryToCachedDocument(newEntry);
+			}
+		}
+
+		return undefined;
+	}
+
+	async findCacheByContentHash(targetUri: URI, contentHashes: string[]): Promise<ICachedDocument | undefined> {
+		if (contentHashes.length === 0) {
+			return undefined;
+		}
+
+		// First check in-memory caches (faster)
+		const inMemoryResult = this.findAndTransferFromUntitled(targetUri, contentHashes);
+		if (inMemoryResult) {
+			return inMemoryResult;
+		}
+
+		// Search on-disk cache files for matching content hashes
+		// This handles the case where an untitled document gets a different URI after window reload
+		try {
+			const exists = await this._fileService.exists(this._cacheDir);
+			if (!exists) {
+				return undefined;
+			}
+
+			const resolved = await this._fileService.resolve(this._cacheDir);
+			if (!resolved.children) {
+				return undefined;
+			}
+
+			for (const child of resolved.children) {
+				if (child.isDirectory || !child.name.endsWith('.ipynb')) {
+					continue;
+				}
+
+				try {
+					const content = await this._fileService.readFile(child.resource);
+					const ipynb = JSON.parse(content.value.toString());
+
+					if (!this._validateCacheStructure(ipynb)) {
+						continue;
+					}
+
+					// Check if this cache has matching content hashes
+					let matchCount = 0;
+					for (const cell of ipynb.cells) {
+						if (cell.cell_type === 'code' && cell.metadata?.quarto_content_hash) {
+							if (contentHashes.includes(cell.metadata.quarto_content_hash)) {
+								matchCount++;
+							}
+						}
+					}
+
+					if (matchCount > 0) {
+						this._logService.debug('[QuartoOutputCacheService] Found matching on-disk cache:',
+							child.name, 'with', matchCount, 'matching cells');
+
+						// Load the cache and transfer it to the target URI
+						const cachedDoc = this._ipynbToCachedDocument(targetUri, ipynb);
+
+						// Populate in-memory cache under the new URI
+						const entry: DocumentCacheEntry = {
+							sourceUri: targetUri.toString(),
+							lastUpdated: cachedDoc.lastUpdated,
+							cells: new Map(),
+						};
+
+						for (const cell of cachedDoc.cells) {
+							entry.cells.set(cell.cellId, {
+								cellId: cell.cellId,
+								contentHash: cell.contentHash,
+								label: cell.label,
+								outputs: [...cell.outputs],
+							});
+						}
+
+						this._documentCaches.set(targetUri.toString(), entry);
+						this.markDirty(targetUri);
+
+						// Delete the old cache file (it was for a different URI)
+						await this._deleteCacheFile(child.resource);
+
+						return cachedDoc;
+					}
+				} catch {
+					// Skip files that can't be parsed
+					continue;
+				}
+			}
+		} catch (error) {
+			this._logService.warn('[QuartoOutputCacheService] Error searching cache files:', error);
+		}
+
+		return undefined;
+	}
+
 	/**
 	 * Internal method to write cache to disk.
 	 */

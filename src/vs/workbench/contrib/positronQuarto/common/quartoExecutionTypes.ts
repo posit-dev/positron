@@ -300,4 +300,27 @@ export interface IQuartoOutputCacheService {
 	 * Returns outputs from in-memory cache if available, otherwise from disk.
 	 */
 	getCachedOutputs(documentUri: URI): Map<string, ICellOutput[]>;
+
+	/**
+	 * Find and transfer cache from an untitled document to a file document.
+	 * This is used when an untitled document is saved to a file - the cache
+	 * needs to be transferred to the new file URI.
+	 *
+	 * @param fileUri The file URI to transfer cache to
+	 * @param contentHashes Content hashes of cells in the file
+	 * @returns The transferred cached document, or undefined if no match found
+	 */
+	findAndTransferFromUntitled(fileUri: URI, contentHashes: string[]): ICachedDocument | undefined;
+
+	/**
+	 * Find cache by content hash, searching both in-memory and on-disk caches.
+	 * This is used when a document (especially untitled) can't find its cache
+	 * by direct URI lookup - the document may have a different URI after window
+	 * reload but the content hashes will still match.
+	 *
+	 * @param targetUri The URI to bind the found cache to
+	 * @param contentHashes Content hashes of cells in the document
+	 * @returns The matched cached document, or undefined if no match found
+	 */
+	findCacheByContentHash(targetUri: URI, contentHashes: string[]): Promise<ICachedDocument | undefined>;
 }

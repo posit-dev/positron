@@ -12,7 +12,7 @@ import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { CellExecutionState, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { themeColorFromId } from '../../../../platform/theme/common/themeService.js';
 import { IEditorContribution, IEditorDecorationsCollection } from '../../../../editor/common/editorCommon.js';
 
@@ -121,9 +121,9 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			return;
 		}
 
-		// Check if this is a Quarto or RMarkdown document
+		// Check if this is a Quarto or RMarkdown document (by extension or language ID)
 		const uri = model.uri;
-		if (!isQuartoOrRmdFile(uri.path)) {
+		if (!isQuartoDocument(uri.path, model.getLanguageId())) {
 			return;
 		}
 
