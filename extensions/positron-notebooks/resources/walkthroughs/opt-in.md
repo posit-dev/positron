@@ -13,5 +13,5 @@ Check out [our documentation on using the Positron Notebook editor](https://posi
 
 **To try out this new experience, update your settings to enable the [Positron Notebook](command:positronNotebookHelpers.walkthrough.enableNotebook) editor.**
 
-Thank you for being an early adopter! Your feedback during this alpha phase is invaluable in helping us build the best notebook experience for data scientists.
+Thank you for being an early adopter! Your feedback during this alpha phase is invaluable in helping us build great tools for data scientists.
 
