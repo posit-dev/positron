@@ -1,5 +1,6 @@
 /* eslint-disable */
-import "./stable/react@18.3.1/es2022/react.mjs";
-import "./v135/scheduler@0.23.2/es2022/scheduler.mjs";
-export * from "./v135/react-dom@18.3.1/es2022/react-dom.mjs";
-export { default } from "./v135/react-dom@18.3.1/es2022/react-dom.mjs";
+import "./react@19.2.4/es2022/react.development.mjs";
+import "./scheduler@0.27.0/es2022/scheduler.development.mjs";
+export * from "./react-dom@19.2.4/es2022/client.development.mjs";
+export * from "./react-dom@19.2.4/es2022/react-dom.development.mjs";
+export { default } from "./react-dom@19.2.4/es2022/client.development.mjs";

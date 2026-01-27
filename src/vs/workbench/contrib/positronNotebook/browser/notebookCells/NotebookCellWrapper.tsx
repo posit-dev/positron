@@ -44,7 +44,7 @@ export function NotebookCellWrapper({ cell, children }: {
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
 	// Track previous selection status to detect edit mode exit
-	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>();
+	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>(undefined);
 
 	React.useEffect(() => {
 		if (cellElement) {
