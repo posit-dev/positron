@@ -9,8 +9,9 @@ We'd like to invite you to help shape the future of the Positron Notebook editor
 * [Request a feature](https://github.com/posit-dev/positron/discussions/10047)
 * [Report a bug](https://github.com/posit-dev/positron/issues)
 
-Thank you for being an early adopter! Your feedback during this alpha phase is invaluable in helping us build the best notebook experience for data scientists.
+Check out [our documentation on using the Positron Notebook editor](https://positron.posit.co/notebooks-alpha), including how to get started with a demo notebook.
 
 **To try out this new experience, update your settings to enable the [Positron Notebook](command:positronNotebookHelpers.walkthrough.enableNotebook) editor.**
 
-Check out [our documentation on using the Positron Notebook editor](https://positron.posit.co/notebooks-alpha), including how to get started with a demo notebook.
+Thank you for being an early adopter! Your feedback during this alpha phase is invaluable in helping us build the best notebook experience for data scientists.
+
