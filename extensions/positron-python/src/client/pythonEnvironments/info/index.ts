@@ -24,6 +24,7 @@ export enum EnvironmentType {
     // --- Start Positron ---
     Uv = 'Uv',
     Custom = 'Custom',
+    Module = 'Module',
     // --- End Positron ---
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     ActiveState = 'ActiveState',

@@ -6,14 +6,15 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
-import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason } from './r-installation';
+import { currentRBinary, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
+import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { dirname } from 'path';
+import { getEnvironmentModulesApi } from './provider-module.js';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
