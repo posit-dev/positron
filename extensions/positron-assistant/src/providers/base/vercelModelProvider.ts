@@ -10,7 +10,7 @@ import { processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../config';
 import { TokenUsage } from '../../tokens';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
-import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 
@@ -61,6 +61,16 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * Provider-specific options like temperature, top_p, etc.
 	 */
 	protected aiOptions: Record<string, any> = {};
+
+	/**
+	 * Whether this provider uses the older /v1/chat/completions endpoint,
+	 * as opposed to the newer /v1/responses endpoint.
+	 *
+	 * This affects how certain features are handled, such as tool result
+	 * formatting (e.g., image support).
+	 */
+	protected usesChatCompletions: boolean = false;
+
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -158,7 +168,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent
+			this.usesChatCompletions,
+			bedrockCacheBreakpoint
 		);
 
 		// Set up tools if provided
@@ -169,7 +180,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = options.modelOptions?.requestId;
 
-		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
+		this.logger.debug(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
