@@ -15,6 +15,7 @@ const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
 const BRACE_REGEX = /^\{|\}$/g;
 const FENCE_LINE_REGEX = /^`{3,}(.*)$/;
 const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
+const TRAILING_NEWLINE_REGEX = /\r?\n$/;
 
 interface FrontmatterResult {
 	text: string;
@@ -106,19 +107,19 @@ function convertBlocksToCells(
 	const cells: vscode.NotebookCellData[] = [];
 	let pendingMarkdownBlocks: Block[] = [];
 
-	const flushMarkdownBlocks = (maxEndOffset?: number) => {
+	const flushMarkdownBlocks = () => {
 		if (pendingMarkdownBlocks.length > 0) {
-			cells.push(...createMarkdownCells(pendingMarkdownBlocks, content, maxEndOffset));
+			cells.push(...createMarkdownCells(pendingMarkdownBlocks, content));
 			pendingMarkdownBlocks = [];
 		}
 	};
 
 	for (const block of blocks) {
 		if (block.t === 'CodeBlock') {
-			flushMarkdownBlocks(ast.startOffset(block));
+			flushMarkdownBlocks();
 			cells.push(createCodeCell(block, content));
 		} else if (block.t === 'RawBlock') {
-			flushMarkdownBlocks(ast.startOffset(block));
+			flushMarkdownBlocks();
 			cells.push(createRawBlockCell(block));
 		} else {
 			pendingMarkdownBlocks.push(block);
@@ -175,15 +176,14 @@ function createRawBlockCell(block: RawBlock): vscode.NotebookCellData {
 
 function createMarkdownCells(
 	blocks: Block[],
-	content: Uint8Array,
-	maxEndOffset: number | undefined
+	content: Uint8Array
 ): vscode.NotebookCellData[] {
-	const text = extractRawTextForBlocks(blocks, content, maxEndOffset);
+	const text = extractRawTextForBlocks(blocks, content);
 	const parts = text.split(CELL_MARKER_REGEX);
 
 	const cells: vscode.NotebookCellData[] = [];
 	for (const part of parts) {
-		const trimmed = trimTrailingNewlines(part);
+		const trimmed = part.replace(TRAILING_NEWLINE_REGEX, '');
 		if (trimmed) {
 			cells.push(new vscode.NotebookCellData(
 				vscode.NotebookCellKind.Markup,
@@ -196,19 +196,7 @@ function createMarkdownCells(
 	return cells;
 }
 
-function trimTrailingNewlines(text: string): string {
-	let end = text.length;
-	while (end > 0 && (text[end - 1] === '\n' || text[end - 1] === '\r')) {
-		end--;
-	}
-	return text.slice(0, end);
-}
-
-function extractRawTextForBlocks(
-	blocks: Block[],
-	content: Uint8Array,
-	maxEndOffset: number | undefined
-): string {
+function extractRawTextForBlocks(blocks: Block[], content: Uint8Array): string {
 	if (blocks.length === 0) {
 		return '';
 	}
@@ -217,14 +205,10 @@ function extractRawTextForBlocks(
 	const lastBlock = blocks[blocks.length - 1];
 
 	const startOffset = ast.startOffset(firstBlock);
-	let endOffset = ast.endOffset(lastBlock);
+	const endOffset = ast.endOffset(lastBlock);
 
 	if (startOffset === undefined || endOffset === undefined) {
 		throw new Error(`[QMD Converter] Missing location info for blocks: ${firstBlock.t} to ${lastBlock.t}`);
-	}
-
-	if (maxEndOffset !== undefined && maxEndOffset > startOffset && endOffset > maxEndOffset) {
-		endOffset = maxEndOffset;
 	}
 
 	return new TextDecoder().decode(content.slice(startOffset, endOffset));
