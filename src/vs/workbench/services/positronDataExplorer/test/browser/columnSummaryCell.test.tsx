@@ -1,9 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
 import assert from 'assert';
 import sinon from 'sinon';
 import { createRoot, Root } from 'react-dom/client';

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './positronModalPopup.css';
 
 // React.
-import React, { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';

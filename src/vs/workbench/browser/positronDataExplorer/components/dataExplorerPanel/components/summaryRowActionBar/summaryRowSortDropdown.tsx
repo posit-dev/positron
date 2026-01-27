@@ -1,11 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import './summaryRowSortDropdown.css';
-
-import React from 'react';
 
 import { ActionBarMenuButton } from '../../../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { localize } from '../../../../../../../nls.js';

@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react';
+import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../common/positronUtilities.js';

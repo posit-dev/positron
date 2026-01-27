@@ -6,9 +6,6 @@
 // CSS.
 import './NotebookCellActionBar.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
