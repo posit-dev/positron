@@ -4,14 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { CELL_BOUNDARY_MARKER, VSCODE_TO_QUARTO_LANGUAGE } from './constants.js';
 
-const CELL_BOUNDARY_MARKER = '<!-- cell -->';
-
-// TODO: Make an inverse of the other map?
-const VSCODE_TO_QUARTO_LANGUAGE: Record<string, string> = {
-	'javascript': 'ojs',
-};
-
+/** Convert VS Code NotebookData to QMD string */
 export function serialize(data: vscode.NotebookData): string {
 	const parts: string[] = [];
 	let cellIndex = 0;
@@ -49,6 +44,7 @@ export function serialize(data: vscode.NotebookData): string {
 	return parts.join('\n\n') + '\n';
 }
 
+/** Serialize code cell to fenced code block */
 function serializeCodeCell(cell: vscode.NotebookCellData): string {
 	const code = cell.value;
 	const language = cell.languageId;
