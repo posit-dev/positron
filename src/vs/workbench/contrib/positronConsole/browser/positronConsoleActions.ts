@@ -137,9 +137,10 @@ async function executeCodeInConsole(
 
 	// Notify the backend that code is about to be executed from a file.
 	// This allows the backend to temporarily add the file's directory to sys.path.
+	// Only notify sessions matching the languageId since code will run in one of those.
 	const activeSessions = runtimeSessionService.getActiveSessions();
 	for (const activeSession of activeSessions) {
-		if (activeSession.uiClient) {
+		if (activeSession.session.runtimeMetadata.languageId === languageId && activeSession.uiClient) {
 			try {
 				await activeSession.uiClient.editorContextChanged(documentUri.toString(), true);
 			} catch (err) {
@@ -831,9 +832,9 @@ export function registerPositronConsoleActions() {
 				languageService,
 				notificationService,
 				positronConsoleService,
+				runtimeSessionService,
 				debugService,
 				textFileService,
-				runtimeSessionService,
 			},
 			{
 				allowIncomplete: opts.allowIncomplete,

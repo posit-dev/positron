@@ -1755,9 +1755,17 @@ export class MainThreadLanguageRuntime
 		if (documentUri) {
 			// Revive the URI from the serialized form
 			const uri = URI.revive(documentUri);
+
+			// Determine which session(s) to notify:
+			// - If a specific sessionId is provided, only notify that session
+			// - Otherwise, only notify sessions matching the languageId
 			const activeSessions = this._runtimeSessionService.getActiveSessions();
 			for (const activeSession of activeSessions) {
-				if (activeSession.uiClient) {
+				const shouldNotify = sessionId
+					? activeSession.session.sessionId === sessionId
+					: activeSession.session.runtimeMetadata.languageId === languageId;
+
+				if (shouldNotify && activeSession.uiClient) {
 					try {
 						await activeSession.uiClient.editorContextChanged(uri.toString(), true);
 					} catch (err) {

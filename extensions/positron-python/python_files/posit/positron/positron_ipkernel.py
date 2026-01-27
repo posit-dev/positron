@@ -269,7 +269,7 @@ class PositronShell(ZMQInteractiveShell):
         # to override the parent to do that.
         parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
-
+        self._editor_path_added = None
         super().__init__(*args, **kwargs)
 
     def init_events(self) -> None:
