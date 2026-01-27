@@ -67,10 +67,10 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[0].languageId, 'text');
 	});
 
-	test('should map Quarto language aliases', async () => {
-		const result = await deserialize('```{py}\nprint("hello")\n```');
+	test('should map ojs to javascript', async () => {
+		const result = await deserialize('```{ojs}\n1 + 1\n```');
 
-		assert.strictEqual(result.cells[0].languageId, 'python');
+		assert.strictEqual(result.cells[0].languageId, 'javascript');
 	});
 
 	test('should extract frontmatter to first cell', async () => {
@@ -169,8 +169,8 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[0].languageId, 'r');
 	});
 
-	test('should handle Julia language alias', async () => {
-		const result = await deserialize('```{jl}\nprintln("hi")\n```');
+	test('should handle Julia language', async () => {
+		const result = await deserialize('```{julia}\nprintln("hi")\n```');
 
 		assert.strictEqual(result.cells[0].languageId, 'julia');
 	});

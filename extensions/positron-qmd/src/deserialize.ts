@@ -8,24 +8,13 @@ import { QmdDocument, Block, CodeBlock, RawBlock, SourceInfo } from './ast/index
 import * as ast from './ast/index.js';
 import { TextDecoder, TextEncoder } from 'util';
 
-const QUARTO_LANGUAGE_MAP: Record<string, string> = {
-	'python': 'python',
-	'{python}': 'python',
-	'py': 'python',
-	'{py}': 'python',
-	'r': 'r',
-	'{r}': 'r',
-	'julia': 'julia',
-	'jl': 'julia',
-	'{julia}': 'julia',
-	'{jl}': 'julia',
+const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
 	'ojs': 'javascript',
-	'{ojs}': 'javascript',
-	'mermaid': 'mermaid',
-	'{mermaid}': 'mermaid',
-	'dot': 'dot',
-	'{dot}': 'dot',
 };
+
+const BRACE_REGEX = /^\{|\}$/g;
+const FENCE_LINE_REGEX = /^`{3,}(.*)$/;
+const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
 
 interface ConversionContext {
 	sourceText: string;
@@ -160,8 +149,8 @@ function convertBlocksToCells(
 
 function createCodeCell(block: CodeBlock, context: ConversionContext): vscode.NotebookCellData {
 	const code = ast.content(block);
-	const rawLanguage = ast.language(block) ?? '';
-	const language = QUARTO_LANGUAGE_MAP[rawLanguage.toLowerCase()] || rawLanguage || 'text';
+	const rawLanguage = (ast.language(block) ?? '').replace(BRACE_REGEX, '').toLowerCase();
+	const language = QUARTO_TO_VSCODE_LANGUAGE[rawLanguage] || rawLanguage || 'text';
 
 	const cell = new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
@@ -189,7 +178,7 @@ function extractFenceInfo(block: CodeBlock, context: ConversionContext): string 
 	}
 
 	const fenceLine = new TextDecoder().decode(context.sourceBytes.slice(startOffset, endOfLine)).trim();
-	const match = fenceLine.match(/^`{3,}(.*)$/);
+	const match = fenceLine.match(FENCE_LINE_REGEX);
 	return match?.[1] || undefined;
 }
 
@@ -208,7 +197,7 @@ function createMarkdownCells(
 	maxEndOffset: number | undefined
 ): vscode.NotebookCellData[] {
 	const content = extractRawTextForBlocks(blocks, context, minStartOffset, maxEndOffset);
-	const parts = content.split(/\s*<!-- cell -->\s*/);
+	const parts = content.split(CELL_MARKER_REGEX);
 
 	const cells: vscode.NotebookCellData[] = [];
 	for (const part of parts) {
