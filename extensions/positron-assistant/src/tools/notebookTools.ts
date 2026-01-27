@@ -12,12 +12,22 @@ import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
 /**
  * Resolve showDiff setting: notebook metadata first, then global config fallback.
+ *
+ * Reads from notebook.metadata.positron.assistant.showDiff
+ *
+ * Schema defined in (AUTHORITATIVE SOURCE):
+ *   src/vs/workbench/contrib/positronNotebook/browser/AssistantPanel/AssistantPanel.tsx
+ *
+ * When adding new notebook assistant settings, follow the pattern here and
+ * update the schema documentation in the authoritative source.
  */
 function resolveShowDiffSetting(
 	notebook: vscode.NotebookDocument,
 	globalConfigKey: string,
 	defaultValue: boolean
 ): boolean {
+	// Access metadata.positron.assistant.showDiff
+	// Type: 'showDiff' | 'noDiff' | undefined
 	const positron = notebook.metadata?.positron as Record<string, unknown> | undefined;
 	const assistant = positron?.assistant as Record<string, unknown> | undefined;
 	const override = assistant?.showDiff as 'showDiff' | 'noDiff' | undefined;

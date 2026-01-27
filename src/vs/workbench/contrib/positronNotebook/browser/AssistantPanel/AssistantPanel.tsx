@@ -60,7 +60,38 @@ type PanelState = {
 };
 
 /**
+ * Positron Assistant Notebook Metadata Schema (AUTHORITATIVE DEFINITION)
+ * ======================================================================
+ *
+ * Per-notebook assistant preferences are stored in notebook metadata at:
+ *   notebook.metadata.positron.assistant.*
+ *
+ * This schema is consumed by:
+ *   - Workbench: AssistantPanel.tsx (this file) - reads/writes settings
+ *   - Extension: positron-assistant/src/tools/notebookTools.ts - reads settings
+ *
+ * When adding new settings:
+ *   1. Add the property to the schema below
+ *   2. Update getShowDiffOverrideFromNotebook() or create similar getter
+ *   3. Update updateShowDiffOverrideInNotebook() or create similar setter
+ *   4. Update the extension's resolver function in notebookTools.ts
+ *   5. Add UI controls in the ReadyState component's settings section
+ *
+ * Schema:
+ *   metadata.positron.assistant: {
+ *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
+ *     // Future settings follow the same pattern:
+ *     // contextScope?: 'all' | 'selected' | 'none'
+ *     // planningGoal?: string
+ *   }
+ *
+ * Values are stored as strings (not booleans) to allow for future multi-state
+ * options and to distinguish "not set" (undefined) from explicit values.
+ */
+
+/**
  * ShowDiff override type for notebook-specific setting.
+ * undefined = follow global setting, 'showDiff' = always show, 'noDiff' = never show
  */
 export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 
