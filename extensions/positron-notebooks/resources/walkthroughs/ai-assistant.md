@@ -1,13 +1,17 @@
-Unlike general purpose AI, Positron Assistant understands which cells you've run and in what order, what variables exist in memory, your execution history, and errors.
+Unlike general-purpose AI assistants, Positron Assistant is specifically designed for data science workflows. It understands your notebook's execution context, including which cells you've run, what variables exist in memory, your execution history, and any errors you've encountered.
 
-- Ask questions about your code, get help understanding errors, or request explanations of complex concepts.
-- Positron Assistant can help you write new code, refactor existing code, or explore data analysis approaches.
-- Use AI quick actions to explain, fix, or improve your notebook.
+## What Assistant can do
 
-The AI assistant is context-aware and can see your notebook's code and outputs, making it a powerful tool for interactive data science workflows.
+- **Context-aware conversations** - Ask questions about your data, get help understanding errors and more.
+- **Code generation and refactoring** - Get help writing new analysis code, refactoring existing notebooks, or exploring alternative data analysis approaches.
+- **Smart quick actions** - Use AI-powered actions to explain code blocks, fix errors, or suggest improvements to your analysis.
 
-Ensure you have the [Assistant enabled](https://positron.posit.co/assistant-getting-started.html)
+## Getting Started
 
-[Open the Assistant panel](command:workbench.action.chat.open) to configure your model provider and start a conversation with the AI assistant.
+The AI assistant can see your notebook's code, outputs, and variable states, making it uniquely powerful for interactive data science workflows.
 
-Prefer to code without AI? You can always [disable the Assistant](https://positron.posit.co/assistant-getting-started.html)
+**Prerequisites:** Ensure you have the [Assistant enabled and configured](https://positron.posit.co/assistant-getting-started.html) with your preferred model provider.
+
+**Try it now:** [Open the Assistant panel](command:workbench.action.chat.open) to configure your model provider and start an AI-assisted data science conversation.
+
+**Work without AI** You can always [disable the Assistant](https://positron.posit.co/assistant-getting-started.html) if you prefer to code without AI assistance.

@@ -1,6 +1,8 @@
 We'd like to invite you to help shape the future of the Positron Notebook editor. Although there are known rough edges with our Alpha release, we are releasing now because we believe that **the best tools are built in collaboration with the community**, and we want your feedback.
 
-<img src="./images/notebook-hero-abstract.jpg" alt="Positron Data Explorer" width="400">
+<div align="center">
+<img src="./images/notebook-hero-abstract.svg" alt="Positron Data Explorer" width="400">
+</div>
 
 ## Get involved
 
