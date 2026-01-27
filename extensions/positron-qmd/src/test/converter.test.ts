@@ -174,12 +174,6 @@ suite('QMD to NotebookData Converter', () => {
 		assert.strictEqual(result.cells[0].languageId, 'julia');
 	});
 
-	test('should store fence info in metadata', async () => {
-		const result = await deserialize('```{python}\n#| echo: false\nprint("hello")\n```');
-
-		assert.ok(result.cells[0].metadata?.qmdFenceInfo, 'Should have qmdFenceInfo');
-		assert.strictEqual(result.cells[0].metadata.qmdFenceInfo, '{python}');
-	});
 
 	test('should open empty document with no cells', async () => {
 		const result = await deserialize('');
@@ -417,14 +411,6 @@ suite('NotebookData to QMD Serializer', () => {
 		assert.ok(result.includes(':::'));
 	});
 
-	test('should preserve raw fence info', () => {
-		const cell = codeCell('x = 1', 'python', {
-			qmdFenceInfo: '{python #myid label="fig-1"}'
-		});
-		const result = serialize([cell]);
-
-		assert.ok(result.includes('```{python #myid label="fig-1"}'));
-	});
 
 });
 
@@ -653,15 +639,6 @@ suite('Round-trip serialization', () => {
 		// No frontmatter cell
 		assert.notStrictEqual(notebook.cells[0].metadata?.qmdCellType, 'frontmatter');
 		assert.strictEqual(notebook.cells[0].kind, vscode.NotebookCellKind.Markup);
-	});
-
-	test('should round-trip code block with id and label', async () => {
-		const original = '```{python #fig-plot label="My Plot"}\nimport matplotlib\n```\n';
-		const notebook = await deserialize(original);
-		const serialized = serializeNotebook(notebook);
-
-		assert.ok(serialized.includes('#fig-plot'), 'Should preserve id');
-		assert.ok(serialized.includes('label="My Plot"'), 'Should preserve label keyval');
 	});
 
 	test('should preserve extra newlines in markdown content', async () => {

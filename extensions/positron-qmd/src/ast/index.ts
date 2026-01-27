@@ -55,6 +55,19 @@ export function frontmatterBytes(doc: QmdDocument, content: Uint8Array): Uint8Ar
 	return content.slice(start, end);
 }
 
+/** Extract raw bytes spanning from first to last block */
+export function blockBytes(blocks: Block[], content: Uint8Array): Uint8Array {
+	if (blocks.length === 0) {
+		return new Uint8Array();
+	}
+	const start = startOffset(blocks[0]);
+	const end = endOffset(blocks[blocks.length - 1]);
+	if (start === undefined || end === undefined) {
+		throw new Error(`Missing location info for blocks`);
+	}
+	return content.slice(start, end);
+}
+
 /** Get start byte offset from any node, or undefined if no location info */
 export function startOffset(node: Node): number | undefined {
 	return node.l?.b.o;
@@ -70,9 +83,9 @@ export function content(block: CodeBlock | RawBlock): string {
 	return block.c[1];
 }
 
-/** Get language from first class (e.g., '{python}' or 'python') */
+/** Get language from first class, normalized (e.g., 'python' from '{python}') */
 export function language(block: CodeBlock): string | undefined {
-	return block.c[0][1][0];
+	return block.c[0][1][0]?.replace(/^\{|\}$/g, '').toLowerCase();
 }
 
 /** Get attributes from a node that has Attr at c[0] (CodeBlock, Div, Link, Image, Code, etc.) */

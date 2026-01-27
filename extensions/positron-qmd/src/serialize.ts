@@ -50,15 +50,8 @@ export function serialize(data: vscode.NotebookData): string {
 }
 
 function serializeCodeCell(cell: vscode.NotebookCellData): string {
-	const language = cell.languageId;
 	const code = cell.value;
-
-	const qmdFenceInfo = cell.metadata?.qmdFenceInfo as string | undefined;
-	// TODO: Just error if there's no qmdFencInfo
-	if (qmdFenceInfo) {
-		return '```' + qmdFenceInfo + '\n' + code + '\n```';
-	}
-
+	const language = cell.languageId;
 	const quartoLang = VSCODE_TO_QUARTO_LANGUAGE[language] || language;
 	const fenceInfo = quartoLang ? `{${quartoLang}}` : '';
 
