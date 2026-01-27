@@ -274,9 +274,27 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	/**
 	 * Update the runtime session for webview creation.
 	 * Call this when the kernel session becomes available.
+	 *
+	 * IMPORTANT: If the session transitions from undefined to defined and we have
+	 * outputs that need webview rendering, we must re-render them. This handles
+	 * the case where cached outputs are loaded before the kernel session is reattached
+	 * after a window reload.
 	 */
 	setSession(session: ILanguageRuntimeSession | undefined): void {
+		const hadNoSession = !this._session;
 		this._session = session;
+
+		// Re-render outputs if session just became available
+		// This allows cached interactive outputs (Plotly, widgets) to render correctly
+		// after the kernel session is reattached
+		if (hadNoSession && session && this._outputs.length > 0) {
+			// Check if any outputs need webview rendering
+			const needsRerender = this._outputs.some(output => output.webviewMetadata?.webviewType);
+			if (needsRerender) {
+				this._renderAllOutputs();
+				this._updateHeight();
+			}
+		}
 	}
 
 	/**

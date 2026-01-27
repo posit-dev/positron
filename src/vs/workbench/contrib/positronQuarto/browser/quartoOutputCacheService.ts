@@ -19,6 +19,7 @@ import {
 	ICachedCellOutput,
 	ICellOutput,
 	ICellOutputItem,
+	ICellOutputWebviewMetadata,
 	DEFAULT_CACHE_CONFIG,
 } from '../common/quartoExecutionTypes.js';
 import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
@@ -797,10 +798,18 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 
 	/**
 	 * Convert internal output format to ipynb format.
+	 *
+	 * IMPORTANT: For rich outputs (execute_result/display_data), we must collect
+	 * ALL mime types into the data field, not just the first one. This is critical
+	 * for outputs like Plotly that have both application/vnd.plotly.v1+json AND
+	 * text/html - the renderer needs access to all representations to choose the
+	 * best one for display.
 	 */
 	private _outputToIpynb(output: ICellOutput): IpynbOutput {
 		const items = output.items ?? [];
 
+		// First pass: check for special output types (stream, error)
+		// These are mutually exclusive with rich outputs
 		for (const item of items) {
 			if (item.mime === 'application/vnd.code.notebook.stdout') {
 				return {
@@ -834,20 +843,32 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 					};
 				}
 			}
-
-			// Rich output (images, HTML, etc.)
-			return {
-				output_type: 'execute_result',
-				data: { [item.mime]: item.data },
-				metadata: {},
-			};
 		}
 
-		// Empty output
+		// Second pass: collect ALL mime types for rich outputs
+		// This is critical for outputs like Plotly which have multiple representations
+		const data: Record<string, unknown> = {};
+		for (const item of items) {
+			// Skip internal notebook mime types (already handled above)
+			if (item.mime.startsWith('application/vnd.code.notebook.')) {
+				continue;
+			}
+			data[item.mime] = item.data;
+		}
+
+		// Preserve webviewMetadata in the ipynb metadata field
+		// This is critical for interactive outputs (Plotly, widgets, etc.) that need
+		// webview rendering - without this metadata, they fall back to text rendering
+		const metadata: Record<string, unknown> = {};
+		if (output.webviewMetadata) {
+			metadata.quarto_webview_metadata = output.webviewMetadata;
+		}
+
+		// Return rich output with all collected mime types
 		return {
 			output_type: 'execute_result',
-			data: {},
-			metadata: {},
+			data,
+			metadata,
 		};
 	}
 
@@ -891,9 +912,16 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 				break;
 		}
 
+		// Restore webviewMetadata from ipynb metadata if present
+		// This allows interactive outputs (Plotly, widgets, etc.) to render via webview
+		const webviewMetadata = (ipynbOutput.output_type === 'execute_result' || ipynbOutput.output_type === 'display_data')
+			? ipynbOutput.metadata?.quarto_webview_metadata as ICellOutputWebviewMetadata | undefined
+			: undefined;
+
 		return {
 			outputId: generateUuid(),
 			items,
+			webviewMetadata,
 		};
 	}
 
