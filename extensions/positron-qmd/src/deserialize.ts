@@ -17,17 +17,8 @@ const FENCE_LINE_REGEX = /^`{3,}(.*)$/;
 const CELL_MARKER_REGEX = /\s*<!-- cell -->\s*/;
 const TRAILING_NEWLINE_REGEX = /\r?\n$/;
 
-function extractFrontmatter(
-	doc: QmdDocument,
-	content: Uint8Array,
-	decoder: TextDecoder
-): string | null {
-	const range = ast.frontmatterRange(doc);
-	if (!range) {
-		return null;
-	}
-	const [start, end] = range;
-	return decoder.decode(content.slice(start, end)).trim();
+function trimTrailingNewline(s: string): string {
+	return s.replace(TRAILING_NEWLINE_REGEX, '');
 }
 
 export function deserialize(
@@ -37,11 +28,12 @@ export function deserialize(
 	const decoder = new TextDecoder();
 	const cells: vscode.NotebookCellData[] = [];
 
-	const frontmatter = extractFrontmatter(doc, content, decoder);
+	const frontmatter = ast.frontmatterBytes(doc, content);
 	if (frontmatter) {
+		const value = trimTrailingNewline(decoder.decode(frontmatter));
 		const cell = new vscode.NotebookCellData(
 			vscode.NotebookCellKind.Code,
-			frontmatter,
+			value,
 			'yaml'
 		);
 		cell.metadata = { qmdCellType: 'frontmatter' };
@@ -144,7 +136,7 @@ function createMarkdownCells(
 
 	const cells: vscode.NotebookCellData[] = [];
 	for (const part of parts) {
-		const trimmed = part.replace(TRAILING_NEWLINE_REGEX, '');
+		const trimmed = trimTrailingNewline(part);
 		if (trimmed) {
 			cells.push(new vscode.NotebookCellData(
 				vscode.NotebookCellKind.Markup,
