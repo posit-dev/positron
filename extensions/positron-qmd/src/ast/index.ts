@@ -45,6 +45,16 @@ export function frontmatterRange(doc: QmdDocument): [start: number, end: number]
 	return doc.astContext.sourceInfoPool[0].r;
 }
 
+/** Extract frontmatter bytes from content, or undefined if no frontmatter */
+export function frontmatterBytes(doc: QmdDocument, content: Uint8Array): Uint8Array | undefined {
+	const range = frontmatterRange(doc);
+	if (!range) {
+		return undefined;
+	}
+	const [start, end] = range;
+	return content.slice(start, end);
+}
+
 /** Get start byte offset from any node, or undefined if no location info */
 export function startOffset(node: Node): number | undefined {
 	return node.l?.b.o;
