@@ -8,7 +8,7 @@ import init, { parse_qmd } from 'wasm-qmd-parser';
 import { QmdDocument } from './ast/index.js';
 
 /**
- * QMD parser wrapper.
+ * QMD parser wrapper using WASM-compiled Quarto parser.
  */
 export class QmdParser {
 	private _initPromise: Promise<void> | undefined;
@@ -16,9 +16,14 @@ export class QmdParser {
 	constructor(private readonly _extensionUri: vscode.Uri) { }
 
 	/**
-	 * Parse QMD content. Lazily initializes the WASM module on first call.
-	 * @param content QMD content to parse.
-	 * @returns Parsed QMD document.
+	 * Parse QMD content to a Pandoc AST. Lazily initializes the WASM module on first call.
+	 *
+	 * @param content - QMD source text to parse
+	 * @param includeSourceLocations - If true (default), include resolved source locations
+	 *   in each AST node's `l` field with file, line, column, and offset info.
+	 *   If false, only the compact `s` field (sourceInfoPool index) is included.
+	 *   The `sourceInfoPool` in `astContext` is always included regardless of this setting.
+	 * @returns Parsed QMD document with Pandoc AST
 	 */
 	async parse(content: string, includeSourceLocations = true): Promise<QmdDocument> {
 		await this.initialize();

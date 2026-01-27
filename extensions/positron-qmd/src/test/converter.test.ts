@@ -19,13 +19,10 @@ suite('QMD to NotebookData Converter', () => {
 	let serializer: QmdNotebookSerializer;
 	const cancellationToken = new vscode.CancellationTokenSource().token;
 
-	let parser: QmdParser;
-
 	suiteSetup(async () => {
-		// Create parser and serializer using extension's URI
 		const extension = vscode.extensions.getExtension(EXTENSION_ID);
 		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
-		parser = new QmdParser(extension.extensionUri);
+		const parser = new QmdParser(extension.extensionUri);
 		const log = vscode.window.createOutputChannel('QMD Test', { log: true });
 		serializer = new QmdNotebookSerializer(parser, log);
 	});
@@ -76,13 +73,7 @@ suite('QMD to NotebookData Converter', () => {
 	});
 
 	test('should extract frontmatter to first cell', async () => {
-		const content = '---\ntitle: Test\nauthor: User\n---\n\n# Content';
-		const doc = await parser.parse(content);
-		console.log('metaTopLevelKeySources:', JSON.stringify(doc.astContext.metaTopLevelKeySources));
-		console.log('sourceInfoPool:', JSON.stringify(doc.astContext.sourceInfoPool));
-		console.log('content bytes 0-10:', content.slice(0, 10));
-
-		const result = await deserialize(content);
+		const result = await deserialize('---\ntitle: Test\nauthor: User\n---\n\n# Content');
 
 		// First cell should be frontmatter
 		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Code);
