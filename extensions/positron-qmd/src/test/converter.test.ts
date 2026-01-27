@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { QmdParser } from '../parser.js';
 import { QmdNotebookSerializer } from '../notebookSerializer.js';
 import { serialize as serializeNotebook } from '../serialize.js';
+import { isFrontmatterCell } from '../metadata.js';
 import { captureLogs } from './util/captureLogs.js';
 import { TextEncoder } from 'util';
 
@@ -78,7 +79,7 @@ suite('QMD to NotebookData Converter', () => {
 		// First cell should be frontmatter
 		assert.strictEqual(result.cells[0].kind, vscode.NotebookCellKind.Code);
 		assert.strictEqual(result.cells[0].languageId, 'yaml');
-		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(isFrontmatterCell(result.cells[0]));
 		assert.ok(result.cells[0].value.includes('title: Test'));
 		assert.ok(result.cells[0].value.includes('author: User'));
 		// Should include --- delimiters
@@ -91,7 +92,7 @@ suite('QMD to NotebookData Converter', () => {
 
 		// First cell is frontmatter, second is markdown
 		assert.strictEqual(result.cells.length, 2);
-		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(isFrontmatterCell(result.cells[0]));
 		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
 		assert.strictEqual(result.cells[1].value, '# Heading\n\nParagraph text.');
 	});
@@ -132,7 +133,7 @@ suite('QMD to NotebookData Converter', () => {
 
 		// First cell is frontmatter, second is markdown
 		assert.strictEqual(result.cells.length, 2);
-		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(isFrontmatterCell(result.cells[0]));
 		assert.ok(result.cells[0].value.includes('Pokémon'));
 		assert.strictEqual(result.cells[1].kind, vscode.NotebookCellKind.Markup);
 		assert.strictEqual(result.cells[1].value, 'This');
@@ -185,7 +186,7 @@ suite('QMD to NotebookData Converter', () => {
 		const result = await deserialize('---\ntitle: Test\n---\n\n# Heading');
 
 		// Should have frontmatter cell
-		assert.strictEqual(result.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(isFrontmatterCell(result.cells[0]));
 		assert.ok(result.cells[0].value.includes('title: Test'));
 	});
 
@@ -360,7 +361,7 @@ suite('NotebookData to QMD Serializer', () => {
 			'---\ntitle: Test Document\nauthor: Test Author\n---',
 			'yaml'
 		);
-		frontmatterCell.metadata = { qmdCellType: 'frontmatter' };
+		frontmatterCell.metadata = { quarto: { type: 'frontmatter' } };
 
 		const result = serialize([frontmatterCell, markdownCell('# Content')]);
 
@@ -375,7 +376,7 @@ suite('NotebookData to QMD Serializer', () => {
 			'',
 			'yaml'
 		);
-		frontmatterCell.metadata = { qmdCellType: 'frontmatter' };
+		frontmatterCell.metadata = { quarto: { type: 'frontmatter' } };
 
 		const result = serialize([frontmatterCell, markdownCell('# Content')]);
 
@@ -614,7 +615,7 @@ suite('Round-trip serialization', () => {
 
 		// Should have frontmatter, markdown, and code cells
 		assert.strictEqual(roundTripped.cells.length, 3);
-		assert.strictEqual(roundTripped.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(isFrontmatterCell(roundTripped.cells[0]));
 		assert.ok(roundTripped.cells[0].value.includes('title: Test Document'));
 		assert.ok(roundTripped.cells[0].value.includes('author: Test Author'));
 		assert.strictEqual(roundTripped.cells[1].kind, vscode.NotebookCellKind.Markup);
@@ -639,7 +640,7 @@ suite('Round-trip serialization', () => {
 		const notebook = await deserialize(original);
 
 		// No frontmatter cell
-		assert.notStrictEqual(notebook.cells[0].metadata?.qmdCellType, 'frontmatter');
+		assert.ok(!isFrontmatterCell(notebook.cells[0]));
 		assert.strictEqual(notebook.cells[0].kind, vscode.NotebookCellKind.Markup);
 	});
 
@@ -665,5 +666,14 @@ suite('Round-trip serialization', () => {
 
 		assert.strictEqual(roundTripped.cells.length, 1);
 		assert.strictEqual(roundTripped.cells[0].value, '   Indented text');
+	});
+
+	test('should round-trip long backtick fence', async () => {
+		const original = '````{python}\nprint("```")\n````\n';
+		const notebook = await deserialize(original);
+		const serialized = serializeNotebook(notebook);
+
+		assert.strictEqual(serialized, original);
+		assert.strictEqual(notebook.cells[0].metadata?.quarto?.fenceLength, 4);
 	});
 });
