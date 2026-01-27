@@ -1,4 +1,4 @@
-Positron provides a powerful batteries included environment for working with notebooks, with integrated panes designed for data science workflows:
+Positron provides a powerful batteries included environment for working with Jupyter notebooks, featuring integrated panes designed for data science workflows:
 
 - [Help pane](command:workbench.panel.positronHelp.focus): Lookup documentation for Python objects and packages easily.
 - [Connections pane](command:workbench.panel.positronConnections.focus): Manage database connections and preview tables easily.
