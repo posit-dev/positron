@@ -101,7 +101,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-sles156-amd64:76
+      image: ghcr.io/posit-dev/positron-sles156-amd64:78
       options: --user 0:0 --init
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -109,7 +109,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-sles156-amd64:76
+        image: ghcr.io/posit-dev/positron-postgres-sles156-amd64:78
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -194,10 +194,6 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         with:
           project: ${{ inputs.project }}
-
-      - name: Start Fluxbox
-        run: DISPLAY=:10 fluxbox &
-        shell: bash
 
       - name: 🧪 Run Playwright Tests
         shell: bash
