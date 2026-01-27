@@ -20,7 +20,9 @@ const require = createRequire(import.meta.url);
 
 const repoPath = path.dirname(import.meta.dirname);
 const commit = getVersion(repoPath);
-const buildPath = (arch: string) => path.join(path.dirname(repoPath), `VSCode-win32-${arch}`);
+// --- Start Positron ---
+const buildPath = (arch: string) => path.join(path.dirname(repoPath), `p${arch}`);
+// --- End Positron ---
 const setupDir = (arch: string, target: string) => path.join(repoPath, '.build', `win32-${arch}`, `${target}-setup`);
 // --- Start Positron ---
 const issPath = path.join(import.meta.dirname, 'win32', 'positron.iss');
