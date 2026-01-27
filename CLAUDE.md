@@ -223,8 +223,6 @@ Before creating new UI controls, search existing Positron components:
 - Glob: `**/positron**/components/*.tsx`, `**/positronComponents/**/*.tsx`
 - Key directories: `positronActionBar`, `positronComponents`, `positronModalDialog`
 
-**Constraint:** Action bar components require `PositronActionBarContext` and can't be used directly in modals—copy CSS patterns instead.
-
 For comprehensive patterns and examples, read `.claude/ui-components.md`.
 
 ## Directory Structure
