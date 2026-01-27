@@ -16,6 +16,7 @@ interface CellActionButtonProps {
 	action: MenuItemAction | SubmenuItemAction;
 	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
+	showSeparator?: boolean;
 }
 
 /**
@@ -23,9 +24,10 @@ interface CellActionButtonProps {
  * @param action The action to execute
  * @param cell The cell to execute the action on
  * @param hoverManager Optional hover manager for tooltip display
+ * @param showSeparator Whether to show a separator after this button
  * @returns A button that executes the action when clicked.
  */
-export function CellActionButton({ action, cell, hoverManager }: CellActionButtonProps) {
+export function CellActionButton({ action, cell, hoverManager, showSeparator }: CellActionButtonProps) {
 	const instance = useNotebookInstance();
 
 	const handleActionClick = async (action: MenuItemAction | SubmenuItemAction) => {
@@ -44,6 +46,7 @@ export function CellActionButton({ action, cell, hoverManager }: CellActionButto
 		<ActionButton
 			key={action.id}
 			ariaLabel={action.label}
+			className={showSeparator ? 'primary-action' : ''}
 			hoverManager={hoverManager}
 			// Match VSCode behavior: prefer tooltip but default to label
 			tooltip={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}

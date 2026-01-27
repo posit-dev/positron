@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { createOllama, OllamaProvider } from 'ollama-ai-provider';
+import { createOllama } from 'ollama-ai-provider-v2';
 import { VercelModelProvider } from '../base/vercelModelProvider';
 import { ModelConfig } from '../../config';
 
@@ -43,11 +43,6 @@ import { ModelConfig } from '../../config';
  * @see https://ollama.com/ for Ollama documentation
  */
 export class OllamaModelProvider extends VercelModelProvider implements positron.ai.LanguageModelChatProvider {
-	/**
-	 * The Ollama provider instance from ollama-ai-provider package.
-	 */
-	protected declare aiProvider: OllamaProvider;
-
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {

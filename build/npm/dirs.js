@@ -21,6 +21,7 @@ let dirs = [
 	'extensions/positron-dev-containers',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
+	'extensions/positron-environment-modules',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebooks',

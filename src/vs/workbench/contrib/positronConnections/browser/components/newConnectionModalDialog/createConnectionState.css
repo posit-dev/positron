@@ -108,3 +108,8 @@
 	align-items: center;
 	gap: 6px;
 }
+
+.create-connection-inputs > .labeled-input > label > .drop-down-list-box {
+	flex: 1;
+	min-width: 0;
+}

@@ -68,6 +68,28 @@ class IntrinsicSize(BaseModel):
     )
 
 
+class PlotMetadata(BaseModel):
+    """
+    The plot's metadata
+    """
+
+    name: StrictStr = Field(
+        description="A human-readable name for the plot",
+    )
+
+    kind: StrictStr = Field(
+        description="The kind of plot e.g. 'Matplotlib', 'ggplot2', etc.",
+    )
+
+    execution_id: StrictStr = Field(
+        description="The ID of the code fragment that produced the plot",
+    )
+
+    code: StrictStr = Field(
+        description="The code fragment that produced the plot",
+    )
+
+
 class PlotResult(BaseModel):
     """
     A rendered plot
@@ -128,6 +150,9 @@ class PlotBackendRequest(str, enum.Enum):
     # Get the intrinsic size of a plot, if known.
     GetIntrinsicSize = "get_intrinsic_size"
 
+    # Get metadata for the plot
+    GetMetadata = "get_metadata"
+
     # Render a plot
     Render = "render"
 
@@ -140,6 +165,21 @@ class GetIntrinsicSizeRequest(BaseModel):
 
     method: Literal[PlotBackendRequest.GetIntrinsicSize] = Field(
         description="The JSON-RPC method name (get_intrinsic_size)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetMetadataRequest(BaseModel):
+    """
+    Get metadata for the plot
+    """
+
+    method: Literal[PlotBackendRequest.GetMetadata] = Field(
+        description="The JSON-RPC method name (get_metadata)",
     )
 
     jsonrpc: str = Field(
@@ -192,6 +232,7 @@ class PlotBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         GetIntrinsicSizeRequest,
+        GetMetadataRequest,
         RenderRequest,
     ] = Field(..., discriminator="method")
 
@@ -221,6 +262,8 @@ class UpdateParams(BaseModel):
 
 IntrinsicSize.update_forward_refs()
 
+PlotMetadata.update_forward_refs()
+
 PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
@@ -228,6 +271,8 @@ PlotSize.update_forward_refs()
 PlotRenderSettings.update_forward_refs()
 
 GetIntrinsicSizeRequest.update_forward_refs()
+
+GetMetadataRequest.update_forward_refs()
 
 RenderParams.update_forward_refs()
 

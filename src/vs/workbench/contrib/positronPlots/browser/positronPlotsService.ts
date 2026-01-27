@@ -132,6 +132,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidRemovePlot event */
 	private readonly _onDidRemovePlot = new Emitter<string>();
 
+	/** The emitter for the onDidUpdatePlotMetadata event */
+	private readonly _onDidUpdatePlotMetadata = new Emitter<string>();
+
 	/** The emitter for the onDidChangePlotsRenderSettings event */
 	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotRenderSettings>();
 
@@ -754,7 +757,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							created: Date.now(),
 							id: client.getClientId(),
 							session_id: session.sessionId,
-							parent_id: '',
 							code: '',
 							location: PlotClientLocation.View,
 							suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
@@ -762,7 +764,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							zoom_level: ZoomLevel.Fit,
 						};
 						const commProxy = this.createCommProxy(client, metadata);
-						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
+						const plotClient = this.createRuntimePlotClient(commProxy, metadata);
+						// Fetch metadata from the backend to populate kind, name, execution_id, and code
+						this.fetchAndUpdateMetadata(commProxy, metadata, plotClient);
+						plotClients.push(plotClient);
 					}
 				} else {
 					console.warn(
@@ -837,7 +842,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					created: Date.parse(event.message.when),
 					id: clientId,
 					session_id: session.sessionId,
-					parent_id: event.message.parent_id,
 					code,
 					pre_render: data?.pre_render,
 					suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
@@ -848,6 +852,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Register the plot client
 				const commProxy = this.createCommProxy(event.client, metadata);
 				const plotClient = this.createRuntimePlotClient(commProxy, metadata);
+				// Fetch metadata from the backend to populate kind, name, execution_id, and code
+				this.fetchAndUpdateMetadata(commProxy, metadata, plotClient);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible.
@@ -1069,6 +1075,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidEmitPlot: Event<IPositronPlotClient> = this._onDidEmitPlot.event;
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
+	onDidUpdatePlotMetadata: Event<string> = this._onDidUpdatePlotMetadata.event;
 	onDidReplacePlots: Event<IPositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
@@ -1394,8 +1401,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
 
+		// Get the most recent execution ID and code, if available.
+		const executionId = this._recentExecutionIds.length > 0
+			? this._recentExecutionIds[this._recentExecutionIds.length - 1]
+			: undefined;
+		const code = executionId ? this._recentExecutions.get(executionId) : undefined;
+
 		// Create the plot client.
-		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event);
+		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event, executionId, code);
 
 		// Register the new plot client
 		this.registerWebviewPlotClient(plotClient);
@@ -1535,6 +1548,49 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		plotClient.dispose();
+	}
+
+	/**
+	 * Fetches metadata from the backend and updates the metadata object.
+	 * The metadata object is updated in place with the fetched values.
+	 *
+	 * @param commProxy The comm proxy to use for fetching metadata
+	 * @param metadata The metadata object to update
+	 * @param plotClient Optional plot client to notify when metadata is updated
+	 */
+	private async fetchAndUpdateMetadata(
+		commProxy: PositronPlotCommProxy,
+		metadata: IPositronPlotMetadata,
+		plotClient?: PlotClientInstance
+	): Promise<void> {
+		try {
+			const backendMetadata = await commProxy.getMetadata();
+			// Update the metadata with the fetched values
+			metadata.kind = backendMetadata.kind;
+			metadata.name = backendMetadata.name;
+			metadata.execution_id = backendMetadata.execution_id;
+			// Only update code if we don't already have it from recent executions
+			if (!metadata.code) {
+				metadata.code = backendMetadata.code;
+			}
+			// Store the updated metadata
+			this.storePlotMetadata(metadata);
+			// Notify the plot client if provided - also update its metadata copy
+			if (plotClient) {
+				plotClient.metadata.kind = backendMetadata.kind;
+				plotClient.metadata.name = backendMetadata.name;
+				plotClient.metadata.execution_id = backendMetadata.execution_id;
+				if (!plotClient.metadata.code) {
+					plotClient.metadata.code = backendMetadata.code;
+				}
+				plotClient.notifyMetadataUpdated();
+			}
+			// Fire the service-level event to notify UI components
+			this._onDidUpdatePlotMetadata.fire(metadata.id);
+		} catch (err) {
+			// Log the error but don't fail - we can still use the plot with partial metadata
+			this._logService.warn(`Failed to fetch metadata for plot ${metadata.id}: ${err}`);
+		}
 	}
 
 	/**

@@ -17,21 +17,14 @@
  * that users rely on, while keeping the e2e suite more lean and maintainable.
  */
 
-import { test, tags } from '../_test.setup.js';
+import { tags } from '../_test.setup';
+import { test } from './_test.setup.js';
 
 test.use({ suiteId: __filename });
 
 test.describe('Positron Notebook Debugging', {
 	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
 }, () => {
-
-	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-	});
-
-	test.afterEach(async ({ hotKeys }) => {
-		await hotKeys.closeAllEditors();
-	});
 
 	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
 		const { notebooksPositron, debug } = app.workbench;

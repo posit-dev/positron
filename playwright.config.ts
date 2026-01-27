@@ -14,6 +14,22 @@ type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorker
 process.env.PW_TEST = '1';
 const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 const githubSummaryReport = process.env.GH_SUMMARY_REPORT === 'true' ? [['@midleman/github-actions-reporter', {}] as const] : [];
+const currentsReporters = process.env.ENABLE_CURRENTS_REPORTER === 'true'
+	? [currentsReporter({
+		ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+		recordKey: process.env.CURRENTS_RECORD_KEY || '',
+		projectId: 'ZOs5z2',
+		disableTitleTags: true,
+	})]
+	: [];
+const customReporter = process.env.ENABLE_CUSTOM_REPORTER !== 'false'
+	? [['@midleman/playwright-reporter',
+		{
+			repoName: 'positron',
+			mode: 'prod'
+		},
+	] as const]
+	: [];
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -33,7 +49,7 @@ export default defineConfig<ExtendedTestOptions>({
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
 	shardingMode: 'duration-round-robin',
-	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
+	// @ts-expect-error lastRunFile added by playwright patch
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: process.env.ALLOW_PYREFLY === 'true'
 		? baseIgnore
@@ -53,16 +69,10 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			...githubSummaryReport,
+			...currentsReporters,
+			...customReporter,
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
-			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
-				? [currentsReporter({
-					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-					recordKey: process.env.CURRENTS_RECORD_KEY || '',
-					projectId: 'ZOs5z2',
-					disableTitleTags: true,
-				})]
-				: [])
 		]
 		: [
 			['list'],

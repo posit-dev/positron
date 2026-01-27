@@ -145,6 +145,7 @@ export class Terminal {
 		// dismissing dialog can be erratic, allow retries
 		for (let i = 0; i < 4; i++) {
 			try {
+				await menu.focus({ timeout: 2000 });
 				await menu.locator(`[aria-label="${action}"]`).click({ timeout: 2000 });
 				await expect(menu).toBeHidden({ timeout: 2000 });
 				break;

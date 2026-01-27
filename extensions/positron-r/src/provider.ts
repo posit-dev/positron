@@ -12,13 +12,14 @@ import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
+import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -51,6 +52,7 @@ export enum RRuntimeSource {
 	homebrew = 'Homebrew',
 	conda = 'Conda',
 	pixi = 'Pixi',
+	module = 'Module',
 }
 
 /**
@@ -154,6 +156,26 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 }
 
 /**
+ * Register a module runtime with the environment-modules API for tracking.
+ */
+export async function registerModuleRuntimeWithApi(
+	environmentName: string,
+	interpreterPath: string
+): Promise<void> {
+	try {
+		const api = await getEnvironmentModulesApi();
+		if (api) {
+			api.registerDiscoveredRuntime(environmentName, 'r', interpreterPath);
+			LOGGER.info(
+				`Registered module runtime ${interpreterPath} for environment "${environmentName}" with environment-modules API`
+			);
+		}
+	} catch (error) {
+		LOGGER.warn(`Failed to register module runtime with environment-modules API: ${error}`);
+	}
+}
+
+/**
  * Discover binaries on the system based on various sources and return them.
  * @returns A list of unique R binaries and the current binary if it exists.
  */
@@ -170,6 +192,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
 	const pixiBinaries = await discoverPixiBinaries();
+	const moduleBinaries = await discoverModuleBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -186,6 +209,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 		...systemBinaries,
 		...condaBinaries,
 		...pixiBinaries,
+		...moduleBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -248,10 +272,13 @@ export async function makeMetadata(
 
 	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
 	const isPixiInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.PIXI);
+	const isModuleInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.MODULE);
 
-	// Be sure to check for pixi/conda installations first, as they can be installed via Homebrew
+	// Be sure to check for pixi/conda/module installations first, as they can be installed via Homebrew
 	let runtimeSource = RRuntimeSource.system;
-	if (isPixiInstallation) {
+	if (isModuleInstallation) {
+		runtimeSource = RRuntimeSource.module;
+	} else if (isPixiInstallation) {
 		runtimeSource = RRuntimeSource.pixi;
 	} else if (isCondaInstallation) {
 		runtimeSource = RRuntimeSource.conda;
@@ -266,7 +293,9 @@ export async function makeMetadata(
 
 	// Full name shown to users
 	let packagerAmendment = '';
-	if (isCondaInstallation && rInst.packagerMetadata) {
+	if (isModuleInstallation && rInst.packagerMetadata && isModuleMetadata(rInst.packagerMetadata)) {
+		packagerAmendment = ` (Module: ${rInst.packagerMetadata.environmentName})`;
+	} else if (isCondaInstallation && rInst.packagerMetadata && isCondaMetadata(rInst.packagerMetadata)) {
 		packagerAmendment = ` (Conda: ${path.basename(rInst.packagerMetadata.environmentPath)})`;
 	} else if (isPixiInstallation && rInst.packagerMetadata && isPixiMetadata(rInst.packagerMetadata)) {
 		packagerAmendment = ` (Pixi: ${rInst.packagerMetadata.environmentName || path.basename(rInst.packagerMetadata.environmentPath)})`;

@@ -315,14 +315,6 @@
               "preview"
             ]
           },
-          "positron.assistant.notebookMode.enable": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "%configuration.notebookMode.enable.description%",
-            "tags": [
-              "experimental"
-            ]
-          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,
@@ -478,6 +470,11 @@
               }
             },
             "additionalProperties": false
+          },
+          "positron.assistant.bedrock.inferenceProfileRegion": {
+            "type": "string",
+            "default": null,
+            "markdownDescription": "%configuration.bedrock.inferenceProfileRegion.description%"
           },
           "positron.assistant.providerVariables.snowflake": {
             "type": "object",
@@ -659,7 +656,7 @@
       {
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
-        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
+        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `variableNames` is empty, lists all root-level variables in the session.",
         "icon": "$(positron-variables-view)",
         "toolReferenceName": "inspectVariables",
         "userDescription": "Inspect data and variables in the current session",
@@ -671,22 +668,18 @@
               "type": "string",
               "description": "The identifier of the session to inspect."
             },
-            "accessKeys": {
+            "variableNames": {
               "type": "array",
-              "description": "An array of variables to inspect.",
+              "description": "An array of variable names to inspect.",
               "items": {
-                "type": "array",
-                "description": "A list of access keys that identify a variable by specifying its path.",
-                "items": {
-                  "type": "string",
-                  "description": "An access key that uniquely identifies a variable among its siblings."
-                }
+                "type": "string",
+                "description": "The name of a variable to inspect."
               }
             }
           },
           "required": [
             "sessionIdentifier",
-            "accessKeys"
+            "variableNames"
           ]
         },
         "tags": [
@@ -722,22 +715,18 @@
               "type": "string",
               "description": "The identifier of the session that contains the tables."
             },
-            "accessKeys": {
+            "variableNames": {
               "type": "array",
-              "description": "An array of table variables to summarize.",
+              "description": "An array of table variable names to summarize.",
               "items": {
-                "type": "array",
-                "description": "A list of access keys that identify a variable by specifying its path.",
-                "items": {
-                  "type": "string",
-                  "description": "An access key that uniquely identifies a variable among its siblings."
-                }
+                "type": "string",
+                "description": "The name of a table variable to summarize."
               }
             }
           },
           "required": [
             "sessionIdentifier",
-            "accessKeys"
+            "variableNames"
           ]
         },
         "tags": [
@@ -974,25 +963,26 @@
     "pretest": "npm run compile"
   },
   "devDependencies": {
-    "@ai-sdk/amazon-bedrock": "2.2.12",
-    "@ai-sdk/anthropic": "^1.0.5",
-    "@ai-sdk/azure": "^1.1.9",
-    "@ai-sdk/google": "^1.1.17",
-    "@ai-sdk/google-vertex": "^2.1.8",
-    "@ai-sdk/mistral": "^1.1.6",
-    "@ai-sdk/openai": "^1.0.8",
+    "@ai-sdk/amazon-bedrock": "^3.0.65",
+    "@ai-sdk/anthropic": "^2.0.53",
+    "@ai-sdk/azure": "^2.0.78",
+    "@ai-sdk/google": "^2.0.44",
+    "@ai-sdk/google-vertex": "^3.0.85",
+    "@ai-sdk/mistral": "^2.0.25",
+    "@ai-sdk/openai": "^2.0.76",
     "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",
-    "@openrouter/ai-sdk-provider": "^0.0.6",
+    "@openrouter/ai-sdk-provider": "^1.3.0",
     "@stylistic/eslint-plugin": "^2.9.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "^20",
     "@types/sinon": "^17.0.3",
-    "ai": "^4.3.19",
+    "ai": "^5.0.106",
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
     "mocha": "^9.2.1",
-    "ollama-ai-provider": "^1.1.0",
+    "ollama-ai-provider-v2": "^1.0.2",
+    "openai": "^6.10.0",
     "sinon": "^17.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
@@ -1000,6 +990,7 @@
     "zod": "^3.24.1"
   },
   "dependencies": {
+    "@ai-sdk/provider-utils": "^2.1.3",
     "@anthropic-ai/sdk": "^0.57.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "yaml": "^2.8.1"

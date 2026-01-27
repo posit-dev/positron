@@ -11,6 +11,11 @@ name: "Test: Unit"
 on:
   workflow_call:
     inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
       save_cache:
         required: false
         description: "Whether to save caches after the run (only one job per workflow should save to avoid race conditions)"
@@ -35,6 +40,8 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit || github.ref }}
 
       - uses: actions/setup-node@v6
         with:
@@ -75,6 +82,8 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Capture file tree before npm install (for cache validation)
             find . -type f -o -type l | grep -v "node_modules/" | sort > /tmp/files-before-npm-install.txt
 

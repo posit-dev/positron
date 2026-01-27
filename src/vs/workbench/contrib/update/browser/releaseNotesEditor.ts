@@ -388,6 +388,30 @@ export class ReleaseNotesManager extends Disposable {
 
 					header { display: flex; align-items: center; padding-top: 1em; }
 
+					/* --- Start Positron --- */
+					/* Release notes header with logo */
+					.release-notes-header {
+						display: flex;
+						align-items: center;
+						gap: 16px;
+						padding: 1em 0 0.5em 0;
+						margin-bottom: 0.5em;
+					}
+
+					.release-notes-header .positron-logo {
+						width: 48px;
+						height: 48px;
+						flex-shrink: 0;
+					}
+
+					.release-notes-header h1 {
+						margin: 0;
+						font-size: 2.4rem;
+						font-weight: 600;
+						color: var(--vscode-foreground);
+					}
+					/* --- End Positron --- */
+
 					/* Release notes enhancements from vscode-docs */
 					html {
 						font-size: 10px;
@@ -559,6 +583,16 @@ export class ReleaseNotesManager extends Disposable {
 				</style>
 			</head>
 			<body>
+				<!-- Start Positron -->
+				<div class="release-notes-header">
+					<svg class="positron-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 440">
+						<rect x="12" y="12" width="416" height="416" rx="103" ry="103" fill="#3a78b1"/>
+						<path d="M83.6,373.6v-178.6c0-63,52.4-143.7,142.7-143.7s144.1,69.7,144.1,141.1c0,122.6-116.6,143.1-116.6,143.1,0,0,7.2-11.5,7.2-29.5s-8-28-8-28c0,0,60-16,60-87s-53-83-86-83c-57,0-88.3,48.5-88.3,84.3v181.9c0,25.9-17.5,23.9-17.5,23.9h-19.2s-18.4,0-18.4-24.4Z" fill="#fff"/>
+						<circle cx="204.9" cy="306.6" r="48" fill="#fff"/>
+					</svg>
+					<h1>${nls.localize('positronReleaseNotesTitle', "Release Notes: Positron {0}", this._productService.positronVersion)}</h1>
+				</div>
+				<!-- End Positron -->
 				${processedContent}
 				<script nonce="${nonce}">
 					const vscode = acquireVsCodeApi();

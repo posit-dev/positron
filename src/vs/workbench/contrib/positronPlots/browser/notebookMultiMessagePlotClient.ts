@@ -40,7 +40,7 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 		// Create the metadata for the plot.
 		super({
 			id: _displayMessage.id,
-			parent_id: _displayMessage.parent_id,
+			execution_id: _displayMessage.parent_id,
 			created: Date.parse(_displayMessage.when),
 			session_id: _session.sessionId,
 			code: code ? code : '',

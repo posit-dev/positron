@@ -98,6 +98,12 @@
 		width: 100%;
 	}
 
+	/* For raw html content: ensure divs don't overflow parent container due to padding */
+	.raw-html-content > * {
+		box-sizing: border-box;
+		max-width: 100%;
+	}
+
 	table {
 		border-collapse: collapse;
 		border-spacing: 0;
