@@ -210,7 +210,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 			}
 
 			if (missingFields.length > 0) {
-				this.logger.warn(`Tool '${tool.name}' is missing input schema fields: ${missingFields.join(', ')}; using defaults`);
+				this.logger.trace(`Tool '${tool.name}' is missing input schema fields: ${missingFields.join(', ')}; using defaults`);
 			}
 
 			const input_schema: Record<string, any> = {
