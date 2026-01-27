@@ -7,10 +7,11 @@
 import './CodeCellStatusFooter.css';
 
 // React.
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';
@@ -33,6 +34,28 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const duration = useObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
 	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
+
+	// The lastRunEndTime value doesn't change after execution completes, which means the
+	// relative time recalculation won't happen. We need to force a re-render every minute
+	// while there is a lastRunEndTime to keep the relative time display accurate. We can
+	// do that by updating a dummy state value on an interval.
+	const [, setTick] = useState(0);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (lastRunEndTime === undefined) {
+			return;
+		}
+
+		// update dummy state every minute
+		const window = DOM.getWindow(containerRef.current);
+		const intervalId = window.setInterval(() => {
+			setTick(tick => tick + 1);
+		}, 60000);
+
+		// cleanup interval on unmount
+		return () => window.clearInterval(intervalId);
+	}, [lastRunEndTime]);
 
 	// Derive state conditions
 	const hasExecutionOrder = executionOrder !== undefined;
@@ -147,6 +170,7 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 
 	return (
 		<div
+			ref={containerRef}
 			aria-label={getAriaLabel()}
 			aria-live={isCurrentlyRunning ? 'polite' : 'off'}
 			className='positron-notebook-code-cell-footer'
