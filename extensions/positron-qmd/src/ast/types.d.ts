@@ -346,12 +346,17 @@ export type MetaValue =
 
 //#region Source Mapping
 
-/** Byte offset range for source mapping */
-export interface SourceInfo {
-	/** Start byte offset from beginning of source */
-	startOffset: number;
-	/** End byte offset from beginning of source */
-	endOffset: number;
+/**
+ * Compact source info entry in sourceInfoPool.
+ * Format: {"r": [start, end], "t": type_code, "d": data}
+ */
+export interface SourceInfoPoolEntry {
+	/** Range [startOffset, endOffset] */
+	r: [start: number, end: number];
+	/** Type code: 0=Original (from file), 1=Substring (child of another entry) */
+	t: number;
+	/** Data: file_id for type 0, parent_id for type 1 */
+	d: number;
 }
 
 /** AST context containing source mapping information */
@@ -360,8 +365,8 @@ export interface ASTContext {
 	files: unknown[];
 	/** Maps top-level metadata keys to source info pool indices */
 	metaTopLevelKeySources: Record<string, number>;
-	/** Pool of source byte offset ranges, referenced by BaseNode.s */
-	sourceInfoPool: SourceInfo[];
+	/** Pool of source info entries, referenced by Node.s */
+	sourceInfoPool: SourceInfoPoolEntry[];
 }
 
 //#endregion Source Mapping
