@@ -22,7 +22,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	private readonly _outputs;
 
 	// Output collapse state
-	private readonly _outputIsCollapsed = observableValue<boolean>('outputIsCollapsed', false);
+	private readonly _outputIsCollapsed: ISettableObservable<boolean>;
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -38,6 +38,12 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super(cellModel, instance, _executionStateService, _textModelResolverService);
+
+		// Initialize output collapse state from cell model if available
+		this._outputIsCollapsed = observableValue<boolean>(
+			'outputIsCollapsed',
+			cellModel.collapseState?.outputCollapsed ?? false
+		);
 
 		this._outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
 			/** @description cellOutputs */
