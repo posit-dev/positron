@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { observableFromEvent } from '../../../../../base/common/observable.js';
+import { ISettableObservable, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -20,6 +20,9 @@ import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
 	private readonly _outputs;
+
+	// Output collapse state
+	private readonly _outputIsCollapsed = observableValue<boolean>('outputIsCollapsed', false);
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -60,6 +63,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	override get outputs() {
 		return this._outputs;
+	}
+
+	get outputIsCollapsed(): ISettableObservable<boolean> {
+		return this._outputIsCollapsed;
+	}
+
+	collapseOutput(): void {
+		this._outputIsCollapsed.set(true, undefined);
+	}
+
+	expandOutput(): void {
+		this._outputIsCollapsed.set(false, undefined);
+	}
+
+	toggleOutputCollapse(): void {
+		this._outputIsCollapsed.set(!this._outputIsCollapsed.get(), undefined);
 	}
 
 	/**

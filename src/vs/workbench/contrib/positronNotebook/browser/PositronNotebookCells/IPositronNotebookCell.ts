@@ -241,6 +241,11 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	readonly outputs: IObservable<NotebookCellOutputs[]>;
 
 	/**
+	 * Whether the cell outputs are collapsed
+	 */
+	readonly outputIsCollapsed: ISettableObservable<boolean>;
+
+	/**
 	 * Duration of the last execution in milliseconds
 	 */
 	readonly lastExecutionDuration: IObservable<number | undefined>;
@@ -259,6 +264,21 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Timestamp when the last execution ended
 	 */
 	readonly lastRunEndTime: IObservable<number | undefined>;
+
+	/**
+	 * Collapse the cell outputs
+	 */
+	collapseOutput(): void;
+
+	/**
+	 * Expand the cell outputs
+	 */
+	expandOutput(): void;
+
+	/**
+	 * Toggle the collapse state of cell outputs
+	 */
+	toggleOutputCollapse(): void;
 }
 
 
