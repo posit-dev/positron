@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CELL_BOUNDARY_MARKER, VSCODE_TO_QUARTO_LANGUAGE } from './constants.js';
+import { CELL_BOUNDARY_MARKER, DEFAULT_FENCE_LENGTH, VSCODE_TO_QUARTO_LANGUAGE } from './constants.js';
+import { getFenceLength, isFrontmatterCell } from './metadata.js';
 
 /** Convert VS Code NotebookData to QMD string */
 export function serialize(data: vscode.NotebookData): string {
@@ -12,7 +13,7 @@ export function serialize(data: vscode.NotebookData): string {
 	let cellIndex = 0;
 
 	const firstCell = data.cells[0];
-	if (firstCell?.metadata?.qmdCellType === 'frontmatter') {
+	if (firstCell && isFrontmatterCell(firstCell)) {
 		const content = firstCell.value.trim();
 		if (content) {
 			parts.push(content);
@@ -46,6 +47,7 @@ function serializeCodeCell(cell: vscode.NotebookCellData): string {
 	const language = cell.languageId;
 	const quartoLang = VSCODE_TO_QUARTO_LANGUAGE[language] || language;
 	const fenceInfo = quartoLang ? `{${quartoLang}}` : '';
+	const fence = '`'.repeat(getFenceLength(cell) ?? DEFAULT_FENCE_LENGTH);
 
-	return '```' + fenceInfo + '\n' + code + '\n```';
+	return fence + fenceInfo + '\n' + code + '\n' + fence;
 }

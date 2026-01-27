@@ -18,3 +18,6 @@ export const QUARTO_TO_VSCODE_LANGUAGE: Record<string, string> = {
 export const VSCODE_TO_QUARTO_LANGUAGE: Record<string, string> = Object.fromEntries(
 	Object.entries(QUARTO_TO_VSCODE_LANGUAGE).map(([k, v]) => [v, k])
 );
+
+/** Default number of backticks in a code fence */
+export const DEFAULT_FENCE_LENGTH = 3;

@@ -6,8 +6,11 @@
 import * as vscode from 'vscode';
 import { QmdDocument, Block, CodeBlock, RawBlock } from './ast/index.js';
 import * as ast from './ast/index.js';
-import { CELL_MARKER_REGEX, QUARTO_TO_VSCODE_LANGUAGE } from './constants.js';
+import { CELL_MARKER_REGEX, DEFAULT_FENCE_LENGTH, QUARTO_TO_VSCODE_LANGUAGE } from './constants.js';
+import { CellMetadataWithQuarto } from './metadata.js';
 import { TextDecoder } from 'util';
+
+const BACKTICK = 0x60;
 
 /** Convert parsed QMD document to VS Code NotebookData */
 export function deserialize(
@@ -54,7 +57,7 @@ function createFrontmatterCell(
 		value,
 		'yaml'
 	);
-	cell.metadata = { qmdCellType: 'frontmatter' };
+	cell.metadata = { quarto: { type: 'frontmatter' } } satisfies CellMetadataWithQuarto;
 	return cell;
 }
 
@@ -77,7 +80,7 @@ function createContentCells(
 	for (const block of doc.blocks) {
 		if (block.t === 'CodeBlock') {
 			flush();
-			cells.push(createCodeCell(block));
+			cells.push(createCodeCell(block, content));
 		} else if (block.t === 'RawBlock') {
 			flush();
 			cells.push(createRawCell(block));
@@ -91,16 +94,33 @@ function createContentCells(
 	return cells;
 }
 
+/** Count consecutive occurrences of a byte value starting at offset */
+function countByte(bytes: Uint8Array, value: number, offset: number): number {
+	let count = 0;
+	while (bytes[offset + count] === value) {
+		count++;
+	}
+	return count;
+}
+
 /** Create code cell from executable code block */
-function createCodeCell(block: CodeBlock): vscode.NotebookCellData {
+function createCodeCell(block: CodeBlock, content: Uint8Array): vscode.NotebookCellData {
 	const code = ast.content(block);
 	const rawLanguage = ast.language(block) ?? '';
 	const language = QUARTO_TO_VSCODE_LANGUAGE[rawLanguage] || rawLanguage || 'text';
-	return new vscode.NotebookCellData(
+	const cell = new vscode.NotebookCellData(
 		vscode.NotebookCellKind.Code,
 		code,
 		language
 	);
+	const start = ast.startOffset(block);
+	if (start !== undefined) {
+		const fenceLength = countByte(content, BACKTICK, start);
+		if (fenceLength > DEFAULT_FENCE_LENGTH) {
+			cell.metadata = { quarto: { fenceLength } } satisfies CellMetadataWithQuarto;
+		}
+	}
+	return cell;
 }
 
 /** Create code cell from raw block (e.g., latex, html) */
