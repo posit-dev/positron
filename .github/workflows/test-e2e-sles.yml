@@ -195,6 +195,10 @@ jobs:
         with:
           project: ${{ inputs.project }}
 
+      - name: Start Fluxbox
+        run: DISPLAY=:10 fluxbox &
+        shell: bash
+
       - name: 🧪 Run Playwright Tests
         shell: bash
         env:
