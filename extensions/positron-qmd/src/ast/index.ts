@@ -25,8 +25,25 @@ import type {
 	MetaMap,
 	MetaBool,
 	Node,
+	QmdDocument,
 	RawBlock,
 } from './types';
+
+/** Check if document has YAML frontmatter metadata */
+export function hasMeta(doc: QmdDocument): boolean {
+	return doc.meta && Object.keys(doc.meta).length > 0;
+}
+
+/**
+ * Get frontmatter byte range [start, end], or undefined if no frontmatter.
+ * When a document has meta, sourceInfoPool[0] is the full frontmatter block including --- delimiters.
+ */
+export function frontmatterRange(doc: QmdDocument): [start: number, end: number] | undefined {
+	if (!hasMeta(doc)) {
+		return undefined;
+	}
+	return doc.astContext.sourceInfoPool[0].r;
+}
 
 /** Get start byte offset from any node, or undefined if no location info */
 export function startOffset(node: Node): number | undefined {
