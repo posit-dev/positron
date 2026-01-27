@@ -24,6 +24,78 @@
         "command": "positronNotebookHelpers.fetchRemoteImage",
         "title": "Fetch Remote Image"
       }
+    ],
+    "walkthroughs": [
+      {
+        "id": "positron-notebook-intro",
+        "title": "%notebooks.walkthrough.title%",
+        "description": "%notebooks.walkthrough.description%",
+        "steps": [
+          {
+            "id": "enableNotebookEditor",
+            "title": "%notebooks.walkthrough.step1.title%",
+            "description": "%notebooks.walkthrough.step1.description%",
+            "media": {
+              "markdown": "resources/walkthrough/enable-notebook-editor.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:positron.notebook.enabled"
+            ]
+          },
+          {
+            "id": "openDemoNotebook",
+            "title": "%notebooks.walkthrough.step2.title%",
+            "description": "%notebooks.walkthrough.step2.description%",
+            "media": {
+              "markdown": "resources/walkthrough/open-demo-notebook.md"
+            },
+            "completionEvents": [
+              "onCommand:positron.workbench.action.newFolderFromGit",
+              "onCommand:workbench.action.files.openFolder"
+            ]
+          },
+          {
+            "id": "setupPythonEnvironment",
+            "title": "%notebooks.walkthrough.step3.title%",
+            "description": "%notebooks.walkthrough.step3.description%",
+            "media": {
+              "markdown": "resources/walkthrough/setup-python-environment.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.language.runtime.selectSession",
+              "onCommand:python.createEnvironment"
+            ]
+          },
+          {
+            "id": "exploreYourData",
+            "title": "%notebooks.walkthrough.step4.title%",
+            "description": "%notebooks.walkthrough.step4.description%",
+            "media": {
+              "markdown": "resources/walkthrough/explore-your-data.md"
+            }
+          },
+          {
+            "id": "tryNotebookAI",
+            "title": "%notebooks.walkthrough.step5.title%",
+            "description": "%notebooks.walkthrough.step5.description%",
+            "media": {
+              "markdown": "resources/walkthrough/try-notebook-ai.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.chat.openEditSession",
+              "onCommand:positronNotebook.askAssistant"
+            ]
+          },
+          {
+            "id": "shapeFuture",
+            "title": "%notebooks.walkthrough.step6.title%",
+            "description": "%notebooks.walkthrough.step6.description%",
+            "media": {
+              "markdown": "resources/walkthrough/shape-future.md"
+            }
+          }
+        ]
+      }
     ]
   },
   "main": "./out/extension.js",
