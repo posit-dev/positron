@@ -219,17 +219,13 @@ This ensures consistent, scriptable access to GitHub data and integrates well wi
 
 ## UI Component Reuse
 
-When implementing UI controls, search existing components before creating new:
-- `src/vs/platform/positronActionBar/browser/components/` - ActionBarToggle, ActionBarButton, etc.
-- `src/vs/base/browser/ui/positronComponents/` - ScreenReaderOnly, Button, splitters
-- `src/vs/workbench/browser/positronComponents/` - Modal dialogs, popover
+Before creating new UI controls, search existing Positron components:
+- Glob: `**/positron**/components/*.tsx`, `**/positronComponents/**/*.tsx`
+- Key directories: `positronActionBar`, `positronComponents`, `positronModalDialog`
 
-**Important:** Action bar components (e.g., ActionBarToggle) use `useRegisterWithActionBar` hook requiring `PositronActionBarContext`. They cannot be used directly in modals or other contexts - copy the CSS styling instead.
+**Constraint:** Action bar components require `PositronActionBarContext` and can't be used directly in modals—copy CSS patterns instead.
 
-### CSS Patterns
-- Use `ScreenReaderOnly` component or visually-hidden CSS (`clip: rect(0,0,0,0)`) for accessible hidden inputs
-- Use `positronClassNames` from `vs/base/common/positronUtilities.ts` for conditional class names
-- Match existing patterns by searching CSS files for similar components
+For comprehensive patterns and examples, read `.claude/ui-components.md`.
 
 ## Directory Structure
 
