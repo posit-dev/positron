@@ -348,10 +348,10 @@ export class MainThreadDebugService implements MainThreadDebugServiceShape, IDeb
 	}
 
 	// --- Start Positron ---
-	public $setSuppressDebugToolbar(sessionId: DebugSessionUUID, suppress: boolean): void {
+	public $setDebugSessionForeground(sessionId: DebugSessionUUID, foreground: boolean): void {
 		const session = this.debugService.getModel().getSession(sessionId);
 		if (session) {
-			this.debugService.setSessionSuppressDebugToolbar(session, suppress);
+			this.debugService.setSessionForeground(session, foreground);
 		}
 	}
 	// --- End Positron ---
