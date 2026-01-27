@@ -57,7 +57,7 @@ export interface DynamicActionBarAction {
 	/**
 	 * The component to be rendered for the action bar.
 	 */
-	component: JSX.Element | (() => JSX.Element);
+	component: React.JSX.Element | (() => React.JSX.Element);
 
 	/**
 	 * The overflow custom context menu item.
@@ -211,7 +211,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 	// If the exemplar is available, we can calculate widths and construct the grid.
 	const gridColumns: string[] = [];
-	const gridComponents: JSX.Element[] = [];
+	const gridComponents: React.JSX.Element[] = [];
 	if (refExemplar.current) {
 		// Get the exemplar window and style.
 		const exemplarWindow = DOM.getWindow(refExemplar.current);
@@ -308,10 +308,10 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		 * @param gridEntries The grid entries.
 		 * @returns
 		 */
-		const layoutGridEntries = (gridEntries: GridEntry[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
+		const layoutGridEntries = (gridEntries: GridEntry[]): [gridColumns: string[], gridElements: React.JSX.Element[]] => {
 			// Create the grid columns and grid elements.
 			const gridColumns: string[] = [];
-			const gridElements: JSX.Element[] = [];
+			const gridElements: React.JSX.Element[] = [];
 
 			// Layout the grid entries.
 			let appendSeparator = false;

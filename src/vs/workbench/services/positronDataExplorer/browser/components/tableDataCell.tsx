@@ -26,7 +26,7 @@ interface TableDataCellProps {
 }
 
 export function renderLeadingTrailingWhitespace(text: string | undefined) {
-	const parts: (string | JSX.Element)[] = [];
+	const parts: (string | React.JSX.Element)[] = [];
 
 	text = text ?? '';
 
