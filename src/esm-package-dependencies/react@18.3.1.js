@@ -1,3 +1,0 @@
-/* eslint-disable */
-export * from "./react@18.3.1/es2022/react.mjs";
-export { default } from "./react@18.3.1/es2022/react.mjs";
