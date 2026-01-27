@@ -7,7 +7,7 @@
 import './AssistantPanel.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
