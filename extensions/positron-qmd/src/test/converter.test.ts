@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { QmdParser } from '../parser.js';
+import { QmdNotebookParser } from '../notebookParser.js';
 import { QmdNotebookSerializer } from '../notebookSerializer.js';
 import { serialize as serializeNotebook } from '../serialize.js';
 import { isFrontmatterCell } from '../metadata.js';
@@ -23,7 +23,7 @@ suite('QMD to NotebookData Converter', () => {
 	suiteSetup(async () => {
 		const extension = vscode.extensions.getExtension(EXTENSION_ID);
 		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
-		const parser = new QmdParser(extension.extensionUri);
+		const parser = new QmdNotebookParser(extension.extensionUri);
 		const log = vscode.window.createOutputChannel('QMD Test', { log: true });
 		serializer = new QmdNotebookSerializer(parser, log);
 	});
@@ -424,7 +424,7 @@ suite('Deserialize with cell markers', () => {
 	suiteSetup(async () => {
 		const extension = vscode.extensions.getExtension(EXTENSION_ID);
 		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
-		const parser = new QmdParser(extension.extensionUri);
+		const parser = new QmdNotebookParser(extension.extensionUri);
 		const log = vscode.window.createOutputChannel('QMD Test Cell Markers', { log: true });
 		serializer = new QmdNotebookSerializer(parser, log);
 	});
@@ -492,7 +492,7 @@ suite('Round-trip serialization', () => {
 	suiteSetup(async () => {
 		const extension = vscode.extensions.getExtension(EXTENSION_ID);
 		assert.ok(extension, `Extension ${EXTENSION_ID} should be present`);
-		const parser = new QmdParser(extension.extensionUri);
+		const parser = new QmdNotebookParser(extension.extensionUri);
 		const log = vscode.window.createOutputChannel('QMD Test Round-trip', { log: true });
 		serializer = new QmdNotebookSerializer(parser, log);
 	});

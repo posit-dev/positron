@@ -45,7 +45,8 @@
 		}
 	},
 	"dependencies": {
-		"wasm-qmd-parser": "file:../../../kyoto/crates/wasm-qmd-parser/pkg"
+		"wasm-qmd-parser": "file:../../../kyoto/crates/wasm-qmd-parser/pkg",
+		"wasm-positron-qmd-notebook": "file:../../../kyoto/crates/wasm-positron-qmd-notebook/pkg"
 	},
 	"devDependencies": {
 		"@types/glob": "^7.2.0",

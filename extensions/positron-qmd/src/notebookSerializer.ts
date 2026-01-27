@@ -4,18 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { QmdParser } from './parser.js';
-import { deserialize } from './deserialize.js';
-import { serialize } from './serialize.js';
+import { QmdNotebookParser, NotebookCell } from './notebookParser.js';
 import { TextDecoder, TextEncoder } from 'util';
 
-/**
- * Notebook serializer for QMD files.
- * Converts QMD content to VS Code NotebookData for display in the notebook editor.
- */
 export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 	constructor(
-		private readonly _parser: QmdParser,
+		private readonly _parser: QmdNotebookParser,
 		private readonly _log: vscode.LogOutputChannel
 	) { }
 
@@ -24,8 +18,8 @@ export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 		_token: vscode.CancellationToken
 	): Promise<vscode.NotebookData> {
 		try {
-			const doc = await this._parser.parse(new TextDecoder().decode(content));
-			return deserialize(doc, content);
+			const cells = await this._parser.parse(new TextDecoder().decode(content));
+			return this._toNotebookData(cells);
 		} catch (error) {
 			this._log.error(`Failed to parse QMD file: ${error}`);
 			throw error;
@@ -37,11 +31,35 @@ export class QmdNotebookSerializer implements vscode.NotebookSerializer {
 		_token: vscode.CancellationToken
 	): Promise<Uint8Array> {
 		try {
-			const qmdText = serialize(data);
+			const cells = this._fromNotebookData(data);
+			const qmdText = await this._parser.serialize(cells);
 			return new TextEncoder().encode(qmdText);
 		} catch (error) {
 			this._log.error(`Failed to serialize QMD file: ${error}`);
 			throw error;
 		}
+	}
+
+	private _toNotebookData(cells: NotebookCell[]): vscode.NotebookData {
+		const vscCells = cells.map(cell => {
+			const kind = cell.kind === 'code'
+				? vscode.NotebookCellKind.Code
+				: vscode.NotebookCellKind.Markup;
+			const cellData = new vscode.NotebookCellData(kind, cell.content, cell.languageId);
+			if (cell.metadata) {
+				cellData.metadata = cell.metadata;
+			}
+			return cellData;
+		});
+		return new vscode.NotebookData(vscCells);
+	}
+
+	private _fromNotebookData(data: vscode.NotebookData): NotebookCell[] {
+		return data.cells.map((cell: vscode.NotebookCellData) => ({
+			kind: cell.kind === vscode.NotebookCellKind.Code ? 'code' : 'markup',
+			content: cell.value,
+			languageId: cell.languageId,
+			metadata: cell.metadata as NotebookCell['metadata'],
+		}));
 	}
 }

@@ -6,12 +6,11 @@
 import * as vscode from 'vscode';
 import { Disposable } from './util/disposable.js';
 import { QmdParser } from './parser.js';
+import { QmdNotebookParser } from './notebookParser.js';
 
-/**
- * Service that manages the QMD parser and its associated commands.
- */
 export class QmdParserService extends Disposable {
 	readonly parser: QmdParser;
+	readonly notebookParser: QmdNotebookParser;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
@@ -19,18 +18,15 @@ export class QmdParserService extends Disposable {
 	) {
 		super();
 		this.parser = new QmdParser(this._extensionUri);
+		this.notebookParser = new QmdNotebookParser(this._extensionUri);
 
-		// Register dev commands
 		this._registerParseQmdDevCommand();
 	}
 
 	private _registerParseQmdDevCommand(): void {
-		// Debug command to test WASM parser
-		// Accepts optional string arg (for tests) or prompts for input (for manual testing)
 		this._register(vscode.commands.registerCommand(
 			'positron-qmd.parseQmd',
 			async (content?: string) => {
-				// Get content from: 1) argument, 2) prompt
 				let qmdContent = content;
 				if (!qmdContent) {
 					const input = await vscode.window.showInputBox({
@@ -38,7 +34,6 @@ export class QmdParserService extends Disposable {
 						placeHolder: '---\\ntitle: Test\\n---\\n\\n# Hello',
 					});
 					if (input) {
-						// Convert literal \n to actual newlines
 						qmdContent = input.replace(/\\n/g, '\n');
 					}
 				}
@@ -49,12 +44,9 @@ export class QmdParserService extends Disposable {
 
 				try {
 					const result = await this.parser.parse(qmdContent);
-
-					// Copy the result to the clipboard as formatted JSON
 					await vscode.env.clipboard.writeText(JSON.stringify(result, null, 2));
-
 					this._log.debug('Parsed QMD content successfully');
-					return result; // Return for programmatic use in tests
+					return result;
 				} catch (error) {
 					this._log.error(`Parse error: ${error}`);
 					vscode.window.showErrorMessage(`Parse error: ${error}`);

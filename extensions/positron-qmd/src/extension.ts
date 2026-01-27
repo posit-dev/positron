@@ -31,7 +31,7 @@ export async function activate(
 				const parserService = disposables.add(new QmdParserService(context.extensionUri, log));
 
 				// Register notebook serializer
-				const serializer = new QmdNotebookSerializer(parserService.parser, log);
+				const serializer = new QmdNotebookSerializer(parserService.notebookParser, log);
 				disposables.add(vscode.workspace.registerNotebookSerializer(
 					'quarto-notebook',
 					serializer,
