@@ -31,7 +31,8 @@ import { IChatEditingService, IChatEditingSession, IModifiedFileEntry, ModifiedF
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY } from '../../common/positronNotebookConfig.js';
-import { CellEditType, NotebookDocumentMetadata } from '../../../notebook/common/notebookCommon.js';
+import { CellEditType } from '../../../notebook/common/notebookCommon.js';
+import { ShowDiffOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
@@ -60,40 +61,25 @@ type PanelState = {
 };
 
 /**
- * Positron Assistant Notebook Metadata Schema (AUTHORITATIVE DEFINITION)
- * ======================================================================
+ * Positron Assistant Notebook Metadata Schema
+ * ===========================================
  *
  * Per-notebook assistant preferences are stored in notebook metadata at:
  *   notebook.metadata.positron.assistant.*
  *
- * This schema is consumed by:
- *   - Workbench: AssistantPanel.tsx (this file) - reads/writes settings
- *   - Extension: positron-assistant/src/tools/notebookTools.ts - reads settings
+ * Schema and helper functions are defined in:
+ *   src/vs/workbench/contrib/positronNotebook/common/notebookAssistantMetadata.ts (workbench)
+ *   extensions/positron-assistant/src/notebookAssistantMetadata.ts (extension)
  *
  * When adding new settings:
- *   1. Add the property to the schema below
- *   2. Update getShowDiffOverrideFromNotebook() or create similar getter
- *   3. Update updateShowDiffOverrideInNotebook() or create similar setter
- *   4. Update the extension's resolver function in notebookTools.ts
- *   5. Add UI controls in the ReadyState component's settings section
- *
- * Schema:
- *   metadata.positron.assistant: {
- *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
- *     // Future settings follow the same pattern:
- *     // contextScope?: 'all' | 'selected' | 'none'
- *     // planningGoal?: string
- *   }
- *
- * Values are stored as strings (not booleans) to allow for future multi-state
- * options and to distinguish "not set" (undefined) from explicit values.
+ *   1. Add the property to AssistantSettings interface in both modules
+ *   2. Add validation in getAssistantSettings() if needed
+ *   3. Add UI controls in the ReadyState component's settings section
+ *   4. Register global fallback in positronNotebookConfig.ts
  */
 
-/**
- * ShowDiff override type for notebook-specific setting.
- * undefined = follow global setting, 'showDiff' = always show, 'noDiff' = never show
- */
-export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
+// Re-export ShowDiffOverride for consumers of this module
+export type { ShowDiffOverride } from '../../common/notebookAssistantMetadata.js';
 
 /**
  * AssistantPanelProps interface.
@@ -320,67 +306,6 @@ const ReadyState = ({
 };
 
 /**
- * Helper to read showDiff override from notebook metadata.
- */
-function getShowDiffOverrideFromNotebook(notebook: IPositronNotebookInstance): ShowDiffOverride {
-	const metadata = notebook.textModel?.metadata;
-	const positron = metadata?.positron as Record<string, unknown> | undefined;
-	const assistant = positron?.assistant as Record<string, unknown> | undefined;
-	return assistant?.showDiff as ShowDiffOverride;
-}
-
-/**
- * Helper to update showDiff override in notebook metadata.
- */
-async function updateShowDiffOverrideInNotebook(
-	notebook: IPositronNotebookInstance,
-	value: ShowDiffOverride,
-	logService: ILogService
-): Promise<void> {
-	const textModel = notebook.textModel;
-	if (!textModel) {
-		logService.warn('Cannot update notebook metadata: no text model available');
-		return;
-	}
-
-	const currentMetadata = { ...textModel.metadata };
-	const currentPositron = (currentMetadata.positron as Record<string, unknown>) ?? {};
-	const currentAssistant = (currentPositron.assistant as Record<string, unknown>) ?? {};
-
-	// Build new assistant metadata
-	const newAssistant: Record<string, unknown> = { ...currentAssistant };
-	if (value === undefined) {
-		delete newAssistant.showDiff;
-	} else {
-		newAssistant.showDiff = value;
-	}
-
-	// Build new positron metadata
-	const newPositron: Record<string, unknown> = {
-		...currentPositron,
-		assistant: Object.keys(newAssistant).length > 0 ? newAssistant : undefined
-	};
-	if (!newPositron.assistant) {
-		delete newPositron.assistant;
-	}
-
-	// Build new root metadata
-	const newMetadata: NotebookDocumentMetadata = {
-		...currentMetadata,
-		positron: Object.keys(newPositron).length > 0 ? newPositron : undefined
-	};
-	if (!newMetadata.positron) {
-		delete newMetadata.positron;
-	}
-
-	// Update the notebook metadata using applyEdits
-	textModel.applyEdits([{
-		editType: CellEditType.DocumentMetadata,
-		metadata: newMetadata
-	}], true, undefined, () => undefined, undefined, true);
-}
-
-/**
  * Information about pending diffs for a notebook.
  */
 interface PendingDiffsInfo {
@@ -489,7 +414,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			return;
 		}
 
-		const override = getShowDiffOverrideFromNotebook(panelState.notebook);
+		const override = getAssistantSettings(panelState.notebook.textModel?.metadata).showDiff;
 		setShowDiffOverride(override);
 	}, [panelState]);
 
@@ -543,23 +468,27 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		);
 
 		if (hasPending && entry) {
-			// Show confirmation dialog
+			// Show confirmation dialog - if cancelled, don't change the setting
 			const action = await showPendingDiffsConfirmation(entry, dialogService);
-
 			if (action === 'cancel') {
-				// User cancelled, don't change the setting
 				return;
 			}
-
-			// User either accepted or rejected, now apply the setting change
-			// (accept/reject was already handled by the dialog buttons)
-			setShowDiffOverride(value);
-			updateShowDiffOverrideInNotebook(panelState.notebook, value, logService);
-		} else {
-			// No pending diffs, apply immediately
-			setShowDiffOverride(value);
-			updateShowDiffOverrideInNotebook(panelState.notebook, value, logService);
 		}
+
+		// Apply the setting change
+		setShowDiffOverride(value);
+
+		const textModel = panelState.notebook.textModel;
+		if (!textModel) {
+			logService.warn('Cannot update notebook metadata: no text model available');
+			return;
+		}
+
+		const newMetadata = setAssistantSettings({ ...textModel.metadata }, { showDiff: value });
+		textModel.applyEdits([{
+			editType: CellEditType.DocumentMetadata,
+			metadata: newMetadata
+		}], true, undefined, () => undefined, undefined, true);
 	};
 
 	// Determine content based on state

@@ -10,34 +10,7 @@ import { log } from '../extension.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
-/**
- * Resolve showDiff setting: notebook metadata first, then global config fallback.
- *
- * Reads from notebook.metadata.positron.assistant.showDiff
- *
- * Schema defined in (AUTHORITATIVE SOURCE):
- *   src/vs/workbench/contrib/positronNotebook/browser/AssistantPanel/AssistantPanel.tsx
- *
- * When adding new notebook assistant settings, follow the pattern here and
- * update the schema documentation in the authoritative source.
- */
-function resolveShowDiffSetting(
-	notebook: vscode.NotebookDocument,
-	globalConfigKey: string,
-	defaultValue: boolean
-): boolean {
-	// Access metadata.positron.assistant.showDiff
-	// Type: 'showDiff' | 'noDiff' | undefined
-	const positron = notebook.metadata?.positron as Record<string, unknown> | undefined;
-	const assistant = positron?.assistant as Record<string, unknown> | undefined;
-	const override = assistant?.showDiff as 'showDiff' | 'noDiff' | undefined;
-
-	if (override !== undefined) {
-		return override === 'showDiff';
-	}
-
-	return vscode.workspace.getConfiguration().get(globalConfigKey, defaultValue);
-}
+import { resolveShowDiff } from '../notebookAssistantMetadata.js';
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -488,7 +461,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						// Check if diff view is enabled (notebook metadata first, then global config)
 						const notebookEditor = vscode.window.activeNotebookEditor;
 						const showDiff = notebookEditor
-							? resolveShowDiffSetting(notebookEditor.notebook, 'positron.assistant.notebook.showDiff', true)
+							? resolveShowDiff(notebookEditor.notebook)
 							: vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
 
 						// Use direct update for: markdown in preview OR when diff view is disabled
