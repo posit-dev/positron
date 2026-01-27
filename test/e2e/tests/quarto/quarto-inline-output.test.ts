@@ -847,6 +847,93 @@ test.describe('Quarto - Inline Output', {
 		await runCommand('workbench.action.closeActiveEditor');
 	});
 
+	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ app, openFile }) {
+		// This test verifies a bug fix where pandas DataFrames were showing both
+		// HTML and plain text representations. The kernel sends both formats, but
+		// we should only display the richer HTML format, not both.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+		// to be set, as the py_data_frame.qmd file only exists on that branch.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'py_data_frame.qmd');
+
+		// Open the Quarto document with pandas DataFrame code
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// Position cursor in the Python code cell that creates a DataFrame
+		// py_data_frame.qmd: frontmatter (1-4), blank line (5), cell starts at line 6
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('8');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('15');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content is present
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// CRITICAL CHECK: The output should contain EITHER an HTML table OR plain text,
+		// but NOT both. The bug causes both to appear.
+
+		// Count the number of output items in the view zone
+		const outputItems = inlineOutput.locator('.quarto-output-item');
+		const outputItemCount = await outputItems.count();
+
+		// There should be exactly 1 output item (just the HTML representation)
+		// The bug would show 2 items (both HTML and plain text)
+		expect(outputItemCount).toBe(1);
+
+		// Additionally, verify the output contains HTML (the preferred format for DataFrames)
+		// DataFrames render as HTML tables
+		const htmlOutput = inlineOutput.locator('.quarto-output-html');
+		const htmlCount = await htmlOutput.count();
+
+		// Should have HTML output
+		expect(htmlCount).toBeGreaterThan(0);
+
+		// Should NOT have plain text stdout output that duplicates the DataFrame
+		// (stdout is OK for print statements, but not for DataFrame display)
+		const stdoutOutput = inlineOutput.locator('.quarto-output-stdout');
+		const stdoutCount = await stdoutOutput.count();
+
+		// If there is stdout, it should not contain DataFrame-like content
+		if (stdoutCount > 0) {
+			const stdoutText = await stdoutOutput.first().textContent();
+			// DataFrame text output typically contains column headers and data rows
+			// The HTML table will already show this, so we shouldn't have duplicate text
+			// that looks like a DataFrame (has column-like structure)
+			expect(stdoutText).not.toContain('col1');
+			expect(stdoutText).not.toContain('col2');
+		}
+	});
+
 	test('Python - Verify interactive HTML widget persists correctly after window reload', async function ({ app, openFile, python }) {
 		// This test reproduces a bug where interactive HTML widgets (like Plotly)
 		// render correctly on first execution, but after a window reload they

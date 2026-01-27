@@ -86,6 +86,195 @@ suite('QuartoExecutionManager', () => {
 	});
 
 	suite('Output Handling', () => {
+		test('filters out text/plain when text/html is present (DataFrame case)', async () => {
+			// This test verifies that when both text/html and text/plain are returned
+			// (as happens with pandas DataFrames), only text/html is included in output.
+			const documentUri = URI.file('/test.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-cell-df',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'df123',
+			};
+
+			const outputsReceived: ICellOutput[] = [];
+			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
+				outputsReceived.push(event.output);
+			});
+			disposables.add(outputListener);
+
+			// Start execution
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			// Wait for execution to start
+			await new Promise(resolve => setTimeout(resolve, 50));
+
+			// Get the execution ID
+			const executionId = mockKernelManager.lastExecutionId!;
+			assert.ok(executionId, 'Should have captured execution ID');
+
+			// Simulate a pandas DataFrame output that includes both HTML and plain text
+			// This is what pandas sends: both a rich HTML table and a plain text fallback
+			mockSession.receiveOutputMessage({
+				parent_id: executionId,
+				kind: RuntimeOutputKind.Text,
+				data: {
+					'text/html': '<table><tr><th>col1</th><th>col2</th></tr><tr><td>1</td><td>2</td></tr></table>',
+					'text/plain': '   col1  col2\n0     1     2'
+				},
+			});
+
+			// Complete execution
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+
+			await executionPromise;
+
+			// VERIFY: Only ONE output should be received (the HTML version)
+			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+
+			// The output should contain HTML but NOT text/plain
+			const output = outputsReceived[0];
+			const mimeTypes = output.items.map(item => item.mime);
+
+			assert.ok(mimeTypes.includes('text/html'), 'Output should include text/html');
+			assert.ok(!mimeTypes.includes('text/plain'), 'Output should NOT include text/plain when HTML is present');
+
+			// Verify the HTML content is correct
+			const htmlItem = output.items.find(item => item.mime === 'text/html');
+			assert.ok(htmlItem, 'Should have HTML item');
+			assert.ok(htmlItem!.data.includes('<table>'), 'HTML should contain table');
+		});
+
+		test('filters out text/plain when image is present', async () => {
+			// This test verifies that when both an image and text/plain are returned
+			// (as happens with matplotlib plots), only the image is included in output.
+			const documentUri = URI.file('/test.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-cell-img',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'img123',
+			};
+
+			const outputsReceived: ICellOutput[] = [];
+			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
+				outputsReceived.push(event.output);
+			});
+			disposables.add(outputListener);
+
+			// Start execution
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			// Wait for execution to start
+			await new Promise(resolve => setTimeout(resolve, 50));
+
+			// Get the execution ID
+			const executionId = mockKernelManager.lastExecutionId!;
+			assert.ok(executionId, 'Should have captured execution ID');
+
+			// Simulate a matplotlib plot output that includes both image and plain text
+			mockSession.receiveOutputMessage({
+				parent_id: executionId,
+				kind: RuntimeOutputKind.PlotWidget,
+				data: {
+					'image/png': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+					'text/plain': '<Figure size 640x480 with 1 Axes>'
+				},
+			});
+
+			// Complete execution
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+
+			await executionPromise;
+
+			// VERIFY: Only ONE output should be received
+			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+
+			// The output should contain image/png but NOT text/plain
+			const output = outputsReceived[0];
+			const mimeTypes = output.items.map(item => item.mime);
+
+			assert.ok(mimeTypes.includes('image/png'), 'Output should include image/png');
+			assert.ok(!mimeTypes.includes('text/plain'), 'Output should NOT include text/plain when image is present');
+		});
+
+		test('keeps text/plain when no rich format is present', async () => {
+			// This test verifies that text/plain is kept when it's the only format available
+			const documentUri = URI.file('/test.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-cell-plain',
+				index: 0,
+				language: 'python',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'plain123',
+			};
+
+			const outputsReceived: ICellOutput[] = [];
+			const outputListener = executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
+				outputsReceived.push(event.output);
+			});
+			disposables.add(outputListener);
+
+			// Start execution
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+
+			// Wait for execution to start
+			await new Promise(resolve => setTimeout(resolve, 50));
+
+			// Get the execution ID
+			const executionId = mockKernelManager.lastExecutionId!;
+			assert.ok(executionId, 'Should have captured execution ID');
+
+			// Simulate a simple text-only result (like from "2 + 3")
+			mockSession.receiveResultMessage({
+				parent_id: executionId,
+				kind: RuntimeOutputKind.Text,
+				data: {
+					'text/plain': '5'
+				},
+			});
+
+			// Complete execution
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+
+			await executionPromise;
+
+			// VERIFY: Output should be received with text/plain
+			assert.strictEqual(outputsReceived.length, 1, 'Should receive exactly one output');
+
+			const output = outputsReceived[0];
+			const mimeTypes = output.items.map(item => item.mime);
+
+			assert.ok(mimeTypes.includes('text/plain'), 'Output should include text/plain when no rich format is available');
+			assert.strictEqual(output.items[0].data, '5', 'Should have correct text content');
+		});
+
 		test('handles both stream output and execute_result output', async () => {
 			const documentUri = URI.file('/test.qmd');
 			const cell: QuartoCodeCell = {

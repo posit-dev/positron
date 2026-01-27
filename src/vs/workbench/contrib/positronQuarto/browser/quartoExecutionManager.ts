@@ -484,7 +484,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			'text/plain',
 		];
 
+		// Determine which rich MIME types are present to filter out redundant text/plain
+		// When a richer representation (HTML, images) is available, we should not show
+		// the plain text fallback as it duplicates the content
+		const hasHtml = 'text/html' in data;
+		const hasImage = mimeOrder.some(mime =>
+			mime.startsWith('image/') && mime in data
+		);
+		const shouldExcludePlainText = hasHtml || hasImage;
+
 		for (const mime of mimeOrder) {
+			// Skip text/plain when a richer representation is available
+			if (mime === 'text/plain' && shouldExcludePlainText) {
+				continue;
+			}
+
 			if (mime in data) {
 				const value = data[mime];
 				if (typeof value === 'string') {
