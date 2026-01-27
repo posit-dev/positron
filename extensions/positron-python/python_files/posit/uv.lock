@@ -409,21 +409,21 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.42.34"
+version = "1.42.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/69/c0d4cc77add3cdf66f8573555d71dc23ba32dfe77df40e1c91385f7a9bdc/boto3-1.42.34.tar.gz", hash = "sha256:75d7443c81a029283442fad138629be1eefaa3e6d430c28118a0f4cdbd57855d", size = 112876, upload-time = "2026-01-23T20:29:47.213Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/a4/e70cc79e8f91836c06021c35507c843e5bc39a2020a85a6a27a492b50f78/boto3-1.42.35.tar.gz", hash = "sha256:edbfbfbadd419e65888166dd044786d4b731cf60abeb2301b73e775e154d7c5e", size = 112928, upload-time = "2026-01-26T20:35:37.524Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/55/25c543864abc270f5fdd7814fa7b69fd23de1c40fb3d7993f4b6391f8d3b/boto3-1.42.34-py3-none-any.whl", hash = "sha256:db3fb539e3f806b911ec4ca991f2f8bff333c5f0b87132a82e28b521fc5ec164", size = 140574, upload-time = "2026-01-23T20:29:45.916Z" },
+    { url = "https://files.pythonhosted.org/packages/57/26/75b6301514c74c398207462086af6cfe2a875fd8700a6e508559bb1ed21a/boto3-1.42.35-py3-none-any.whl", hash = "sha256:4251bbac90e4a190680439973d9e9ed851e50292c10cd063c8bf0c365410ffe1", size = 140606, upload-time = "2026-01-26T20:35:35.398Z" },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.42.34"
+version = "1.42.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
@@ -431,9 +431,9 @@ dependencies = [
     { name = "urllib3", version = "1.26.20", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "urllib3", version = "2.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/f0/5702b704844e8920e01ce865cde0da574827163fbd7c0207d351ff6eea2c/botocore-1.42.34.tar.gz", hash = "sha256:92e44747da7890270d8dcc494ecc61fc315438440c55e00dc37a57d402b1bb66", size = 14907713, upload-time = "2026-01-23T20:29:38.193Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e2/3d/339edff36a3c6617900ec9d7a1203ffe4e06ffee1e5bd71126e31cd59e30/botocore-1.42.35.tar.gz", hash = "sha256:40a6e0f16afe9e5d42e956f0b6d909869793fadb21780e409063601fc3d094b8", size = 14903745, upload-time = "2026-01-26T20:35:25.85Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/99/226fb4b2d141d7ac59465e3cdd2ca3a9a2917d85e1a3160884a78b097bbb/botocore-1.42.34-py3-none-any.whl", hash = "sha256:94099b5d09d0c4bfa6414fb3cffd54275ce6e51d7ba016f17a0e79f9274f68f7", size = 14579956, upload-time = "2026-01-23T20:29:29.038Z" },
+    { url = "https://files.pythonhosted.org/packages/74/b6/68f0aec79462852f367128dd8892e47176da46a787386d1730ec5bbbfb01/botocore-1.42.35-py3-none-any.whl", hash = "sha256:b89f527987691abbd1374c4116cc2711471ce48e6da502db17e92b17b2af8d47", size = 14581567, upload-time = "2026-01-26T20:35:23.346Z" },
 ]
 
 [[package]]
@@ -1198,7 +1198,7 @@ wheels = [
 
 [[package]]
 name = "fastcore"
-version = "1.12.5"
+version = "1.12.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -1215,9 +1215,9 @@ resolution-markers = [
 dependencies = [
     { name = "packaging", marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/54/f6b94d2416367fce94d4e61e2a85a7486040be954055eeaf75390ae3aa9d/fastcore-1.12.5.tar.gz", hash = "sha256:08188ebb7717d849ab7335109df0b0e579911e7ba2670ba8c78c3f900df89f1a", size = 92400, upload-time = "2026-01-24T23:50:03.113Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/c3/9ae4116e08092dd731a9bd2863486adaee347ae0bfee15a4ac5cd7e026f1/fastcore-1.12.6.tar.gz", hash = "sha256:8a5e71e3e09455ec911a718469a2e8c5dbefdeee70e5ef0ad844db99b2e67b4e", size = 92461, upload-time = "2026-01-27T03:26:48.133Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/dd/4bbab36247c7011d4c0d45a889a9a45a7b44bd87c3d0c531e9547a0a4733/fastcore-1.12.5-py3-none-any.whl", hash = "sha256:89a88094af9e10226ec5dd39c52b49492a1a9dd16d4d3827aa6155096d9268bc", size = 95131, upload-time = "2026-01-24T23:50:01.18Z" },
+    { url = "https://files.pythonhosted.org/packages/65/72/69633dfcc66e9fdd27de877debd41894c5ead26c0b6dd9a617b30f1d90f9/fastcore-1.12.6-py3-none-any.whl", hash = "sha256:7a30e4fbac2787a1aa23a5d86b234208748688e70437c37d58ccb5ad748211ec", size = 95237, upload-time = "2026-01-27T03:26:45.998Z" },
 ]
 
 [[package]]
@@ -2043,7 +2043,7 @@ wheels = [
 
 [[package]]
 name = "haystack-ai"
-version = "2.22.0"
+version = "2.23.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -2060,7 +2060,7 @@ resolution-markers = [
 dependencies = [
     { name = "docstring-parser", marker = "python_full_version >= '3.10'" },
     { name = "filetype", marker = "python_full_version >= '3.10'" },
-    { name = "haystack-experimental", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "haystack-experimental", version = "0.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "jinja2", marker = "python_full_version >= '3.10'" },
     { name = "jsonschema", version = "4.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "lazy-imports", version = "1.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -2079,9 +2079,9 @@ dependencies = [
     { name = "tqdm", marker = "python_full_version >= '3.10'" },
     { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/34/49/f3b92dc3fdfda1c0c19c4b8b2bd488b33cbae8a861138583fbeeea9b542d/haystack_ai-2.22.0.tar.gz", hash = "sha256:682478916e4a4029fe8f55a2ac843b4a6fd7f98ebfa1a585e94d674553c50a45", size = 437799, upload-time = "2026-01-08T14:25:09.168Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/e5/bcfd28c1343ddacda60c6c1639899d65ed15996c3fcd43e85222d0e18e24/haystack_ai-2.23.0.tar.gz", hash = "sha256:d19fac84b84ee8c228bb067df2d565db3f758d0d38217909678faa238d614050", size = 448567, upload-time = "2026-01-27T09:14:20.389Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/cf/8afc4d56f8bad1b75c736e689755f4d98c41b810c7a558f7772608f6fb13/haystack_ai-2.22.0-py3-none-any.whl", hash = "sha256:4e3af3af68a9e3d037fc30fcfa4204cce73aaf5327684b633993ae114bc071b6", size = 643670, upload-time = "2026-01-08T14:25:06.57Z" },
+    { url = "https://files.pythonhosted.org/packages/67/a9/94ae3e375a101df0ec2a0833dff8f42e1b61ccc4cd4337c5fdd1740646d0/haystack_ai-2.23.0-py3-none-any.whl", hash = "sha256:de09dfbe66624360bd0efddb776c50b5b20b49455bf57ce575579145765aa0bc", size = 658590, upload-time = "2026-01-27T09:14:18.717Z" },
 ]
 
 [[package]]
@@ -2104,7 +2104,7 @@ wheels = [
 
 [[package]]
 name = "haystack-experimental"
-version = "0.17.0"
+version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -2119,12 +2119,11 @@ resolution-markers = [
     "python_full_version == '3.10.*' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "haystack-ai", version = "2.22.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "rich", marker = "python_full_version >= '3.10'" },
+    { name = "haystack-ai", version = "2.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/43/72c94e47779cf6202990690fccd2461d58d9be7b5604000e04570420a8c9/haystack_experimental-0.17.0.tar.gz", hash = "sha256:99d58f03c14815d21f1a9146349683538701afb84cbcc79f39815a5155295d5f", size = 53083, upload-time = "2026-01-26T13:44:11.527Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/00/bdb81de87df91853c87e29a4491ec1393ffa490b0a195d1eefa9284e4657/haystack_experimental-0.18.0.tar.gz", hash = "sha256:00f36e73025a2c639763f0d7df456227c8b1ae557c3a6e277944e01ea46fc73c", size = 45302, upload-time = "2026-01-27T13:39:25.944Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/5d/eb3f64d1ac3533bb6140e036b682ce85743359d86555efdabcc9dfa7a462/haystack_experimental-0.17.0-py3-none-any.whl", hash = "sha256:b040bd7e9b756b70e436250246a82d6f9f120b153e311018fe7b7e09627f9291", size = 73842, upload-time = "2026-01-26T13:44:12.297Z" },
+    { url = "https://files.pythonhosted.org/packages/14/f7/1c3eac3becfc48a51e886b6e7225433287cf4e744838e2fb19d933e93861/haystack_experimental-0.18.0-py3-none-any.whl", hash = "sha256:e97d65623a0087f4f08eb14a08d25e366a4c6f6dbb905d3e824d61c23afb8223", size = 63126, upload-time = "2026-01-27T13:39:26.904Z" },
 ]
 
 [[package]]
@@ -5059,12 +5058,12 @@ dependencies = [
     { name = "databricks-sql-connector", extra = ["pyarrow"] },
     { name = "duckdb" },
     { name = "fastcore", version = "1.8.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "fastcore", version = "1.12.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "fastcore", version = "1.12.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "geopandas", version = "1.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "geopandas", version = "1.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "google-cloud-bigquery" },
     { name = "haystack-ai", version = "2.21.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "haystack-ai", version = "2.22.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "haystack-ai", version = "2.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "holoviews", version = "1.20.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "holoviews", version = "1.22.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "hvplot", version = "0.11.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -6556,7 +6555,7 @@ wheels = [
 
 [[package]]
 name = "redshift-connector"
-version = "2.1.10"
+version = "2.1.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -6571,7 +6570,7 @@ dependencies = [
     { name = "setuptools" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/a6/f7100d4be4cc13536bb7e8e1edadfef324bf0e0c9fe0ceb128ad35558358/redshift_connector-2.1.10-py3-none-any.whl", hash = "sha256:5432261c40f6ff1c4d363ad70c7d8fad75100fc6982fd3c5c8ee9b5962a56602", size = 152820, upload-time = "2025-11-19T00:33:05.288Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/27/192a7bf58577dca8fb4e2e40130aacdf9a9e9d6ec5af0c5b150596704013/redshift_connector-2.1.11-py3-none-any.whl", hash = "sha256:25e03ec006e43ef809c5ceb42344ce9f8b6c6c5dd5ee594a8f2848171689bec0", size = 152834, upload-time = "2026-01-27T06:26:29.84Z" },
 ]
 
 [[package]]
@@ -8004,11 +8003,11 @@ wheels = [
 
 [[package]]
 name = "wcwidth"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/98/0a/dc5110cc99c39df65bac29229c4b637a8304e0914850348d98974c8ecfff/wcwidth-0.4.0.tar.gz", hash = "sha256:46478e02cf7149ba150fb93c39880623ee7e5181c64eda167b6a1de51b7a7ba1", size = 237625, upload-time = "2026-01-26T02:35:58.844Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/6e/62daec357285b927e82263a81f3b4c1790215bc77c42530ce4a69d501a43/wcwidth-0.5.0.tar.gz", hash = "sha256:f89c103c949a693bf563377b2153082bf58e309919dfb7f27b04d862a0089333", size = 246585, upload-time = "2026-01-27T01:31:44.942Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b7/f6/da704c5e77281d71723bffbd926b754c0efd57cbcd02e74c2ca374c14cef/wcwidth-0.4.0-py3-none-any.whl", hash = "sha256:8af2c81174b3aa17adf05058c543c267e4e5b6767a28e31a673a658c1d766783", size = 88216, upload-time = "2026-01-26T02:35:57.461Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/3e/45583b67c2ff08ad5a582d316fcb2f11d6cf0a50c7707ac09d212d25bc98/wcwidth-0.5.0-py3-none-any.whl", hash = "sha256:1efe1361b83b0ff7877b81ba57c8562c99cf812158b778988ce17ec061095695", size = 93772, upload-time = "2026-01-27T01:31:43.432Z" },
 ]
 
 [[package]]
