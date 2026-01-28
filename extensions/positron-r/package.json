@@ -208,6 +208,13 @@
             "type": "boolean",
             "default": true,
             "description": "%r.configuration.autoConvertFilePaths.description%"
+          },
+          "positron.r.localPackageInstallMethod": {
+            "scope": "window",
+            "type": "string",
+            "enum": ["pak", "base"],
+            "default": "pak",
+            "markdownDescription": "%r.configuration.localPackageInstallMethod.description%"
           }
         }
       },
@@ -962,7 +969,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.224"
+      "ark": "0.1.226"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

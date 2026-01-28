@@ -2,7 +2,7 @@
  *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-/* eslint-disable global-require */
+
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
@@ -23,12 +23,25 @@ import {
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
+import { moduleMetadataMap } from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
+
+/**
+ * Module metadata for Python interpreters discovered via environment modules.
+ */
+export interface PythonModuleMetadata {
+    type: 'module';
+    environmentName: string;
+    modules: string[];
+    startupCommand: string;
+}
 
 export interface PythonRuntimeExtraData {
     pythonPath: string;
     ipykernelBundle?: IpykernelBundle;
     externallyManaged?: boolean;
     supported?: boolean;
+    /** Module metadata for interpreters discovered via environment modules */
+    moduleMetadata?: PythonModuleMetadata;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -140,6 +153,13 @@ export async function createPythonRuntimeMetadata(
         ipykernelBundle,
         supported: isVersionSupported(interpreter.version),
     };
+
+    // Check if this interpreter was discovered via environment modules
+    const moduleMetadata = moduleMetadataMap.get(interpreter.path);
+    if (moduleMetadata) {
+        extraRuntimeData.moduleMetadata = moduleMetadata;
+        traceInfo(`createPythonRuntime: interpreter from module environment "${moduleMetadata.environmentName}"`);
+    }
 
     // Check the kernel supervisor's configuration; if it's  configured to
     // persist sessions, mark the session location as 'machine' so that

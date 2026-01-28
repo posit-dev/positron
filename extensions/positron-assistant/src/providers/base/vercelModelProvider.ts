@@ -9,7 +9,7 @@ import { ModelProvider } from './modelProvider';
 import { processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../providerConfig.js';
 import { TokenUsage, recordRequestTokenUsage, recordTokenUsage } from '../../tokens';
-import { getMaxTokens, createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
+import { createModelInfo, markDefaultModel } from '../../modelResolutionHelpers';
 import { getAllModelDefinitions } from '../../modelDefinitions';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 
@@ -60,6 +60,16 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 * Provider-specific options like temperature, top_p, etc.
 	 */
 	protected aiOptions: Record<string, any> = {};
+
+	/**
+	 * Whether this provider uses the older /v1/chat/completions endpoint,
+	 * as opposed to the newer /v1/responses endpoint.
+	 *
+	 * This affects how certain features are handled, such as tool result
+	 * formatting (e.g., image support).
+	 */
+	protected usesChatCompletions: boolean = false;
+
 
 	/**
 	 * Sends a test message to verify model connectivity.
@@ -157,7 +167,8 @@ export abstract class VercelModelProvider extends ModelProvider {
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
-			toolResultExperimentalContent
+			this.usesChatCompletions,
+			bedrockCacheBreakpoint
 		);
 
 		// Set up tools if provided
@@ -168,7 +179,7 @@ export abstract class VercelModelProvider extends ModelProvider {
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = options.modelOptions?.requestId;
 
-		this.logger.info(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
+		this.logger.debug(`[vercel] Start request ${requestId} to ${model.name} [${model.id}]: ${aiMessages.length} messages`);
 		this.logger.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 
 		// Stream the response
@@ -194,23 +205,35 @@ export abstract class VercelModelProvider extends ModelProvider {
 	 */
 	protected setupTools(tools: vscode.LanguageModelChatTool[]): Record<string, ai.Tool> {
 		return tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
-			// Some providers require a type for all tool input schemas
-			const input_schema = tool.inputSchema as Record<string, any> ?? {
-				type: 'object',
-				properties: {},
-				required: [],
-			};
+			// Some providers require type, properties, and required for all tool input schemas
+			const baseSchema = tool.inputSchema as Record<string, any> ?? {};
+			const missingFields: string[] = [];
 
-			// Ensure schema has a type field
-			if (!input_schema.type) {
-				this.logger.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
-				input_schema.type = 'object';
+			if (!baseSchema.type) {
+				missingFields.push('type');
 			}
+			if (!baseSchema.properties) {
+				missingFields.push('properties');
+			}
+			if (!baseSchema.required) {
+				missingFields.push('required');
+			}
+
+			if (missingFields.length > 0) {
+				this.logger.trace(`Tool '${tool.name}' is missing input schema fields: ${missingFields.join(', ')}; using defaults`);
+			}
+
+			const input_schema: Record<string, any> = {
+				...baseSchema,
+				type: baseSchema.type ?? 'object',
+				properties: baseSchema.properties ?? {},
+				required: baseSchema.required ?? [],
+			};
 
 			acc[tool.name] = {
 				description: tool.description || '',
 				inputSchema: ai.jsonSchema(input_schema),
-			} as ai.Tool;
+			};
 			return acc;
 		}, {});
 	}

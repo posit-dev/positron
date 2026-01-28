@@ -155,7 +155,7 @@ export class MockDebugService implements IDebugService {
 	}
 
 	// --- Start Positron ---
-	setSessionSuppressDebugToolbar(session: IDebugSession, suppress: boolean): void {
+	setSessionForeground(session: IDebugSession, foreground: boolean): void {
 		throw new Error('not implemented');
 	}
 	// --- End Positron ---
@@ -306,6 +306,10 @@ export class MockSession implements IDebugSession {
 
 	// --- Start Positron ---
 	setSuppressDebugToolbar(value: boolean): void {
+		throw new Error('not implemented');
+	}
+
+	setSuppressDebugStatusbar(value: boolean): void {
 		throw new Error('not implemented');
 	}
 	// --- End Positron ---

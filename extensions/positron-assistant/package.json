@@ -1050,7 +1050,7 @@
       {
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
-        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
+        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `variableNames` is empty, lists all root-level variables in the session.",
         "icon": "$(positron-variables-view)",
         "toolReferenceName": "inspectVariables",
         "userDescription": "Inspect data and variables in the current session",
@@ -1062,22 +1062,18 @@
               "type": "string",
               "description": "The identifier of the session to inspect."
             },
-            "accessKeys": {
+            "variableNames": {
               "type": "array",
-              "description": "An array of variables to inspect.",
+              "description": "An array of variable names to inspect.",
               "items": {
-                "type": "array",
-                "description": "A list of access keys that identify a variable by specifying its path.",
-                "items": {
-                  "type": "string",
-                  "description": "An access key that uniquely identifies a variable among its siblings."
-                }
+                "type": "string",
+                "description": "The name of a variable to inspect."
               }
             }
           },
           "required": [
             "sessionIdentifier",
-            "accessKeys"
+            "variableNames"
           ]
         },
         "tags": [
@@ -1113,22 +1109,18 @@
               "type": "string",
               "description": "The identifier of the session that contains the tables."
             },
-            "accessKeys": {
+            "variableNames": {
               "type": "array",
-              "description": "An array of table variables to summarize.",
+              "description": "An array of table variable names to summarize.",
               "items": {
-                "type": "array",
-                "description": "A list of access keys that identify a variable by specifying its path.",
-                "items": {
-                  "type": "string",
-                  "description": "An access key that uniquely identifies a variable among its siblings."
-                }
+                "type": "string",
+                "description": "The name of a table variable to summarize."
               }
             }
           },
           "required": [
             "sessionIdentifier",
-            "accessKeys"
+            "variableNames"
           ]
         },
         "tags": [

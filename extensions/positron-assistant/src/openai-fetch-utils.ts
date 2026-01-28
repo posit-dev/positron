@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -91,11 +91,11 @@ export function fixPossiblyBrokenChatCompletionChunk(
 			const fixedFunctionType = hasEmptyType ? 'function' : toolCall.type || 'function';
 
 			if (isNoArgTool && hasEmptyArgs) {
-				log.debug(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${name}`);
+				log.trace(`[${providerName}] Converting empty tool arguments to '{}' for tool: ${name}`);
 			}
 
 			if (hasEmptyType) {
-				log.debug(`[${providerName}] Converting empty tool type to 'function' for tool: ${name || '(unnamed)'}`);
+				log.trace(`[${providerName}] Converting empty tool type to 'function' for tool: ${name || '(unnamed)'}`);
 			}
 
 			return {
@@ -200,7 +200,7 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 		// Example error message without this fix:
 		// [OpenAI] [gpt-5]' Error in chat response: {"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.","type":"invalid_request_error","param":"max_tokens","code":"unsupported_parameter"}}
 		if (requestBody.max_tokens !== undefined) {
-			log.debug(`[${providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
+			log.trace(`[${providerName}] [DEBUG] Converting max_tokens (${requestBody.max_tokens}) to max_completion_tokens`);
 			requestBody.max_completion_tokens = requestBody.max_tokens;
 			delete requestBody.max_tokens;
 		}
@@ -213,7 +213,7 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 		if (requestBody.messages && Array.isArray(requestBody.messages)) {
 			for (const message of requestBody.messages) {
 				if (message.role === 'developer') {
-					log.debug(`[${providerName}] Converting 'developer' role to 'system' for compatibility`);
+					log.trace(`[${providerName}] Converting 'developer' role to 'system' for compatibility`);
 					message.role = 'system';
 				}
 			}
@@ -241,7 +241,7 @@ function transformRequestBody(init: RequestInit | undefined, providerName: strin
 			for (const tool of requestBody.tools) {
 				if (tool.function && tool.function.strict !== undefined) {
 					delete tool.function.strict;
-					log.debug(`[${providerName}] Removed 'strict' field from tool: ${tool.function.name}`);
+					log.trace(`[${providerName}] Removed 'strict' field from tool: ${tool.function.name}`);
 				}
 			}
 			log.trace(`[${providerName}] Tools payload: ${JSON.stringify(requestBody.tools)}`);

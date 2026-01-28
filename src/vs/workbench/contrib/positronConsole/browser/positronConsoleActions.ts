@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -124,9 +125,11 @@ async function executeCodeInConsole(
 		}
 	};
 
-	// If the document is dirty, send breakpoints to the debug adapter before executing code
+	// If the document is dirty, send breakpoints to the debug adapter before
+	// executing code. Only send for file URIs since DAP expects file paths, not
+	// URIs.
 	const documentUri = cursorLocation.uri;
-	if (textFileService.isDirty(documentUri)) {
+	if (documentUri.scheme === Schemas.file && textFileService.isDirty(documentUri)) {
 		await debugService.sendBreakpoints(documentUri, true);
 	}
 
