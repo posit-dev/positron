@@ -270,4 +270,51 @@ test.describe('Notebook Cell Reordering', {
 		// Verify order unchanged
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 	});
+
+	test('Drag-and-drop: auto-scroll when dragging in long notebook', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const page = app.code.driver.page;
+
+		// Ensure mouse is in a clean state (not pressed from a previous failed test)
+		await page.mouse.up();
+
+		// Create a notebook with 12 cells - enough to require scrolling
+		// on typical viewport sizes (1200x800 or similar)
+		await notebooksPositron.newNotebook({ codeCells: 12 });
+
+		// Build expected initial content array
+		const initialContents = Array.from({ length: 12 }, (_, i) => `# Cell ${i}`);
+		await notebooksPositron.expectCellContentsToBe(initialContents);
+
+		// Scroll to ensure cell 0 is visible at the top and wait for scroll to settle
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+
+		// Drag cell 0 all the way to the end (position 11)
+		// This requires auto-scrolling since cell 11 won't be visible initially
+		try {
+			await notebooksPositron.dragCellToPositionWithScroll(0, 11);
+		} finally {
+			// Ensure mouse is released even if drag fails
+			await page.mouse.up();
+		}
+
+		// Verify cell 0 moved to the end
+		// Original cells 1-11 shift up, cell 0 is now at position 11
+		const expectedContents = [
+			'# Cell 1', '# Cell 2', '# Cell 3', '# Cell 4', '# Cell 5',
+			'# Cell 6', '# Cell 7', '# Cell 8', '# Cell 9', '# Cell 10',
+			'# Cell 11', '# Cell 0'
+		];
+		await notebooksPositron.expectCellContentsToBe(expectedContents);
+		await notebooksPositron.expectCellCountToBe(12);
+	});
+
+	// TODO: Add multi-cell drag-and-drop tests once multi-drag support is implemented.
+	// Multi-drag would allow selecting multiple cells (e.g., via Shift+Click) and
+	// dragging them together to a new position. Currently, multi-cell moves are
+	// only supported via keyboard (Alt+Arrow with multi-select).
+	// Related tests to add:
+	// - 'Drag-and-drop: move multiple selected cells together'
+	// - 'Drag-and-drop: multi-select drag with undo/redo'
+	// - 'Drag-and-drop: multi-select drag across scroll boundary'
 });
