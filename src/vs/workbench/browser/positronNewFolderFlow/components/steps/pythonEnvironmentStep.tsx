@@ -90,13 +90,16 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		if (envSetupType === EnvironmentSetupType.NewEnvironment && envProviders && envProviderId) {
 			const providerName = envProviderNameForId(envProviderId, envProviders);
 			const defaultName = getDefaultEnvName(providerName);
-			// Only set if no custom name has been set yet
-			if (!envName) {
+			// Only set if no name has been set yet (undefined or null, not empty string)
+			if (envName === undefined || envName === null) {
 				setEnvName(defaultName);
 				context.pythonEnvName = defaultName;
 			}
 		}
-	}, [envSetupType, envProviderId, envProviders, context, envName]);
+		// Note: envName is intentionally NOT in the dependency array to avoid resetting
+		// when user clears the input
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [envSetupType, envProviderId, envProviders, context]);
 
 	// Utility functions.
 	// At least one interpreter is available.
@@ -501,21 +504,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 							onEnvProviderSelected(item.options.identifier)
 						}
 					/>
-				</PositronFlowSubStep> : null
-			}
-			{/* If New Environment, show input for environment name */}
-			{envSetupType === EnvironmentSetupType.NewEnvironment ?
-				<PositronFlowSubStep
-					title={(() => localize(
-						'pythonEnvironmentNameSubStep.title',
-						"Environment Name"
-					))()}
-					titleId='pythonEnvironment-envName'
-				>
 					<LabeledTextInput
 						label={(() => localize(
 							'pythonEnvironmentNameSubStep.label',
-							"Name"
+							"Environment name"
 						))()}
 						value={envName ?? ''}
 						onChange={(e) => onEnvNameChanged(e.target.value)}
