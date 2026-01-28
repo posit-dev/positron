@@ -316,7 +316,7 @@ async function loadTests(opts) {
 			const msg = [];
 			for (const error of errors) {
 				console.error(`Error: Test run should not have unexpected errors:\n${error}`);
-				msg.push(String(error))
+				msg.push(String(error));
 			}
 			assert.ok(false, `Error: Test run should not have unexpected errors:\n${msg.join('\n')}`);
 		}
@@ -476,7 +476,7 @@ async function runTests(opts) {
 	await loadTests(opts);
 
 	const runner = mocha.run(async () => {
-		await createCoverageReport(opts)
+		await createCoverageReport(opts);
 		ipcRenderer.send('all done');
 	});
 

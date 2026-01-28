@@ -13,7 +13,7 @@
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
-import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
+import { ILanguageModelToolsService } from '../../common/tools/languageModelToolsService.js';
 import { TextSearchTool, TextSearchToolData } from './textSearchTool.js';
 import { FileContentsTool, FileContentsToolData } from './fileContentsTool.js';
 import { EditTool, EditToolData } from './editFileTool.js';

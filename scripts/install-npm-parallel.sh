@@ -54,10 +54,16 @@ if [ "$IS_WINDOWS" = true ]; then
 	pids=()
 	npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 else
-	# Linux/Mac: Run all npm ci commands in parallel for faster installation
+	# Linux/Mac: Install build/ first since postinstall.ts imports gulp-merge-json from it,
+	# then run remaining npm ci commands in parallel for faster installation
+	echo "Installing build dependencies first (required by postinstall for gulp-merge-json, esbuild, etc.)..."
+	if ! npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"; then
+		echo "ERROR: build/ npm ci failed"
+		exit 1
+	fi
+
 	pids=()
 	npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-	npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 	npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 	npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 fi

@@ -77,8 +77,8 @@ export class ReleaseNotesManager extends Disposable {
 			return this.updateHtml();
 		}));
 
-		this._register(_configurationService.onDidChangeConfiguration(this.onDidChangeConfiguration));
-		this._register(_webviewWorkbenchService.onDidChangeActiveWebviewEditor(this.onDidChangeActiveWebviewEditor));
+		this._register(_configurationService.onDidChangeConfiguration((e) => this.onDidChangeConfiguration(e)));
+		this._register(_webviewWorkbenchService.onDidChangeActiveWebviewEditor((e) => this.onDidChangeActiveWebviewEditor(e)));
 		this._simpleSettingRenderer = this._instantiationService.createInstance(SimpleSettingRenderer);
 	}
 

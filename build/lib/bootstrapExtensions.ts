@@ -3,24 +3,24 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as rimraf from 'rimraf';
-import * as es from 'event-stream';
-import * as vfs from 'vinyl-fs';
-import * as ext from './extensions';
-import * as ansiColors from 'ansi-colors';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import rimraf from 'rimraf';
+import es from 'event-stream';
+import vfs from 'vinyl-fs';
+import * as ext from './extensions.ts';
+import ansiColors from 'ansi-colors';
 import rename from 'gulp-rename';
 import fancyLog from 'fancy-log';
 import { Stream } from 'stream';
-import { IExtensionDefinition } from './builtInExtensions';
+import type { IExtensionDefinition } from './builtInExtensions.ts';
 
-const root = path.dirname(path.dirname(__dirname));
-const productjson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
+const root = path.dirname(path.dirname(import.meta.dirname));
+const productjson = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../../product.json'), 'utf8'));
 const ENABLE_LOGGING = !process.env['VSCODE_BUILD_BOOTSTRAP_EXTENSIONS_SILENCE_PLEASE'];
 
-const bootstrapExtensions = <IExtensionDefinition[]>productjson.bootstrapExtensions || [];
+const bootstrapExtensions = (productjson.bootstrapExtensions || []) as IExtensionDefinition[];
 const controlFilePath = path.join(os.homedir(), '.vscode-oss-dev', 'extensions', 'bootstrap-control.json');
 
 function log(...messages: string[]): void {
@@ -294,7 +294,7 @@ export function getBootstrapExtensions(): Promise<void> {
 	});
 }
 
-if (require.main === module) {
+if (import.meta.main) {
 	getBootstrapExtensions().then(() => process.exit(0)).catch(err => {
 		console.error(err);
 		process.exit(1);
