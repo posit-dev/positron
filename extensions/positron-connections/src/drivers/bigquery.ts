@@ -30,7 +30,7 @@ class PythonBigQueryDriverBase implements positron.ConnectionsDriver {
 			positron.RuntimeErrorBehavior.Continue
 		);
 		if (!exec) {
-			throw new Error('Failed to execute code');
+			throw new Error(vscode.l10n.t('Failed to execute code'));
 		}
 		return;
 	}
@@ -90,7 +90,7 @@ conn = bigquery.Client(project=${JSON.stringify(project)})
 `;
 
 		if (project === '') {
-			return { code, errorMessage: 'Project ID is required' };
+			return { code, errorMessage: vscode.l10n.t('Project ID is required') };
 		}
 
 		return code;
@@ -148,7 +148,7 @@ conn = bigquery.Client(credentials=credentials, project=${JSON.stringify(project
 `;
 
 		if (project === '') {
-			return { code, errorMessage: 'Project ID is required' };
+			return { code, errorMessage: vscode.l10n.t('Project ID is required') };
 		}
 
 		return code;
