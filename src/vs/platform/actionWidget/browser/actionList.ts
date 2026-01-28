@@ -130,6 +130,7 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 			} else {
 				// Regular codicon
 				templateData.icon.className = 'icon ' + ThemeIcon.asClassName(element.group.icon);
+				templateData.icon.style.backgroundImage = '';
 				if (element.group.icon.color) {
 					templateData.icon.style.color = asCssVariable(element.group.icon.color.id);
 				} else {
