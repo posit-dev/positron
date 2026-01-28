@@ -173,7 +173,8 @@ class UiService:
             return None
 
         parsed = urlparse(self._last_active_editor_uri)
-        if parsed.scheme != "file":
+
+        if parsed.scheme not in ["file", "vscode-remote"]:  # for remote and local files
             return None
 
         path = unquote(parsed.path)
