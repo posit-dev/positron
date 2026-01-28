@@ -48,7 +48,8 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	const style: React.CSSProperties = {
 		transform: transformStyle,
 		transition,
-		opacity: isDragging ? 0.5 : 1,
+		// When dragging, hide the original cell - the drag overlay shows the visual copy
+		opacity: isDragging ? 0 : 1,
 		position: 'relative',
 	};
 

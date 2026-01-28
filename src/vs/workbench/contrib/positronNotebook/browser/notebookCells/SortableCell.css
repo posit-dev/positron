@@ -53,9 +53,9 @@ body.dragging-notebook-cell * {
 	cursor: grabbing !important;
 }
 
-/* Cell being dragged (placeholder) */
+/* Cell being dragged (placeholder) - hidden since drag overlay shows the visual copy */
 .sortable-cell.dragging {
-	opacity: 0.4;
+	opacity: 0;
 }
 
 /* Hide cell action bar during drag for cleaner preview */
@@ -89,4 +89,5 @@ body.dragging-notebook-cell * {
 	border: 1px solid var(--vscode-focusBorder);
 	opacity: 0.95;
 	pointer-events: none;
+	overflow: hidden;
 }

@@ -93,6 +93,23 @@ export function PositronNotebookComponent() {
 		notebookInstance.moveCell(oldIndex, newIndex);
 	}, [notebookInstance]);
 
+	// Calculate max height for drag overlay (1/3 of container height, min 200px)
+	const maxDragHeight = React.useMemo(() => {
+		const container = containerRef.current;
+		const height = container?.clientHeight || DOM.getActiveWindow().innerHeight;
+		const calculatedHeight = Math.floor(height / 3);
+		return Math.max(calculatedHeight, 200);
+	}, []);
+
+	// Render the drag overlay preview for a cell with height constraint
+	const renderDragOverlay = React.useCallback((cell: IPositronNotebookCell) => {
+		return (
+			<div className='drag-content-wrapper' style={{ maxHeight: maxDragHeight }}>
+				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+			</div>
+		);
+	}, [maxDragHeight]);
+
 	// Check if notebook is read-only
 	const isReadOnly = notebookInstance.isReadOnly;
 
@@ -110,6 +127,7 @@ export function PositronNotebookComponent() {
 				<SortableCellList
 					cells={notebookCells}
 					disabled={isReadOnly}
+					renderDragOverlay={renderDragOverlay}
 					scrollContainerRef={containerRef}
 					onReorder={handleReorder}
 				>
