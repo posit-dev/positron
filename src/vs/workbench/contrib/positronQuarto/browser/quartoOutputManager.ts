@@ -83,6 +83,10 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	// disposed when the model changes, preventing duplicate event handlers
 	private readonly _outputHandlingDisposables = this._register(new DisposableStore());
 
+	// Track whether we've attempted to load cached outputs for this document.
+	// This prevents infinite loops when listening for model changes.
+	private _cachedOutputsLoaded = false;
+
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
@@ -140,8 +144,9 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 				this._transferCacheFromUntitled(previousUri, this._documentUri);
 			}
 
-			// Reset initialization flag so we can re-initialize for the new document
+			// Reset initialization flags so we can re-initialize for the new document
 			this._outputHandlingInitialized = false;
+			this._cachedOutputsLoaded = false;
 
 			// Re-check if this is a Quarto document and initialize if so
 			if (this._featureEnabled && this._isQuartoDocument()) {
@@ -469,6 +474,11 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return;
 		}
 
+		// Prevent duplicate loading
+		if (this._cachedOutputsLoaded) {
+			return;
+		}
+
 		try {
 			let cachedDoc = await this._cacheService.loadCache(this._documentUri);
 
@@ -493,6 +503,29 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					this._logService.debug('[QuartoOutputContribution] Found cache by content hash match');
 				}
 			}
+
+			// If no cache found and no cells available yet, subscribe to model parse events.
+			// This handles the case where an untitled document is being restored via hot exit
+			// and the content hasn't been loaded yet when _loadCachedOutputs is first called.
+			if ((!cachedDoc || cachedDoc.cells.length === 0) &&
+				quartoModel.cells.length === 0 &&
+				this._documentUri.scheme === 'untitled') {
+
+				this._logService.debug('[QuartoOutputContribution] No cells found for untitled document, waiting for content to be restored');
+
+				// Subscribe to parse events - when content is restored and parsed, cells will appear
+				this._outputHandlingDisposables.add(quartoModel.onDidParse(() => {
+					// Only try once more after cells appear
+					if (quartoModel.cells.length > 0 && !this._cachedOutputsLoaded) {
+						this._logService.debug('[QuartoOutputContribution] Cells found after parse, retrying cache load');
+						this._loadCachedOutputs();
+					}
+				}));
+				return;
+			}
+
+			// Mark as loaded to prevent re-entry
+			this._cachedOutputsLoaded = true;
 
 			if (!cachedDoc || cachedDoc.cells.length === 0) {
 				this._logService.debug('[QuartoOutputContribution] No cached outputs to restore');

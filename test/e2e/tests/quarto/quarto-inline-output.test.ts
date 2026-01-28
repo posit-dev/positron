@@ -847,6 +847,129 @@ test.describe('Quarto - Inline Output', {
 		await runCommand('workbench.action.closeActiveEditor');
 	});
 
+	test('Python - Verify untitled document inline output persists after window reload without saving', async function ({ app, runCommand }) {
+		// This test reproduces a bug where inline output in an untitled (unsaved) Quarto document
+		// is lost after window reload. The bug occurs because:
+		// 1. Untitled documents have URIs like "untitled:Untitled-1.qmd"
+		// 2. After window reload, the untitled document may get a different URI (e.g., "untitled:Untitled-2.qmd")
+		// 3. The cache lookup uses a hash of the URI, so the cache file isn't found
+		// 4. The findCacheByContentHash fallback should find the cache by content hash match
+		//
+		// The fix should ensure that untitled document outputs are found via content hash matching
+		// even when the URI changes after reload.
+
+		const page = app.code.driver.page;
+
+		// Step 1: Create a new untitled Quarto document using the Quarto extension command
+		await runCommand('quarto.newDocument');
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to recognize this as a Quarto document
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Step 2: Add a simple Python code chunk to the document
+		await editor.click();
+		await page.waitForTimeout(500);
+		await page.keyboard.press('ControlOrMeta+End');
+		await page.waitForTimeout(200);
+
+		// Add some newlines first
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Enter');
+
+		// Type the code fence opening - use individual key presses for backticks
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.type('{python}');
+		await page.keyboard.press('Enter');
+
+		// Type Python code with a unique message for this test
+		await page.keyboard.type('print("Untitled output test!")');
+		await page.keyboard.press('Enter');
+
+		// Type the closing fence
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+		await page.keyboard.press('Backquote');
+
+		await page.waitForTimeout(1500); // Wait for document to parse
+
+		// Verify the cell toolbar appeared
+		const cellToolbar = page.locator('.quarto-cell-toolbar');
+		await expect(cellToolbar.first()).toBeVisible({ timeout: 10000 });
+
+		// Step 3: Click the run button on the cell toolbar
+		const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
+		await runButton.click();
+
+		// Step 4: Wait for inline output to appear
+		const inlineOutput = page.locator('.quarto-inline-output');
+
+		// Poll until output appears (includes kernel startup time)
+		await expect(async () => {
+			await runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the output content is present and contains our expected text
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		const outputText = inlineOutput.locator('.quarto-output-stdout');
+		await expect(outputText).toContainText('Untitled output test!');
+
+		// Step 5: Wait for the cache write debounce to complete before reloading
+		// The cache service uses a 1000ms debounce, so wait longer to ensure it's flushed
+		// This is critical - if we reload too soon, the cache won't be on disk yet
+		await page.waitForTimeout(2500);
+
+		// Step 6: Reload the window WITHOUT saving the document
+		// VS Code's "hot exit" feature should preserve the untitled document content across reload
+		await runCommand('workbench.action.reloadWindow');
+
+		// Wait for the editor to be ready again after reload
+		await expect(editor).toBeVisible({ timeout: 60000 });
+
+		// Wait for the Quarto inline output feature to reinitialize
+		// The kernel status widget should appear when the untitled document is restored
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Wait for the cache service to load cached outputs
+		// The cache service should find the outputs via content hash matching
+		// even though the untitled document might have a different URI after reload
+		await page.waitForTimeout(2000);
+
+		// Step 7: Verify the output is still visible after reload
+		// CRITICAL: This is the bug we're testing - the output should persist
+		await expect(async () => {
+			await runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('10');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 30000 });
+
+		// Verify the output content matches what we originally executed
+		await expect(outputText).toContainText('Untitled output test!');
+
+		// Cleanup: Close the untitled file without saving
+		// Use closeAllEditors to avoid save prompt
+		await runCommand('workbench.action.closeAllEditors');
+		// Handle the "Don't Save" dialog if it appears
+		const dontSaveButton = page.getByRole('button', { name: /Don't Save/i });
+		if (await dontSaveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+			await dontSaveButton.click();
+		}
+	});
+
 	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ app, openFile }) {
 		// This test verifies a bug fix where pandas DataFrames were showing both
 		// HTML and plain text representations. The kernel sends both formats, but
