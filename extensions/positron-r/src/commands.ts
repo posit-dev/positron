@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
 import { generateDirectInjectionId, PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
@@ -191,6 +192,17 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			sourceCurrentFile(true, resource);
 		}),
 
+		// Commands used to load R data files
+		vscode.commands.registerCommand('r.loadRDataFile', async (resource?: vscode.Uri) => {
+			loadRDataFile(resource);
+		}),
+		vscode.commands.registerCommand('r.loadRdsFile', async (resource?: vscode.Uri) => {
+			loadRdsFile(resource);
+		}),
+		vscode.commands.registerCommand('r.loadRDataFileWithPicker', async () => {
+			loadRDataFileWithPicker();
+		}),
+
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.rmarkdownRender', async () => {
 			const filePath = await getEditorFilePathForCommand();
@@ -354,6 +366,37 @@ async function executeCodeForCommand(pkg: string, code: string) {
 	}
 }
 
+/**
+ * Prompts the user to select an R data file (.RData, .rda, .rds) and loads it.
+ */
+async function loadRDataFileWithPicker() {
+	const filters: { [name: string]: string[] } = {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'R Data Files': ['RData', 'Rdata', 'rdata', 'rda', 'rds', 'RDS']
+	};
+
+	const fileUri = await vscode.window.showOpenDialog({
+		canSelectMany: false,
+		openLabel: vscode.l10n.t('Load'),
+		filters: filters,
+		title: vscode.l10n.t('Select R Data File to Load')
+	});
+
+	if (!fileUri || fileUri.length === 0) {
+		return;
+	}
+
+	const selectedFile = fileUri[0];
+	const ext = path.extname(selectedFile.fsPath).toLowerCase();
+
+	if (ext === '.rds') {
+		loadRdsFile(selectedFile);
+	} else {
+		// .RData, .Rdata, .rdata, .rda
+		loadRDataFile(selectedFile);
+	}
+}
+
 export async function getEditorFilePathForCommand(resource?: vscode.Uri) {
 	let filePath: string | undefined;
 
@@ -421,4 +464,121 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 		// https://github.com/posit-dev/positron/issues/780
 	}
 
+}
+
+/**
+ * Gets the file path for loading operations.
+ *
+ * @param resource Optional URI from context menu
+ * @returns The file path, or undefined if not found
+ */
+export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
+	let filePath: string | undefined;
+
+	if (resource) {
+		// Unlikely since these Uris come from VS Code's file explorer or editor
+		// context menus, but validate that the resource has a file system path.
+		if (!resource.fsPath) {
+			LOGGER.warn('getFilePathForLoad: resource has no fsPath: ' + JSON.stringify(resource));
+			return undefined;
+		}
+		filePath = resource.fsPath;
+	} else {
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			filePath = editor.document.uri.fsPath;
+		}
+	}
+
+	if (!filePath) {
+		return undefined;
+	}
+
+	// Verify file exists
+	try {
+		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+		return filePath.replace(/\\/g, '/'); // POSIX separators for R
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Loads an R workspace file (.RData, .rda) into the R session.
+ *
+ * @param resource Optional URI from context menu click
+ * @param showErrors Whether to show error messages (default true)
+ */
+export async function loadRDataFile(resource?: vscode.Uri, showErrors = true): Promise<void> {
+	if (!resource) {
+		// No resource, so nothing to do
+		return;
+	}
+	const filePath = await getFilePathForLoad(resource);
+	if (filePath) {
+		const command = `load(${JSON.stringify(filePath)})`;
+		await positron.runtime.executeCode('r', command, true); // focus=true to show result
+	} else if (showErrors) {
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load R data file: File not found or invalid path {0}', JSON.stringify(resource)));
+	}
+}
+
+/**
+ * Loads an RDS file into the R session with a specified variable name.
+ *
+ * @param resource The URI of the RDS file to load
+ * @param varName The variable name to assign the loaded object to
+ */
+export async function loadRdsFileWithVarName(resource: vscode.Uri, varName: string): Promise<void> {
+	const filePath = await getFilePathForLoad(resource);
+	if (!filePath) {
+		throw new Error(vscode.l10n.t('File not found or invalid path {0}', JSON.stringify(resource)));
+	}
+	const command = `${varName} <- readRDS(${JSON.stringify(filePath)})`;
+	await positron.runtime.executeCode('r', command, true);
+}
+
+/**
+ * Loads an RDS file into the R session, prompting for variable name.
+ * @param resource Optional URI from context menu click
+ */
+async function loadRdsFile(resource?: vscode.Uri) {
+	if (!resource) {
+		// No resource, so nothing to do
+		return;
+	}
+	try {
+		const filePath = await getFilePathForLoad(resource);
+		if (!filePath) {
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: File not found or invalid path {0}', JSON.stringify(resource)));
+			return;
+		}
+
+		// Extract suggested variable name from filename (without extension)
+		const suggestedName = path.basename(filePath, path.extname(filePath))
+			.replace(/[^a-zA-Z0-9_.]/g, '_'); // Sanitize for R variable name
+
+		const varName = await vscode.window.showInputBox({
+			prompt: vscode.l10n.t('Enter the variable name for the loaded object'),
+			placeHolder: vscode.l10n.t('Variable name'),
+			value: suggestedName,
+			validateInput: (value) => {
+				if (!value || value.trim().length === 0) {
+					return vscode.l10n.t('Variable name cannot be empty');
+				}
+				// Basic R variable name validation
+				if (!/^[a-zA-Z._][a-zA-Z0-9._]*$/.test(value)) {
+					return vscode.l10n.t('Invalid R variable name');
+				}
+				return undefined; // Valid
+			}
+		});
+
+		if (varName) {
+			await loadRdsFileWithVarName(resource, varName);
+		}
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		vscode.window.showErrorMessage(vscode.l10n.t('Failed to load RDS file: {0}', message));
+	}
 }
