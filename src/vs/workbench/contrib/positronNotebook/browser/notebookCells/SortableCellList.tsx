@@ -20,6 +20,7 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 interface SortableCellListProps {
@@ -54,13 +55,13 @@ export function SortableCellList({
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
 		const cell = cells.find(c => c.handleId === event.active.id);
 		setActiveCell(cell ?? null);
-		document.body.classList.add('dragging-notebook-cell');
+		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
 	}, [cells]);
 
 	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
 		const { active, over } = event;
 		setActiveCell(null);
-		document.body.classList.remove('dragging-notebook-cell');
+		DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 
 		if (over && active.id !== over.id) {
 			const oldIndex = cells.findIndex(c => c.handleId === active.id);
@@ -73,7 +74,7 @@ export function SortableCellList({
 
 	const handleDragCancel = React.useCallback(() => {
 		setActiveCell(null);
-		document.body.classList.remove('dragging-notebook-cell');
+		DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 	}, []);
 
 	// If disabled (read-only mode), don't enable drag-and-drop
