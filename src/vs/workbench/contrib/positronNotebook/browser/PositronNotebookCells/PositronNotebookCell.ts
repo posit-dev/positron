@@ -139,6 +139,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this.model.handle;
 	}
 
+	/**
+	 * Stable identifier for drag-and-drop operations.
+	 * Uses the cell's internal handle ID which persists across renders.
+	 */
+	get handleId(): string {
+		return this.model.handle.toString();
+	}
+
 	getContent(): string {
 		return this.model.getValue();
 	}
