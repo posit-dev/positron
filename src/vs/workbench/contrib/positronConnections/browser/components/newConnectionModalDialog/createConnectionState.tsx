@@ -37,7 +37,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
-	const [codeState, setCodeState] = useState<{ valid: boolean; code: string; errorMessage?: string } | undefined>(undefined);
+	const [codeState, setCodeState] = useState<{ code: string; errorMessage?: string } | undefined>(undefined);
 
 	const editorOptions = useMemo(() => ({
 		readOnly: true,
@@ -50,7 +50,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			if (generateCode) {
 				const result = await generateCode(inputs);
 				if (typeof result === 'string') {
-					setCodeState({ valid: true, code: result });
+					setCodeState({ code: result });
 				} else {
 					setCodeState(result);
 				}
@@ -133,7 +133,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
 		</div>
 
-		<div className={`create-connection-code-editor${codeState?.valid === false ? ' has-error' : ''}`}>
+		<div className={`create-connection-code-editor${codeState?.errorMessage ? ' has-error' : ''}`}>
 			<SimpleCodeEditor
 				ref={editorRef}
 				code={codeState?.code || ''}
@@ -141,7 +141,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				language={languageId}
 			>
 			</SimpleCodeEditor>
-			{codeState?.valid === false && codeState.errorMessage && (
+			{codeState?.errorMessage && (
 				<div className='connection-error-message'>{codeState.errorMessage}</div>
 			)}
 		</div>
@@ -169,8 +169,8 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
 			</PositronButton>
 			<PositronButton
-				className={`button action-bar-button${codeState?.valid !== false ? ' default' : ''}`}
-				disabled={!codeState?.valid}
+				className={`button action-bar-button${!codeState?.errorMessage ? ' default' : ''}`}
+				disabled={!codeState || !!codeState.errorMessage}
 				onPressed={onConnectHandler}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}

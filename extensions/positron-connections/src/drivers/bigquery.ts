@@ -78,7 +78,7 @@ export class PythonBigQueryDefaultCredentialsDriver extends PythonBigQueryDriver
 		]
 	};
 
-	generateCode(inputs: positron.ConnectionsInput[]): { valid: boolean; code: string; errorMessage?: string } {
+	generateCode(inputs: positron.ConnectionsInput[]): string | { code: string; errorMessage: string } {
 		const project = inputs.find(input => input.id === 'project')?.value ?? '';
 
 		const code = `from google.cloud import bigquery
@@ -90,14 +90,10 @@ conn = bigquery.Client(project=${JSON.stringify(project)})
 `;
 
 		if (project === '') {
-			return {
-				valid: false,
-				code,
-				errorMessage: 'Project ID is required'
-			};
+			return { code, errorMessage: 'Project ID is required' };
 		}
 
-		return { valid: true, code };
+		return code;
 	}
 }
 
@@ -139,7 +135,7 @@ export class PythonBigQueryServiceAccountDriver extends PythonBigQueryDriverBase
 		]
 	};
 
-	generateCode(inputs: positron.ConnectionsInput[]): { valid: boolean; code: string; errorMessage?: string } {
+	generateCode(inputs: positron.ConnectionsInput[]): string | { code: string; errorMessage: string } {
 		const project = inputs.find(input => input.id === 'project')?.value ?? '';
 		const keyfilePath = inputs.find(input => input.id === 'keyfile_path')?.value ?? '';
 
@@ -152,13 +148,9 @@ conn = bigquery.Client(credentials=credentials, project=${JSON.stringify(project
 `;
 
 		if (project === '') {
-			return {
-				valid: false,
-				code,
-				errorMessage: 'Project ID is required'
-			};
+			return { code, errorMessage: 'Project ID is required' };
 		}
 
-		return { valid: true, code };
+		return code;
 	}
 }
