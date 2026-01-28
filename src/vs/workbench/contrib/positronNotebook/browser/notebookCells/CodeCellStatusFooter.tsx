@@ -35,27 +35,31 @@ export function CodeCellStatusFooter({ cell, hasError }: CodeCellStatusFooterPro
 	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
 	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
 
-	// The lastRunEndTime value doesn't change after execution completes, which means the
-	// relative time recalculation won't happen. We need to force a re-render every minute
-	// while there is a lastRunEndTime to keep the relative time display accurate. We can
-	// do that by updating a dummy state value on an interval.
+	/**
+	 * `lastRunEndTime` doesn't change after execution completes, which means the
+	 * relative time recalculation won't trigger a re-render. To keep the relative time
+	 * display accurate, we set up an interval that updates a dummy state value every minute.
+	 * This forces the component to re-render and update the displayed relative time.
+	 */
 	const [, setTick] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		// Only set up interval if we have a completion time to display
 		if (lastRunEndTime === undefined) {
 			return;
 		}
 
-		// update dummy state every minute
-		const window = DOM.getWindow(containerRef.current);
-		const intervalId = window.setInterval(() => {
-			setTick(tick => tick + 1);
+		const targetWindow = DOM.getWindow(containerRef.current);
+		const intervalId = targetWindow.setInterval(() => {
+			// Only update if cell is visible to avoid unnecessary re-renders
+			if (cell.isInViewport()) {
+				setTick(tick => tick + 1);
+			}
 		}, 60000);
 
-		// cleanup interval on unmount
-		return () => window.clearInterval(intervalId);
-	}, [lastRunEndTime]);
+		return () => targetWindow.clearInterval(intervalId);
+	}, [cell, lastRunEndTime]);
 
 	// Derive state conditions
 	const hasExecutionOrder = executionOrder !== undefined;
