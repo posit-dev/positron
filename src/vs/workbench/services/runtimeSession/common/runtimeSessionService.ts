@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -232,6 +232,8 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
 
+	getPackages?(): Promise<Array<ILanguageRuntimePackage>>;
+
 	/** Show output log of the runtime */
 	showOutput(channel?: LanguageRuntimeSessionChannel): void;
 
@@ -254,6 +256,13 @@ export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
 	metadata: INotebookRuntimeSessionMetadata;
+}
+
+export interface ILanguageRuntimePackage {
+	id: string;
+	name: string;
+	displayName: string;
+	version: string;
 }
 
 /**
@@ -603,6 +612,7 @@ export interface IRuntimeSessionService {
 	 * @returns An `IDisposable` to clean up the event handler.
 	 */
 	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
+
 }
 
 export { RuntimeClientType };

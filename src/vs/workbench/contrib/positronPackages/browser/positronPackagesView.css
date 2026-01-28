@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-packages-container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-packages-container .packages-action-bars-container {
+	height: min-content;
+}
+
+.positron-packages-container .packages-data-container {
+	flex-grow: 1;
+}
+
+.not-selectable {
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
