@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Drag handle for sortable cells */
+.cell-drag-handle {
+	position: absolute;
+	left: 4px; /* Positioned inside cell to avoid clipping */
+	top: 8px;
+	width: 16px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+	color: var(--vscode-foreground);
+	border-radius: 3px;
+	border: none;
+	background: transparent;
+	padding: 0;
+	z-index: 10; /* Ensure handle is above cell content */
+}
+
+/* Ensure drag handle isn't clipped */
+.sortable-cell {
+	overflow: visible;
+}
+
+.sortable-cell:hover .cell-drag-handle,
+.cell-drag-handle:focus-visible {
+	opacity: 0.6;
+}
+
+.cell-drag-handle:hover {
+	opacity: 1;
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.cell-drag-handle:active {
+	cursor: grabbing;
+}
+
+/* Cell being dragged (placeholder) */
+.sortable-cell.dragging {
+	opacity: 0.4;
+}
+
+/* Drag overlay (preview following cursor) */
+.cell-drag-overlay {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border-radius: 4px;
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-focusBorder);
+	opacity: 0.95;
+	pointer-events: none;
+}
