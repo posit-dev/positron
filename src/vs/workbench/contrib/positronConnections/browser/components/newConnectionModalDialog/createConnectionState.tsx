@@ -141,6 +141,9 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				language={languageId}
 			>
 			</SimpleCodeEditor>
+			{codeState?.valid === false && codeState.errorMessage && (
+				<div className='connection-error-message'>{codeState.errorMessage}</div>
+			)}
 		</div>
 
 		<div className='create-connection-buttons'>
