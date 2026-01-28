@@ -607,6 +607,32 @@ class DataExplorerTableView:
                 raise NotImplementedError(profile_type)
         return ColumnProfileResult(**results)
 
+    def _get_format_options(self) -> FormatOptions | None:
+        """
+        Get format options based on current Python/NumPy display settings.
+        Returns None if using default formatting.
+        
+        Subclasses can override this to provide backend-specific format options.
+        For example, to respect Python display settings:
+        
+        import pandas as pd
+        precision = pd.get_option('display.precision')  # Default: 6
+        
+        # Calculate max_integral_digits based on threshold for scientific notation
+        # Similar to R's scipen option
+        max_integral = 7  # Default threshold
+        
+        return FormatOptions(
+            large_num_digits=precision,
+            small_num_digits=precision,
+            max_integral_digits=max_integral,
+            max_value_length=1000,
+            thousands_sep=None  # or ',' if desired
+        )
+        """
+        # For now, return None to use frontend defaults
+        return None
+
     def get_state(self, _unused):
         self._recompute_if_needed()
 
@@ -635,6 +661,7 @@ class DataExplorerTableView:
             row_filters=self.state.row_filters,
             sort_keys=self.state.sort_keys,
             supported_features=self.FEATURES,
+            format_options=self._get_format_options(),
         )
 
     def _recompute(self):
