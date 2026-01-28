@@ -6,8 +6,8 @@
 /* Drag handle for sortable cells */
 .cell-drag-handle {
 	position: absolute;
-	left: 4px; /* Positioned inside cell to avoid clipping */
-	top: 8px;
+	left: -13px; /* Aligned with left gutter: -25px + 12px cell margin = -13px from sortable-cell */
+	top: 4px;
 	width: 16px;
 	height: 24px;
 	display: flex;
@@ -39,8 +39,18 @@
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
+.cell-drag-handle .codicon {
+	cursor: inherit;
+}
+
 .cell-drag-handle:active {
 	cursor: grabbing;
+}
+
+/* Global cursor during drag operation */
+body.dragging-notebook-cell,
+body.dragging-notebook-cell * {
+	cursor: grabbing !important;
 }
 
 /* Cell being dragged (placeholder) */
