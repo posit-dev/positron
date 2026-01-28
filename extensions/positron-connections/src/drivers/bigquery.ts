@@ -34,6 +34,16 @@ class PythonBigQueryDriverBase implements positron.ConnectionsDriver {
 		}
 		return;
 	}
+
+	protected loadIcon(context: vscode.ExtensionContext) {
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'bigquery.svg');
+		try {
+			const iconData = readFileSync(iconPath, 'base64');
+			this.metadata.base64EncodedIconSvg = iconData;
+		} catch {
+			// Icon file may not exist yet, continue without it
+		}
+	}
 }
 
 /**
@@ -50,13 +60,7 @@ export class PythonBigQueryDefaultCredentialsDriver extends PythonBigQueryDriver
 
 	constructor(context: vscode.ExtensionContext) {
 		super();
-		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'bigquery.svg');
-		try {
-			const iconData = readFileSync(iconPath, 'base64');
-			this.metadata.base64EncodedIconSvg = iconData;
-		} catch {
-			// Icon file may not exist yet, continue without it
-		}
+		this.loadIcon(context);
 	}
 
 	driverId: string = 'py-bigquery-default';
@@ -101,13 +105,7 @@ export class PythonBigQueryServiceAccountDriver extends PythonBigQueryDriverBase
 
 	constructor(context: vscode.ExtensionContext) {
 		super();
-		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'bigquery.svg');
-		try {
-			const iconData = readFileSync(iconPath, 'base64');
-			this.metadata.base64EncodedIconSvg = iconData;
-		} catch {
-			// Icon file may not exist yet, continue without it
-		}
+		this.loadIcon(context);
 	}
 
 	driverId: string = 'py-bigquery-service-account';
