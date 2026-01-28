@@ -37,3 +37,25 @@ export interface DragEndEvent {
 export interface DragCancelEvent {
 	active: { id: string };
 }
+
+export interface SensorOptions {
+	activationConstraint?: {
+		distance?: number;
+	};
+}
+
+export interface KeyboardCoordinateGetter {
+	(event: KeyboardEvent, args: {
+		currentCoordinates: { x: number; y: number };
+		context: {
+			droppableRects: Map<string, DOMRect>;
+			activeId: string | null;
+		};
+	}): { x: number; y: number } | undefined;
+}
+
+export interface AutoScrollOptions {
+	enabled?: boolean;
+	threshold?: number; // Pixels from edge to start scrolling (default: 50)
+	speed?: number; // Pixels per frame (default: 10)
+}

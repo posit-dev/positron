@@ -7,6 +7,7 @@ import * as React from 'react';
 import { DndContext } from './DndContext.js';
 import { DragOverlay } from './DragOverlay.js';
 import { DragEndEvent, DragStartEvent } from './types.js';
+import { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
 
 interface SortableContextProps {
 	items: string[];
@@ -16,6 +17,7 @@ interface SortableContextProps {
 	disabled?: boolean;
 	onDragStart?: () => void;
 	onDragEnd?: () => void;
+	scrollContainerRef?: React.RefObject<HTMLElement>;
 }
 
 export function SortableContext({
@@ -26,6 +28,7 @@ export function SortableContext({
 	disabled = false,
 	onDragStart: onDragStartProp,
 	onDragEnd: onDragEndProp,
+	scrollContainerRef,
 }: SortableContextProps) {
 	const [activeId, setActiveId] = React.useState<string | null>(null);
 
@@ -61,6 +64,9 @@ export function SortableContext({
 
 	return (
 		<DndContext
+			autoScroll={{ enabled: true, threshold: 100, speed: 15 }}
+			keyboardCoordinateGetter={sortableKeyboardCoordinates}
+			scrollContainerRef={scrollContainerRef}
 			onDragCancel={handleDragCancel}
 			onDragEnd={handleDragEnd}
 			onDragStart={handleDragStart}

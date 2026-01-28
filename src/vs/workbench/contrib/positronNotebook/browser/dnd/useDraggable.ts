@@ -32,6 +32,21 @@ export function useDraggable({ id }: UseDraggableProps) {
 		startDrag(id, { x: e.clientX, y: e.clientY }, rect ?? null);
 	}, [id, startDrag]);
 
+	const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+		// Space or Enter to start drag
+		if (e.key === ' ' || e.key === 'Enter') {
+			e.preventDefault();
+			const rect = nodeRef.current?.getBoundingClientRect();
+			if (rect) {
+				// Start drag from center of element
+				startDrag(id, {
+					x: rect.left + rect.width / 2,
+					y: rect.top + rect.height / 2,
+				}, rect);
+			}
+		}
+	}, [id, startDrag]);
+
 	// Attributes for the draggable element
 	const attributes = {
 		role: 'button' as const,
@@ -43,6 +58,7 @@ export function useDraggable({ id }: UseDraggableProps) {
 	// Event listeners for the activator (drag handle)
 	const listeners = {
 		onPointerDown: handlePointerDown,
+		onKeyDown: handleKeyDown,
 	};
 
 	// NOTE: The dragging item does NOT get a cursor-following transform.

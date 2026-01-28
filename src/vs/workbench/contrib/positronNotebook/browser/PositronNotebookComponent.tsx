@@ -110,6 +110,7 @@ export function PositronNotebookComponent() {
 				<SortableCellList
 					cells={notebookCells}
 					disabled={isReadOnly}
+					scrollContainerRef={containerRef}
 					onReorder={handleReorder}
 				>
 					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}

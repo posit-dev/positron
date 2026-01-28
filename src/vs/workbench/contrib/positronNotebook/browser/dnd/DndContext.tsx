@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent } from './types.js';
+import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, KeyboardCoordinateGetter, AutoScrollOptions } from './types.js';
 import { closestCenter } from './collisionDetection.js';
+import { AutoScrollController } from './autoScroll.js';
 
 interface DndContextValue {
 	state: DragState;
@@ -25,6 +26,11 @@ interface DndContextProps {
 	onDragEnd?: (event: DragEndEvent) => void;
 	onDragCancel?: (event: DragCancelEvent) => void;
 	activationDistance?: number; // Pixels to move before drag activates (default: 10)
+	// Keyboard support
+	keyboardCoordinateGetter?: KeyboardCoordinateGetter;
+	// Auto-scroll support
+	autoScroll?: AutoScrollOptions;
+	scrollContainerRef?: React.RefObject<HTMLElement>;
 }
 
 interface PendingDrag {
@@ -39,6 +45,9 @@ export function DndContext({
 	onDragEnd,
 	onDragCancel,
 	activationDistance = 10,
+	keyboardCoordinateGetter,
+	autoScroll,
+	scrollContainerRef,
 }: DndContextProps) {
 	const [state, setState] = React.useState<DragState>({
 		status: 'idle',
@@ -61,6 +70,32 @@ export function DndContext({
 	onDragStartRef.current = onDragStart;
 	onDragEndRef.current = onDragEnd;
 	onDragCancelRef.current = onDragCancel;
+
+	// Store keyboard coordinate getter in ref
+	const keyboardCoordinateGetterRef = React.useRef(keyboardCoordinateGetter);
+	keyboardCoordinateGetterRef.current = keyboardCoordinateGetter;
+
+	// Track dragging state in a ref for use in event handlers (avoids stale closure issues)
+	const isDraggingRef = React.useRef(false);
+	isDraggingRef.current = state.status === 'dragging';
+
+	// Auto-scroll controller - initialized once and updated via ref
+	const autoScrollRef = React.useRef<AutoScrollController | null>(null);
+
+	// Initialize auto-scroll controller once
+	if (autoScrollRef.current === null && autoScroll?.enabled !== false) {
+		autoScrollRef.current = new AutoScrollController(scrollContainerRef ?? null, {
+			threshold: autoScroll?.threshold,
+			speed: autoScroll?.speed,
+		});
+	}
+
+	// Update scroll container ref when it changes
+	React.useEffect(() => {
+		if (autoScrollRef.current) {
+			autoScrollRef.current.setScrollContainerRef(scrollContainerRef ?? null);
+		}
+	}, [scrollContainerRef]);
 
 	const registerDroppable = React.useCallback((id: string, node: HTMLElement) => {
 		droppablesRef.current.set(id, {
@@ -132,9 +167,18 @@ export function DndContext({
 					overId: closest?.id ?? null,
 				};
 			});
+
+			// Auto-scroll when near edges (outside setState to ensure it runs)
+			// Use ref to check dragging status since state in closure might be stale
+			if (isDraggingRef.current) {
+				autoScrollRef.current?.update(position);
+			}
 		};
 
 		const handlePointerUp = () => {
+			// Stop auto-scroll
+			autoScrollRef.current?.stop();
+
 			if (pendingDrag) {
 				// Drag never activated, just reset
 				setPendingDrag(null);
@@ -165,6 +209,9 @@ export function DndContext({
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
+				// Stop auto-scroll
+				autoScrollRef.current?.stop();
+
 				if (pendingDrag) {
 					setPendingDrag(null);
 					return;
@@ -184,6 +231,48 @@ export function DndContext({
 						initialPosition: null,
 						currentPosition: null,
 						initialRect: null,
+					};
+				});
+				return;
+			}
+
+			// Handle arrow keys for keyboard navigation during drag
+			if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && keyboardCoordinateGetterRef.current) {
+				setState(prev => {
+					if (prev.status !== 'dragging' || !prev.currentPosition) {
+						return prev;
+					}
+
+					// Build droppable rects map
+					const droppableRects = new Map<string, DOMRect>();
+					for (const [id, entry] of droppablesRef.current) {
+						// Update rect before using
+						entry.rect = entry.node.getBoundingClientRect();
+						droppableRects.set(id, entry.rect);
+					}
+
+					const newCoords = keyboardCoordinateGetterRef.current!(e, {
+						currentCoordinates: prev.currentPosition,
+						context: { droppableRects, activeId: prev.activeId },
+					});
+
+					if (!newCoords) {
+						return prev;
+					}
+
+					e.preventDefault();
+
+					// Find closest droppable at new coordinates
+					const closest = closestCenter(
+						newCoords,
+						Array.from(droppablesRef.current.values()),
+						prev.activeId
+					);
+
+					return {
+						...prev,
+						currentPosition: newCoords,
+						overId: closest?.id ?? null,
 					};
 				});
 			}

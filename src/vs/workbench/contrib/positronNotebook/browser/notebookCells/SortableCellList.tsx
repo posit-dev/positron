@@ -15,6 +15,7 @@ interface SortableCellListProps {
 	children: React.ReactNode;
 	renderDragOverlay?: (cell: IPositronNotebookCell) => React.ReactNode;
 	disabled?: boolean; // For read-only mode
+	scrollContainerRef?: React.RefObject<HTMLElement>; // For auto-scroll during drag
 }
 
 export function SortableCellList({
@@ -23,6 +24,7 @@ export function SortableCellList({
 	children,
 	renderDragOverlay,
 	disabled = false,
+	scrollContainerRef,
 }: SortableCellListProps) {
 	const items = React.useMemo(
 		() => cells.map(c => c.handleId),
@@ -55,6 +57,7 @@ export function SortableCellList({
 			disabled={disabled}
 			items={items}
 			renderDragOverlay={renderOverlay}
+			scrollContainerRef={scrollContainerRef}
 			onDragEnd={handleDragEnd}
 			onDragStart={handleDragStart}
 			onReorder={onReorder}

@@ -10,10 +10,15 @@ export { DragOverlay } from './DragOverlay.js';
 export { closestCenter } from './collisionDetection.js';
 export { SortableContext } from './SortableContext.js';
 export { useSortable } from './useSortable.js';
+export { AutoScrollController, calculateScrollDelta } from './autoScroll.js';
+export { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
 export type {
 	DragState,
 	DragStartEvent,
 	DragEndEvent,
 	DragCancelEvent,
 	DroppableEntry,
+	KeyboardCoordinateGetter,
+	AutoScrollOptions,
+	SensorOptions,
 } from './types.js';
