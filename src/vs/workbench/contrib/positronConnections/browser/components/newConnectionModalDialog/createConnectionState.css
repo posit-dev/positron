@@ -113,5 +113,5 @@
 
 /* Error state for code editor */
 .create-connection-code-editor.has-error {
-	border-left: 3px solid var(--vscode-inputValidation-errorBorder);
+	box-shadow: inset 3px 0 0 0 var(--vscode-inputValidation-errorBorder);
 }
