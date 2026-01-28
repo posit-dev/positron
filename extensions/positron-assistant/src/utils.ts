@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PromptInstructionsReference, RuntimeSessionReference, PositronAssistantToolName } from './types.js';
-import { log } from './extension.js';
+import { log } from './log.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.

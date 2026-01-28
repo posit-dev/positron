@@ -7,8 +7,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { createAnthropic, AnthropicProvider } from '@ai-sdk/anthropic';
 import { VercelModelProvider } from '../base/vercelModelProvider';
-import { ModelConfig } from '../../config';
+import { ModelConfig } from '../../configTypes.js';
 import { DEFAULT_ANTHROPIC_MODEL_NAME, DEFAULT_ANTHROPIC_MODEL_MATCH } from './anthropicProvider.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 /**
  * Anthropic Claude model provider implementation.
@@ -53,13 +54,7 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 */
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
-			// use 'anthropic-api' instead to make it possible to differentiate
-			// the two.
-			id: 'anthropic-api',
-			displayName: 'Anthropic'
-		},
+		provider: PROVIDER_METADATA.anthropic,
 		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
