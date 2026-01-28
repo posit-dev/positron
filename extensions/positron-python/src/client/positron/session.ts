@@ -36,7 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
-import { IpykernelBundle } from './ipykernel';
+import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
@@ -350,8 +350,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        if (this._ipykernelBundle.disabledReason || !this._ipykernelBundle.paths) {
-            traceInfo(`Not using bundled ipykernel. Reason: ${this._ipykernelBundle.disabledReason}`);
+        // Re-evaluate the ipykernel bundle paths for this interpreter at runtime.
+        // This ensures we use the correct paths based on the interpreter's actual architecture,
+        // rather than relying on potentially stale cached metadata (which may have been created
+        // with different bundle paths before an update).
+        const ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
+
+        // Update the cached bundle for use by other methods (e.g., _isUninstallBundledPackageCommand)
+        this._ipykernelBundle = ipykernelBundle;
+
+        if (ipykernelBundle.disabledReason || !ipykernelBundle.paths) {
+            traceInfo(`Not using bundled ipykernel. Reason: ${ipykernelBundle.disabledReason}`);
             return false;
         }
 
@@ -359,7 +368,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (!kernelSpec?.env) {
             kernelSpec.env = {};
         }
-        for (const path of this._ipykernelBundle.paths) {
+        for (const path of ipykernelBundle.paths) {
             this._envVarsService.appendPythonPath(kernelSpec.env, path);
         }
 
