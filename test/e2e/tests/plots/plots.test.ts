@@ -221,8 +221,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(treeNodes).toHaveCount(9);
 
 			// collapse the tree, only parent nodes should be visible
-			await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
-			await expect(treeNodes).toHaveCount(3);
+			// doesn't work with playwright on SLES
+			if (process.env.IS_SLES !== 'true') {
+				await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
+				await expect(treeNodes).toHaveCount(3);
+			}
 		});
 
 		test('Python - Verify ipywidget.Output Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
