@@ -113,5 +113,30 @@
 
 /* Error state for code editor */
 .create-connection-code-editor.has-error {
-	box-shadow: inset 3px 0 0 0 var(--vscode-inputValidation-errorBorder);
+	position: relative;
+}
+
+.connection-error-message {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 4px 8px;
+	font-size: 12px;
+	background-color: var(--vscode-inputValidation-errorBackground);
+	border-top: 1px solid var(--vscode-inputValidation-errorBorder);
+	color: var(--vscode-inputValidation-errorForeground);
+	transform-origin: bottom;
+	animation: growUp 0.2s ease-out;
+}
+
+@keyframes growUp {
+	from {
+		transform: scaleY(0);
+		opacity: 0;
+	}
+	to {
+		transform: scaleY(1);
+		opacity: 1;
+	}
 }
