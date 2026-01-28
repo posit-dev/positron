@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DndContext } from './DndContext.js';
+import { DndContext, useDndContext } from './DndContext.js';
 import { DragOverlay } from './DragOverlay.js';
 import { DragEndEvent, DragStartEvent } from './types.js';
 import { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
+import { useAnimationContext } from './AnimationContext.js';
 
 interface SortableContextProps {
 	items: string[];
@@ -18,6 +19,27 @@ interface SortableContextProps {
 	onDragStart?: () => void;
 	onDragEnd?: () => void;
 	scrollContainerRef?: React.RefObject<HTMLElement>;
+}
+
+/**
+ * Inner component that handles animation updates.
+ * Must be rendered inside DndContext to access the animation context.
+ */
+function SortableAnimationManager({ items }: { items: string[] }) {
+	const { state, getDroppableRects } = useDndContext();
+	const { updateSortingState, clearAnimations } = useAnimationContext();
+
+	// Update animations when overId changes during drag
+	React.useEffect(() => {
+		if (state.status === 'dragging' && state.activeId) {
+			const rects = getDroppableRects();
+			updateSortingState(items, rects, state.activeId, state.overId);
+		} else {
+			clearAnimations();
+		}
+	}, [state.status, state.activeId, state.overId, items, getDroppableRects, updateSortingState, clearAnimations]);
+
+	return null;
 }
 
 export function SortableContext({
@@ -71,6 +93,7 @@ export function SortableContext({
 			onDragEnd={handleDragEnd}
 			onDragStart={handleDragStart}
 		>
+			<SortableAnimationManager items={items} />
 			{children}
 			<DragOverlay>
 				{activeId && renderDragOverlay ? renderDragOverlay(activeId) : null}

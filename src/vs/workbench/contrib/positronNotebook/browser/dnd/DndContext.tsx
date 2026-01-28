@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, KeyboardCoordinateGetter, AutoScrollOptions } from './types.js';
+import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, KeyboardCoordinateGetter, AutoScrollOptions, AnimationConfig } from './types.js';
 import { closestCenter } from './collisionDetection.js';
 import { AutoScrollController } from './autoScroll.js';
+import { AnimationProvider } from './AnimationContext.js';
+import { Announcer, getAnnouncement } from './Announcer.js';
 
 interface DndContextValue {
 	state: DragState;
@@ -16,6 +18,8 @@ interface DndContextValue {
 	updateDrag: (position: { x: number; y: number }) => void;
 	endDrag: () => void;
 	cancelDrag: () => void;
+	getDroppableRects: () => Map<string, DOMRect>;
+	getDroppableIds: () => string[];
 }
 
 const DndReactContext = React.createContext<DndContextValue | null>(null);
@@ -31,6 +35,8 @@ interface DndContextProps {
 	// Auto-scroll support
 	autoScroll?: AutoScrollOptions;
 	scrollContainerRef?: React.RefObject<HTMLElement>;
+	// Animation configuration
+	animationConfig?: AnimationConfig;
 }
 
 interface PendingDrag {
@@ -48,6 +54,7 @@ export function DndContext({
 	keyboardCoordinateGetter,
 	autoScroll,
 	scrollContainerRef,
+	animationConfig,
 }: DndContextProps) {
 	const [state, setState] = React.useState<DragState>({
 		status: 'idle',
@@ -109,6 +116,23 @@ export function DndContext({
 		droppablesRef.current.delete(id);
 	}, []);
 
+	// Announcement state for screen readers
+	const [announcement, setAnnouncement] = React.useState('');
+
+	// Get fresh rects for all droppables
+	const getDroppableRects = React.useCallback((): Map<string, DOMRect> => {
+		const rects = new Map<string, DOMRect>();
+		for (const [id, entry] of droppablesRef.current) {
+			rects.set(id, entry.node.getBoundingClientRect());
+		}
+		return rects;
+	}, []);
+
+	// Get ordered list of droppable IDs
+	const getDroppableIds = React.useCallback((): string[] => {
+		return Array.from(droppablesRef.current.keys());
+	}, []);
+
 	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => {
 		// Store pending drag - actual drag starts after activation distance
 		setPendingDrag({ id, startPosition: position, initialRect });
@@ -139,6 +163,11 @@ export function DndContext({
 						initialRect,
 					});
 					onDragStartRef.current?.({ active: { id } });
+
+					// Announce drag start for screen readers
+					const items = Array.from(droppablesRef.current.keys());
+					const activeIndex = items.indexOf(id);
+					setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
 				}
 				return;
 			}
@@ -196,6 +225,12 @@ export function DndContext({
 					over: prev.overId ? { id: prev.overId } : null,
 				});
 
+				// Announce drag end for screen readers
+				const items = Array.from(droppablesRef.current.keys());
+				const activeIndex = items.indexOf(prev.activeId!);
+				const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
+				setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
+
 				return {
 					status: 'idle',
 					activeId: null,
@@ -223,6 +258,11 @@ export function DndContext({
 					}
 
 					onDragCancelRef.current?.({ active: { id: prev.activeId! } });
+
+					// Announce drag cancel for screen readers
+					const items = Array.from(droppablesRef.current.keys());
+					const activeIndex = items.indexOf(prev.activeId!);
+					setAnnouncement(getAnnouncement('cancel', activeIndex, null, items.length));
 
 					return {
 						status: 'idle',
@@ -315,14 +355,19 @@ export function DndContext({
 			updateDrag,
 			endDrag,
 			cancelDrag,
+			getDroppableRects,
+			getDroppableIds,
 		}),
-		[state, registerDroppable, unregisterDroppable, startDrag, updateDrag, endDrag, cancelDrag]
+		[state, registerDroppable, unregisterDroppable, startDrag, updateDrag, endDrag, cancelDrag, getDroppableRects, getDroppableIds]
 	);
 
 	return (
-		<DndReactContext.Provider value={value}>
-			{children}
-		</DndReactContext.Provider>
+		<AnimationProvider config={animationConfig}>
+			<DndReactContext.Provider value={value}>
+				{children}
+				<Announcer message={announcement} />
+			</DndReactContext.Provider>
+		</AnimationProvider>
 	);
 }
 

@@ -12,6 +12,9 @@ export { SortableContext } from './SortableContext.js';
 export { useSortable } from './useSortable.js';
 export { AutoScrollController, calculateScrollDelta } from './autoScroll.js';
 export { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
+export { AnimationProvider, useAnimationContext } from './AnimationContext.js';
+export { Announcer, getAnnouncement } from './Announcer.js';
+export { calculateSortingTransforms, transformToString, getTransition } from './animations.js';
 export type {
 	DragState,
 	DragStartEvent,
@@ -21,4 +24,7 @@ export type {
 	KeyboardCoordinateGetter,
 	AutoScrollOptions,
 	SensorOptions,
+	ItemTransform,
+	AnimationConfig,
+	SortingState,
 } from './types.js';

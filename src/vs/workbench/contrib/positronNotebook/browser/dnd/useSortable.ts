@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { useDraggable } from './useDraggable.js';
 import { useDroppable } from './useDroppable.js';
+import { useAnimationContext } from './AnimationContext.js';
 
 interface UseSortableProps {
 	id: string;
@@ -14,12 +15,24 @@ interface UseSortableProps {
 export function useSortable({ id }: UseSortableProps) {
 	const draggable = useDraggable({ id });
 	const droppable = useDroppable({ id });
+	const { getTransform, getTransitionStyle } = useAnimationContext();
+
+	// Get animation transform for this item
+	const animationTransform = getTransform(id);
+	const transition = getTransitionStyle();
 
 	// Combine refs
 	const setNodeRef = React.useCallback((node: HTMLElement | null) => {
 		draggable.setNodeRef(node);
 		droppable.setNodeRef(node);
 	}, [draggable.setNodeRef, droppable.setNodeRef]);
+
+	// Combine drag transform with animation transform
+	// When dragging, the item follows the cursor (via DragOverlay, not transform)
+	// When not dragging, apply animation transform if item needs to shift
+	const combinedTransform = draggable.isDragging
+		? draggable.transform
+		: animationTransform;
 
 	return {
 		setNodeRef,
@@ -28,8 +41,8 @@ export function useSortable({ id }: UseSortableProps) {
 		listeners: draggable.listeners,
 		isDragging: draggable.isDragging,
 		isOver: droppable.isOver,
-		transform: draggable.transform,
-		// Transition will be added in Plan 03 (animations)
-		transition: undefined as string | undefined,
+		transform: combinedTransform,
+		// Apply transition only when not dragging (for smooth FLIP animations)
+		transition: draggable.isDragging ? undefined : transition,
 	};
 }

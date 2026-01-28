@@ -59,3 +59,21 @@ export interface AutoScrollOptions {
 	threshold?: number; // Pixels from edge to start scrolling (default: 50)
 	speed?: number; // Pixels per frame (default: 10)
 }
+
+export interface ItemTransform {
+	x: number;
+	y: number;
+	scaleX?: number;
+	scaleY?: number;
+}
+
+export interface AnimationConfig {
+	duration?: number;      // ms, default 200
+	easing?: string;        // CSS easing, default 'ease'
+}
+
+export interface SortingState {
+	activeId: string | null;
+	overId: string | null;
+	itemTransforms: Map<string, ItemTransform>;
+}

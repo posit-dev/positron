@@ -3,20 +3,22 @@
 This document tracks the state of the custom drag-and-drop implementation across agent sessions. Each agent MUST read this before starting work and update it after completing work.
 
 ## Last Updated
-- Plan: 02 (Complete)
+- Plan: 03 (Complete)
 - Date: 2026-01-28
-- Commit: 19c752d392
-- Agent: Plan 02 execution
+- Commit: ee4082d373
+- Agent: Plan 03 execution
 
 ## Current State
 
-**Status**: Plan 02 complete - Keyboard navigation and auto-scroll implemented
+**Status**: Plan 03 complete - FLIP animations and screen reader accessibility implemented
 
 The custom DnD implementation now handles:
 - Basic mouse-based drag-and-drop operations
 - Auto-scroll when dragging near container edges
 - Keyboard activation (Space/Enter to start drag)
 - Arrow key navigation during drag (though primary navigation is via mouse)
+- FLIP animations for smooth item transitions during drag
+- Screen reader announcements for accessibility
 
 All 14/14 E2E tests pass.
 
@@ -45,7 +47,7 @@ All 14/14 E2E tests pass.
 - `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/SortableCellList.tsx` - Updated to use custom DnD
 - `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/SortableCell.tsx` - Updated to use custom DnD
 
-### Implementation Files (Plan 02 - NEW)
+### Implementation Files (Plan 02)
 - `src/vs/workbench/contrib/positronNotebook/browser/dnd/autoScroll.ts` - Auto-scroll controller with continuous scrolling loop
 - `src/vs/workbench/contrib/positronNotebook/browser/dnd/keyboardCoordinates.ts` - Arrow key coordinate mapping for sortable lists
 - `src/vs/workbench/contrib/positronNotebook/browser/dnd/types.ts` - Added SensorOptions, KeyboardCoordinateGetter, AutoScrollOptions
@@ -55,6 +57,16 @@ All 14/14 E2E tests pass.
 - `src/vs/workbench/contrib/positronNotebook/browser/dnd/index.ts` - Exported new types and utilities
 - `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/SortableCellList.tsx` - Added scrollContainerRef prop
 - `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent.tsx` - Passes containerRef to SortableCellList
+
+### Implementation Files (Plan 03 - NEW)
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/animations.ts` - FLIP animation calculation utilities (calculateSortingTransforms, transformToString, getTransition)
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/Announcer.tsx` - ARIA live region component for screen reader announcements
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/AnimationContext.tsx` - React context for managing animation state across sortable items
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/types.ts` - Added ItemTransform, AnimationConfig, SortingState types
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/DndContext.tsx` - Added AnimationProvider wrapper, Announcer component, getDroppableRects/getDroppableIds, screen reader announcements for start/end/cancel
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/useSortable.ts` - Integrated animation context for transform and transition values
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/SortableContext.tsx` - Added SortableAnimationManager component to trigger animations on overId changes
+- `src/vs/workbench/contrib/positronNotebook/browser/dnd/index.ts` - Exported new animation and announcer modules and types
 
 ## Key Decisions Made
 
@@ -66,6 +78,8 @@ All 14/14 E2E tests pass.
 6. **Pending drag as state** - Using React state (not just refs) for pending drag to ensure event listeners attach synchronously after state update
 7. **Continuous scroll loop** - AutoScrollController uses requestAnimationFrame loop for smooth scrolling while cursor is at edge
 8. **Ref-based state tracking** - `isDraggingRef` tracks dragging state to avoid stale closure issues in event handlers
+9. **Animation context separation** - AnimationContext is separate from DndContext but wrapped inside it, allowing SortableAnimationManager to coordinate updates
+10. **Screen reader announcements** - Using ARIA live region with role="status" and aria-live="polite" for non-disruptive announcements
 
 ## Implementation Notes (Plan 01)
 
@@ -84,16 +98,28 @@ All 14/14 E2E tests pass.
 - **isDraggingRef**: Critical for avoiding stale closures. The `state.status` in effect closures may be stale; the ref always has the current value.
 - **Keyboard activation**: Space/Enter on drag handle starts drag from element center. Arrow keys during drag update position via `sortableKeyboardCoordinates`.
 
-### Deferred Features
-- FLIP animations (Plan 03)
-- Screen reader announcements (Plan 03)
-- Touch support (Plan 04)
+## Implementation Notes (Plan 03)
+
+### Key Technical Details
+- **FLIP animation system**: `calculateSortingTransforms` computes which items need to shift based on activeId/overId. Items between the active and over positions get a transform to shift up or down by the active item's height.
+- **Animation context**: `AnimationProvider` wraps the DndContext children and manages transform state. `useAnimationContext` provides `getTransform` and `getTransitionStyle` to sortable items.
+- **SortableAnimationManager**: A headless component inside SortableContext that listens to DndContext state changes and calls `updateSortingState` when overId changes during drag.
+- **Screen reader announcements**: `Announcer` component renders an ARIA live region. Announcements are set during drag start, end, and cancel events with descriptive messages.
+- **Transition timing**: Default 200ms ease transition for smooth FLIP animations. Transition is only applied when not actively dragging (to avoid interference with cursor-following).
+
+### Manual Verification Required (no E2E coverage)
+- Items visually shift during drag (smooth animation)
+- Animation duration is ~200ms (not instant, not sluggish)
+- Screen reader announces drag start, position changes, and drop
+- Escape cancellation is announced
 
 ## Known Issues/TODOs
 
 - [ ] dnd-kit still vendored (remove after Plan 03 verified)
 - [x] E2E tests reference dnd-kit class names (verified - tests use generic selectors, no dnd-kit references)
 - [x] Auto-scroll test (now passing with Plan 02 implementation)
+- [x] FLIP animations (implemented in Plan 03)
+- [x] Screen reader announcements (implemented in Plan 03)
 
 ## Verification Commands
 
@@ -103,11 +129,11 @@ All 14/14 E2E tests pass.
 # Verify build
 npm run compile
 
-# Plan 02+ verification (all 14 tests)
+# Plan 03+ verification (all 14 tests)
 npx playwright test notebook-cell-reordering.test.ts --project e2e-electron --reporter list
 ```
 
-## Test Results (Plan 02)
+## Test Results (Plan 03)
 
 All 14 tests passed:
 - Action Bar: swap 1st and 2nd cell
@@ -123,27 +149,30 @@ All 14 tests passed:
 - Drag-and-drop: undo restores original order
 - Drag-and-drop: redo reapplies reorder
 - Drag-and-drop: escape cancels drag operation
-- Drag-and-drop: auto-scroll when dragging in long notebook (NEW - Plan 02)
+- Drag-and-drop: auto-scroll when dragging in long notebook
 
 ## State at Handoff
 
-- **Current**: Custom DnD implementation with mouse support, auto-scroll, and keyboard activation
-- **Next Action**: Execute Plan 03 (FLIP Animations and Accessibility)
+- **Current**: Custom DnD implementation with mouse support, auto-scroll, keyboard activation, FLIP animations, and screen reader accessibility
+- **Next Action**: Execute Plan 04 (Advanced Features - touch support, multi-cell drag) OR cleanup (remove dnd-kit vendor files)
 
 ## Plan Execution Checklist
 
 - [x] Plan 01: Basic Drag Infrastructure
 - [x] Plan 02: Keyboard Navigation and Auto-Scroll
-- [ ] Plan 03: FLIP Animations and Accessibility
+- [x] Plan 03: FLIP Animations and Accessibility
 - [ ] Plan 04: Advanced Features (Optional)
 - [ ] Cleanup: Remove dnd-kit vendor files
 
 ## Notes for Next Agent
 
-1. Start by reading this file and Plan 03
+1. Start by reading this file and Plan 04 (if implementing advanced features)
 2. Run verification commands before making changes
-3. Plan 03 should add:
-   - FLIP animations for smooth item transitions during drag
-   - Screen reader announcements for accessibility
-4. Update this file after completing your plan
-5. Commit with message format: `feat(notebooks): [Plan 03] description`
+3. Plan 04 should add (if proceeding):
+   - Touch/pointer support for mobile devices
+   - Multi-cell drag selection
+4. If not proceeding with Plan 04, consider:
+   - Removing dnd-kit vendor files to complete the migration
+   - Updating import maps to remove dnd-kit entries
+5. Update this file after completing your work
+6. Commit with message format: `feat(notebooks): [Plan 04] description` or `chore(notebooks): remove dnd-kit vendor files`
