@@ -1,0 +1,74 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as React from 'react';
+import { DndContext } from './DndContext.js';
+import { DragOverlay } from './DragOverlay.js';
+import { DragEndEvent, DragStartEvent } from './types.js';
+
+interface SortableContextProps {
+	items: string[];
+	children: React.ReactNode;
+	onReorder: (oldIndex: number, newIndex: number) => void;
+	renderDragOverlay?: (activeId: string) => React.ReactNode;
+	disabled?: boolean;
+	onDragStart?: () => void;
+	onDragEnd?: () => void;
+}
+
+export function SortableContext({
+	items,
+	children,
+	onReorder,
+	renderDragOverlay,
+	disabled = false,
+	onDragStart: onDragStartProp,
+	onDragEnd: onDragEndProp,
+}: SortableContextProps) {
+	const [activeId, setActiveId] = React.useState<string | null>(null);
+
+	const handleDragStart = React.useCallback((event: DragStartEvent) => {
+		setActiveId(event.active.id);
+		onDragStartProp?.();
+	}, [onDragStartProp]);
+
+	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+		setActiveId(null);
+		onDragEndProp?.();
+
+		if (!event.over) {
+			return;
+		}
+
+		const oldIndex = items.indexOf(event.active.id);
+		const newIndex = items.indexOf(event.over.id);
+
+		if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+			onReorder(oldIndex, newIndex);
+		}
+	}, [items, onReorder, onDragEndProp]);
+
+	const handleDragCancel = React.useCallback(() => {
+		setActiveId(null);
+		onDragEndProp?.();
+	}, [onDragEndProp]);
+
+	if (disabled) {
+		return <>{children}</>;
+	}
+
+	return (
+		<DndContext
+			onDragCancel={handleDragCancel}
+			onDragEnd={handleDragEnd}
+			onDragStart={handleDragStart}
+		>
+			{children}
+			<DragOverlay>
+				{activeId && renderDragOverlay ? renderDragOverlay(activeId) : null}
+			</DragOverlay>
+		</DndContext>
+	);
+}

@@ -8,8 +8,8 @@ import './SortableCell.css';
 
 // React.
 import * as React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+// Replace dnd-kit imports with custom implementation
+import { useSortable } from '../dnd/useSortable.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -40,8 +40,13 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		return Math.max(calculatedHeight, 200);
 	}, [notebookInstance.cellsContainer]);
 
+	// Build transform string (for FLIP animations in Plan 03)
+	const transformStyle = transform
+		? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+		: undefined;
+
 	const style: React.CSSProperties = {
-		transform: CSS.Transform.toString(transform),
+		transform: transformStyle,
 		transition,
 		opacity: isDragging ? 0.5 : 1,
 		position: 'relative',
@@ -63,6 +68,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			>
 				<span className="codicon codicon-gripper" />
 			</button>
+			{/* Wrap content with max height constraint when dragging to limit overlay size */}
 			{isDragging ? (
 				<div className="drag-content-wrapper" style={{ maxHeight: maxDragHeight }}>
 					{children}

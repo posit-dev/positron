@@ -4,22 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import {
-	DndContext,
-	DragOverlay,
-	closestCenter,
-	PointerSensor,
-	KeyboardSensor,
-	useSensor,
-	useSensors,
-	DragStartEvent,
-	DragEndEvent,
-} from '@dnd-kit/core';
-import {
-	SortableContext,
-	sortableKeyboardCoordinates,
-	verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+// Replace dnd-kit imports with custom implementation
+import { SortableContext } from '../dnd/SortableContext.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
@@ -38,72 +24,42 @@ export function SortableCellList({
 	renderDragOverlay,
 	disabled = false,
 }: SortableCellListProps) {
-	const [activeCell, setActiveCell] = React.useState<IPositronNotebookCell | null>(null);
-
-	// Require 10px movement before drag starts (prevents accidental drags)
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				distance: 10,
-			},
-		}),
-		useSensor(KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		})
+	const items = React.useMemo(
+		() => cells.map(c => c.handleId),
+		[cells]
 	);
 
-	const handleDragStart = React.useCallback((event: DragStartEvent) => {
-		const cell = cells.find(c => c.handleId === event.active.id);
-		setActiveCell(cell ?? null);
+	// Callbacks to manage body class for drag styling (cursor, etc.)
+	const handleDragStart = React.useCallback(() => {
 		DOM.getActiveWindow().document.body.classList.add('dragging-notebook-cell');
-	}, [cells]);
+	}, []);
 
-	const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-		const { active, over } = event;
-		setActiveCell(null);
-		DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
-
-		if (over && active.id !== over.id) {
-			const oldIndex = cells.findIndex(c => c.handleId === active.id);
-			const newIndex = cells.findIndex(c => c.handleId === over.id);
-			if (oldIndex !== -1 && newIndex !== -1) {
-				onReorder(oldIndex, newIndex);
-			}
-		}
-	}, [cells, onReorder]);
-
-	const handleDragCancel = React.useCallback(() => {
-		setActiveCell(null);
+	const handleDragEnd = React.useCallback(() => {
 		DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 	}, []);
 
-	// If disabled (read-only mode), don't enable drag-and-drop
-	if (disabled) {
-		return <>{children}</>;
-	}
+	const renderOverlay = React.useCallback((activeId: string) => {
+		if (!renderDragOverlay) {
+			return null;
+		}
+		const cell = cells.find(c => c.handleId === activeId);
+		return cell ? (
+			<div className="cell-drag-overlay">
+				{renderDragOverlay(cell)}
+			</div>
+		) : null;
+	}, [cells, renderDragOverlay]);
 
 	return (
-		<DndContext
-			collisionDetection={closestCenter}
-			sensors={sensors}
-			onDragCancel={handleDragCancel}
+		<SortableContext
+			disabled={disabled}
+			items={items}
+			renderDragOverlay={renderOverlay}
 			onDragEnd={handleDragEnd}
 			onDragStart={handleDragStart}
+			onReorder={onReorder}
 		>
-			<SortableContext
-				items={cells.map(c => c.handleId)}
-				strategy={verticalListSortingStrategy}
-			>
-				{children}
-			</SortableContext>
-
-			<DragOverlay>
-				{activeCell && renderDragOverlay ? (
-					<div className="cell-drag-overlay">
-						{renderDragOverlay(activeCell)}
-					</div>
-				) : null}
-			</DragOverlay>
-		</DndContext>
+			{children}
+		</SortableContext>
 	);
 }
