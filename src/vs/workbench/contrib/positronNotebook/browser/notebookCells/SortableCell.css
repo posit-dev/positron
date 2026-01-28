@@ -58,6 +58,29 @@ body.dragging-notebook-cell * {
 	opacity: 0.4;
 }
 
+/* Hide cell action bar during drag for cleaner preview */
+.sortable-cell.dragging .positron-notebooks-cell-action-bar {
+	display: none;
+}
+
+/* Content wrapper for height-constrained drag preview */
+.drag-content-wrapper {
+	overflow: hidden;
+	position: relative;
+}
+
+/* Fade effect at bottom to indicate truncation */
+.drag-content-wrapper::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 40px;
+	background: linear-gradient(transparent, var(--vscode-editor-background));
+	pointer-events: none;
+}
+
 /* Drag overlay (preview following cursor) */
 .cell-drag-overlay {
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
