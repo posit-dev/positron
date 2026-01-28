@@ -323,10 +323,21 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 */
 	private getPreferredKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
 		// Get the notebook's language.
-		const languageId = getNotebookLanguage(notebook);
+		let languageId = getNotebookLanguage(notebook);
+
+		// If the notebook language couldn't be determined (e.g., empty notebook),
+		// fall back to the foreground session's language.
 		if (!languageId) {
-			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
-			return;
+			const foregroundSession = this._runtimeSessionService.foregroundSession;
+			if (foregroundSession) {
+				languageId = foregroundSession.runtimeMetadata.languageId;
+				this._logService.debug(
+					`Using foreground session language ${languageId} for notebook ${notebook.uri.fsPath}`
+				);
+			} else {
+				this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
+				return;
+			}
 		}
 
 		// Get the preferred runtime for the notebook's language.
