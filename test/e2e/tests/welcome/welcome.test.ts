@@ -54,7 +54,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher',
-				'Explore the Positron Notebook in Alpha'
+				'Explore the Positron Notebook Editor in Alpha'
 			]);
 		});
 
