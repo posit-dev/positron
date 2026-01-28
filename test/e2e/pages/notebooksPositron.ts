@@ -423,6 +423,124 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Action: Drag a cell to a position that requires auto-scrolling.
+	 * This method handles dragging across long notebooks where the target
+	 * position is not initially visible.
+	 * @param fromIndex - The index of the cell to drag
+	 * @param toIndex - The target index (may be off-screen)
+	 */
+	async dragCellToPositionWithScroll(fromIndex: number, toIndex: number): Promise<void> {
+		await test.step(`Drag cell from index ${fromIndex} to index ${toIndex} (with auto-scroll)`, async () => {
+			const sourceCell = this.sortableCellAtIndex(fromIndex);
+			const dragHandle = this.dragHandleAtIndex(fromIndex);
+
+			// Ensure source cell is visible and get drag handle
+			await sourceCell.scrollIntoViewIfNeeded();
+			// Small wait for scroll to settle before starting drag
+			await this.code.driver.page.waitForTimeout(100);
+
+			await sourceCell.hover();
+			await expect(dragHandle).toBeVisible({ timeout: 2000 });
+
+			// Get bounding box with retry logic for animation stability
+			const handleBox = await dragHandle.boundingBox();
+			if (!handleBox) {
+				throw new Error('Could not get bounding box for drag handle');
+			}
+
+			// Get the notebook container for viewport bounds
+			const notebookContainer = this.positronNotebook;
+			const containerBox = await notebookContainer.boundingBox();
+			if (!containerBox) {
+				throw new Error('Could not get notebook container bounding box');
+			}
+
+			// Start the drag
+			const startX = handleBox.x + handleBox.width / 2;
+			const startY = handleBox.y + handleBox.height / 2;
+			await this.code.driver.page.mouse.move(startX, startY);
+			await this.code.driver.page.mouse.down();
+
+			// Move past activation threshold (10px defined in SortableCellList.tsx)
+			await this.code.driver.page.mouse.move(startX, startY + 15, { steps: 3 });
+
+			// Determine scroll direction
+			const scrollingDown = toIndex > fromIndex;
+
+			// Move to the edge of the viewport to trigger auto-scroll
+			// dnd-kit's auto-scroll triggers near viewport edges
+			const edgeY = scrollingDown
+				? containerBox.y + containerBox.height * 0.85  // Near bottom edge
+				: containerBox.y + containerBox.height * 0.15; // Near top edge
+
+			// Helper to check if target cell is visible and in a good drop position
+			const isTargetReachable = async (): Promise<{ reachable: boolean; targetY?: number }> => {
+				const targetCell = this.sortableCellAtIndex(toIndex);
+				const targetBox = await targetCell.boundingBox();
+
+				if (!targetBox) {
+					return { reachable: false };
+				}
+
+				// Ensure target is sufficiently visible within container (not just peeking)
+				const targetCenter = targetBox.y + targetBox.height / 2;
+				const containerTop = containerBox.y + containerBox.height * 0.1;
+				const containerBottom = containerBox.y + containerBox.height * 0.9;
+
+				if (targetCenter >= containerTop && targetCenter <= containerBottom) {
+					const dropY = scrollingDown
+						? targetBox.y + targetBox.height * 0.75
+						: targetBox.y + targetBox.height * 0.25;
+					return { reachable: true, targetY: dropY };
+				}
+
+				return { reachable: false };
+			};
+
+			// First check if target is already visible (no scrolling needed)
+			const initialCheck = await isTargetReachable();
+			if (initialCheck.reachable && initialCheck.targetY !== undefined) {
+				await this.code.driver.page.mouse.move(startX, initialCheck.targetY, { steps: 10 });
+				await this.code.driver.page.mouse.up();
+				return;
+			}
+
+			// Move to edge and wait for auto-scroll to bring target into view
+			// Use polling with timeout instead of fixed iteration count
+			await this.code.driver.page.mouse.move(startX, edgeY, { steps: 5 });
+
+			try {
+				await expect(async () => {
+					// Keep cursor at edge to maintain auto-scroll
+					await this.code.driver.page.mouse.move(startX, edgeY, { steps: 2 });
+
+					const result = await isTargetReachable();
+					if (!result.reachable) {
+						throw new Error('Target not yet reachable');
+					}
+					return result;
+				}).toPass({ timeout: 15000, intervals: [100, 200, 300, 500] });
+
+				// Target is now reachable - get fresh position and drop
+				const finalCheck = await isTargetReachable();
+				if (finalCheck.reachable && finalCheck.targetY !== undefined) {
+					await this.code.driver.page.mouse.move(startX, finalCheck.targetY, { steps: 10 });
+					// Small stabilization wait before drop
+					await this.code.driver.page.waitForTimeout(50);
+					await this.code.driver.page.mouse.up();
+					return;
+				}
+			} catch {
+				// Auto-scroll didn't bring target into view - clean up and fail
+				await this.code.driver.page.mouse.up();
+				throw new Error(`Could not reach target cell at index ${toIndex} via auto-scroll`);
+			}
+
+			await this.code.driver.page.mouse.up();
+		});
+	}
+
+	/**
 	 * Action: Hover over a cell to show the drag handle.
 	 * @param cellIndex - The index of the cell to hover over
 	 */
