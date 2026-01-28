@@ -58,10 +58,7 @@
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-}
-
-.create-connection-footer > .default {
-	margin-left: auto;
+	justify-content: space-between;
 }
 
 .create-connection-inputs {
@@ -112,4 +109,9 @@
 .create-connection-inputs > .labeled-input > label > .drop-down-list-box {
 	flex: 1;
 	min-width: 0;
+}
+
+/* Error state for code editor */
+.create-connection-code-editor.has-error {
+	border-left: 3px solid var(--vscode-inputValidation-errorBorder);
 }
