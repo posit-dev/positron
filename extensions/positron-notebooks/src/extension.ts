@@ -62,6 +62,13 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	// Command used in notebooks walkthrough to open settings filtered to the notebook setting
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positronNotebookHelpers.walkthrough.enableNotebook', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', 'positron.notebook.enabled');
+		})
+	);
+
 	/**
 	 * Command that fetches a remote image and converts it to a base64 data URL.
 	 *

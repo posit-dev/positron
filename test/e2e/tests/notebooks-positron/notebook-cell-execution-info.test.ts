@@ -10,17 +10,16 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Notebooks: Cell Execution Tooltip', {
+test.describe('Positron Notebooks: Cell Execution Footer', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.afterEach(async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-		await notebooksPositron.moveMouseAway();
 		await notebooksPositron.expectNoActiveSpinners();
 	});
 
-	test('Cell Execution Tooltip - Basic Functionality', async function ({ app }) {
+	test('Cell Execution Footer - Basic Functionality', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		await test.step('Test Setup: Create notebook and select kernel', async () => {
@@ -30,56 +29,47 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		});
 
 		// ========================================
-		// Cell 0: Basic popup display with successful execution
+		// Cell 0: Footer display with successful execution
 		// ========================================
 		await test.step('Cell 0 - Successful execution info display', async () => {
-			// Verify popup shows success status
+			// Verify footer shows success status
 			await notebooksPositron.addCodeToCell(0, 'print("hello world")', { run: true });
 
 			await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
-			await notebooksPositron.expectToolTipToContain(0, {
+			await notebooksPositron.expectFooterToContain(0, {
 				duration: /\d+(ms|s)/,
-				status: 'Success'
+				status: 'Cell execution succeeded'
 			}, 30000);
-
-			// Verify auto-close behavior
-			await notebooksPositron.moveMouseAway();
-			await notebooksPositron.expectToolTipVisible(false);
 		});
 
 		// ========================================
 		// Cell 1: Failed execution state display
 		// ========================================
 		await test.step('Cell 1 - Failed execution info display', async () => {
-			// Verify popup shows failed status
+			// Verify footer shows failed status
 			await notebooksPositron.addCodeToCell(1, 'raise Exception("test error")', {
 				run: true,
 			});
 			await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
-			await notebooksPositron.expectToolTipToContain(1, {
+			await notebooksPositron.expectFooterToContain(1, {
 				duration: /\d+(ms|s)/,
-				status: 'Failed'
+				status: 'Cell execution failed'
 			});
-
-			// Verify auto-close behavior
-			await notebooksPositron.moveMouseAway();
-			await notebooksPositron.expectToolTipVisible(false);
 		});
 
 		// ========================================
 		// Cell 2: Running execution state display
 		// ========================================
 		await test.step('Cell 2 - Running execution info display', async () => {
-			// Verify popup shows running status while cell is executing
+			// Verify footer shows running status while cell is executing
 			await notebooksPositron.addCodeToCell(2, 'import time; time.sleep(3)', { run: true });
 			await notebooksPositron.expectSpinnerAtIndex(2);
 			await notebooksPositron.expectExecutionStatusToBe(2, 'running');
-			await notebooksPositron.expectToolTipToContain(2, {
-				status: 'Currently running...'
+			await notebooksPositron.expectFooterToContain(2, {
+				status: 'Cell is executing'
 			});
 
-			// Verify auto-close behavior
-			await notebooksPositron.moveMouseAway();
+			// Wait for execution to complete
 			await notebooksPositron.expectSpinnerAtIndex(2, false);
 		});
 
@@ -88,26 +78,20 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		// ========================================
 		await test.step('Cell 3 - Relative time display', async () => {
 			await notebooksPositron.addCodeToCell(3, 'print("relative time test")', { run: true });
-			await notebooksPositron.expectToolTipToContain(3, {
+			await notebooksPositron.expectFooterToContain(3, {
 				completed: /Just now|seconds ago/,
 			});
-
-			await notebooksPositron.moveMouseAway();
 		});
 
 		// ========================================
-		// Cell 4: Hover timing and interaction
+		// Cell 4: Footer visibility based on cell state
 		// ========================================
-		await test.step('Cell 4 - Hover timing and interaction', async () => {
-			await notebooksPositron.addCodeToCell(4, 'print("hover test")', { run: true });
+		await test.step('Cell 4 - Footer visibility for never-run cell', async () => {
+			// Add a new cell but don't run it
+			await notebooksPositron.addCodeToCell(4, 'print("never run")', { run: false });
 
-			// Test popup closes when mouse moves away
-			await notebooksPositron.moveMouseAway();
-			await notebooksPositron.expectToolTipVisible(false);
-
-			// Test that hovering over execution badge shows popup again
-			await notebooksPositron.hoverExecutionBadge(4);
-			await notebooksPositron.expectToolTipVisible(true);
+			// Footer should show "Not run this session" in aria-label
+			await notebooksPositron.expectFooterAriaLabel(4, 'Cell not yet run');
 		});
 	});
 });

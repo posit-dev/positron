@@ -48,6 +48,8 @@ import { createEnvExtApi } from '../envExt/envExtApi';
 
 // --- Start Positron ---
 import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
+import { ModuleEnvironmentLocator } from './base/locators/lowLevel/moduleEnvironmentLocator';
+import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
 // --- End Positron ---
 
 const PYTHON_ENV_INFO_CACHE_KEY = 'PYTHON_ENV_INFO_CACHEv2';
@@ -76,7 +78,14 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
 
     if (shouldUseNativeLocator()) {
         const finder = getNativePythonFinder(ext.context);
-        const api = createNativeEnvironmentsApi(finder);
+        // --- Start Positron ---
+        // On Linux, use the wrapper that combines the native locator with
+        // module environments
+        const api =
+            getOSType() === OSType.Linux
+                ? createNativeEnvironmentsApiWithModules(finder)
+                : createNativeEnvironmentsApi(finder);
+        // --- End Positron ---
         ext.disposables.push(api);
         registerNewDiscoveryForIOC(
             // These are what get wrapped in the legacy adapter.
@@ -219,6 +228,10 @@ function createNonWorkspaceLocators(ext: ExtensionState): ILocator<BasicEnvInfo>
         locators.push(
             // Linux/Mac locators go here.
             new PosixKnownPathsLocator(),
+            // --- Start Positron ---
+            // Module environment locator (only available on Unix-like systems)
+            new ModuleEnvironmentLocator(),
+            // --- End Positron ---
         );
     }
 

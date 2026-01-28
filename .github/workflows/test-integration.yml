@@ -78,6 +78,8 @@ jobs:
           retry_wait_seconds: 5
           shell: bash
           command: |
+            set -e  # Exit immediately if any command fails
+
             # Install node-gyp (required by some packages)
             npm i --global node-gyp
 

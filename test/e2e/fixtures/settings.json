@@ -12,7 +12,5 @@
     "echo",
     "error"
   ],
-  "posit.workbench.showWorkbenchFlaskHint": false,
-  "kernelSupervisor.resourceUsagePollInterval": 0,
-  "console.showResourceMonitor": false
+  "posit.workbench.showWorkbenchFlaskHint": false
 }

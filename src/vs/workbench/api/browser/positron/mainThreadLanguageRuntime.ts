@@ -52,6 +52,7 @@ import { IPositronVariablesInstance } from '../../../services/positronVariables/
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
+import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -479,9 +480,24 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		return this._proxy.$openResource(this.handle, resource);
 	}
 
-	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+	execute(
+		code: string,
+		id: string,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior,
+		attribution?: IConsoleCodeAttribution,
+	): void {
 		this._lastUsed = Date.now();
-		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
+
+		let codeLocation: ICodeLocation | undefined = undefined;
+
+		// For now we only provide source locations for scripts, but we might be
+		// able to provide it for notebooks as well
+		if (attribution?.source === CodeAttributionSource.Script) {
+			codeLocation = attribution.metadata?.codeLocation;
+		}
+
+		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior, codeLocation);
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {

@@ -23,6 +23,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IEditorPane } from '../../../common/editor.js';
 import { DEBUG_MEMORY_SCHEME, DataBreakpointSetType, DataBreakpointSource, DebugTreeItemCollapsibleState, IBaseBreakpoint, IBreakpoint, IBreakpointData, IBreakpointUpdateData, IBreakpointsChangeEvent, IDataBreakpoint, IDebugEvaluatePosition, IDebugModel, IDebugSession, IDebugVisualizationTreeItem, IEnablement, IExceptionBreakpoint, IExceptionInfo, IExpression, IExpressionContainer, IFunctionBreakpoint, IInstructionBreakpoint, IMemoryInvalidationEvent, IMemoryRegion, IRawModelUpdate, IRawStoppedDetails, IScope, IStackFrame, IThread, ITreeElement, MemoryRange, MemoryRangeType, State, isFrameDeemphasized } from './debug.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IDebugService } from './debug.js';
+// --- End Positron ---
 import { Source, UNKNOWN_SOURCE_LABEL, getUriFromSource } from './debugSource.js';
 import { DebugStorage } from './debugStorage.js';
 import { IDebugVisualizerService } from './debugVisualizers.js';
@@ -1008,6 +1012,9 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 		private readonly textFileService: ITextFileService,
 		private readonly uriIdentityService: IUriIdentityService,
 		private readonly logService: ILogService,
+		// --- Start Positron ---
+		private readonly debugService: IDebugService,
+		// --- End Positron ---
 		id = generateUuid(),
 	) {
 		super(id, opts);
@@ -1039,6 +1046,13 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 
 	override get verified(): boolean {
 		if (this.data) {
+			// --- Start Positron ---
+			// If the debugger supports verifying breakpoints in dirty documents, trust it.
+			if (this.debugService.getAdapterManager().shouldVerifyBreakpointsInDirtyDocuments(this._uri)) {
+				return this.data.verified;
+			}
+			// --- End Positron ---
+
 			return this.data.verified && !this.textFileService.isDirty(this._uri);
 		}
 
@@ -1061,6 +1075,13 @@ export class Breakpoint extends BaseBreakpoint implements IBreakpoint {
 	}
 
 	override get message(): string | undefined {
+		// --- Start Positron ---
+		// If the debugger supports verifying breakpoints in dirty documents, skip the warning.
+		if (this.debugService.getAdapterManager().shouldVerifyBreakpointsInDirtyDocuments(this._uri)) {
+			return super.message;
+		}
+		// --- End Positron ---
+
 		if (this.textFileService.isDirty(this.uri)) {
 			return nls.localize('breakpointDirtydHover', "Unverified breakpoint. File is modified, please restart debug session.");
 		}
@@ -1476,6 +1497,9 @@ export class DebugModel extends Disposable implements IDebugModel {
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
 		@ILogService private readonly logService: ILogService
+		// --- Start Positron ---
+		, @IDebugService private readonly debugService: IDebugService
+		// --- End Positron ---
 	) {
 		super();
 
@@ -1796,7 +1820,9 @@ export class DebugModel extends Disposable implements IDebugModel {
 				adapterData: undefined,
 				mode: rawBp.mode,
 				modeLabel: rawBp.modeLabel,
-			}, this.textFileService, this.uriIdentityService, this.logService, rawBp.id);
+				// --- Start Positron ---
+			}, this.textFileService, this.uriIdentityService, this.logService, this.debugService, rawBp.id);
+			// --- End Positron ---
 		});
 		this.breakpoints = this.breakpoints.concat(newBreakpoints);
 		this.breakpointsActivated = true;

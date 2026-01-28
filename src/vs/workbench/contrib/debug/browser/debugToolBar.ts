@@ -36,6 +36,12 @@ import { getTitleBarStyle, TitlebarStyle } from '../../../../platform/window/com
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorTabsMode, IWorkbenchLayoutService, LayoutSettings, Parts } from '../../../services/layout/browser/layoutService.js';
 import { CONTEXT_DEBUG_STATE, CONTEXT_FOCUSED_SESSION_IS_ATTACH, CONTEXT_FOCUSED_SESSION_IS_NO_DEBUG, CONTEXT_IN_DEBUG_MODE, CONTEXT_MULTI_SESSION_DEBUG, CONTEXT_STEP_BACK_SUPPORTED, CONTEXT_SUSPEND_DEBUGGEE_SUPPORTED, CONTEXT_TERMINATE_DEBUGGEE_SUPPORTED, IDebugConfiguration, IDebugService, State, VIEWLET_ID } from '../common/debug.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+// eslint-disable-next-line no-duplicate-imports
+import { CONTEXT_DEBUG_TOOLBAR_SUPPRESSED } from '../common/debug.js';
+// --- End Positron ---
 import { FocusSessionActionViewItem } from './debugActionViewItems.js';
 import { debugToolBarBackground, debugToolBarBorder } from './debugColors.js';
 import { CONTINUE_ID, CONTINUE_LABEL, DISCONNECT_AND_SUSPEND_ID, DISCONNECT_AND_SUSPEND_LABEL, DISCONNECT_ID, DISCONNECT_LABEL, FOCUS_SESSION_ID, FOCUS_SESSION_LABEL, PAUSE_ID, PAUSE_LABEL, RESTART_LABEL, RESTART_SESSION_ID, REVERSE_CONTINUE_ID, STEP_BACK_ID, STEP_INTO_ID, STEP_INTO_LABEL, STEP_OUT_ID, STEP_OUT_LABEL, STEP_OVER_ID, STEP_OVER_LABEL, STOP_ID, STOP_LABEL } from './debugCommands.js';
@@ -56,6 +62,9 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 
 	private isVisible = false;
 	private isBuilt = false;
+	// --- Start Positron ---
+	private readonly debugToolbarSuppressedContextKey: IContextKey<boolean>;
+	// --- End Positron ---
 
 	private readonly stopActionViewItemDisposables = this._register(new DisposableStore());
 	/** coordinate of the debug toolbar per aux window */
@@ -76,6 +85,10 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
 		super(themeService);
+
+		// --- Start Positron ---
+		this.debugToolbarSuppressedContextKey = CONTEXT_DEBUG_TOOLBAR_SUPPRESSED.bindTo(contextKeyService);
+		// --- End Positron ---
 
 		this.$el = dom.$('div.debug-toolbar');
 
@@ -121,6 +134,32 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 		this.updateScheduler = this._register(new RunOnceScheduler(() => {
 			const state = this.debugService.state;
 			const toolBarLocation = this.configurationService.getValue<IDebugConfiguration>('debug').toolBarLocation;
+
+			// --- Start Positron ---
+			// Check if toolbar has been suppressed to set context key. This follows
+			// the logic below in the `if` branch that decides whether to hide the
+			// toolbar.
+			//
+			// The goal of this context key is to determine whether there is an active
+			// "foreground" debug session. An active session might be in the
+			// background either because it was started with visibility off (see
+			// https://github.com/microsoft/vscode/issues/147264), or because the
+			// debugger is not active in the user sense (toolbar was suppressed by
+			// extension code). This latter case concerns the R language pack where
+			// there is a debug session connected at all times so that R can manage
+			// breakpoints. When the debugger becomes actually active, we send a
+			// request to make the debug toolbar visible. So this context key tracks
+			// this specific notion of "active debug session".
+			//
+			// Note that this context key is independent from user preferences about
+			// toolbar visibility (`debug.toolBarLocation`).
+			const sessions = this.debugService.getModel().getSessions();
+			const isSuppressedByExtension =
+				(sessions.length > 0 && sessions.every(s => s.suppressDebugToolbar)) ||
+				(state === State.Initializing && (this.debugService.initializingOptions?.suppressDebugToolbar ?? false));
+			this.debugToolbarSuppressedContextKey.set(isSuppressedByExtension);
+			// --- End Positron ---
+
 			if (
 				state === State.Inactive ||
 				toolBarLocation !== 'floating' ||

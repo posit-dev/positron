@@ -151,6 +151,14 @@ export class Debugger implements IDebugger, IDebuggerMetadata {
 	get supportsUiLaunch(): boolean {
 		return this.debuggerContribution.supportsUiLaunch !== false; // Defaults to true
 	}
+
+	get sendBreakpointsOnAllSaves(): boolean {
+		return this.debuggerContribution.sendBreakpointsOnAllSaves === true; // Defaults to false
+	}
+
+	get verifyBreakpointsInDirtyDocuments(): boolean {
+		return this.debuggerContribution.verifyBreakpointsInDirtyDocuments === true; // Defaults to false
+	}
 	// --- End Positron ---
 
 	get when(): ContextKeyExpression | undefined {

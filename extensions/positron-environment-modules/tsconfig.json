@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"module": "nodenext",
+		"target": "ES2020",
+		"moduleResolution": "nodenext",
+		"outDir": "out",
+		"lib": [
+			"ES2020",
+			"DOM"
+		],
+		"sourceMap": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"typeRoots": [
+			"./node_modules/@types"
+		],
+		"paths": {
+			"*": [
+				"./node_modules/*"
+			]
+		}
+	},
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.d.ts"
+	]
+}

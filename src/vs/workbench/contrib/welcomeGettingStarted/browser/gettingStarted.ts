@@ -1357,7 +1357,7 @@ export class GettingStartedPage extends EditorPane {
 			 * and the IDs are hardcoded here and need to be kept in sync with the Id
 			 * of the walkthroughs in the Positron extensions.
 			 */
-			const allowedWalkthroughIds = ['ms-python.python#positron.migrateFromVSCode', 'positron.positron-r#positron.r.migrateFromRStudio'];
+			const allowedWalkthroughIds = ['ms-python.python#positron.migrateFromVSCode', 'positron.positron-r#positron.r.migrateFromRStudio', 'positron.positron-notebooks-helpers#positron.notebooks.welcome'];
 
 			if (allowedWalkthroughIds.every(walkthroughId => walkthroughId !== e.id)) {
 				return null;

@@ -72,9 +72,12 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
-			const isInstalled = await checkInstalled(task.definition.pkg);
-			if (!isInstalled) {
-				return;
+
+			if (task.definition.pkg) {
+				const isInstalled = await checkInstalled(task.definition.pkg);
+				if (!isInstalled) {
+					return;
+				}
 			}
 			const session = await RSessionManager.instance.getConsoleSession();
 			if (!session) {

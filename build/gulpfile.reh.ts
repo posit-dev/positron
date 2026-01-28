@@ -422,8 +422,12 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 		}
 
 		// --- Start Positron ---
+		// Include the activation directory with license-manager binaries
+		const activation = gulp.src('resources/activation/**', { base: '.', dot: true });
+
 		let all = es.merge(
 			getQuartoBinaries(),
+			activation,
 			// --- End Positron ---
 			packageJsonStream,
 			productJsonStream,
