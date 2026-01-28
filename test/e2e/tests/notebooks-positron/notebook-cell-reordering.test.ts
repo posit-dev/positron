@@ -148,4 +148,126 @@ test.describe('Notebook Cell Reordering', {
 		await keyboard.press('Alt+ArrowDown');
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '### Cell 4', '# Cell 1', '### Cell 2', '### Cell 3']);
 	});
+
+	// --- Drag-and-Drop Tests ---
+
+	test('Drag handle: visible on hover, hidden otherwise', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 3 cells
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.expectCellCountToBe(3);
+
+		// Click away from cells to ensure no hover state
+		await notebooksPositron.clickAwayFromCell(0);
+
+		// Drag handle should be hidden (opacity 0) when not hovering
+		await notebooksPositron.expectDragHandleVisibility(0, false);
+
+		// Hover over the first cell
+		await notebooksPositron.hoverCell(0);
+
+		// Drag handle should now be visible
+		await notebooksPositron.expectDragHandleVisibility(0, true);
+	});
+
+	test('Drag-and-drop: swap 1st and 2nd cell', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 3 cells
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+
+		// Drag cell 0 to position 1
+		await notebooksPositron.dragCellToPosition(0, 1);
+
+		// Verify cells are reordered
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
+		await notebooksPositron.expectCellCountToBe(3);
+	});
+
+	test('Drag-and-drop: move cell to end', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 4 cells
+		await notebooksPositron.newNotebook({ codeCells: 4 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
+
+		// Drag cell 0 to the last position
+		await notebooksPositron.dragCellToPosition(0, 3);
+
+		// Verify cell moved to end
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 3', '# Cell 0']);
+		await notebooksPositron.expectCellCountToBe(4);
+	});
+
+	test('Drag-and-drop: move cell from end to beginning', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 4 cells
+		await notebooksPositron.newNotebook({ codeCells: 4 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
+
+		// Drag last cell to first position
+		await notebooksPositron.dragCellToPosition(3, 0);
+
+		// Verify cell moved to beginning
+		await notebooksPositron.expectCellContentsToBe(['# Cell 3', '# Cell 0', '# Cell 1', '# Cell 2']);
+		await notebooksPositron.expectCellCountToBe(4);
+	});
+
+	test('Drag-and-drop: undo restores original order', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 3 cells
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+
+		// Drag cell 0 to position 2
+		await notebooksPositron.dragCellToPosition(0, 2);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 0']);
+
+		// Select a cell and undo
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await notebooksPositron.performCellAction('undo');
+
+		// Verify original order is restored
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+	});
+
+	test('Drag-and-drop: redo reapplies reorder', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Setup: Create notebook with 3 cells
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+
+		// Drag cell 1 to position 0
+		await notebooksPositron.dragCellToPosition(1, 0);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
+
+		// Undo
+		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+		await notebooksPositron.performCellAction('undo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+
+		// Redo
+		await notebooksPositron.performCellAction('redo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
+	});
+
+	test('Drag-and-drop: escape cancels drag operation', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		await notebooksPositron.newNotebook({ codeCells: 3 });
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+
+		// Start drag but cancel with Escape
+		await notebooksPositron.startDragCell(0);
+		await keyboard.press('Escape');
+
+		// Verify order unchanged
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
+	});
 });
