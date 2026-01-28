@@ -998,6 +998,9 @@ export class DebugService implements IDebugService {
 
 	// --- Start Positron ---
 	private updateActivityBadge(): void {
+		// Positron: The following line is the only change. We added a check for
+		// `suppressDebugToolbar`. Old code:
+		// const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession).length;
 		const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession && !s.suppressDebugToolbar).length;
 		this.activity?.dispose();
 		if (numberOfSessions > 0) {
