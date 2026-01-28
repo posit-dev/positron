@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
+import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { ActionBarWidget } from '../../browser/components/actionBarWidget.js';
 import { IPositronActionBarWidgetDescriptor } from '../../browser/positronActionBarWidgetRegistry.js';
@@ -14,6 +15,7 @@ import { ServicesAccessor } from '../../../instantiation/common/instantiation.js
 import { mainWindow } from '../../../../base/browser/window.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { PositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+
 /**
  * Creates a minimal mock ServicesAccessor for testing.
  */
@@ -40,11 +42,14 @@ function renderWidget(
 	descriptor: IPositronActionBarWidgetDescriptor,
 	servicesAccessor: ServicesAccessor
 ) {
-	root.render(
-		<PositronReactServicesContext.Provider value={servicesAccessor as any}>
-			<ActionBarWidget descriptor={descriptor} />
-		</PositronReactServicesContext.Provider>
-	);
+	// Render the widget and wait for React to flush
+	flushSync(() => {
+		root.render(
+			<PositronReactServicesContext.Provider value={servicesAccessor as any}>
+				<ActionBarWidget descriptor={descriptor} />
+			</PositronReactServicesContext.Provider>
+		);
+	});
 }
 
 suite('ActionBarWidget', () => {
@@ -89,9 +94,6 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(root, descriptor, mockServicesAccessor);
 
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
-
 		const widgetContent = container.querySelector('.test-widget-content');
 		assert.ok(widgetContent, 'Expected to find widget content');
 		assert.strictEqual(widgetContent.textContent, 'Test Widget');
@@ -112,9 +114,6 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(root, descriptor, mockServicesAccessor);
 
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
-
 		assert.ok(receivedAccessor, 'Widget should receive services accessor');
 		assert.strictEqual(receivedAccessor, mockServicesAccessor);
 	});
@@ -131,9 +130,6 @@ suite('ActionBarWidget', () => {
 		};
 
 		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
 
 		const button = container.querySelector('button.action-bar-widget');
 		assert.ok(button, 'Expected to find button element');
@@ -153,9 +149,6 @@ suite('ActionBarWidget', () => {
 		};
 
 		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
 
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
@@ -186,9 +179,6 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(root, descriptor, mockServicesAccessor);
 
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
-
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
 
@@ -215,9 +205,6 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(root, descriptor, mockServicesAccessor);
 
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
-
 		const button = container.querySelector('button.action-bar-widget') as HTMLButtonElement;
 		assert.ok(button, 'Expected to find button');
 
@@ -243,9 +230,6 @@ suite('ActionBarWidget', () => {
 
 		renderWidget(root, descriptor, mockServicesAccessor);
 
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
-
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element');
 
@@ -263,9 +247,6 @@ suite('ActionBarWidget', () => {
 		};
 
 		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
 
 		const div = container.querySelector('div.action-bar-widget');
 		assert.ok(div, 'Expected to find div element for legacy widget');
@@ -291,9 +272,6 @@ suite('ActionBarWidget', () => {
 		const consoleErrorStub = sinon.stub(console, 'error');
 
 		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for error boundary to catch error
-		await new Promise(resolve => setTimeout(resolve, 0));
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error');
 		assert.ok(errorIndicator, 'Expected to find error indicator');
@@ -323,9 +301,6 @@ suite('ActionBarWidget', () => {
 		const consoleErrorStub = sinon.stub(console, 'error');
 
 		renderWidget(root, descriptor, mockServicesAccessor);
-
-		// Wait for error boundary to catch error
-		await new Promise(resolve => setTimeout(resolve, 0));
 
 		const errorIndicator = container.querySelector('.action-bar-widget-error') as HTMLElement;
 		assert.ok(errorIndicator, 'Expected to find error indicator');
