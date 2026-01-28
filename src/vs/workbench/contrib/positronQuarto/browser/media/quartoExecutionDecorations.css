@@ -1,18 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 /* Gutter decorations for Quarto cell execution state */
 
 .monaco-editor .quarto-execution-queued {
-	border-left: 3px solid var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
-	margin-left: 5px;
+	border-left: 5px solid var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
+	margin-left: 10px;
 }
 
 .monaco-editor .quarto-execution-running {
-	border-left: 3px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
-	margin-left: 5px;
+	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	margin-left: 10px;
 	animation: quarto-pulse 1.5s ease-in-out infinite;
 }
 
