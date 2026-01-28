@@ -41,6 +41,9 @@ module.exports.all = [
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',
+
+	// Excluded since these are vendored ESM bundles from esm.sh
+	'!src/esm-package-dependencies/**/*',
 	// --- End Positron ---
 ];
 
