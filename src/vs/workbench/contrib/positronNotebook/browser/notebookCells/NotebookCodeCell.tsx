@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,22 +20,27 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
 
 
 interface CellOutputsSectionProps {
+	cell: PositronNotebookCodeCell;
 	outputs: NotebookCellOutputs[];
 }
 
-function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
+function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
 	return (
-		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? '' : 'no-outputs'}`} data-testid='cell-output'>
-			<div className='positron-notebook-code-cell-outputs-inner'>
-				{outputs?.map((output) => (
-					<CellOutput key={output.outputId} {...output} />
-				))}
+		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
+			<CellOutputLeftActionMenu cell={cell} />
+			<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
+				<div className='positron-notebook-code-cell-outputs-inner'>
+					{outputs?.map((output) => (
+						<CellOutput key={output.outputId} {...output} />
+					))}
+				</div>
 			</div>
 		</div>
 	);
@@ -57,7 +62,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 					</div>
 					<CodeCellStatusFooter cell={cell} hasError={hasError} />
 				</div>
-				<CellOutputsSection outputs={outputContents} />
+				<CellOutputsSection cell={cell} outputs={outputContents} />
 			</div>
 
 		</NotebookCellWrapper>

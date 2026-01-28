@@ -40,13 +40,15 @@ export function CellOutputLeftActionMenu({ cell }: CellOutputLeftActionMenuProps
 	}
 
 	return (
-		<NotebookCellMoreActionsMenu
-			cell={cell}
-			hoverManager={instance.hoverManager}
-			instance={instance}
-			isMenuOpen={isMenuOpen}
-			menuActions={menuActions}
-			setIsMenuOpen={setIsMenuOpen}
-		/>
+		<div className='cell-output-left-action-menu'>
+			<NotebookCellMoreActionsMenu
+				cell={cell}
+				hoverManager={instance.hoverManager}
+				instance={instance}
+				isMenuOpen={isMenuOpen}
+				menuActions={menuActions}
+				setIsMenuOpen={setIsMenuOpen}
+			/>
+		</div>
 	);
 }

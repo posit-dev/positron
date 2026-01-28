@@ -1,0 +1,28 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Container for output left action menu - positioned in the gutter area */
+.cell-output-left-action-menu {
+	/* Use the same offset as CellLeftActionMenu for consistent gutter positioning */
+	--_container-offset-left: -25px;
+	--_container-size: 20px;
+
+	position: absolute;
+	top: 0;
+	left: var(--_container-offset-left);
+	width: var(--_container-size);
+	height: var(--_container-size);
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	/* Make the button styles more compact so it fits in the left cell gutter */
+	& .action-button {
+		padding: 2px;
+		border-radius: 4px;
+		min-width: unset;
+	}
+}

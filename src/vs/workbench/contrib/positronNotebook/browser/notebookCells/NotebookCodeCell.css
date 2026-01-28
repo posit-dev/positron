@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,13 +8,18 @@
 		position: relative;
 	}
 
-	.positron-notebook-cell-outputs {
-		overflow: hidden;
+	/* Wrapper for outputs section - provides positioning context for the left action menu */
+	.positron-notebook-outputs-section {
+		position: relative;
 
 		&.no-outputs {
 			/* Dont show empty outputs at all */
 			display: none;
 		}
+	}
+
+	.positron-notebook-cell-outputs {
+		overflow: hidden;
 	}
 
 	.positron-notebook-code-cell-outputs-inner {
