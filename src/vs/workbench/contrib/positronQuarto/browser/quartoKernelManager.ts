@@ -26,6 +26,7 @@ import { ITextModel } from '../../../../editor/common/model.js';
 import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
+import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 
 export const IQuartoKernelManager = createDecorator<IQuartoKernelManager>('quartoKernelManager');
 
@@ -136,6 +137,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
 	) {
 		super();
 
@@ -178,7 +180,10 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				const existing = this._documentKernels.get(notebookUri);
 				if (!existing || !existing.session) {
 					this._logService.debug(`[QuartoKernelManager] Session started for Quarto document, adopting: ${notebookUri.toString()}`);
-					this._tryAdoptExistingSession(notebookUri);
+					// Fire and forget - we don't need to wait for adoption to complete
+					this._tryAdoptExistingSession(notebookUri).catch(e => {
+						this._logService.warn(`[QuartoKernelManager] Failed to adopt session: ${e}`);
+					});
 				}
 			}
 		}));
@@ -200,22 +205,12 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 	}
 
 	/**
-	 * Try to adopt an existing session from the runtime session service.
-	 * This handles the case where a session was started before a window reload
-	 * and we need to reconnect to it.
-	 *
-	 * @param documentUri The URI of the Quarto document.
-	 * @returns The adopted session, or undefined if no existing session was found.
+	 * Adopt a session and set up tracking for it.
+	 * This is the common logic shared by sync and async adoption paths.
 	 */
-	private _tryAdoptExistingSession(documentUri: URI): ILanguageRuntimeSession | undefined {
-		// Check if there's an existing session for this document in the runtime session service
-		const existingSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(documentUri);
-		if (!existingSession) {
-			return undefined;
-		}
-
+	private _adoptSession(documentUri: URI, session: ILanguageRuntimeSession): ILanguageRuntimeSession | undefined {
 		// Check if the session is in a usable state
-		const state = existingSession.getRuntimeState();
+		const state = session.getRuntimeState();
 		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
 			return undefined;
 		}
@@ -224,9 +219,9 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 
 		// Create tracking info for this session
 		const info: DocumentKernelInfo = {
-			session: existingSession,
+			session: session,
 			state: this._runtimeStateToKernelState(state),
-			language: existingSession.runtimeMetadata.languageId,
+			language: session.runtimeMetadata.languageId,
 			disposables: new DisposableStore(),
 			startupCancellation: undefined,
 		};
@@ -234,17 +229,62 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		this._documentKernels.set(documentUri, info);
 
 		// Set up session event listeners
-		this._setupSessionListeners(documentUri, existingSession, info);
+		this._setupSessionListeners(documentUri, session, info);
 
 		// Fire state change event so UI components update
 		this._onDidChangeKernelState.fire({
 			documentUri,
 			oldState: QuartoKernelState.None,
 			newState: info.state,
-			session: existingSession,
+			session: session,
 		});
 
-		return existingSession;
+		return session;
+	}
+
+	/**
+	 * Try to adopt an existing session using direct URI lookup only (sync).
+	 * This is a fast path for getSessionForDocument and getKernelState.
+	 */
+	private _tryAdoptExistingSessionSync(documentUri: URI): ILanguageRuntimeSession | undefined {
+		const existingSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(documentUri);
+		if (!existingSession) {
+			return undefined;
+		}
+		return this._adoptSession(documentUri, existingSession);
+	}
+
+	/**
+	 * Try to adopt an existing session from the runtime session service (async).
+	 * This handles the case where a session was started before a window reload
+	 * and we need to reconnect to it.
+	 *
+	 * For untitled documents, the URI may change after a window reload
+	 * (e.g., "untitled:Untitled-1.qmd" -> "untitled:Untitled-2.qmd"). In this case,
+	 * we search for any untitled Quarto session using content hash matching.
+	 *
+	 * @param documentUri The URI of the Quarto document.
+	 * @returns The adopted session, or undefined if no existing session was found.
+	 */
+	private async _tryAdoptExistingSession(documentUri: URI): Promise<ILanguageRuntimeSession | undefined> {
+		// First try direct URI lookup (fast path)
+		let existingSession: ILanguageRuntimeSession | undefined =
+			this._runtimeSessionService.getNotebookSessionForNotebookUri(documentUri);
+
+		// If not found and this is an untitled document, search using content hash matching
+		// This handles the case where the untitled URI changed after window reload
+		if (!existingSession && documentUri.scheme === 'untitled') {
+			const untitledQuartoSession = await this._findUntitledQuartoSession(documentUri);
+			if (untitledQuartoSession) {
+				existingSession = untitledQuartoSession;
+			}
+		}
+
+		if (!existingSession) {
+			return undefined;
+		}
+
+		return this._adoptSession(documentUri, existingSession);
 	}
 
 	/**
@@ -273,6 +313,184 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		}
 	}
 
+	/**
+	 * Find an existing untitled Quarto session that may belong to a document
+	 * whose URI changed after window reload.
+	 *
+	 * After a window reload, an untitled document may get a different URI
+	 * (e.g., "untitled:Untitled-1.qmd" -> "untitled:Untitled-2.qmd").
+	 * This method searches all active sessions for an untitled Quarto session
+	 * and updates its URI mapping if found.
+	 *
+	 * When multiple untitled Quarto sessions exist, we use content hash matching
+	 * to determine which session belongs to this document by comparing the
+	 * document's cell content hashes against cached outputs.
+	 *
+	 * @param newDocumentUri The new URI of the untitled document
+	 * @returns The session if found and updated, undefined otherwise
+	 */
+	private async _findUntitledQuartoSession(newDocumentUri: URI): Promise<ILanguageRuntimeSession | undefined> {
+		// Get all active sessions
+		const activeSessions = this._runtimeSessionService.getActiveSessions();
+
+		// Filter for untitled Quarto notebook sessions
+		const untitledQuartoSessions = activeSessions.filter(activeSession => {
+			const session = activeSession.session;
+			const notebookUri = session.metadata.notebookUri;
+
+			// Must be a notebook session with an untitled Quarto/Rmd URI
+			return (
+				session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+				notebookUri &&
+				notebookUri.scheme === 'untitled' &&
+				isQuartoOrRmdFile(notebookUri.path)
+			);
+		});
+
+		if (untitledQuartoSessions.length === 0) {
+			return undefined;
+		}
+
+		// If we found exactly one untitled Quarto session, it's likely for this document
+		if (untitledQuartoSessions.length === 1) {
+			return this._adoptUntitledSession(untitledQuartoSessions[0].session, newDocumentUri);
+		}
+
+		// Multiple untitled Quarto sessions exist - need to match more precisely
+		this._logService.debug(
+			`[QuartoKernelManager] Found ${untitledQuartoSessions.length} untitled Quarto sessions, ` +
+			`using content hash matching for ${newDocumentUri.toString()}`
+		);
+
+		// Get the document's primary language for initial filtering
+		const documentLanguage = this._getDocumentLanguageSync(newDocumentUri);
+		if (!documentLanguage) {
+			this._logService.warn('[QuartoKernelManager] Could not determine document language for matching');
+			return undefined;
+		}
+
+		// Filter by language first (quick filter)
+		const matchingSessions = untitledQuartoSessions.filter(
+			activeSession => activeSession.session.runtimeMetadata.languageId === documentLanguage
+		);
+
+		if (matchingSessions.length === 0) {
+			this._logService.warn(
+				`[QuartoKernelManager] No sessions match language ${documentLanguage}`
+			);
+			return undefined;
+		}
+
+		if (matchingSessions.length === 1) {
+			this._logService.debug(
+				`[QuartoKernelManager] Matched session by language (${documentLanguage}) ` +
+				`for ${newDocumentUri.toString()}`
+			);
+			return this._adoptUntitledSession(matchingSessions[0].session, newDocumentUri);
+		}
+
+		// Multiple sessions with the same language - use content hash matching
+		this._logService.debug(
+			`[QuartoKernelManager] Found ${matchingSessions.length} ${documentLanguage} sessions, ` +
+			`using content hash matching`
+		);
+
+		// Get the current document's content hashes
+		const documentContentHashes = this._getDocumentContentHashes(newDocumentUri);
+		if (documentContentHashes.length === 0) {
+			this._logService.warn('[QuartoKernelManager] No content hashes available for document');
+			return undefined;
+		}
+
+		// Try to match each session's cached outputs to this document's content
+		for (const activeSession of matchingSessions) {
+			const session = activeSession.session;
+			const oldUri = session.metadata.notebookUri!;
+
+			// Load the cache for the session's old URI
+			const cachedDoc = await this._cacheService.loadCache(oldUri);
+			if (!cachedDoc || cachedDoc.cells.length === 0) {
+				continue;
+			}
+
+			// Check if the cached content hashes match the current document
+			const cachedHashes = cachedDoc.cells.map(cell => cell.contentHash);
+			const matchCount = documentContentHashes.filter(hash => cachedHashes.includes(hash)).length;
+
+			if (matchCount > 0) {
+				this._logService.debug(
+					`[QuartoKernelManager] Matched session by content hash (${matchCount} matching cells) ` +
+					`for ${newDocumentUri.toString()}`
+				);
+				return this._adoptUntitledSession(session, newDocumentUri);
+			}
+		}
+
+		this._logService.warn(
+			`[QuartoKernelManager] Could not match any of ${matchingSessions.length} sessions ` +
+			`to document ${newDocumentUri.toString()} by content hash`
+		);
+		return undefined;
+	}
+
+	/**
+	 * Get content hashes for all cells in a document.
+	 */
+	private _getDocumentContentHashes(documentUri: URI): string[] {
+		const textModel = this._getTextModelSync(documentUri);
+		if (!textModel) {
+			return [];
+		}
+
+		const quartoModel = this._quartoDocumentModelService.getModel(textModel);
+		return quartoModel.cells.map(cell => cell.contentHash);
+	}
+
+	/**
+	 * Adopt an untitled session by updating its URI mapping.
+	 */
+	private _adoptUntitledSession(session: ILanguageRuntimeSession, newDocumentUri: URI): ILanguageRuntimeSession {
+		const oldUri = session.metadata.notebookUri!;
+
+		this._logService.debug(
+			`[QuartoKernelManager] Adopting untitled Quarto session, updating URI ` +
+			`${oldUri.toString()} -> ${newDocumentUri.toString()}`
+		);
+
+		// Update the session's notebookUri to the new document URI
+		// This maintains the URI mapping so future lookups work correctly
+		this._runtimeSessionService.updateNotebookSessionUri(oldUri, newDocumentUri);
+
+		return session;
+	}
+
+	/**
+	 * Get the primary language for a document (synchronous).
+	 */
+	private _getDocumentLanguageSync(documentUri: URI): string | undefined {
+		const textModel = this._getTextModelSync(documentUri);
+		if (!textModel) {
+			return undefined;
+		}
+
+		const quartoModel = this._quartoDocumentModelService.getModel(textModel);
+		return quartoModel.primaryLanguage;
+	}
+
+	/**
+	 * Try to get a text model synchronously.
+	 */
+	private _getTextModelSync(documentUri: URI): ITextModel | undefined {
+		// Check if any editor has this model
+		for (const editor of this._editorService.visibleTextEditorControls) {
+			const model = editor.getModel();
+			if (model && 'uri' in model && (model as ITextModel).uri.toString() === documentUri.toString()) {
+				return model as ITextModel;
+			}
+		}
+		return undefined;
+	}
+
 	async ensureKernelForDocument(
 		documentUri: URI,
 		token?: CancellationToken
@@ -295,7 +513,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 		}
 
 		// Check for existing session from runtime session service (e.g., after window reload)
-		const adoptedSession = this._tryAdoptExistingSession(documentUri);
+		// This is async because it may need to search for untitled sessions by content hash
+		const adoptedSession = await this._tryAdoptExistingSession(documentUri);
 		if (adoptedSession) {
 			const state = adoptedSession.getRuntimeState();
 			if (state !== RuntimeState.Exited && state !== RuntimeState.Uninitialized) {
@@ -314,8 +533,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			return tracked;
 		}
 
-		// Check for existing session from runtime session service (e.g., after window reload)
-		const existingSession = this._tryAdoptExistingSession(documentUri);
+		// Try fast sync lookup (direct URI match)
+		const existingSession = this._tryAdoptExistingSessionSync(documentUri);
 		return existingSession;
 	}
 
@@ -326,8 +545,8 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			return tracked.state;
 		}
 
-		// Check for existing session from runtime session service (e.g., after window reload)
-		const existingSession = this._tryAdoptExistingSession(documentUri);
+		// Try fast sync lookup (direct URI match)
+		const existingSession = this._tryAdoptExistingSessionSync(documentUri);
 		if (existingSession) {
 			// We just adopted the session, get the state from our tracking
 			return this._documentKernels.get(documentUri)?.state ?? QuartoKernelState.None;

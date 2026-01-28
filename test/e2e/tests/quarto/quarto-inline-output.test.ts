@@ -847,126 +847,166 @@ test.describe('Quarto - Inline Output', {
 		await runCommand('workbench.action.closeActiveEditor');
 	});
 
-	test('Python - Verify untitled document inline output persists after window reload without saving', async function ({ app, runCommand }) {
-		// This test reproduces a bug where inline output in an untitled (unsaved) Quarto document
-		// is lost after window reload. The bug occurs because:
-		// 1. Untitled documents have URIs like "untitled:Untitled-1.qmd"
-		// 2. After window reload, the untitled document may get a different URI (e.g., "untitled:Untitled-2.qmd")
-		// 3. The cache lookup uses a hash of the URI, so the cache file isn't found
-		// 4. The findCacheByContentHash fallback should find the cache by content hash match
+	test('Python - Verify multiple untitled documents each reattach to correct kernel after window reload', async function ({ app, runCommand }) {
+		// This test verifies that MULTIPLE untitled Quarto documents each reattach to their
+		// correct Python kernel after window reload. This is the hard case - when there are
+		// two Python sessions, we can't just match by language. We need content hash matching.
 		//
-		// The fix should ensure that untitled document outputs are found via content hash matching
-		// even when the URI changes after reload.
+		// The test:
+		// 1. Creates TWO untitled Quarto documents, each with different Python code
+		// 2. Runs the cells to start two separate Python kernels
+		// 3. Records the PID from each document
+		// 4. Reloads the window
+		// 5. Runs the cells again and verifies each document got its original kernel back
 
 		const page = app.code.driver.page;
 
-		// Step 1: Create a new untitled Quarto document using the Quarto extension command
-		await runCommand('quarto.newDocument');
+		// Helper function to create an untitled doc with a Python cell and run it
+		async function createAndRunUntitledDoc(docId: string): Promise<string> {
+			// Create a new untitled Quarto document
+			await runCommand('quarto.newDocument');
 
-		// Wait for the editor to be ready
-		const editor = page.locator('.monaco-editor').first();
-		await expect(editor).toBeVisible({ timeout: 10000 });
+			// Wait for the editor to be ready
+			const editor = page.locator('.monaco-editor').first();
+			await expect(editor).toBeVisible({ timeout: 10000 });
 
-		// Wait for the Quarto inline output feature to recognize this as a Quarto document
-		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
-		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+			// Wait for the Quarto inline output feature to initialize
+			const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+			await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
-		// Step 2: Add a simple Python code chunk to the document
-		await editor.click();
-		await page.waitForTimeout(500);
-		await page.keyboard.press('ControlOrMeta+End');
-		await page.waitForTimeout(200);
+			// Add a Python code chunk with a unique identifier and os.getpid()
+			await editor.click();
+			await page.waitForTimeout(500);
+			await page.keyboard.press('ControlOrMeta+End');
+			await page.waitForTimeout(200);
 
-		// Add some newlines first
-		await page.keyboard.press('Enter');
-		await page.keyboard.press('Enter');
+			await page.keyboard.press('Enter');
+			await page.keyboard.press('Enter');
 
-		// Type the code fence opening - use individual key presses for backticks
-		await page.keyboard.press('Backquote');
-		await page.keyboard.press('Backquote');
-		await page.keyboard.press('Backquote');
-		await page.keyboard.type('{python}');
-		await page.keyboard.press('Enter');
+			// Type the code fence
+			await page.keyboard.press('Backquote');
+			await page.keyboard.press('Backquote');
+			await page.keyboard.press('Backquote');
+			await page.keyboard.type('{python}');
+			await page.keyboard.press('Enter');
 
-		// Type Python code with a unique message for this test
-		await page.keyboard.type('print("Untitled output test!")');
-		await page.keyboard.press('Enter');
+			// Type Python code - include docId as a comment to make content unique
+			await page.keyboard.type(`# Document ${docId}`);
+			await page.keyboard.press('Enter');
+			await page.keyboard.type('import os');
+			await page.keyboard.press('Enter');
+			await page.keyboard.type('os.getpid()');
+			await page.keyboard.press('Enter');
 
-		// Type the closing fence
-		await page.keyboard.press('Backquote');
-		await page.keyboard.press('Backquote');
-		await page.keyboard.press('Backquote');
+			// Type the closing fence
+			await page.keyboard.press('Backquote');
+			await page.keyboard.press('Backquote');
+			await page.keyboard.press('Backquote');
 
-		await page.waitForTimeout(1500); // Wait for document to parse
+			await page.waitForTimeout(1500); // Wait for document to parse
 
-		// Verify the cell toolbar appeared
-		const cellToolbar = page.locator('.quarto-cell-toolbar');
-		await expect(cellToolbar.first()).toBeVisible({ timeout: 10000 });
+			// Click the run button on the cell toolbar
+			const cellToolbar = page.locator('.quarto-cell-toolbar');
+			await expect(cellToolbar.first()).toBeVisible({ timeout: 10000 });
+			const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
+			await runButton.click();
 
-		// Step 3: Click the run button on the cell toolbar
-		const runButton = cellToolbar.locator('button.quarto-toolbar-run').first();
-		await runButton.click();
+			// Wait for inline output to appear
+			const inlineOutput = page.locator('.quarto-inline-output');
+			await expect(async () => {
+				await runCommand('workbench.action.gotoLine', { keepOpen: true });
+				await page.keyboard.type('12');
+				await page.keyboard.press('Enter');
+				await page.waitForTimeout(500);
+				await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+			}).toPass({ timeout: 120000 });
 
-		// Step 4: Wait for inline output to appear
-		const inlineOutput = page.locator('.quarto-inline-output');
+			// Extract the PID from the output
+			const outputItem = inlineOutput.locator('.quarto-output-item');
+			await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
+			const outputText = await outputItem.first().textContent();
+			const pid = outputText?.trim() ?? '';
+			expect(Number(pid)).toBeGreaterThan(0);
 
-		// Poll until output appears (includes kernel startup time)
-		await expect(async () => {
+			return pid;
+		}
+
+		// Helper function to get the PID from the current document by running its cell
+		async function getPidFromCurrentDoc(): Promise<string> {
+			// Position cursor in the cell and run it
 			await runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('10');
+			await page.keyboard.type('7');  // Line inside the code cell
 			await page.keyboard.press('Enter');
 			await page.waitForTimeout(500);
-			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
-		}).toPass({ timeout: 120000 });
 
-		// Verify the output content is present and contains our expected text
-		const outputContent = inlineOutput.locator('.quarto-output-content');
-		await expect(outputContent).toBeVisible({ timeout: 10000 });
+			await runCommand('positronQuarto.runCurrentCell');
 
-		const outputText = inlineOutput.locator('.quarto-output-stdout');
-		await expect(outputText).toContainText('Untitled output test!');
+			// Wait for output to update
+			await page.waitForTimeout(3000);
 
-		// Step 5: Wait for the cache write debounce to complete before reloading
-		// The cache service uses a 1000ms debounce, so wait longer to ensure it's flushed
-		// This is critical - if we reload too soon, the cache won't be on disk yet
+			// Scroll to see the output
+			const inlineOutput = page.locator('.quarto-inline-output');
+			await expect(async () => {
+				await runCommand('workbench.action.gotoLine', { keepOpen: true });
+				await page.keyboard.type('12');
+				await page.keyboard.press('Enter');
+				await page.waitForTimeout(500);
+				await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+			}).toPass({ timeout: 30000 });
+
+			const outputItem = inlineOutput.locator('.quarto-output-item');
+			const outputText = await outputItem.first().textContent();
+			return outputText?.trim() ?? '';
+		}
+
+		// Step 1: Create first untitled document and get its PID
+		const pid1Before = await createAndRunUntitledDoc('ONE');
+
+		// Step 2: Create second untitled document and get its PID
+		const pid2Before = await createAndRunUntitledDoc('TWO');
+
+		// Verify we have two different PIDs (two separate Python processes)
+		expect(pid1Before).not.toBe(pid2Before);
+
+		// Step 3: Wait for cache writes to complete
 		await page.waitForTimeout(2500);
 
-		// Step 6: Reload the window WITHOUT saving the document
-		// VS Code's "hot exit" feature should preserve the untitled document content across reload
+		// Step 4: Reload the window
 		await runCommand('workbench.action.reloadWindow');
 
-		// Wait for the editor to be ready again after reload
+		// Wait for editor to be ready after reload
+		const editor = page.locator('.monaco-editor').first();
 		await expect(editor).toBeVisible({ timeout: 60000 });
 
-		// Wait for the Quarto inline output feature to reinitialize
-		// The kernel status widget should appear when the untitled document is restored
+		// Wait for Quarto features to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
-
-		// Wait for the cache service to load cached outputs
-		// The cache service should find the outputs via content hash matching
-		// even though the untitled document might have a different URI after reload
 		await page.waitForTimeout(2000);
 
-		// Step 7: Verify the output is still visible after reload
-		// CRITICAL: This is the bug we're testing - the output should persist
-		await expect(async () => {
-			await runCommand('workbench.action.gotoLine', { keepOpen: true });
-			await page.keyboard.type('10');
-			await page.keyboard.press('Enter');
-			await page.waitForTimeout(500);
-			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
-		}).toPass({ timeout: 30000 });
+		// Step 5: We should be on the second document (last opened). Get its PID.
+		const pid2After = await getPidFromCurrentDoc();
 
-		// Verify the output content matches what we originally executed
-		await expect(outputText).toContainText('Untitled output test!');
+		// Step 6: Switch to the first document and get its PID
+		// Use Ctrl+Tab or the editor tabs to switch
+		await runCommand('workbench.action.previousEditor');
+		await page.waitForTimeout(1000);
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
 
-		// Cleanup: Close the untitled file without saving
-		// Use closeAllEditors to avoid save prompt
+		const pid1After = await getPidFromCurrentDoc();
+
+		// Step 7: CRITICAL ASSERTIONS - Each document should have its original kernel
+		expect(pid1After).toBe(pid1Before);
+		expect(pid2After).toBe(pid2Before);
+
+		// Cleanup: Close all editors without saving
 		await runCommand('workbench.action.closeAllEditors');
-		// Handle the "Don't Save" dialog if it appears
 		const dontSaveButton = page.getByRole('button', { name: /Don't Save/i });
-		if (await dontSaveButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-			await dontSaveButton.click();
+		// May need to click multiple times for multiple unsaved files
+		for (let i = 0; i < 3; i++) {
+			if (await dontSaveButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+				await dontSaveButton.click();
+				await page.waitForTimeout(500);
+			}
 		}
 	});
 
