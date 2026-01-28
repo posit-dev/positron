@@ -181,7 +181,7 @@ export class DebugService implements IDebugService {
 		this.disposables.add(this.model.onDidChangeCallStack(() => {
 			// --- Start Positron ---
 			// The implementation of this handler is called in two different places in Positron.
-			// When this impl changes, please update the following method accordingly.
+			// If the VS Code impl changes, please update the following method accordingly.
 			this.updateActivityBadge();
 			// --- End Positron ---
 		}));
