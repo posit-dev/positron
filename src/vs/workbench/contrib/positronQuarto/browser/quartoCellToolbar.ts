@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -301,11 +301,11 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	}
 
 	private _updateButtonVisibility(): void {
-		// Hide "Run Above" for first cell
-		this._runAboveButton.style.display = this._cellIndex === 0 ? 'none' : '';
+		// Disable "Run Above" for first cell
+		this._runAboveButton.disabled = this._cellIndex === 0;
 
-		// Hide "Run Below" for last cell
-		this._runBelowButton.style.display = this._cellIndex === this._totalCells - 1 ? 'none' : '';
+		// Disable "Run Below" for last cell
+		this._runBelowButton.disabled = this._cellIndex === this._totalCells - 1;
 	}
 
 	/**
