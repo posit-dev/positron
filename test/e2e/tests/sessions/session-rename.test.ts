@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: Rename', {
-	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS],
+	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
 	annotation: [
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7692' },
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6843' }
