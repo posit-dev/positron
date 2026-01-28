@@ -179,14 +179,11 @@ export class DebugService implements IDebugService {
 			this.debugStorage.storeDebugUxState(debugUxValue);
 		}));
 		this.disposables.add(this.model.onDidChangeCallStack(() => {
-			const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession).length;
-			this.activity?.dispose();
-			if (numberOfSessions > 0) {
-				const viewContainer = this.viewDescriptorService.getViewContainerByViewId(CALLSTACK_VIEW_ID);
-				if (viewContainer) {
-					this.activity = this.activityService.showViewContainerActivity(viewContainer.id, { badge: new NumberBadge(numberOfSessions, n => n === 1 ? nls.localize('1activeSession', "1 active session") : nls.localize('nActiveSessions', "{0} active sessions", n)) });
-				}
-			}
+			// --- Start Positron ---
+			// The implementation of this handler is called in two different places in Positron.
+			// If the VS Code impl changes, please update the following method accordingly.
+			this.updateActivityBadge();
+			// --- End Positron ---
 		}));
 
 		this.disposables.add(editorService.onDidActiveEditorChange(() => {
@@ -1000,6 +997,20 @@ export class DebugService implements IDebugService {
 	}
 
 	// --- Start Positron ---
+	private updateActivityBadge(): void {
+		// Positron: The following line is the only change. We added a check for
+		// `suppressDebugToolbar`. Old code:
+		// const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession).length;
+		const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession && !s.suppressDebugToolbar).length;
+		this.activity?.dispose();
+		if (numberOfSessions > 0) {
+			const viewContainer = this.viewDescriptorService.getViewContainerByViewId(CALLSTACK_VIEW_ID);
+			if (viewContainer) {
+				this.activity = this.activityService.showViewContainerActivity(viewContainer.id, { badge: new NumberBadge(numberOfSessions, n => n === 1 ? nls.localize('1activeSession', "1 active session") : nls.localize('nActiveSessions', "{0} active sessions", n)) });
+			}
+		}
+	}
+
 	setSessionForeground(session: IDebugSession, foreground: boolean): void {
 		session.setSuppressDebugToolbar(!foreground);
 		session.setSuppressDebugStatusbar(!foreground);
@@ -1008,6 +1019,9 @@ export class DebugService implements IDebugService {
 		const debugUxValue = this.computeDebugUxValue();
 		this.debugUx.set(debugUxValue);
 		this.debugStorage.storeDebugUxState(debugUxValue);
+
+		// Update activity badge to reflect foreground/background change
+		this.updateActivityBadge();
 
 		// Trigger toolbar update
 		this._onDidChangeState.fire(this.state);
