@@ -525,6 +525,9 @@
 			addModule('react-dom');
 			addModule('react-dom/client');
 			addModule('react-window');
+			addModule('@dnd-kit/core');
+			addModule('@dnd-kit/sortable');
+			addModule('@dnd-kit/utilities');
 
 			// DEV ---------------------------------------------------------------------------------------
 			// DEV: This is for development and enables loading CSS via import-statements via import-maps.

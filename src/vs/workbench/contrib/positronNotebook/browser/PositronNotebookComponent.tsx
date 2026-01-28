@@ -18,6 +18,8 @@ import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
+import { SortableCellList } from './notebookCells/SortableCellList.js';
+import { SortableCell } from './notebookCells/SortableCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -87,6 +89,14 @@ export function PositronNotebookComponent() {
 	// Determine if scroll decoration should be shown
 	const showDecoration = isScrolled || isFindWidgetVisible;
 
+	// Handler for drag-and-drop reordering of cells
+	const handleReorder = React.useCallback((oldIndex: number, newIndex: number) => {
+		notebookInstance.moveCell(oldIndex, newIndex);
+	}, [notebookInstance]);
+
+	// Check if notebook is read-only
+	const isReadOnly = notebookInstance.isReadOnly;
+
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			{showDecoration && (
@@ -98,7 +108,13 @@ export function PositronNotebookComponent() {
 			)}
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				<AddCellButtons index={0} />
-				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				<SortableCellList
+					cells={notebookCells}
+					disabled={isReadOnly}
+					onReorder={handleReorder}
+				>
+					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				</SortableCellList>
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}
@@ -152,10 +168,12 @@ function renderCellsAndSentinels(
 			currentOriginalIndex++;
 		}
 
-		// Render the cell
+		// Render the cell wrapped in SortableCell for drag-and-drop
 		elements.push(
 			<React.Fragment key={cell.handle}>
-				<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				<SortableCell cell={cell}>
+					<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+				</SortableCell>
 				<AddCellButtons index={cellArrayIndex + 1} />
 			</React.Fragment>
 		);
