@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -453,36 +453,6 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 					});
 				}
 			}
-
-			// Sort by modification time (oldest first)
-			fileStats.sort((a, b) => a.mtime - b.mtime);
-
-			// Delete old files (age-based cleanup)
-			const cutoffTime = Date.now() - (DEFAULT_CACHE_CONFIG.maxCacheAgeDays * 24 * 60 * 60 * 1000);
-			let totalSize = fileStats.reduce((sum, f) => sum + f.size, 0);
-			let deletedCount = 0;
-
-			for (const file of fileStats) {
-				// Delete if too old
-				if (file.mtime < cutoffTime) {
-					await this._deleteCacheFile(file.uri);
-					totalSize -= file.size;
-					deletedCount++;
-					continue;
-				}
-
-				// Delete if over size limit (LRU - oldest files deleted first)
-				if (totalSize > DEFAULT_CACHE_CONFIG.maxCacheSize) {
-					await this._deleteCacheFile(file.uri);
-					totalSize -= file.size;
-					deletedCount++;
-				}
-			}
-
-			if (deletedCount > 0) {
-				this._logService.debug('[QuartoOutputCacheService] Deleted', deletedCount, 'old cache files');
-			}
-
 		} catch (error) {
 			this._logService.warn('[QuartoOutputCacheService] Cache cleanup failed:', error);
 		}

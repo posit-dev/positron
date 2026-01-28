@@ -232,8 +232,6 @@ export interface ICachedDocument {
 export interface IQuartoCacheConfig {
 	/** Maximum cache size in bytes. Default: 500MB */
 	readonly maxCacheSize: number;
-	/** Maximum age of cache entries in days. Default: 30 */
-	readonly maxCacheAgeDays: number;
 	/** Debounce delay for cache writes in ms. Default: 1000 */
 	readonly writeDebounceMs: number;
 }
@@ -243,7 +241,6 @@ export interface IQuartoCacheConfig {
  */
 export const DEFAULT_CACHE_CONFIG: IQuartoCacheConfig = {
 	maxCacheSize: 500 * 1024 * 1024, // 500 MB
-	maxCacheAgeDays: 30,
 	writeDebounceMs: 1000,
 };
 
