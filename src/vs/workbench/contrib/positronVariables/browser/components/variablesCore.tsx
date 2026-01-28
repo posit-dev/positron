@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './variablesCore.css';
 
 // React.
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';

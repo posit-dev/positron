@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
 import assert from 'assert';
 import sinon from 'sinon';
+import { flushSync } from 'react-dom';
 import { createRoot, Root } from 'react-dom/client';
 import { mainWindow } from '../../../../../base/browser/window.js';
 
@@ -99,6 +99,23 @@ suite('ColumnSummaryCell', () => {
 	let container: HTMLElement;
 	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
 
+	function renderRoot(
+		root: Root,
+		mockTableSummaryDataGridInstance: TableSummaryDataGridInstance,
+	) {
+		// Render the widget and wait for React to flush
+		flushSync(() => {
+			root.render(
+				<ColumnSummaryCell
+					columnIndex={0}
+					columnSchema={columnSchema}
+					instance={mockTableSummaryDataGridInstance}
+					onDoubleClick={() => { }}
+				/>
+			);
+		});
+	}
+
 	setup(() => {
 		// Create a container element for React to render into
 		container = mainWindow.document.createElement('div');
@@ -124,17 +141,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 0,
 		});
 
-		root.render(
-			<ColumnSummaryCell
-				columnIndex={0}
-				columnSchema={columnSchema}
-				instance={mockTableSummaryDataGridInstance}
-				onDoubleClick={() => { }}
-			/>
-		);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderRoot(root, mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -147,17 +154,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1,
 		});
 
-		root.render(
-			<ColumnSummaryCell
-				columnIndex={0}
-				columnSchema={columnSchema}
-				instance={mockTableSummaryDataGridInstance}
-				onDoubleClick={() => { }}
-			/>
-		);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderRoot(root, mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -170,17 +167,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 999,
 		});
 
-		root.render(
-			<ColumnSummaryCell
-				columnIndex={0}
-				columnSchema={columnSchema}
-				instance={mockTableSummaryDataGridInstance}
-				onDoubleClick={() => { }}
-			/>
-		);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderRoot(root, mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
@@ -193,17 +180,7 @@ suite('ColumnSummaryCell', () => {
 			getColumnProfileNullCount: () => 1000,
 		});
 
-		root.render(
-			<ColumnSummaryCell
-				columnIndex={0}
-				columnSchema={columnSchema}
-				instance={mockTableSummaryDataGridInstance}
-				onDoubleClick={() => { }}
-			/>
-		);
-
-		// Wait for initial render
-		await new Promise(resolve => setTimeout(resolve, 0));
+		renderRoot(root, mockTableSummaryDataGridInstance);
 
 		const nullPercentElement = container.querySelector('.text-percent');
 		assert.ok(nullPercentElement, 'Expected to find null percent element');

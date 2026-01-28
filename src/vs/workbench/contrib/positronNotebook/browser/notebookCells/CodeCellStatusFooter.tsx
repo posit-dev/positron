@@ -6,9 +6,6 @@
 // CSS.
 import './CodeCellStatusFooter.css';
 
-// React.
-import React from 'react';
-
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { useObservedValue } from '../useObservedValue.js';
