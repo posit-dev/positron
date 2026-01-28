@@ -44,7 +44,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await hotKeys.reloadWindow();
 
 			await welcome.expectWalkthroughsToHaveCount(3);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Get Started with the Positron Notebook Editor in Alpha']);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron', 'Explore the Positron Notebook Editor in Alpha']);
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
