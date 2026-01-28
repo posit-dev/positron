@@ -807,6 +807,13 @@ export class ChatModelsWidget extends Disposable {
 
 		const loadingPromise = this.extensionService.whenInstalledExtensionsRegistered().then(() => this.viewModel.refresh());
 		this.editorProgressService.showWhile(loadingPromise, 300);
+
+		// --- Start Positron ---
+		// Refresh when providers are added or removed (e.g., when positron-assistant extension registers)
+		this._register(this.languageModelsService.onDidChangeProviders(() => {
+			this.viewModel.refresh();
+		}));
+		// --- End Positron ---
 	}
 
 	private create(container: HTMLElement): void {
