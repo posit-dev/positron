@@ -51,11 +51,6 @@ export function SortableCellList({
 		})
 	);
 
-	// If disabled (read-only mode), don't enable drag-and-drop
-	if (disabled) {
-		return <>{children}</>;
-	}
-
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
 		const cell = cells.find(c => c.handleId === event.active.id);
 		setActiveCell(cell ?? null);
@@ -77,6 +72,11 @@ export function SortableCellList({
 	const handleDragCancel = React.useCallback(() => {
 		setActiveCell(null);
 	}, []);
+
+	// If disabled (read-only mode), don't enable drag-and-drop
+	if (disabled) {
+		return <>{children}</>;
+	}
 
 	return (
 		<DndContext
