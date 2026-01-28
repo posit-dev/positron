@@ -10,6 +10,8 @@ import './SortableCell.css';
 import * as React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 interface SortableCellProps {
@@ -18,6 +20,7 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
+	const notebookInstance = useNotebookInstance();
 	const {
 		attributes,
 		listeners,
@@ -27,6 +30,15 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		transition,
 		isDragging,
 	} = useSortable({ id: cell.handleId });
+
+	// Calculate max height for dragging state (1/3 of container height)
+	// Use a minimum of 200px to ensure the cell remains visible
+	const maxDragHeight = React.useMemo(() => {
+		const container = notebookInstance.cellsContainer;
+		const height = container?.clientHeight || DOM.getActiveWindow().innerHeight;
+		const calculatedHeight = Math.floor(height / 3);
+		return Math.max(calculatedHeight, 200);
+	}, [notebookInstance.cellsContainer]);
 
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
@@ -51,7 +63,11 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			>
 				<span className="codicon codicon-gripper" />
 			</button>
-			{children}
+			{isDragging ? (
+				<div className="drag-content-wrapper" style={{ maxHeight: maxDragHeight }}>
+					{children}
+				</div>
+			) : children}
 		</div>
 	);
 }
