@@ -158,9 +158,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._closeButton = this._createCloseButton();
 		buttonContainer.appendChild(this._closeButton);
 
-		// Create copy button
+		// Create copy button; initially hidden
 		this._copyButton = this._createCopyButton();
 		buttonContainer.appendChild(this._copyButton);
+		this._copyButton.style.display = 'none';
 
 		this._styledContainer.appendChild(buttonContainer);
 
@@ -1260,6 +1261,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _updateHeight(): void {
 		// Measure the styled container's height (content + padding + border, but not margin)
 		const styledHeight = this._styledContainer.offsetHeight;
+
+		// Show the Copy button if there's enough room
+		this._copyButton.style.display = styledHeight > 40 ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
