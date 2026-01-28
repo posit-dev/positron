@@ -20,6 +20,10 @@ import {
 	PythonSnowflakePATDriver,
 	PythonSnowflakeDefaultConnectionDriver
 } from './drivers/snowflake';
+import {
+	PythonBigQueryDefaultCredentialsDriver,
+	PythonBigQueryServiceAccountDriver
+} from './drivers/bigquery';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 
@@ -43,6 +47,8 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new PythonSnowflakeKeyPairDriver(context),
 		new PythonSnowflakeOAuthM2MDriver(context),
 		new PythonSnowflakePATDriver(context),
+		new PythonBigQueryDefaultCredentialsDriver(context),
+		new PythonBigQueryServiceAccountDriver(context),
 	];
 
 	for (const driver of drivers) {
