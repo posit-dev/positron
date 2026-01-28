@@ -3,14 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
 import * as React from 'react';
 import { useDndContext } from './DndContext.js';
+import { useTouchSensor, TouchSensorConfig } from './TouchSensor.js';
 
 interface UseDraggableProps {
 	id: string;
+	touchConfig?: TouchSensorConfig;
 }
 
-export function useDraggable({ id }: UseDraggableProps) {
+export function useDraggable({ id, touchConfig }: UseDraggableProps) {
 	const { state, startDrag } = useDndContext();
 	const nodeRef = React.useRef<HTMLElement | null>(null);
 	const activatorRef = React.useRef<HTMLElement | null>(null);
@@ -47,6 +50,15 @@ export function useDraggable({ id }: UseDraggableProps) {
 		}
 	}, [id, startDrag]);
 
+	// Touch sensor activation callback
+	const handleTouchActivate = React.useCallback((position: { x: number; y: number }) => {
+		const rect = nodeRef.current?.getBoundingClientRect();
+		startDrag(id, position, rect ?? null);
+	}, [id, startDrag]);
+
+	// Touch sensor hooks for long-press activation on touch devices
+	const touchListeners = useTouchSensor(handleTouchActivate, touchConfig);
+
 	// Attributes for the draggable element
 	const attributes = {
 		role: 'button' as const,
@@ -56,9 +68,11 @@ export function useDraggable({ id }: UseDraggableProps) {
 	};
 
 	// Event listeners for the activator (drag handle)
+	// Combines pointer, keyboard, and touch events
 	const listeners = {
 		onPointerDown: handlePointerDown,
 		onKeyDown: handleKeyDown,
+		...touchListeners,
 	};
 
 	// NOTE: The dragging item does NOT get a cursor-following transform.

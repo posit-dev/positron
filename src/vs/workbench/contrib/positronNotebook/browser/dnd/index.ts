@@ -15,6 +15,28 @@ export { sortableKeyboardCoordinates } from './keyboardCoordinates.js';
 export { AnimationProvider, useAnimationContext } from './AnimationContext.js';
 export { Announcer, getAnnouncement } from './Announcer.js';
 export { calculateSortingTransforms, transformToString, getTransition } from './animations.js';
+
+// Plan 04: Advanced features
+export { useTouchSensor } from './TouchSensor.js';
+export type { TouchSensorConfig } from './TouchSensor.js';
+export { animateDrop, getDefaultDropAnimationConfig } from './dropAnimation.js';
+export type { DropAnimationConfig } from './dropAnimation.js';
+export {
+	restrictToVerticalAxis,
+	restrictToHorizontalAxis,
+	snapToGrid,
+	restrictToParent,
+	composeModifiers,
+} from './modifiers.js';
+export type { Modifier } from './modifiers.js';
+export {
+	MultiDragProvider,
+	useMultiDragContext,
+	useMultiDragState,
+	calculateMultiDragReorder,
+} from './MultiDragContext.js';
+export type { MultiDragState } from './MultiDragContext.js';
+
 export type {
 	DragState,
 	DragStartEvent,
