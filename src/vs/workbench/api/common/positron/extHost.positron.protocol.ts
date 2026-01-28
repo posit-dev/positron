@@ -154,7 +154,7 @@ export interface MainThreadConnectionsShape {
 }
 
 export interface ExtHostConnectionsShape {
-	$driverGenerateCode(driverId: string, inputs: Input[]): Promise<string>;
+	$driverGenerateCode(driverId: string, inputs: Input[]): Promise<string | { valid: boolean; code: string; errorMessage?: string }>;
 	$driverConnect(driverId: string, code: string): Promise<void>;
 	$driverCheckDependencies(driverId: string): Promise<boolean>;
 	$driverInstallDependencies(driverId: string): Promise<boolean>;

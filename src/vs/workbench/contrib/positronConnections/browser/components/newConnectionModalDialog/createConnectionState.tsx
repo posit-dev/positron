@@ -7,7 +7,7 @@
 import './createConnectionState.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -37,18 +37,27 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
-	const [code, setCode] = useState<string | undefined>(undefined);
+	const [codeState, setCodeState] = useState<{ valid: boolean; code: string; errorMessage?: string } | undefined>(undefined);
+
+	const editorOptions = useMemo(() => ({
+		readOnly: true,
+		cursorBlinking: 'solid' as const
+	}), []);
 
 	useEffect(() => {
 		// Debounce the code generation to avoid unnecessary re-renders
 		const timeoutId = setTimeout(async () => {
 			if (generateCode) {
-				const code = await generateCode(inputs);
-				setCode(code);
+				const result = await generateCode(inputs);
+				if (typeof result === 'string') {
+					setCodeState({ valid: true, code: result });
+				} else {
+					setCodeState(result);
+				}
 			}
 		}, 200);
 		return () => clearTimeout(timeoutId);
-	}, [inputs, generateCode, setCode]);
+	}, [inputs, generateCode, setCodeState]);
 
 	const onConnectHandler = async () => {
 		// Acquire code before disposing of the renderer
@@ -124,14 +133,11 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
 		</div>
 
-		<div className='create-connection-code-editor'>
+		<div className={`create-connection-code-editor${codeState?.valid === false ? ' has-error' : ''}`}>
 			<SimpleCodeEditor
 				ref={editorRef}
-				code={code}
-				editorOptions={{
-					readOnly: true,
-					cursorBlinking: 'solid'
-				}}
+				code={codeState?.code || ''}
+				editorOptions={editorOptions}
 				language={languageId}
 			>
 			</SimpleCodeEditor>
@@ -160,7 +166,8 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
 			</PositronButton>
 			<PositronButton
-				className='button action-bar-button default'
+				className={`button action-bar-button${codeState?.valid !== false ? ' default' : ''}`}
+				disabled={!codeState?.valid}
 				onPressed={onConnectHandler}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}

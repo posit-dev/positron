@@ -40,7 +40,7 @@ export interface IDriver {
 	metadata: IDriverMetadata;
 
 	// Generates the connection code based on the inputs.
-	generateCode?: (inputs: Array<Input>) => Promise<string>;
+	generateCode?: (inputs: Array<Input>) => Promise<string | { valid: boolean; code: string; errorMessage?: string }>;
 	// Connect session
 	connect?: (code: string) => Promise<void>;
 	// Checks if the dependencies for the driver are installed
