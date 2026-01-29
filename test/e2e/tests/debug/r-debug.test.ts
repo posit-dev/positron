@@ -316,6 +316,61 @@ test.describe('R Debugging', {
 		await hotKeys.undo();
 		await hotKeys.undo();
 	});
+
+	test('R - Verify session switching preserves breakpoint state', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys, sessions }) => {
+		const { debug, console } = app.workbench;
+
+		// Start a second R session (first one was started in beforeAll)
+		// Use reuse: false to force creating a new session
+		const rSession2 = await sessions.start('r', { reuse: false });
+
+		// Switch back to the first R session (use ID since both have the same name)
+		await sessions.select(session.id);
+
+		// Open the test file
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code to verify the breakpoint in Session 1
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red) in Session 1
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Switch to Session 2 - breakpoint should become unverified
+		// (Session 2 hasn't sourced the code yet)
+		await sessions.select(rSession2.id);
+
+		// Breakpoint should be unverified in Session 2
+		await debug.expectBreakpointUnverified(0);
+
+		// Switch back to Session 1 - breakpoint should still be verified
+		await sessions.select(session.id);
+
+		// Breakpoint should still be verified in Session 1
+		await debug.expectBreakpointVerified(0, 5000);
+
+		// Verify the breakpoint still works by triggering it
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+
+		// Clean up
+		await debug.clearBreakpoints();
+
+		// Shutdown the second R session
+		await sessions.select(rSession2.id);
+		await console.typeToConsole('q()', true);
+	});
 });
 
 
