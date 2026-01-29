@@ -253,8 +253,12 @@ test.describe('R Debugging', {
 		// Verify result appears in console
 		await console.waitForConsoleContents('[1] 15');
 
+		// Quit debugging
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+
 		// Verify we're back to normal prompt
-		await console.waitForReady('Browse[1]>');
+		await console.waitForReady('>');
 
 		// Clean up: clear the breakpoint
 		await debug.clearBreakpoints();
