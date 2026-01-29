@@ -14,7 +14,6 @@ interface SortableContextProps {
 	items: string[];
 	children: React.ReactNode;
 	onReorder: (oldIndex: number, newIndex: number) => void;
-	renderDragOverlay?: (activeId: string) => React.ReactNode;
 	disabled?: boolean;
 	onDragStart?: () => void;
 	onDragEnd?: () => void;
@@ -26,18 +25,21 @@ interface SortableContextProps {
  * Must be rendered inside DndContext to access the animation context.
  */
 function SortableAnimationManager({ items }: { items: string[] }) {
-	const { state, getDroppableRects } = useDndContext();
+	const { state, getDroppableRects, getInitialDroppableRects } = useDndContext();
 	const { updateSortingState, clearAnimations } = useAnimationContext();
 
 	// Update animations when insertionIndex changes during drag
 	React.useEffect(() => {
 		if (state.status === 'dragging' && state.activeId) {
-			const rects = getDroppableRects();
+			// Prefer scroll-adjusted initial rects (stable) to prevent feedback loops
+			// where CSS transforms affect position calculations. Fall back to live rects
+			// if initial rects are not available.
+			const rects = getInitialDroppableRects() ?? getDroppableRects();
 			updateSortingState(items, rects, state.activeId, state.insertionIndex);
 		} else {
 			clearAnimations();
 		}
-	}, [state.status, state.activeId, state.insertionIndex, items, getDroppableRects, updateSortingState, clearAnimations]);
+	}, [state.status, state.activeId, state.insertionIndex, items, getDroppableRects, getInitialDroppableRects, updateSortingState, clearAnimations]);
 
 	return null;
 }
@@ -46,13 +48,12 @@ export function SortableContext({
 	items,
 	children,
 	onReorder,
-	renderDragOverlay,
 	disabled = false,
 	onDragStart: onDragStartProp,
 	onDragEnd: onDragEndProp,
 	scrollContainerRef,
 }: SortableContextProps) {
-	const [activeId, setActiveId] = React.useState<string | null>(null);
+	const [, setActiveId] = React.useState<string | null>(null);
 
 	const handleDragStart = React.useCallback((event: DragStartEvent) => {
 		setActiveId(event.active.id);
@@ -95,6 +96,7 @@ export function SortableContext({
 	return (
 		<DndContext
 			autoScroll={{ enabled: true, threshold: 100, speed: 15 }}
+			items={items}
 			keyboardCoordinateGetter={sortableKeyboardCoordinates}
 			scrollContainerRef={scrollContainerRef}
 			onDragCancel={handleDragCancel}
@@ -103,9 +105,7 @@ export function SortableContext({
 		>
 			<SortableAnimationManager items={items} />
 			{children}
-			<DragOverlay items={items}>
-				{activeId && renderDragOverlay ? renderDragOverlay(activeId) : null}
-			</DragOverlay>
+			<DragOverlay items={items} />
 		</DndContext>
 	);
 }

@@ -28,10 +28,10 @@ export function useSortable({ id }: UseSortableProps) {
 	}, [draggable.setNodeRef, droppable.setNodeRef]);
 
 	// Combine drag transform with animation transform
-	// When dragging, the item follows the cursor (via DragOverlay, not transform)
+	// When dragging, apply the animation transform to move the cell to its insertion position
 	// When not dragging, apply animation transform if item needs to shift
 	const combinedTransform = draggable.isDragging
-		? draggable.transform
+		? animationTransform  // Use animation transform to position at insertion gap
 		: animationTransform;
 
 	return {
@@ -42,7 +42,7 @@ export function useSortable({ id }: UseSortableProps) {
 		isDragging: draggable.isDragging,
 		isOver: droppable.isOver,
 		transform: combinedTransform,
-		// Apply transition only when not dragging (for smooth FLIP animations)
-		transition: draggable.isDragging ? undefined : transition,
+		// Apply transition for smooth animations (both during drag and for FLIP)
+		transition,
 	};
 }

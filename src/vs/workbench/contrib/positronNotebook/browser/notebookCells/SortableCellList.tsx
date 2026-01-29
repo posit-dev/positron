@@ -13,7 +13,6 @@ interface SortableCellListProps {
 	cells: IPositronNotebookCell[];
 	onReorder: (oldIndex: number, newIndex: number) => void;
 	children: React.ReactNode;
-	renderDragOverlay?: (cell: IPositronNotebookCell) => React.ReactNode;
 	disabled?: boolean; // For read-only mode
 	scrollContainerRef?: React.RefObject<HTMLElement>; // For auto-scroll during drag
 }
@@ -22,7 +21,6 @@ export function SortableCellList({
 	cells,
 	onReorder,
 	children,
-	renderDragOverlay,
 	disabled = false,
 	scrollContainerRef,
 }: SortableCellListProps) {
@@ -40,23 +38,10 @@ export function SortableCellList({
 		DOM.getActiveWindow().document.body.classList.remove('dragging-notebook-cell');
 	}, []);
 
-	const renderOverlay = React.useCallback((activeId: string) => {
-		if (!renderDragOverlay) {
-			return null;
-		}
-		const cell = cells.find(c => c.handleId === activeId);
-		return cell ? (
-			<div className="cell-drag-overlay">
-				{renderDragOverlay(cell)}
-			</div>
-		) : null;
-	}, [cells, renderDragOverlay]);
-
 	return (
 		<SortableContext
 			disabled={disabled}
 			items={items}
-			renderDragOverlay={renderOverlay}
 			scrollContainerRef={scrollContainerRef}
 			onDragEnd={handleDragEnd}
 			onDragStart={handleDragStart}

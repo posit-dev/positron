@@ -53,41 +53,19 @@ body.dragging-notebook-cell * {
 	cursor: grabbing !important;
 }
 
-/* Cell being dragged (placeholder) - hidden since drag overlay shows the visual copy */
+/* Cell being dragged - visible with visual treatment to indicate it's being moved */
 .sortable-cell.dragging {
+	position: relative;
+	z-index: 100;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+	border-radius: 4px;
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: -2px;
+	background: var(--vscode-editor-background);
+}
+
+/* Hide cell action bar during drag for cleaner appearance */
+.sortable-cell.dragging .positron-notebooks-cell-action-bar {
 	opacity: 0;
 }
 
-/* Hide cell action bar during drag for cleaner preview */
-.sortable-cell.dragging .positron-notebooks-cell-action-bar {
-	display: none;
-}
-
-/* Content wrapper for height-constrained drag preview */
-.drag-content-wrapper {
-	overflow: hidden;
-	position: relative;
-}
-
-/* Fade effect at bottom to indicate truncation */
-.drag-content-wrapper::after {
-	content: '';
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 40px;
-	background: linear-gradient(transparent, var(--vscode-editor-background));
-	pointer-events: none;
-}
-
-/* Drag overlay (preview following cursor) */
-.cell-drag-overlay {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	border-radius: 4px;
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-focusBorder);
-	opacity: 0.95;
-	pointer-events: none;
-	overflow: hidden;
-}

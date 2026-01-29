@@ -20,12 +20,14 @@ interface DndContextValue {
 	cancelDrag: () => void;
 	getDroppableRects: () => Map<string, DOMRect>;
 	getDroppableIds: () => string[];
+	getInitialDroppableRects: () => Map<string, DOMRect> | null;
 }
 
 const DndReactContext = React.createContext<DndContextValue | null>(null);
 
 interface DndContextProps {
 	children: React.ReactNode;
+	items?: string[]; // Authoritative items array for collision detection
 	onDragStart?: (event: DragStartEvent) => void;
 	onDragEnd?: (event: DragEndEvent) => void;
 	onDragCancel?: (event: DragCancelEvent) => void;
@@ -47,6 +49,7 @@ interface PendingDrag {
 
 export function DndContext({
 	children,
+	items: itemsProp,
 	onDragStart,
 	onDragEnd,
 	onDragCancel,
@@ -64,6 +67,8 @@ export function DndContext({
 		initialPosition: null,
 		currentPosition: null,
 		initialRect: null,
+		initialDroppableRects: null,
+		initialScrollOffset: null,
 	});
 
 	// Track pending drag as state so it triggers re-render and attaches listeners
@@ -82,6 +87,18 @@ export function DndContext({
 	// Store keyboard coordinate getter in ref
 	const keyboardCoordinateGetterRef = React.useRef(keyboardCoordinateGetter);
 	keyboardCoordinateGetterRef.current = keyboardCoordinateGetter;
+
+	// Store items prop in ref for use in event handlers
+	const itemsPropRef = React.useRef(itemsProp);
+	itemsPropRef.current = itemsProp;
+
+	// Get items array - use provided prop or fall back to droppables Map keys
+	const getItems = React.useCallback((): string[] => {
+		if (itemsPropRef.current) {
+			return itemsPropRef.current;
+		}
+		return Array.from(droppablesRef.current.keys());
+	}, []);
 
 	// Track dragging state in a ref for use in event handlers (avoids stale closure issues)
 	const isDraggingRef = React.useRef(false);
@@ -134,6 +151,28 @@ export function DndContext({
 		return Array.from(droppablesRef.current.keys());
 	}, []);
 
+	// Get scroll-adjusted initial rects for stable transform calculations
+	// This prevents feedback loops where CSS transforms affect position calculations
+	const getInitialDroppableRects = React.useCallback((): Map<string, DOMRect> | null => {
+		if (!state.initialDroppableRects || state.initialScrollOffset === null) {
+			return null;
+		}
+
+		const currentScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+		const scrollDelta = currentScrollOffset - state.initialScrollOffset;
+
+		const adjustedRects = new Map<string, DOMRect>();
+		for (const [id, rect] of state.initialDroppableRects) {
+			adjustedRects.set(id, new DOMRect(
+				rect.x,
+				rect.y - scrollDelta,
+				rect.width,
+				rect.height
+			));
+		}
+		return adjustedRects;
+	}, [state.initialDroppableRects, state.initialScrollOffset, scrollContainerRef]);
+
 	const startDrag = React.useCallback((id: string, position: { x: number; y: number }, initialRect: DOMRect | null) => {
 		// Store pending drag - actual drag starts after activation distance
 		setPendingDrag({ id, startPosition: position, initialRect });
@@ -155,6 +194,17 @@ export function DndContext({
 				if (distance >= activationDistance) {
 					// Activate drag
 					setPendingDrag(null);
+
+					// Capture initial rects of all droppables BEFORE any transforms are applied
+					// This prevents feedback loops where transforms affect collision detection
+					const initialDroppableRects = new Map<string, DOMRect>();
+					for (const [droppableId, entry] of droppablesRef.current) {
+						initialDroppableRects.set(droppableId, entry.node.getBoundingClientRect());
+					}
+
+					// Capture initial scroll offset for adjusting rects during scroll
+					const initialScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+
 					setState({
 						status: 'dragging',
 						activeId: id,
@@ -163,11 +213,13 @@ export function DndContext({
 						initialPosition: startPosition,
 						currentPosition: position,
 						initialRect,
+						initialDroppableRects,
+						initialScrollOffset,
 					});
 					onDragStartRef.current?.({ active: { id } });
 
 					// Announce drag start for screen readers
-					const items = Array.from(droppablesRef.current.keys());
+					const items = getItems();
 					const activeIndex = items.indexOf(id);
 					setAnnouncement(getAnnouncement('start', activeIndex, null, items.length));
 				}
@@ -180,28 +232,60 @@ export function DndContext({
 					return prev;
 				}
 
-				// Update droppable rects (they may have changed)
+				// Update droppable rects in the registry (needed for animations via getDroppableRects)
 				for (const [, entry] of droppablesRef.current) {
 					entry.rect = entry.node.getBoundingClientRect();
 				}
 
-				// Find closest droppable (kept for backward compatibility)
+				// For collision detection, use scroll-adjusted INITIAL rects
+				// This prevents feedback loops where CSS transforms affect collision detection
+				const items = getItems();
+				let collisionRects: Map<string, DOMRect>;
+
+				if (prev.initialDroppableRects && prev.initialScrollOffset !== null) {
+					// Calculate scroll delta and adjust initial rects
+					const currentScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+					const scrollDelta = currentScrollOffset - prev.initialScrollOffset;
+
+					collisionRects = new Map<string, DOMRect>();
+					for (const [id, rect] of prev.initialDroppableRects) {
+						// Adjust for scroll: rects move up (negative y) when scrolling down (positive delta)
+						collisionRects.set(id, new DOMRect(
+							rect.x,
+							rect.y - scrollDelta,
+							rect.width,
+							rect.height
+						));
+					}
+				} else {
+					// Fallback: use live rects if initial rects not available
+					collisionRects = new Map<string, DOMRect>();
+					for (const [id, entry] of droppablesRef.current) {
+						collisionRects.set(id, entry.rect);
+					}
+				}
+
+				// Find closest droppable using scroll-adjusted initial rects
+				const droppableEntries = items
+					.filter(id => collisionRects.has(id))
+					.map(id => ({
+						id,
+						node: droppablesRef.current.get(id)?.node ?? null,
+						rect: collisionRects.get(id)!,
+					}))
+					.filter(entry => entry.node !== null) as { id: string; node: HTMLElement; rect: DOMRect }[];
+
 				const closest = closestCenter(
 					position,
-					Array.from(droppablesRef.current.values()),
+					droppableEntries,
 					prev.activeId
 				);
 
-				// Calculate insertion index based on cursor position
-				const items = Array.from(droppablesRef.current.keys());
-				const rects = new Map<string, DOMRect>();
-				for (const [id, entry] of droppablesRef.current) {
-					rects.set(id, entry.rect);
-				}
+				// Calculate insertion index using scroll-adjusted initial rects
 				const insertionIndex = detectInsertionIndex(
 					position.y,
 					items,
-					rects,
+					collisionRects,
 					prev.activeId
 				);
 
@@ -243,7 +327,7 @@ export function DndContext({
 				});
 
 				// Announce drag end for screen readers
-				const items = Array.from(droppablesRef.current.keys());
+				const items = getItems();
 				const activeIndex = items.indexOf(prev.activeId!);
 				const overIndex = prev.overId ? items.indexOf(prev.overId) : null;
 				setAnnouncement(getAnnouncement('end', activeIndex, overIndex, items.length));
@@ -256,6 +340,8 @@ export function DndContext({
 					initialPosition: null,
 					currentPosition: null,
 					initialRect: null,
+					initialDroppableRects: null,
+					initialScrollOffset: null,
 				};
 			});
 		};
@@ -278,7 +364,7 @@ export function DndContext({
 					onDragCancelRef.current?.({ active: { id: prev.activeId! } });
 
 					// Announce drag cancel for screen readers
-					const items = Array.from(droppablesRef.current.keys());
+					const items = getItems();
 					const activeIndex = items.indexOf(prev.activeId!);
 					setAnnouncement(getAnnouncement('cancel', activeIndex, null, items.length));
 
@@ -290,6 +376,8 @@ export function DndContext({
 						initialPosition: null,
 						currentPosition: null,
 						initialRect: null,
+						initialDroppableRects: null,
+						initialScrollOffset: null,
 					};
 				});
 				return;
@@ -302,17 +390,40 @@ export function DndContext({
 						return prev;
 					}
 
-					// Build droppable rects map
-					const droppableRects = new Map<string, DOMRect>();
-					for (const [id, entry] of droppablesRef.current) {
-						// Update rect before using
+					// Update droppable rects in the registry (needed for animations)
+					for (const [, entry] of droppablesRef.current) {
 						entry.rect = entry.node.getBoundingClientRect();
-						droppableRects.set(id, entry.rect);
+					}
+
+					// For collision detection, use scroll-adjusted INITIAL rects
+					const items = getItems();
+					let collisionRects: Map<string, DOMRect>;
+
+					if (prev.initialDroppableRects && prev.initialScrollOffset !== null) {
+						// Calculate scroll delta and adjust initial rects
+						const currentScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+						const scrollDelta = currentScrollOffset - prev.initialScrollOffset;
+
+						collisionRects = new Map<string, DOMRect>();
+						for (const [id, rect] of prev.initialDroppableRects) {
+							collisionRects.set(id, new DOMRect(
+								rect.x,
+								rect.y - scrollDelta,
+								rect.width,
+								rect.height
+							));
+						}
+					} else {
+						// Fallback: use live rects
+						collisionRects = new Map<string, DOMRect>();
+						for (const [id, entry] of droppablesRef.current) {
+							collisionRects.set(id, entry.rect);
+						}
 					}
 
 					const newCoords = keyboardCoordinateGetterRef.current!(e, {
 						currentCoordinates: prev.currentPosition,
-						context: { droppableRects, activeId: prev.activeId },
+						context: { droppableRects: collisionRects, activeId: prev.activeId },
 					});
 
 					if (!newCoords) {
@@ -321,19 +432,27 @@ export function DndContext({
 
 					e.preventDefault();
 
-					// Find closest droppable at new coordinates
+					// Find closest droppable using scroll-adjusted initial rects
+					const droppableEntries = items
+						.filter(id => collisionRects.has(id))
+						.map(id => ({
+							id,
+							node: droppablesRef.current.get(id)?.node ?? null,
+							rect: collisionRects.get(id)!,
+						}))
+						.filter(entry => entry.node !== null) as { id: string; node: HTMLElement; rect: DOMRect }[];
+
 					const closest = closestCenter(
 						newCoords,
-						Array.from(droppablesRef.current.values()),
+						droppableEntries,
 						prev.activeId
 					);
 
-					// Calculate insertion index based on new coordinates
-					const items = Array.from(droppablesRef.current.keys());
+					// Calculate insertion index using scroll-adjusted initial rects
 					const insertionIndex = detectInsertionIndex(
 						newCoords.y,
 						items,
-						droppableRects,
+						collisionRects,
 						prev.activeId
 					);
 
@@ -360,7 +479,7 @@ export function DndContext({
 			window.removeEventListener('pointerup', handlePointerUp);
 			window.removeEventListener('keydown', handleKeyDown);
 		};
-	}, [state.status, pendingDrag, activationDistance]);
+	}, [state.status, pendingDrag, activationDistance, getItems]);
 
 	// Handle scroll events during drag - recalculate collision detection
 	// since cell positions change relative to viewport during scroll
@@ -375,26 +494,60 @@ export function DndContext({
 					return prev;
 				}
 
-				// Update droppable rects (they've changed due to scroll)
-				const droppableRects = new Map<string, DOMRect>();
-				for (const [id, entry] of droppablesRef.current) {
+				// Update droppable rects in the registry (needed for animations via getDroppableRects)
+				for (const [, entry] of droppablesRef.current) {
 					entry.rect = entry.node.getBoundingClientRect();
-					droppableRects.set(id, entry.rect);
 				}
 
-				// Recalculate closest droppable with current cursor position
+				// For collision detection, use scroll-adjusted INITIAL rects
+				// This prevents feedback loops where CSS transforms affect collision detection
+				const items = getItems();
+				let collisionRects: Map<string, DOMRect>;
+
+				if (prev.initialDroppableRects && prev.initialScrollOffset !== null) {
+					// Calculate scroll delta and adjust initial rects
+					const currentScrollOffset = scrollContainerRef?.current?.scrollTop ?? window.scrollY;
+					const scrollDelta = currentScrollOffset - prev.initialScrollOffset;
+
+					collisionRects = new Map<string, DOMRect>();
+					for (const [id, rect] of prev.initialDroppableRects) {
+						// Adjust for scroll: rects move up (negative y) when scrolling down (positive delta)
+						collisionRects.set(id, new DOMRect(
+							rect.x,
+							rect.y - scrollDelta,
+							rect.width,
+							rect.height
+						));
+					}
+				} else {
+					// Fallback: use live rects if initial rects not available
+					collisionRects = new Map<string, DOMRect>();
+					for (const [id, entry] of droppablesRef.current) {
+						collisionRects.set(id, entry.rect);
+					}
+				}
+
+				// Find closest droppable using scroll-adjusted initial rects
+				const droppableEntries = items
+					.filter(id => collisionRects.has(id))
+					.map(id => ({
+						id,
+						node: droppablesRef.current.get(id)?.node ?? null,
+						rect: collisionRects.get(id)!,
+					}))
+					.filter(entry => entry.node !== null) as { id: string; node: HTMLElement; rect: DOMRect }[];
+
 				const closest = closestCenter(
 					prev.currentPosition,
-					Array.from(droppablesRef.current.values()),
+					droppableEntries,
 					prev.activeId
 				);
 
-				// Calculate insertion index based on cursor position
-				const items = Array.from(droppablesRef.current.keys());
+				// Calculate insertion index using scroll-adjusted initial rects
 				const insertionIndex = detectInsertionIndex(
 					prev.currentPosition.y,
 					items,
-					droppableRects,
+					collisionRects,
 					prev.activeId
 				);
 
@@ -422,7 +575,7 @@ export function DndContext({
 			scrollContainer?.removeEventListener('scroll', handleScroll);
 			window.removeEventListener('scroll', handleScroll);
 		};
-	}, [state.status, state.currentPosition, scrollContainerRef]);
+	}, [state.status, state.currentPosition, scrollContainerRef, getItems]);
 
 	// Create stable callbacks that don't change identity
 	const updateDrag = React.useCallback((_position: { x: number; y: number }) => {
@@ -448,8 +601,9 @@ export function DndContext({
 			cancelDrag,
 			getDroppableRects,
 			getDroppableIds,
+			getInitialDroppableRects,
 		}),
-		[state, registerDroppable, unregisterDroppable, startDrag, updateDrag, endDrag, cancelDrag, getDroppableRects, getDroppableIds]
+		[state, registerDroppable, unregisterDroppable, startDrag, updateDrag, endDrag, cancelDrag, getDroppableRects, getDroppableIds, getInitialDroppableRects]
 	);
 
 	return (

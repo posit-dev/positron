@@ -13,6 +13,11 @@ export interface DragState {
 	currentPosition: { x: number; y: number } | null;
 	// Initial rect of the dragged element - used for overlay positioning
 	initialRect: DOMRect | null;
+	// Initial rects of all droppables at drag start - used for collision detection
+	// to avoid feedback loops caused by CSS transforms
+	initialDroppableRects: Map<string, DOMRect> | null;
+	// Scroll offset at drag start - used to adjust initial rects during scroll
+	initialScrollOffset: number | null;
 }
 
 export interface DroppableEntry {

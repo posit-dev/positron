@@ -10,8 +10,6 @@ import './SortableCell.css';
 import * as React from 'react';
 // Replace dnd-kit imports with custom implementation
 import { useSortable } from '../dnd/useSortable.js';
-import * as DOM from '../../../../../base/browser/dom.js';
-import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 interface SortableCellProps {
@@ -20,7 +18,6 @@ interface SortableCellProps {
 }
 
 export function SortableCell({ cell, children }: SortableCellProps) {
-	const notebookInstance = useNotebookInstance();
 	const {
 		attributes,
 		listeners,
@@ -31,16 +28,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 		isDragging,
 	} = useSortable({ id: cell.handleId });
 
-	// Calculate max height for dragging state (1/3 of container height)
-	// Use a minimum of 200px to ensure the cell remains visible
-	const maxDragHeight = React.useMemo(() => {
-		const container = notebookInstance.cellsContainer;
-		const height = container?.clientHeight || DOM.getActiveWindow().innerHeight;
-		const calculatedHeight = Math.floor(height / 3);
-		return Math.max(calculatedHeight, 200);
-	}, [notebookInstance.cellsContainer]);
-
-	// Build transform string (for FLIP animations in Plan 03)
+	// Build transform string (for FLIP animations)
 	const transformStyle = transform
 		? `translate3d(${transform.x}px, ${transform.y}px, 0)`
 		: undefined;
@@ -48,8 +36,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 	const style: React.CSSProperties = {
 		transform: transformStyle,
 		transition,
-		// When dragging, hide the original cell - the drag overlay shows the visual copy
-		opacity: isDragging ? 0 : 1,
+		// Keep the cell visible during drag - it animates to its insertion position
 		position: 'relative',
 	};
 
@@ -69,12 +56,7 @@ export function SortableCell({ cell, children }: SortableCellProps) {
 			>
 				<span className="codicon codicon-gripper" />
 			</button>
-			{/* Wrap content with max height constraint when dragging to limit overlay size */}
-			{isDragging ? (
-				<div className="drag-content-wrapper" style={{ maxHeight: maxDragHeight }}>
-					{children}
-				</div>
-			) : children}
+			{children}
 		</div>
 	);
 }

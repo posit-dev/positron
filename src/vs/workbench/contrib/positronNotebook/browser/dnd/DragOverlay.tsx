@@ -8,7 +8,7 @@ import * as ReactDOM from 'react-dom';
 import { useDndContext } from './DndContext.js';
 
 // Debug mode - set to true to visualize DnD calculations
-const DND_DEBUG = true;
+const DND_DEBUG = false;
 
 interface SnapPosition {
 	x: number;
@@ -44,6 +44,7 @@ function calculateSnapPosition(
 function DebugOverlay({
 	droppableRects,
 	items,
+	droppableIds,
 	activeId,
 	overId,
 	insertionIndex,
@@ -53,6 +54,7 @@ function DebugOverlay({
 }: {
 	droppableRects: Map<string, DOMRect>;
 	items: string[];
+	droppableIds: string[];
 	activeId: string | null;
 	overId: string | null;
 	insertionIndex: number | null;
@@ -124,12 +126,28 @@ function DebugOverlay({
 						)}
 					</div>
 				</div>
+				{/* Items array comparison - VERIFY MISMATCH */}
+				<div style={{ marginTop: 8, borderTop: '1px solid #555', paddingTop: 8 }}>
+					<div style={{ fontWeight: 'bold', color: '#ff9800', marginBottom: 4 }}>Array Comparison</div>
+					<div style={{ fontSize: 10 }}>
+						<div><b>props.items:</b> [{items.slice(0, 4).map(id => id.slice(0, 6)).join(', ')}{items.length > 4 ? '...' : ''}]</div>
+						<div><b>droppables:</b> [{droppableIds.slice(0, 4).map(id => id.slice(0, 6)).join(', ')}{droppableIds.length > 4 ? '...' : ''}]</div>
+					</div>
+					<div style={{
+						marginTop: 4,
+						fontWeight: 'bold',
+						color: items.join(',') === droppableIds.join(',') ? '#4caf50' : '#f44336'
+					}}>
+						{/* allow-any-unicode-next-line */}
+						Match: {items.join(',') === droppableIds.join(',') ? 'YES \u2713' : 'NO \u2717 (MISMATCH!)'}
+					</div>
+				</div>
 				<div style={{ marginTop: 8, fontSize: 10, color: '#aaa' }}>
 					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-						<span><span style={{ color: '#f44336' }}>■</span> active cell</span>
-						<span><span style={{ color: '#4caf50' }}>■</span> over cell</span>
-						<span><span style={{ color: '#2196f3' }}>■</span> other cells</span>
-						<span><span style={{ color: '#ffeb3b' }}>●</span> snap target</span>
+						<span><span style={{ color: '#f44336' }}>{'\u25A0'}</span> active cell</span>
+						<span><span style={{ color: '#4caf50' }}>{'\u25A0'}</span> over cell</span>
+						<span><span style={{ color: '#2196f3' }}>{'\u25A0'}</span> other cells</span>
+						<span><span style={{ color: '#ffeb3b' }}>{'\u25CF'}</span> snap target</span>
 					</div>
 				</div>
 			</div>
@@ -217,47 +235,35 @@ function DebugOverlay({
 }
 
 interface DragOverlayProps {
-	children: React.ReactNode;
 	items?: string[];
 }
 
-export function DragOverlay({ children, items = [] }: DragOverlayProps) {
-	const { state, getDroppableRects } = useDndContext();
-	const [isSnapping, setIsSnapping] = React.useState(false);
-	const prevOverIdRef = React.useRef<string | null>(null);
+/**
+ * DragOverlay now only renders the debug visualization when DND_DEBUG is enabled.
+ * The actual dragged cell stays visible and animates to its insertion position.
+ */
+export function DragOverlay({ items = [] }: DragOverlayProps) {
+	const { state, getDroppableRects, getDroppableIds } = useDndContext();
 
-	// Track overId changes to enable/disable transitions
-	React.useEffect(() => {
-		if (state.status !== 'dragging') {
-			setIsSnapping(false);
-			prevOverIdRef.current = null;
-			return;
-		}
-
-		// Enable snapping transition when we have a valid drop target
-		if (state.overId && state.overId !== state.activeId) {
-			setIsSnapping(true);
-		} else {
-			// Disable transition when not over a valid target (follow cursor directly)
-			setIsSnapping(false);
-		}
-
-		prevOverIdRef.current = state.overId;
-	}, [state.status, state.overId, state.activeId]);
-
-	// Get droppable rects once for both debug and positioning
+	// Get droppable rects and IDs for debug visualization
 	const droppableRects = getDroppableRects();
+	const droppableIds = getDroppableIds();
 
-	// Calculate snap position (used for both overlay and debug)
+	// Calculate snap position for debug (always null now since snapping is disabled)
 	const snapPosition = state.status === 'dragging' && state.activeId && state.initialRect && state.currentPosition
 		? calculateSnapPosition(state.activeId, state.overId, items, droppableRects, state.initialRect, state.currentPosition.y)
 		: null;
 
-	// Always render debug overlay when dragging (even if no children)
-	const debugOverlay = state.status === 'dragging' ? (
+	// Only render debug overlay when dragging and debug mode is enabled
+	if (state.status !== 'dragging') {
+		return null;
+	}
+
+	return (
 		<DebugOverlay
 			activeId={state.activeId}
 			cursorPosition={state.currentPosition}
+			droppableIds={droppableIds}
 			droppableRects={droppableRects}
 			initialRect={state.initialRect}
 			insertionIndex={state.insertionIndex}
@@ -265,61 +271,5 @@ export function DragOverlay({ children, items = [] }: DragOverlayProps) {
 			overId={state.overId}
 			snapPosition={snapPosition}
 		/>
-	) : null;
-
-	if (state.status !== 'dragging' || !state.currentPosition || !state.initialPosition) {
-		return debugOverlay;
-	}
-
-	// Calculate cursor delta from initial position
-	const deltaX = state.currentPosition.x - state.initialPosition.x;
-	const deltaY = state.currentPosition.y - state.initialPosition.y;
-
-	// Position overlay at: initial element position + cursor delta
-	// This makes the overlay move with the cursor while maintaining the same
-	// relative position as when the drag started
-	let left = 0;
-	let top = 0;
-
-	if (state.initialRect) {
-		if (snapPosition) {
-			// Snap to the calculated gap position
-			left = snapPosition.x;
-			top = snapPosition.y;
-		} else {
-			// Use the stored initial rect for accurate positioning (follow cursor)
-			left = state.initialRect.left + deltaX;
-			top = state.initialRect.top + deltaY;
-		}
-	} else {
-		// Fallback: position at cursor (less accurate but functional)
-		left = state.currentPosition.x - 20;
-		top = state.currentPosition.y - 20;
-	}
-
-	const style: React.CSSProperties = {
-		position: 'fixed',
-		left: `${left}px`,
-		top: `${top}px`,
-		width: state.initialRect ? `${state.initialRect.width}px` : undefined,
-		pointerEvents: 'none',
-		zIndex: 9999,
-		boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-		opacity: 0.95,
-		// Smooth transition when snapping to gap, no transition when following cursor
-		transition: isSnapping ? 'left 150ms ease, top 150ms ease' : 'none',
-	};
-
-	// Render to a portal to escape any overflow: hidden ancestors
-	return (
-		<>
-			{debugOverlay}
-			{ReactDOM.createPortal(
-				<div className="dnd-overlay" style={style}>
-					{children}
-				</div>,
-				document.body
-			)}
-		</>
 	);
 }
