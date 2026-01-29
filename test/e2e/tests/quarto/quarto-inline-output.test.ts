@@ -1214,4 +1214,134 @@ test.describe('Quarto - Inline Output', {
 			expect(textAfterReload).not.toContain('"layout":');
 		}
 	});
+
+	test('Python - Verify cell execution uses correct line numbers after document edits', async function ({ app, openFile, python }) {
+		// This test reproduces a bug where quarto cell metadata does not update as
+		// the document is edited, causing execution to read wrong lines of code.
+		//
+		// Exact reproduction steps from the bug report:
+		// 1. Open a document with two or more cells (editable_cell.qmd)
+		// 2. Run both cells
+		// 3. Add some lines of ordinary text between the first two cells
+		// 4. Run the second cell - with the bug, it reads wrong lines
+		//
+		// The fix uses Monaco's tracked ranges to keep cell positions accurate.
+
+		const page = app.code.driver.page;
+
+		// Close all editors first to ensure a clean state
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await page.waitForTimeout(1000);
+
+		// Open the editable_cell.qmd file which has two Python cells
+		await openFile(join('workspaces', 'quarto_inline_output', 'editable_cell.qmd'));
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// editable_cell.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - heading (6)
+		// - blank line (7)
+		// - description (8)
+		// - blank line (9)
+		// - first cell (10-16) - has print output
+		// - blank lines (17-18)
+		// - second cell (19-22) - os.getpid()
+		// - blank line (23)
+		// - comment (24)
+
+		// Step 1: Run ALL cells using the Run All command
+		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+
+		// Wait for both cells to produce output (first cell has sleep(5), so wait longer)
+		// Look for 2 inline output zones
+		const inlineOutputs = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			// Scroll to show where outputs should appear
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('25');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			// Should have 2 output zones (one per cell)
+			const count = await inlineOutputs.count();
+			expect(count).toBe(2);
+		}).toPass({ timeout: 180000 }); // Long timeout for first cell sleep + kernel startup
+
+		// Verify both outputs are visible
+		await expect(inlineOutputs.nth(0)).toBeVisible({ timeout: 10000 });
+		await expect(inlineOutputs.nth(1)).toBeVisible({ timeout: 10000 });
+
+		// Step 2: Add text BETWEEN the two cells
+		// Go to line 17 (after first cell, before second cell)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(300);
+
+		// Insert several lines of text
+		await page.keyboard.press('Home');
+		await page.keyboard.type('This is some new text inserted between cells.');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('Adding more lines to shift the second cell down.');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('One more line for good measure.');
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('Enter');
+
+		// Wait for document model to re-parse (100ms debounce + buffer)
+		await page.waitForTimeout(500);
+
+		// Step 3: Run the SECOND cell again
+		// The second cell has moved down (was at line 19, now at ~23)
+		// Position cursor in the moved second cell
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('25');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(300);
+
+		// CRITICAL: Run the current cell (should be the second cell)
+		// With the bug, this would execute wrong code because cell metadata has stale line numbers
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for execution to complete
+		await page.waitForTimeout(5000);
+
+		// Scroll to see the output area
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('30');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// CRITICAL ASSERTION: The second cell's output should still be visible and valid
+		// With the bug, we might see:
+		// - An error (trying to execute markdown as Python)
+		// - Wrong output (executing different code)
+		// - No output (cell not found)
+		const secondOutput = inlineOutputs.nth(1);
+		await expect(secondOutput).toBeVisible({ timeout: 10000 });
+
+		// Verify there are no error outputs
+		const errorOutput = page.locator('.quarto-output-error');
+		const errorCount = await errorOutput.count();
+		expect(errorCount).toBe(0);
+
+		// The output should contain a number (the PID)
+		const outputItem = secondOutput.locator('.quarto-output-item');
+		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
+		const outputText = await outputItem.first().textContent();
+		// The PID should be a positive integer
+		const pid = parseInt(outputText?.trim() ?? '', 10);
+		expect(pid).toBeGreaterThan(0);
+	});
 });
