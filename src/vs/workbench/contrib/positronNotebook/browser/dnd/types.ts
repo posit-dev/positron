@@ -7,6 +7,8 @@ export interface DragState {
 	status: 'idle' | 'dragging';
 	activeId: string | null;
 	overId: string | null;
+	/** The index where the dragged item should be inserted (0 = before first, n = after last) */
+	insertionIndex: number | null;
 	initialPosition: { x: number; y: number } | null;
 	currentPosition: { x: number; y: number } | null;
 	// Initial rect of the dragged element - used for overlay positioning
@@ -32,6 +34,8 @@ export interface DragMoveEvent {
 export interface DragEndEvent {
 	active: { id: string };
 	over: { id: string } | null;
+	/** The index where the dragged item should be inserted */
+	insertionIndex: number | null;
 }
 
 export interface DragCancelEvent {

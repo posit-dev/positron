@@ -29,15 +29,15 @@ function SortableAnimationManager({ items }: { items: string[] }) {
 	const { state, getDroppableRects } = useDndContext();
 	const { updateSortingState, clearAnimations } = useAnimationContext();
 
-	// Update animations when overId changes during drag
+	// Update animations when insertionIndex changes during drag
 	React.useEffect(() => {
 		if (state.status === 'dragging' && state.activeId) {
 			const rects = getDroppableRects();
-			updateSortingState(items, rects, state.activeId, state.overId);
+			updateSortingState(items, rects, state.activeId, state.insertionIndex);
 		} else {
 			clearAnimations();
 		}
-	}, [state.status, state.activeId, state.overId, items, getDroppableRects, updateSortingState, clearAnimations]);
+	}, [state.status, state.activeId, state.insertionIndex, items, getDroppableRects, updateSortingState, clearAnimations]);
 
 	return null;
 }
@@ -63,14 +63,22 @@ export function SortableContext({
 		setActiveId(null);
 		onDragEndProp?.();
 
-		if (!event.over) {
+		const { insertionIndex } = event;
+		if (insertionIndex === null) {
 			return;
 		}
 
 		const oldIndex = items.indexOf(event.active.id);
-		const newIndex = items.indexOf(event.over.id);
+		if (oldIndex === -1) {
+			return;
+		}
 
-		if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+		// Calculate the actual new index after removal
+		// If insertionIndex > oldIndex: the item is removed first, so newIndex = insertionIndex - 1
+		// If insertionIndex <= oldIndex: newIndex = insertionIndex
+		const newIndex = insertionIndex > oldIndex ? insertionIndex - 1 : insertionIndex;
+
+		if (oldIndex !== newIndex) {
 			onReorder(oldIndex, newIndex);
 		}
 	}, [items, onReorder, onDragEndProp]);

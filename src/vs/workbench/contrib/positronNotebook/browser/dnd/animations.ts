@@ -6,25 +6,37 @@
 import { ItemTransform } from './types.js';
 
 /**
- * Calculate transforms for a vertical sortable list.
- * When an item is dragged over position X, items at and after X shift down.
+ * Calculate transforms for a vertical sortable list based on insertion index.
+ *
+ * The insertionIndex represents where the dragged item will be inserted:
+ * - 0 means before the first item
+ * - n means after the last item (where n is items.length)
+ *
+ * Items shift to make room for the dragged item at the insertion point:
+ * - If dragging down (insertionIndex > activeIndex): items between shift UP
+ * - If dragging up (insertionIndex <= activeIndex): items between shift DOWN
  */
 export function calculateSortingTransforms(
 	items: string[],
 	rects: Map<string, DOMRect>,
 	activeId: string | null,
-	overId: string | null
+	insertionIndex: number | null
 ): Map<string, ItemTransform> {
 	const transforms = new Map<string, ItemTransform>();
 
-	if (!activeId || !overId || activeId === overId) {
+	if (!activeId || insertionIndex === null) {
 		return transforms;
 	}
 
 	const activeIndex = items.indexOf(activeId);
-	const overIndex = items.indexOf(overId);
 
-	if (activeIndex === -1 || overIndex === -1) {
+	if (activeIndex === -1) {
+		return transforms;
+	}
+
+	// No shift needed if inserting at current position or position after current
+	// (since removing the item and inserting at activeIndex+1 results in same position)
+	if (insertionIndex === activeIndex || insertionIndex === activeIndex + 1) {
 		return transforms;
 	}
 
@@ -36,10 +48,10 @@ export function calculateSortingTransforms(
 	// Calculate the height of the active item (what we're making room for)
 	const activeHeight = activeRect.height;
 
-	// Determine which items need to shift
-	// If dragging down (activeIndex < overIndex): items between active and over shift up
-	// If dragging up (activeIndex > overIndex): items between over and active shift down
-	const isDraggingDown = activeIndex < overIndex;
+	// Determine which items need to shift based on insertion index
+	// If dragging down (insertionIndex > activeIndex): items between shift up
+	// If dragging up (insertionIndex < activeIndex): items between shift down
+	const isDraggingDown = insertionIndex > activeIndex;
 
 	for (let i = 0; i < items.length; i++) {
 		const id = items[i];
@@ -53,14 +65,18 @@ export function calculateSortingTransforms(
 		let shiftDirection = 0;
 
 		if (isDraggingDown) {
-			// Dragging down: items between active+1 and over (inclusive) shift up
-			if (i > activeIndex && i <= overIndex) {
+			// Dragging down: items from activeIndex+1 to insertionIndex-1 (inclusive) shift up
+			// Example: activeIndex=2, insertionIndex=5
+			// Items at indices 3, 4 shift up (insertionIndex-1 because insertion happens BEFORE that index)
+			if (i > activeIndex && i < insertionIndex) {
 				shouldShift = true;
 				shiftDirection = -1; // Shift up
 			}
 		} else {
-			// Dragging up: items between over and active-1 (inclusive) shift down
-			if (i >= overIndex && i < activeIndex) {
+			// Dragging up: items from insertionIndex to activeIndex-1 (inclusive) shift down
+			// Example: activeIndex=5, insertionIndex=2
+			// Items at indices 2, 3, 4 shift down
+			if (i >= insertionIndex && i < activeIndex) {
 				shouldShift = true;
 				shiftDirection = 1; // Shift down
 			}

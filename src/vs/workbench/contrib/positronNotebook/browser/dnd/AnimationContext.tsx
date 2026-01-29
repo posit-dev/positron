@@ -14,7 +14,7 @@ interface AnimationContextValue {
 		items: string[],
 		rects: Map<string, DOMRect>,
 		activeId: string | null,
-		overId: string | null
+		insertionIndex: number | null
 	) => void;
 	clearAnimations: () => void;
 }
@@ -43,9 +43,9 @@ export function AnimationProvider({ children, config = {} }: AnimationProviderPr
 		items: string[],
 		rects: Map<string, DOMRect>,
 		activeId: string | null,
-		overId: string | null
+		insertionIndex: number | null
 	) => {
-		const newTransforms = calculateSortingTransforms(items, rects, activeId, overId);
+		const newTransforms = calculateSortingTransforms(items, rects, activeId, insertionIndex);
 		setTransforms(newTransforms);
 		setIsAnimating(newTransforms.size > 0);
 	}, []);

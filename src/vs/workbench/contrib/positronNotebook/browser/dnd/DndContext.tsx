@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { DragState, DroppableEntry, DragStartEvent, DragEndEvent, DragCancelEvent, KeyboardCoordinateGetter, AutoScrollOptions, AnimationConfig } from './types.js';
-import { closestCenter } from './collisionDetection.js';
+import { closestCenter, detectInsertionIndex } from './collisionDetection.js';
 import { AutoScrollController } from './autoScroll.js';
 import { AnimationProvider } from './AnimationContext.js';
 import { Announcer, getAnnouncement } from './Announcer.js';
@@ -60,6 +60,7 @@ export function DndContext({
 		status: 'idle',
 		activeId: null,
 		overId: null,
+		insertionIndex: null,
 		initialPosition: null,
 		currentPosition: null,
 		initialRect: null,
@@ -158,6 +159,7 @@ export function DndContext({
 						status: 'dragging',
 						activeId: id,
 						overId: null,
+						insertionIndex: null,
 						initialPosition: startPosition,
 						currentPosition: position,
 						initialRect,
@@ -183,10 +185,23 @@ export function DndContext({
 					entry.rect = entry.node.getBoundingClientRect();
 				}
 
-				// Find closest droppable
+				// Find closest droppable (kept for backward compatibility)
 				const closest = closestCenter(
 					position,
 					Array.from(droppablesRef.current.values()),
+					prev.activeId
+				);
+
+				// Calculate insertion index based on cursor position
+				const items = Array.from(droppablesRef.current.keys());
+				const rects = new Map<string, DOMRect>();
+				for (const [id, entry] of droppablesRef.current) {
+					rects.set(id, entry.rect);
+				}
+				const insertionIndex = detectInsertionIndex(
+					position.y,
+					items,
+					rects,
 					prev.activeId
 				);
 
@@ -194,6 +209,7 @@ export function DndContext({
 					...prev,
 					currentPosition: position,
 					overId: closest?.id ?? null,
+					insertionIndex,
 				};
 			});
 
@@ -223,6 +239,7 @@ export function DndContext({
 				onDragEndRef.current?.({
 					active: { id: prev.activeId! },
 					over: prev.overId ? { id: prev.overId } : null,
+					insertionIndex: prev.insertionIndex,
 				});
 
 				// Announce drag end for screen readers
@@ -235,6 +252,7 @@ export function DndContext({
 					status: 'idle',
 					activeId: null,
 					overId: null,
+					insertionIndex: null,
 					initialPosition: null,
 					currentPosition: null,
 					initialRect: null,
@@ -268,6 +286,7 @@ export function DndContext({
 						status: 'idle',
 						activeId: null,
 						overId: null,
+						insertionIndex: null,
 						initialPosition: null,
 						currentPosition: null,
 						initialRect: null,
@@ -309,10 +328,20 @@ export function DndContext({
 						prev.activeId
 					);
 
+					// Calculate insertion index based on new coordinates
+					const items = Array.from(droppablesRef.current.keys());
+					const insertionIndex = detectInsertionIndex(
+						newCoords.y,
+						items,
+						droppableRects,
+						prev.activeId
+					);
+
 					return {
 						...prev,
 						currentPosition: newCoords,
 						overId: closest?.id ?? null,
+						insertionIndex,
 					};
 				});
 			}
@@ -332,6 +361,68 @@ export function DndContext({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [state.status, pendingDrag, activationDistance]);
+
+	// Handle scroll events during drag - recalculate collision detection
+	// since cell positions change relative to viewport during scroll
+	React.useEffect(() => {
+		if (state.status !== 'dragging' || !state.currentPosition) {
+			return;
+		}
+
+		const handleScroll = () => {
+			setState(prev => {
+				if (prev.status !== 'dragging' || !prev.currentPosition) {
+					return prev;
+				}
+
+				// Update droppable rects (they've changed due to scroll)
+				const droppableRects = new Map<string, DOMRect>();
+				for (const [id, entry] of droppablesRef.current) {
+					entry.rect = entry.node.getBoundingClientRect();
+					droppableRects.set(id, entry.rect);
+				}
+
+				// Recalculate closest droppable with current cursor position
+				const closest = closestCenter(
+					prev.currentPosition,
+					Array.from(droppablesRef.current.values()),
+					prev.activeId
+				);
+
+				// Calculate insertion index based on cursor position
+				const items = Array.from(droppablesRef.current.keys());
+				const insertionIndex = detectInsertionIndex(
+					prev.currentPosition.y,
+					items,
+					droppableRects,
+					prev.activeId
+				);
+
+				const newOverId = closest?.id ?? null;
+
+				// Only update if overId or insertionIndex changed
+				if (newOverId === prev.overId && insertionIndex === prev.insertionIndex) {
+					return prev;
+				}
+
+				return {
+					...prev,
+					overId: newOverId,
+					insertionIndex,
+				};
+			});
+		};
+
+		// Listen for scroll on the scroll container and window
+		const scrollContainer = scrollContainerRef?.current;
+		scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
+		window.addEventListener('scroll', handleScroll, { passive: true });
+
+		return () => {
+			scrollContainer?.removeEventListener('scroll', handleScroll);
+			window.removeEventListener('scroll', handleScroll);
+		};
+	}, [state.status, state.currentPosition, scrollContainerRef]);
 
 	// Create stable callbacks that don't change identity
 	const updateDrag = React.useCallback((_position: { x: number; y: number }) => {
