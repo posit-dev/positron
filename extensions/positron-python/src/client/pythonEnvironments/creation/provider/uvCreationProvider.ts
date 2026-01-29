@@ -16,9 +16,9 @@ import { MultiStepAction, MultiStepNode, withProgress } from '../../../common/vs
 import { getVenvExecutable, showPositronErrorMessageWithLogs } from '../common/commonUtils';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from './venvUtils';
 import {
-	CreateEnvironmentProvider,
-	CreateEnvironmentOptions,
-	CreateEnvironmentResult,
+    CreateEnvironmentProvider,
+    CreateEnvironmentOptions,
+    CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
 import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
@@ -26,218 +26,219 @@ import { pickPythonVersion } from './uvUtils';
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
 
 async function createUvVenv(
-	workspace: WorkspaceFolder,
-	version: string,
-	progress: CreateEnvironmentProgress,
-	token?: CancellationToken,
-	envName?: string,
+    workspace: WorkspaceFolder,
+    version: string,
+    progress: CreateEnvironmentProgress,
+    token?: CancellationToken,
+    envName?: string,
 ): Promise<string | undefined> {
-	progress.report({
-		message: CreateEnv.Venv.creating,
-	});
-	const command = 'uv';
-	// --- Start Positron ---
-	const targetDir = envName ?? '.venv';
-	const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
-	// --- End Positron ---
+    progress.report({
+        message: CreateEnv.Venv.creating,
+    });
+    const command = 'uv';
+    // --- Start Positron ---
+    const targetDir = envName ?? '.venv';
+    const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
+    // --- End Positron ---
 
-	const deferred = createDeferred<string | undefined>();
-	traceLog('Running uv venv creation script: ', [command, ...argv]);
-	const { proc, out, dispose } = execObservable(command, argv, {
-		mergeStdOutErr: true,
-		token,
-		cwd: workspace.uri.fsPath,
-	});
+    const deferred = createDeferred<string | undefined>();
+    traceLog('Running uv venv creation script: ', [command, ...argv]);
+    const { proc, out, dispose } = execObservable(command, argv, {
+        mergeStdOutErr: true,
+        token,
+        cwd: workspace.uri.fsPath,
+    });
 
-	// --- Start Positron ---
-	const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
-		}`;
-	// --- End Positron ---
-	out.subscribe(
-		(value) => {
-			const output = value.out.split(/\r?\n/g).join(os.EOL);
-			traceLog(output.trimEnd());
-		},
-		(error) => {
-			traceError('Error while running venv creation script: ', error);
-			deferred.reject(error);
-		},
-		() => {
-			dispose();
-			if (proc?.exitCode !== 0) {
-				traceError('Error while running uv environment creation script');
-				deferred.reject(`Failed to create virtual environment with exitCode: ${proc?.exitCode}`);
-			} else {
-				deferred.resolve(venvPath);
-			}
-		},
-	);
-	return deferred.promise;
+    // --- Start Positron ---
+    const venvPath = `${workspace.uri.fsPath}${
+        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
+    }`;
+    // --- End Positron ---
+    out.subscribe(
+        (value) => {
+            const output = value.out.split(/\r?\n/g).join(os.EOL);
+            traceLog(output.trimEnd());
+        },
+        (error) => {
+            traceError('Error while running venv creation script: ', error);
+            deferred.reject(error);
+        },
+        () => {
+            dispose();
+            if (proc?.exitCode !== 0) {
+                traceError('Error while running uv environment creation script');
+                deferred.reject(`Failed to create virtual environment with exitCode: ${proc?.exitCode}`);
+            } else {
+                deferred.resolve(venvPath);
+            }
+        },
+    );
+    return deferred.promise;
 }
 
 export class UvCreationProvider implements CreateEnvironmentProvider {
-	public async createEnvironment(
-		options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
-	): Promise<CreateEnvironmentResult | undefined> {
-		const uvIsInstalled = await isUvInstalled();
-		if (!uvIsInstalled) {
-			traceError('uv is not installed');
-			showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
-			return undefined;
-		}
+    public async createEnvironment(
+        options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    ): Promise<CreateEnvironmentResult | undefined> {
+        const uvIsInstalled = await isUvInstalled();
+        if (!uvIsInstalled) {
+            traceError('uv is not installed');
+            showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+            return undefined;
+        }
 
-		let workspace: WorkspaceFolder | undefined;
-		const workspaceStep = new MultiStepNode(
-			undefined,
-			async (context?: MultiStepAction) => {
-				try {
-					workspace = (await pickWorkspaceFolder(
-						{ preSelectedWorkspace: options?.workspaceFolder },
-						context,
-					)) as WorkspaceFolder | undefined;
-				} catch (ex) {
-					if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
-						return ex;
-					}
-					throw ex;
-				}
+        let workspace: WorkspaceFolder | undefined;
+        const workspaceStep = new MultiStepNode(
+            undefined,
+            async (context?: MultiStepAction) => {
+                try {
+                    workspace = (await pickWorkspaceFolder(
+                        { preSelectedWorkspace: options?.workspaceFolder },
+                        context,
+                    )) as WorkspaceFolder | undefined;
+                } catch (ex) {
+                    if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
+                        return ex;
+                    }
+                    throw ex;
+                }
 
-				if (workspace === undefined) {
-					traceError('Workspace was not selected or found for creating uv environment.');
-					return MultiStepAction.Cancel;
-				}
-				traceInfo(`Selected workspace ${workspace.uri.fsPath} for creating uv environment.`);
-				return MultiStepAction.Continue;
-			},
-			undefined,
-		);
+                if (workspace === undefined) {
+                    traceError('Workspace was not selected or found for creating uv environment.');
+                    return MultiStepAction.Cancel;
+                }
+                traceInfo(`Selected workspace ${workspace.uri.fsPath} for creating uv environment.`);
+                return MultiStepAction.Continue;
+            },
+            undefined,
+        );
 
-		let existingVenvAction: ExistingVenvAction | undefined;
-		const existingEnvStep = new MultiStepNode(
-			workspaceStep,
-			async (context?: MultiStepAction) => {
-				if (workspace && context === MultiStepAction.Continue) {
-					try {
-						existingVenvAction = await pickExistingVenvAction(workspace);
-						return MultiStepAction.Continue;
-					} catch (ex) {
-						if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
-							return ex;
-						}
-						throw ex;
-					}
-				} else if (context === MultiStepAction.Back) {
-					return MultiStepAction.Back;
-				}
-				return MultiStepAction.Continue;
-			},
-			undefined,
-		);
-		workspaceStep.next = existingEnvStep;
+        let existingVenvAction: ExistingVenvAction | undefined;
+        const existingEnvStep = new MultiStepNode(
+            workspaceStep,
+            async (context?: MultiStepAction) => {
+                if (workspace && context === MultiStepAction.Continue) {
+                    try {
+                        existingVenvAction = await pickExistingVenvAction(workspace);
+                        return MultiStepAction.Continue;
+                    } catch (ex) {
+                        if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
+                            return ex;
+                        }
+                        throw ex;
+                    }
+                } else if (context === MultiStepAction.Back) {
+                    return MultiStepAction.Back;
+                }
+                return MultiStepAction.Continue;
+            },
+            undefined,
+        );
+        workspaceStep.next = existingEnvStep;
 
-		let version: string | undefined;
-		const versionStep = new MultiStepNode(
-			workspaceStep,
-			async (context) => {
-				if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion) {
-					version = options.uvPythonVersion;
-				} else if (
-					existingVenvAction === ExistingVenvAction.Recreate ||
-					existingVenvAction === ExistingVenvAction.Create
-				) {
-					try {
-						version = await pickPythonVersion();
-					} catch (ex) {
-						if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
-							return ex;
-						}
-						throw ex;
-					}
-					if (version === undefined) {
-						traceError('Python version was not selected for creating uv environment.');
-						return MultiStepAction.Cancel;
-					}
-					traceInfo(`Selected Python version ${version} for creating uv environment.`);
-				} else if (existingVenvAction === ExistingVenvAction.UseExisting) {
-					if (context === MultiStepAction.Back) {
-						return MultiStepAction.Back;
-					}
-				}
+        let version: string | undefined;
+        const versionStep = new MultiStepNode(
+            workspaceStep,
+            async (context) => {
+                if (existingVenvAction === ExistingVenvAction.Create && options?.uvPythonVersion) {
+                    version = options.uvPythonVersion;
+                } else if (
+                    existingVenvAction === ExistingVenvAction.Recreate ||
+                    existingVenvAction === ExistingVenvAction.Create
+                ) {
+                    try {
+                        version = await pickPythonVersion();
+                    } catch (ex) {
+                        if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
+                            return ex;
+                        }
+                        throw ex;
+                    }
+                    if (version === undefined) {
+                        traceError('Python version was not selected for creating uv environment.');
+                        return MultiStepAction.Cancel;
+                    }
+                    traceInfo(`Selected Python version ${version} for creating uv environment.`);
+                } else if (existingVenvAction === ExistingVenvAction.UseExisting) {
+                    if (context === MultiStepAction.Back) {
+                        return MultiStepAction.Back;
+                    }
+                }
 
-				return MultiStepAction.Continue;
-			},
-			undefined,
-		);
-		existingEnvStep.next = versionStep;
+                return MultiStepAction.Continue;
+            },
+            undefined,
+        );
+        existingEnvStep.next = versionStep;
 
-		const action = await MultiStepNode.run(workspaceStep);
-		if (action === MultiStepAction.Back || action === MultiStepAction.Cancel) {
-			throw action;
-		}
+        const action = await MultiStepNode.run(workspaceStep);
+        if (action === MultiStepAction.Back || action === MultiStepAction.Cancel) {
+            throw action;
+        }
 
-		if (workspace) {
-			if (existingVenvAction === ExistingVenvAction.Recreate) {
-				traceInfo(`Recreating existing virtual environment in ${workspace.uri.fsPath}`);
-				if (await deleteEnvironment(workspace, undefined)) {
-					traceInfo(`Deleted existing virtual environment`);
-				} else {
-					traceError(`Failed to delete existing virtual environment`);
-					throw MultiStepAction.Cancel;
-				}
-			} else if (existingVenvAction === ExistingVenvAction.UseExisting) {
-				traceInfo(`Using existing virtual environment in ${workspace.uri.fsPath}`);
-				return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
-			}
-		}
+        if (workspace) {
+            if (existingVenvAction === ExistingVenvAction.Recreate) {
+                traceInfo(`Recreating existing virtual environment in ${workspace.uri.fsPath}`);
+                if (await deleteEnvironment(workspace, undefined)) {
+                    traceInfo(`Deleted existing virtual environment`);
+                } else {
+                    traceError(`Failed to delete existing virtual environment`);
+                    throw MultiStepAction.Cancel;
+                }
+            } else if (existingVenvAction === ExistingVenvAction.UseExisting) {
+                traceInfo(`Using existing virtual environment in ${workspace.uri.fsPath}`);
+                return { path: getVenvExecutable(workspace), workspaceFolder: workspace };
+            }
+        }
 
-		const createEnvInternal = async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
-			progress.report({
-				message: CreateEnv.statusStarting,
-			});
+        const createEnvInternal = async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
+            progress.report({
+                message: CreateEnv.statusStarting,
+            });
 
-			let envPath: string | undefined;
-			try {
-				if (!workspace) {
-					throw new Error('Failed to create uv environment. Workspace is undefined.');
-				}
+            let envPath: string | undefined;
+            try {
+                if (!workspace) {
+                    throw new Error('Failed to create uv environment. Workspace is undefined.');
+                }
 
-				if (!version) {
-					throw new Error('Failed to create uv environment. Python version is undefined.');
-				}
+                if (!version) {
+                    throw new Error('Failed to create uv environment. Python version is undefined.');
+                }
 
-				// --- Start Positron ---
-				envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
-				// --- End Positron ---
-				if (envPath) {
-					return { path: envPath, workspaceFolder: workspace };
-				}
+                // --- Start Positron ---
+                envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
+                // --- End Positron ---
+                if (envPath) {
+                    return { path: envPath, workspaceFolder: workspace };
+                }
 
-				throw new Error('Failed to create uv environment. See Output > Python for more info.');
-			} catch (ex) {
-				traceError(ex);
-				showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
-				return { error: ex as Error };
-			}
-		};
+                throw new Error('Failed to create uv environment. See Output > Python for more info.');
+            } catch (ex) {
+                traceError(ex);
+                showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+                return { error: ex as Error };
+            }
+        };
 
-		return withProgress(
-			{
-				location: ProgressLocation.Notification,
-				title: `${CreateEnv.statusTitle} ([${Common.showLogs}](command:${Commands.ViewOutput}))`,
-				cancellable: true,
-			},
-			async (
-				progress: CreateEnvironmentProgress,
-				token: CancellationToken,
-			): Promise<CreateEnvironmentResult | undefined> => createEnvInternal(progress, token),
-		);
-	}
+        return withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `${CreateEnv.statusTitle} ([${Common.showLogs}](command:${Commands.ViewOutput}))`,
+                cancellable: true,
+            },
+            async (
+                progress: CreateEnvironmentProgress,
+                token: CancellationToken,
+            ): Promise<CreateEnvironmentResult | undefined> => createEnvInternal(progress, token),
+        );
+    }
 
-	name = 'uv';
+    name = 'uv';
 
-	description: string = CreateEnv.Uv.providerDescription;
+    description: string = CreateEnv.Uv.providerDescription;
 
-	id = UV_PROVIDER_ID;
+    id = UV_PROVIDER_ID;
 
-	tools = ['uv'];
+    tools = ['uv'];
 }
