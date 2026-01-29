@@ -1,0 +1,9 @@
+out/
+node_modules/
+lsdepot/
+.beads/
+# Internal docs - keep locally only
+CODE-REVIEW.md
+PROGRESS-SUMMARY.md
+E2E-TESTING.md
+*-SUMMARY.md
