@@ -95,7 +95,7 @@ export function SortableContext({
 		>
 			<SortableAnimationManager items={items} />
 			{children}
-			<DragOverlay>
+			<DragOverlay items={items}>
 				{activeId && renderDragOverlay ? renderDragOverlay(activeId) : null}
 			</DragOverlay>
 		</DndContext>
