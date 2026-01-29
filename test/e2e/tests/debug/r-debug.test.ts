@@ -371,6 +371,59 @@ test.describe('R Debugging', {
 		await sessions.select(rSession2.id);
 		await console.typeToConsole('q()', true);
 	});
+
+	test('R - Verify debug-specific console history', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11402' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		// Type some normal commands first
+		await console.typeToConsole('normal_x <- 1', true);
+		await console.typeToConsole('normal_y <- 2', true);
+
+		// Open file and set up a breakpoint to enter debug mode
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code to verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Trigger the breakpoint
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Type debug-specific commands
+		await console.typeToConsole('debug_var <- 100', true);
+		await console.typeToConsole('print(a)', true);
+		await app.code.wait(1000);
+
+		// Open history popup with Ctrl+R - should show only debug commands
+		await page.keyboard.press('Control+R');
+		await console.waitForHistoryContents('debug_var <- 100');
+		await console.waitForHistoryContents('print(a)');
+
+		// Close history popup
+		await page.keyboard.press('Escape');
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+		await app.code.wait(1000);
+
+		// Open history popup with Ctrl+R - should show normal commands, not debug commands
+		await page.keyboard.press('Control+R');
+		await console.waitForHistoryContents('normal_x <- 1');
+		await console.waitForHistoryContents('normal_y <- 2');
+
+		// Close history popup
+		await page.keyboard.press('Escape');
+
+		// Clean up
+		await debug.clearBreakpoints();
+	});
 });
 
 
