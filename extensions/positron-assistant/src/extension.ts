@@ -266,6 +266,24 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.selectGhostCellModel', selectGhostCellModel)
 	);
+	// Listen for configuration changes to enabledProviders
+	// This allows Snowflake and other providers to be enabled/disabled without reloading
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration(async (e) => {
+			if (e.affectsConfiguration('positron.assistant.enabledProviders')) {
+				await registerModels(context, storage);
+			}
+		})
+	);
+
+	// Listen for authentication session changes
+	// This handles the case where a user signs into Snowflake or other providers
+	// and enables features that depend on those credentials
+	context.subscriptions.push(
+		vscode.authentication.onDidChangeSessions(async () => {
+			await registerModels(context, storage);
+		})
+	);
 
 	// Dispose cleanup
 	context.subscriptions.push({

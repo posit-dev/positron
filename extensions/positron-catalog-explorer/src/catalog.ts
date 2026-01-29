@@ -103,10 +103,18 @@ export async function registerTreeViewProvider(
 		showCollapseAll: true,
 	});
 
-	context.subscriptions.push(treeView);
+	// Listen for authentication session changes
+	// This handles the case where a user signs into Snowflake or other providers
+	// and expects the catalog explorer to update without reloading
+	const authListener = vscode.authentication.onDidChangeSessions(async () => {
+		await treeDataProvider.refreshProviders(context, registry);
+	});
+
+	context.subscriptions.push(treeView, authListener);
 	return {
 		dispose: () => {
 			treeView.dispose();
+			authListener.dispose();
 		},
 	};
 }
@@ -165,6 +173,24 @@ class CatalogTreeDataProvider
 	}
 
 	onDidChangeTreeData = this.emitter.event;
+
+	/**
+	 * Refresh the list of providers and update the tree view.
+	 * This is called when authentication sessions change.
+	 */
+	async refreshProviders(
+		context: vscode.ExtensionContext,
+		registry: CatalogProviderRegistry,
+	): Promise<void> {
+		// Re-fetch all providers from the registry
+		const newProviders = await registry.listAllProviders(context);
+
+		// Update the providers list
+		this.providers = newProviders;
+
+		// Fire the change event to refresh the tree view
+		this.emitter.fire();
+	}
 
 	dispose() {
 		vscode.Disposable.from(...this.providers, ...this.listeners).dispose();
