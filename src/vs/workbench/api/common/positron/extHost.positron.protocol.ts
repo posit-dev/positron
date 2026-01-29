@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -46,7 +46,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI): Promise<string>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
 	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;

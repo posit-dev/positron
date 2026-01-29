@@ -1015,9 +1015,8 @@ def _get_path_completions(
         remaining = entry_name[len(filename_prefix) :]
 
         if is_directory:
-            # Directories get trailing separator, no auto-close quote
-            # Windows: escape backslash for string literal
-            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+            # Directories get trailing separator
+            completion_text = remaining + "/"
         else:
             # Files: auto-close quote if needed
             completion_text = remaining if has_closing_quote else remaining + quote_char
