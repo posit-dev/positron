@@ -424,6 +424,47 @@ test.describe('R Debugging', {
 		// Clean up
 		await debug.clearBreakpoints();
 	});
+
+	test('R - Verify DAP disconnect/reconnect preserves breakpoints', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		// Open the test file
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code to verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red)
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Disconnect the DAP session with Shift+F5
+		await page.keyboard.press('Shift+F5');
+
+		// Wait a moment for disconnect/reconnect cycle
+		await page.waitForTimeout(2000);
+
+		// Breakpoint should still be verified after auto-reconnect
+		// (DAP session auto-reconnects in background)
+		await debug.expectBreakpointVerified(0, 10000);
+
+		// Verify the breakpoint still works by triggering it
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+
+		// Clean up
+		await debug.clearBreakpoints();
+	});
 });
 
 
