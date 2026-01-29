@@ -465,6 +465,53 @@ test.describe('R Debugging', {
 		// Clean up
 		await debug.clearBreakpoints();
 	});
+
+	test('R - Verify editing file while at breakpoint invalidates breakpoints', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys, sessions }) => {
+		const { debug, console } = app.workbench;
+
+		// Open the test file
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code to verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red)
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Trigger the breakpoint
+		await debug.expectBrowserModeFrame(1);
+
+		// While stopped at the breakpoint, edit the file
+		// First focus the editor by selecting the tab, then add a comment at the end
+		await app.workbench.editors.selectTab('breakpoint_test.r');
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('# edit while debugging');
+		await page.keyboard.press('Enter');
+
+		// Breakpoint should immediately become unverified (gray) after editing
+		await debug.expectBreakpointUnverified(0);
+
+		// Continue execution - the invalidated breakpoint should NOT trigger again
+		// Focus the console first since we were editing the file
+		await console.focus();
+		await page.keyboard.type('c', { delay: 100 });
+		await page.keyboard.press('Enter');
+
+		// Should return to normal prompt without hitting breakpoint again
+		await console.waitForReady('>');
+
+		// Clean up: clear breakpoints and undo the edit
+		await debug.clearBreakpoints();
+		await hotKeys.undo();
+		await hotKeys.undo();
+	});
 });
 
 
