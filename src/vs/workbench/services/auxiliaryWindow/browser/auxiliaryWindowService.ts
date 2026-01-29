@@ -457,14 +457,27 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 				return; // global stylesheets are handled by `cloneGlobalStylesheets` below
 			}
 
-			const clonedNode = auxiliaryWindow.document.head.appendChild(originalNode.cloneNode(true));
-			if (originalNode.tagName.toLowerCase() === 'link') {
-				pendingLinksToSettle++;
+			const clonedNode = originalNode.cloneNode(true) as Element;
 
+			// For link elements, convert relative URLs to absolute URLs before appending.
+			// This is necessary because auxiliary windows open with about:blank (or empty
+			// string in Firefox), and relative URLs would resolve against that invalid base.
+			if (originalNode.tagName.toLowerCase() === 'link') {
+				const originalLink = originalNode as HTMLLinkElement;
+				const clonedLink = clonedNode as HTMLLinkElement;
+
+				// The .href property returns the resolved absolute URL
+				if (originalLink.href) {
+					clonedLink.setAttribute('href', originalLink.href);
+				}
+
+				pendingLinksToSettle++;
 				pendingLinksDisposables.add(addDisposableListener(clonedNode, 'load', onLinkSettled));
 				pendingLinksDisposables.add(addDisposableListener(clonedNode, 'error', onLinkSettled));
 			}
 
+			// Append after URL fixup
+			auxiliaryWindow.document.head.appendChild(clonedNode);
 			mapOriginalToClone.set(originalNode, clonedNode);
 		}
 
