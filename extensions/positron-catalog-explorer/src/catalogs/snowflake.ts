@@ -58,10 +58,6 @@ export function registerSnowflakeProvider(
 		light: resourceUri('light', 'snowflake.png'),
 		dark: resourceUri('dark', 'snowflake.png'),
 	};
-	vscode.authentication.onDidChangeSessions((e) => {
-		if (e.provider.id === 'snowflake') {
-		}
-	});
 	return registry.register(registration);
 }
 
