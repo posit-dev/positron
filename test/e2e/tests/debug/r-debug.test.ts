@@ -215,7 +215,7 @@ test.describe('R Debugging', {
 // R Breakpoints - Tests for gutter-click breakpoints feature (#1766)
 // These tests verify the new R breakpoint support added in PR #11407
 test.describe('R Breakpoints', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.ARK]
+	tag: [tags.DEBUG, tags.WIN, tags.ARK]
 }, () => {
 	let breakpointSession: SessionMetaData;
 
@@ -246,6 +246,7 @@ test.describe('R Breakpoints', {
 	});
 
 	test('R - Verify breakpoint set and hit via gutter click', {
+		tag: [tags.WEB],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
@@ -321,6 +322,7 @@ test.describe('R Breakpoints', {
 	});
 
 	test('R - Verify session switching preserves breakpoint state', {
+		tag: [tags.WEB],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
 	}, async ({ app, page, openFile, hotKeys, sessions }) => {
 		const { debug, console } = app.workbench;
@@ -362,6 +364,7 @@ test.describe('R Breakpoints', {
 	});
 
 	test('R - Verify debug-specific console history', {
+		tag: [tags.WEB],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/11402' }]
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
@@ -404,6 +407,7 @@ test.describe('R Breakpoints', {
 	});
 
 	test('R - Verify DAP disconnect/reconnect preserves breakpoints', {
+		tag: [tags.WEB],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
 	}, async ({ app, page, openFile, hotKeys }) => {
 		const { debug, console } = app.workbench;
