@@ -39,10 +39,13 @@ interface IVenvCommandArgs {
     stdin: string | undefined;
 }
 
+// --- Start Positron ---
 function generateCommandArgs(
     installInfo?: IPackageInstallSelection[],
     addGitIgnore?: boolean,
+    // custom venv naming
     envName?: string,
+    // --- End Positron ---
 ): IVenvCommandArgs {
     const command: string[] = [createVenvScript()];
     let stdin: string | undefined;
@@ -151,7 +154,7 @@ async function createVenv(
                 traceError('Error while running venv creation script: ', progressAndTelemetry.getLastError());
                 deferred.reject(
                     progressAndTelemetry.getLastError() ||
-                        `Failed to create virtual environment with exitCode: ${proc?.exitCode}`,
+                    `Failed to create virtual environment with exitCode: ${proc?.exitCode}`,
                 );
             } else {
                 deferred.resolve(venvPath);
@@ -163,7 +166,7 @@ async function createVenv(
 
 export const VenvCreationProviderId = `${PVSC_EXTENSION_ID}:venv`;
 export class VenvCreationProvider implements CreateEnvironmentProvider {
-    constructor(private readonly interpreterQuickPick: IInterpreterQuickPick) {}
+    constructor(private readonly interpreterQuickPick: IInterpreterQuickPick) { }
 
     public async createEnvironment(
         options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
@@ -178,9 +181,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                         workspace && bypassQuickPicks
                             ? workspace
                             : ((await pickWorkspaceFolder(
-                                  { preSelectedWorkspace: options?.workspaceFolder },
-                                  context,
-                              )) as WorkspaceFolder | undefined);
+                                { preSelectedWorkspace: options?.workspaceFolder },
+                                context,
+                            )) as WorkspaceFolder | undefined);
                 } catch (ex) {
                     if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
                         return ex;
@@ -242,24 +245,24 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                                 interpreter && bypassQuickPicks
                                     ? interpreter
                                     : await this.interpreterQuickPick.getInterpreterViaQuickPick(
-                                          workspace.uri,
-                                          (i: PythonEnvironment) =>
-                                              [
-                                                  EnvironmentType.System,
-                                                  EnvironmentType.MicrosoftStore,
-                                                  EnvironmentType.Global,
-                                                  EnvironmentType.Pyenv,
-                                                  // --- Start Positron ---
-                                                  EnvironmentType.Custom,
-                                                  // --- End Positron ---
-                                              ].includes(i.envType) && i.type === undefined, // only global intepreters
-                                          {
-                                              skipRecommended: true,
-                                              showBackButton: true,
-                                              placeholder: CreateEnv.Venv.selectPythonPlaceHolder,
-                                              title: null,
-                                          },
-                                      );
+                                        workspace.uri,
+                                        (i: PythonEnvironment) =>
+                                            [
+                                                EnvironmentType.System,
+                                                EnvironmentType.MicrosoftStore,
+                                                EnvironmentType.Global,
+                                                EnvironmentType.Pyenv,
+                                                // --- Start Positron ---
+                                                EnvironmentType.Custom,
+                                                // --- End Positron ---
+                                            ].includes(i.envType) && i.type === undefined, // only global intepreters
+                                        {
+                                            skipRecommended: true,
+                                            showBackButton: true,
+                                            placeholder: CreateEnv.Venv.selectPythonPlaceHolder,
+                                            title: null,
+                                        },
+                                    );
                         } catch (ex) {
                             if (ex === InputFlowAction.back) {
                                 return MultiStepAction.Back;

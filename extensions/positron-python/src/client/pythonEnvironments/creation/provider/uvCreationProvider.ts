@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,10 +36,8 @@ async function createUvVenv(
         message: CreateEnv.Venv.creating,
     });
     const command = 'uv';
-    // --- Start Positron ---
     const targetDir = envName ?? '.venv';
     const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
-    // --- End Positron ---
 
     const deferred = createDeferred<string | undefined>();
     traceLog('Running uv venv creation script: ', [command, ...argv]);
@@ -49,11 +47,9 @@ async function createUvVenv(
         cwd: workspace.uri.fsPath,
     });
 
-    // --- Start Positron ---
-    const venvPath = `${workspace.uri.fsPath}${
-        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
-    }`;
-    // --- End Positron ---
+    const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
+        }`;
+
     out.subscribe(
         (value) => {
             const output = value.out.split(/\r?\n/g).join(os.EOL);
@@ -206,9 +202,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
                     throw new Error('Failed to create uv environment. Python version is undefined.');
                 }
 
-                // --- Start Positron ---
                 envPath = await createUvVenv(workspace, version, progress, token, options?.envName);
-                // --- End Positron ---
                 if (envPath) {
                     return { path: envPath, workspaceFolder: workspace };
                 }

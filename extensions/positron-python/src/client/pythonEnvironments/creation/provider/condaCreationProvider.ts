@@ -40,7 +40,9 @@ import { noop } from '../../../common/utils/misc';
 
 function generateCommandArgs(
     version?: string,
+    // --- Start Positron ---
     options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    // --- End Positron ---
 ): string[] {
     let addGitIgnore = true;
     let installPackages = true;
