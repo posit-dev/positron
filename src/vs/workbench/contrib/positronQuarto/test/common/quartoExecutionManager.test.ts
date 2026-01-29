@@ -342,6 +342,124 @@ suite('QuartoExecutionManager', () => {
 			assert.strictEqual(outputsReceived[1].items[0].data, '5');
 		});
 	});
+
+	suite('Cell Line Number Tracking', () => {
+		test('uses current cell line numbers when document is edited before execution', async () => {
+			// This test verifies the bug where cell line numbers become stale
+			// when the document is edited between queueing and execution.
+			//
+			// Bug reproduction scenario:
+			// 1. Open a document with a cell at lines 5-7 (code at line 6)
+			// 2. Edit the document, adding 3 lines before the cell
+			// 3. Document re-parses: cell is now at lines 8-10 (code at line 9)
+			// 4. User runs the cell (from UI, which may still have old cell object)
+			//
+			// The bug: When the execution manager receives a cell object with OLD
+			// line numbers (6), it would use those stale numbers instead of looking
+			// up the current line numbers from the re-parsed document model.
+			//
+			// The fix: The execution manager looks up the cell by ID from the
+			// current document model to get fresh line numbers.
+
+			const documentUri = URI.file('/test-line-tracking.qmd');
+
+			// Document AFTER editing (with 3 lines inserted before the cell)
+			// The cell is now at lines 8-10, code at line 9
+			const editedDocumentLines = [
+				'---',
+				'title: test',
+				'---',
+				'',
+				'Some added text',       // Line 5 - new
+				'More added text',       // Line 6 - new (where old code was!)
+				'Even more text',        // Line 7 - new
+				'```{python}',           // Line 8 - cell start (moved)
+				'x = 1',                 // Line 9 - code (moved)
+				'```',                   // Line 10 - cell end (moved)
+			];
+
+			// The CURRENT cell state in the model (after re-parsing)
+			// has updated line numbers
+			const currentCell: QuartoCodeCell = {
+				id: '0-abc12345-unlabeled',
+				index: 0,
+				language: 'python',
+				startLine: 8,
+				endLine: 10,
+				codeStartLine: 9,  // Current correct line
+				codeEndLine: 9,
+				label: undefined,
+				options: '',
+				contentHash: 'abc12345',
+			};
+
+			// Create mock model with CURRENT state (already re-parsed)
+			const mockModel = new MockQuartoDocumentModel([currentCell], editedDocumentLines);
+			const mockDocumentModelService = new MockDocumentModelService();
+			mockDocumentModelService.setMockModel(mockModel);
+
+			// Create execution manager with the mock model service
+			const executionManagerWithMock = new QuartoExecutionManager(
+				mockKernelManager as unknown as IQuartoKernelManager,
+				mockDocumentModelService as unknown as IQuartoDocumentModelService,
+				new MockEditorService() as unknown as IEditorService,
+				new MockEphemeralStateService() as unknown as IEphemeralStateService,
+				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
+				logService,
+			);
+			disposables.add(executionManagerWithMock);
+
+			// Create a STALE cell object (simulating what UI might pass)
+			// This has the OLD line numbers from before the document edit
+			const staleCellObject: QuartoCodeCell = {
+				id: '0-abc12345-unlabeled',  // Same ID - this is key!
+				index: 0,
+				language: 'python',
+				startLine: 5,       // OLD line numbers
+				endLine: 7,
+				codeStartLine: 6,   // OLD - would read wrong content!
+				codeEndLine: 6,
+				label: undefined,
+				options: '',
+				contentHash: 'abc12345',
+			};
+
+			// Start execution with the STALE cell object
+			// The fix should look up by ID and use current line numbers
+			const executionPromise = executionManagerWithMock.executeCell(documentUri, staleCellObject);
+
+			// Wait for execution to start
+			await new Promise(resolve => setTimeout(resolve, 50));
+
+			// Get the execution ID and complete the execution
+			const executionId = mockKernelManager.lastExecutionId!;
+			if (executionId) {
+				mockSession.receiveStateMessage({
+					parent_id: executionId,
+					state: RuntimeOnlineState.Idle,
+				});
+			}
+
+			await executionPromise;
+
+			// VERIFY: The execution manager should have looked up the cell by ID
+			// and used the CURRENT line numbers (9), not the stale ones (6).
+			//
+			// If the bug exists: lastRequestedCell.codeStartLine === 6 (stale)
+			// After the fix: lastRequestedCell.codeStartLine === 9 (current)
+			assert.ok(mockModel.lastRequestedCell, 'Should have requested cell code');
+			assert.strictEqual(
+				mockModel.lastRequestedCell.codeStartLine,
+				9,
+				'Should use CURRENT cell line numbers (9), not stale ones (6)'
+			);
+			assert.strictEqual(
+				mockModel.lastRequestedCell.codeEndLine,
+				9,
+				'Should use CURRENT cell end line (9), not stale one (6)'
+			);
+		});
+	});
 });
 
 // Mock implementations
@@ -376,12 +494,98 @@ class MockKernelManager {
 }
 
 class MockDocumentModelService {
+	private _mockModel: MockQuartoDocumentModel | undefined;
+
+	setMockModel(model: MockQuartoDocumentModel): void {
+		this._mockModel = model;
+	}
+
 	getModel(_textModel: unknown): unknown {
+		if (this._mockModel) {
+			return this._mockModel;
+		}
+		// Default mock that returns cell unchanged (for tests that don't need line tracking)
 		return {
-			getCellCode(_cell: QuartoCodeCell): string {
+			getCellCode(cell: QuartoCodeCell): string {
 				return 'test code';
+			},
+			getCellById(id: string): QuartoCodeCell | undefined {
+				// Return a dummy cell with the requested ID
+				// This allows the existing tests to work without needing to set up a full mock
+				return {
+					id,
+					index: 0,
+					language: 'python',
+					startLine: 1,
+					endLine: 4,
+					codeStartLine: 2,
+					codeEndLine: 3,
+					label: undefined,
+					options: '',
+					contentHash: 'test',
+				};
 			}
 		};
+	}
+}
+
+/**
+ * Mock Quarto document model that allows simulating document edits
+ * by updating cell line numbers.
+ */
+class MockQuartoDocumentModel {
+	private _cells: Map<string, QuartoCodeCell> = new Map();
+	private _documentLines: string[] = [];
+	lastRequestedCell: QuartoCodeCell | undefined;
+
+	constructor(cells: QuartoCodeCell[], documentLines: string[]) {
+		for (const cell of cells) {
+			this._cells.set(cell.id, cell);
+		}
+		this._documentLines = documentLines;
+	}
+
+	/**
+	 * Update a cell's line numbers (simulates document edit + re-parse)
+	 */
+	updateCellLineNumbers(cellId: string, newStartLine: number, newEndLine: number, newCodeStartLine: number, newCodeEndLine: number): void {
+		const cell = this._cells.get(cellId);
+		if (cell) {
+			const updatedCell: QuartoCodeCell = {
+				...cell,
+				startLine: newStartLine,
+				endLine: newEndLine,
+				codeStartLine: newCodeStartLine,
+				codeEndLine: newCodeEndLine,
+			};
+			this._cells.set(cellId, updatedCell);
+		}
+	}
+
+	/**
+	 * Update the document content (simulates text being inserted)
+	 */
+	setDocumentLines(lines: string[]): void {
+		this._documentLines = lines;
+	}
+
+	getCellById(id: string): QuartoCodeCell | undefined {
+		return this._cells.get(id);
+	}
+
+	getCellCode(cell: QuartoCodeCell): string {
+		// Track which cell was passed to detect if stale cell data is being used
+		this.lastRequestedCell = cell;
+
+		// Read lines from document using the cell's line numbers
+		const lines: string[] = [];
+		for (let i = cell.codeStartLine; i <= cell.codeEndLine; i++) {
+			// documentLines is 0-indexed, cell lines are 1-indexed
+			if (i - 1 >= 0 && i - 1 < this._documentLines.length) {
+				lines.push(this._documentLines[i - 1]);
+			}
+		}
+		return lines.join('\n');
 	}
 }
 

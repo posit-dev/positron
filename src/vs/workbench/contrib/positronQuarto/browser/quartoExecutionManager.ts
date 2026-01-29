@@ -647,6 +647,10 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	/**
 	 * Get code content for a cell.
+	 *
+	 * IMPORTANT: This method looks up the cell by ID from the current document model
+	 * to get fresh line numbers. The passed `cell` object may have stale line numbers
+	 * if the document was edited between queueing and execution.
 	 */
 	private async _getCellCode(documentUri: URI, cell: QuartoCodeCell): Promise<string | undefined> {
 		try {
@@ -656,9 +660,20 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				return undefined;
 			}
 
-			// Get the Quarto document model and extract cell code
+			// Get the Quarto document model
 			const quartoModel = this._documentModelService.getModel(textModel);
-			return quartoModel.getCellCode(cell);
+
+			// Look up the cell by ID to get current line numbers.
+			// The passed cell object may have stale line numbers if the document
+			// was edited between when the cell was queued and now.
+			const currentCell = quartoModel.getCellById(cell.id);
+			if (!currentCell) {
+				// Cell was deleted or its ID changed significantly
+				this._logService.warn(`[QuartoExecutionManager] Cell ${cell.id} no longer exists in document`);
+				return undefined;
+			}
+
+			return quartoModel.getCellCode(currentCell);
 		} catch (error) {
 			this._logService.warn(`[QuartoExecutionManager] Failed to get cell code:`, error);
 			return undefined;
