@@ -120,27 +120,28 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 
 		// --- Start Positron ---
 		// Render icon if present in the group
-		if (element.group?.icon) {
-			// Check if this is a data URI icon (SVG)
-			const iconId = ThemeIcon.isThemeIcon(element.group.icon) ? element.group.icon.id : '';
-			if (iconId.startsWith('data:image/svg+xml')) {
-				// Render SVG as background image
-				templateData.icon.className = 'icon provider-icon';
-				templateData.icon.style.backgroundImage = `url('${iconId}')`;
-			} else {
-				// Regular codicon
-				templateData.icon.className = 'icon ' + ThemeIcon.asClassName(element.group.icon);
-				templateData.icon.style.backgroundImage = '';
-				if (element.group.icon.color) {
-					templateData.icon.style.color = asCssVariable(element.group.icon.color.id);
-				} else {
-					templateData.icon.style.color = '';
-				}
-				templateData.icon.style.display = 'flex';
-			}
-		} else {
+		if (!element.group?.icon) {
 			templateData.icon.style.display = 'none';
+			return;
 		}
+
+		const iconId = ThemeIcon.isThemeIcon(element.group.icon) ? element.group.icon.id : '';
+		if (iconId.startsWith('data:image/svg+xml')) {
+			// Render SVG as background image
+			templateData.icon.className = 'icon provider-icon';
+			templateData.icon.style.backgroundImage = `url('${iconId}')`;
+			templateData.icon.style.color = '';
+		} else {
+			// Regular codicon
+			templateData.icon.className = 'icon ' + ThemeIcon.asClassName(element.group.icon);
+			templateData.icon.style.backgroundImage = '';
+			templateData.icon.style.color = element.group.icon.color
+				? asCssVariable(element.group.icon.color.id)
+				: '';
+		}
+
+		// After setting icon properties, ensure it's visible
+		templateData.icon.style.display = 'flex';
 		// --- End Positron ---
 	}
 
