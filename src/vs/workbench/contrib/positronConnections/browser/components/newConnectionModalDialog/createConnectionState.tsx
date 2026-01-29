@@ -142,7 +142,10 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			>
 			</SimpleCodeEditor>
 			{codeState?.errorMessage && (
-				<div className='connection-error-message'>{codeState.errorMessage}</div>
+				<div className='connection-error-message'>
+					<span className='codicon codicon-error'></span>
+					{codeState.errorMessage}
+				</div>
 			)}
 		</div>
 
