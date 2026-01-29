@@ -58,10 +58,7 @@
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-}
-
-.create-connection-footer > .default {
-	margin-left: auto;
+	justify-content: space-between;
 }
 
 .create-connection-inputs {
@@ -112,4 +109,37 @@
 .create-connection-inputs > .labeled-input > label > .drop-down-list-box {
 	flex: 1;
 	min-width: 0;
+}
+
+/* Error state for code editor */
+.create-connection-code-editor.has-error {
+	position: relative;
+}
+
+.connection-error-message {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 4px 8px;
+	font-size: 12px;
+	background-color: var(--vscode-inputValidation-errorBackground);
+	border-top: 1px solid var(--vscode-inputValidation-errorBorder);
+	color: var(--vscode-inputValidation-errorForeground);
+	transform-origin: bottom;
+	animation: growUp 0.2s ease-out;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+@keyframes growUp {
+	from {
+		transform: scaleY(0);
+		opacity: 0;
+	}
+	to {
+		transform: scaleY(1);
+		opacity: 1;
+	}
 }

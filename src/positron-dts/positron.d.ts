@@ -1610,8 +1610,9 @@ declare module 'positron' {
 
 		/**
 		 * Generates the connection code based on the inputs.
+		 * Returns a string for valid code, or an object with code and errorMessage if validation fails.
 		 */
-		generateCode?: (inputs: Array<ConnectionsInput>) => string;
+		generateCode?: (inputs: Array<ConnectionsInput>) => string | { code: string; errorMessage: string };
 
 		/**
 		 * Connect session.
