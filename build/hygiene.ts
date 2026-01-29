@@ -58,10 +58,15 @@ export function hygiene(some: NodeJS.ReadWriteStream | string[] | undefined, run
 	const productJson = es.through(function (file: VinylFile) {
 		const product = JSON.parse(file.contents!.toString('utf8'));
 
+		// --- Start Positron ---
+		// Ignore because Positron adds OpenVSX as the extensions gallery
+		/*
 		if (product.extensionsGallery) {
 			console.error(`product.json: Contains 'extensionsGallery'`);
 			errorCount++;
 		}
+		*/
+		// --- End Positron ---
 
 		this.emit('data', file);
 	});
