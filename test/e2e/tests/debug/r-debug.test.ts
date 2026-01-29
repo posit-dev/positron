@@ -263,6 +263,59 @@ test.describe('R Debugging', {
 		// Clean up: clear the breakpoint
 		await debug.clearBreakpoints();
 	});
+
+	test('R - Verify breakpoints in dirty (unsaved) documents', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		// Open the test file
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3 (inside the multiply_values function)
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Execute code to verify the breakpoint
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red)
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Edit the file to make it dirty (add a comment at the end)
+		// First, go to end of file
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+		await page.keyboard.press('Enter');
+		await page.keyboard.type('# test comment');
+
+		// Breakpoint should immediately become unverified (gray) after edit
+		await debug.expectBreakpointUnverified(0);
+
+		// Execute code again WITHOUT saving - breakpoint should become verified again
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified again
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Call the function to verify breakpoint still works
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+
+		// Verify we hit the breakpoint
+		await debug.expectBrowserModeFrame(1);
+
+		// Exit debugger
+		await page.keyboard.type('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
+
+		// Clean up: clear breakpoints and revert file changes
+		await debug.clearBreakpoints();
+
+		// Undo the edit to restore original file state
+		await hotKeys.undo();
+		await hotKeys.undo();
+	});
 });
 
 
