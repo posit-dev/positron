@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -209,6 +209,55 @@ test.describe('R Debugging', {
 		// Call again — should not pause this time
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
 		await console.waitForConsoleContents('Found 2 fruits!', { expectedCount: 2 });
+	});
+
+	test('R - Verify breakpoint set and hit via gutter click', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/1766' }]
+	}, async ({ app, page, openFile, hotKeys }) => {
+		const { debug, console } = app.workbench;
+
+		// Open the test file
+		await openFile('workspaces/r-debugging/breakpoint_test.r');
+
+		// Set a breakpoint on line 3 (inside the multiply_values function)
+		// Initially the breakpoint should be unverified (gray)
+		await debug.setUnverifiedBreakpointOnLine(3);
+
+		// Select all code and execute with Ctrl/Cmd+Enter to verify the breakpoint
+		// This sources the file and makes breakpoints verifiable
+		await hotKeys.selectAll();
+		await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+
+		// Wait for the breakpoint to become verified (red)
+		await debug.expectBreakpointVerified(0, 30000);
+
+		// Call the function to trigger the breakpoint
+		await console.pasteCodeToConsole('multiply_values(5, 3)', true);
+
+		// Verify we hit the breakpoint - should enter browser mode
+		await debug.expectBrowserModeFrame(1);
+
+		// Verify debug toolbar is visible
+		await debug.expectDebugToolbarVisible();
+
+		// Verify current line indicator is visible
+		await debug.expectCurrentLineIndicatorVisible();
+
+		// Verify the call stack shows our function
+		await debug.expectCallStackAtIndex(0, 'multiply_values(');
+
+		// Continue execution to complete
+		await page.keyboard.type('c');
+		await page.keyboard.press('Enter');
+
+		// Verify result appears in console
+		await console.waitForConsoleContents('[1] 15');
+
+		// Verify we're back to normal prompt
+		await console.waitForReady('Browse[1]>');
+
+		// Clean up: clear the breakpoint
+		await debug.clearBreakpoints();
 	});
 });
 
