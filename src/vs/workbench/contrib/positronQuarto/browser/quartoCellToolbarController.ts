@@ -124,6 +124,14 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			this._updateToolbarVisibilityForCursor();
 		}));
 
+		// Listen for document parse events to update toolbar positions
+		// This is needed because onDidChangeCells doesn't fire when cells move
+		// without content changes (e.g., inserting text between cells)
+		this._disposables.add(this._quartoModel.onDidParse(() => {
+			this._logService.debug('[QuartoCellToolbarController] Document parsed, updating toolbar positions');
+			this._updateToolbarPositions();
+		}));
+
 		// Listen for cursor position changes
 		this._disposables.add(this._editor.onDidChangeCursorPosition(() => {
 			this._updateToolbarVisibilityForCursor();
@@ -305,12 +313,13 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			}
 		}
 
-		// Update cell positions for all existing toolbars that weren't modified
-		// This ensures button visibility (run above/below) is correct after cells change
+		// Update cell references and positions for all existing toolbars
+		// This ensures both button visibility and position are correct after cells change
+		// (cells may have moved due to insertions/deletions above them)
 		for (const [id, toolbar] of this._toolbars) {
 			const cell = quartoModel.getCellById(id);
 			if (cell) {
-				toolbar.updateCellPosition(cell.index, totalCells);
+				toolbar.updateCell(cell, cell.index, totalCells);
 			}
 		}
 	}
@@ -323,6 +332,26 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			toolbar.dispose();
 		}
 		this._toolbars.clear();
+	}
+
+	/**
+	 * Update toolbar positions when cells move without content changes.
+	 * This is called from onDidParse to ensure toolbars stay in sync with cell positions.
+	 */
+	private _updateToolbarPositions(): void {
+		if (!this._quartoModel) {
+			return;
+		}
+
+		const totalCells = this._quartoModel.cells.length;
+
+		for (const [id, toolbar] of this._toolbars) {
+			const cell = this._quartoModel.getCellById(id);
+			if (cell) {
+				// Update the toolbar with fresh cell data (which has updated line numbers)
+				toolbar.updateCell(cell, cell.index, totalCells);
+			}
+		}
 	}
 
 	/**
