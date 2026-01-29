@@ -151,6 +151,9 @@ conn = bigquery.Client(credentials=credentials, project=${JSON.stringify(project
 			return { code, errorMessage: vscode.l10n.t('Project ID is required') };
 		}
 
+		if (keyfilePath === '') {
+			return { code, errorMessage: vscode.l10n.t('Service account keyfile path is required') };
+		}
 		return code;
 	}
 }
