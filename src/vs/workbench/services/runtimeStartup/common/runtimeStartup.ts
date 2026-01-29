@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
+import * as perf from '../../../../base/common/performance.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -115,6 +116,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _foundRestoredSessions: Barrier = new Barrier();
 
+	/// Tracks whether the first runtime has reached ready state
+	private _firstRuntimeReady = false;
+
 	/// A unique identifier for this window. This is used to identify the
 	/// persisted sessions that belong to it.
 	private _localWindowId: string;
@@ -138,6 +142,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		super();
 
+		perf.mark('code/positron/runtimeStartupBegin');
+
 		this._onWillAutoStartRuntime = new Emitter<IRuntimeAutoStartEvent>();
 		this._onSessionRestoreFailure = new Emitter<ISessionRestoreFailedEvent>();
 		this._register(this._onSessionRestoreFailure);
@@ -157,8 +163,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		// Register the startup phase event handler.
+		// Register the startup phase event handler. Use setStartupPhase to
+		// ensure the initial phase is recorded in performance marks.
 		this._startupPhase = _languageRuntimeService.startupPhase;
+		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
@@ -186,6 +194,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			this._mostRecentlyStartedRuntimesByLanguageId.set(session.runtimeMetadata.languageId,
 				session.runtimeMetadata);
+
+			// Track session start time for diagnostics
+			perf.mark(`code/positron/runtimeSessionStart/${session.sessionId}`);
+
+			// Track when the first runtime reaches ready state
+			if (!this._firstRuntimeReady) {
+				// Check current state immediately (important for reconnected sessions
+				// that may already be in Ready state)
+				if (session.getRuntimeState() === RuntimeState.Ready) {
+					this._firstRuntimeReady = true;
+					perf.mark('code/positron/firstRuntimeReady');
+				} else {
+					// Listen for future state changes
+					this._register(session.onDidChangeRuntimeState((newState) => {
+						if (!this._firstRuntimeReady && newState === RuntimeState.Ready) {
+							this._firstRuntimeReady = true;
+							perf.mark('code/positron/firstRuntimeReady');
+						}
+					}));
+				}
+			}
 
 			this.saveWorkspaceSessions();
 
@@ -459,6 +488,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private setStartupPhase(phase: RuntimeStartupPhase): void {
 		this._startupPhase = phase;
 		this._languageRuntimeService.setStartupPhase(phase);
+		perf.mark(`code/positron/runtimeStartupPhase/${phase}`);
 	}
 
 	/**
