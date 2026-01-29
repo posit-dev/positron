@@ -8,6 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { QuartoCodeCell } from './quartoTypes.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // Service decorators
 export const IQuartoOutputCacheService = createDecorator<IQuartoOutputCacheService>('quartoOutputCacheService');
@@ -194,6 +195,12 @@ export interface IQuartoExecutionManager {
 	 * @param documentUri URI of the document
 	 */
 	clearExecutionState(documentUri: URI): void;
+
+	/**
+	 * Event that fires when the manager executes code
+	 */
+	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
+
 }
 
 // ============================================================================

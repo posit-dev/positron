@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,6 +31,7 @@ import {
 import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
+import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -95,6 +96,9 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 	private readonly _onDidReceiveOutput = this._register(new Emitter<ExecutionOutputEvent>());
 	readonly onDidReceiveOutput: Event<ExecutionOutputEvent> = this._onDidReceiveOutput.event;
+
+	private readonly _onDidExecuteCode = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._onDidExecuteCode.event;
 
 	constructor(
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
@@ -340,6 +344,29 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue
 			);
+
+			// Fire the event signaling code execution.
+			const event: ILanguageRuntimeCodeExecutedEvent = {
+				executionId: executionId,
+				sessionId: session.sessionId,
+				attribution: {
+					source: CodeAttributionSource.Notebook,
+					metadata: {
+						cell: {
+							uri: cell.id,
+							notebook: {
+								uri: documentUri,
+							},
+						},
+					},
+				},
+				code,
+				languageId: cell.language,
+				runtimeName: session.runtimeMetadata.runtimeName,
+				errorBehavior: RuntimeErrorBehavior.Continue,
+				mode: RuntimeCodeExecutionMode.Interactive,
+			};
+			this._onDidExecuteCode.fire(event);
 
 			// Set up timeout
 			const timeoutMs = DEFAULT_EXECUTION_CONFIG.executionTimeout;

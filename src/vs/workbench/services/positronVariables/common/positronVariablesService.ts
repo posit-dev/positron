@@ -23,6 +23,7 @@ import { IPositronConsoleService } from '../../positronConsole/browser/interface
 import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../positronConsole/common/positronConsoleCodeExecution.js';
+import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 
 /**
  * PositronVariablesService class.
@@ -83,6 +84,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
+		@IQuartoExecutionManager private readonly _quartoExecutionManager: IQuartoExecutionManager,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
@@ -131,6 +133,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		// List for notebook code execution events
 		this._register(this._runtimeNotebookKernelService.onDidExecuteCode(e => {
 			this._watchForCodeExecution(e);
+		}));
+
+		// Listen for Quarto code execution events
+		this._register(this._quartoExecutionManager.onDidExecuteCode(e => {
+			this._watchForCodeExecution(e)
 		}));
 
 		// Listen for editor changes
