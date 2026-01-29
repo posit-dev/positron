@@ -29,9 +29,9 @@ import { isCancellationError } from '../../../../../base/common/errors.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from '../../../chat/common/chatEditingService.js';
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY } from '../../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../common/positronNotebookConfig.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
-import { ShowDiffOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
+import { ShowDiffOverride, AutoFollowOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
@@ -41,6 +41,8 @@ const panelTitle = localize('assistantPanel.title', 'Positron Notebook Assistant
 const settingsHeader = localize('assistantPanel.settings.header', 'Notebook Settings');
 const showDiffLabel = localize('assistantPanel.showDiff.label', 'Show edit diffs');
 const showDiffTooltip = localize('assistantPanel.showDiff.tooltip', 'When enabled, assistant edits appear as inline diffs so you can review changes before accepting them');
+const autoFollowLabel = localize('assistantPanel.autoFollow.label', 'Auto-follow edits');
+const autoFollowTooltip = localize('assistantPanel.autoFollow.tooltip', 'When enabled, automatically scroll to cells modified by the AI assistant');
 const followGlobalLabel = localize('assistantPanel.followGlobal', 'follow global');
 const yesLabel = localize('assistantPanel.yes', 'yes');
 const noLabel = localize('assistantPanel.no', 'no');
@@ -148,6 +150,9 @@ interface ReadyStateProps {
 	showDiffOverride: ShowDiffOverride;
 	globalShowDiff: boolean;
 	onShowDiffChanged: (value: ShowDiffOverride) => void;
+	autoFollowOverride: AutoFollowOverride;
+	globalAutoFollow: boolean;
+	onAutoFollowChanged: (value: AutoFollowOverride) => void;
 	onOpenSettings: () => void;
 	onActionSelected: (query: string, mode: ChatModeKind) => void;
 	onClose: () => void;
@@ -167,6 +172,9 @@ const ReadyState = ({
 	showDiffOverride,
 	globalShowDiff,
 	onShowDiffChanged,
+	autoFollowOverride,
+	globalAutoFollow,
+	onAutoFollowChanged,
 	onOpenSettings,
 	onActionSelected,
 	onClose
@@ -175,6 +183,9 @@ const ReadyState = ({
 	const effectiveShowDiff = showDiffOverride !== undefined
 		? showDiffOverride === 'showDiff'
 		: globalShowDiff;
+	const effectiveAutoFollow = autoFollowOverride !== undefined
+		? autoFollowOverride === 'autoFollow'
+		: globalAutoFollow;
 
 	return (
 		<>
@@ -182,9 +193,12 @@ const ReadyState = ({
 				{settingsHeader}
 			</div>
 			<div className='assistant-panel-settings-section'>
-				<div className='assistant-panel-setting-row' title={showDiffTooltip}>
+				<div className='assistant-panel-setting-row'>
 					{/* Setting label */}
-					<span className='assistant-panel-setting-label'>{showDiffLabel}</span>
+					<span className='assistant-panel-setting-label'>
+						{showDiffLabel}
+						<span className='assistant-panel-setting-info codicon codicon-info' title={showDiffTooltip} />
+					</span>
 
 					{/* Controls aligned right */}
 					<div className='assistant-panel-setting-controls'>
@@ -219,6 +233,53 @@ const ReadyState = ({
 									{yesLabel}
 								</div>
 								<div className={`toggle-button right ${!effectiveShowDiff ? 'highlighted' : ''}`}>
+									{noLabel}
+								</div>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<div className='assistant-panel-setting-row'>
+					{/* Setting label */}
+					<span className='assistant-panel-setting-label'>
+						{autoFollowLabel}
+						<span className='assistant-panel-setting-info codicon codicon-info' title={autoFollowTooltip} />
+					</span>
+
+					{/* Controls aligned right */}
+					<div className='assistant-panel-setting-controls'>
+						{/* Follow global checkbox */}
+						<label className='assistant-panel-follow-global-label'>
+							{followGlobalLabel}
+							<input
+								checked={autoFollowOverride === undefined}
+								className='assistant-panel-checkbox'
+								type='checkbox'
+								onChange={(e) => {
+									if (e.target.checked) {
+										onAutoFollowChanged(undefined);
+									} else {
+										onAutoFollowChanged(globalAutoFollow ? 'autoFollow' : 'noAutoFollow');
+									}
+								}}
+							/>
+							<span className='assistant-panel-checkbox-indicator' />
+						</label>
+
+						{/* Yes/No toggle - styled like ActionBarToggle */}
+						<div className='assistant-panel-toggle'>
+							<button
+								aria-checked={effectiveAutoFollow}
+								aria-label={autoFollowLabel}
+								className={`toggle-container ${autoFollowOverride === undefined ? 'disabled' : ''}`}
+								disabled={autoFollowOverride === undefined}
+								onClick={() => onAutoFollowChanged(effectiveAutoFollow ? 'noAutoFollow' : 'autoFollow')}
+							>
+								<div className={`toggle-button left ${effectiveAutoFollow ? 'highlighted' : ''}`}>
+									{yesLabel}
+								</div>
+								<div className={`toggle-button right ${!effectiveAutoFollow ? 'highlighted' : ''}`}>
 									{noLabel}
 								</div>
 							</button>
@@ -359,14 +420,19 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 	const [showDiffOverride, setShowDiffOverride] = useState<ShowDiffOverride>(undefined);
 	const globalShowDiff = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY) ?? true;
 
-	// Load showDiff override from notebook metadata when notebook becomes available
+	// State for auto-follow setting
+	const [autoFollowOverride, setAutoFollowOverride] = useState<AutoFollowOverride>(undefined);
+	const globalAutoFollow = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+
+	// Load settings overrides from notebook metadata when notebook becomes available
 	useEffect(() => {
 		if (panelState.status !== 'ready') {
 			return;
 		}
 
-		const override = getAssistantSettings(panelState.notebook.textModel?.metadata).showDiff;
-		setShowDiffOverride(override);
+		const settings = getAssistantSettings(panelState.notebook.textModel?.metadata);
+		setShowDiffOverride(settings.showDiff);
+		setAutoFollowOverride(settings.autoFollow);
 	}, [panelState]);
 
 	// Fetch notebook context when notebook becomes available
@@ -446,6 +512,27 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		}], true, undefined, () => undefined, undefined, true);
 	};
 
+	const handleAutoFollowChanged = (value: AutoFollowOverride) => {
+		if (panelState.status !== 'ready') {
+			return;
+		}
+
+		// Apply the setting change
+		setAutoFollowOverride(value);
+
+		const textModel = panelState.notebook.textModel;
+		if (!textModel) {
+			logService.warn('Cannot update notebook metadata: no text model available');
+			return;
+		}
+
+		const newMetadata = setAssistantSettings({ ...textModel.metadata }, { autoFollow: value });
+		textModel.applyEdits([{
+			editType: CellEditType.DocumentMetadata,
+			metadata: newMetadata
+		}], true, undefined, () => undefined, undefined, true);
+	};
+
 	// Determine content based on state
 	const renderContent = () => {
 		switch (panelState.status) {
@@ -456,7 +543,9 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			case 'ready':
 				return (
 					<ReadyState
+						autoFollowOverride={autoFollowOverride}
 						commandService={commandService}
+						globalAutoFollow={globalAutoFollow}
 						globalShowDiff={globalShowDiff}
 						isLoadingContext={isLoadingContext}
 						logService={logService}
@@ -465,6 +554,7 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 						notificationService={notificationService}
 						showDiffOverride={showDiffOverride}
 						onActionSelected={handleActionSelected}
+						onAutoFollowChanged={handleAutoFollowChanged}
 						onClose={handleClose}
 						onOpenSettings={handleOpenSettings}
 						onShowDiffChanged={handleShowDiffChanged}

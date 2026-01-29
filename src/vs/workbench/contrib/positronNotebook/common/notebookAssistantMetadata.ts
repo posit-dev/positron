@@ -13,18 +13,27 @@ import { hasKey } from '../../../../base/common/types.js';
 export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 
 /**
+ * Valid values for the autoFollow per-notebook override.
+ * undefined = follow global setting, 'autoFollow' = always auto-follow, 'noAutoFollow' = never auto-follow
+ */
+export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
+
+/**
  * Per-notebook assistant settings stored at metadata.positron.assistant
  *
  * Schema:
  *   metadata.positron.assistant: {
  *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
+ *     autoFollow?: 'autoFollow' | 'noAutoFollow'  // Per-notebook auto-follow override
  *   }
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
+	autoFollow?: AutoFollowOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
+const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -40,7 +49,13 @@ export function getAssistantSettings(metadata: NotebookDocumentMetadata | undefi
 		? rawShowDiff as ShowDiffOverride
 		: undefined;
 
-	return { showDiff };
+	// Validate autoFollow value
+	const rawAutoFollow = assistant?.autoFollow;
+	const autoFollow = typeof rawAutoFollow === 'string' && VALID_AUTO_FOLLOW_VALUES.has(rawAutoFollow)
+		? rawAutoFollow as AutoFollowOverride
+		: undefined;
+
+	return { showDiff, autoFollow };
 }
 
 /**
@@ -62,6 +77,14 @@ export function setAssistantSettings(
 			delete newAssistant.showDiff;
 		} else {
 			newAssistant.showDiff = updates.showDiff;
+		}
+	}
+
+	if (hasKey(updates, 'autoFollow')) {
+		if (updates.autoFollow === undefined) {
+			delete newAssistant.autoFollow;
+		} else {
+			newAssistant.autoFollow = updates.autoFollow;
 		}
 	}
 

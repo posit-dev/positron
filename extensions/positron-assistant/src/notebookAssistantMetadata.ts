@@ -12,13 +12,21 @@ import * as vscode from 'vscode';
 export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 
 /**
+ * Valid values for the autoFollow per-notebook override.
+ * undefined = follow global setting, 'autoFollow' = always auto-follow, 'noAutoFollow' = never auto-follow
+ */
+export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
+
+/**
  * Per-notebook assistant settings stored at metadata.positron.assistant
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
+	autoFollow?: AutoFollowOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
+const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -34,7 +42,13 @@ export function getAssistantSettings(metadata: { [key: string]: unknown } | unde
 		? rawShowDiff as ShowDiffOverride
 		: undefined;
 
-	return { showDiff };
+	// Validate autoFollow value
+	const rawAutoFollow = assistant?.autoFollow;
+	const autoFollow = typeof rawAutoFollow === 'string' && VALID_AUTO_FOLLOW_VALUES.has(rawAutoFollow)
+		? rawAutoFollow as AutoFollowOverride
+		: undefined;
+
+	return { showDiff, autoFollow };
 }
 
 /**
@@ -48,4 +62,17 @@ export function resolveShowDiff(notebook: vscode.NotebookDocument): boolean {
 	}
 
 	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
+}
+
+/**
+ * Resolve autoFollow setting: notebook metadata first, then global config fallback.
+ */
+export function resolveAutoFollow(notebook: vscode.NotebookDocument): boolean {
+	const settings = getAssistantSettings(notebook.metadata);
+
+	if (settings.autoFollow !== undefined) {
+		return settings.autoFollow === 'autoFollow';
+	}
+
+	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('autoFollow', true);
 }

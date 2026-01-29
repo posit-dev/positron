@@ -478,8 +478,22 @@
 
 /* Setting label (left-aligned) */
 .assistant-panel-setting-label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 	color: var(--vscode-foreground);
 	flex-shrink: 0;
+}
+
+/* Info indicator for setting tooltips */
+.assistant-panel-setting-info {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	cursor: help;
+}
+
+.assistant-panel-setting-info:hover {
+	color: var(--vscode-foreground);
 }
 
 /* Controls container (right-aligned) */
@@ -593,31 +607,35 @@
 	grid-column: right / end;
 }
 
-/* Settings link with icon */
+/* Settings button with icon */
 .assistant-panel-settings-link {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	gap: 6px;
-	background: none;
-	border: none;
-	color: var(--vscode-textLink-foreground);
+	background: transparent;
+	border: 1px solid var(--vscode-button-secondaryBackground);
+	border-radius: 4px;
+	color: var(--vscode-foreground);
 	font-size: 12px;
 	cursor: pointer;
-	padding: 4px 0;
-	text-align: left;
+	padding: 5px 10px;
+	margin-top: 4px;
+	transition: background-color 0.1s ease, border-color 0.1s ease;
 }
 
 .assistant-panel-settings-link:hover {
-	color: var(--vscode-textLink-activeForeground);
+	background-color: var(--vscode-button-secondaryHoverBackground);
+	border-color: var(--vscode-button-secondaryHoverBackground);
 }
 
-.assistant-panel-settings-link:hover .assistant-panel-settings-link-text {
-	text-decoration: underline;
+.assistant-panel-settings-link:focus {
+	outline: none;
 }
 
 .assistant-panel-settings-link:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 .assistant-panel-settings-link .codicon {
