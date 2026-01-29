@@ -49,7 +49,7 @@ test.describe('Notebook Assistant Features', {
 	});
 
 	test('Notebook AI features visible when assistant enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess } = app.workbench;
+		const { notebooks, notebooksPositron, assistant } = app.workbench;
 
 		// Enable assistant features (notebook mode requires master switch)
 		await settings.set({
@@ -59,7 +59,7 @@ test.describe('Notebook Assistant Features', {
 		// Configure and enable the echo model provider to set hasChatModels context key
 		// This is required because the Fix/Explain buttons only show when a chat model is available
 		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
+		await assistant.runConfigureProviders();
 		await assistant.selectModelProvider('echo');
 		await assistant.clickSignInButton();
 		await assistant.clickCloseButton();
@@ -90,7 +90,7 @@ test.describe('Notebook Assistant Features', {
 	});
 
 	test('Follow Assistant toggle only visible when both assistant settings enabled', async function ({ app, settings, page }) {
-		const { notebooks, notebooksPositron, assistant, quickaccess, hotKeys } = app.workbench;
+		const { notebooks, notebooksPositron, assistant, hotKeys } = app.workbench;
 
 		// Test 1: Disable assistant - Follow Assistant should not be visible
 		await settings.set({
@@ -114,7 +114,7 @@ test.describe('Notebook Assistant Features', {
 
 		// Configure and enable the echo model provider to set hasChatModels context key
 		await assistant.openPositronAssistantChat();
-		await quickaccess.runCommand('positron-assistant.configureModels');
+		await assistant.runConfigureProviders();
 		await assistant.selectModelProvider('echo');
 		await assistant.clickSignInButton();
 		await assistant.clickCloseButton();

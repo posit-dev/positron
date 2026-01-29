@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,7 +9,7 @@ import { FIX_COMMAND, fixHandler } from './fix.js';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './quarto.js';
 import { EXPLAIN_COMMAND, explainHandler } from './explain.js';
 import { DOC_COMMAND, docHandler } from './doc.js';
-import { log } from '../extension.js';
+import { log } from '../log.js';
 import {
 	PositronAssistantAgentParticipant,
 	PositronAssistantChatContext,

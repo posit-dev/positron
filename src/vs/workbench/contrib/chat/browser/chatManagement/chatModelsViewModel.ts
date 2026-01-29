@@ -257,6 +257,10 @@ export class ChatModelsViewModel extends EditorModel {
 
 	getVendors(): IUserFriendlyLanguageModel[] {
 		return [...this.languageModelsService.getVendors()].sort((a, b) => {
+			// --- Start Positron ---
+			if (a.vendor === 'posit-ai') { return -1; }
+			if (b.vendor === 'posit-ai') { return 1; }
+			// --- End Positron ---
 			if (a.vendor === 'copilot') { return -1; }
 			if (b.vendor === 'copilot') { return 1; }
 			return a.displayName.localeCompare(b.displayName);

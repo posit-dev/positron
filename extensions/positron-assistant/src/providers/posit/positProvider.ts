@@ -7,11 +7,14 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
-import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
+import { deleteConfiguration } from '../../config';
+import { ModelConfig, SecretStorage } from '../../configTypes.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
-import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
+import { log } from '../../log.js';
+import { recordRequestTokenUsage, recordTokenUsage } from '../../tokens.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
 import { ModelProvider } from '../base/modelProvider.js';
+import { PROVIDER_METADATA } from '../../providerMetadata.js';
 
 export const DEFAULT_POSITAI_MODEL_NAME = 'Claude Sonnet 4.5';
 export const DEFAULT_POSITAI_MODEL_MATCH = 'claude-sonnet-4-5';
@@ -41,10 +44,7 @@ export class PositModelProvider extends ModelProvider {
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
-		provider: {
-			id: 'posit-ai',
-			displayName: 'Posit AI'
-		},
+		provider: PROVIDER_METADATA.positAI,
 		supportedOptions: ['oauth'],
 		defaults: {
 			name: DEFAULT_POSITAI_MODEL_NAME,
@@ -417,9 +417,9 @@ export class PositModelProvider extends ModelProvider {
 		}
 
 		// Record token usage
-		if (message.usage && this._context) {
+		if (message.usage) {
 			const tokens = toTokenUsage(message.usage);
-			recordTokenUsage(this._context, this.providerId, tokens);
+			recordTokenUsage(this.providerId, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;

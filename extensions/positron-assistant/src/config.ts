@@ -5,72 +5,17 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { AutoconfigureResult, getModelProviders } from './providers';
+import { getModelProviders } from './providers';
+import { AutoconfigureResult } from './providers/base/modelProviderTypes.js';
 import { completionModels } from './completion';
-import { addAutoconfiguredModel, clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel, removeAutoconfiguredModel } from './extension';
+import { log } from './log.js';
+import { clearTokenUsage } from './tokens';
+import { disposeModels, getAutoconfiguredModels, registerModel, removeAutoconfiguredModel } from './modelRegistration';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositModelProvider } from './providers/posit/positProvider.js';
-import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
-
-export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
-	id: string;
-}
-
-/**
- * Interface for storing and retrieving secrets.
- */
-export interface SecretStorage {
-	store(key: string, value: string): Thenable<void>;
-	get(key: string): Thenable<string | undefined>;
-	delete(key: string): Thenable<void>;
-}
-
-/**
- * Implementation of SecretStorage that uses VS Code's secret storage API.
- *
- * This class should be used in desktop mode to store secrets securely.
- */
-export class EncryptedSecretStorage implements SecretStorage {
-	constructor(private context: vscode.ExtensionContext) { }
-	store(key: string, value: string): Thenable<void> {
-		return this.context.secrets.store(key, value);
-	}
-	get(key: string): Thenable<string | undefined> {
-		return this.context.secrets.get(key);
-	}
-	delete(key: string): Thenable<void> {
-		return this.context.secrets.delete(key);
-	}
-}
-
-/**
- * Implementation of SecretStorage that uses VS Code's global storage API.
- *
- * This class stores secrets **insecurely** using VS Code's global storage API.
- * It is used in web mode, where there is no durable secret storage.
- *
- * This class should be replaced with one that uses a secure storage mechanism,
- * or just removed altogether when Positron gains secure storage capabilities in web mode.
- *
- * https://github.com/rstudio/vscode-server/issues/174
- */
-export class GlobalSecretStorage implements SecretStorage {
-	constructor(private context: vscode.ExtensionContext) { }
-	store(key: string, value: string): Thenable<void> {
-		return this.context.globalState.update(key, value);
-	}
-	get(key: string): Thenable<string | undefined> {
-		return Promise.resolve(this.context.globalState.get(key));
-	}
-	delete(key: string): Thenable<void> {
-		return this.context.globalState.update(key, undefined);
-	}
-}
-
-export interface ModelConfig extends StoredModelConfig {
-	apiKey: string;
-}
+import { PROVIDER_ENABLE_SETTINGS_SEARCH } from './constants.js';
+import { StoredModelConfig, SecretStorage, ModelConfig } from './configTypes.js';
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
@@ -107,52 +52,37 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 	return fullConfigs;
 }
 
-export async function getEnabledProviders(): Promise<string[]> {
-	// Get the configuration option listing enabled providers
-	let enabledProviders: string[] =
-		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
-	const supportedProviders = await positron.ai.getSupportedProviders();
-	enabledProviders.push(...supportedProviders);
+// getProviderTimeoutMs and getMaxConnectionAttempts moved to providerConfig.ts
+// to avoid circular dependencies with provider imports.
 
-	// Ensure an array was specified; coerce other values
-	if (!Array.isArray(enabledProviders)) {
-		if (typeof enabledProviders === 'string') {
-			// Be nice and allow a single string to be used to enable a single provider
-			enabledProviders = [enabledProviders];
-		} else if (enabledProviders) {
-			// Log an error if the value is not a string or array
-			console.log('Invalid value for positron.assistant.enabledProviders, ignoring: ',
-				JSON.stringify(enabledProviders)
-			);
-			enabledProviders = [];
-		} else {
-			enabledProviders = [];
-		}
-	}
-
-	return enabledProviders;
-}
-
-export function getProviderTimeoutMs(): number {
-	const cfg = vscode.workspace.getConfiguration('positron.assistant');
-	const timeoutSec = cfg.get<number>('providerTimeout', 60);
-	return timeoutSec * 1000;
-}
-
-export function getMaxConnectionAttempts(): number {
-	const cfg = vscode.workspace.getConfiguration('positron.assistant');
-	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
-	if (maxAttempts < 1) {
-		log.warn(`Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
-		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
-	}
-	return maxAttempts;
-}
-
-export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function showConfigurationDialog(
+	context: vscode.ExtensionContext,
+	storage: SecretStorage,
+	preselectedProviderId?: string
+) {
 
 	// Gather model sources; ignore disabled providers
-	const enabledProviders = await getEnabledProviders();
+	const enabledProviders = await positron.ai.getEnabledProviders();
+
+	// Check if no providers are enabled
+	if (enabledProviders.length === 0) {
+		const settingsAction = vscode.l10n.t('Open Settings');
+		const docsAction = vscode.l10n.t('View Documentation');
+		const result = await vscode.window.showInformationMessage(
+			vscode.l10n.t('No language model providers are enabled. Enable at least one provider in Settings.'),
+			settingsAction,
+			docsAction
+		);
+
+		if (result === settingsAction) {
+			// Open settings to the provider section
+			await vscode.commands.executeCommand('workbench.action.openSettings', PROVIDER_ENABLE_SETTINGS_SEARCH);
+		} else if (result === docsAction) {
+			// Open Positron documentation about AI providers
+			await vscode.env.openExternal(vscode.Uri.parse('https://positron.posit.co/assistant-getting-started'));
+		}
+		return;
+	}
 	// Models in persistent storage
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	// Auto-configured models (e.g., env var based or managed credentials) stored in memory
@@ -260,7 +190,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 		}
-	});
+	}, { preselectedProviderId });
 
 }
 
@@ -417,15 +347,22 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 }
 
 /**
- * Note: the LanguageModelSource object returned by this function is not the same as the original
- * one that was used to create the configuration.
+ * Reconstructs a LanguageModelSource from a stored model configuration.
+ *
+ * This function is used to recreate the LanguageModelSource object needed by positron.ai.addLanguageModelConfig()
+ * from the minimal StoredModelConfig data that is persisted in globalState.
+ *
+ * Note: The returned LanguageModelSource is NOT the same as the original provider's static source definition.
  */
 export function expandConfigToSource(config: StoredModelConfig): positron.ai.LanguageModelSource {
 	return {
 		...config,
 		provider: {
 			id: config.provider,
-			displayName: config.name
+			displayName: config.name,
+			// Empty string for custom/stored configs since they're not registered via registerProviderMetadata()
+			// and don't have provider-level enable settings. This value is never accessed by addLanguageModelConfig().
+			settingName: ''
 		},
 		supportedOptions: [],
 		defaults: {
@@ -454,7 +391,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 
 	disposeModels(id);
 
-	clearTokenUsage(context, targetConfig.provider);
+	clearTokenUsage(targetConfig.provider);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 

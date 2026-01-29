@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,12 +7,12 @@
 import './languageModelModalDialog.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
@@ -28,12 +28,14 @@ export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
+	options?: IShowLanguageModelConfigOptions,
 ) => {
 	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<div className='language-model-modal-dialog'>
 			<LanguageModelConfiguration
+				preselectedProviderId={options?.preselectedProviderId}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
@@ -58,6 +60,7 @@ interface LanguageModelConfigurationProps {
 	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onClose: () => void;
+	preselectedProviderId?: string;
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
@@ -75,8 +78,17 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		});
 
-	// Default to the first provider in the list.
-	const defaultProvider = providers[0];
+	// Determine default provider based on preselection
+	const defaultProvider = (() => {
+		if (props.preselectedProviderId) {
+			const preselected = providers.find(p => p.provider.id === props.preselectedProviderId);
+			if (preselected) {
+				return preselected;
+			}
+		}
+		// Fallback to first provider (assumes providers array is non-empty)
+		return providers[0];
+	})();
 
 	// The currently selected language model provider. The UI preselects this initial provider.
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
@@ -88,6 +100,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [showProgress, setShowProgress] = useState(false);
 	const [progressValue, setProgressValue] = useState(0);
 	const [errorMessage, setErrorMessage] = useState<string>();
+
+	// Ref for preselected provider button to support scrolling into view
+	const preselectedButtonRef = useRef<HTMLDivElement>(null);
+
+	// Scroll the preselected provider into view on mount
+	useEffect(() => {
+		preselectedButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+	}, []); // Only run on mount
 
 	// List of provider sources, which is updated when the service emits a change to a language model config.
 	// Each provider source contains the info needed to populate the modal UI with provider details, such as
@@ -358,6 +378,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					providerSources.map(source => {
 						return <LanguageModelButton
 							key={source.provider.id}
+							ref={source.provider.id === props.preselectedProviderId ? preselectedButtonRef : null}
 							disabled={showProgress}
 							displayName={source.provider.displayName}
 							identifier={source.provider.id}
