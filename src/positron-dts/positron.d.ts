@@ -1652,7 +1652,25 @@ declare module 'positron' {
 
 		/**
 		 * Generates the connection code based on the inputs.
-		 * Returns a string for valid code, or an object with code and errorMessage if validation fails.
+		 *
+		 * @param inputs The current values of the connection inputs defined in metadata.
+		 * @returns Either a string containing valid connection code, or an object with:
+		 *   - `code`: The generated connection code. Should still be generated even when
+		 *     validation fails, so users can see and copy the partial code.
+		 *   - `errorMessage`: A user-facing message explaining the validation error,
+		 *     displayed in an error banner overlay on the code editor. The Connect
+		 *     button is disabled when an error message is present.
+		 *
+		 * @example
+		 * // Return valid code as a string
+		 * generateCode: (inputs) => `library(DBI)\ncon <- dbConnect(...)`
+		 *
+		 * @example
+		 * // Return validation error with generated code
+		 * generateCode: (inputs) => ({
+		 *   code: `library(bigrquery)\ncon <- dbConnect(...)`,
+		 *   errorMessage: 'Project ID is required'
+		 * })
 		 */
 		generateCode?: (inputs: Array<ConnectionsInput>) => string | { code: string; errorMessage: string };
 
