@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,10 +15,16 @@ import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/ac
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { IHoverManager } from '../../../../../../platform/hover/browser/hoverManager.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 interface NotebookCellMoreActionsMenuProps {
+	cell: IPositronNotebookCell;
 	hoverManager?: IHoverManager;
+	instance: IPositronNotebookInstance;
+	isMenuOpen: boolean;
 	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
+	setIsMenuOpen: (isOpen: boolean) => void;
 }
 
 const moreCellActions = localize('moreCellActions', 'More Cell Actions');
@@ -28,11 +34,15 @@ const moreCellActions = localize('moreCellActions', 'More Cell Actions');
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
+	cell,
 	hoverManager,
+	instance,
+	isMenuOpen,
 	menuActions,
+	setIsMenuOpen,
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
-	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
 	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {
@@ -40,7 +50,7 @@ export function NotebookCellMoreActionsMenu({
 		}
 
 		try {
-			const entries = buildMoreActionsMenuItems(menuActions);
+			const entries = buildMoreActionsMenuItems(cell, menuActions, instance);
 
 			setIsMenuOpen(true);
 
