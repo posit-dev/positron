@@ -156,6 +156,12 @@ export interface BackendState {
 	 */
 	error_message?: string;
 
+	/**
+	 * Optional formatting options provided by the backend for displaying data
+	 * values
+	 */
+	format_options?: FormatOptions;
+
 }
 
 /**
