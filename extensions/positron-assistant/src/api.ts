@@ -162,6 +162,7 @@ export function getEnabledTools(
 	positronParticipantId?: string): Array<string> {
 
 	const enabledTools: Array<string> = [];
+	const disabledTools: Array<{ name: string; reason: string }> = [];
 
 	// See IChatRuntimeSessionContext for the structure of the active
 	// session context objects
@@ -204,27 +205,32 @@ export function getEnabledTools(
 		// Check if the user has explicitly disabled this tool via the Configure Tools picker,
 		// which is only available in Agent mode.
 		if (isAgentMode && request.tools?.get(tool.name) === false) {
+			disabledTools.push({ name: tool.name, reason: 'Was disabled via Configure Tools picker' });
 			continue;
 		}
 
 		// Don't allow any tools in the terminal.
 		if (positronParticipantId === ParticipantID.Terminal) {
+			disabledTools.push({ name: tool.name, reason: 'Is not allowed in terminal' });
 			continue;
 		}
 
 		// If streaming edits are enabled, don't allow any tools in inline editor chats.
 		if (isStreamingInlineEditor) {
+			disabledTools.push({ name: tool.name, reason: 'Is not allowed in inline editor with streaming edits' });
 			continue;
 		}
 
 		// If the tool requires a workspace, but no workspace is open, don't allow the tool.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
+			disabledTools.push({ name: tool.name, reason: 'Requires workspace but none is open' });
 			continue;
 		}
 
 		// If the tool requires an active session, but no active session
 		// is available, don't allow the tool.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIVE_SESSION) && activeSessions.size === 0) {
+			disabledTools.push({ name: tool.name, reason: 'Requires active session but none available' });
 			continue;
 		}
 
@@ -234,6 +240,7 @@ export function getEnabledTools(
 		for (const tag of tool.tags) {
 			if (tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':') &&
 				!activeSessions.has(tag.split(':')[1])) {
+				disabledTools.push({ name: tool.name, reason: `Requires active ${tag.split(':')[1]} session` });
 				continue;
 			}
 		}
@@ -241,17 +248,20 @@ export function getEnabledTools(
 		// If the tool requires a notebook, but no notebook is attached with active editor,
 		// skip it early. Specific notebook tools have additional mode-based checks below.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
+			disabledTools.push({ name: tool.name, reason: 'Requires notebook but none attached or not in chat pane' });
 			continue;
 		}
 
 		// If the tool requires actions, skip it in Ask mode.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIONS) && isAskMode) {
+			disabledTools.push({ name: tool.name, reason: 'Is not available in Ask mode' });
 			continue;
 		}
 
 		// If the tool is designed for Positron Assistant but we don't have a
 		// Positron assistant ID, skip it.
 		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
+			disabledTools.push({ name: tool.name, reason: 'Requires a Positron participant' });
 			continue;
 		}
 
@@ -267,6 +277,7 @@ export function getEnabledTools(
 				// when in agent mode; it does not currently support
 				// notebook mode.
 				if (!(inChatPane && hasConsoleSessions && isAgentMode)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, console sessions, and agent mode' });
 					continue;
 				}
 				break;
@@ -278,6 +289,7 @@ export function getEnabledTools(
 			case PositronAssistantToolName.RunNotebookCells:
 				// Execution requires Agent mode
 				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, active notebook, and agent mode' });
 					continue;
 				}
 				break;
@@ -286,6 +298,7 @@ export function getEnabledTools(
 				// Available when notebook mode is enabled (not just when notebook is active)
 				// so it can be used immediately after CreateNotebook in the same turn
 				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, notebook mode, and edit/agent mode' });
 					continue;
 				}
 				break;
@@ -293,6 +306,7 @@ export function getEnabledTools(
 				// Read-only tools available in all modes when notebook mode is enabled
 				// Available without active notebook so it can be used after CreateNotebook
 				if (!(inChatPane && isNotebookModeEnabled())) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane and notebook mode' });
 					continue;
 				}
 				break;
@@ -300,6 +314,7 @@ export function getEnabledTools(
 				// CreateNotebook requires notebook mode enabled but NOT an active notebook
 				// Only available in Edit or Agent mode (creates something)
 				if (!(inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane, notebook mode, and edit/agent mode' });
 					continue;
 				}
 				break;
@@ -307,6 +322,7 @@ export function getEnabledTools(
 			// no selection.
 			case PositronAssistantToolName.DocumentEdit:
 				if (!(inEditor && !hasSelection)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires editor context without selection' });
 					continue;
 				}
 				break;
@@ -314,30 +330,35 @@ export function getEnabledTools(
 			// a selection.
 			case PositronAssistantToolName.SelectionEdit:
 				if (!(inEditor && hasSelection)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires editor context with selection' });
 					continue;
 				}
 				break;
 			// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 			case PositronAssistantToolName.EditFile:
 				if (!(isEditMode || isAgentMode)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires edit or agent mode' });
 					continue;
 				}
 				break;
 			// Only include the documentCreate tool in the chat pane in edit or agent mode.
 			case PositronAssistantToolName.DocumentCreate:
 				if (!inChatPane || !(isEditMode || isAgentMode)) {
+					disabledTools.push({ name: tool.name, reason: 'Requires chat pane and edit/agent mode' });
 					continue;
 				}
 				break;
 			// Only include the getTableSummary tool when there are variables available
 			case PositronAssistantToolName.GetTableSummary:
 				if (!hasVariables) {
+					disabledTools.push({ name: tool.name, reason: 'Requires variables in session' });
 					continue;
 				}
 				break;
 			// Only include the inspectVariables tool if there are variables defined.
 			case PositronAssistantToolName.InspectVariables:
 				if (!hasVariables) {
+					disabledTools.push({ name: tool.name, reason: 'Requires variables in session' });
 					continue;
 				}
 				break;
@@ -346,6 +367,7 @@ export function getEnabledTools(
 			// Positron participants.
 			case 'vscode_editFile_internal':
 				if (positronParticipantId) {
+					disabledTools.push({ name: tool.name, reason: 'Is superseded by Positron file editing tools' });
 					continue;
 				}
 				break;
@@ -366,6 +388,7 @@ export function getEnabledTools(
 			if (hasActiveNotebook ||
 				(tool.name === 'copilot_createNewJupyterNotebook' &&
 					inChatPane && isNotebookModeEnabled() && (isEditMode || isAgentMode))) {
+				disabledTools.push({ name: tool.name, reason: 'Is superseded by Positron notebook tools' });
 				continue;
 			}
 		}
@@ -391,6 +414,7 @@ export function getEnabledTools(
 
 			// Adapted from extensions/positron-copilot-chat/src/extension/intents/node/askAgentIntent.ts:35
 			// Possibly revisit this logic in the future as Copilot evolves.
+			disabledTools.push({ name: tool.name, reason: 'Is not available in Ask mode' });
 			continue;
 		}
 
@@ -402,7 +426,20 @@ export function getEnabledTools(
 		// If we've decided to enable the tool, add it to the list.
 		if (enableTool) {
 			enabledTools.push(tool.name);
+		} else {
+			// Track why this tool was not enabled
+			if (copilotTool) {
+				disabledTools.push({ name: tool.name, reason: 'Requires Copilot model or opt-in' });
+			} else {
+				disabledTools.push({ name: tool.name, reason: 'Requires agent mode or positron-assistant tag' });
+			}
 		}
+	}
+
+	// Log disabled tools at trace level for debugging
+	if (disabledTools.length > 0) {
+		const disabledList = disabledTools.map((t, i) => `  ${i + 1}. ${t.name}: ${t.reason}`).join('\n');
+		log.trace(`[tools] ${disabledTools.length} Disabled tools for participant ${positronParticipantId}:\n${disabledList}`);
 	}
 
 	return enabledTools;
