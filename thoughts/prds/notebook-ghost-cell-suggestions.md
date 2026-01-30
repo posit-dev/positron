@@ -363,3 +363,20 @@ The kernel language is included in context, and the LLM can adapt suggestions ac
 - Loading state respects `prefers-reduced-motion` (static indicator instead of spinner)
 - High contrast mode compatible
 - Uses existing Positron theme variables for colors
+
+
+## Known Rough Edges / TODOs
+
+1. **Streaming not fully wired**: The `streaming` state exists but the progress callback from extension to workbench isn't fully connected - suggestions appear all at once after completion rather than streaming in
+
+2. **No execution success check**: Currently triggers on any cell execution completion - should check if execution was successful (no errors) before triggering
+
+3. **Accept+Run not exposed in UI**: `acceptGhostCellSuggestion(true)` exists but Shift+click hint isn't shown to users
+
+4. **Shift+Dismiss to disable**: The code comment mentions Shift+click to disable for notebook but it's not implemented in the click handler
+
+5. **Ghost cell positioning**: Currently renders at the very end of notebook - might need to render after the specific executed cell instead
+
+6. **Error state styling**: Error state auto-dismisses after 5 seconds but could use better visual treatment
+
+7. **No tests**: Unit tests and E2E tests mentioned in plan but not implemented

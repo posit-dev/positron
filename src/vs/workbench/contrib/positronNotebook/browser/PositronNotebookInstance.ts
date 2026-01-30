@@ -2332,8 +2332,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Hide ghost cell first
 		this._ghostCellState.set({ status: 'hidden' }, undefined);
 
-		// Insert the cell after the executed cell
-		const insertIndex = state.executedCellIndex + 1;
+		// Insert the cell at the end of the notebook (where the ghost cell is displayed)
+		const insertIndex = this.cells.get().length;
 		this.addCell(PositronCellKind.Code, insertIndex, false, state.code);
 
 		// Optionally execute the new cell
