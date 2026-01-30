@@ -7,7 +7,7 @@
 import './NotebookCellQuickFix.css';
 
 // React.
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -53,29 +53,25 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	 * Builds a query string for asking the assistant to fix the erroring cell.
 	 * The assistant already has notebook context including the selected cell,
 	 * so we only need to include the error output.
-	 *
-	 * @returns The formatted fix query string
 	 */
-	const buildFixQuery = (): string => {
+	const buildFixQuery = useCallback((): string => {
 		const cleanError = removeAnsiEscapeCodes(props.errorContent).trim();
 		return cleanError
 			? `Fix this cell that produced an error:\n\`\`\`\n${cleanError}\n\`\`\``
 			: 'Fix this cell that produced an error.';
-	};
+	}, [props.errorContent]);
 
 	/**
 	 * Builds a query string for asking the assistant to explain the error.
 	 * The assistant already has notebook context including the selected cell,
 	 * so we only need to include the error output.
-	 *
-	 * @returns The formatted explain query string
 	 */
-	const buildExplainQuery = (): string => {
+	const buildExplainQuery = useCallback((): string => {
 		const cleanError = removeAnsiEscapeCodes(props.errorContent).trim();
 		return cleanError
 			? `Explain why this cell produced an error:\n\`\`\`\n${cleanError}\n\`\`\``
 			: 'Explain why this cell produced an error.';
-	};
+	}, [props.errorContent]);
 
 	/**
 	 * Handler for the "Fix" button primary click.
@@ -118,7 +114,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				});
 			}
 		}
-	], [commandService, props.errorContent]);
+	], [commandService, buildFixQuery]);
 
 	// Memoize dropdown actions for Explain button
 	const explainDropdownActions = useMemo((): IAction[] => [
@@ -135,7 +131,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				});
 			}
 		}
-	], [commandService, props.errorContent]);
+	], [commandService, buildExplainQuery]);
 
 	// Don't render if assistant features are not enabled
 	if (!showQuickFix) {
