@@ -493,4 +493,10 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Regenerate the ghost cell suggestion with a new request.
 	 */
 	regenerateGhostCellSuggestion(): void;
+
+	/**
+	 * Disable ghost cell suggestions globally.
+	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
+	 */
+	disableGhostCellSuggestions(): void;
 }
