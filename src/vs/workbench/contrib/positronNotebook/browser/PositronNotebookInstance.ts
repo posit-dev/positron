@@ -17,18 +17,19 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
-import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
+import { INotebookExecutionStateService, NotebookExecutionType } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
-import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { CellKind as PositronCellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
-import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
-import { getAssistantSettings } from '../common/notebookAssistantMetadata.js';
+import { GhostCellState, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
+import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
@@ -277,6 +278,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private readonly _deletionSentinels = observableValue<IDeletionSentinel[]>('deletionSentinels', []);
 	readonly deletionSentinels = this._deletionSentinels;
+
+	/**
+	 * Observable state for ghost cell suggestions.
+	 */
+	private readonly _ghostCellState = observableValue<GhostCellState>('ghostCellState', { status: 'hidden' });
+	readonly ghostCellState = this._ghostCellState;
+
+	/**
+	 * Timer for debouncing ghost cell suggestion requests.
+	 */
+	private _ghostCellDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/**
+	 * Cancellation token source for in-flight ghost cell requests.
+	 */
+	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -583,6 +600,34 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
 			this._syncCells();
+		}));
+
+		// Listen for cell execution completion to trigger ghost cell suggestions
+		this._register(this.notebookExecutionStateService.onDidChangeExecution((event) => {
+			// Only handle cell execution events for this notebook
+			if (event.type !== NotebookExecutionType.cell || !event.affectsNotebook(this.uri)) {
+				return;
+			}
+
+			// Type narrowing for cell execution events
+			const cellEvent = event;
+			if (cellEvent.type !== NotebookExecutionType.cell) {
+				return;
+			}
+
+			// When execution completes (changed is undefined), trigger ghost cell suggestion
+			if (cellEvent.changed === undefined) {
+				// Find the cell index by handle
+				const cells = this.cells.get();
+				const cellIndex = cells.findIndex(c => c.handle === cellEvent.cellHandle);
+				if (cellIndex !== -1) {
+					const cell = cells[cellIndex];
+					// Only trigger for code cells
+					if (cell.isCodeCell()) {
+						this._scheduleGhostCellSuggestion(cellIndex);
+					}
+				}
+			}
 		}));
 
 		this._register(autorunDelta(this.cells, ({ lastValue: oldCells, newValue: newCells }) => {
@@ -2151,6 +2196,210 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	removeDeletionSentinel(id: string): void {
 		const current = this._deletionSentinels.get();
 		this._deletionSentinels.set(current.filter(s => s.id !== id), undefined);
+	}
+
+	// #endregion
+
+	// =============================================================================================
+	// #region Ghost Cell Suggestions
+
+	/**
+	 * Check if ghost cell suggestions are enabled for this notebook.
+	 */
+	private _isGhostCellEnabled(): boolean {
+		// Check per-notebook override first
+		const settings = getAssistantSettings(this._textModel.get()?.metadata);
+		if (settings.ghostCellSuggestions !== undefined) {
+			return settings.ghostCellSuggestions === 'enabled';
+		}
+
+		// Fall back to global setting
+		return this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? true;
+	}
+
+	/**
+	 * Schedule a ghost cell suggestion with debounce.
+	 * @param cellIndex The index of the cell that was just executed
+	 */
+	private _scheduleGhostCellSuggestion(cellIndex: number): void {
+		// Cancel any pending debounce timer
+		if (this._ghostCellDebounceTimer) {
+			clearTimeout(this._ghostCellDebounceTimer);
+			this._ghostCellDebounceTimer = undefined;
+		}
+
+		// Cancel any in-flight request
+		if (this._ghostCellCancellationToken) {
+			this._ghostCellCancellationToken.cancel();
+			this._ghostCellCancellationToken.dispose();
+			this._ghostCellCancellationToken = undefined;
+		}
+
+		// Check if enabled
+		if (!this._isGhostCellEnabled()) {
+			this._ghostCellState.set({ status: 'hidden' }, undefined);
+			return;
+		}
+
+		// Set up debounce (3 seconds)
+		this._ghostCellDebounceTimer = setTimeout(() => {
+			this._ghostCellDebounceTimer = undefined;
+			this.triggerGhostCellSuggestion(cellIndex);
+		}, 3000);
+	}
+
+	/**
+	 * Trigger generation of a ghost cell suggestion.
+	 * @param executedCellIndex The index of the cell that was just executed
+	 */
+	triggerGhostCellSuggestion(executedCellIndex: number): void {
+		// Cancel any existing request
+		if (this._ghostCellCancellationToken) {
+			this._ghostCellCancellationToken.cancel();
+			this._ghostCellCancellationToken.dispose();
+		}
+
+		// Check if enabled
+		if (!this._isGhostCellEnabled()) {
+			this._ghostCellState.set({ status: 'hidden' }, undefined);
+			return;
+		}
+
+		// Set loading state
+		this._ghostCellState.set({ status: 'loading', executedCellIndex }, undefined);
+
+		// Create new cancellation token
+		this._ghostCellCancellationToken = new CancellationTokenSource();
+		const token = this._ghostCellCancellationToken.token;
+
+		// Execute the command to generate suggestion
+		this._commandService.executeCommand(
+			'positron-assistant.generateGhostCellSuggestion',
+			this.uri.toString(),
+			executedCellIndex,
+			undefined, // Progress callback command - we'll handle streaming via onProgress parameter
+			token
+		).then((result: unknown) => {
+			if (token.isCancellationRequested) {
+				return;
+			}
+
+			if (result && typeof result === 'object' && 'code' in result) {
+				const suggestion = result as { code: string; explanation: string; language: string };
+				this._ghostCellState.set({
+					status: 'ready',
+					executedCellIndex,
+					code: suggestion.code,
+					explanation: suggestion.explanation,
+					language: suggestion.language
+				}, undefined);
+			} else {
+				// No suggestion generated, hide ghost cell
+				this._ghostCellState.set({ status: 'hidden' }, undefined);
+			}
+		}).catch((error: unknown) => {
+			if (token.isCancellationRequested) {
+				return;
+			}
+
+			this._logService.error(this._id, 'Ghost cell suggestion failed:', error);
+			this._ghostCellState.set({
+				status: 'error',
+				executedCellIndex,
+				message: error instanceof Error ? error.message : String(error)
+			}, undefined);
+
+			// Auto-dismiss error after 5 seconds
+			setTimeout(() => {
+				const currentState = this._ghostCellState.get();
+				if (currentState.status === 'error') {
+					this._ghostCellState.set({ status: 'hidden' }, undefined);
+				}
+			}, 5000);
+		});
+	}
+
+	/**
+	 * Accept the current ghost cell suggestion by inserting it as a new cell.
+	 * @param execute If true, also executes the newly inserted cell
+	 */
+	acceptGhostCellSuggestion(execute?: boolean): void {
+		const state = this._ghostCellState.get();
+		if (state.status !== 'ready') {
+			return;
+		}
+
+		// Hide ghost cell first
+		this._ghostCellState.set({ status: 'hidden' }, undefined);
+
+		// Insert the cell after the executed cell
+		const insertIndex = state.executedCellIndex + 1;
+		this.addCell(PositronCellKind.Code, insertIndex, false, state.code);
+
+		// Optionally execute the new cell
+		if (execute) {
+			const cells = this.cells.get();
+			const newCell = cells[insertIndex];
+			if (newCell) {
+				this.runCells([newCell]);
+			}
+		}
+	}
+
+	/**
+	 * Dismiss the current ghost cell suggestion.
+	 * @param disableForNotebook If true, also disables ghost cell suggestions for this notebook
+	 */
+	dismissGhostCell(disableForNotebook?: boolean): void {
+		// Cancel any pending request
+		if (this._ghostCellDebounceTimer) {
+			clearTimeout(this._ghostCellDebounceTimer);
+			this._ghostCellDebounceTimer = undefined;
+		}
+
+		if (this._ghostCellCancellationToken) {
+			this._ghostCellCancellationToken.cancel();
+			this._ghostCellCancellationToken.dispose();
+			this._ghostCellCancellationToken = undefined;
+		}
+
+		// Hide ghost cell
+		this._ghostCellState.set({ status: 'hidden' }, undefined);
+
+		// Optionally disable for this notebook
+		if (disableForNotebook) {
+			const textModel = this._textModel.get();
+			if (textModel) {
+				const newMetadata = setAssistantSettings({ ...textModel.metadata }, { ghostCellSuggestions: 'disabled' });
+				textModel.applyEdits([{
+					editType: CellEditType.DocumentMetadata,
+					metadata: newMetadata
+				}], true, undefined, () => undefined, undefined, true);
+			}
+		}
+	}
+
+	/**
+	 * Regenerate the ghost cell suggestion with a new request.
+	 */
+	regenerateGhostCellSuggestion(): void {
+		const state = this._ghostCellState.get();
+
+		// Get the executed cell index from current state
+		let cellIndex: number;
+		if (state.status === 'hidden') {
+			// Use the last cell as a fallback
+			const cells = this.cells.get();
+			cellIndex = cells.length - 1;
+			if (cellIndex < 0) {
+				return;
+			}
+		} else {
+			cellIndex = state.executedCellIndex;
+		}
+
+		// Trigger a new suggestion
+		this.triggerGhostCellSuggestion(cellIndex);
 	}
 
 	// #endregion

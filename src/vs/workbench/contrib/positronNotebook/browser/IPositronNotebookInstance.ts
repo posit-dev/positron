@@ -19,6 +19,16 @@ import { IPositronNotebookContribution } from './positronNotebookExtensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
+ * Represents the state of a ghost cell suggestion.
+ */
+export type GhostCellState =
+	| { status: 'hidden' }
+	| { status: 'loading'; executedCellIndex: number }
+	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string }
+	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string }
+	| { status: 'error'; executedCellIndex: number; message: string };
+
+/**
  * Represents a deletion sentinel - a temporary placeholder shown where cells were deleted.
  * Sentinels display a red fade animation and provide a restore button.
  */
@@ -452,4 +462,35 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Grabs focus for this notebook based on the current selection state.
 	 */
 	grabFocus(): void;
+
+	// ===== Ghost Cell Suggestions =====
+
+	/**
+	 * Observable state of the ghost cell suggestion.
+	 * The ghost cell appears after successful cell execution with AI-generated suggestions.
+	 */
+	readonly ghostCellState: IObservable<GhostCellState>;
+
+	/**
+	 * Trigger generation of a ghost cell suggestion after cell execution.
+	 * @param executedCellIndex The index of the cell that was just executed
+	 */
+	triggerGhostCellSuggestion(executedCellIndex: number): void;
+
+	/**
+	 * Accept the current ghost cell suggestion by inserting it as a new cell.
+	 * @param execute If true, also executes the newly inserted cell
+	 */
+	acceptGhostCellSuggestion(execute?: boolean): void;
+
+	/**
+	 * Dismiss the current ghost cell suggestion.
+	 * @param disableForNotebook If true, also disables ghost cell suggestions for this notebook
+	 */
+	dismissGhostCell(disableForNotebook?: boolean): void;
+
+	/**
+	 * Regenerate the ghost cell suggestion with a new request.
+	 */
+	regenerateGhostCellSuggestion(): void;
 }

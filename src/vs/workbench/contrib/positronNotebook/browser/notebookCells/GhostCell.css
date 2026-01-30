@@ -1,0 +1,240 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.ghost-cell {
+	position: relative;
+	margin-left: 19px; /* 12px base + 7px to align with cell content area (no selection bar) */
+	/* Match spacing that AddCellButtons provides between live cells */
+	margin-bottom: calc(
+		var(--_positron-notebook-add-cell-buttons-height) +
+			var(--_positron-notebook-cell-gap)
+	);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	animation: ghost-cell-fade-in 0.3s ease-out;
+}
+
+/* Main cell container with dashed border */
+.ghost-cell-container {
+	background: var(--vscode-notebook-cellEditorBackground, var(--vscode-editor-background));
+	border: 2px dashed var(--vscode-panel-border, var(--vscode-widget-border));
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	opacity: 0.7;
+	overflow: hidden;
+	transition: opacity 200ms ease-in-out, border-color 200ms ease-in-out;
+}
+
+.ghost-cell-container:hover,
+.ghost-cell-container:focus-within {
+	opacity: 0.9;
+	border-color: var(--vscode-focusBorder);
+}
+
+/* Header section with explanation and actions */
+.ghost-cell-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 12px;
+	background: var(--vscode-notifications-background);
+	border-bottom: 1px solid var(--vscode-widget-border);
+	gap: 12px;
+}
+
+.ghost-cell-header-content {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	min-width: 0; /* Allow shrinking */
+}
+
+.ghost-cell-icon {
+	font-size: 14px;
+	color: var(--vscode-symbolIcon-variableForeground);
+	flex-shrink: 0;
+}
+
+.ghost-cell-explanation {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ghost-cell-actions {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.ghost-cell-accept,
+.ghost-cell-dismiss {
+	min-width: 50px;
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
+.ghost-cell-accept {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.ghost-cell-accept:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ghost-cell-dismiss {
+	background: transparent;
+	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 4px;
+	cursor: pointer;
+	opacity: 0.8;
+}
+
+.ghost-cell-dismiss:hover {
+	opacity: 1;
+	border-color: var(--vscode-focusBorder);
+}
+
+.ghost-cell-regenerate {
+	background: transparent;
+	border: none;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	padding: 3px;
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	border-radius: calc(var(--vscode-positronNotebook-cell-radius) - 1px);
+	opacity: 0.8;
+	transition: opacity 200ms ease-in-out, background 200ms ease-in-out;
+}
+
+.ghost-cell-regenerate:hover,
+.ghost-cell-regenerate:focus {
+	opacity: 1;
+	background: var(--vscode-positronActionBar-hoverBackground);
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Code preview section */
+.ghost-cell-code-preview {
+	padding: 8px 16px;
+	min-height: 2em;
+	max-height: 12em; /* Allow more lines than deletion sentinel */
+	overflow: auto;
+	font-family: var(
+		--vscode-positronNotebook-text-output-font-family,
+		var(--monaco-monospace-font)
+	);
+	font-size: var(--vscode-positronNotebook-text-output-font-size);
+}
+
+.ghost-cell-code-text {
+	margin: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	color: var(--vscode-foreground);
+	opacity: 0.85;
+}
+
+/* Loading state */
+.ghost-cell-loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-loading-spinner {
+	font-size: 14px;
+	color: var(--vscode-progressBar-background);
+}
+
+.ghost-cell-loading-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	opacity: 0.7;
+}
+
+/* Streaming state - show partial code */
+.ghost-cell-streaming .ghost-cell-code-preview {
+	opacity: 0.6;
+}
+
+.ghost-cell-streaming .ghost-cell-code-text::after {
+	content: '|';
+	animation: cursor-blink 1s step-end infinite;
+	color: var(--vscode-editorCursor-foreground);
+}
+
+@keyframes cursor-blink {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0; }
+}
+
+/* Error state */
+.ghost-cell-error {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-error-icon {
+	font-size: 14px;
+	color: var(--vscode-errorForeground);
+}
+
+.ghost-cell-error-text {
+	color: var(--vscode-errorForeground);
+	font-size: 12px;
+	opacity: 0.9;
+}
+
+/* Animations */
+@keyframes ghost-cell-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* High contrast theme support */
+.hc-black .ghost-cell-container,
+.hc-light .ghost-cell-container {
+	border: 2px dashed var(--vscode-contrastBorder, var(--vscode-widget-border));
+	opacity: 0.9;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.ghost-cell {
+		animation: none;
+	}
+
+	.ghost-cell-streaming .ghost-cell-code-text::after {
+		animation: none;
+		opacity: 1;
+	}
+
+	.ghost-cell-loading-spinner {
+		animation: none !important;
+	}
+}

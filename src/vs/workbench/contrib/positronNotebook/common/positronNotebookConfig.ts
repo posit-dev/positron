@@ -26,6 +26,9 @@ export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant
 // Configuration key for showing diff view for assistant edits
 export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
 
+// Configuration key for enabling ghost cell suggestions after cell execution
+export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.notebook.ghostCellSuggestions';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -81,6 +84,15 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.showDiff',
 				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions',
+				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
