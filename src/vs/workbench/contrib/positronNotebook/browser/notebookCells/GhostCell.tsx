@@ -10,6 +10,7 @@ import './GhostCell.css';
 import React from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { localize } from '../../../../../nls.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -17,6 +18,8 @@ import { SplitButton } from '../utilityComponents/SplitButton.js';
 import { GhostCellState } from '../IPositronNotebookInstance.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 import { IAction } from '../../../../../base/common/actions.js';
 
 // Localized strings.
@@ -31,6 +34,7 @@ const regenerateLabel = localize('ghostCell.regenerate', 'Regenerate');
 const defaultExplanation = localize('ghostCell.defaultExplanation', 'Suggested next step');
 const suggestionAvailableAnnouncement = localize('ghostCell.suggestionAvailable', 'AI suggestion available. Use Accept to insert the suggested code.');
 const loadingAnnouncement = localize('ghostCell.loadingAnnouncement', 'Generating AI suggestion for next cell...');
+const infoButtonLabel = localize('ghostCell.infoButton', 'About ghost cell suggestions');
 
 /**
  * GhostCellLoading component - displays loading state with spinner
@@ -62,6 +66,7 @@ interface GhostCellContentProps {
 	onAcceptAndRun: () => void;
 	onDismiss: () => void;
 	onRegenerate: () => void;
+	onShowInfo: () => void;
 	acceptActions: IAction[];
 	dismissActions: IAction[];
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
@@ -77,6 +82,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	onAcceptAndRun,
 	onDismiss,
 	onRegenerate,
+	onShowInfo,
 	acceptActions,
 	dismissActions,
 	contextMenuService
@@ -86,6 +92,12 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 			<div className='ghost-cell-header'>
 				<div className='ghost-cell-header-content'>
 					<span className='ghost-cell-icon codicon codicon-sparkle' />
+					<button
+						aria-label={infoButtonLabel}
+						className='ghost-cell-info-button codicon codicon-info'
+						title={infoButtonLabel}
+						onClick={onShowInfo}
+					/>
 					<span className='ghost-cell-explanation'>
 						{explanation || defaultExplanation}
 					</span>
@@ -134,6 +146,7 @@ function renderGhostCellState(
 	onAcceptAndRun: () => void,
 	onDismiss: () => void,
 	onRegenerate: () => void,
+	onShowInfo: () => void,
 	acceptActions: IAction[],
 	dismissActions: IAction[],
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService']
@@ -157,6 +170,7 @@ function renderGhostCellState(
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
+					onShowInfo={onShowInfo}
 				/>
 			);
 
@@ -172,6 +186,7 @@ function renderGhostCellState(
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
+					onShowInfo={onShowInfo}
 				/>
 			);
 
@@ -201,9 +216,10 @@ function getAnnouncement(state: GhostCellState): string {
 export const GhostCell: React.FC = () => {
 	const instance = useNotebookInstance();
 	const services = usePositronReactServicesContext();
-	const { contextMenuService } = services;
+	const { contextMenuService, workbenchLayoutService } = services;
 	const ghostCellState = useObservedValue(instance.ghostCellState);
 	const [announcement, setAnnouncement] = React.useState('');
+	const containerRef = React.useRef<HTMLDivElement>(null);
 
 	// Track state changes to update announcements
 	const prevStatusRef = React.useRef(ghostCellState.status);
@@ -237,6 +253,13 @@ export const GhostCell: React.FC = () => {
 	const handleRegenerate = React.useCallback(() => {
 		instance.regenerateGhostCellSuggestion();
 	}, [instance]);
+
+	const handleShowInfo = React.useCallback(() => {
+		const renderer = new PositronModalReactRenderer({
+			container: workbenchLayoutService.getContainer(DOM.getWindow(containerRef.current))
+		});
+		renderer.render(<GhostCellInfoModalDialog renderer={renderer} />);
+	}, [workbenchLayoutService]);
 
 	// Memoize actions for the split buttons
 	// Dropdown shows alternatives to the primary action (Accept and Run)
@@ -282,6 +305,7 @@ export const GhostCell: React.FC = () => {
 
 	return (
 		<div
+			ref={containerRef}
 			aria-label={localize('ghostCell.ariaLabel', 'AI suggestion for next cell')}
 			className={containerClass}
 		>
@@ -291,6 +315,7 @@ export const GhostCell: React.FC = () => {
 					handleAcceptAndRun,
 					handleDismiss,
 					handleRegenerate,
+					handleShowInfo,
 					acceptActions,
 					dismissActions,
 					contextMenuService
