@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,12 +10,17 @@ import './activityPrompt.css';
 import React, { KeyboardEvent, useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { ConsoleOutputLines } from './consoleOutputLines.js';
+import { Emitter } from '../../../../../base/common/event.js';
+import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
+import { EditOperation } from '../../../../../editor/common/core/editOperation.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
 import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
 
 // ActivityPromptProps interface.
@@ -34,162 +39,239 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
-	const inputRef = useRef<HTMLInputElement>(undefined!);
+	const passwordInputRef = useRef<HTMLInputElement>(undefined!);
+	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+	const editorRef = useRef<CodeEditorWidget | null>(null);
+
+	// Whether to use the password input (HTML input) or the editor (CodeEditorWidget).
+	const isPassword = props.activityItemPrompt.password;
+	const isUnanswered = props.activityItemPrompt.state === ActivityItemPromptState.Unanswered;
 
 	/**
-	 * Readies the input.
+	 * Focuses the appropriate input element.
 	 */
-	const readyInput = () => {
-		if (inputRef.current) {
-			inputRef.current.scrollIntoView({ behavior: 'auto' });
-			inputRef.current.focus();
+	const focusInput = () => {
+		if (isPassword) {
+			if (passwordInputRef.current) {
+				passwordInputRef.current.scrollIntoView({ behavior: 'auto' });
+				passwordInputRef.current.focus();
+			}
+		} else {
+			if (editorRef.current) {
+				editorContainerRef.current?.scrollIntoView({ behavior: 'auto' });
+				editorRef.current.focus();
+			}
 		}
 	};
 
-	// Main useEffect hook.
+	// Set up the CodeEditorWidget for non-password prompts.
 	useEffect(() => {
-		// Create the disposable store for cleanup.
+		// Only create editor for non-password, unanswered prompts.
+		if (isPassword || !isUnanswered || !editorContainerRef.current) {
+			return;
+		}
+
 		const disposableStore = new DisposableStore();
 
-		// Add the onFocusInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
-			// Ready the input.
-			readyInput();
+		// Create the editor with minimal configuration for single-line input.
+		const editor = disposableStore.add(
+			services.instantiationService.createInstance(
+				CodeEditorWidget,
+				editorContainerRef.current,
+				{
+					...getSimpleEditorOptions(services.configurationService),
+					wordWrap: 'off',
+					lineNumbers: 'off',
+					scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
+					renderLineHighlight: 'none',
+					minimap: { enabled: false },
+					overviewRulerLanes: 0,
+					lineDecorationsWidth: 0,
+					padding: { top: 0, bottom: 0 },
+				},
+				getSimpleCodeEditorWidgetOptions()
+			)
+		);
+
+		// Create a plain text model for the editor.
+		const emitter = disposableStore.add(new Emitter<string>());
+		const model = disposableStore.add(
+			services.modelService.createModel(
+				'',
+				{ languageId: '', onDidChange: emitter.event },
+				undefined,
+				true
+			)
+		);
+		editor.setModel(model);
+
+		// Handle keyboard events.
+		disposableStore.add(editor.onKeyDown(async e => {
+			// Enter key - submit the prompt.
+			if (e.keyCode === KeyCode.Enter) {
+				e.preventDefault();
+				e.stopPropagation();
+				props.positronConsoleInstance.replyToPrompt(editor.getValue());
+				return;
+			}
+
+			// Ctrl+C - interrupt the runtime.
+			if (e.keyCode === KeyCode.KeyC && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+				e.preventDefault();
+				e.stopPropagation();
+				props.positronConsoleInstance.interrupt();
+				return;
+			}
+
+			// Cmd+V (Mac) or Ctrl+V (Windows/Linux) - paste from clipboard.
+			// VS Code's keybinding system intercepts paste before it reaches the editor,
+			// so we handle it explicitly here.
+			const isPasteKey = e.keyCode === KeyCode.KeyV &&
+				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
+				!e.shiftKey && !e.altKey;
+			if (isPasteKey) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const clipboardText = await services.clipboardService.readText();
+				if (clipboardText) {
+					// Insert at current selection (replaces selection if any).
+					// Uses EditOperation.replace for consistency with consoleInput.tsx.
+					const selection = editor.getSelection();
+					if (selection) {
+						editor.executeEdits('paste', [
+							EditOperation.replace(selection, clipboardText)
+						]);
+					}
+				}
+				return;
+			}
 		}));
 
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [props.positronConsoleInstance]);
+		// Store the editor reference and focus it.
+		editorRef.current = editor;
 
-	// useEffect hook that gets the input scrolled into view and focused.
+		// Layout the editor to match container size.
+		const container = editorContainerRef.current;
+		editor.layout({ width: container.clientWidth, height: container.clientHeight });
+
+		// Focus the editor.
+		editor.focus();
+
+		return () => {
+			editorRef.current = null;
+			disposableStore.dispose();
+		};
+	}, [isPassword, isUnanswered, props.positronConsoleInstance, services.instantiationService, services.configurationService, services.modelService, services.clipboardService]);
+
+	// Set up focus handling and paste support for password input.
 	useEffect(() => {
-		// Ready the input.
-		readyInput();
-	}, [inputRef]);
+		if (!isPassword || !isUnanswered) {
+			return;
+		}
 
+		const input = passwordInputRef.current;
+		if (!input) {
+			return;
+		}
 
-	/**
-	 * onKeyDown event handler.
-	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
-	 */
-	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
-		/**
-		 * Consumes an event.
-		 */
-		const consumeEvent = () => {
-			e.preventDefault();
-			e.stopPropagation();
+		// Focus the password input.
+		input.scrollIntoView({ behavior: 'auto' });
+		input.focus();
+
+		// Handle paste via capture phase to intercept before VS Code's keybinding system.
+		const handlePasteKeydown = async (e: globalThis.KeyboardEvent) => {
+			const isPasteKey = e.key === 'v' &&
+				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
+				!e.shiftKey && !e.altKey;
+
+			if (isPasteKey) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const clipboardText = await services.clipboardService.readText();
+				if (clipboardText) {
+					const start = input.selectionStart ?? 0;
+					const end = input.selectionEnd ?? 0;
+					const before = input.value.substring(0, start);
+					const after = input.value.substring(end);
+					input.value = before + clipboardText + after;
+
+					const newCursorPosition = start + clipboardText.length;
+					input.selectionStart = newCursorPosition;
+					input.selectionEnd = newCursorPosition;
+				}
+			}
 		};
 
-		// Determine that a key is pressed without any modifiers
-		const noModifierKey = !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
+		// Use capture phase (true) to intercept before VS Code's keybinding system.
+		input.addEventListener('keydown', handlePasteKeydown, true);
 
-		// Determine whether the ctrl key is pressed without other modifiers.
-		const onlyCtrlKey = e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey;
+		return () => {
+			input.removeEventListener('keydown', handlePasteKeydown, true);
+		};
+	}, [isPassword, isUnanswered, services.clipboardService]);
 
-		// Determine whether the cmd or ctrl key is pressed without other modifiers.
-		const onlyCmdOrCtrlKey = (isMacintosh ? e.metaKey : e.ctrlKey) &&
-			(isMacintosh ? !e.ctrlKey : !e.metaKey) &&
-			!e.shiftKey &&
-			!e.altKey;
+	// Handle onFocusInput events from the console instance.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
 
-		if (noModifierKey) {
-			switch (e.key) {
-				// Enter key.
-				case 'Enter': {
-					// Consume the event.
-					consumeEvent();
+		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+			focusInput();
+		}));
 
-					// Reply to the prompt.
-					props.positronConsoleInstance.replyToPrompt(inputRef.current?.value);
-					return;
-				}
+		return () => disposableStore.dispose();
+	}, [props.positronConsoleInstance, isPassword]);
 
-				default: {
-					return;
-				}
-			}
+	/**
+	 * Password input keydown handler.
+	 * @param e A KeyboardEvent that describes a user interaction with the keyboard.
+	 */
+	const passwordKeyDownHandler = (e: KeyboardEvent<HTMLInputElement>) => {
+		// Enter key - submit the prompt.
+		if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+			e.preventDefault();
+			e.stopPropagation();
+			props.positronConsoleInstance.replyToPrompt(passwordInputRef.current?.value ?? '');
+			return;
 		}
 
-		if (onlyCtrlKey) {
-			switch (e.key) {
-				// C key.
-				case 'c': {
-					consumeEvent();
-					props.positronConsoleInstance.interrupt();
-					return;
-				}
-
-				default: {
-					return;
-				}
-			}
-		}
-
-		if (onlyCmdOrCtrlKey) {
-			switch (e.key) {
-				// Select all handler
-				case 'a': {
-					consumeEvent();
-
-					const input = inputRef.current;
-					if (!input) {
-						return;
-					}
-
-					inputRef.current.selectionStart = 0;
-					inputRef.current.selectionEnd = input.value.length;
-
-					return;
-				}
-
-				// Paste handler
-				case 'v': {
-					// This is a stopgap implementation. Because we are
-					// manipulating the HTML directly, undo/redo does not work
-					// as expected after pasting.
-					consumeEvent();
-
-					const input = inputRef.current;
-					if (!input) {
-						return;
-					}
-
-					const clipboard = await services.clipboardService.readText();
-
-					const start = input.selectionStart!;
-					const before = input.value.substring(0, start);
-					const after = input.value.substring(input.selectionEnd!);
-					inputRef.current.value = before + clipboard + after;
-					inputRef.current.selectionStart = start + clipboard.length;
-					inputRef.current.selectionEnd = start + clipboard.length;
-
-					return;
-				}
-
-				default: {
-					return;
-				}
-			}
+		// Ctrl+C - interrupt the runtime.
+		if (e.key === 'c' && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+			e.preventDefault();
+			e.stopPropagation();
+			props.positronConsoleInstance.interrupt();
+			return;
 		}
 	};
 
-	// Set the prompt for the rendering.
+	// Determine what to render based on prompt state.
 	let prompt;
 	switch (props.activityItemPrompt.state) {
-		// When the prompt is unanswered, render the input.
+		// When the prompt is unanswered, render the appropriate input.
 		case ActivityItemPromptState.Unanswered:
-			prompt = (
-				<input
-					ref={inputRef}
-					className='input-field'
-					type={props.activityItemPrompt.password ? 'password' : 'text'}
-					onKeyDown={keyDownHandler}
-				/>
-			);
+			if (isPassword) {
+				// Use HTML input for password prompts to get native masking.
+				prompt = (
+					<input
+						ref={passwordInputRef}
+						className='input-field'
+						type='password'
+						onKeyDown={passwordKeyDownHandler}
+					/>
+				);
+			} else {
+				// Use CodeEditorWidget for regular prompts.
+				prompt = (
+					<div
+						ref={editorContainerRef}
+						className='editor-input-container'
+					/>
+				);
+			}
 			break;
 
-		// When the prompt was answered, render the answer.
+		// When the prompt was answered, render the answer (unless it was a password).
 		case ActivityItemPromptState.Answered:
 			prompt = props.activityItemPrompt.password ?
 				null :
