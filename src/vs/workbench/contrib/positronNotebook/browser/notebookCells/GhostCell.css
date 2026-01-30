@@ -56,6 +56,25 @@
 	flex-shrink: 0;
 }
 
+.ghost-cell-info-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-descriptionForeground);
+	cursor: help;
+	padding: 0;
+	font-size: 12px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ghost-cell-info-button:hover {
+	color: var(--vscode-foreground);
+}
+
 .ghost-cell-explanation {
 	color: var(--vscode-foreground);
 	font-size: 12px;
