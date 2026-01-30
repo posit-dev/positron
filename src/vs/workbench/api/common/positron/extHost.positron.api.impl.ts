@@ -34,7 +34,7 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
-import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
+import { IToolInvocationContext } from '../../../contrib/chat/common/tools/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';

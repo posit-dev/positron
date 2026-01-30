@@ -1,4 +1,10 @@
 {
+	// --- Start Positron ---
+	"files": [
+		"../src/typings/thenable.d.ts",
+		"../src/typings/base-common.d.ts"
+	],
+	// --- End Positron ---
 	"compilerOptions": {
 		"esModuleInterop": true,
 		"target": "ES2020",

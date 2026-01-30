@@ -149,7 +149,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		await registerModelWithAPI(modelConfig, context, storage);
 	} catch (e) {
 		vscode.window.showErrorMessage(
-			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
+			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', e.message)
 		);
 		throw e;
 	}
@@ -503,7 +503,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
+				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', msg)
 			);
 		}
 	} else {
@@ -526,7 +526,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						} catch (e) {
 							vscode.window.showErrorMessage(
 								vscode.l10n.t(
-									'Positron Assistant: Failed to enable assistant. {0}', [e]));
+									'Positron Assistant: Failed to enable assistant. {0}', e.message));
 						}
 					}
 				}

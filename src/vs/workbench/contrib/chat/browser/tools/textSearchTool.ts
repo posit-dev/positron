@@ -11,9 +11,9 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolProgress } from '../../common/languageModelToolsService.js';
-import { ChatModel } from '../../common/chatModel.js';
-import { IChatService } from '../../common/chatService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolProgress } from '../../common/tools/languageModelToolsService.js';
+import { ChatModel } from '../../common/model/chatModel.js';
+import { IChatService } from '../../common/chatService/chatService.js';
 
 const DEFAULT_MAX_RESULTS = 30;
 
@@ -173,7 +173,7 @@ export class TextSearchTool implements IToolImpl {
 
 		// Add UI references if we have chat context
 		if (invocation.context) {
-			const model = this._chatService.getSessionByLegacyId(invocation.context.sessionId) as ChatModel;
+			const model = this._chatService.getSession(invocation.context.sessionResource) as ChatModel;
 			const request = model.getRequests().at(-1)!;
 
 			for (const result of results) {

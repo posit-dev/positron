@@ -9,19 +9,19 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ChatRuntimeSessionContext, ChatRuntimeSessionContextContribution } from '../../browser/contrib/chatRuntimeSessionContext.js';
+import { ChatRuntimeSessionContext, ChatRuntimeSessionContextContribution } from '../../browser/widget/input/editor/chatRuntimeSessionContext.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IExecutionHistoryService, IExecutionHistoryEntry, ExecutionEntryType } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IChatWidgetService } from '../../browser/chat.js';
-import { IChatService } from '../../common/chatService.js';
+import { IChatService } from '../../common/chatService/chatService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { LanguageRuntimeSessionMode, RuntimeState, RuntimeCodeFragmentStatus, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { Variable, VariableKind } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
-import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
-import { IChatContextPickerItem, IChatContextPickService, IChatContextValueItem } from '../../browser/chatContextPickService.js';
+import { IChatRequestRuntimeSessionEntry } from '../../common/attachments/chatVariableEntries.js';
+import { IChatContextPickService, IChatContextValueItem, IChatContextPickerItem } from '../../browser/attachments/chatContextPickService.js';
 
 // Mock runtime session
 class MockRuntimeSession implements ILanguageRuntimeSession {

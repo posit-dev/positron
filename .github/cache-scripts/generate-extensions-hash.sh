@@ -21,7 +21,7 @@
 #   • Extensions: python, assistant, r
 #   • Change frequency: 71% of PRs (1,282 changes / 6 months)
 #   • Invalidates often but fast to rebuild
-#   • NOTE: Extension list defined in build/npm/dirs.js (single source of truth)
+#   • NOTE: Extension list defined in build/npm/dirs.ts (single source of truth)
 #
 # STABLE CACHE (~2-3GB):
 #   • Extensions: All others (~25+ extensions)
@@ -29,7 +29,7 @@
 #   • Invalidates rarely, big CI time savings
 #
 # SINGLE SOURCE OF TRUTH:
-# Volatile extension list: build/npm/dirs.js (volatileExtensions array)
+# Volatile extension list: build/npm/dirs.ts (volatileExtensions array)
 # This script reads from that file - never modify the list here!
 #
 # NODE.JS VERSION:
@@ -73,10 +73,10 @@ done
 # ============================================================================
 # SECTION 2: Load Configuration
 # ============================================================================
-# Load volatile extensions list from single source of truth (build/npm/dirs.js).
+# Load volatile extensions list from single source of truth (build/npm/dirs.ts).
 # This ensures we never get out of sync between this script and the actual build.
 
-VOLATILE_EXTENSIONS_RAW=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.js'); console.log(volatileExtensions.join('\n'))")
+VOLATILE_EXTENSIONS_RAW=$(node -e "const {volatileExtensions} = require('./build/npm/dirs.ts'); console.log(volatileExtensions.join('\n'))")
 
 # Convert to bash array for easier processing
 VOLATILE_EXTENSIONS=()
@@ -84,7 +84,7 @@ while IFS= read -r line; do
 	VOLATILE_EXTENSIONS+=("$line")
 done <<< "$VOLATILE_EXTENSIONS_RAW"
 
-echo "Loaded ${#VOLATILE_EXTENSIONS[@]} volatile extensions from build/npm/dirs.js"
+echo "Loaded ${#VOLATILE_EXTENSIONS[@]} volatile extensions from build/npm/dirs.ts"
 
 # Get all git submodules in extensions/ and .vscode/
 # (e.g., positron-copilot-chat is a submodule we need to track)

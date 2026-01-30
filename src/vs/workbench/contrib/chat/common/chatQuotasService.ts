@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ChatContextKeys } from './chatContextKeys.js';
+import { ChatContextKeys } from './actions/chatContextKeys.js';
 
 export const IChatQuotasService = createDecorator<IChatQuotasService>('chatQuotasService');
 

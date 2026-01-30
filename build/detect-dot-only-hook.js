@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const es = require('event-stream');
-const child_process = require('child_process');
+import es from 'event-stream';
+import child_process from 'child_process';
 
 const detectDotOnlyHook = (reporter) => {
 	// If SKIP_DOT_ONLY_CHECK is set, skip the check
@@ -41,4 +41,4 @@ const detectDotOnlyHook = (reporter) => {
 	});
 };
 
-module.exports = detectDotOnlyHook;
+export default detectDotOnlyHook;
