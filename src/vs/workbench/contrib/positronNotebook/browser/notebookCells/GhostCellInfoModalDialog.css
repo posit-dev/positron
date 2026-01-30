@@ -1,0 +1,46 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.ghost-cell-info-content {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding-bottom: 8px;
+}
+
+.ghost-cell-info-section {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ghost-cell-info-heading {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.ghost-cell-info-text {
+	font-size: 13px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.4;
+}
+
+.ghost-cell-info-settings-button {
+	background: transparent;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 2px 4px;
+	margin-left: 4px;
+	font-size: 14px;
+	vertical-align: middle;
+	display: inline-flex;
+	align-items: center;
+}
+
+.ghost-cell-info-settings-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
