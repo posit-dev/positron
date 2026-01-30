@@ -201,8 +201,9 @@ export function getEnabledTools(
 		(positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook);
 
 	for (const tool of tools) {
-		// Check if the user has explicitly disabled this tool via the Configure Tools picker.
-		if (request.tools?.get(tool.name) === false) {
+		// Check if the user has explicitly disabled this tool via the Configure Tools picker,
+		// which is only available in Agent mode.
+		if (isAgentMode && request.tools?.get(tool.name) === false) {
 			continue;
 		}
 
