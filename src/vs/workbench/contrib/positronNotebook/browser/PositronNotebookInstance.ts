@@ -7,7 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -2426,6 +2426,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Trigger a new suggestion
 		this.triggerGhostCellSuggestion(cellIndex);
+	}
+
+	/**
+	 * Disable ghost cell suggestions globally.
+	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
+	 */
+	disableGhostCellSuggestions(): void {
+		// Update the global setting
+		this.configurationService.updateValue(
+			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
+			false,
+			ConfigurationTarget.USER
+		);
+
+		// Dismiss the current ghost cell
+		this.dismissGhostCell(false);
 	}
 
 	// #endregion

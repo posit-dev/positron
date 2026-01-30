@@ -71,35 +71,36 @@
 	flex-shrink: 0;
 }
 
-.ghost-cell-accept,
-.ghost-cell-dismiss {
-	min-width: 50px;
-	padding: 2px 8px;
-	font-size: 11px;
+/* Accept split button - primary action styling */
+.ghost-cell-actions .ghost-cell-accept {
+	border-color: var(--vscode-button-secondaryBackground);
 }
 
-.ghost-cell-accept {
+.ghost-cell-actions .ghost-cell-accept .split-button-main {
 	background: var(--vscode-button-secondaryBackground);
 	color: var(--vscode-button-secondaryForeground);
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
 }
 
-.ghost-cell-accept:hover {
+.ghost-cell-actions .ghost-cell-accept .split-button-main:hover {
 	background: var(--vscode-button-secondaryHoverBackground);
 }
 
-.ghost-cell-dismiss {
-	background: transparent;
-	color: var(--vscode-foreground);
-	border: 1px solid var(--vscode-widget-border);
-	border-radius: 4px;
-	cursor: pointer;
+.ghost-cell-actions .ghost-cell-accept .split-button-dropdown {
+	border-left-color: var(--vscode-button-secondaryForeground);
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+.ghost-cell-actions .ghost-cell-accept .split-button-dropdown:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Dismiss split button - secondary action styling */
+.ghost-cell-actions .ghost-cell-dismiss {
 	opacity: 0.8;
 }
 
-.ghost-cell-dismiss:hover {
+.ghost-cell-actions .ghost-cell-dismiss:hover {
 	opacity: 1;
 	border-color: var(--vscode-focusBorder);
 }

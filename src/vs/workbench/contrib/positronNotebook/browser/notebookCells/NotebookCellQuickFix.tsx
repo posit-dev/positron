@@ -7,19 +7,18 @@
 import './NotebookCellQuickFix.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useMemo } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { CHAT_OPEN_ACTION_ID, ACTION_ID_NEW_CHAT } from '../../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
+import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -39,8 +38,6 @@ interface NotebookCellQuickFixProps {
  * @returns The rendered component, or null if assistant is not enabled
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
-	const fixDropdownRef = useRef<HTMLDivElement>(null);
-	const explainDropdownRef = useRef<HTMLDivElement>(null);
 	const services = usePositronReactServicesContext();
 	const { commandService, contextMenuService } = services;
 
@@ -106,83 +103,39 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 		});
 	};
 
-	/**
-	 * Shows the context menu for the Fix button dropdown.
-	 * Provides option to open in the existing chat panel to retain conversation context.
-	 *
-	 * @param event Event from the dropdown button click or keyboard activation
-	 */
-	const showFixDropdownMenu = (event: React.SyntheticEvent<HTMLDivElement>) => {
-		event.preventDefault();
-		event.stopPropagation();
-
-		const actions: IAction[] = [
-			{
-				id: 'continue-in-existing-chat',
-				label: localize('positronNotebookAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
-				tooltip: localize('positronNotebookAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
-				class: undefined,
-				enabled: true,
-				run: async () => {
-					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildFixQuery(),
-						mode: ChatModeKind.Agent
-					});
-				}
+	// Memoize dropdown actions for Fix button
+	const fixDropdownActions = useMemo((): IAction[] => [
+		{
+			id: 'continue-in-existing-chat',
+			label: localize('positronNotebookAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
+			tooltip: localize('positronNotebookAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
+			class: undefined,
+			enabled: true,
+			run: async () => {
+				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+					query: buildFixQuery(),
+					mode: ChatModeKind.Agent
+				});
 			}
-		];
-
-		if (!fixDropdownRef.current) {
-			return;
 		}
+	], [commandService, props.errorContent]);
 
-		const rect = fixDropdownRef.current.getBoundingClientRect();
-		contextMenuService.showContextMenu({
-			getActions: () => actions,
-			getAnchor: () => ({ x: rect.left, y: rect.bottom }),
-			anchorAlignment: AnchorAlignment.LEFT,
-			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
-		});
-	};
-
-	/**
-	 * Shows the context menu for the Explain button dropdown.
-	 * Provides option to open in the existing chat panel to retain conversation context.
-	 *
-	 * @param event Event from the dropdown button click or keyboard activation
-	 */
-	const showExplainDropdownMenu = (event: React.SyntheticEvent<HTMLDivElement>) => {
-		event.preventDefault();
-		event.stopPropagation();
-
-		const actions: IAction[] = [
-			{
-				id: 'continue-in-existing-chat',
-				label: localize('positronNotebookAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
-				tooltip: localize('positronNotebookAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
-				class: undefined,
-				enabled: true,
-				run: async () => {
-					await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-						query: buildExplainQuery(),
-						mode: ChatModeKind.Agent
-					});
-				}
+	// Memoize dropdown actions for Explain button
+	const explainDropdownActions = useMemo((): IAction[] => [
+		{
+			id: 'continue-in-existing-chat',
+			label: localize('positronNotebookAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
+			tooltip: localize('positronNotebookAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
+			class: undefined,
+			enabled: true,
+			run: async () => {
+				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+					query: buildExplainQuery(),
+					mode: ChatModeKind.Agent
+				});
 			}
-		];
-
-		if (!explainDropdownRef.current) {
-			return;
 		}
-
-		const rect = explainDropdownRef.current.getBoundingClientRect();
-		contextMenuService.showContextMenu({
-			getActions: () => actions,
-			getAnchor: () => ({ x: rect.left, y: rect.bottom }),
-			anchorAlignment: AnchorAlignment.LEFT,
-			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
-		});
-	};
+	], [commandService, props.errorContent]);
 
 	// Don't render if assistant features are not enabled
 	if (!showQuickFix) {
@@ -199,64 +152,36 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	return (
 		<div className='notebook-cell-quick-fix'>
 			{/* Fix button with split dropdown */}
-			<div className='notebook-cell-quick-fix-split-button'>
-				<PositronButton
-					ariaLabel={fixTooltip}
-					className='assistant-action assistant-action-main'
-					onPressed={pressedFixHandler}
-				>
-					<div className='link-text' title={fixTooltip}>
-						<span className='codicon codicon-sparkle' />
-						{localize('positronNotebookAssistantFix', "Fix")}
-					</div>
-				</PositronButton>
-				<div
-					ref={fixDropdownRef}
-					aria-label={fixDropdownTooltip}
-					className='assistant-action assistant-action-dropdown'
-					role='button'
-					tabIndex={0}
-					title={fixDropdownTooltip}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							showFixDropdownMenu(e);
-						}
-					}}
-					onMouseDown={showFixDropdownMenu}
-				>
-					<span className='codicon codicon-positron-drop-down-arrow' />
+			<SplitButton
+				ariaLabel={fixTooltip}
+				className='notebook-cell-quick-fix-split-button'
+				contextMenuService={contextMenuService}
+				dropdownActions={fixDropdownActions}
+				dropdownIconClass='codicon-positron-drop-down-arrow'
+				dropdownTooltip={fixDropdownTooltip}
+				onMainAction={pressedFixHandler}
+			>
+				<div className='link-text' title={fixTooltip}>
+					<span className='codicon codicon-sparkle' />
+					{localize('positronNotebookAssistantFix', "Fix")}
 				</div>
-			</div>
+			</SplitButton>
 
 			{/* Explain button with split dropdown */}
-			<div className='notebook-cell-quick-fix-split-button'>
-				<PositronButton
-					ariaLabel={explainTooltip}
-					className='assistant-action assistant-action-main'
-					onPressed={pressedExplainHandler}
-				>
-					<div className='link-text' title={explainTooltip}>
-						<span className='codicon codicon-sparkle' />
-						{localize('positronNotebookAssistantExplain', "Explain")}
-					</div>
-				</PositronButton>
-				<div
-					ref={explainDropdownRef}
-					aria-label={explainDropdownTooltip}
-					className='assistant-action assistant-action-dropdown'
-					role='button'
-					tabIndex={0}
-					title={explainDropdownTooltip}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							showExplainDropdownMenu(e);
-						}
-					}}
-					onMouseDown={showExplainDropdownMenu}
-				>
-					<span className='codicon codicon-positron-drop-down-arrow' />
+			<SplitButton
+				ariaLabel={explainTooltip}
+				className='notebook-cell-quick-fix-split-button'
+				contextMenuService={contextMenuService}
+				dropdownActions={explainDropdownActions}
+				dropdownIconClass='codicon-positron-drop-down-arrow'
+				dropdownTooltip={explainDropdownTooltip}
+				onMainAction={pressedExplainHandler}
+			>
+				<div className='link-text' title={explainTooltip}>
+					<span className='codicon codicon-sparkle' />
+					{localize('positronNotebookAssistantExplain', "Explain")}
 				</div>
-			</div>
+			</SplitButton>
 		</div>
 	);
 };
