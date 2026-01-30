@@ -31,7 +31,8 @@ import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CE
 import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -622,9 +623,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				const cellIndex = cells.findIndex(c => c.handle === cellEvent.cellHandle);
 				if (cellIndex !== -1) {
 					const cell = cells[cellIndex];
-					// Only trigger for code cells
+					// Only trigger for code cells that executed successfully
 					if (cell.isCodeCell()) {
-						this._scheduleGhostCellSuggestion(cellIndex);
+						const lastRunSuccess = cell.lastRunSuccess.get();
+						if (lastRunSuccess === true) {
+							this._scheduleGhostCellSuggestion(cellIndex);
+						}
 					}
 				}
 			}
@@ -2272,14 +2276,34 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._ghostCellCancellationToken = new CancellationTokenSource();
 		const token = this._ghostCellCancellationToken.token;
 
+		// Register callback command for streaming updates
+		const callbackCommandId = `positron-notebook-ghost-cell-callback-${generateUuid()}`;
+		const callbackDisposable = CommandsRegistry.registerCommand(
+			callbackCommandId,
+			(_accessor, partial: { code?: string; explanation?: string }) => {
+				if (token.isCancellationRequested) {
+					return;
+				}
+				// Update state to streaming with partial content
+				this._ghostCellState.set({
+					status: 'streaming',
+					executedCellIndex,
+					code: partial.code || '',
+					explanation: partial.explanation || ''
+				}, undefined);
+			}
+		);
+
 		// Execute the command to generate suggestion
 		this._commandService.executeCommand(
 			'positron-assistant.generateGhostCellSuggestion',
 			this.uri.toString(),
 			executedCellIndex,
-			undefined, // Progress callback command - we'll handle streaming via onProgress parameter
+			callbackCommandId,
 			token
 		).then((result: unknown) => {
+			callbackDisposable.dispose();
+
 			if (token.isCancellationRequested) {
 				return;
 			}
@@ -2298,6 +2322,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._ghostCellState.set({ status: 'hidden' }, undefined);
 			}
 		}).catch((error: unknown) => {
+			callbackDisposable.dispose();
+
 			if (token.isCancellationRequested) {
 				return;
 			}
