@@ -15,11 +15,13 @@ import { log } from './extension.js';
  * @param messages The messages to convert.
  * @param usesChatCompletions Whether to apply chat completions endpoint transformations.
  * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
+ * @param anthropicCacheBreakpoint Whether to use Anthropic cache breakpoints.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
 	usesChatCompletions: boolean = false,
-	bedrockCacheBreakpoint: boolean = false
+	bedrockCacheBreakpoint: boolean = false,
+	anthropicCacheBreakpoint: boolean = false
 ): ai.ModelMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -61,11 +63,13 @@ export function toAIMessage(
 					content: userContent
 				};
 
-				// If this is a cache breakpoint, note it in the message
-				// content. This is only used by the Bedrock provider.
+				// If this is a cache breakpoint, note it in the message content.
 				if (cacheBreakpoint && bedrockCacheBreakpoint) {
 					cacheBreakpoint = false;
 					markBedrockCacheBreakpoint(messageContent);
+				} else if (cacheBreakpoint && anthropicCacheBreakpoint) {
+					cacheBreakpoint = false;
+					markAnthropicCacheBreakpoint(messageContent);
 				}
 				aiMessages.push(messageContent);
 			}
@@ -85,6 +89,9 @@ export function toAIMessage(
 						if (cacheBreakpoint && bedrockCacheBreakpoint) {
 							cacheBreakpoint = false;
 							markBedrockCacheBreakpoint(toolMessage);
+						} else if (cacheBreakpoint && anthropicCacheBreakpoint) {
+							cacheBreakpoint = false;
+							markAnthropicCacheBreakpoint(toolMessage);
 						}
 						aiMessages.push(toolMessage);
 					}
@@ -122,11 +129,13 @@ export function toAIMessage(
 				content,
 			};
 
-			// If this is a cache breakpoint, note it in the message
-			// content. This is only used by the Bedrock provider.
+			// If this is a cache breakpoint, note it in the message content.
 			if (cacheBreakpoint && bedrockCacheBreakpoint) {
 				cacheBreakpoint = false;
 				markBedrockCacheBreakpoint(aiMessage);
+			} else if (cacheBreakpoint && anthropicCacheBreakpoint) {
+				cacheBreakpoint = false;
+				markAnthropicCacheBreakpoint(aiMessage);
 			}
 			aiMessages.push(aiMessage);
 		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
@@ -153,9 +162,10 @@ export function toAIMessage(
 		};
 
 		// Add a cache breakpoint for our combined system prompt.
-		// This is only used by the Bedrock provider.
 		if (bedrockCacheBreakpoint) {
 			markBedrockCacheBreakpoint(systemMessage);
+		} else if (anthropicCacheBreakpoint) {
+			markAnthropicCacheBreakpoint(systemMessage);
 		}
 
 		aiMessages.unshift(systemMessage);
@@ -171,6 +181,18 @@ export function markBedrockCacheBreakpoint(message: ai.ModelMessage): ai.ModelMe
 		bedrock: {
 			cachePoint: {
 				type: 'default',
+			}
+		}
+	};
+	return message;
+}
+
+export function markAnthropicCacheBreakpoint(message: ai.ModelMessage): ai.ModelMessage {
+	log.trace(`[vercel] Marking ${message.role} message as an Anthropic cache breakpoint`);
+	message.providerOptions = {
+		anthropic: {
+			cacheControl: {
+				type: 'ephemeral',
 			}
 		}
 	};
