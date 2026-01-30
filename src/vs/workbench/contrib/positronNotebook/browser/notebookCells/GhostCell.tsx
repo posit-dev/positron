@@ -13,15 +13,20 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { ActionButton } from '../utilityComponents/ActionButton.js';
+import { SplitButton } from '../utilityComponents/SplitButton.js';
 import { GhostCellState } from '../IPositronNotebookInstance.js';
-import { KeyboardModifiers } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IAction } from '../../../../../base/common/actions.js';
 
 // Localized strings.
 const loadingText = localize('ghostCell.loading', 'Generating suggestion...');
 const acceptLabel = localize('ghostCell.accept', 'Accept');
+const acceptAndRunLabel = localize('ghostCell.acceptAndRun', 'Accept and Run');
+const acceptDropdownTooltip = localize('ghostCell.acceptDropdownTooltip', 'More accept options');
 const dismissLabel = localize('ghostCell.dismiss', 'Dismiss');
+const dontSuggestAgainLabel = localize('ghostCell.dontSuggestAgain', "Don't suggest again");
+const dismissDropdownTooltip = localize('ghostCell.dismissDropdownTooltip', 'More dismiss options');
 const regenerateLabel = localize('ghostCell.regenerate', 'Regenerate');
 const defaultExplanation = localize('ghostCell.defaultExplanation', 'Suggested next step');
 const suggestionAvailableAnnouncement = localize('ghostCell.suggestionAvailable', 'AI suggestion available. Use Accept to insert the suggested code.');
@@ -54,10 +59,12 @@ interface GhostCellContentProps {
 	code: string;
 	explanation: string;
 	isStreaming: boolean;
-	onAccept: () => void;
 	onAcceptAndRun: () => void;
 	onDismiss: () => void;
 	onRegenerate: () => void;
+	acceptActions: IAction[];
+	dismissActions: IAction[];
+	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
 }
 
 /**
@@ -67,24 +74,13 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	code,
 	explanation,
 	isStreaming,
-	onAccept,
 	onAcceptAndRun,
 	onDismiss,
-	onRegenerate
+	onRegenerate,
+	acceptActions,
+	dismissActions,
+	contextMenuService
 }) => {
-	const handleAcceptClick = React.useCallback((e: KeyboardModifiers) => {
-		if (e.shiftKey) {
-			onAcceptAndRun();
-		} else {
-			onAccept();
-		}
-	}, [onAccept, onAcceptAndRun]);
-
-	const handleDismissClick = React.useCallback((_e: KeyboardModifiers) => {
-		// Shift+click to disable for notebook (future enhancement)
-		onDismiss();
-	}, [onDismiss]);
-
 	return (
 		<>
 			<div className='ghost-cell-header'>
@@ -95,21 +91,25 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 					</span>
 				</div>
 				<div className='ghost-cell-actions'>
-					<ActionButton
-						ariaLabel={acceptLabel}
+					<SplitButton
+						ariaLabel={acceptAndRunLabel}
 						className='ghost-cell-accept'
+						contextMenuService={contextMenuService}
 						disabled={isStreaming}
-						onPressed={handleAcceptClick}
-					>
-						{acceptLabel}
-					</ActionButton>
-					<ActionButton
+						dropdownActions={acceptActions}
+						dropdownTooltip={acceptDropdownTooltip}
+						label={acceptAndRunLabel}
+						onMainAction={onAcceptAndRun}
+					/>
+					<SplitButton
 						ariaLabel={dismissLabel}
 						className='ghost-cell-dismiss'
-						onPressed={handleDismissClick}
-					>
-						{dismissLabel}
-					</ActionButton>
+						contextMenuService={contextMenuService}
+						dropdownActions={dismissActions}
+						dropdownTooltip={dismissDropdownTooltip}
+						label={dismissLabel}
+						onMainAction={onDismiss}
+					/>
 					<button
 						aria-label={regenerateLabel}
 						className='ghost-cell-regenerate codicon codicon-refresh'
@@ -131,10 +131,12 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
  */
 function renderGhostCellState(
 	state: GhostCellState,
-	onAccept: () => void,
 	onAcceptAndRun: () => void,
 	onDismiss: () => void,
-	onRegenerate: () => void
+	onRegenerate: () => void,
+	acceptActions: IAction[],
+	dismissActions: IAction[],
+	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService']
 ): React.ReactNode {
 	switch (state.status) {
 		case 'hidden':
@@ -146,10 +148,12 @@ function renderGhostCellState(
 		case 'streaming':
 			return (
 				<GhostCellContent
+					acceptActions={acceptActions}
 					code={state.code}
+					contextMenuService={contextMenuService}
+					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={true}
-					onAccept={onAccept}
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
@@ -159,10 +163,12 @@ function renderGhostCellState(
 		case 'ready':
 			return (
 				<GhostCellContent
+					acceptActions={acceptActions}
 					code={state.code}
+					contextMenuService={contextMenuService}
+					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={false}
-					onAccept={onAccept}
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
@@ -194,6 +200,8 @@ function getAnnouncement(state: GhostCellState): string {
  */
 export const GhostCell: React.FC = () => {
 	const instance = useNotebookInstance();
+	const services = usePositronReactServicesContext();
+	const { contextMenuService } = services;
 	const ghostCellState = useObservedValue(instance.ghostCellState);
 	const [announcement, setAnnouncement] = React.useState('');
 
@@ -222,9 +230,45 @@ export const GhostCell: React.FC = () => {
 		instance.dismissGhostCell(false);
 	}, [instance]);
 
+	const handleDisableGlobally = React.useCallback(() => {
+		instance.disableGhostCellSuggestions();
+	}, [instance]);
+
 	const handleRegenerate = React.useCallback(() => {
 		instance.regenerateGhostCellSuggestion();
 	}, [instance]);
+
+	// Memoize actions for the split buttons
+	// Dropdown shows alternatives to the primary action (Accept and Run)
+	const acceptActions = React.useMemo((): IAction[] => [
+		{
+			id: 'ghost-cell-accept',
+			label: acceptLabel,
+			tooltip: acceptLabel,
+			class: undefined,
+			enabled: true,
+			run: handleAccept
+		}
+	], [handleAccept]);
+
+	const dismissActions = React.useMemo((): IAction[] => [
+		{
+			id: 'ghost-cell-dismiss',
+			label: dismissLabel,
+			tooltip: dismissLabel,
+			class: undefined,
+			enabled: true,
+			run: handleDismiss
+		},
+		{
+			id: 'ghost-cell-dont-suggest-again',
+			label: dontSuggestAgainLabel,
+			tooltip: dontSuggestAgainLabel,
+			class: undefined,
+			enabled: true,
+			run: handleDisableGlobally
+		}
+	], [handleDismiss, handleDisableGlobally]);
 
 	// Don't render anything if ghost cell is hidden
 	if (ghostCellState.status === 'hidden') {
@@ -244,10 +288,12 @@ export const GhostCell: React.FC = () => {
 			<div className='ghost-cell-container'>
 				{renderGhostCellState(
 					ghostCellState,
-					handleAccept,
 					handleAcceptAndRun,
 					handleDismiss,
-					handleRegenerate
+					handleRegenerate,
+					acceptActions,
+					dismissActions,
+					contextMenuService
 				)}
 			</div>
 			<ScreenReaderOnly className='ghost-cell-announcements'>
