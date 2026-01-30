@@ -18,21 +18,30 @@ export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 
 /**
+ * Valid values for the ghostCellSuggestions per-notebook override.
+ * undefined = follow global setting, 'enabled' = always show, 'disabled' = never show
+ */
+export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
+
+/**
  * Per-notebook assistant settings stored at metadata.positron.assistant
  *
  * Schema:
  *   metadata.positron.assistant: {
  *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
  *     autoFollow?: 'autoFollow' | 'noAutoFollow'  // Per-notebook auto-follow override
+ *     ghostCellSuggestions?: 'enabled' | 'disabled'  // Per-notebook ghost cell suggestions override
  *   }
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
+	ghostCellSuggestions?: GhostCellSuggestionsOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
+const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -54,7 +63,13 @@ export function getAssistantSettings(metadata: NotebookDocumentMetadata | undefi
 		? rawAutoFollow as AutoFollowOverride
 		: undefined;
 
-	return { showDiff, autoFollow };
+	// Validate ghostCellSuggestions value
+	const rawGhostCellSuggestions = assistant?.ghostCellSuggestions;
+	const ghostCellSuggestions = typeof rawGhostCellSuggestions === 'string' && VALID_GHOST_CELL_SUGGESTIONS_VALUES.has(rawGhostCellSuggestions)
+		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
+		: undefined;
+
+	return { showDiff, autoFollow, ghostCellSuggestions };
 }
 
 /**
@@ -86,6 +101,14 @@ export function setAssistantSettings(
 			delete newAssistant.autoFollow;
 		} else {
 			newAssistant.autoFollow = updates.autoFollow;
+		}
+	}
+
+	if (hasKey(updates, 'ghostCellSuggestions')) {
+		if (updates.ghostCellSuggestions === undefined) {
+			delete newAssistant.ghostCellSuggestions;
+		} else {
+			newAssistant.ghostCellSuggestions = updates.ghostCellSuggestions;
 		}
 	}
 

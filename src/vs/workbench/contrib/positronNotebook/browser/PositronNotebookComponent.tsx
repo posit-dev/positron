@@ -18,6 +18,7 @@ import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';
 import { DeletionSentinel } from './notebookCells/DeletionSentinel.js';
+import { GhostCell } from './notebookCells/GhostCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -99,6 +100,7 @@ export function PositronNotebookComponent() {
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				<AddCellButtons index={0} />
 				{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
+				<GhostCell />
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
 				{globalAnnouncement}
