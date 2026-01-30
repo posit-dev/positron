@@ -313,7 +313,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			tool => toolAvailability.get(tool.name as PositronAssistantToolName) === true
 		);
 
-		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
+		log.debug(`[tools] ${tools.length} Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
