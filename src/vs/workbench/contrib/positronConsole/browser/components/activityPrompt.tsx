@@ -146,6 +146,34 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 				}
 				return;
 			}
+
+			// Cmd+A (Mac) or Ctrl+A (Windows/Linux) - select all text in the editor.
+			// Handled explicitly to prevent the event from bubbling to the console
+			// which would select all console output instead.
+			const isSelectAllKey = e.keyCode === KeyCode.KeyA &&
+				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
+				!e.shiftKey && !e.altKey;
+			if (isSelectAllKey) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				const selection = editor.getSelection();
+				const textModel = editor.getModel();
+				if (selection && textModel) {
+					const fullModelRange = textModel.getFullModelRange();
+					if (!selection.equalsRange(fullModelRange)) {
+						editor.setSelection(fullModelRange);
+					}
+				}
+				return;
+			}
+		}));
+
+		// Stop mouse down events from propagating to the ConsoleInstance, which has its
+		// own context menu. This allows the editor's context menu to appear on right-click.
+		// See https://github.com/posit-dev/positron/issues/2281 for similar fix in consoleInput.
+		disposableStore.add(editor.onMouseDown(e => {
+			e.event.stopPropagation();
 		}));
 
 		// Store the editor reference and focus it.
@@ -258,6 +286,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 						className='input-field'
 						type='password'
 						onKeyDown={passwordKeyDownHandler}
+						onMouseDown={(e) => e.stopPropagation()}
 					/>
 				);
 			} else {
