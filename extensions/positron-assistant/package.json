@@ -232,7 +232,7 @@
           },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
-            "default": true,
+            "default": false,
             "description": "%configuration.useAnthropicSdk.description%"
           },
           "positron.assistant.streamingEdits.enable": {
