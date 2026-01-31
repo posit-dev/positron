@@ -546,7 +546,7 @@ export class KCApi implements PositronSupervisorApi {
 			retry++;
 		} while (elapsed < startupTimeout && !connectionData);
 
-		if (elapsed > startupTimeout || !connectionData) {
+		if (!connectionData) {
 			let message = `Connection file was not created after ${elapsed}ms`;
 
 			// Include any output from the server process to help diagnose the problem
