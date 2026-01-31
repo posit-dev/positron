@@ -28,6 +28,7 @@ const acceptLabel = localize('ghostCell.accept', 'Accept');
 const acceptAndRunLabel = localize('ghostCell.acceptAndRun', 'Accept and Run');
 const acceptDropdownTooltip = localize('ghostCell.acceptDropdownTooltip', 'More accept options');
 const dismissLabel = localize('ghostCell.dismiss', 'Dismiss');
+const dontSuggestInNotebookLabel = localize('ghostCell.dontSuggestInNotebook', "Don't suggest in this notebook");
 const dontSuggestAgainLabel = localize('ghostCell.dontSuggestAgain', "Don't suggest again");
 const dismissDropdownTooltip = localize('ghostCell.dismissDropdownTooltip', 'More dismiss options');
 const regenerateLabel = localize('ghostCell.regenerate', 'Regenerate');
@@ -246,6 +247,10 @@ export const GhostCell: React.FC = () => {
 		instance.dismissGhostCell(false);
 	}, [instance]);
 
+	const handleDisableForNotebook = React.useCallback(() => {
+		instance.dismissGhostCell(true);
+	}, [instance]);
+
 	const handleDisableGlobally = React.useCallback(() => {
 		instance.disableGhostCellSuggestions();
 	}, [instance]);
@@ -284,6 +289,14 @@ export const GhostCell: React.FC = () => {
 			run: handleDismiss
 		},
 		{
+			id: 'ghost-cell-disable-for-notebook',
+			label: dontSuggestInNotebookLabel,
+			tooltip: dontSuggestInNotebookLabel,
+			class: undefined,
+			enabled: true,
+			run: handleDisableForNotebook
+		},
+		{
 			id: 'ghost-cell-dont-suggest-again',
 			label: dontSuggestAgainLabel,
 			tooltip: dontSuggestAgainLabel,
@@ -291,7 +304,7 @@ export const GhostCell: React.FC = () => {
 			enabled: true,
 			run: handleDisableGlobally
 		}
-	], [handleDismiss, handleDisableGlobally]);
+	], [handleDismiss, handleDisableForNotebook, handleDisableGlobally]);
 
 	// Don't render anything if ghost cell is hidden
 	if (ghostCellState.status === 'hidden') {
