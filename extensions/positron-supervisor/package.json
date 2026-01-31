@@ -43,7 +43,7 @@
         "kernelSupervisor.startupTimeout": {
           "scope": "window",
           "type": "number",
-          "default": 10,
+          "default": 15,
           "minimum": 1,
           "description": "%configuration.startupTimeout.description%"
         },
