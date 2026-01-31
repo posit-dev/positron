@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { NotebookDocumentMetadata } from '../../notebook/common/notebookCommon.js';
-import { hasKey } from '../../../../base/common/types.js';
 
 /**
  * Valid values for the showDiff per-notebook override.
@@ -19,28 +18,42 @@ export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 
 /**
- * Per-notebook assistant settings stored at metadata.positron.assistant
+ * Valid values for the ghostCellSuggestions per-notebook override.
+ * undefined = follow global setting, 'enabled' = always show, 'disabled' = never show
+ */
+export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
+
+/**
+ * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
  *
- * Schema:
+ * The ipynb serializer maps:
+ *   VS Code model metadata.metadata -> ipynb file metadata
+ *
+ * Schema (in ipynb file):
  *   metadata.positron.assistant: {
  *     showDiff?: 'showDiff' | 'noDiff'  // Per-notebook diff view override
  *     autoFollow?: 'autoFollow' | 'noAutoFollow'  // Per-notebook auto-follow override
+ *     ghostCellSuggestions?: 'enabled' | 'disabled'  // Per-notebook ghost cell suggestions override
  *   }
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
+	ghostCellSuggestions?: GhostCellSuggestionsOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
+const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
 
 /**
  * Read assistant settings from notebook metadata.
  * Validates values and returns undefined for invalid entries.
  */
 export function getAssistantSettings(metadata: NotebookDocumentMetadata | undefined): AssistantSettings {
-	const positron = metadata?.positron as Record<string, unknown> | undefined;
+	// Access inner metadata (this is what gets serialized to ipynb file)
+	const innerMetadata = metadata?.metadata as Record<string, unknown> | undefined;
+	const positron = innerMetadata?.positron as Record<string, unknown> | undefined;
 	const assistant = positron?.assistant as Record<string, unknown> | undefined;
 
 	// Validate showDiff value
@@ -55,7 +68,13 @@ export function getAssistantSettings(metadata: NotebookDocumentMetadata | undefi
 		? rawAutoFollow as AutoFollowOverride
 		: undefined;
 
-	return { showDiff, autoFollow };
+	// Validate ghostCellSuggestions value
+	const rawGhostCellSuggestions = assistant?.ghostCellSuggestions;
+	const ghostCellSuggestions = typeof rawGhostCellSuggestions === 'string' && VALID_GHOST_CELL_SUGGESTIONS_VALUES.has(rawGhostCellSuggestions)
+		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
+		: undefined;
+
+	return { showDiff, autoFollow, ghostCellSuggestions };
 }
 
 /**
@@ -66,25 +85,19 @@ export function setAssistantSettings(
 	metadata: NotebookDocumentMetadata,
 	updates: Partial<AssistantSettings>
 ): NotebookDocumentMetadata {
-	const currentPositron = (metadata.positron as Record<string, unknown>) ?? {};
+	// Access inner metadata (this is what gets serialized to ipynb file)
+	const innerMetadata = (metadata.metadata as Record<string, unknown>) ?? {};
+	const currentPositron = (innerMetadata.positron as Record<string, unknown>) ?? {};
 	const currentAssistant = (currentPositron.assistant as Record<string, unknown>) ?? {};
 
 	// Merge updates into assistant settings
+	// Apply updates dynamically - undefined values remove the key, defined values set it
 	const newAssistant: Record<string, unknown> = { ...currentAssistant };
-
-	if (hasKey(updates, 'showDiff')) {
-		if (updates.showDiff === undefined) {
-			delete newAssistant.showDiff;
+	for (const [key, value] of Object.entries(updates)) {
+		if (value === undefined) {
+			delete newAssistant[key];
 		} else {
-			newAssistant.showDiff = updates.showDiff;
-		}
-	}
-
-	if (hasKey(updates, 'autoFollow')) {
-		if (updates.autoFollow === undefined) {
-			delete newAssistant.autoFollow;
-		} else {
-			newAssistant.autoFollow = updates.autoFollow;
+			newAssistant[key] = value;
 		}
 	}
 
@@ -96,13 +109,17 @@ export function setAssistantSettings(
 		delete newPositron.assistant;
 	}
 
-	// Build new root metadata, removing empty positron container
-	const newMetadata: NotebookDocumentMetadata = { ...metadata };
+	// Build new inner metadata, removing empty positron container
+	const newInnerMetadata: Record<string, unknown> = { ...innerMetadata };
 	if (Object.keys(newPositron).length > 0) {
-		newMetadata.positron = newPositron;
+		newInnerMetadata.positron = newPositron;
 	} else {
-		delete newMetadata.positron;
+		delete newInnerMetadata.positron;
 	}
+
+	// Build new root metadata with updated inner metadata
+	const newMetadata: NotebookDocumentMetadata = { ...metadata };
+	newMetadata.metadata = newInnerMetadata;
 
 	return newMetadata;
 }

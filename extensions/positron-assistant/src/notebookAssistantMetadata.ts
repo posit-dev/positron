@@ -18,22 +18,35 @@ export type ShowDiffOverride = 'showDiff' | 'noDiff' | undefined;
 export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 
 /**
- * Per-notebook assistant settings stored at metadata.positron.assistant
+ * Valid values for the ghostCellSuggestions per-notebook override.
+ * undefined = follow global setting, 'enabled' = always show, 'disabled' = never show
+ */
+export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
+
+/**
+ * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
+ *
+ * The ipynb serializer maps:
+ *   VS Code model metadata.metadata -> ipynb file metadata
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
+	ghostCellSuggestions?: GhostCellSuggestionsOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
+const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
 
 /**
  * Read assistant settings from notebook metadata.
  * Validates values and returns undefined for invalid entries.
  */
 export function getAssistantSettings(metadata: { [key: string]: unknown } | undefined): AssistantSettings {
-	const positron = metadata?.positron as Record<string, unknown> | undefined;
+	// Access inner metadata (this is what gets serialized to ipynb file)
+	const innerMetadata = metadata?.metadata as Record<string, unknown> | undefined;
+	const positron = innerMetadata?.positron as Record<string, unknown> | undefined;
 	const assistant = positron?.assistant as Record<string, unknown> | undefined;
 
 	// Validate showDiff value
@@ -48,7 +61,13 @@ export function getAssistantSettings(metadata: { [key: string]: unknown } | unde
 		? rawAutoFollow as AutoFollowOverride
 		: undefined;
 
-	return { showDiff, autoFollow };
+	// Validate ghostCellSuggestions value
+	const rawGhostCellSuggestions = assistant?.ghostCellSuggestions;
+	const ghostCellSuggestions = typeof rawGhostCellSuggestions === 'string' && VALID_GHOST_CELL_SUGGESTIONS_VALUES.has(rawGhostCellSuggestions)
+		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
+		: undefined;
+
+	return { showDiff, autoFollow, ghostCellSuggestions };
 }
 
 /**
@@ -75,4 +94,17 @@ export function resolveAutoFollow(notebook: vscode.NotebookDocument): boolean {
 	}
 
 	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('autoFollow', true);
+}
+
+/**
+ * Resolve ghostCellSuggestions setting: notebook metadata first, then global config fallback.
+ */
+export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): boolean {
+	const settings = getAssistantSettings(notebook.metadata);
+
+	if (settings.ghostCellSuggestions !== undefined) {
+		return settings.ghostCellSuggestions === 'enabled';
+	}
+
+	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('ghostCellSuggestions', true);
 }

@@ -26,6 +26,12 @@ export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant
 // Configuration key for showing diff view for assistant edits
 export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
 
+// Configuration key for enabling ghost cell suggestions after cell execution
+export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.notebook.ghostCellSuggestions';
+
+// Configuration key for ghost cell suggestion delay
+export const POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY = 'positron.assistant.notebook.ghostCellSuggestions.delay';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -81,6 +87,26 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.showDiff',
 				'Show diff view for AI assistant edits to notebook cells. When disabled, changes are applied directly without requiring approval.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions',
+				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY]: {
+			type: 'number',
+			default: 2000,
+			minimum: 500,
+			maximum: 10000,
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions.delay',
+				'Time in milliseconds to wait after cell execution before showing ghost cell suggestions. A shorter delay shows suggestions faster but may trigger unnecessary requests if you quickly execute multiple cells. A longer delay reduces requests but delays suggestions.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
