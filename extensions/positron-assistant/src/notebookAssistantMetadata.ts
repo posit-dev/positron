@@ -24,7 +24,10 @@ export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
 
 /**
- * Per-notebook assistant settings stored at metadata.positron.assistant
+ * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
+ *
+ * The ipynb serializer maps:
+ *   VS Code model metadata.metadata -> ipynb file metadata
  */
 export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
@@ -41,7 +44,9 @@ const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disable
  * Validates values and returns undefined for invalid entries.
  */
 export function getAssistantSettings(metadata: { [key: string]: unknown } | undefined): AssistantSettings {
-	const positron = metadata?.positron as Record<string, unknown> | undefined;
+	// Access inner metadata (this is what gets serialized to ipynb file)
+	const innerMetadata = metadata?.metadata as Record<string, unknown> | undefined;
+	const positron = innerMetadata?.positron as Record<string, unknown> | undefined;
 	const assistant = positron?.assistant as Record<string, unknown> | undefined;
 
 	// Validate showDiff value
