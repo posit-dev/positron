@@ -8,6 +8,7 @@ import { test, tags } from '../_test.setup';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
+import { clean } from 'semver';
 
 /**
  * Removes UTF-8 BOM (Byte Order Mark) from the beginning of a string
@@ -107,19 +108,31 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 	});
 
 	/**
-	 * Load dataset and process each question
+	 * Converts a model name to a filename-safe string
+	 * @param modelName - The model name to sanitize
+	 * @returns A filename-safe version of the model name
 	 */
-	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
-		test.setTimeout(5 * 60 * 1000); // 5 minutes
-		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
-		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
+	function modelNameToFilename(modelName: string): string {
+		return modelName
+			.toLowerCase()
+			.replace(/\s+/g, '-')
+			.replace(/[^a-z0-9-]/g, '');
+	}
+
+	/**
+	 * Load dataset and process each question for all models
+	 */
+	test('Process Dataset Questions', async function ({ app, sessions, hotKeys, cleanup }) {
+		test.setTimeout(15 * 60 * 1000); // 15 minutes (more time for multiple models)
+		// Load dataset from file
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
-		const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
 		const datasetJson = readJSONFile(datasetPath);
 
-		// Extract model and tests from the JSON data
-		const dataset = datasetJson.tests || [];
-		const modelName = datasetJson.model || 'Claude Sonnet 4';
+		// Extract models array (support both 'models' array and legacy single 'model' field)
+		const models: string[] = datasetJson.models || (datasetJson.model ? [datasetJson.model] : ['Claude Sonnet 4']);
+		const baseTests = datasetJson.tests || [];
+
+		console.log(`Will process ${baseTests.length} questions for ${models.length} model(s): ${models.join(', ')}`);
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
@@ -139,11 +152,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		}
 
 		await app.workbench.toasts.closeAll();
-
-		await app.workbench.assistant.selectChatModel(modelName);
-
-		// Track if we've updated any items
-		let updatedItems = false;
 
 		// Define setup actions in a separate object (could even be moved to its own file later)
 		const setupActions = {
@@ -233,64 +241,82 @@ species = pl.DataFrame({
 
 				await hotKeys.closeAllEditors();
 				await sessions.restart(pySession.id);
+				await cleanup.discardAllChanges();
 
 			},
 			'sample_3': async (app: any) => {
 				await hotKeys.closeAllEditors();
 				await sessions.restart(pySession.id);
+				await cleanup.discardAllChanges();
 			},
 			'sample_4': async () => {
 				await sessions.restart(pySession.id);
 			},
 		} as const;
 
-		// Loop through each question in the dataset
-		for (const item of dataset) {
+		// Loop through each model
+		for (const modelName of models) {
+			console.log(`\n========== Testing model: ${modelName} ==========\n`);
 
-			console.log(`Processing question from dataset: ${item.id}`);
+			// Select the model for this iteration
+			await app.workbench.assistant.selectChatModel(modelName);
 
-			// Execute setup action if one exists for this item
-			const setupAction = setupActions[item.id as keyof typeof setupActions];
-			if (setupAction) {
-				console.log(`Running setup for: ${item.id}`);
-				await setupAction(app);
+			// Create a fresh copy of test data for this model
+			const dataset = JSON.parse(JSON.stringify(baseTests));
+
+			// Track if we've updated any items for this model
+			let updatedItems = false;
+
+			// Loop through each question in the dataset
+			for (const item of dataset) {
+
+				console.log(`Processing question from dataset: ${item.id} (model: ${modelName})`);
+
+				// Execute setup action if one exists for this item
+				const setupAction = setupActions[item.id as keyof typeof setupActions];
+				if (setupAction) {
+					console.log(`Running setup for: ${item.id}`);
+					await setupAction(app);
+				}
+				await app.workbench.assistant.clickNewChatButton();
+				await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
+				await app.workbench.assistant.enterChatMessage(item.question, item.waitForResponse !== false);
+
+				// Execute post-question action if one exists for this item
+				const postQuestionAction = postQuestionActions[item.id as keyof typeof postQuestionActions];
+				if (postQuestionAction) {
+					console.log(`Running post-question action for: ${item.id}`);
+					await postQuestionAction(app);
+				}
+
+				const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
+				console.log(`Response from Assistant for ${item.id}: ${response}`);
+				if (!response || response.trim() === '') {
+					fail(`No response received for question: ${item.question}`);
+				}
+				// Sanitize the response to handle UTF-8 and control character issues
+				item.model_response = sanitizeResponse(response);
+				updatedItems = true;
+
+				// Execute cleanup action if one exists for this item
+				const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
+				if (cleanupAction) {
+					console.log(`Running cleanup for: ${item.id}`);
+					await cleanupAction(app);
+				}
 			}
-			await app.workbench.assistant.clickNewChatButton();
-			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
-			await app.workbench.assistant.enterChatMessage(item.question, item.waitForResponse !== false);
 
-			// Execute post-question action if one exists for this item
-			const postQuestionAction = postQuestionActions[item.id as keyof typeof postQuestionActions];
-			if (postQuestionAction) {
-				console.log(`Running post-question action for: ${item.id}`);
-				await postQuestionAction(app);
-			}
-
-			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
-			console.log(`Response from Assistant for ${item.id}: ${response}`);
-			if (!response || response.trim() === '') {
-				fail(`No response received for question: ${item.question}`);
-			}
-			// Sanitize the response to handle UTF-8 and control character issues
-			item.model_response = sanitizeResponse(response);
-			updatedItems = true;
-
-			// Execute cleanup action if one exists for this item
-			const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
-			if (cleanupAction) {
-				console.log(`Running cleanup for: ${item.id}`);
-				await cleanupAction(app);
-			}
-		}
-
-		// Write updated dataset back to file if any items were updated
-		if (updatedItems) {
-			try {
-				const outputData = { model: modelName, tests: dataset };
-				writeJSONFile(outputPath, outputData);
-				console.log(`Updated model responses in dataset file: ${outputPath}`);
-			} catch (error) {
-				fail(`Failed to write updated dataset: ${error}`);
+			// Write updated dataset back to file for this model
+			if (updatedItems) {
+				try {
+					const outputFilename = `response-dataset-${modelNameToFilename(modelName)}.json`;
+					const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
+					const outputData = { model: modelName, tests: dataset };
+					writeJSONFile(outputPath, outputData);
+					console.log(`Updated model responses in dataset file: ${outputPath}`);
+				} catch (error) {
+					fail(`Failed to write updated dataset for ${modelName}: ${error}`);
+				}
 			}
 		}
 	});
