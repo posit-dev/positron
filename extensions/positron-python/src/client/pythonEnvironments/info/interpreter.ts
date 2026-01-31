@@ -7,9 +7,11 @@ import {
     interpreterInfo as getInterpreterInfoCommand,
     InterpreterInfoJson,
 } from '../../common/process/internal/scripts';
+// --- Start Positron ---
+import { getArchitectureFromInfo } from '../../common/process/internal/scripts/architecture';
+// --- End Positron ---
 import { ShellExecFunc } from '../../common/process/types';
 import { replaceAll } from '../../common/stringUtils';
-import { Architecture } from '../../common/utils/platform';
 import { copyPythonExecInfo, PythonExecInfo } from '../exec';
 
 /**
@@ -39,7 +41,10 @@ function extractInterpreterInfo(python: string, raw: InterpreterInfoJson): Inter
         }
     }
     return {
-        architecture: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        // --- Start Positron ---
+        // architecture: raw.is64Bit ? Architecture.x64 : Architecture.x86,
+        architecture: getArchitectureFromInfo(raw),
+        // --- End Positron ---
         path: python,
         version: new SemVer(rawVersion),
         sysVersion: raw.sysVersion,
