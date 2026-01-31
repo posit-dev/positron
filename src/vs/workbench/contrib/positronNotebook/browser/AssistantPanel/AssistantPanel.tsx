@@ -31,7 +31,7 @@ import { IChatEditingService, IModifiedFileEntry, ModifiedFileEntryState } from 
 import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY, POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../../common/positronNotebookConfig.js';
 import { CellEditType } from '../../../notebook/common/notebookCommon.js';
-import { ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
+import { AssistantSettings, ShowDiffOverride, AutoFollowOverride, GhostCellSuggestionsOverride, getAssistantSettings, setAssistantSettings } from '../../common/notebookAssistantMetadata.js';
 
 // Localized strings.
 const loadingText = localize('assistantPanel.loading', 'Preparing notebook assistant...');
@@ -536,6 +536,32 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 		onActionSelected(query, mode);
 	};
 
+	/**
+	 * Helper to update notebook assistant settings in metadata and auto-save.
+	 * Must only be called when panelState.status === 'ready'.
+	 */
+	const updateNotebookSettings = (updates: Partial<AssistantSettings>): boolean => {
+		if (panelState.status !== 'ready') {
+			return false;
+		}
+
+		const textModel = panelState.notebook.textModel;
+		if (!textModel) {
+			logService.warn('Cannot update notebook metadata: no text model available');
+			return false;
+		}
+
+		const newMetadata = setAssistantSettings({ ...textModel.metadata }, updates);
+
+		textModel.applyEdits([{
+			editType: CellEditType.DocumentMetadata,
+			metadata: newMetadata
+		}], true, undefined, () => undefined, undefined, true);
+
+		commandService.executeCommand('workbench.action.files.save');
+		return true;
+	};
+
 	const handleShowDiffChanged = async (value: ShowDiffOverride) => {
 		if (panelState.status !== 'ready') {
 			return;
@@ -559,20 +585,8 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			}
 		}
 
-		// Apply the setting change
 		setShowDiffOverride(value);
-
-		const textModel = panelState.notebook.textModel;
-		if (!textModel) {
-			logService.warn('Cannot update notebook metadata: no text model available');
-			return;
-		}
-
-		const newMetadata = setAssistantSettings({ ...textModel.metadata }, { showDiff: value });
-		textModel.applyEdits([{
-			editType: CellEditType.DocumentMetadata,
-			metadata: newMetadata
-		}], true, undefined, () => undefined, undefined, true);
+		updateNotebookSettings({ showDiff: value });
 	};
 
 	const handleAutoFollowChanged = (value: AutoFollowOverride) => {
@@ -580,20 +594,8 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			return;
 		}
 
-		// Apply the setting change
 		setAutoFollowOverride(value);
-
-		const textModel = panelState.notebook.textModel;
-		if (!textModel) {
-			logService.warn('Cannot update notebook metadata: no text model available');
-			return;
-		}
-
-		const newMetadata = setAssistantSettings({ ...textModel.metadata }, { autoFollow: value });
-		textModel.applyEdits([{
-			editType: CellEditType.DocumentMetadata,
-			metadata: newMetadata
-		}], true, undefined, () => undefined, undefined, true);
+		updateNotebookSettings({ autoFollow: value });
 	};
 
 	const handleGhostCellSuggestionsChanged = (value: GhostCellSuggestionsOverride) => {
@@ -601,20 +603,8 @@ export const AssistantPanel = (props: AssistantPanelProps) => {
 			return;
 		}
 
-		// Apply the setting change
 		setGhostCellSuggestionsOverride(value);
-
-		const textModel = panelState.notebook.textModel;
-		if (!textModel) {
-			logService.warn('Cannot update notebook metadata: no text model available');
-			return;
-		}
-
-		const newMetadata = setAssistantSettings({ ...textModel.metadata }, { ghostCellSuggestions: value });
-		textModel.applyEdits([{
-			editType: CellEditType.DocumentMetadata,
-			metadata: newMetadata
-		}], true, undefined, () => undefined, undefined, true);
+		updateNotebookSettings({ ghostCellSuggestions: value });
 	};
 
 	// Determine content based on state
