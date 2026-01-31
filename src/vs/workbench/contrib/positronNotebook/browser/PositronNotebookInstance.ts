@@ -27,7 +27,7 @@ import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, Sel
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { GhostCellState, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
 import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -2245,11 +2245,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Set up debounce (3 seconds)
+		// Set up debounce using configurable delay
+		const delay = this.configurationService.getValue<number>(POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY) ?? 2000;
 		this._ghostCellDebounceTimer = setTimeout(() => {
 			this._ghostCellDebounceTimer = undefined;
 			this.triggerGhostCellSuggestion(cellIndex);
-		}, 3000);
+		}, delay);
 	}
 
 	/**
