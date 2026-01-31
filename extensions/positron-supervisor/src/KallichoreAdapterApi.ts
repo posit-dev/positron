@@ -211,6 +211,10 @@ export class KCApi implements PositronSupervisorApi {
 	 * attempt to reconnect to it. Returns a promise that resolves when the
 	 * server is online.
 	 *
+	 * Waits up to the configured startup timeout for the terminal to start and
+	 * for the same timeout for the server to write the connection file and
+	 * become responsive.
+	 *
 	 * @throws An error if the server cannot be started or reconnected to.
 	 */
 	async start() {
@@ -456,7 +460,13 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		// Wait for the terminal to start and get the PID
-		let processId = await this._terminal.processId;
+		let processId = await withTimeout(this._terminal.processId,
+			startupTimeout, `Timed out waiting for terminal to start after ${startupTimeout}ms`);
+
+		// Now that the terminal has started, log the PID and
+		// start the timer for server startup
+		this.log(`Kallichore terminal started in ${Date.now() - startTime}ms with PID ${processId}`);
+		const supervisorStartTime = Date.now();
 
 		// Wait for the connection file to be written by the server
 		let connectionData: KallichoreServerState | undefined = undefined;
@@ -464,7 +474,9 @@ export class KCApi implements PositronSupervisorApi {
 		let serverPort: number = 0;
 
 		// Wait for the connection file to exist and be readable
-		for (let retry = 0; retry < 100; retry++) {
+		let elapsed = 0;
+		let retry = 1;
+		do {
 			try {
 				if (fs.existsSync(connectionFile)) {
 					connectionData = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
@@ -525,28 +537,17 @@ export class KCApi implements PositronSupervisorApi {
 				throw new Error(message);
 			}
 
-			const elapsed = Date.now() - startTime;
-			if (elapsed > startupTimeout) {
-				let message = `Connection file was not created after ${elapsed}ms`;
-
-				// Include any output from the server process to help diagnose the problem
-				if (fs.existsSync(outFile)) {
-					const contents = fs.readFileSync(outFile, 'utf8');
-					if (contents) {
-						message += `; output:\n\n${contents}`;
-					}
-				}
-				this.log(message);
-				throw new Error(message);
+			// Wait a bit and try again
+			if (elapsed + 100 < startupTimeout) {
+				await new Promise((resolve) => setTimeout(resolve, 100));
 			}
 
-			// Wait a bit and try again
-			await new Promise((resolve) => setTimeout(resolve, 100));
-		}
+			elapsed = Date.now() - supervisorStartTime;;
+			retry++;
+		} while (elapsed < startupTimeout && !connectionData);
 
-		if (!connectionData) {
-			let message = `Timed out waiting for connection file to be ` +
-				`created at ${connectionFile} after ${startupTimeout}ms`;
+		if (elapsed > startupTimeout || !connectionData) {
+			let message = `Connection file was not created after ${elapsed}ms`;
 
 			// Include any output from the server process to help diagnose the problem
 			if (fs.existsSync(outFile)) {
@@ -591,7 +592,7 @@ export class KCApi implements PositronSupervisorApi {
 				}
 				break;
 			} catch (err) {
-				const elapsed = Date.now() - startTime;
+				const elapsed = Date.now() - supervisorStartTime;
 
 				// Has the terminal exited? if it has, there's no point in continuing to retry.
 				if (exited) {
@@ -650,7 +651,7 @@ export class KCApi implements PositronSupervisorApi {
 			}
 		}
 
-		this.log(`Kallichore server started in ${Date.now() - startTime}ms`);
+		this.log(`Kallichore server started in ${Date.now() - supervisorStartTime}ms`);
 
 		// Begin streaming the logs (cleaning up any existing streamer)
 		if (this._logStreamer) {
