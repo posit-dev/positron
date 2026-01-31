@@ -47,3 +47,6 @@ vsix-cache/
 product.json.backup
 *.lic
 # --- End Positron ---
+
+# Beads project tracking (local only)
+.beads/
