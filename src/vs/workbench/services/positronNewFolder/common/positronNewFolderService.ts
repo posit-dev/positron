@@ -471,6 +471,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
 				const createEnvCommand = 'python.createEnvironmentAndRegister';
+				const envName = this._newFolderConfig.pythonEnvName;
 				const result: CreateEnvironmentResult | undefined =
 					await this._commandService.executeCommand(
 						createEnvCommand,
@@ -480,6 +481,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 							interpreterPath,
 							condaPythonVersion,
 							uvPythonVersion,
+							envName,
 							// Do not start the environment after creation. We'll install ipykernel
 							// first, then set the environment as the affiliated runtime, which will
 							// be automatically started by the runtimeStartupService.
