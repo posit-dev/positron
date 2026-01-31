@@ -64,6 +64,28 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	public readonly _hoverManager: PositronActionBarHoverManager;
 
+	/**
+	 * Whether the data explorer is currently visible.
+	 * When not visible, expensive operations are deferred.
+	 */
+	private _visible = true;
+
+	/**
+	 * Whether a schema update is pending because we were not visible when it occurred.
+	 */
+	private _pendingSchemaUpdate = false;
+
+	/**
+	 * Whether a data update is pending because we were not visible when it occurred.
+	 */
+	private _pendingDataUpdate = false;
+
+	/**
+	 * Whether the initial data load has been completed.
+	 * Used to trigger initial load when first becoming visible.
+	 */
+	private _initialLoadComplete = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -110,35 +132,44 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Update the layout entries.
-			await this.updateLayoutEntries();
-
-			// Perform a soft reset.
-			this.softReset();
-
-			// Fetch data.
-			await this.fetchData(true);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingSchemaUpdate = true;
+				return;
+			}
+			// Clear pending flags since we're doing the work now.
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.handleSchemaUpdate();
 		}));
 
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Update the layout entries.
-			await this.updateLayoutEntries();
-
-			// Refresh the column profiles because they rely on the data.
-			await this._tableSummaryCache.refreshColumnProfiles();
-
-			// Fetch data.
-			await this.fetchData(true);
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Clear pending flag since we're doing the work now.
+			this._pendingDataUpdate = false;
+			await this.handleDataUpdate();
 		}));
 
 		// Add the onDidUpdateBackendState event handler.
+		// This handles UI-initiated operations (like setRowFilters, setSortColumns)
+		// that change the backend state. For backend-initiated events, onDidSchemaUpdate
+		// or onDidDataUpdate will also fire and do additional work.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Always update layout entries and invalidate cache when backend state changes
-			// Backend state changes represent changes to the underlying data (like row filters)
-			// so column profiles need to be recalculated regardless of search/sort state
+			// If not visible, defer the update until we become visible.
+			if (!this._visible) {
+				this._pendingDataUpdate = true;
+				return;
+			}
+			// Update layout entries and fetch data with cache invalidation.
 			await this.updateLayoutEntries(state);
-			await this.fetchData(true);
+
+			// DISABLED: Fetching data here causes double-fetching in some scenarios.
+			// await this.fetchData(true);
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
@@ -555,6 +586,43 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 	}
 
+	/**
+	 * Sets the visibility state.
+	 * When becoming visible with pending updates, triggers deferred refresh operations.
+	 * @param visible Whether the data explorer is currently visible.
+	 */
+	async setVisible(visible: boolean): Promise<void> {
+		const wasHidden = !this._visible;
+		this._visible = visible;
+
+		if (!visible) {
+			return;
+		}
+
+		// Initial load: first time becoming visible, no data loaded yet.
+		if (!this._initialLoadComplete) {
+			this._initialLoadComplete = true;
+			this._pendingSchemaUpdate = false;
+			this._pendingDataUpdate = false;
+			await this.updateLayoutEntries();
+			await this.fetchData(true);
+			return;
+		}
+
+		// Deferred updates: becoming visible after being hidden with pending updates.
+		// Schema updates take precedence since they're more comprehensive.
+		if (wasHidden) {
+			if (this._pendingSchemaUpdate) {
+				this._pendingSchemaUpdate = false;
+				this._pendingDataUpdate = false;
+				await this.handleSchemaUpdate();
+			} else if (this._pendingDataUpdate) {
+				this._pendingDataUpdate = false;
+				await this.handleDataUpdate();
+			}
+		}
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -566,6 +634,24 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private hasNoSearchOrSort(): boolean {
 		return this._searchText === '' && this._sortOption === SearchSchemaSortOrder.Original;
+	}
+
+	/**
+	 * Handles a schema update from the backend.
+	 */
+	private async handleSchemaUpdate(): Promise<void> {
+		await this.updateLayoutEntries();
+		this.softReset();
+		await this.fetchData(true);
+	}
+
+	/**
+	 * Handles a data update from the backend.
+	 */
+	private async handleDataUpdate(): Promise<void> {
+		await this.updateLayoutEntries();
+		await this._tableSummaryCache.refreshColumnProfiles();
+		await this.fetchData(true);
 	}
 
 	/**
