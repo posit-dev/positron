@@ -8,7 +8,6 @@ import { test, tags } from '../_test.setup';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { clean } from 'semver';
 
 /**
  * Removes UTF-8 BOM (Byte Order Mark) from the beginning of a string
