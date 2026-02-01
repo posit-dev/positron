@@ -7,7 +7,7 @@ import { fail } from 'assert';
 import { test, tags } from '../_test.setup';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { expect } from '@playwright/test';
+import { getActionsForSample, ActionContext } from '../../../assistant-inspect-ai/actions';
 
 /**
  * Removes UTF-8 BOM (Byte Order Mark) from the beginning of a string
@@ -152,106 +152,22 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		await app.workbench.toasts.closeAll();
 
-		// Define setup actions in a separate object (could even be moved to its own file later)
-		const setupActions = {
-			'sample_1': async () => {
-				// Start and select an R session
-				await sessions.select(rSession.id);
+		// Build the action context with access to test infrastructure
+		const actionContext: ActionContext = {
+			app,
+			sessions: {
+				python: pySession,
+				r: rSession,
+				select: (id: string) => sessions.select(id),
+				restart: (id: string, options?: { clearConsole?: boolean }) => sessions.restart(id, options),
 			},
-			'sample_2': async (app: any) => {
-				await expect(async () => {
-					await sessions.select(pySession.id);
-					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-					await app.workbench.quickaccess.runCommand('python.execInConsole');
-				}).toPass({ timeout: 5000 });
+			hotKeys: {
+				closeAllEditors: () => hotKeys.closeAllEditors(),
 			},
-			'sample_3': async (app: any) => {
-				await expect(async () => {
-					await sessions.select(pySession.id);
-					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-				}).toPass({ timeout: 5000 });
+			cleanup: {
+				discardAllChanges: () => cleanup.discardAllChanges(),
 			},
-			'sample_4': async (app: any) => {
-				await expect(async () => {
-					await sessions.select(pySession.id);
-					const polarsCode = `import polars as pl
-
-# Create sample species data matching the Georgia Aquarium structure
-species = pl.DataFrame({
-	"name": [
-		"Blue Tang Surgeonfish",
-		"Red Lionfish",
-		"Green Sea Turtle",
-		"Yellow Tang",
-		"Orange Clownfish",
-		"Black Drum",
-		"White Beluga Whale",
-		"Purple Sea Urchin",
-		"Pink Skunk Clownfish",
-		"Silver Tarpon",
-		"Blacktip Reef Shark",
-		"Gray Reef Shark",
-		"Brown Smooth-hound Shark"
-	],
-	"physical_characteristics": [
-		"Deep blue in color with distinct black markings. Has a yellow tail with black upper and lower margins.",
-		"Zebra-banded with narrow reddish or golden brown vertical bars stretching across a whitish-to-yellow background.",
-		"Carapace is light to dark brown in color with a creamy underside. Skin is cream to yellow in color.",
-		"Characterized by a long snout and large dorsal fin. Coloration is a bright yellow.",
-		"Body is bright orange with three vertical white bars edged in black.",
-		"Oblong body with silver, grey or dark brown coloration. Juveniles may have 4-5 vertical black bars.",
-		"Generally pale gray to pure white as adults. Areas such as the dorsal ridge may be darker.",
-		"Spiny and ovoid-shaped with vivid purple coloring on adults. Juveniles are greenish-colored.",
-		"Adults appear pink to orange in coloration with a white stripe running dorsally.",
-		"Body covered with large scales. Coloration is blue-grey on the back and bright silver on the sides.",
-		"Grey body with distinctive black tips on dorsal and caudal fins. White underside.",
-		"Dark grey to bronze coloration on upper body, lighter on underside. No distinctive markings.",
-		"Slender body with bronze to brown coloration. Smooth skin texture with white belly."
-	]
-})`;
-					await app.workbench.console.executeCode('Python', polarsCode, '>>>');
-					await app.workbench.console.clearButton.click();
-				}).toPass({ timeout: 5000 });
-			},
-		} as const;
-
-		// Define post-question actions that run after a question is asked but before getting the response
-		const postQuestionActions = {
-			'sample_3': async (app: any) => {
-				try {
-					// Wait up to 20 seconds for the Keep button to appear
-					await app.workbench.assistant.clickKeepButton();
-					console.log('Keep button clicked for sample_3');
-					await app.workbench.assistant.waitForResponseComplete();
-				} catch (error) {
-					// Keep button didn't appear or wasn't clickable
-					// Don't fail so the rest of the tests can continue
-					console.log('Keep button not found or not clickable for sample_3 (this is OK)');
-				}
-			},
-		} as const;
-
-		// Define cleanup actions in a separate object (could even be moved to its own file later)
-		const cleanupActions = {
-			'sample_1': async () => {
-				await sessions.restart(rSession.id);
-			},
-			'sample_2': async (app: any) => {
-
-				await hotKeys.closeAllEditors();
-				await sessions.restart(pySession.id);
-				await cleanup.discardAllChanges();
-
-			},
-			'sample_3': async (app: any) => {
-				await hotKeys.closeAllEditors();
-				await sessions.restart(pySession.id);
-				await cleanup.discardAllChanges();
-			},
-			'sample_4': async () => {
-				await sessions.restart(pySession.id);
-			},
-		} as const;
+		};
 
 		// Loop through each model
 		for (const modelName of models) {
@@ -271,21 +187,22 @@ species = pl.DataFrame({
 
 				console.log(`Processing question from dataset: ${item.id} (model: ${modelName})`);
 
+				// Get actions for this sample (may be empty if no actions defined)
+				const sampleActions = getActionsForSample(item.id);
+
 				// Execute setup action if one exists for this item
-				const setupAction = setupActions[item.id as keyof typeof setupActions];
-				if (setupAction) {
+				if (sampleActions.setup) {
 					console.log(`Running setup for: ${item.id}`);
-					await setupAction(app);
+					await sampleActions.setup(actionContext);
 				}
 				await app.workbench.assistant.clickNewChatButton();
 				await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 				await app.workbench.assistant.enterChatMessage(item.question, item.waitForResponse !== false);
 
 				// Execute post-question action if one exists for this item
-				const postQuestionAction = postQuestionActions[item.id as keyof typeof postQuestionActions];
-				if (postQuestionAction) {
+				if (sampleActions.postQuestion) {
 					console.log(`Running post-question action for: ${item.id}`);
-					await postQuestionAction(app);
+					await sampleActions.postQuestion(actionContext);
 				}
 
 				const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
@@ -298,10 +215,9 @@ species = pl.DataFrame({
 				updatedItems = true;
 
 				// Execute cleanup action if one exists for this item
-				const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
-				if (cleanupAction) {
+				if (sampleActions.cleanup) {
 					console.log(`Running cleanup for: ${item.id}`);
-					await cleanupAction(app);
+					await sampleActions.cleanup(actionContext);
 				}
 			}
 
