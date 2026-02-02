@@ -284,9 +284,14 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			return;
 		}
 
-		if (currentState === ModifiedFileEntryState.Rejected) {
+		// --- Start Positron ---
+		// Only process edits when there's an active pending diff (Modified state).
+		// Accepted/Rejected entries should not process new edits - their job is done.
+		// This prevents stale baseline issues when edits occur outside the chat editing flow.
+		if (currentState !== ModifiedFileEntryState.Modified) {
 			return;
 		}
+		// --- End Positron ---
 
 		if (isTransientIPyNbExtensionEvent(this.modifiedModel.notebookType, e)) {
 			return;

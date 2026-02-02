@@ -17,34 +17,6 @@
 	position: relative;
 }
 
-/* Settings icon button in title bar - positioned at dialog box level */
-.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon {
-	position: absolute;
-	top: 4px;
-	right: 8px;
-	background: none;
-	border: none;
-	color: var(--vscode-positronModalDialog-titleBarForeground);
-	cursor: pointer;
-	padding: 4px;
-	font-size: 14px; /* Reduced from 16px */
-	opacity: 0.6; /* Reduced from 0.8 */
-	transition: opacity 0.2s;
-	border-radius: 4px;
-	z-index: 10;
-}
-
-.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon:hover {
-	opacity: 0.9; /* Reduced from 1.0 */
-	background-color: var(--vscode-toolbar-hoverBackground);
-}
-
-.positron-modal-dialog-box:has(.assistant-panel-content) .assistant-panel-settings-icon:focus-visible {
-	opacity: 0.9;
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: -1px;
-}
-
 /* Adjust section spacing for modal context */
 .positron-modal-dialog-box .assistant-panel-section {
 	margin: 0;
@@ -487,4 +459,185 @@
 
 .assistant-panel-error-close:hover {
 	background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Settings section */
+.assistant-panel-settings-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+/* Settings row - label on left, controls on right */
+.assistant-panel-setting-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 12px;
+}
+
+/* Setting label (left-aligned) */
+.assistant-panel-setting-label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--vscode-foreground);
+	flex-shrink: 0;
+}
+
+/* Info indicator for setting tooltips */
+.assistant-panel-setting-info {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	cursor: help;
+}
+
+.assistant-panel-setting-info:hover {
+	color: var(--vscode-foreground);
+}
+
+/* Controls container (right-aligned) */
+.assistant-panel-setting-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+/* Follow global label with checkbox */
+.assistant-panel-follow-global-label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	position: relative;
+}
+
+/* Hide native checkbox - using clip to fully hide while keeping accessible */
+.assistant-panel-checkbox {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Custom checkbox indicator */
+.assistant-panel-checkbox-indicator {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	border: 1px solid var(--vscode-checkbox-border);
+	border-radius: 3px;
+	background-color: var(--vscode-checkbox-background);
+}
+
+.assistant-panel-checkbox:checked + .assistant-panel-checkbox-indicator::after {
+	content: '\eab2'; /* codicon check */
+	font-family: codicon;
+	font-size: 12px;
+	color: var(--vscode-checkbox-foreground);
+}
+
+.assistant-panel-checkbox:focus-visible + .assistant-panel-checkbox-indicator {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+/* Toggle - matches ActionBarToggle styling */
+.assistant-panel-toggle {
+	display: flex;
+	font-size: 12px;
+	align-items: center;
+}
+
+.assistant-panel-toggle .toggle-container {
+	height: 22px;
+	border: none;
+	display: grid;
+	padding: 0 .5px;
+	cursor: pointer;
+	border-radius: 6px;
+	align-items: center;
+	grid-template-columns: [left] 1fr [right] 1fr [end];
+	background-color: var(--vscode-positronActionBar-hoverBackground, var(--vscode-toolbar-hoverBackground));
+}
+
+.assistant-panel-toggle .toggle-container:focus {
+	outline: none;
+}
+
+.assistant-panel-toggle .toggle-container:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.assistant-panel-toggle .toggle-container.disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.assistant-panel-toggle .toggle-container .toggle-button {
+	display: flex;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 6px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid transparent;
+}
+
+.assistant-panel-toggle .toggle-container .toggle-button.highlighted {
+	background-color: var(--vscode-positronActionBar-background, var(--vscode-editor-background));
+	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder, var(--vscode-contrastBorder, transparent));
+}
+
+.assistant-panel-toggle .toggle-container .toggle-button.left {
+	grid-column: left / right;
+}
+
+.assistant-panel-toggle .toggle-container .toggle-button.right {
+	grid-column: right / end;
+}
+
+/* Settings button with icon */
+.assistant-panel-settings-link {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	background: transparent;
+	border: 1px solid var(--vscode-button-secondaryBackground);
+	border-radius: 4px;
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	cursor: pointer;
+	padding: 5px 10px;
+	margin-top: 4px;
+	transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+.assistant-panel-settings-link:hover {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+	border-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.assistant-panel-settings-link:focus {
+	outline: none;
+}
+
+.assistant-panel-settings-link:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.assistant-panel-settings-link .codicon {
+	font-size: 14px;
 }

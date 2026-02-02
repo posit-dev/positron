@@ -13,9 +13,12 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
+import { IChatEditingService } from '../../chat/common/chatEditingService.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { AssistantPanel } from './AssistantPanel/AssistantPanel.js';
@@ -62,10 +65,13 @@ export class AskAssistantAction extends Action2 {
 		// Extract all services upfront - accessor is only valid during this synchronous call
 		const editorService = accessor.get(IEditorService);
 		const commandService = accessor.get(ICommandService);
+		const configurationService = accessor.get(IConfigurationService);
 		const notificationService = accessor.get(INotificationService);
 		const logService = accessor.get(ILogService);
 		const preferencesService = accessor.get(IPreferencesService);
 		const layoutService = accessor.get(ILayoutService);
+		const chatEditingService = accessor.get(IChatEditingService);
+		const dialogService = accessor.get(IDialogService);
 
 		// Get the initial notebook instance (may be undefined during the timing gap
 		// between editor activation and setInput() completion)
@@ -108,7 +114,10 @@ export class AskAssistantAction extends Action2 {
 		// Pass the notebook directly if available, otherwise pass the promise
 		renderer.render(
 			<AssistantPanel
+				chatEditingService={chatEditingService}
 				commandService={commandService}
+				configurationService={configurationService}
+				dialogService={dialogService}
 				initialNotebook={initialNotebook}
 				logService={logService}
 				notebookPromise={notebookPromise}
