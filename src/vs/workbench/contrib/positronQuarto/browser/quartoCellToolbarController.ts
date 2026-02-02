@@ -482,10 +482,17 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 	}
 
 	/**
-	 * Cancels a cell's previously pending execution
+	 * Cancels a cell's previously pending execution.
+	 * This is used when a cell is queued but hasn't started running yet.
+	 * It removes the cell from the execution queue without interrupting
+	 * any currently running cell.
 	 */
 	private async _cancelCell(cell: QuartoCodeCell): Promise<void> {
-
+		const model = this._editor.getModel();
+		if (!model) {
+			return;
+		}
+		await this._executionManager.cancelQueuedCell(model.uri, cell.id);
 	}
 
 	/**

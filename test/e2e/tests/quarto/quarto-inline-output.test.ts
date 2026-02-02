@@ -1558,4 +1558,107 @@ test.describe('Quarto - Inline Output', {
 			}
 		}
 	});
+
+	test('Python - Verify cancel button removes queued cell from execution queue', async function ({ app, openFile }) {
+		// This test verifies the cancel button functionality for queued cells:
+		// 1. Open a document with two cells (first takes 3 seconds to run)
+		// 2. Run both cells (they get queued sequentially)
+		// 3. While the first cell is still running, click the cancel button on the second cell
+		// 4. After the first cell completes, verify:
+		//    - First cell produced output ("Time's up")
+		//    - Second cell did NOT run (no "Oh no" output)
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'cancel_execution.qmd');
+
+		// Open the cancel execution test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// cancel_execution.qmd structure:
+		// - frontmatter (1-4)
+		// - text (6)
+		// - first cell (8-12): time.sleep(3) + print
+		// - text (14)
+		// - second cell (16-18): just prints
+
+		// Position cursor in the FIRST cell and run both cells using "Run All"
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('10');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run all cells - this queues both cells
+		await app.workbench.quickaccess.runCommand('positronQuarto.runAllCells');
+
+		// Wait for the first cell to start running
+		// The first cell's toolbar should show a stop button (running state)
+		await page.waitForTimeout(1500); // Give time for execution to start
+
+		// Now the second cell should be in "Queued" state
+		// Find the second cell's toolbar by looking for the cancel button (clock icon)
+		// The second cell is around line 17, so scroll there
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('17');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Find the toolbar for the second cell
+		// It should have the "queued" class and clock icon
+		const toolbars = page.locator('.quarto-cell-toolbar');
+		const secondToolbar = toolbars.nth(1);
+
+		// The run button should show the clock icon (queued state)
+		const runButton = secondToolbar.locator('.quarto-toolbar-run');
+		await expect(runButton).toBeVisible({ timeout: 5000 });
+
+		// Verify the button has the queued class (indicating it's showing cancel option)
+		await expect(runButton).toHaveClass(/queued/, { timeout: 5000 });
+
+		// Click the cancel button to cancel the queued execution
+		await runButton.click();
+
+		// Wait for the first cell to complete (it has a 3-second sleep)
+		// Total wait should be ~3-4 seconds from the start
+		await page.waitForTimeout(4000);
+
+		// Scroll to see the output area after the first cell
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('14');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// CRITICAL ASSERTIONS:
+
+		// 1. Verify the first cell's output IS visible and contains "Time's up"
+		const inlineOutputs = page.locator('.quarto-inline-output');
+		const firstOutput = inlineOutputs.first();
+		await expect(firstOutput).toBeVisible({ timeout: 120000 });
+
+		const firstOutputContent = firstOutput.locator('.quarto-output-content');
+		await expect(firstOutputContent).toContainText("Time's up");
+
+		// 2. Verify there is only ONE output (the second cell should NOT have run)
+		// If the second cell ran, it would produce "Oh no" output
+		const outputCount = await inlineOutputs.count();
+		expect(outputCount).toBe(1);
+
+		// 3. Double-check: no output contains "Oh no"
+		const allOutputText = await page.locator('.quarto-inline-output').allTextContents();
+		const hasOhNo = allOutputText.some(text => text.includes('Oh no'));
+		expect(hasOhNo).toBe(false);
+	});
 });

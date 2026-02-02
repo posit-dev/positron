@@ -183,6 +183,16 @@ export interface IQuartoExecutionManager {
 	cancelExecution(documentUri: URI, cellId?: string): Promise<void>;
 
 	/**
+	 * Cancel a queued cell without interrupting the kernel.
+	 * Use this when a cell is queued but hasn't started running yet.
+	 * Unlike cancelExecution, this does NOT interrupt the kernel, so any
+	 * currently running cell will continue to execute.
+	 * @param documentUri URI of the document
+	 * @param cellId Cell ID to cancel
+	 */
+	cancelQueuedCell(documentUri: URI, cellId: string): Promise<void>;
+
+	/**
 	 * Get the current execution state for a cell.
 	 * @param cellId Cell ID
 	 */

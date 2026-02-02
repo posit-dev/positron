@@ -216,6 +216,24 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		return this.executeCells(documentUri, cellsToExecute, token);
 	}
 
+	async cancelQueuedCell(documentUri: URI, cellId: string): Promise<void> {
+		this._logService.debug(`[QuartoExecutionManager] Cancelling queued cell ${cellId} for ${documentUri.toString()}`);
+
+		const queuedCells = this._queuedCells.get(documentUri) ?? [];
+		if (!queuedCells.includes(cellId)) {
+			this._logService.debug(`[QuartoExecutionManager] Cell ${cellId} is not queued, ignoring cancel request`);
+			return;
+		}
+
+		// Set state to Idle (this will signal to _executeCell to skip the cell)
+		this._setCellState(cellId, CellExecutionState.Idle, documentUri);
+
+		// Remove from queue
+		this._removeFromQueue(documentUri, cellId);
+
+		await this._persistQueueState(documentUri);
+	}
+
 	async cancelExecution(documentUri: URI, cellId?: string): Promise<void> {
 		this._logService.debug(`[QuartoExecutionManager] Cancelling execution for ${documentUri.toString()}${cellId ? `, cell ${cellId}` : ''}`);
 
@@ -317,6 +335,14 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		cell: QuartoCodeCell,
 		token?: CancellationToken
 	): Promise<void> {
+		// Check if the cell was cancelled while queued
+		// This happens when the user clicks the cancel button on a queued cell
+		const currentState = this.getExecutionState(cell.id);
+		if (currentState !== CellExecutionState.Queued) {
+			this._logService.debug(`[QuartoExecutionManager] Cell ${cell.id} was cancelled while queued (state: ${currentState}), skipping execution`);
+			return;
+		}
+
 		// Check if cell language matches the document's primary language
 		// If not, execute via console service instead of kernel
 		const textModel = await this._getTextModel(documentUri);
