@@ -113,5 +113,5 @@ export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): 
 		return false;
 	}
 
-	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('ghostCellSuggestions', false);
+	return vscode.workspace.getConfiguration('positron.assistant.notebook.ghostCellSuggestions').get('enabled', false);
 }

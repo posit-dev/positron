@@ -27,7 +27,7 @@ export const POSITRON_NOTEBOOK_SHOW_DELETION_SENTINELS_KEY = 'positron.assistant
 export const POSITRON_NOTEBOOK_ASSISTANT_SHOW_DIFF_KEY = 'positron.assistant.notebook.showDiff';
 
 // Configuration key for enabling ghost cell suggestions after cell execution
-export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.notebook.ghostCellSuggestions';
+export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.notebook.ghostCellSuggestions.enabled';
 
 // Configuration key for ghost cell suggestion delay
 export const POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY = 'positron.assistant.notebook.ghostCellSuggestions.delay';
@@ -97,7 +97,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.assistant.notebook.ghostCellSuggestions',
+				'positron.assistant.notebook.ghostCellSuggestions.enabled',
 				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
 			),
 			scope: ConfigurationScope.WINDOW,
