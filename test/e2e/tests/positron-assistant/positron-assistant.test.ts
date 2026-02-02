@@ -352,10 +352,10 @@ test.describe('Positron Assistant Model Picker Default Indicator - Multiple Prov
 			expect(echoModels.length).toBeGreaterThanOrEqual(2);
 			expect(echoModels[0].label).toBe('Echo Language Model v2 (default)');
 			expect(echoModels[0].isDefault).toBe(true);
-		}).toPass({ timeout: 30000 });
 
-		// Close the dropdown
-		await app.workbench.assistant.closeModelPickerDropdown();
+			// Close the dropdown (allows fresh open on retry)
+			await app.workbench.assistant.closeModelPickerDropdown();
+		}).toPass({ timeout: 30000 });
 	});
 });
 
