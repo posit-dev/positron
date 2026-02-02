@@ -40,6 +40,7 @@ import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 import { ExtHostNotebookFeatures } from './extHostNotebookFeatures.js';
+import { Range } from '../extHostTypes.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -96,6 +97,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer, sessionId): Thenable<Record<string, unknown>> {
 				const extensionId = extension.identifier.value;
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId);
+			},
+			executeInlineCell(documentUri, ranges): Thenable<void> {
+				const extensionId = extension.identifier.value;
+				const cellRanges = ranges.map(r => new Range(
+					r.start.line,
+					r.start.character,
+					r.end.line,
+					r.end.character
+				));
+				return extHostLanguageRuntime.executeInlineCells(extensionId, documentUri, cellRanges);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,

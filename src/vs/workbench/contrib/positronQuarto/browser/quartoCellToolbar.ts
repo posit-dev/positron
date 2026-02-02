@@ -31,7 +31,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	private _runBelowButton!: HTMLButtonElement;
 	private _buttons!: HTMLButtonElement[];
 	private readonly _hoverDisposables = this._register(new DisposableStore());
-	private _isRunning = false;
+	private _executionState: CellExecutionState = CellExecutionState.Idle;
 	private _visible = true;
 	private _isMouseOverToolbar = false;
 	private _isCursorInCell = false;
@@ -42,6 +42,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		private _cellIndex: number,
 		private _totalCells: number,
 		private readonly _onRun: () => void,
+		private readonly _onCancel: () => void,
 		private readonly _onStop: () => void,
 		private readonly _onRunAbove: () => void,
 		private readonly _onRunBelow: () => void,
@@ -148,12 +149,8 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	 * Set the execution state of the cell, which affects the Run/Stop button.
 	 */
 	setExecutionState(state: CellExecutionState): void {
-		const wasRunning = this._isRunning;
-		this._isRunning = state === CellExecutionState.Running || state === CellExecutionState.Queued;
-
-		if (wasRunning !== this._isRunning) {
-			this._updateRunButton();
-		}
+		this._executionState = state;
+		this._updateRunButton();
 	}
 
 	/**
@@ -250,8 +247,10 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		this._runButton.appendChild(runIcon);
 		this._runButton.addEventListener('click', (e) => {
 			e.stopPropagation();
-			if (this._isRunning) {
+			if (this._executionState === CellExecutionState.Running) {
 				this._onStop();
+			} else if (this._executionState === CellExecutionState.Queued) {
+				this._onCancel();
 			} else {
 				this._onRun();
 			}
@@ -285,16 +284,24 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 		}
 
 		const icon = document.createElement('span');
-		if (this._isRunning) {
+		if (this._executionState === CellExecutionState.Running) {
 			icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.debugStop));
 			this._runButton.appendChild(icon);
 			this._runButton.setAttribute('aria-label', localize('quarto.toolbar.stopExecution.aria', 'Stop cell execution'));
+			this._runButton.classList.remove('queued');
 			this._runButton.classList.add('running');
+		} else if (this._executionState === CellExecutionState.Queued) {
+			icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.clock));
+			this._runButton.appendChild(icon);
+			this._runButton.setAttribute('aria-label', localize('quarto.toolbar.cancelExecution.aria', 'Cancel pending execution'));
+			this._runButton.classList.remove('running');
+			this._runButton.classList.add('queued');
 		} else {
 			icon.classList.add(...ThemeIcon.asClassNameArray(Codicon.play));
 			this._runButton.appendChild(icon);
 			this._runButton.setAttribute('aria-label', localize('quarto.toolbar.runCell.aria', 'Run this cell'));
 			this._runButton.classList.remove('running');
+			this._runButton.classList.remove('queued');
 		}
 		// Update the rich tooltip to reflect new state
 		this._updateRichTooltips();
@@ -353,7 +360,7 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 
 		const hoverDelegate = getDefaultHoverDelegate('element');
 
-		// Run/Stop button tooltip
+		// Run/Stop/Cancel button tooltip
 		const runTooltip = this._getRunButtonTooltip();
 		this._hoverDisposables.add(
 			this._hoverService.setupManagedHover(hoverDelegate, this._runButton, runTooltip)
@@ -376,13 +383,15 @@ export class QuartoCellToolbar extends Disposable implements IOverlayWidget {
 	 * Get the tooltip text for the run/stop button, including keyboard shortcut.
 	 */
 	private _getRunButtonTooltip(): string {
-		if (this._isRunning) {
+		if (this._executionState === CellExecutionState.Running) {
 			const keybinding = this._keybindingService.lookupKeybinding(QuartoCommandId.CancelExecution);
 			const keybindingLabel = keybinding?.getLabel();
 			if (keybindingLabel) {
 				return localize('quarto.toolbar.stopExecution.tooltip', 'Stop Execution ({0})', keybindingLabel);
 			}
 			return localize('quarto.toolbar.stopExecution', 'Stop Execution');
+		} else if (this._executionState === CellExecutionState.Queued) {
+			return localize('quarto.toolbar.cancelQueuedExecution', 'Cancel Pending Execution');
 		} else {
 			const keybinding = this._keybindingService.lookupKeybinding(QuartoCommandId.RunCurrentCell);
 			const keybindingLabel = keybinding?.getLabel();

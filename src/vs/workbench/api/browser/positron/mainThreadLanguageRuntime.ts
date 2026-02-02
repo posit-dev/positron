@@ -44,7 +44,8 @@ import { IPositronConnectionsService } from '../../../services/positronConnectio
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
-import { RuntimeOnlineState } from '../../common/extHostTypes.js';
+import { RuntimeOnlineState, Range as ExtHostRange } from '../../common/extHostTypes.js';
+import { Range } from '../../../../editor/common/core/range.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
@@ -53,6 +54,7 @@ import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../servic
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
+import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1467,6 +1469,7 @@ export class MainThreadLanguageRuntime
 		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IQuartoExecutionManager private readonly _quartoExecutionManager: IQuartoExecutionManager,
 		@IPathService private readonly _pathService: IPathService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -1759,6 +1762,16 @@ export class MainThreadLanguageRuntime
 
 		return this._positronConsoleService.executeCode(
 			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+	}
+
+	$executeInlineCells(_extensionId: string, documentUri: URI, ranges: ExtHostRange[]): Promise<void> {
+		const cellRanges = ranges.map(r => new Range(
+			r.start.line,
+			r.start.character,
+			r.end.line,
+			r.end.character
+		));
+		return this._quartoExecutionManager.executeCellRanges(documentUri, cellRanges);
 	}
 
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {

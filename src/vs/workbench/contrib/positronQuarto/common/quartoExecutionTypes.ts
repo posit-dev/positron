@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,6 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { QuartoCodeCell } from './quartoTypes.js';
+import { Range } from '../../../../editor/common/core/range.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // Service decorators
@@ -164,6 +165,15 @@ export interface IQuartoExecutionManager {
 	 * @param token Optional cancellation token
 	 */
 	executeCells(documentUri: URI, cells: QuartoCodeCell[], token?: CancellationToken): Promise<void>;
+
+	/**
+	 * Execute a set of cells, identified by their ranges.
+	 *
+	 * @param documentUri URI of the document
+	 * @param cellRanges Ranges of the cells to execute
+	 * @param token Optional cancellation token
+	 */
+	executeCellRanges(documentUri: URI, cellRanges: Range[], token?: CancellationToken): Promise<void>;
 
 	/**
 	 * Cancel execution for a document.

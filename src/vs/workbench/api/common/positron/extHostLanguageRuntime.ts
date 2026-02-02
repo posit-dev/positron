@@ -9,7 +9,7 @@ import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRu
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
-import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
+import { Disposable, LanguageRuntimeMessageType, Range } from '../extHostTypes.js';
 import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
@@ -1297,6 +1297,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				});
 
 		return executionObserver.promise.p;
+	}
+
+	/**
+	 * Executes set of inline cells in a source (e.g. Quarto) document.
+	 *
+	 * @param extensionId The id of the extension that requested execution
+	 * @param documentUri The URI of the document in which the cell resides
+	 * @param range The ranges of the cells to execute
+	 *
+	 * @returns A promise that resolves when the request has been sent
+	 */
+	public executeInlineCells(extensionId: string, documentUri: URI, cellRanges: Range[]): Promise<void> {
+		return this._proxy.$executeInlineCells(extensionId, documentUri, cellRanges);
 	}
 
 	/**

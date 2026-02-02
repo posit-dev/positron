@@ -7,6 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { Range } from '../../../../editor/common/core/range.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -177,6 +178,40 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 
 		this._executionQueue.set(documentUri, executionPromise);
 		return executionPromise;
+	}
+
+	/**
+	 * Execute a set of cells as identified by their ranges in the document.
+	 */
+	async executeCellRanges(documentUri: URI, cellRanges: Range[], token?: CancellationToken) {
+		const documentModel = this._documentModelService.getModelForUri(documentUri)
+		const cellsToExecute: QuartoCodeCell[] = [];
+		const quartoCells = documentModel.cells;
+
+		// For each range, find the Quarto cell that it corresponds to.
+		for (const range of cellRanges) {
+			for (const quartoCell of quartoCells) {
+				// Consider: does not currently support partial execution (we
+				// just use guess from the range)
+				const midpointLine = (range.startLineNumber + range.endLineNumber) / 2;
+				if (midpointLine >= quartoCell.codeStartLine &&
+					midpointLine <= quartoCell.codeEndLine
+				) {
+					cellsToExecute.push(quartoCell);
+					break;
+				}
+			}
+
+			// If we got this far, then none of the Quarto cells in the document
+			// appear to match the requested range.
+			this._logService.warn(
+				`Skipping execution request for cell at ${JSON.stringify(range)} ` +
+				`in document ${documentUri.toString()} because no cell was found ` +
+				`in that range.`);
+		}
+
+		// Now that we have QuartoCodeCells, proceed with execution
+		return this.executeCells(documentUri, cellsToExecute, token);
 	}
 
 	async cancelExecution(documentUri: URI, cellId?: string): Promise<void> {

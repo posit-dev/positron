@@ -32,6 +32,11 @@ export interface IQuartoDocumentModelService {
 	hasModel(uri: URI): boolean;
 
 	/**
+	 * Return the document model for a URI.
+	 */
+	getModelForUri(uri: URI): IQuartoDocumentModel;
+
+	/**
 	 * Dispose model for a URI.
 	 * This is typically called when the editor for the document is closed.
 	 */
@@ -73,6 +78,14 @@ export class QuartoDocumentModelService extends Disposable implements IQuartoDoc
 
 	hasModel(uri: URI): boolean {
 		return this._models.has(uri.toString());
+	}
+
+	getModelForUri(uri: URI): IQuartoDocumentModel {
+		const model = this._models.get(uri.toString());
+		if (!model) {
+			throw new Error(`No Quarto document model exists for ${uri.toString}`)
+		}
+		return model;
 	}
 
 	disposeModel(uri: URI): void {

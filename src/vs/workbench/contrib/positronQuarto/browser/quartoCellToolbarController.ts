@@ -188,6 +188,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 				cells.length,
 				// Use toolbar.cell instead of captured cell to get the current cell after updates
 				() => this._runCell(toolbar.cell),
+				() => this._cancelCell(toolbar.cell),
 				() => this._stopCell(toolbar.cell),
 				() => this._runCellsAboveFromToolbar(toolbar),
 				() => this._runCellAndBelowFromToolbar(toolbar),
@@ -298,6 +299,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 					totalCells,
 					// Use toolbar.cell instead of captured cell to get the current cell after updates
 					() => this._runCell(toolbar.cell),
+					() => this._cancelCell(toolbar.cell),
 					() => this._stopCell(toolbar.cell),
 					() => this._runCellsAboveFromToolbar(toolbar),
 					() => this._runCellAndBelowFromToolbar(toolbar),
@@ -477,6 +479,13 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			return;
 		}
 		await this._executionManager.executeCell(model.uri, cell);
+	}
+
+	/**
+	 * Cancels a cell's previously pending execution
+	 */
+	private async _cancelCell(cell: QuartoCodeCell): Promise<void> {
+
 	}
 
 	/**

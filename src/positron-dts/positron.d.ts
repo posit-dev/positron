@@ -1922,6 +1922,16 @@ declare module 'positron' {
 			sessionId?: string): Thenable<Record<string, any>>;
 
 		/**
+		 * Executes a set of cells in a source document. The results are
+		 * displayed beneath the cells.
+		 *
+		 * @param documentUri The URI of the document
+		 * @param range The ranges of the cells to execute
+		 */
+		export function executeInlineCell(documentUri: vscode.Uri,
+			cellRanges: vscode.Range[]): Thenable<void>;
+
+		/**
 		 * Register a language runtime manager with Positron.
 		 *
 		 * @param languageId The language ID for which the manager can provide

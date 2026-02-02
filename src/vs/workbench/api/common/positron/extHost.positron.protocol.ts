@@ -10,6 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
+import { Range } from '../extHostTypes.js';
 import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
@@ -47,6 +48,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
+	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: Range[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
 	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
