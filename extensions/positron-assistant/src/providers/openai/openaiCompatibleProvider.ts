@@ -45,6 +45,11 @@ import { createOpenAICompatibleFetch } from '../../openai-fetch-utils';
  * @see {@link ModelProvider} for base class documentation
  */
 export class OpenAICompatibleModelProvider extends OpenAIModelProvider implements positron.ai.LanguageModelChatProvider {
+	/**
+	 * OpenAI-compatible providers use /v1/chat/completions endpoint
+	 */
+	protected override usesChatCompletions = true;
+
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {

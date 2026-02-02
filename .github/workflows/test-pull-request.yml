@@ -23,6 +23,8 @@ jobs:
       rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
       suse_electron_tag_found: ${{ steps.pr-tags.outputs.suse_electron_tag_found }}
       suse_web_tag_found: ${{ steps.pr-tags.outputs.suse_web_tag_found }}
+      sles_electron_tag_found: ${{ steps.pr-tags.outputs.sles_electron_tag_found }}
+      sles_web_tag_found: ${{ steps.pr-tags.outputs.sles_web_tag_found }}
       debian_electron_tag_found: ${{ steps.pr-tags.outputs.debian_electron_tag_found }}
       debian_web_tag_found: ${{ steps.pr-tags.outputs.debian_web_tag_found }}
       pyrefly_tag_found: ${{ steps.pr-tags.outputs.pyrefly_tag_found }}
@@ -144,6 +146,39 @@ jobs:
       display_name: "chromium (SUSE)"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/suse,${{ needs.pr-tags.outputs.tags }}"
+      report_currents: false
+      install_undetectable_interpreters: false
+      install_license: true
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  e2e-sles-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-sles.yml
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.sles_electron_tag_found == 'true' }}
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (SLES)"
+      currents_tags: "pull-request,electron/sles,${{ needs.pr-tags.outputs.tags }}"
+      report_currents: false
+      install_undetectable_interpreters: false
+      install_license: false
+      upload_logs: false
+      allow_soft_fail: false
+    secrets: inherit
+
+  e2e-sles-chromium:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.sles_web_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-sles.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "chromium (SLES)"
+      project: "e2e-chromium"
+      currents_tags: "pull-request,chromium/sles,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true

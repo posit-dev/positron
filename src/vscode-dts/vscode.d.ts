@@ -17296,12 +17296,13 @@ declare module 'vscode' {
 
 		// --- Start Positron ---
 		/**
-		 * Sets whether the debug toolbar should be suppressed during a running debug session.
+		 * Sets whether a debug session is in the foreground (actively debugging) or background.
+		 * Foreground sessions show the debug toolbar and switch the status bar to debugging styling.
 		 *
 		 * @param session The {@link DebugSession debug session} to modify.
-		 * @param suppress Whether to suppress the debug toolbar.
+		 * @param foreground Whether the session should be in the foreground.
 		 */
-		export function setSuppressDebugToolbar(session: DebugSession, suppress: boolean): void;
+		export function setDebugSessionForeground(session: DebugSession, foreground: boolean): void;
 		// --- End Positron ---
 
 		/**

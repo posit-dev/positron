@@ -71,6 +71,8 @@ export enum TestTags {
 	RHEL_WEB = '@:rhel-web',
 	SUSE_ELECTRON = '@:suse-electron',
 	SUSE_WEB = '@:suse-web',
+	SLES_ELECTRON = '@:sles-electron',
+	SLES_WEB = '@:sles-web',
 	DEBIAN_ELECTRON = '@:debian-electron',
 	DEBIAN_WEB = '@:debian-web',
 	WEB = '@:web',
