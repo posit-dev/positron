@@ -25,10 +25,10 @@ const howDoTheyWorkHeading = localize('ghostCellInfo.howWorkHeading', 'How do th
 const howDoTheyWorkText = localize('ghostCellInfo.howWorkText', 'The AI analyzes your notebook context - including previous cells, outputs, and the overall structure - to suggest code that logically follows your current work.');
 
 const howToDisableHeading = localize('ghostCellInfo.disableHeading', 'How to disable suggestions');
-const howToDisableTextPart1 = localize('ghostCellInfo.disableTextPart1', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or by changing the ');
-const howToDisableTextPart2 = localize('ghostCellInfo.disableTextPart2', ' setting.');
+const howToDisableTextPart1 = localize('ghostCellInfo.disableTextPart1', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or in ');
+const howToDisableTextPart2 = localize('ghostCellInfo.disableTextPart2', '.');
+const settingsLinkText = localize('ghostCellInfo.settingsLink', 'settings');
 const openSettingLabel = localize('ghostCellInfo.openSetting', 'Open ghost cell suggestion settings');
-const settingName = 'positron.assistant.notebook.ghostCellSuggestions.enabled';
 
 /**
  * GhostCellInfoModalDialogProps interface.
@@ -50,7 +50,7 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 
 	const handleOpenSetting = React.useCallback(() => {
 		renderer.dispose(); // Close modal first
-		commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.notebook.ghostCellSuggestions.enabled');
+		commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.notebook.ghostCellSuggestions');
 	}, [renderer, commandService]);
 
 	return (
@@ -82,7 +82,7 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 							href=''
 							onClick={handleOpenSetting}
 						>
-							{settingName}
+							{settingsLinkText}
 						</a>
 						{howToDisableTextPart2}
 					</div>
