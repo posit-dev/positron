@@ -42,8 +42,8 @@ Grep: "DropDownListBox" type:tsx
 ## Key Components
 
 ### Buttons
-- **`Button`** (`button/button.tsx`) - Styled button with hover/tooltip support, uses native `<button>`
-- **`PositronButton`** (`button/positronButton.tsx`) - Intentionally unstyled, uses `<div>`, for custom styling needs
+- **`Button`** (`button/button.tsx`) - **Preferred for new code.** Uses native `<button>` element for proper semantic HTML. Has minimal/reset styling (transparent background, no border) so it works well for custom styling. Supports hover/tooltip via `hoverManager`.
+- **`PositronButton`** (`button/positronButton.tsx`) - Legacy, uses `<div>`. Prefer `Button`.
 
 ### Modal Components
 Located in `positronModalDialog/components/`:
