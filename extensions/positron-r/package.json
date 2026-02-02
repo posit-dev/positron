@@ -683,7 +683,7 @@
         {
           "category": "R",
           "command": "r.loadRDataFile",
-          "when": "resourceExtname == '.RData' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
+          "when": "resourceExtname == '.RData' || resourceExtname == '.Rdata' || resourceExtname == '.rdata' || resourceExtname == '.rda'"
         },
         {
           "category": "R",
