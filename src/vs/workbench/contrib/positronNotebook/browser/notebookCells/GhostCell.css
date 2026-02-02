@@ -5,7 +5,7 @@
 
 .ghost-cell {
 	position: relative;
-	margin-left: 19px; /* 12px base + 7px to align with cell content area (no selection bar) */
+	margin-left: 12px; /* Match .positron-notebook-cell margin */
 	/* Match spacing that AddCellButtons provides between live cells */
 	margin-bottom: calc(
 		var(--_positron-notebook-add-cell-buttons-height) +
