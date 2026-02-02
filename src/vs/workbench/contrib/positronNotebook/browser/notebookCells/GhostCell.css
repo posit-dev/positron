@@ -170,6 +170,66 @@
 	opacity: 0.85;
 }
 
+/* Opt-in prompt state */
+.ghost-cell-opt-in {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px 16px;
+}
+
+.ghost-cell-opt-in-content {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ghost-cell-opt-in-text {
+	color: var(--vscode-foreground);
+	font-size: 12px;
+}
+
+.ghost-cell-learn-more {
+	background: transparent;
+	border: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 0;
+	font-size: 12px;
+	text-decoration: underline;
+}
+
+.ghost-cell-learn-more:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+.ghost-cell-opt-in-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.ghost-cell-opt-in-button {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	padding: 4px 12px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+
+.ghost-cell-opt-in-button:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.ghost-cell-opt-in-button.default {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.ghost-cell-opt-in-button.default:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
 /* Loading state */
 .ghost-cell-loading {
 	display: flex;

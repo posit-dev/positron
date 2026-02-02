@@ -21,6 +21,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { GhostCellInfoModalDialog } from './GhostCellInfoModalDialog.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 // Localized strings.
 const loadingText = localize('ghostCell.loading', 'Generating suggestion...');
@@ -36,6 +37,74 @@ const defaultExplanation = localize('ghostCell.defaultExplanation', 'Suggested n
 const suggestionAvailableAnnouncement = localize('ghostCell.suggestionAvailable', 'AI suggestion available. Use Accept to insert the suggested code.');
 const loadingAnnouncement = localize('ghostCell.loadingAnnouncement', 'Generating AI suggestion for next cell...');
 const infoButtonLabel = localize('ghostCell.infoButton', 'About ghost cell suggestions');
+
+// Opt-in prompt strings
+const optInPromptText = localize('ghostCell.optInPrompt', 'Suggest code as you work? When you execute a cell, AI can recommend what to do next based on your notebook context.');
+const optInEnableLabel = localize('ghostCell.optInEnable', 'Enable');
+const optInNotNowLabel = localize('ghostCell.optInNotNow', 'Not now');
+const optInDontAskLabel = localize('ghostCell.optInDontAsk', "Don't ask again");
+const optInPromptAnnouncement = localize('ghostCell.optInPromptAnnouncement', 'Would you like AI to suggest code based on your notebook context?');
+const learnMoreLabel = localize('ghostCell.learnMore', 'Learn more');
+
+/**
+ * Props for GhostCellOptInPrompt component
+ */
+interface GhostCellOptInPromptProps {
+	onEnable: () => void;
+	onNotNow: () => void;
+	onDontAskAgain: () => void;
+	onShowInfo: () => void;
+}
+
+/**
+ * GhostCellOptInPrompt component - displays opt-in prompt for ghost cell suggestions
+ */
+const GhostCellOptInPrompt: React.FC<GhostCellOptInPromptProps> = ({
+	onEnable,
+	onNotNow,
+	onDontAskAgain,
+	onShowInfo
+}) => (
+	<div className='ghost-cell-opt-in'>
+		<div className='ghost-cell-opt-in-content'>
+			<span className='ghost-cell-icon codicon codicon-sparkle' />
+			<span className='ghost-cell-opt-in-text'>
+				{optInPromptText}
+				{' '}
+				<Button
+					ariaLabel={learnMoreLabel}
+					className='ghost-cell-learn-more'
+					onPressed={onShowInfo}
+				>
+					{learnMoreLabel}
+				</Button>
+			</span>
+		</div>
+		<div className='ghost-cell-opt-in-actions'>
+			<Button
+				ariaLabel={optInEnableLabel}
+				className='ghost-cell-opt-in-button default'
+				onPressed={onEnable}
+			>
+				{optInEnableLabel}
+			</Button>
+			<Button
+				ariaLabel={optInNotNowLabel}
+				className='ghost-cell-opt-in-button'
+				onPressed={onNotNow}
+			>
+				{optInNotNowLabel}
+			</Button>
+			<Button
+				ariaLabel={optInDontAskLabel}
+				className='ghost-cell-opt-in-button'
+				onPressed={onDontAskAgain}
+			>
+				{optInDontAskLabel}
+			</Button>
+		</div>
+	</div>
+);
 
 /**
  * GhostCellLoading component - displays loading state with spinner
@@ -150,11 +219,24 @@ function renderGhostCellState(
 	onShowInfo: () => void,
 	acceptActions: IAction[],
 	dismissActions: IAction[],
-	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService']
+	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'],
+	onOptInEnable: () => void,
+	onOptInNotNow: () => void,
+	onOptInDontAskAgain: () => void
 ): React.ReactNode {
 	switch (state.status) {
 		case 'hidden':
 			return null;
+
+		case 'opt-in-prompt':
+			return (
+				<GhostCellOptInPrompt
+					onDontAskAgain={onOptInDontAskAgain}
+					onEnable={onOptInEnable}
+					onNotNow={onOptInNotNow}
+					onShowInfo={onShowInfo}
+				/>
+			);
 
 		case 'loading':
 			return <GhostCellLoading />;
@@ -201,6 +283,8 @@ function renderGhostCellState(
  */
 function getAnnouncement(state: GhostCellState): string {
 	switch (state.status) {
+		case 'opt-in-prompt':
+			return optInPromptAnnouncement;
 		case 'loading':
 			return loadingAnnouncement;
 		case 'ready':
@@ -265,6 +349,19 @@ export const GhostCell: React.FC = () => {
 		});
 		renderer.render(<GhostCellInfoModalDialog renderer={renderer} />);
 	}, [workbenchLayoutService]);
+
+	// Opt-in prompt handlers
+	const handleOptInEnable = React.useCallback(() => {
+		instance.enableGhostCellSuggestions();
+	}, [instance]);
+
+	const handleOptInNotNow = React.useCallback(() => {
+		instance.dismissOptInPrompt();
+	}, [instance]);
+
+	const handleOptInDontAskAgain = React.useCallback(() => {
+		instance.disableGhostCellSuggestions();
+	}, [instance]);
 
 	// Memoize actions for the split buttons
 	// Dropdown shows alternatives to the primary action (Accept and Run)
@@ -331,7 +428,10 @@ export const GhostCell: React.FC = () => {
 					handleShowInfo,
 					acceptActions,
 					dismissActions,
-					contextMenuService
+					contextMenuService,
+					handleOptInEnable,
+					handleOptInNotNow,
+					handleOptInDontAskAgain
 				)}
 			</div>
 			<ScreenReaderOnly className='ghost-cell-announcements'>

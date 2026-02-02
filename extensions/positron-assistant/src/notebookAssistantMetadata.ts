@@ -97,7 +97,7 @@ export function resolveAutoFollow(notebook: vscode.NotebookDocument): boolean {
 }
 
 /**
- * Resolve ghostCellSuggestions setting: notebook metadata first, then global config fallback.
+ * Resolve ghostCellSuggestions setting: notebook metadata first, then check opt-in, then global config.
  */
 export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): boolean {
 	const settings = getAssistantSettings(notebook.metadata);
@@ -106,5 +106,12 @@ export function resolveGhostCellSuggestions(notebook: vscode.NotebookDocument): 
 		return settings.ghostCellSuggestions === 'enabled';
 	}
 
-	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('ghostCellSuggestions', true);
+	// Check if user has opted in - if not, return false (workbench handles showing prompt)
+	const config = vscode.workspace.getConfiguration('positron.assistant.notebook.ghostCellSuggestions');
+	const hasOptedIn = config.get('hasOptedIn', false);
+	if (!hasOptedIn) {
+		return false;
+	}
+
+	return vscode.workspace.getConfiguration('positron.assistant.notebook').get('ghostCellSuggestions', false);
 }

@@ -23,6 +23,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
  */
 export type GhostCellState =
 	| { status: 'hidden' }
+	| { status: 'opt-in-prompt'; executedCellIndex: number }
 	| { status: 'loading'; executedCellIndex: number }
 	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string }
 	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string }
@@ -499,4 +500,16 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
 	 */
 	disableGhostCellSuggestions(): void;
+
+	/**
+	 * Enable ghost cell suggestions globally (opt-in).
+	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
+	 */
+	enableGhostCellSuggestions(): Promise<void>;
+
+	/**
+	 * Dismiss the opt-in prompt for this notebook open only.
+	 * The prompt will appear again the next time the notebook is opened.
+	 */
+	dismissOptInPrompt(): void;
 }
