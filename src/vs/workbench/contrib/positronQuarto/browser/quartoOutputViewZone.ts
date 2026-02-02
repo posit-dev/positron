@@ -1314,8 +1314,8 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Measure the styled container's height (content + padding + border, but not margin)
 		const styledHeight = this._styledContainer.offsetHeight;
 
-		// Show the Copy button if there's enough room
-		this._copyButton.style.display = styledHeight > 40 ? 'block' : 'none';
+		// Show the Copy button if there's enough room and there's copiable content
+		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
