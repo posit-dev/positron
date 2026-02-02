@@ -43,6 +43,18 @@
 	outline-offset: -1px;
 }
 
+/* Recomputing state - shown when cell is re-executing and waiting for new output */
+.quarto-inline-output.quarto-output-recomputing {
+	opacity: 0.8;
+	border-style: dotted;
+}
+
+/* Disable action buttons (except stop) during recomputing state */
+.quarto-inline-output.quarto-output-recomputing .quarto-output-copy {
+	opacity: 0.3;
+	pointer-events: none;
+}
+
 /* Button container for close and copy buttons */
 .quarto-output-button-container {
 	position: absolute;

@@ -106,6 +106,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	// Whether the cell is currently executing
 	private _isExecuting = false;
 
+	// Whether the cell is in "recomputing" state (waiting for new output to replace old)
+	private _isRecomputing = false;
+
 	// Inner styled container (separate from domNode so Monaco's height doesn't stretch it)
 	private readonly _styledContainer: HTMLElement;
 
@@ -258,6 +261,41 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
+	 * Set whether the cell is in "recomputing" state.
+	 * In this state, the old output is shown with reduced opacity and dotted border
+	 * while waiting for new output to arrive.
+	 */
+	setRecomputing(isRecomputing: boolean): void {
+		if (this._isRecomputing === isRecomputing) {
+			return;
+		}
+		this._isRecomputing = isRecomputing;
+		this._updateRecomputingState();
+	}
+
+	/**
+	 * Get whether the cell is in recomputing state.
+	 */
+	get isRecomputing(): boolean {
+		return this._isRecomputing;
+	}
+
+	/**
+	 * Update the visual appearance for recomputing state.
+	 */
+	private _updateRecomputingState(): void {
+		if (this._isRecomputing) {
+			this._styledContainer.classList.add('quarto-output-recomputing');
+			// Disable copy button during recomputing
+			this._copyButton.disabled = true;
+		} else {
+			this._styledContainer.classList.remove('quarto-output-recomputing');
+			// Re-enable copy button
+			this._copyButton.disabled = false;
+		}
+	}
+
+	/**
 	 * Update the button appearance based on execution state.
 	 */
 	private _updateButtonForExecutionState(): void {
@@ -302,6 +340,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 * Add an output to the view zone.
 	 */
 	addOutput(output: ICellOutput): void {
+		// If we're in recomputing state and this is the first new output,
+		// clear the old outputs and exit recomputing state
+		if (this._isRecomputing) {
+			// Clear old outputs before adding new one
+			this._outputs = [];
+			dom.clearNode(this._outputContainer);
+			this._disposeAllWebviews();
+			this.setRecomputing(false);
+		}
+
 		this._outputs.push(output);
 		this._renderOutput(output);
 		// Update error-only class after adding new output
@@ -329,6 +377,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Dispose all webviews
 		this._disposeAllWebviews();
+
+		// Reset recomputing state
+		this._isRecomputing = false;
+		this._styledContainer.classList.remove('quarto-output-recomputing');
 
 		// Hide the view zone when outputs are cleared
 		this.hide();

@@ -203,14 +203,15 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			}
 		}));
 
-		// Listen for execution state changes to clear outputs on new execution and update view zone button
+		// Listen for execution state changes to manage recomputing state and update view zone button
 		this._outputHandlingDisposables.add(this._executionManager.onDidChangeExecutionState(event => {
 			if (this._featureEnabled &&
 				this._documentUri &&
 				event.execution.documentUri.toString() === this._documentUri.toString()) {
 
 				const cellId = event.execution.cellId;
-				const isRunning = event.execution.state === CellExecutionState.Running;
+				const currentState = event.execution.state;
+				const isRunning = currentState === CellExecutionState.Running;
 
 				// Update view zone button state
 				const viewZone = this._viewZones.get(cellId);
@@ -218,9 +219,38 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 					viewZone.setExecuting(isRunning);
 				}
 
-				// Clear outputs when execution starts
+				// When execution starts, put existing output into recomputing state
+				// instead of clearing it immediately
 				if (isRunning && event.previousState !== CellExecutionState.Running) {
-					this._clearCellOutputs(cellId);
+					if (viewZone && viewZone.outputs.length > 0) {
+						// Put the view zone into recomputing state - old output stays visible
+						// but faded and with dotted border until new output arrives
+						viewZone.setRecomputing(true);
+					}
+					// Clear our internal output tracking since new outputs will replace
+					this._outputsByCell.delete(cellId);
+					this._contentHashByCellId.delete(cellId);
+					// Clear from cache
+					if (this._documentUri) {
+						this._cacheService.clearCellOutputs(this._documentUri, cellId);
+					}
+				}
+
+				// When execution finishes (Idle, Completed, or Error), if still in
+				// recomputing state (no new output arrived), clear the old outputs
+				const executionFinished = currentState === CellExecutionState.Idle ||
+					currentState === CellExecutionState.Completed ||
+					currentState === CellExecutionState.Error;
+
+				if (executionFinished && viewZone?.isRecomputing) {
+					// No new output was produced - clear the old output and hide
+					viewZone.clearOutputs();
+					this._viewZones.delete(cellId);
+					this._onDidChangeOutputs.fire({
+						cellId,
+						documentUri: this._documentUri!,
+						outputs: [],
+					});
 				}
 			}
 		}));
