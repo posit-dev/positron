@@ -50,7 +50,8 @@
 }
 
 /* Disable action buttons (except stop) during recomputing state */
-.quarto-inline-output.quarto-output-recomputing .quarto-output-copy {
+.quarto-inline-output.quarto-output-recomputing .quarto-output-copy,
+.quarto-inline-output.quarto-output-recomputing .quarto-output-save {
 	opacity: 0.3;
 	pointer-events: none;
 }
@@ -68,7 +69,8 @@
 
 /* Shared button styles */
 .quarto-output-close,
-.quarto-output-copy {
+.quarto-output-copy,
+.quarto-output-save {
 	width: 22px;
 	height: 22px;
 	padding: 0;
@@ -85,13 +87,15 @@
 }
 
 .quarto-output-close:hover,
-.quarto-output-copy:hover {
+.quarto-output-copy:hover,
+.quarto-output-save:hover {
 	opacity: 1;
 	background: var(--vscode-toolbar-hoverBackground);
 }
 
 .quarto-output-close:focus,
-.quarto-output-copy:focus {
+.quarto-output-copy:focus,
+.quarto-output-save:focus {
 	opacity: 1;
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
@@ -235,7 +239,9 @@
 .hc-black .quarto-output-close:focus,
 .hc-light .quarto-output-close:focus,
 .hc-black .quarto-output-copy:focus,
-.hc-light .quarto-output-copy:focus {
+.hc-light .quarto-output-copy:focus,
+.hc-black .quarto-output-save:focus,
+.hc-light .quarto-output-save:focus {
 	outline-width: 2px;
 }
 

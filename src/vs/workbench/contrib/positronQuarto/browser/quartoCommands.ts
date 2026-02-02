@@ -24,6 +24,7 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
 import { basename } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * Command IDs for Quarto execution commands.
@@ -43,6 +44,7 @@ export const enum QuartoCommandId {
 	ShutdownKernel = 'positronQuarto.shutdownKernel',
 	ChangeKernel = 'positronQuarto.changeKernel',
 	CopyOutput = 'positronQuarto.copyOutput',
+	SaveCellPlot = 'positronQuarto.saveCellPlot',
 }
 
 /**
@@ -848,5 +850,67 @@ registerAction2(class ShowOutputCacheAction extends Action2 {
 				preserveFocus: false,
 			}
 		});
+	}
+});
+
+/**
+ * Save the plot output from the cell at the current cursor position.
+ * Shows a file save dialog unless a target path is provided (for testing).
+ */
+registerAction2(class SaveCellPlotAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.SaveCellPlot,
+			title: {
+				value: localize('quarto.saveCellPlot', 'Save Cell Plot Output As...'),
+				original: 'Save Cell Plot Output As...',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_PRECONDITION,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, targetPath?: string): Promise<boolean> {
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			return false;
+		}
+
+		const { editor } = context;
+		const position = editor.getPosition();
+		if (!position) {
+			notificationService.warn(localize('quarto.saveCellPlot.noCursor', 'No cursor position'));
+			return false;
+		}
+
+		// Get the QuartoOutputContribution from the editor
+		const contribution = editor.getContribution<QuartoOutputContribution>(QuartoOutputContribution.ID);
+		if (!contribution) {
+			return false;
+		}
+
+		// Check if cursor is in a cell
+		const cellId = contribution.getCellIdAtLine(position.lineNumber);
+		if (!cellId) {
+			notificationService.warn(localize('quarto.saveCellPlot.noCell', 'Cursor is not in a code cell'));
+			return false;
+		}
+
+		// Get plot info for the cell at cursor position
+		const plotInfo = contribution.getPlotInfoForCellAtLine(position.lineNumber);
+		if (!plotInfo) {
+			notificationService.warn(localize('quarto.saveCellPlot.noPlot', 'No single plot output in this cell'));
+			return false;
+		}
+
+		// Convert targetPath string to URI if provided (for testing)
+		const targetUri = targetPath ? URI.file(targetPath) : undefined;
+
+		// Save the plot
+		return contribution.savePlot(plotInfo.dataUrl, plotInfo.mimeType, plotInfo.cellId, targetUri);
 	}
 });

@@ -35,6 +35,18 @@ export type CopyOutputContent =
 	| { type: 'image'; dataUrl: string };
 
 /**
+ * Request to save a plot output.
+ */
+export interface SavePlotRequest {
+	/** The cell ID */
+	readonly cellId: string;
+	/** The image data URL */
+	readonly dataUrl: string;
+	/** The MIME type of the image */
+	readonly mimeType: string;
+}
+
+/**
  * Request to copy output content.
  */
 export interface CopyOutputRequest {
@@ -126,6 +138,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private readonly _onCopyRequested = this._register(new Emitter<CopyOutputRequest>());
 	readonly onCopyRequested: VSEvent<CopyOutputRequest> = this._onCopyRequested.event;
 
+	// Save button
+	private readonly _saveButton: HTMLButtonElement;
+	// Icon element inside the save button
+	private _saveButtonIcon!: HTMLSpanElement;
+	// Event emitted when save is requested (signals to outer code to perform save operation)
+	private readonly _onSaveRequested = this._register(new Emitter<SavePlotRequest>());
+	readonly onSaveRequested: VSEvent<SavePlotRequest> = this._onSaveRequested.event;
+
 	constructor(
 		private readonly _editor: ICodeEditor,
 		public readonly cellId: string,
@@ -165,6 +185,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._copyButton = this._createCopyButton();
 		buttonContainer.appendChild(this._copyButton);
 		this._copyButton.style.display = 'none';
+
+		// Create save button; initially hidden
+		this._saveButton = this._createSaveButton();
+		buttonContainer.appendChild(this._saveButton);
+		this._saveButton.style.display = 'none';
 
 		this._styledContainer.appendChild(buttonContainer);
 
@@ -537,6 +562,33 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		return button;
 	}
 
+	private _createSaveButton(): HTMLButtonElement {
+		const button = document.createElement('button');
+		button.className = 'quarto-output-save';
+		button.setAttribute('aria-label', localize('savePlot', 'Save plot'));
+		button.title = localize('savePlot', 'Save plot');
+
+		// Use codicon for save button (save icon)
+		this._saveButtonIcon = document.createElement('span');
+		this._saveButtonIcon.className = ThemeIcon.asClassName(Codicon.save);
+		button.appendChild(this._saveButtonIcon);
+
+		// Handle mousedown to prevent the editor from consuming the event
+		button.addEventListener('mousedown', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+		});
+
+		// Handle click to trigger save
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this._handleSaveClick();
+		});
+
+		return button;
+	}
+
 	/**
 	 * Handle click on the copy button.
 	 * Determines what content to copy and emits the copy request event.
@@ -547,6 +599,21 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._onCopyRequested.fire({
 				cellId: this.cellId,
 				content,
+			});
+		}
+	}
+
+	/**
+	 * Handle click on the save button.
+	 * Fires the save request event with the single plot data.
+	 */
+	private _handleSaveClick(): void {
+		const plotInfo = this._getSinglePlotInfo();
+		if (plotInfo) {
+			this._onSaveRequested.fire({
+				cellId: this.cellId,
+				dataUrl: plotInfo.dataUrl,
+				mimeType: plotInfo.mimeType,
 			});
 		}
 	}
@@ -653,6 +720,51 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	 */
 	hasCopiableContent(): boolean {
 		return this._getContentToCopy() !== undefined;
+	}
+
+	/**
+	 * Check if the output contains exactly one plot/image.
+	 * Returns true only if there is exactly one image output item across all outputs.
+	 */
+	hasSinglePlot(): boolean {
+		return this._getSinglePlotInfo() !== undefined;
+	}
+
+	/**
+	 * Get the single plot info if exactly one plot exists.
+	 * Returns undefined if there are zero or more than one images.
+	 */
+	getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+		return this._getSinglePlotInfo();
+	}
+
+	/**
+	 * Get info about the single plot if exactly one exists.
+	 * Used internally for the save button logic.
+	 */
+	private _getSinglePlotInfo(): { dataUrl: string; mimeType: string } | undefined {
+		let imageCount = 0;
+		let imageInfo: { dataUrl: string; mimeType: string } | undefined;
+
+		for (const output of this._outputs) {
+			for (const item of output.items) {
+				if (item.mime.startsWith('image/')) {
+					imageCount++;
+					if (imageCount > 1) {
+						// More than one image - return undefined
+						return undefined;
+					}
+					// Build the data URL
+					const dataUrl = item.data.startsWith('data:')
+						? item.data
+						: `data:${item.mime};base64,${item.data}`;
+					imageInfo = { dataUrl, mimeType: item.mime };
+				}
+			}
+		}
+
+		// Return the info only if exactly one image was found
+		return imageCount === 1 ? imageInfo : undefined;
 	}
 
 	private _setupKeyboardNavigation(): void {
@@ -1316,6 +1428,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 		// Show the Copy button if there's enough room and there's copiable content
 		this._copyButton.style.display = styledHeight > 40 && this.hasCopiableContent() ? 'block' : 'none';
+
+		// Show the Save button if there's enough room and there's exactly one plot
+		this._saveButton.style.display = styledHeight > 40 && this.hasSinglePlot() ? 'block' : 'none';
 
 		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
 		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);

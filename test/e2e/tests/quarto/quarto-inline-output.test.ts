@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
+import * as fs from 'fs';
 import { test, tags, expect } from '../_test.setup';
 
 test.use({
@@ -1343,5 +1344,103 @@ test.describe('Quarto - Inline Output', {
 		// The PID should be a positive integer
 		const pid = parseInt(outputText?.trim() ?? '', 10);
 		expect(pid).toBeGreaterThan(0);
+	});
+
+	test('Python - Verify save button saves plot to file', async function ({ app, openFile }) {
+		const page = app.code.driver.page;
+		const { quickInput } = app.workbench;
+
+		// This test verifies the save plot functionality:
+		// 1. Open a Quarto document that generates a plot
+		// 2. Run the cell to generate the plot output
+		// 3. Click the save button on the inline output
+		// 4. Handle the save dialog and save to a specific location
+		// 5. Verify the file was created and has valid content
+		// 6. Clean up by deleting the file
+
+		// Generate a unique filename for the saved plot
+		const savedPlotName = `test-plot-${Date.now()}.png`;
+		const savedPlotPath = join(app.workspacePathOrFolder, savedPlotName);
+
+		try {
+			// Open a Quarto document with a plot-generating cell
+			await openFile(join('workspaces', 'quarto_inline_output', 'simple_plot.qmd'));
+
+			// Wait for the editor to be ready
+			const editor = page.locator('.monaco-editor').first();
+			await expect(editor).toBeVisible({ timeout: 10000 });
+
+			// Wait for the Quarto inline output feature to initialize
+			const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+			await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+			// Click on the editor to ensure focus
+			await editor.click();
+			await page.waitForTimeout(500);
+
+			// Position cursor in the Python code cell (line 12)
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('12');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+
+			// Run the current cell to generate the plot
+			await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+			// Wait for inline output to appear
+			const inlineOutput = page.locator('.quarto-inline-output');
+			await expect(async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+				await page.keyboard.type('25');
+				await page.keyboard.press('Enter');
+				await page.waitForTimeout(500);
+				await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+			}).toPass({ timeout: 120000 });
+
+			// Verify output content is present and contains an image
+			const outputContent = inlineOutput.locator('.quarto-output-content');
+			await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+			// Verify the save button is visible (indicates a single plot exists)
+			const saveButton = inlineOutput.locator('.quarto-output-save');
+			await expect(saveButton).toBeVisible({ timeout: 5000 });
+
+			// Click the save button to trigger the save dialog
+			await saveButton.click();
+
+			// Wait for the save dialog to open
+			await quickInput.waitForQuickInputOpened();
+
+			// Type the full path where we want to save the file
+			await quickInput.type(savedPlotPath);
+
+			// Click OK to save
+			await quickInput.clickOkButton();
+
+			// Wait for the save operation to complete
+			// The operation should show a toast notification when done
+			await page.waitForTimeout(2000);
+
+			// CRITICAL: Verify the file was created
+			expect(fs.existsSync(savedPlotPath)).toBe(true);
+
+			// Verify the file has content (PNG files are at least a few hundred bytes)
+			const stats = fs.statSync(savedPlotPath);
+			expect(stats.size).toBeGreaterThan(100);
+
+			// Verify it's a valid PNG by checking magic bytes
+			const fileBuffer = fs.readFileSync(savedPlotPath);
+			// PNG magic bytes: 137 80 78 71 13 10 26 10
+			expect(fileBuffer[0]).toBe(137);
+			expect(fileBuffer[1]).toBe(80);
+			expect(fileBuffer[2]).toBe(78);
+			expect(fileBuffer[3]).toBe(71);
+
+		} finally {
+			// Cleanup: Delete the saved file if it exists
+			if (fs.existsSync(savedPlotPath)) {
+				fs.unlinkSync(savedPlotPath);
+			}
+		}
 	});
 });
