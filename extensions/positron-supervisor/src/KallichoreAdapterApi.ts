@@ -542,7 +542,7 @@ export class KCApi implements PositronSupervisorApi {
 				await new Promise((resolve) => setTimeout(resolve, 100));
 			}
 
-			elapsed = Date.now() - supervisorStartTime;;
+			elapsed = Date.now() - supervisorStartTime;
 			retry++;
 		} while (elapsed < startupTimeout && !connectionData);
 
