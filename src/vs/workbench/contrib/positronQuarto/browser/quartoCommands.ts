@@ -11,7 +11,7 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ITextModel } from '../../../../editor/common/model.js';
-import { IQuartoExecutionManager } from './quartoExecutionManager.js';
+import { IQuartoExecutionManager, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 import { IQuartoOutputManager } from './quartoOutputManager.js';
@@ -20,6 +20,9 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { QuartoOutputContribution } from './quartoOutputManager.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { ByteSize } from '../../../../platform/files/common/files.js';
 
 /**
  * Command IDs for Quarto execution commands.
@@ -32,6 +35,7 @@ export const enum QuartoCommandId {
 	RunCellsBelow = 'positronQuarto.runCellsBelow',
 	CancelExecution = 'positronQuarto.cancelExecution',
 	ClearAllOutputs = 'positronQuarto.clearAllOutputs',
+	ClearOutputCache = 'positronQuarto.clearOutputCache',
 	RestartKernel = 'positronQuarto.restartKernel',
 	InterruptKernel = 'positronQuarto.interruptKernel',
 	ShutdownKernel = 'positronQuarto.shutdownKernel',
@@ -683,5 +687,100 @@ registerAction2(class CopyOutputAction extends Action2 {
 
 		// Copy output for the cell at the cursor position
 		contribution.copyOutputForCellAtLine(position.lineNumber);
+	}
+});
+
+/**
+ * Clear the entire Quarto inline output cache.
+ * Shows a confirmation dialog before clearing.
+ */
+registerAction2(class ClearOutputCacheAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.ClearOutputCache,
+			title: {
+				value: localize('quarto.clearOutputCache', 'Clear Inline Output Cache...'),
+				original: 'Clear Inline Output Cache...',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_INLINE_OUTPUT_ENABLED,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const cacheService = accessor.get(IQuartoOutputCacheService);
+		const modalDialogsService = accessor.get(IPositronModalDialogsService);
+		const outputManager = accessor.get(IQuartoOutputManager);
+		const notificationService = accessor.get(INotificationService);
+
+		// Get cache info
+		const cacheInfo = await cacheService.getCacheInfo();
+
+		// If cache is empty, show a simple message
+		if (cacheInfo.fileCount === 0) {
+			await modalDialogsService.showSimpleModalDialogMessage(
+				localize('quarto.cacheEmpty.title', 'Cache Empty'),
+				localize('quarto.cacheEmpty.message', 'The Quarto inline output cache is empty.'),
+				localize('quarto.ok', 'OK')
+			);
+			return;
+		}
+
+		// Format the cache size
+		const formattedSize = ByteSize.formatSize(cacheInfo.totalSizeBytes);
+
+		// Show confirmation dialog
+		const confirmed = await modalDialogsService.showSimpleModalDialogPrompt(
+			localize('quarto.clearCache.title', 'Clear Inline Output Cache'),
+			localize(
+				'quarto.clearCache.message',
+				'The Quarto inline output cache is using {0} of storage ({1} files).\n\nOutputs from all documents will be removed. This action cannot be undone.',
+				formattedSize,
+				cacheInfo.fileCount
+			),
+			localize('quarto.clearCache.confirm', 'Remove'),
+			localize('quarto.cancel', 'Cancel'),
+			250 // height
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		// Clear all outputs from open documents first
+		outputManager.clearAllOutputsGlobally();
+
+		// Clear the cache
+		const result = await cacheService.clearAllCaches();
+
+		// Show result notification
+		if (result.success) {
+			const formattedFreed = ByteSize.formatSize(result.bytesFreed);
+			notificationService.info(
+				localize(
+					'quarto.clearCache.success',
+					'Quarto inline output cache removed successfully ({0} files, {1})',
+					result.filesDeleted,
+					formattedFreed
+				)
+			);
+		} else {
+			// Show warning with error summary
+			const errorSummary = result.errors.length <= 3
+				? result.errors.join('\n')
+				: `${result.errors.slice(0, 3).join('\n')}\n... and ${result.errors.length - 3} more errors`;
+
+			notificationService.notify({
+				severity: Severity.Warning,
+				message: localize(
+					'quarto.clearCache.partial',
+					'Quarto inline output cache partially cleared ({0} of {1} files removed). Some errors occurred:\n{2}',
+					result.filesDeleted,
+					cacheInfo.fileCount,
+					errorSummary
+				),
+			});
+		}
 	}
 });

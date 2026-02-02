@@ -20,6 +20,8 @@ import {
 	ICellOutput,
 	ICellOutputItem,
 	ICellOutputWebviewMetadata,
+	ICacheInfo,
+	IClearCacheResult,
 	DEFAULT_CACHE_CONFIG,
 } from '../common/quartoExecutionTypes.js';
 import { isQuartoOrRmdFile } from '../common/positronQuartoConfig.js';
@@ -892,6 +894,112 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 			outputId: generateUuid(),
 			items,
 			webviewMetadata,
+		};
+	}
+
+	async getCacheInfo(): Promise<ICacheInfo> {
+		let totalSizeBytes = 0;
+		let fileCount = 0;
+
+		try {
+			const exists = await this._fileService.exists(this._cacheDir);
+			if (!exists) {
+				return {
+					totalSizeBytes: 0,
+					fileCount: 0,
+					cacheDir: this._cacheDir,
+				};
+			}
+
+			const resolved = await this._fileService.resolve(this._cacheDir, { resolveMetadata: true });
+			if (resolved.children) {
+				for (const child of resolved.children) {
+					if (!child.isDirectory && child.name.endsWith('.ipynb')) {
+						totalSizeBytes += child.size ?? 0;
+						fileCount++;
+					}
+				}
+			}
+		} catch (error) {
+			this._logService.warn('[QuartoOutputCacheService] Failed to get cache info:', error);
+		}
+
+		return {
+			totalSizeBytes,
+			fileCount,
+			cacheDir: this._cacheDir,
+		};
+	}
+
+	async clearAllCaches(): Promise<IClearCacheResult> {
+		this._logService.debug('[QuartoOutputCacheService] Clearing all caches');
+
+		// Clear all in-memory state
+		this._documentCaches.clear();
+		this._dirtyDocuments.clear();
+
+		// Clear all pending write timeouts
+		for (const timeout of this._writeTimeouts.values()) {
+			clearTimeout(timeout);
+		}
+		this._writeTimeouts.clear();
+
+		// Wait for any in-flight writes to complete
+		if (this._pendingWrites.size > 0) {
+			await Promise.allSettled(this._pendingWrites.values());
+		}
+		this._pendingWrites.clear();
+
+		// Delete all cache files
+		const errors: string[] = [];
+		let filesDeleted = 0;
+		let bytesFreed = 0;
+
+		try {
+			const exists = await this._fileService.exists(this._cacheDir);
+			if (!exists) {
+				return {
+					success: true,
+					filesDeleted: 0,
+					bytesFreed: 0,
+					errors: [],
+				};
+			}
+
+			const resolved = await this._fileService.resolve(this._cacheDir, { resolveMetadata: true });
+			if (resolved.children) {
+				for (const child of resolved.children) {
+					if (!child.isDirectory && child.name.endsWith('.ipynb')) {
+						try {
+							const fileSize = child.size ?? 0;
+							await this._fileService.del(child.resource);
+							filesDeleted++;
+							bytesFreed += fileSize;
+						} catch (error) {
+							const errorMessage = error instanceof Error ? error.message : String(error);
+							errors.push(`Failed to delete ${child.name}: ${errorMessage}`);
+							this._logService.warn('[QuartoOutputCacheService] Failed to delete cache file:', child.resource.toString(), error);
+						}
+					}
+				}
+			}
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			errors.push(`Failed to enumerate cache files: ${errorMessage}`);
+			this._logService.warn('[QuartoOutputCacheService] Failed to enumerate cache directory:', error);
+		}
+
+		const success = errors.length === 0;
+		this._logService.debug('[QuartoOutputCacheService] Cache clear complete:',
+			'deleted', filesDeleted, 'files,',
+			'freed', bytesFreed, 'bytes,',
+			'errors:', errors.length);
+
+		return {
+			success,
+			filesDeleted,
+			bytesFreed,
+			errors,
 		};
 	}
 

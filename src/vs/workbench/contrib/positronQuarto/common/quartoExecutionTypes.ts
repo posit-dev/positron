@@ -337,4 +337,43 @@ export interface IQuartoOutputCacheService {
 	 * @returns The matched cached document, or undefined if no match found
 	 */
 	findCacheByContentHash(targetUri: URI, contentHashes: string[]): Promise<ICachedDocument | undefined>;
+
+	/**
+	 * Get information about the cache for display purposes.
+	 * @returns Cache info including total size, file count, and cache directory URI
+	 */
+	getCacheInfo(): Promise<ICacheInfo>;
+
+	/**
+	 * Clear all cached outputs (entire cache directory).
+	 * Also clears in-memory cache state.
+	 * @returns Result containing number of files deleted and total bytes freed, or error information
+	 */
+	clearAllCaches(): Promise<IClearCacheResult>;
+}
+
+/**
+ * Information about the output cache.
+ */
+export interface ICacheInfo {
+	/** Total size of all cached files in bytes */
+	readonly totalSizeBytes: number;
+	/** Number of cache files */
+	readonly fileCount: number;
+	/** URI of the cache directory */
+	readonly cacheDir: URI;
+}
+
+/**
+ * Result of clearing the cache.
+ */
+export interface IClearCacheResult {
+	/** Whether the operation succeeded */
+	readonly success: boolean;
+	/** Number of files deleted */
+	readonly filesDeleted: number;
+	/** Total bytes freed */
+	readonly bytesFreed: number;
+	/** Error messages for any files that failed to delete */
+	readonly errors: string[];
 }

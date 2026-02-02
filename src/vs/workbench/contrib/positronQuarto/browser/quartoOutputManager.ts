@@ -48,6 +48,12 @@ export interface IQuartoOutputManager {
 	readonly onDidChangeOutputs: Event<OutputChangeEvent>;
 
 	/**
+	 * Event fired when all outputs should be cleared globally.
+	 * Used when clearing the entire output cache.
+	 */
+	readonly onDidRequestClearAll: Event<void>;
+
+	/**
 	 * Get outputs for a cell.
 	 */
 	getOutputsForCell(cellId: string): readonly ICellOutput[];
@@ -61,6 +67,12 @@ export interface IQuartoOutputManager {
 	 * Clear all outputs for a document.
 	 */
 	clearAllOutputs(documentUri: URI): void;
+
+	/**
+	 * Clear all outputs for all documents.
+	 * Used when clearing the entire output cache.
+	 */
+	clearAllOutputsGlobally(): void;
 }
 
 /**
@@ -234,6 +246,13 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		this._outputHandlingDisposables.add(this._outputManager.onDidChangeOutputs(event => {
 			if (this._featureEnabled && this._documentUri && event.documentUri.toString() === this._documentUri.toString()) {
 				this._syncOutputsFromService(event);
+			}
+		}));
+
+		// Listen for global clear all request (e.g., when clearing the entire cache)
+		this._outputHandlingDisposables.add(this._outputManager.onDidRequestClearAll(() => {
+			if (this._featureEnabled) {
+				this.clearAllOutputs();
 			}
 		}));
 	}
@@ -859,6 +878,9 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 	private readonly _onDidChangeOutputs = this._register(new Emitter<OutputChangeEvent>());
 	readonly onDidChangeOutputs = this._onDidChangeOutputs.event;
 
+	private readonly _onDidRequestClearAll = this._register(new Emitter<void>());
+	readonly onDidRequestClearAll = this._onDidRequestClearAll.event;
+
 	constructor(
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
 		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
@@ -959,5 +981,15 @@ export class QuartoOutputManagerService extends Disposable implements IQuartoOut
 
 		// Clear entire document cache
 		this._cacheService.clearCache(documentUri);
+	}
+
+	clearAllOutputsGlobally(): void {
+		// Clear our internal state
+		this._outputsByCell.clear();
+
+		// Fire event to notify all contributions to clear their outputs
+		// This is needed because contributions may have outputs loaded from cache
+		// that were never registered with the service
+		this._onDidRequestClearAll.fire();
 	}
 }
