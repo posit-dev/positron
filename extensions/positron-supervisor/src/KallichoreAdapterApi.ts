@@ -567,7 +567,12 @@ export class KCApi implements PositronSupervisorApi {
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
 		// HTTP server is ready, so we may need to retry a few times.
-		for (let retry = 0; retry < 100; retry++) {
+		do {
+
+			// Update elapsed time
+			elapsed = Date.now() - supervisorStartTime;
+			retry++;
+
 			try {
 				const status = await this._api.api.serverStatus();
 				this.log(`Kallichore ${status.data.version} server online with ${status.data.sessions} sessions`);
@@ -592,7 +597,6 @@ export class KCApi implements PositronSupervisorApi {
 				}
 				break;
 			} catch (err) {
-				const elapsed = Date.now() - supervisorStartTime;
 
 				// Has the terminal exited? if it has, there's no point in continuing to retry.
 				if (exited) {
@@ -611,9 +615,8 @@ export class KCApi implements PositronSupervisorApi {
 						if (retry > 0 && retry % 5 === 0) {
 							this.log(`Waiting for Kallichore server to start (attempt ${retry}, ${elapsed}ms)`);
 						}
-						// Wait a bit and try again
+						// Wait a bit before trying again
 						await new Promise((resolve) => setTimeout(resolve, 100));
-						continue;
 					} else {
 						// Give up; it shouldn't take this long to start
 						let message = `Kallichore server did not start after ${Date.now() - startTime}ms`;
@@ -649,7 +652,7 @@ export class KCApi implements PositronSupervisorApi {
 					`Error: ${JSON.stringify(err)}`);
 				throw err;
 			}
-		}
+		} while (elapsed < startupTimeout);
 
 		this.log(`Kallichore server started in ${Date.now() - supervisorStartTime}ms`);
 
