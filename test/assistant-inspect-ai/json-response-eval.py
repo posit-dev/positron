@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------------------------
-# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 """
@@ -104,7 +104,7 @@ You are an expert evaluator for checking how well LLMs respond and use tools in 
 
 CRITICAL INSTRUCTIONS:
 1. The question asked does not matter as much as the criteria provided in the target. Focus ENTIRELY on whether the response meets the criteria.
-2. When the criteria mentions specific tools called, they should be included in the response in a section denoted by "Tools Called:".
+2. When the criteria mentions that a specific tools must be called, they should be included in the response in a section denoted by "Tools Called:".
 
 GRADING SCALE:
 - C (Complete): ALL criteria are met
