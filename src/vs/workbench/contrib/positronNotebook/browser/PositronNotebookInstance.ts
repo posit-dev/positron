@@ -27,7 +27,7 @@ import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, Sel
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { GhostCellState, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
 import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -295,6 +295,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Cancellation token source for in-flight ghost cell requests.
 	 */
 	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
+
+	/**
+	 * Tracks whether the opt-in prompt has been dismissed with "Not now" for this notebook open.
+	 * Resets when the notebook is closed and reopened.
+	 */
+	private _optInDismissedThisOpen: boolean = false;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -2217,8 +2223,39 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return settings.ghostCellSuggestions === 'enabled';
 		}
 
+		// Check if user has opted in
+		const hasOptedIn = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY) ?? false;
+		if (!hasOptedIn) {
+			return false;
+		}
+
 		// Fall back to global setting
-		return this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? true;
+		return this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY) ?? false;
+	}
+
+	/**
+	 * Check if we should show the opt-in prompt for this notebook.
+	 * Returns true if: user hasn't opted in, no per-notebook override, and not dismissed this open.
+	 */
+	private _shouldShowOptInPrompt(): boolean {
+		// Check per-notebook override first - if set, no prompt needed
+		const settings = getAssistantSettings(this._textModel.get()?.metadata);
+		if (settings.ghostCellSuggestions !== undefined) {
+			return false;
+		}
+
+		// Check if user has already opted in
+		const hasOptedIn = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY) ?? false;
+		if (hasOptedIn) {
+			return false;
+		}
+
+		// Check if dismissed this open
+		if (this._optInDismissedThisOpen) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -2237,6 +2274,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._ghostCellCancellationToken.cancel();
 			this._ghostCellCancellationToken.dispose();
 			this._ghostCellCancellationToken = undefined;
+		}
+
+		// Check if we should show the opt-in prompt
+		if (this._shouldShowOptInPrompt()) {
+			// Set up debounce using configurable delay
+			const delay = this.configurationService.getValue<number>(POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY) ?? 2000;
+			this._ghostCellDebounceTimer = setTimeout(() => {
+				this._ghostCellDebounceTimer = undefined;
+				this._ghostCellState.set({ status: 'opt-in-prompt', executedCellIndex: cellIndex }, undefined);
+			}, delay);
+			return;
 		}
 
 		// Check if enabled
@@ -2434,7 +2482,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Updates the user setting to disable suggestions and dismisses the current ghost cell.
 	 */
 	disableGhostCellSuggestions(): void {
-		// Update the global setting
+		// Mark as opted in (user made a choice) and disable suggestions
+		this.configurationService.updateValue(
+			POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
+			true,
+			ConfigurationTarget.USER
+		);
 		this.configurationService.updateValue(
 			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
 			false,
@@ -2443,6 +2496,45 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Dismiss the current ghost cell
 		this.dismissGhostCell(false);
+	}
+
+	/**
+	 * Enable ghost cell suggestions globally (opt-in).
+	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
+	 */
+	async enableGhostCellSuggestions(): Promise<void> {
+		const state = this._ghostCellState.get();
+		const executedCellIndex = state.status !== 'hidden' && 'executedCellIndex' in state
+			? state.executedCellIndex
+			: this.cells.get().length - 1;
+
+		// Mark as opted in and enable suggestions - await both updates
+		await Promise.all([
+			this.configurationService.updateValue(
+				POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
+				true,
+				ConfigurationTarget.USER
+			),
+			this.configurationService.updateValue(
+				POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
+				true,
+				ConfigurationTarget.USER
+			)
+		]);
+
+		// Trigger suggestion after settings are confirmed updated
+		if (executedCellIndex >= 0) {
+			this.triggerGhostCellSuggestion(executedCellIndex);
+		}
+	}
+
+	/**
+	 * Dismiss the opt-in prompt for this notebook open only.
+	 * The prompt will appear again the next time the notebook is opened.
+	 */
+	dismissOptInPrompt(): void {
+		this._optInDismissedThisOpen = true;
+		this._ghostCellState.set({ status: 'hidden' }, undefined);
 	}
 
 	// #endregion
