@@ -350,6 +350,13 @@ export interface IQuartoOutputCacheService {
 	 * @returns Result containing number of files deleted and total bytes freed, or error information
 	 */
 	clearAllCaches(): Promise<IClearCacheResult>;
+
+	/**
+	 * Get the cache file path for a document.
+	 * @param documentUri URI of the source document
+	 * @returns URI of the cache file (ipynb format)
+	 */
+	getCachePath(documentUri: URI): URI;
 }
 
 /**

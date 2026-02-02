@@ -22,7 +22,8 @@ import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../serv
 import { QuartoOutputContribution } from './quartoOutputManager.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { ByteSize } from '../../../../platform/files/common/files.js';
+import { ByteSize, IFileService } from '../../../../platform/files/common/files.js';
+import { basename } from '../../../../base/common/resources.js';
 
 /**
  * Command IDs for Quarto execution commands.
@@ -36,6 +37,7 @@ export const enum QuartoCommandId {
 	CancelExecution = 'positronQuarto.cancelExecution',
 	ClearAllOutputs = 'positronQuarto.clearAllOutputs',
 	ClearOutputCache = 'positronQuarto.clearOutputCache',
+	ShowOutputCache = 'positronQuarto.showOutputCache',
 	RestartKernel = 'positronQuarto.restartKernel',
 	InterruptKernel = 'positronQuarto.interruptKernel',
 	ShutdownKernel = 'positronQuarto.shutdownKernel',
@@ -782,5 +784,69 @@ registerAction2(class ClearOutputCacheAction extends Action2 {
 				),
 			});
 		}
+	}
+});
+
+/**
+ * Show the ipynb output cache file for the current Quarto document.
+ * Opens the cache file in preview mode using the default ipynb editor.
+ */
+registerAction2(class ShowOutputCacheAction extends Action2 {
+	constructor() {
+		super({
+			id: QuartoCommandId.ShowOutputCache,
+			title: {
+				value: localize('quarto.showOutputCache', 'Show Output Cache'),
+				original: 'Show Output Cache',
+			},
+			category: QUARTO_CATEGORY,
+			f1: true,
+			precondition: QUARTO_INLINE_OUTPUT_ENABLED,
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const cacheService = accessor.get(IQuartoOutputCacheService);
+		const fileService = accessor.get(IFileService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Get the current context
+		const context = getQuartoContext(editorService);
+		if (!context) {
+			notificationService.info(
+				localize('quarto.showOutputCache.noQuartoFile', 'Open a Quarto file to view its output cache.')
+			);
+			return;
+		}
+
+		const { documentUri } = context;
+
+		// Get the cache path for this document
+		const cachePath = cacheService.getCachePath(documentUri);
+
+		// Check if the cache file exists
+		const cacheExists = await fileService.exists(cachePath);
+		if (!cacheExists) {
+			const fileName = basename(documentUri);
+			notificationService.info(
+				localize(
+					'quarto.showOutputCache.noCacheExists',
+					'No output cache exists for {0}. Run one or more cells in the document to create one.',
+					fileName
+				)
+			);
+			return;
+		}
+
+		// Open the cache file in preview mode
+		// Using pinned: false opens it as a preview tab
+		await editorService.openEditor({
+			resource: cachePath,
+			options: {
+				pinned: false,
+				preserveFocus: false,
+			}
+		});
 	}
 });

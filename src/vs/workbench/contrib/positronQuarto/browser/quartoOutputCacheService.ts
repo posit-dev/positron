@@ -931,6 +931,10 @@ export class QuartoOutputCacheService extends Disposable implements IQuartoOutpu
 		};
 	}
 
+	getCachePath(documentUri: URI): URI {
+		return this._getCachePath(documentUri);
+	}
+
 	async clearAllCaches(): Promise<IClearCacheResult> {
 		this._logService.debug('[QuartoOutputCacheService] Clearing all caches');
 
