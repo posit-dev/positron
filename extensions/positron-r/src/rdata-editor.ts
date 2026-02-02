@@ -137,38 +137,7 @@ function getWaitingForRHtml(fileName: string): string {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Waiting for R</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.spinner {
-			width: 32px;
-			height: 32px;
-			border: 3px solid var(--vscode-foreground);
-			border-top-color: transparent;
-			border-radius: 50%;
-			animation: spin 1s linear infinite;
-			margin-bottom: 16px;
-		}
-		@keyframes spin {
-			to { transform: rotate(360deg); }
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-	</style>
+	<style>${getBaseStyles()}${getSpinnerStyles()}</style>
 </head>
 <body>
 	<div class="container">
@@ -181,41 +150,10 @@ function getWaitingForRHtml(fileName: string): string {
 }
 
 /**
- * Generates HTML for the "no R found" error state.
+ * Returns CSS styles for the warning message box used in "no R found" state.
  */
-function getNoRFoundHtml(fileName: string): string {
-	return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>R Required</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.error {
-			color: var(--vscode-testing-iconFailed, #f14c4c);
-		}
-		.error-icon {
-			font-size: 48px;
-			margin-bottom: 16px;
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
+function getWarningMessageStyles(): string {
+	return `
 		.message {
 			margin-top: 16px;
 			padding: 12px;
@@ -227,8 +165,20 @@ function getNoRFoundHtml(fileName: string): string {
 		}
 		a {
 			color: var(--vscode-textLink-foreground);
-		}
-	</style>
+		}`;
+}
+
+/**
+ * Generates HTML for the "no R found" error state.
+ */
+function getNoRFoundHtml(fileName: string): string {
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>R Required</title>
+	<style>${getBaseStyles()}${getErrorStyles()}${getWarningMessageStyles()}</style>
 </head>
 <body>
 	<div class="container">
@@ -255,6 +205,181 @@ function escapeHtml(text: string): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#039;');
+}
+
+/**
+ * Type of R file being loaded.
+ */
+type RFileType = 'workspace' | 'object';
+
+/**
+ * Returns the display label for a file type.
+ */
+function getTypeLabel(type: RFileType): string {
+	return type === 'workspace' ? 'R Workspace' : 'R Object';
+}
+
+/**
+ * Returns the base CSS styles shared by all loader HTML pages.
+ */
+function getBaseStyles(): string {
+	return `
+		body {
+			font-family: var(--vscode-font-family);
+			padding: 20px;
+			color: var(--vscode-foreground);
+			background-color: var(--vscode-editor-background);
+		}
+		.container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 200px;
+		}
+		code {
+			background-color: var(--vscode-textCodeBlock-background);
+			padding: 2px 6px;
+			border-radius: 3px;
+		}`;
+}
+
+/**
+ * Returns CSS styles for the loading spinner.
+ */
+function getSpinnerStyles(): string {
+	return `
+		.spinner {
+			width: 32px;
+			height: 32px;
+			border: 3px solid var(--vscode-foreground);
+			border-top-color: transparent;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin-bottom: 16px;
+		}
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}`;
+}
+
+/**
+ * Returns CSS styles for success state.
+ */
+function getSuccessStyles(): string {
+	return `
+		.success {
+			color: var(--vscode-testing-iconPassed, #89d185);
+		}
+		.checkmark {
+			font-size: 48px;
+			margin-bottom: 16px;
+		}`;
+}
+
+/**
+ * Returns CSS styles for error state.
+ */
+function getErrorStyles(): string {
+	return `
+		.error {
+			color: var(--vscode-testing-iconFailed, #f14c4c);
+		}
+		.error-icon {
+			font-size: 48px;
+			margin-bottom: 16px;
+		}
+		.error-message {
+			margin-top: 16px;
+			padding: 12px;
+			background-color: var(--vscode-inputValidation-errorBackground);
+			border: 1px solid var(--vscode-inputValidation-errorBorder);
+			border-radius: 4px;
+			max-width: 500px;
+			word-break: break-word;
+		}`;
+}
+
+/**
+ * Generates HTML for the loading state.
+ */
+function getLoadingHtml(fileName: string, type: RFileType, varName?: string): string {
+	const typeLabel = getTypeLabel(type);
+	const message = type === 'workspace'
+		? `Loading objects from <code>${escapeHtml(fileName)}</code>...`
+		: `Loading <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName!)}</code>...`;
+
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Loading ${typeLabel}</title>
+	<style>${getBaseStyles()}${getSpinnerStyles()}</style>
+</head>
+<body>
+	<div class="container">
+		<div class="spinner"></div>
+		<h2>Loading ${typeLabel}</h2>
+		<p>${message}</p>
+	</div>
+</body>
+</html>`;
+}
+
+/**
+ * Generates HTML for the success state.
+ */
+function getSuccessHtml(fileName: string, type: RFileType, varName?: string): string {
+	const typeLabel = getTypeLabel(type);
+	const message = type === 'workspace'
+		? `Objects from <code>${escapeHtml(fileName)}</code> have been loaded into your R session.`
+		: `Object from <code>${escapeHtml(fileName)}</code> loaded as <code>${escapeHtml(varName!)}</code>.`;
+
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>${typeLabel} Loaded</title>
+	<style>${getBaseStyles()}${getSuccessStyles()}</style>
+</head>
+<body>
+	<div class="container">
+		<div class="checkmark success">✓</div>
+		<h2 class="success">${typeLabel} Loaded</h2>
+		<p>${message}</p>
+	</div>
+</body>
+</html>`;
+}
+
+/**
+ * Generates HTML for the error state.
+ */
+function getErrorHtml(fileName: string, type: RFileType, error: unknown, varName?: string): string {
+	const typeLabel = getTypeLabel(type);
+	const message = type === 'workspace'
+		? `Failed to load <code>${escapeHtml(fileName)}</code>.`
+		: `Failed to load <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName!)}</code>.`;
+
+	return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Error Loading ${typeLabel}</title>
+	<style>${getBaseStyles()}${getErrorStyles()}</style>
+</head>
+<body>
+	<div class="container">
+		<div class="error-icon error">!</div>
+		<h2 class="error">Error Loading ${typeLabel}</h2>
+		<p>${message}</p>
+		<div class="error-message">${escapeHtml(String(error))}</div>
+	</div>
+</body>
+</html>`;
 }
 
 /**
@@ -312,172 +437,22 @@ export class RDataEditorProvider implements vscode.CustomReadonlyEditorProvider 
 		}
 
 		// Show loading message in webview
-		webviewPanel.webview.html = this.getLoadingHtml(fileName);
+		webviewPanel.webview.html = getLoadingHtml(fileName, 'workspace');
 
 		// Execute the load command
 		try {
 			await loadRDataFile(document.uri, false);
 
 			// Update webview to show success and close after a short delay
-			webviewPanel.webview.html = this.getSuccessHtml(fileName);
+			webviewPanel.webview.html = getSuccessHtml(fileName, 'workspace');
 
 			// Close the editor tab after a brief delay to show success
 			setTimeout(() => {
 				webviewPanel.dispose();
 			}, 1500);
 		} catch (error) {
-			webviewPanel.webview.html = this.getErrorHtml(fileName, error);
+			webviewPanel.webview.html = getErrorHtml(fileName, 'workspace', error);
 		}
-	}
-
-	private getLoadingHtml(fileName: string): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Loading R Workspace</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.spinner {
-			width: 32px;
-			height: 32px;
-			border: 3px solid var(--vscode-foreground);
-			border-top-color: transparent;
-			border-radius: 50%;
-			animation: spin 1s linear infinite;
-			margin-bottom: 16px;
-		}
-		@keyframes spin {
-			to { transform: rotate(360deg); }
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="spinner"></div>
-		<h2>Loading R Workspace</h2>
-		<p>Loading objects from <code>${escapeHtml(fileName)}</code>...</p>
-	</div>
-</body>
-</html>`;
-	}
-
-	private getSuccessHtml(fileName: string): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>R Workspace Loaded</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.success {
-			color: var(--vscode-testing-iconPassed, #89d185);
-		}
-		.checkmark {
-			font-size: 48px;
-			margin-bottom: 16px;
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="checkmark success">✓</div>
-		<h2 class="success">R Workspace Loaded</h2>
-		<p>Objects from <code>${escapeHtml(fileName)}</code> have been loaded into your R session.</p>
-	</div>
-</body>
-</html>`;
-	}
-
-	private getErrorHtml(fileName: string, error: unknown): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Error Loading R Workspace</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.error {
-			color: var(--vscode-testing-iconFailed, #f14c4c);
-		}
-		.error-icon {
-			font-size: 48px;
-			margin-bottom: 16px;
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-		.error-message {
-			margin-top: 16px;
-			padding: 12px;
-			background-color: var(--vscode-inputValidation-errorBackground);
-			border: 1px solid var(--vscode-inputValidation-errorBorder);
-			border-radius: 4px;
-			max-width: 500px;
-			word-break: break-word;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="error-icon error">!</div>
-		<h2 class="error">Error Loading R Workspace</h2>
-		<p>Failed to load <code>${escapeHtml(fileName)}</code>.</p>
-		<div class="error-message">${escapeHtml(String(error))}</div>
-	</div>
-</body>
-</html>`;
 	}
 }
 
@@ -539,21 +514,21 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 		}
 
 		// Show loading message in webview
-		webviewPanel.webview.html = this.getLoadingHtml(fileName, varName);
+		webviewPanel.webview.html = getLoadingHtml(fileName, 'object', varName);
 
 		// Execute the readRDS command
 		try {
 			await loadRdsFileWithVarName(document.uri, varName);
 
 			// Update webview to show success and close after a short delay
-			webviewPanel.webview.html = this.getSuccessHtml(fileName, varName);
+			webviewPanel.webview.html = getSuccessHtml(fileName, 'object', varName);
 
 			// Close the editor tab after a brief delay to show success
 			setTimeout(() => {
 				webviewPanel.dispose();
 			}, 1500);
 		} catch (error) {
-			webviewPanel.webview.html = this.getErrorHtml(fileName, varName, error);
+			webviewPanel.webview.html = getErrorHtml(fileName, 'object', error, varName);
 		}
 	}
 
@@ -580,155 +555,5 @@ export class RdsEditorProvider implements vscode.CustomReadonlyEditorProvider {
 		}
 
 		return varName;
-	}
-
-	private getLoadingHtml(fileName: string, varName: string): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Loading R Object</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.spinner {
-			width: 32px;
-			height: 32px;
-			border: 3px solid var(--vscode-foreground);
-			border-top-color: transparent;
-			border-radius: 50%;
-			animation: spin 1s linear infinite;
-			margin-bottom: 16px;
-		}
-		@keyframes spin {
-			to { transform: rotate(360deg); }
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="spinner"></div>
-		<h2>Loading R Object</h2>
-		<p>Loading <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName)}</code>...</p>
-	</div>
-</body>
-</html>`;
-	}
-
-	private getSuccessHtml(fileName: string, varName: string): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>R Object Loaded</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.success {
-			color: var(--vscode-testing-iconPassed, #89d185);
-		}
-		.checkmark {
-			font-size: 48px;
-			margin-bottom: 16px;
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="checkmark success">✓</div>
-		<h2 class="success">R Object Loaded</h2>
-		<p>Object from <code>${escapeHtml(fileName)}</code> loaded as <code>${escapeHtml(varName)}</code>.</p>
-	</div>
-</body>
-</html>`;
-	}
-
-	private getErrorHtml(fileName: string, varName: string, error: unknown): string {
-		return /* html */`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Error Loading R Object</title>
-	<style>
-		body {
-			font-family: var(--vscode-font-family);
-			padding: 20px;
-			color: var(--vscode-foreground);
-			background-color: var(--vscode-editor-background);
-		}
-		.container {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 200px;
-		}
-		.error {
-			color: var(--vscode-testing-iconFailed, #f14c4c);
-		}
-		.error-icon {
-			font-size: 48px;
-			margin-bottom: 16px;
-		}
-		code {
-			background-color: var(--vscode-textCodeBlock-background);
-			padding: 2px 6px;
-			border-radius: 3px;
-		}
-		.error-message {
-			margin-top: 16px;
-			padding: 12px;
-			background-color: var(--vscode-inputValidation-errorBackground);
-			border: 1px solid var(--vscode-inputValidation-errorBorder);
-			border-radius: 4px;
-			max-width: 500px;
-			word-break: break-word;
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="error-icon error">!</div>
-		<h2 class="error">Error Loading R Object</h2>
-		<p>Failed to load <code>${escapeHtml(fileName)}</code> as <code>${escapeHtml(varName)}</code>.</p>
-		<div class="error-message">${escapeHtml(String(error))}</div>
-	</div>
-</body>
-</html>`;
 	}
 }
