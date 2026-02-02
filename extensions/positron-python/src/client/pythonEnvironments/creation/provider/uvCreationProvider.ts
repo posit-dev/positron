@@ -47,8 +47,9 @@ async function createUvVenv(
         cwd: workspace.uri.fsPath,
     });
 
-    const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
-        }`;
+    const venvPath = `${workspace.uri.fsPath}${
+        os.platform() === 'win32' ? `\\${targetDir}\\Scripts\\python.exe` : `/${targetDir}/bin/python`
+    }`;
 
     out.subscribe(
         (value) => {
