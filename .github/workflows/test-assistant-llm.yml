@@ -113,23 +113,16 @@ jobs:  # to input into inspect-ai-test job below
         run: |
           cd test/assistant-inspect-ai
 
-          # Find all log files sorted by time (newest first)
-          LOG_FILES=$(ls -t logs/*.json 2>/dev/null || true)
-
-          if [ -z "$LOG_FILES" ]; then
-            echo "No log files found!"
-            exit 1
-          fi
-
           # Count number of response files to know how many logs to process
           NUM_MODELS=$(ls response-dataset-*.json 2>/dev/null | wc -l)
           echo "Processing results for $NUM_MODELS model(s)"
 
-          # Get the most recent logs (one per model)
-          RECENT_LOGS=$(echo "$LOG_FILES" | head -n "$NUM_MODELS")
-
+          # Find the most recent log files (one per model), handling spaces in filenames
+          # Use find with -printf to get modification time, sort, and take the most recent
           FAILED=0
-          for log_file in $RECENT_LOGS; do
+          PROCESSED=0
+
+          while IFS= read -r -d '' log_file; do
             echo ""
             echo "=========================================="
             echo "Parsing results from: $log_file"
@@ -140,7 +133,13 @@ jobs:  # to input into inspect-ai-test job below
             if ! python inspect_result_parser.py "$log_file" --threshold 0.8; then
               FAILED=$((FAILED + 1))
             fi
-          done
+            PROCESSED=$((PROCESSED + 1))
+          done < <(find logs -maxdepth 1 -name "*.json" -printf '%T@\t%p\0' | sort -rzn | head -zn "$NUM_MODELS" | cut -zf2-)
+
+          if [ $PROCESSED -eq 0 ]; then
+            echo "No log files found!"
+            exit 1
+          fi
 
           echo ""
           echo "=========================================="
