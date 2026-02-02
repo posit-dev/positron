@@ -24,9 +24,10 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 export type GhostCellState =
 	| { status: 'hidden' }
 	| { status: 'opt-in-prompt'; executedCellIndex: number }
-	| { status: 'loading'; executedCellIndex: number }
-	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string }
-	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string }
+	| { status: 'awaiting-request'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
+	| { status: 'loading'; executedCellIndex: number; suggestionMode: 'push' | 'pull' }
+	| { status: 'streaming'; executedCellIndex: number; code: string; explanation: string; suggestionMode: 'push' | 'pull' }
+	| { status: 'ready'; executedCellIndex: number; code: string; explanation: string; language: string; suggestionMode: 'push' | 'pull' }
 	| { status: 'error'; executedCellIndex: number; message: string };
 
 /**
@@ -512,4 +513,22 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * The prompt will appear again the next time the notebook is opened.
 	 */
 	dismissOptInPrompt(): void;
+
+	/**
+	 * Request a ghost cell suggestion when in pull mode.
+	 * Only triggers if the current state is 'awaiting-request'.
+	 */
+	requestGhostCellSuggestion(): void;
+
+	/**
+	 * Get the current suggestion mode for ghost cells.
+	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 */
+	getSuggestionMode(): 'push' | 'pull';
+
+	/**
+	 * Toggle the suggestion mode between 'push' and 'pull'.
+	 * Updates the global setting and handles state transitions if needed.
+	 */
+	toggleSuggestionMode(): void;
 }

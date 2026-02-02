@@ -24,6 +24,12 @@ export type AutoFollowOverride = 'autoFollow' | 'noAutoFollow' | undefined;
 export type GhostCellSuggestionsOverride = 'enabled' | 'disabled' | undefined;
 
 /**
+ * Valid values for the suggestionMode per-notebook override.
+ * undefined = follow global setting, 'push' = automatic, 'pull' = on-demand
+ */
+export type SuggestionModeOverride = 'push' | 'pull' | undefined;
+
+/**
  * Per-notebook assistant settings stored at metadata.metadata.positron.assistant
  *
  * The ipynb serializer maps:
@@ -33,11 +39,13 @@ export interface AssistantSettings {
 	showDiff?: ShowDiffOverride;
 	autoFollow?: AutoFollowOverride;
 	ghostCellSuggestions?: GhostCellSuggestionsOverride;
+	suggestionMode?: SuggestionModeOverride;
 }
 
 const VALID_SHOW_DIFF_VALUES = new Set<string>(['showDiff', 'noDiff']);
 const VALID_AUTO_FOLLOW_VALUES = new Set<string>(['autoFollow', 'noAutoFollow']);
 const VALID_GHOST_CELL_SUGGESTIONS_VALUES = new Set<string>(['enabled', 'disabled']);
+const VALID_SUGGESTION_MODE_VALUES = new Set<string>(['push', 'pull']);
 
 /**
  * Read assistant settings from notebook metadata.
@@ -67,7 +75,13 @@ export function getAssistantSettings(metadata: { [key: string]: unknown } | unde
 		? rawGhostCellSuggestions as GhostCellSuggestionsOverride
 		: undefined;
 
-	return { showDiff, autoFollow, ghostCellSuggestions };
+	// Validate suggestionMode value
+	const rawSuggestionMode = assistant?.suggestionMode;
+	const suggestionMode = typeof rawSuggestionMode === 'string' && VALID_SUGGESTION_MODE_VALUES.has(rawSuggestionMode)
+		? rawSuggestionMode as SuggestionModeOverride
+		: undefined;
+
+	return { showDiff, autoFollow, ghostCellSuggestions, suggestionMode };
 }
 
 /**
