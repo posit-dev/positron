@@ -302,6 +302,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _optInDismissedThisOpen: boolean = false;
 
+	/**
+	 * Tracks whether user clicked "Enable" this session, bypassing config read delays.
+	 */
+	private _enabledThisSession: boolean = false;
+
 	// =============================================================================================
 	// #region Public Properties
 
@@ -2223,6 +2228,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return settings.ghostCellSuggestions === 'enabled';
 		}
 
+		// If user enabled this session, return true immediately
+		if (this._enabledThisSession) {
+			return true;
+		}
+
 		// Check if user has opted in
 		const hasOptedIn = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY) ?? false;
 		if (!hasOptedIn) {
@@ -2241,6 +2251,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Check per-notebook override first - if set, no prompt needed
 		const settings = getAssistantSettings(this._textModel.get()?.metadata);
 		if (settings.ghostCellSuggestions !== undefined) {
+			return false;
+		}
+
+		// If user enabled this session, don't show prompt
+		if (this._enabledThisSession) {
 			return false;
 		}
 
@@ -2502,27 +2517,28 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Enable ghost cell suggestions globally (opt-in).
 	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
 	 */
-	async enableGhostCellSuggestions(): Promise<void> {
+	enableGhostCellSuggestions(): void {
+		// Set session flag immediately for instant effect
+		this._enabledThisSession = true;
+
 		const state = this._ghostCellState.get();
 		const executedCellIndex = state.status !== 'hidden' && 'executedCellIndex' in state
 			? state.executedCellIndex
 			: this.cells.get().length - 1;
 
-		// Mark as opted in and enable suggestions - await both updates
-		await Promise.all([
-			this.configurationService.updateValue(
-				POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
-				true,
-				ConfigurationTarget.USER
-			),
-			this.configurationService.updateValue(
-				POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
-				true,
-				ConfigurationTarget.USER
-			)
-		]);
+		// Persist to config (fire and forget - matches disableGhostCellSuggestions pattern)
+		this.configurationService.updateValue(
+			POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY,
+			true,
+			ConfigurationTarget.USER
+		);
+		this.configurationService.updateValue(
+			POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY,
+			true,
+			ConfigurationTarget.USER
+		);
 
-		// Trigger suggestion after settings are confirmed updated
+		// Trigger suggestion immediately
 		if (executedCellIndex >= 0) {
 			this.triggerGhostCellSuggestion(executedCellIndex);
 		}

@@ -505,7 +505,7 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Enable ghost cell suggestions globally (opt-in).
 	 * Sets both hasOptedIn and ghostCellSuggestions to true, then triggers a suggestion.
 	 */
-	enableGhostCellSuggestions(): Promise<void>;
+	enableGhostCellSuggestions(): void;
 
 	/**
 	 * Dismiss the opt-in prompt for this notebook open only.
