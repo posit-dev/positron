@@ -65,11 +65,9 @@ const BUILD_TARGETS = [
 	{ platform: 'linux', arch: 'alpine' },
 ];
 
-const serverResourceIncludes = [
-	// --- Start PWB ---
-	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
-	// --- End PWB ---
-
+// --- Start Positron ---
+// Base server resources without PWB-specific files (for reh-web-server builds)
+const positronServerResourceIncludes = [
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
@@ -91,8 +89,19 @@ const serverResourceIncludes = [
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
-
 ];
+// --- End Positron ---
+
+// --- Start PWB ---
+// Web resources including PWB-specific files (for reh-web builds)
+const webResourceIncludes = [
+	...positronServerResourceIncludes,
+	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
+];
+// --- End PWB ---
+
+// Legacy alias for compatibility
+const serverResourceIncludes = webResourceIncludes;
 
 const serverResourceExcludes = [
 	'!out-build/vs/**/{electron-browser,electron-main,electron-utility}/**',
@@ -121,6 +130,21 @@ const serverWithWebResources = [
 	...serverWithWebResourceIncludes,
 	...serverWithWebResourceExcludes
 ];
+
+// --- Start Positron ---
+// Server with web resources for reh-web-server (without PWB-specific rsLoginCheck.js)
+const positronServerWithWebResourceIncludes = [
+	...positronServerResourceIncludes,
+	'out-build/vs/code/browser/workbench/*.html',
+	...vscodeWebResourceIncludes
+];
+
+const positronServerWithWebResources = [
+	...positronServerWithWebResourceIncludes,
+	...serverWithWebResourceExcludes
+];
+// --- End Positron ---
+
 const serverEntryPoints = buildfile.codeServer;
 
 const webEntryPoints = [
@@ -301,7 +325,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
 			.filter((extensionPath) => {
-				if (type === 'reh-web') {
+				if (type === 'reh-web' || type === 'reh-web-server') {
 					return true; // web: ship all extensions for now
 				}
 
@@ -363,7 +387,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		let packageJsonContents;
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
-		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonBase = (type === 'reh-web' || type === 'reh-web-server') ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			// --- End Positron ---
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
@@ -390,7 +414,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
 		// --- Start Positron ---
-		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
+		const productionDependencies = getProductionDependencies((type === 'reh-web' || type === 'reh-web-server') ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
 			// --- End Positron ---
@@ -406,7 +430,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const node = gulp.src(`${nodePath}/**`, { base: nodePath, dot: true });
 
 		let web = [];
-		if (type === 'reh-web') {
+		if (type === 'reh-web' || type === 'reh-web-server') {
 			web = [
 				'resources/server/favicon.ico',
 				// --- Start Positron ---
@@ -435,7 +459,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		);
 
 		// --- Start Positron ---
-		if (type === 'reh-web') {
+		if (type === 'reh-web' || type === 'reh-web-server') {
 			// External modules (React, etc.)
 			const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname) }));
 			all = es.merge(all, moduleSources);
@@ -524,7 +548,7 @@ function tweakProductForServerWeb(product) {
 	return result;
 }
 
-['reh', 'reh-web'].forEach(type => {
+['reh', 'reh-web', 'reh-web-server'].forEach(type => {
 	const bundleTask = task.define(`bundle-vscode-${type}`, task.series(
 		util.rimraf(`out-vscode-${type}`),
 		optimize.bundleTask(
@@ -536,9 +560,13 @@ function tweakProductForServerWeb(product) {
 						...(type === 'reh' ? serverEntryPoints : serverWithWebEntryPoints),
 						...bootstrapEntryPoints
 					],
-					resources: type === 'reh' ? serverResources : serverWithWebResources,
 					// --- Start Positron ---
-					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// reh-web-server uses positronServerWithWebResources (no rsLoginCheck.js)
+					// reh-web uses serverWithWebResources (includes rsLoginCheck.js for PWB)
+					resources: type === 'reh' ? serverResources : (type === 'reh-web-server' ? positronServerWithWebResources : serverWithWebResources),
+					// --- End Positron ---
+					// --- Start Positron ---
+					fileContentMapper: createVSCodeWebFileContentMapper((type === 'reh-web' || type === 'reh-web-server') ? '.build/web/extensions' : '.build/extensions', (type === 'reh-web' || type === 'reh-web-server') ? tweakProductForServerWeb(product) : product)
 					// --- End Positron ---
 				}
 			}
