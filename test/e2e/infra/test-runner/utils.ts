@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
 	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
-	const branch = 'main';
+	const branch = process.env.QA_REPO || 'main';
 
 	// Check if the machine is online by attempting to fetch the latest commit hash.
 	let remoteCommitHash: string | null = null;

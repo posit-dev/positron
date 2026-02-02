@@ -28,6 +28,7 @@ import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../common/positronNotebookConfig.js';
+import { getAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
@@ -2031,7 +2032,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		// Cell is not visible - check auto-follow setting for scrolling behavior
-		const autoFollow = this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
+		// Notebook metadata takes precedence over global configuration
+		const settings = getAssistantSettings(this.textModel?.metadata);
+		const autoFollow = settings.autoFollow !== undefined
+			? settings.autoFollow === 'autoFollow'
+			: (this.configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true);
 
 		if (autoFollow) {
 			// Reveal (scroll to) and highlight

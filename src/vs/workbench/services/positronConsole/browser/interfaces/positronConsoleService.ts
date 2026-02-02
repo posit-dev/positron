@@ -128,6 +128,8 @@ export interface IPositronConsoleService {
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
+	 * @param documentUri Optional document URI when code is executed from a file. When provided,
+	 *   the backend will be notified that this is the source of code execution.
 	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,
@@ -138,7 +140,8 @@ export interface IPositronConsoleService {
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<string>;
+		executionId?: string,
+		documentUri?: URI): Promise<string>;
 
 	/**
 	 * Fires when code is executed in any Positron console instance.
@@ -439,7 +442,7 @@ export interface IPositronConsoleInstance {
 	 *
 	 * @param entry The entry to replay.
 	 */
-	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void;
+	replayExecutions(entries: IExecutionHistoryEntry<unknown>[]): void;
 
 	/**
 	 * Gets or sets the initial working directory displayed in the console.

@@ -203,7 +203,7 @@ jobs:
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.3
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
-          POSITRON_HIDDEN_R: 4.4.1
+          POSITRON_HIDDEN_R: 4.3.3
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}

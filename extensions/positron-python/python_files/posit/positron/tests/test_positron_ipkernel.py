@@ -439,3 +439,204 @@ def test_kernel_info(kernel):
     # since it's used by Positron to detect debugger support.
     assert "supported_features" in kernel.kernel_info
     assert "debugger" in kernel.kernel_info["supported_features"]
+
+
+class TestEditorSysPath:
+    """Tests for temporary sys.path modification for editor directory."""
+
+    def test_adds_and_removes_editor_dir(self, shell: PositronShell, tmp_path: Path) -> None:
+        """Test that editor directory is added before and removed after cell execution."""
+        import sys
+
+        # Create a test file in a different directory
+        editor_dir = tmp_path / "editor_dir"
+        editor_dir.mkdir()
+        test_file = editor_dir / "test_module.py"
+        test_file.write_text("x = 42")
+
+        # Set the editor context to the test file with is_execution_source=True
+        editor_uri = test_file.as_uri()
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+
+        # Ensure we're in a different directory
+        original_cwd = Path.cwd()
+        assert str(editor_dir) != str(original_cwd)
+
+        # Remove editor_dir from sys.path if present
+        while str(editor_dir) in sys.path:
+            sys.path.remove(str(editor_dir))
+
+        # Add the path (simulates pre_run_cell)
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+
+        # Check that editor_dir was added to sys.path
+        assert added_path == str(editor_dir)
+        assert str(editor_dir) in sys.path
+
+        # Store the added path like _handle_pre_run_cell does
+        shell._editor_path_added = added_path  # noqa: SLF001
+
+        # Remove the path (simulates post_run_cell)
+        shell._remove_editor_dir_from_sys_path()  # noqa: SLF001
+
+        # Check that editor_dir was removed from sys.path
+        assert str(editor_dir) not in sys.path
+
+    def test_does_not_add_cwd_to_sys_path(self, shell: PositronShell) -> None:
+        """Test that editor directory is NOT added if it matches cwd."""
+        import sys
+
+        # Create a test file in cwd
+        cwd = Path.cwd()
+        test_file = cwd / "test_file_in_cwd.py"
+
+        # Set the editor context to a file in cwd with is_execution_source=True
+        editor_uri = test_file.as_uri()
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+
+        # Count how many times cwd appears in sys.path before
+        cwd_str = str(cwd)
+        count_before = sys.path.count(cwd_str)
+
+        # Try to add the path
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+
+        # Should not have added anything since it's the cwd
+        assert added_path is None
+
+        # Check that cwd was not added again
+        count_after = sys.path.count(cwd_str)
+        assert count_after == count_before
+
+    def test_no_editor_context(self, shell: PositronShell) -> None:
+        """Test that nothing happens when no editor context is set."""
+        import sys
+
+        # Ensure no editor context
+        shell.kernel.ui_service._last_active_editor_uri = ""  # noqa: SLF001
+
+        sys_path_before = sys.path.copy()
+
+        # Try to add the path
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+
+        # Should not have added anything
+        assert added_path is None
+
+        # sys.path should be unchanged
+        assert sys.path == sys_path_before
+
+    def test_non_file_uri(self, shell: PositronShell) -> None:
+        """Test that non-file URIs are ignored."""
+        import sys
+
+        # Set a non-file URI with is_execution_source=True
+        shell.kernel.ui_service._last_active_editor_uri = "untitled:Untitled-1"  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+
+        sys_path_before = sys.path.copy()
+
+        # Try to add the path
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+
+        # Should not have added anything
+        assert added_path is None
+
+        # sys.path should be unchanged
+        assert sys.path == sys_path_before
+
+    def test_remove_without_add(self, shell: PositronShell) -> None:
+        """Test that remove handles the case where no path was added."""
+        import sys
+
+        # Ensure _editor_path_added is not set
+        shell._editor_path_added = None  # noqa: SLF001
+
+        sys_path_before = sys.path.copy()
+
+        # Remove should be a no-op
+        shell._remove_editor_dir_from_sys_path()  # noqa: SLF001
+
+        # sys.path should be unchanged
+        assert sys.path == sys_path_before
+
+    def test_path_available_during_cell_execution(
+        self, shell: PositronShell, tmp_path: Path
+    ) -> None:
+        """Test that the editor directory is in sys.path during cell execution."""
+        import sys
+
+        # Create a test module in a different directory
+        editor_dir = tmp_path / "module_dir"
+        editor_dir.mkdir()
+        test_module = editor_dir / "my_test_module.py"
+        test_module.write_text("TEST_VALUE = 'hello from module'")
+
+        # Set the editor context to the test module with is_execution_source=True
+        editor_uri = test_module.as_uri()
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = True  # noqa: SLF001
+
+        # Remove editor_dir from sys.path if present
+        while str(editor_dir) in sys.path:
+            sys.path.remove(str(editor_dir))
+
+        # Verify the module is not importable before
+        assert str(editor_dir) not in sys.path
+
+        # Run a cell that imports the module - this should work because
+        # _handle_pre_run_cell adds the editor directory
+        result = shell.run_cell("import my_test_module; value = my_test_module.TEST_VALUE")
+        result.raise_error()
+
+        # Check that the import worked
+        assert shell.user_ns["value"] == "hello from module"
+
+        # After cell execution, the path should be removed
+        # (Note: run_cell triggers both pre and post handlers)
+        assert str(editor_dir) not in sys.path
+
+        # Clean up the imported module
+        shell.user_ns.pop("my_test_module", None)
+        shell.user_ns.pop("value", None)
+        if "my_test_module" in sys.modules:
+            del sys.modules["my_test_module"]
+
+    def test_does_not_add_path_when_not_execution_source(
+        self, shell: PositronShell, tmp_path: Path
+    ) -> None:
+        """Test that sys.path is NOT modified when is_execution_source is False."""
+        import sys
+
+        # Create a test file in a different directory
+        editor_dir = tmp_path / "editor_dir_no_exec"
+        editor_dir.mkdir()
+        test_file = editor_dir / "test_module.py"
+        test_file.write_text("x = 42")
+
+        # Set the editor context with is_execution_source=False
+        # (simulates just switching editor focus, not executing from file)
+        editor_uri = test_file.as_uri()
+        shell.kernel.ui_service._last_active_editor_uri = editor_uri  # noqa: SLF001
+        shell.kernel.ui_service._is_execution_source = False  # noqa: SLF001
+
+        # Ensure we're in a different directory
+        original_cwd = Path.cwd()
+        assert str(editor_dir) != str(original_cwd)
+
+        # Remove editor_dir from sys.path if present
+        while str(editor_dir) in sys.path:
+            sys.path.remove(str(editor_dir))
+
+        sys_path_before = sys.path.copy()
+
+        # Try to add the path
+        added_path = shell._add_editor_dir_to_sys_path()  # noqa: SLF001
+
+        # Should not have added anything since is_execution_source is False
+        assert added_path is None
+
+        # sys.path should be unchanged
+        assert sys.path == sys_path_before

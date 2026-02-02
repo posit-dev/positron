@@ -10,15 +10,7 @@ import { log } from '../log.js';
 import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, validatePermutation, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 import { getChatRequestData } from '../tools.js';
 import type { ParticipantService } from '../participants.js';
-
-/**
- * Gets the active notebook context, returning null if no notebook is active.
- *
- * @returns The notebook context, or null if no notebook is active
- */
-async function getActiveNotebookContext(): Promise<positron.notebooks.NotebookContext | null> {
-	return await positron.notebooks.getContext();
-}
+import { resolveShowDiff } from '../notebookAssistantMetadata.js';
 
 /**
  * Creates an error result for when no active notebook is found.
@@ -72,7 +64,7 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 		const cellIndices = options.input.cellIndices;
 
 		// Get the active notebook context to fetch cell previews
-		const context = await getActiveNotebookContext();
+		const context = await positron.notebooks.getContext();
 		if (!context) {
 			// If no notebook is active, we still need to return a PreparedToolInvocation
 			// The actual error will be shown during invoke()
@@ -104,7 +96,7 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 		const cellIndices = options.input.cellIndices;
 
 		try {
-			const context = await getActiveNotebookContext();
+			const context = await positron.notebooks.getContext();
 			if (!context) {
 				return createNoActiveNotebookErrorResult();
 			}
@@ -174,7 +166,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 			const { operation, cellType, cellIndex, run } = options.input;
 
 			// Get the active notebook context
-			const context = await getActiveNotebookContext();
+			const context = await positron.notebooks.getContext();
 			if (!context) {
 				// If no notebook is active, return basic messages
 				// The actual error will be shown during invoke()
@@ -311,7 +303,7 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 			const { operation, cellType, index, content, cellIndex, run, fromIndex, toIndex, newOrder } = options.input;
 
 			try {
-				const context = await getActiveNotebookContext();
+				const context = await positron.notebooks.getContext();
 				if (!context) {
 					return createNoActiveNotebookErrorResult();
 				}
@@ -457,8 +449,11 @@ function createEditNotebookCellsTool(participantService: ParticipantService) {
 						// editorShown is true when editor is shown, false when preview is shown
 						const isMarkdownInPreview = cell.type === 'markdown' && cell.editorShown === false;
 
-						// Check if diff view is enabled (defaults to true)
-						const showDiff = vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
+						// Check if diff view is enabled (notebook metadata first, then global config)
+						const notebookEditor = vscode.window.activeNotebookEditor;
+						const showDiff = notebookEditor
+							? resolveShowDiff(notebookEditor.notebook)
+							: vscode.workspace.getConfiguration('positron.assistant.notebook').get('showDiff', true);
 
 						// Use direct update for: markdown in preview OR when diff view is disabled
 						if (isMarkdownInPreview || !showDiff) {
@@ -632,7 +627,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 		const { operation, cellIndices } = options.input;
 
 		try {
-			const context = await getActiveNotebookContext();
+			const context = await positron.notebooks.getContext();
 			if (!context) {
 				return createNoActiveNotebookErrorResult();
 			}
