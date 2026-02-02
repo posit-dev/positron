@@ -32,6 +32,9 @@ export const POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY = 'positron.assistant.
 // Configuration key for ghost cell suggestion delay
 export const POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY = 'positron.assistant.notebook.ghostCellSuggestions.delay';
 
+// Configuration key for tracking whether user has opted in/out of ghost cell suggestions
+export const POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY = 'positron.assistant.notebook.ghostCellSuggestions.hasOptedIn';
+
 // Register the configuration setting
 const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
@@ -92,7 +95,7 @@ configurationRegistry.registerConfiguration({
 		},
 		[POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY]: {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions',
 				'Show AI-generated suggestions for the next cell after successful cell execution. A ghost cell with a suggested next step will appear after a brief delay.'
@@ -107,6 +110,15 @@ configurationRegistry.registerConfiguration({
 			markdownDescription: localize(
 				'positron.assistant.notebook.ghostCellSuggestions.delay',
 				'Time in milliseconds to wait after cell execution before showing ghost cell suggestions. A shorter delay shows suggestions faster but may trigger unnecessary requests if you quickly execute multiple cells. A longer delay reduces requests but delays suggestions.'
+			),
+			scope: ConfigurationScope.WINDOW,
+		},
+		[POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.assistant.notebook.ghostCellSuggestions.hasOptedIn',
+				'Whether you have made a choice about ghost cell suggestions. When false, you will be prompted to enable or disable suggestions after cell execution.'
 			),
 			scope: ConfigurationScope.WINDOW,
 		},
