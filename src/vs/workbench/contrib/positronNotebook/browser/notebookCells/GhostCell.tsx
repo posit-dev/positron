@@ -46,6 +46,47 @@ const optInDontAskLabel = localize('ghostCell.optInDontAsk', "Don't ask again");
 const optInPromptAnnouncement = localize('ghostCell.optInPromptAnnouncement', 'Would you like AI to suggest code based on your notebook context?');
 const learnMoreLabel = localize('ghostCell.learnMore', 'Learn more');
 
+// Awaiting-request (pull mode) strings
+const getSuggestionLabel = localize('ghostCell.getSuggestion', 'Get Suggestion');
+const awaitingRequestText = localize('ghostCell.awaitingRequest', 'AI suggestion available on request');
+const awaitingRequestAnnouncement = localize('ghostCell.awaitingRequestAnnouncement', 'AI suggestion available. Press the Get Suggestion button or use Cmd+Shift+G to request.');
+
+// Mode toggle strings
+const automaticModeLabel = localize('ghostCell.automaticMode', 'Automatic');
+const onDemandModeLabel = localize('ghostCell.onDemandMode', 'On-demand');
+const modeToggleTooltip = localize('ghostCell.modeToggleTooltip', 'Toggle suggestion mode');
+
+/**
+ * Props for SuggestionModeToggle component
+ */
+interface SuggestionModeToggleProps {
+	mode: 'push' | 'pull';
+	onToggle: () => void;
+}
+
+/**
+ * SuggestionModeToggle - a segmented toggle switch for push/pull mode
+ * Styled to match the AssistantPanel toggle pattern.
+ */
+const SuggestionModeToggle: React.FC<SuggestionModeToggleProps> = ({ mode, onToggle }) => (
+	<div className='ghost-cell-mode-toggle'>
+		<button
+			aria-checked={mode === 'push'}
+			aria-label={modeToggleTooltip}
+			className='toggle-container'
+			title={modeToggleTooltip}
+			onClick={onToggle}
+		>
+			<div className={`toggle-button left ${mode === 'push' ? 'highlighted' : ''}`}>
+				{automaticModeLabel}
+			</div>
+			<div className={`toggle-button right ${mode === 'pull' ? 'highlighted' : ''}`}>
+				{onDemandModeLabel}
+			</div>
+		</button>
+	</div>
+);
+
 /**
  * Props for GhostCellOptInPrompt component
  */
@@ -107,6 +148,58 @@ const GhostCellOptInPrompt: React.FC<GhostCellOptInPromptProps> = ({
 );
 
 /**
+ * Props for GhostCellAwaitingRequest component
+ */
+interface GhostCellAwaitingRequestProps {
+	onGetSuggestion: () => void;
+	onDismiss: () => void;
+	onShowInfo: () => void;
+	suggestionMode: 'push' | 'pull';
+	onToggleMode: () => void;
+}
+
+/**
+ * GhostCellAwaitingRequest component - displays pull mode placeholder with "Get Suggestion" button
+ */
+const GhostCellAwaitingRequest: React.FC<GhostCellAwaitingRequestProps> = ({
+	onGetSuggestion,
+	onDismiss,
+	onShowInfo,
+	suggestionMode,
+	onToggleMode
+}) => (
+	<div className='ghost-cell-awaiting-request'>
+		<div className='ghost-cell-awaiting-request-content'>
+			<span className='ghost-cell-icon codicon codicon-sparkle' />
+			<button
+				aria-label={infoButtonLabel}
+				className='ghost-cell-info-button codicon codicon-info'
+				title={infoButtonLabel}
+				onClick={onShowInfo}
+			/>
+			<span className='ghost-cell-awaiting-request-text'>{awaitingRequestText}</span>
+			<SuggestionModeToggle mode={suggestionMode} onToggle={onToggleMode} />
+		</div>
+		<div className='ghost-cell-awaiting-request-actions'>
+			<Button
+				ariaLabel={getSuggestionLabel}
+				className='ghost-cell-get-suggestion default'
+				onPressed={onGetSuggestion}
+			>
+				{getSuggestionLabel}
+			</Button>
+			<Button
+				ariaLabel={dismissLabel}
+				className='ghost-cell-dismiss-button'
+				onPressed={onDismiss}
+			>
+				{dismissLabel}
+			</Button>
+		</div>
+	</div>
+);
+
+/**
  * GhostCellLoading component - displays loading state with spinner
  */
 const GhostCellLoading: React.FC = () => (
@@ -140,6 +233,8 @@ interface GhostCellContentProps {
 	acceptActions: IAction[];
 	dismissActions: IAction[];
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'];
+	suggestionMode: 'push' | 'pull';
+	onToggleMode: () => void;
 }
 
 /**
@@ -155,7 +250,9 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 	onShowInfo,
 	acceptActions,
 	dismissActions,
-	contextMenuService
+	contextMenuService,
+	suggestionMode,
+	onToggleMode
 }) => {
 	return (
 		<>
@@ -171,6 +268,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 					<span className='ghost-cell-explanation'>
 						{explanation || defaultExplanation}
 					</span>
+					<SuggestionModeToggle mode={suggestionMode} onToggle={onToggleMode} />
 				</div>
 				<div className='ghost-cell-actions'>
 					<SplitButton
@@ -222,7 +320,10 @@ function renderGhostCellState(
 	contextMenuService: ReturnType<typeof usePositronReactServicesContext>['contextMenuService'],
 	onOptInEnable: () => void,
 	onOptInNotNow: () => void,
-	onOptInDontAskAgain: () => void
+	onOptInDontAskAgain: () => void,
+	onGetSuggestion: () => void,
+	suggestionMode: 'push' | 'pull',
+	onToggleMode: () => void
 ): React.ReactNode {
 	switch (state.status) {
 		case 'hidden':
@@ -238,6 +339,17 @@ function renderGhostCellState(
 				/>
 			);
 
+		case 'awaiting-request':
+			return (
+				<GhostCellAwaitingRequest
+					suggestionMode={suggestionMode}
+					onDismiss={onDismiss}
+					onGetSuggestion={onGetSuggestion}
+					onShowInfo={onShowInfo}
+					onToggleMode={onToggleMode}
+				/>
+			);
+
 		case 'loading':
 			return <GhostCellLoading />;
 
@@ -250,10 +362,12 @@ function renderGhostCellState(
 					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={true}
+					suggestionMode={suggestionMode}
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
 					onShowInfo={onShowInfo}
+					onToggleMode={onToggleMode}
 				/>
 			);
 
@@ -266,10 +380,12 @@ function renderGhostCellState(
 					dismissActions={dismissActions}
 					explanation={state.explanation}
 					isStreaming={false}
+					suggestionMode={suggestionMode}
 					onAcceptAndRun={onAcceptAndRun}
 					onDismiss={onDismiss}
 					onRegenerate={onRegenerate}
 					onShowInfo={onShowInfo}
+					onToggleMode={onToggleMode}
 				/>
 			);
 
@@ -285,6 +401,8 @@ function getAnnouncement(state: GhostCellState): string {
 	switch (state.status) {
 		case 'opt-in-prompt':
 			return optInPromptAnnouncement;
+		case 'awaiting-request':
+			return awaitingRequestAnnouncement;
 		case 'loading':
 			return loadingAnnouncement;
 		case 'ready':
@@ -363,6 +481,21 @@ export const GhostCell: React.FC = () => {
 		instance.disableGhostCellSuggestions();
 	}, [instance]);
 
+	// Pull mode handler - request suggestion on demand
+	const handleGetSuggestion = React.useCallback(() => {
+		instance.requestGhostCellSuggestion();
+	}, [instance]);
+
+	// Mode toggle handler
+	const handleToggleMode = React.useCallback(() => {
+		instance.toggleSuggestionMode();
+	}, [instance]);
+
+	// Get suggestion mode from state (for immediate UI feedback) or fall back to instance method
+	const suggestionMode = ghostCellState.status !== 'hidden' && ghostCellState.status !== 'opt-in-prompt' && ghostCellState.status !== 'error'
+		? ghostCellState.suggestionMode
+		: instance.getSuggestionMode();
+
 	// Memoize actions for the split buttons
 	// Dropdown shows alternatives to the primary action (Accept and Run)
 	const acceptActions = React.useMemo((): IAction[] => [
@@ -431,7 +564,10 @@ export const GhostCell: React.FC = () => {
 					contextMenuService,
 					handleOptInEnable,
 					handleOptInNotNow,
-					handleOptInDontAskAgain
+					handleOptInDontAskAgain,
+					handleGetSuggestion,
+					suggestionMode,
+					handleToggleMode
 				)}
 			</div>
 			<ScreenReaderOnly className='ghost-cell-announcements'>

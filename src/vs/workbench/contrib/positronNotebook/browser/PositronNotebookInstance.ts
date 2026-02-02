@@ -24,10 +24,10 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { CellKind as PositronCellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST, PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { GhostCellState, IDeletionSentinel, IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY, POSITRON_NOTEBOOK_GHOST_CELL_HAS_OPTED_IN_KEY, POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY, POSITRON_NOTEBOOK_GHOST_CELL_SUGGESTIONS_KEY } from '../common/positronNotebookConfig.js';
 import { getAssistantSettings, setAssistantSettings } from '../common/notebookAssistantMetadata.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -295,6 +295,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Cancellation token source for in-flight ghost cell requests.
 	 */
 	private _ghostCellCancellationToken: CancellationTokenSource | undefined;
+
+	/**
+	 * Context key for whether ghost cell is in awaiting-request state.
+	 */
+	private _ghostCellAwaitingRequestContextKey: import('../../../../platform/contextkey/common/contextkey.js').IContextKey<boolean> | undefined;
 
 	/**
 	 * Tracks whether the opt-in prompt has been dismissed with "Not now" for this notebook open.
@@ -606,6 +611,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		this._webviewPreloadService.attachNotebookInstance(this);
+
+		// Update ghost cell awaiting-request context key when state changes
+		this._register(runOnChange(this._ghostCellState, (state) => {
+			this._ghostCellAwaitingRequestContextKey?.set(state.status === 'awaiting-request');
+		}));
 
 		this._logService.debug(this._id, 'constructor');
 
@@ -1495,6 +1505,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._overlayContainer = overlayContainer;
 		this.contextManager.setContainer(editorContainer);
 
+		// Bind ghost cell awaiting-request context key
+		this._ghostCellAwaitingRequestContextKey = POSITRON_NOTEBOOK_GHOST_CELL_AWAITING_REQUEST.bindTo(scopedContextKeyService);
+		// Update context key based on current ghost cell state
+		this._ghostCellAwaitingRequestContextKey.set(this._ghostCellState.get().status === 'awaiting-request');
+
 		this._logService.debug(this._id, 'attachView');
 	}
 
@@ -2274,6 +2289,58 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Get the suggestion mode for ghost cells.
+	 * Checks per-notebook override first, then global setting.
+	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 */
+	private _getSuggestionMode(): 'push' | 'pull' {
+		const settings = getAssistantSettings(this._textModel.get()?.metadata);
+		if (settings.suggestionMode !== undefined) {
+			return settings.suggestionMode;
+		}
+		return this.configurationService.getValue<string>(POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY) as 'push' | 'pull' ?? 'push';
+	}
+
+	/**
+	 * Public getter for the suggestion mode.
+	 * @returns 'push' for automatic suggestions, 'pull' for on-demand
+	 */
+	getSuggestionMode(): 'push' | 'pull' {
+		return this._getSuggestionMode();
+	}
+
+	/**
+	 * Toggle the suggestion mode between 'push' and 'pull'.
+	 * Updates the global setting and handles state transitions if needed.
+	 */
+	toggleSuggestionMode(): void {
+		const currentMode = this._getSuggestionMode();
+		const newMode = currentMode === 'push' ? 'pull' : 'push';
+
+		// Update the global setting (async, but we don't need to wait)
+		this.configurationService.updateValue(POSITRON_NOTEBOOK_GHOST_CELL_MODE_KEY, newMode, ConfigurationTarget.USER);
+
+		// Handle state transition if ghost cell is currently visible with mode toggle
+		const currentState = this._ghostCellState.get();
+		if (currentState.status === 'awaiting-request') {
+			if (newMode === 'push') {
+				// Switching to push mode while awaiting request - trigger the suggestion
+				this.triggerGhostCellSuggestion(currentState.executedCellIndex);
+			} else {
+				// Update state with new mode for immediate UI feedback
+				this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+			}
+		} else if (currentState.status === 'loading') {
+			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+		} else if (currentState.status === 'streaming') {
+			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+		} else if (currentState.status === 'ready') {
+			this._ghostCellState.set({ ...currentState, suggestionMode: newMode }, undefined);
+		}
+		// For 'hidden', 'opt-in-prompt', and 'error' states, no state update needed
+	}
+
+	/**
 	 * Schedule a ghost cell suggestion with debounce.
 	 * @param cellIndex The index of the cell that was just executed
 	 */
@@ -2312,7 +2379,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const delay = this.configurationService.getValue<number>(POSITRON_NOTEBOOK_GHOST_CELL_DELAY_KEY) ?? 2000;
 		this._ghostCellDebounceTimer = setTimeout(() => {
 			this._ghostCellDebounceTimer = undefined;
-			this.triggerGhostCellSuggestion(cellIndex);
+
+			// Check suggestion mode: push = automatic, pull = on-demand
+			const mode = this._getSuggestionMode();
+			if (mode === 'pull') {
+				// For pull mode, show awaiting-request state instead of triggering immediately
+				this._ghostCellState.set({ status: 'awaiting-request', executedCellIndex: cellIndex, suggestionMode: mode }, undefined);
+			} else {
+				// For push mode, trigger suggestion immediately
+				this.triggerGhostCellSuggestion(cellIndex);
+			}
 		}, delay);
 	}
 
@@ -2333,8 +2409,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
+		// Get current suggestion mode for state
+		const suggestionMode = this._getSuggestionMode();
+
 		// Set loading state
-		this._ghostCellState.set({ status: 'loading', executedCellIndex }, undefined);
+		this._ghostCellState.set({ status: 'loading', executedCellIndex, suggestionMode }, undefined);
 
 		// Create new cancellation token
 		this._ghostCellCancellationToken = new CancellationTokenSource();
@@ -2353,7 +2432,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					status: 'streaming',
 					executedCellIndex,
 					code: partial.code || '',
-					explanation: partial.explanation || ''
+					explanation: partial.explanation || '',
+					suggestionMode
 				}, undefined);
 			}
 		);
@@ -2379,7 +2459,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					executedCellIndex,
 					code: suggestion.code,
 					explanation: suggestion.explanation,
-					language: suggestion.language
+					language: suggestion.language,
+					suggestionMode
 				}, undefined);
 			} else {
 				// No suggestion generated, hide ghost cell
@@ -2551,6 +2632,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	dismissOptInPrompt(): void {
 		this._optInDismissedThisOpen = true;
 		this._ghostCellState.set({ status: 'hidden' }, undefined);
+	}
+
+	/**
+	 * Request a ghost cell suggestion when in pull mode.
+	 * Only triggers if the current state is 'awaiting-request'.
+	 */
+	requestGhostCellSuggestion(): void {
+		const state = this._ghostCellState.get();
+		if (state.status !== 'awaiting-request') {
+			return;
+		}
+		this.triggerGhostCellSuggestion(state.executedCellIndex);
 	}
 
 	// #endregion
