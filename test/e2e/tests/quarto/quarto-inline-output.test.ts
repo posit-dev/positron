@@ -433,6 +433,121 @@ test.describe('Quarto - Inline Output', {
 		await expect(outputItem.first()).toBeVisible({ timeout: 10000 });
 	});
 
+	test('R - Verify multi-language document executes non-primary language in console', async function ({ app, openFile, r, python }) {
+		// This test verifies that in a multi-language Quarto document:
+		// 1. The primary language (R) cells execute inline via the kernel
+		// 2. Non-primary language (Python) cells execute via the console service
+		//
+		// This ensures users can work with documents containing multiple languages
+		// without being blocked by a warning toast.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'multiple_languages.qmd');
+
+		// Open the multi-language Quarto document
+		// This document has R as the primary language (first cell) and Python as secondary
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// STEP 1: Run the R cell (primary language - should produce inline output)
+		// multiple_languages.qmd structure:
+		// - frontmatter (1-4)
+		// - blank line (5)
+		// - heading "## R" (6)
+		// - blank line (7)
+		// - description (8)
+		// - blank line (9)
+		// - R cell (10-12): ```{r} print("Hello from R") ```
+		// - blank lines (13-14)
+		// - heading "## Python" (15)
+		// - blank line (16)
+		// - description (17)
+		// - blank line (18)
+		// - Python cell (19-22): ```{python} import os \n os.getpid() ```
+
+		// Position cursor in the R code cell (line 11)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('11');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the R cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear from the R cell
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('14');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify the R output contains our expected text
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+		await expect(outputContent).toContainText('Hello from R');
+
+		// STEP 2: Run the Python cell (non-primary language - should execute in console)
+		// Position cursor in the Python code cell (line 21)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('21');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the Python cell - this should NOT show a warning toast, and should
+		// execute the code via the console service
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for Python console to show output
+		// The Python code is: import os; os.getpid()
+		// The output should appear in the Python console, not inline
+		await expect(async () => {
+			// Focus the console panel
+			await app.workbench.quickaccess.runCommand('workbench.panel.positronConsole.focus');
+			await page.waitForTimeout(500);
+
+			// The console should show the executed code and output
+			// Look for evidence that Python code was executed
+			const consoleOutput = page.locator('.positron-console');
+			await expect(consoleOutput).toBeVisible({ timeout: 1000 });
+
+			// Check that the Python console shows our import os or os.getpid()
+			// The console typically shows the code that was executed
+			const consoleText = await consoleOutput.textContent();
+			expect(consoleText).toContain('os');
+		}).toPass({ timeout: 60000 });
+
+		// Verify there's still only ONE inline output (from R), not two
+		// This confirms the Python code went to console, not inline
+		await app.workbench.quickaccess.runCommand('workbench.action.focusActiveEditorGroup');
+		await page.waitForTimeout(500);
+
+		// Scroll back to see inline outputs
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('14');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Count inline outputs - should be exactly 1 (the R output)
+		const inlineOutputCount = await inlineOutput.count();
+		expect(inlineOutputCount).toBe(1);
+	});
+
 	test('Python - Verify text can be selected via click and drag in inline output', async function ({ app, openFile }) {
 		const page = app.code.driver.page;
 

@@ -33,6 +33,7 @@ import { RuntimeOnlineState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, ILa
 import { getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // Re-export for convenience
 export { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
@@ -108,6 +109,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@ILogService private readonly _logService: ILogService,
+		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 	) {
 		super();
 
@@ -184,7 +186,7 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 	 * Execute a set of cells as identified by their ranges in the document.
 	 */
 	async executeCellRanges(documentUri: URI, cellRanges: Range[], token?: CancellationToken) {
-		const documentModel = this._documentModelService.getModelForUri(documentUri)
+		const documentModel = this._documentModelService.getModelForUri(documentUri);
 		const cellsToExecute: QuartoCodeCell[] = [];
 		const quartoCells = documentModel.cells;
 
@@ -315,6 +317,21 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 		cell: QuartoCodeCell,
 		token?: CancellationToken
 	): Promise<void> {
+		// Check if cell language matches the document's primary language
+		// If not, execute via console service instead of kernel
+		const textModel = await this._getTextModel(documentUri);
+		if (textModel) {
+			const quartoModel = this._documentModelService.getModel(textModel);
+			const primaryLanguage = quartoModel.primaryLanguage?.toLowerCase();
+			const cellLanguage = cell.language.toLowerCase();
+
+			if (primaryLanguage && cellLanguage !== primaryLanguage) {
+				// Non-primary language: execute via console service
+				return this._executeCellViaConsole(documentUri, cell, token);
+			}
+		}
+
+		// Primary language: execute via kernel
 		// Ensure kernel is ready
 		const session = await this._kernelManager.ensureKernelForDocument(documentUri, token);
 		if (!session) {
@@ -678,6 +695,65 @@ export class QuartoExecutionManager extends Disposable implements IQuartoExecuti
 			output,
 			documentUri,
 		});
+	}
+
+	/**
+	 * Execute a cell via the console service.
+	 * This is used for cells whose language doesn't match the document's primary language.
+	 * The console service will handle starting the appropriate runtime if needed.
+	 */
+	private async _executeCellViaConsole(
+		documentUri: URI,
+		cell: QuartoCodeCell,
+		_token?: CancellationToken
+	): Promise<void> {
+		this._logService.debug(
+			`[QuartoExecutionManager] Executing ${cell.language} cell via console (non-primary language)`
+		);
+
+		// Update state to running briefly
+		this._removeFromQueue(documentUri, cell.id);
+		this._setCellState(cell.id, CellExecutionState.Running, documentUri);
+
+		try {
+			// Get cell code
+			const code = await this._getCellCode(documentUri, cell);
+			if (!code) {
+				throw new Error('Could not get cell code');
+			}
+
+			// Execute via console service
+			// The console service will choose or start an appropriate runtime for the language
+			await this._consoleService.executeCode(
+				cell.language,              // languageId
+				undefined,                  // sessionId - let console service choose
+				code,                       // code
+				{                           // attribution
+					source: CodeAttributionSource.Notebook,
+					metadata: {
+						cell: {
+							uri: cell.id,
+							notebook: {
+								uri: documentUri,
+							},
+						},
+					},
+				},
+				true,                       // focus - show the console
+				false,                      // allowIncomplete
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue,
+			);
+
+			// Mark as completed (output goes to console, not inline)
+			this._setCellState(cell.id, CellExecutionState.Completed, documentUri);
+		} catch (error) {
+			this._logService.error(
+				`[QuartoExecutionManager] Console execution failed for cell ${cell.id}:`,
+				error
+			);
+			this._setCellState(cell.id, CellExecutionState.Error, documentUri);
+		}
 	}
 
 	/**
