@@ -25,8 +25,10 @@ const howDoTheyWorkHeading = localize('ghostCellInfo.howWorkHeading', 'How do th
 const howDoTheyWorkText = localize('ghostCellInfo.howWorkText', 'The AI analyzes your notebook context - including previous cells, outputs, and the overall structure - to suggest code that logically follows your current work.');
 
 const howToDisableHeading = localize('ghostCellInfo.disableHeading', 'How to disable suggestions');
-const howToDisableText = localize('ghostCellInfo.disableText', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or by toggling the setting in the Positron Assistant panel settings.');
-const openAssistantPanelLabel = localize('ghostCellInfo.openAssistantPanel', 'Open notebook assistant settings');
+const howToDisableTextPart1 = localize('ghostCellInfo.disableTextPart1', 'You can disable ghost cell suggestions by clicking "Don\'t suggest again" in the dismiss dropdown, or by changing the ');
+const howToDisableTextPart2 = localize('ghostCellInfo.disableTextPart2', ' setting.');
+const openSettingLabel = localize('ghostCellInfo.openSetting', 'Open ghost cell suggestion settings');
+const settingName = 'positron.assistant.notebook.ghostCellSuggestions.enabled';
 
 /**
  * GhostCellInfoModalDialogProps interface.
@@ -46,9 +48,9 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 		renderer.dispose();
 	}, [renderer]);
 
-	const handleOpenAssistantPanel = React.useCallback(() => {
+	const handleOpenSetting = React.useCallback(() => {
 		renderer.dispose(); // Close modal first
-		commandService.executeCommand('positronNotebook.askAssistant');
+		commandService.executeCommand('workbench.action.openSettings', 'positron.assistant.notebook.ghostCellSuggestions.enabled');
 	}, [renderer, commandService]);
 
 	return (
@@ -73,14 +75,16 @@ export const GhostCellInfoModalDialog: React.FC<GhostCellInfoModalDialogProps> =
 				<div className='ghost-cell-info-section'>
 					<div className='ghost-cell-info-heading'>{howToDisableHeading}</div>
 					<div className='ghost-cell-info-text'>
-						{howToDisableText}
-						<button
-							className='ghost-cell-info-settings-button'
-							title={openAssistantPanelLabel}
-							onClick={handleOpenAssistantPanel}
+						{howToDisableTextPart1}
+						<a
+							aria-label={openSettingLabel}
+							className='ghost-cell-info-settings-link'
+							href=''
+							onClick={handleOpenSetting}
 						>
-							<span className='codicon codicon-positron-assistant' />
-						</button>
+							{settingName}
+						</a>
+						{howToDisableTextPart2}
 					</div>
 				</div>
 			</div>
