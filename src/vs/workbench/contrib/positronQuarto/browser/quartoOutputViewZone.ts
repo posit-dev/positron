@@ -1074,7 +1074,9 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			} else if (errorData.message) {
 				parts.push(errorData.message);
 			}
-			if (errorData.stack) {
+			// Only add stack if it's different from the message
+			// R sometimes sends the error message in both fields
+			if (errorData.stack && errorData.stack.trim() !== (errorData.message || '').trim()) {
 				parts.push(errorData.stack);
 			}
 

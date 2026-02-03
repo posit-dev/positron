@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,6 +20,7 @@ import { IEphemeralStateService } from '../../../../../platform/ephemeralState/c
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 const TestLanguageRuntimeMetadata: ILanguageRuntimeMetadata = {
 	base64EncodedIconSvg: '',
@@ -72,6 +73,7 @@ suite('QuartoExecutionManager', () => {
 		const mockEditorService = new MockEditorService();
 		const mockEphemeralStateService = new MockEphemeralStateService();
 		const mockWorkspaceContextService = new MockWorkspaceContextService();
+		const mockConsoleService = new MockPositronConsoleService();
 
 		// Create execution manager
 		executionManager = new QuartoExecutionManager(
@@ -81,6 +83,7 @@ suite('QuartoExecutionManager', () => {
 			mockEphemeralStateService as unknown as IEphemeralStateService,
 			mockWorkspaceContextService as unknown as IWorkspaceContextService,
 			logService,
+			mockConsoleService as unknown as IPositronConsoleService,
 		);
 		disposables.add(executionManager);
 	});
@@ -406,6 +409,7 @@ suite('QuartoExecutionManager', () => {
 				new MockEphemeralStateService() as unknown as IEphemeralStateService,
 				new MockWorkspaceContextService() as unknown as IWorkspaceContextService,
 				logService,
+				new MockPositronConsoleService() as unknown as IPositronConsoleService,
 			);
 			disposables.add(executionManagerWithMock);
 
@@ -623,5 +627,21 @@ class MockEphemeralStateService {
 class MockWorkspaceContextService {
 	getWorkspace(): unknown {
 		return { id: 'test-workspace' };
+	}
+}
+
+class MockPositronConsoleService {
+	async executeCode(
+		_languageId: string,
+		_sessionId: string | undefined,
+		_code: string,
+		_attribution: unknown,
+		_focus: boolean,
+		_allowIncomplete?: boolean,
+		_mode?: unknown,
+		_errorBehavior?: unknown,
+		_executionId?: string
+	): Promise<string> {
+		return 'mock-session-id';
 	}
 }

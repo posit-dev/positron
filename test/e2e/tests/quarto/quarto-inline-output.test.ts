@@ -1592,6 +1592,79 @@ test.describe('Quarto - Inline Output', {
 		}
 	});
 
+	test('R - Verify error output appears exactly once, not duplicated', async function ({ app, openFile, r }) {
+		// This test reproduces a bug where R error output appears twice:
+		// once from the stderr stream message and once from the error message.
+		// The kernel sends both message types when an error occurs, and we
+		// were not filtering out the duplicate.
+		//
+		// NOTE: This test requires QA_EXAMPLE_CONTENT_BRANCH=feature/quarto-inline-output
+		// to be set, as the r_errors.qmd file only exists on that branch.
+
+		const page = app.code.driver.page;
+		const filePath = join('workspaces', 'quarto_inline_output', 'r_errors.qmd');
+
+		// Open the R error test file
+		await openFile(filePath);
+
+		// Wait for the editor to be ready
+		const editor = page.locator('.monaco-editor').first();
+		await expect(editor).toBeVisible({ timeout: 10000 });
+
+		// Wait for the Quarto inline output feature to initialize
+		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
+		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Click on the editor to ensure focus
+		await editor.click();
+		await page.waitForTimeout(500);
+
+		// r_errors.qmd structure:
+		// - frontmatter (1-4)
+		// - text (6)
+		// - R cell (8-10): stop("oh no")
+
+		// Position cursor in the R code cell (line 9)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('9');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Run the current cell
+		await app.workbench.quickaccess.runCommand('positronQuarto.runCurrentCell');
+
+		// Wait for inline output to appear (includes kernel startup time)
+		const inlineOutput = page.locator('.quarto-inline-output');
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await page.keyboard.type('12');
+			await page.keyboard.press('Enter');
+			await page.waitForTimeout(500);
+			await expect(inlineOutput).toBeVisible({ timeout: 1000 });
+		}).toPass({ timeout: 120000 });
+
+		// Verify output content is present
+		const outputContent = inlineOutput.locator('.quarto-output-content');
+		await expect(outputContent).toBeVisible({ timeout: 10000 });
+
+		// CRITICAL ASSERTIONS:
+
+		// 1. Verify there is exactly ONE output item (not two)
+		// The bug causes two items: one from stderr stream, one from error message
+		const outputItems = inlineOutput.locator('.quarto-output-item');
+		const outputItemCount = await outputItems.count();
+		expect(outputItemCount).toBe(1);
+
+		// 2. Verify the error message contains "oh no" (our expected error)
+		const allOutputText = await inlineOutput.textContent();
+		expect(allOutputText).toContain('oh no');
+
+		// 3. Double-check: count occurrences of "oh no" in the output
+		// Should appear exactly once, not twice
+		const ohNoMatches = (allOutputText?.match(/oh no/g) || []).length;
+		expect(ohNoMatches).toBe(1);
+	});
+
 	test('Python - Verify cancel button removes queued cell from execution queue', async function ({ app, openFile }) {
 		// This test verifies the cancel button functionality for queued cells:
 		// 1. Open a document with two cells (first takes 3 seconds to run)
