@@ -57,6 +57,48 @@ const onDemandModeLabel = localize('ghostCell.onDemandMode', 'On-demand');
 const modeToggleTooltip = localize('ghostCell.modeToggleTooltip', 'Toggle suggestion mode');
 
 /**
+ * Props for TruncatedExplanation component
+ */
+interface TruncatedExplanationProps {
+	text: string;
+}
+
+/**
+ * TruncatedExplanation component - displays explanation text with a tooltip when truncated
+ */
+const TruncatedExplanation: React.FC<TruncatedExplanationProps> = ({ text }) => {
+	const spanRef = React.useRef<HTMLSpanElement>(null);
+	const [isTruncated, setIsTruncated] = React.useState(false);
+
+	React.useEffect(() => {
+		const checkTruncation = () => {
+			if (spanRef.current) {
+				setIsTruncated(spanRef.current.scrollWidth > spanRef.current.clientWidth);
+			}
+		};
+
+		checkTruncation();
+
+		const resizeObserver = new ResizeObserver(checkTruncation);
+		if (spanRef.current) {
+			resizeObserver.observe(spanRef.current);
+		}
+
+		return () => resizeObserver.disconnect();
+	}, [text]);
+
+	return (
+		<span
+			ref={spanRef}
+			className='ghost-cell-explanation'
+			title={isTruncated ? text : undefined}
+		>
+			{text}
+		</span>
+	);
+};
+
+/**
  * Props for SuggestionModeToggle component
  */
 interface SuggestionModeToggleProps {
@@ -265,9 +307,7 @@ const GhostCellContent: React.FC<GhostCellContentProps> = ({
 						title={infoButtonLabel}
 						onClick={onShowInfo}
 					/>
-					<span className='ghost-cell-explanation'>
-						{explanation || defaultExplanation}
-					</span>
+					<TruncatedExplanation text={explanation || defaultExplanation} />
 					<SuggestionModeToggle mode={suggestionMode} onToggle={onToggleMode} />
 				</div>
 				<div className='ghost-cell-actions'>
