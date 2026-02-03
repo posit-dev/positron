@@ -91,7 +91,6 @@ class FigureManagerPositron(FigureManagerBase):
         content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
         execution_id: str = header.get("msg_id", "")
         code: str = content.get("code", "")
-        num: int | str = num
 
         # Detect which plotting library was used
         kind = _detect_plotting_library()
