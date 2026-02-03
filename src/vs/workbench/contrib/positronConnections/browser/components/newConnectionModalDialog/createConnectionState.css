@@ -136,6 +136,10 @@
 	gap: 6px;
 }
 
+.connection-error-message > .codicon.codicon-error {
+	color: var(--vscode-inputValidation-errorBorder);
+}
+
 @keyframes growUp {
 	from {
 		transform: scaleY(0);
