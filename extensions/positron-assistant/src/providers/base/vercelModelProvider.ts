@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { ModelProvider } from './modelProvider';
-import { processMessages, toAIMessage } from '../../utils';
+import { CacheBreakpointProvider, processMessages, toAIMessage } from '../../utils';
 import { getProviderTimeoutMs } from '../../config';
 import { TokenUsage } from '../../tokens';
 import { recordRequestTokenUsage, recordTokenUsage } from '../../extension';
@@ -166,12 +166,17 @@ export abstract class VercelModelProvider extends ModelProvider {
 		// Extract provider-specific options
 		const { bedrockCacheBreakpoint = false, anthropicCacheBreakpoint = false, toolResultExperimentalContent = false } = providerOptions || {};
 
+		// Determine which cache breakpoint provider to use (if any)
+		const cacheBreakpointProvider: CacheBreakpointProvider | undefined =
+			bedrockCacheBreakpoint ? 'bedrock' :
+				anthropicCacheBreakpoint ? 'anthropic' :
+					undefined;
+
 		// Convert all messages to the Vercel AI format
 		const aiMessages: ai.ModelMessage[] = toAIMessage(
 			processedMessages,
 			this.usesChatCompletions,
-			bedrockCacheBreakpoint,
-			anthropicCacheBreakpoint
+			cacheBreakpointProvider
 		);
 
 		// Set up tools if provided
