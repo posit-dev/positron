@@ -164,7 +164,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "os":
-                        key = alias.asname if alias.asname else "os"
+                        key = alias.asname or "os"
                         imports[key] = "os"
         return imports
     except SyntaxError:
@@ -183,7 +183,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name == "os":
-                            key = alias.asname if alias.asname else "os"
+                            key = alias.asname or "os"
                             imports[key] = "os"
         except SyntaxError:
             continue
@@ -760,16 +760,53 @@ def _get_dict_key_completions(
             continue
         # Include closing quote only if it doesn't already exist
         completion_text = key if has_closing_quote else f"{key}{quote_char}"
+        # Defer detail computation to completionItem/resolve for performance
         items.append(
             types.CompletionItem(
                 label=completion_text,
                 kind=types.CompletionItemKind.Field,
                 sort_text=f"a{key}",
                 insert_text=completion_text,
+                data={"type": "dict_key", "expr": expr, "key": key},
             )
         )
 
     return items
+
+
+def _get_dict_value_detail(obj: Any, key: str) -> tuple[str | None, types.MarkupContent | None]:
+    """Get the detail string and documentation for a dict-like key's value.
+
+    Args:
+        obj: The dict-like object (dict, DataFrame, Series)
+        key: The key to look up
+
+    Returns:
+        A tuple of (detail, documentation) for the value
+    """
+    with contextlib.suppress(Exception):
+        if isinstance(obj, dict):
+            value = obj.get(key)
+            if value is not None:
+                return type(value).__name__, None
+        elif _is_dataframe_like(obj):
+            # DataFrame column is a Series - show dtype (length) + repr preview
+            column = obj[key]
+            detail = _get_series_detail(column)
+            preview = _get_series_repr_preview(column)
+            documentation = (
+                types.MarkupContent(
+                    kind=types.MarkupKind.Markdown,
+                    value=f"```\n{preview}\n```",
+                )
+                if preview
+                else None
+            )
+            return detail, documentation
+        elif _is_series_like(obj):
+            value = obj[key]
+            return type(value).__name__, None
+    return None, None
 
 
 def _is_environ_like(obj: Any) -> bool:
@@ -978,9 +1015,8 @@ def _get_path_completions(
         remaining = entry_name[len(filename_prefix) :]
 
         if is_directory:
-            # Directories get trailing separator, no auto-close quote
-            # Windows: escape backslash for string literal
-            completion_text = remaining + "\\" + os.sep if os.name == "nt" else remaining + "/"
+            # Directories get trailing separator
+            completion_text = remaining + "/"
         else:
             # Files: auto-close quote if needed
             completion_text = remaining if has_closing_quote else remaining + quote_char
@@ -1312,18 +1348,45 @@ def _handle_completion_resolve(
         params.detail, params.documentation = magic
         return params
 
+    # Handle dict key completions
+    if params.data and isinstance(params.data, dict) and params.data.get("type") == "dict_key":
+        expr = params.data.get("expr")
+        key = params.data.get("key")
+        if expr and key and server.shell:
+            obj = _safe_resolve_expression(server.shell.user_ns, expr)
+            if obj is not None:
+                params.detail, params.documentation = _get_dict_value_detail(obj, key)
+        return params
+
     # Try to get more info from namespace
     if server.shell and params.label in server.shell.user_ns:
         obj = server.shell.user_ns[params.label]
-        params.detail = type(obj).__name__
 
-        # Get docstring
-        doc = inspect.getdoc(obj)
-        if doc:
-            params.documentation = types.MarkupContent(
-                kind=types.MarkupKind.Markdown,
-                value=doc,
-            )
+        if _is_dataframe_like(obj):
+            params.detail = _get_dataframe_detail(obj)
+            preview = _get_dataframe_preview(obj)
+            if preview:
+                params.documentation = types.MarkupContent(
+                    kind=types.MarkupKind.Markdown,
+                    value=f"```\n{preview}\n```",
+                )
+        elif _is_series_like(obj):
+            params.detail = _get_series_detail(obj)
+            preview = _get_series_repr_preview(obj)
+            if preview:
+                params.documentation = types.MarkupContent(
+                    kind=types.MarkupKind.Markdown,
+                    value=f"```\n{preview}\n```",
+                )
+        else:
+            params.detail = type(obj).__name__
+            # Get docstring
+            doc = inspect.getdoc(obj)
+            if doc:
+                params.documentation = types.MarkupContent(
+                    kind=types.MarkupKind.Markdown,
+                    value=doc,
+                )
 
     return params
 
@@ -1384,6 +1447,35 @@ def _get_dataframe_preview(obj: Any, max_rows: int = 5) -> str | None:
     try:
         if hasattr(obj, "head"):
             return str(obj.head(max_rows))
+        return str(obj)[:500]
+    except Exception:
+        return None
+
+
+def _get_dataframe_detail(obj: Any) -> str:
+    """Get detail string for DataFrame: 'DataFrame (rows x cols)'."""
+    try:
+        rows, cols = obj.shape
+        return f"{type(obj).__name__} ({rows} x {cols})"
+    except Exception:
+        return type(obj).__name__
+
+
+def _get_series_detail(obj: Any) -> str:
+    """Get detail string for Series: 'dtype (length)'."""
+    try:
+        dtype = str(obj.dtype)
+        length = len(obj)
+        return f"{dtype} ({length})"
+    except Exception:
+        return type(obj).__name__
+
+
+def _get_series_repr_preview(obj: Any, max_items: int = 10) -> str | None:
+    """Get a string preview of a Series."""
+    try:
+        if hasattr(obj, "head"):
+            return str(obj.head(max_items))
         return str(obj)[:500]
     except Exception:
         return None

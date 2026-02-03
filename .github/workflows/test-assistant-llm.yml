@@ -85,19 +85,72 @@ jobs:  # to input into inspect-ai-test job below
           source venv/bin/activate
           pip install -r requirements.txt
 
-      - name: Run Inspect AI JSON Evaluation
+      - name: Run Inspect AI JSON Evaluation for all models
         run: |
           cd test/assistant-inspect-ai
           source venv/bin/activate
-          inspect eval json-response-eval.py  --log-format json --log-dir logs/
 
-      - name: Parse results and check threshold
+          # Find all response dataset files (excluding the template file)
+          RESPONSE_FILES=$(ls response-dataset-*.json 2>/dev/null || true)
+
+          if [ -z "$RESPONSE_FILES" ]; then
+            echo "No response-dataset-*.json files found!"
+            exit 1
+          fi
+
+          echo "Found response files: $RESPONSE_FILES"
+
+          # Run inspect eval for each model's response file
+          for response_file in $RESPONSE_FILES; do
+            echo ""
+            echo "=========================================="
+            echo "Running evaluation for: $response_file"
+            echo "=========================================="
+            INPUT_FILENAME="$response_file" inspect eval json-response-eval.py --log-format json --log-dir logs/
+          done
+
+      - name: Parse results and check threshold for all models
         run: |
-          # Find the most recent log file in the correct directory
-          LATEST_LOG=$(ls -t test/assistant-inspect-ai/logs/*.json | head -1)
+          cd test/assistant-inspect-ai
 
-          # Parse results with 80% accuracy threshold
-          python test/assistant-inspect-ai/inspect_result_parser.py "$LATEST_LOG" --threshold 0.8
+          # Count number of response files to know how many logs to process
+          NUM_MODELS=$(ls response-dataset-*.json 2>/dev/null | wc -l)
+          echo "Processing results for $NUM_MODELS model(s)"
+
+          # Find the most recent log files (one per model), handling spaces in filenames
+          # Use find with -printf to get modification time, sort, and take the most recent
+          FAILED=0
+          PROCESSED=0
+
+          while IFS= read -r -d '' log_file; do
+            echo ""
+            echo "=========================================="
+            echo "Parsing results from: $log_file"
+            echo "=========================================="
+
+            # Parse results with 80% accuracy threshold
+            # Don't exit immediately on failure, track failures instead
+            if ! python inspect_result_parser.py "$log_file" --threshold 0.8; then
+              FAILED=$((FAILED + 1))
+            fi
+            PROCESSED=$((PROCESSED + 1))
+          done < <(find logs -maxdepth 1 -name "*.json" -printf '%T@\t%p\0' | sort -rzn | head -zn "$NUM_MODELS" | cut -zf2-)
+
+          if [ $PROCESSED -eq 0 ]; then
+            echo "No log files found!"
+            exit 1
+          fi
+
+          echo ""
+          echo "=========================================="
+          echo "OVERALL SUMMARY"
+          echo "=========================================="
+          if [ $FAILED -gt 0 ]; then
+            echo "FAIL: $FAILED model(s) did not meet the accuracy threshold"
+            exit 1
+          else
+            echo "PASS: All $NUM_MODELS model(s) met the accuracy threshold"
+          fi
 
       - name: Upload inspect-ai eval logs
         if: always()

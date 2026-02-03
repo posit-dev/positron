@@ -18,5 +18,7 @@ export const mockUriIdentityService = new UriIdentityService(fileService);
 export function createMockDebugModel(disposable: Pick<DisposableStore, 'add'>): DebugModel {
 	const storage = disposable.add(new TestStorageService());
 	const debugStorage = disposable.add(new MockDebugStorage(storage));
-	return disposable.add(new DebugModel(debugStorage, upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), mockUriIdentityService, new NullLogService()));
+	// --- Start Positron ---
+	return disposable.add(new DebugModel(debugStorage, upcastPartial<ITextFileService>({ isDirty: (e: unknown) => false }), mockUriIdentityService, new NullLogService(), <any>{ getAdapterManager: () => ({ shouldVerifyBreakpointsInDirtyDocuments: () => false }) }));
+	// --- End Positron ---
 }

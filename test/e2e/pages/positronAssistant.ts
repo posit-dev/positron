@@ -344,6 +344,120 @@ export class Assistant {
 		throw new Error(`Model "${model}" not found in dropdown`);
 	}
 
+	/**
+	 * Gets all model items from the model picker dropdown.
+	 * Returns an array of objects containing the model label and whether it's marked as default.
+	 * The dropdown must already be open before calling this method.
+	 */
+	async getModelPickerItems(): Promise<Array<{ label: string; isDefault: boolean }>> {
+		const items = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM);
+		const count = await items.count();
+		const modelItems: Array<{ label: string; isDefault: boolean }> = [];
+
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const titleSpan = item.locator('span.title');
+			const text = await titleSpan.textContent();
+
+			if (text) {
+				const trimmedText = text.trim();
+				// Check if this is a separator (vendor header) - they don't have the same structure
+				const isSeparator = await item.locator('.separator').isVisible().catch(() => false);
+				if (!isSeparator && trimmedText) {
+					modelItems.push({
+						label: trimmedText,
+						isDefault: trimmedText.includes('(default)')
+					});
+				}
+			}
+		}
+
+		return modelItems;
+	}
+
+	/**
+	 * Gets model items for a specific vendor from the model picker dropdown.
+	 * Returns models in their displayed order.
+	 * The dropdown must already be open before calling this method.
+	 * @param vendor The vendor name to filter by (e.g., 'Echo', 'Anthropic')
+	 */
+	async getModelPickerItemsForVendor(vendor: string): Promise<Array<{ label: string; isDefault: boolean }>> {
+		const allItems = this.code.driver.page.locator('.monaco-list-row');
+		const count = await allItems.count();
+		const vendorModels: Array<{ label: string; isDefault: boolean }> = [];
+		let inVendorSection = false;
+
+		for (let i = 0; i < count; i++) {
+			const item = allItems.nth(i);
+
+			// Check if this is a separator (vendor header) by looking for the 'separator' class
+			const isSeparator = await item.evaluate(el => el.classList.contains('separator'));
+
+			if (isSeparator) {
+				// Get the vendor name from the separator-label span
+				const separatorLabel = item.locator('span.separator-label');
+				const labelText = await separatorLabel.textContent().catch(() => null);
+
+				// Check if this is the vendor we're looking for
+				if (labelText) {
+					inVendorSection = labelText.trim().toLowerCase() === vendor.toLowerCase();
+				}
+				continue;
+			}
+
+			// If we're in the vendor section and this is an action item, collect the model
+			if (inVendorSection) {
+				const isAction = await item.evaluate(el => el.classList.contains('action'));
+				if (isAction) {
+					const titleSpan = item.locator('span.title');
+					const titleText = await titleSpan.textContent().catch(() => null);
+
+					if (titleText) {
+						const trimmedText = titleText.trim();
+						vendorModels.push({
+							label: trimmedText,
+							isDefault: trimmedText.includes('(default)')
+						});
+					}
+				}
+			}
+		}
+
+		return vendorModels;
+	}
+
+	/**
+	 * Verifies that a specific model shows the "(default)" indicator in the model picker.
+	 * @param modelName The base model name (without the "(default)" suffix)
+	 */
+	async verifyModelHasDefaultIndicator(modelName: string) {
+		await test.step(`Verify model "${modelName}" has default indicator`, async () => {
+			const models = await this.getModelPickerItems();
+			const modelWithDefault = models.find(m => m.label === `${modelName} (default)`);
+			expect(modelWithDefault, `Expected to find model "${modelName}" with "(default)" indicator`).toBeDefined();
+			expect(modelWithDefault?.isDefault).toBe(true);
+		});
+	}
+
+	/**
+	 * Verifies that a model does NOT have the "(default)" indicator.
+	 * @param modelName The base model name
+	 */
+	async verifyModelDoesNotHaveDefaultIndicator(modelName: string) {
+		await test.step(`Verify model "${modelName}" does not have default indicator`, async () => {
+			const models = await this.getModelPickerItems();
+			const modelWithDefault = models.find(m => m.label === `${modelName} (default)`);
+			expect(modelWithDefault, `Expected model "${modelName}" to NOT have "(default)" indicator`).toBeUndefined();
+		});
+	}
+
+	/**
+	 * Closes the model picker dropdown by pressing Escape.
+	 */
+	async closeModelPickerDropdown() {
+		await this.code.driver.page.keyboard.press('Escape');
+	}
+
 	async getChatResponseText(exportFolder?: string) {
 		// Export the chat to a file first
 		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);

@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2026.02.0",
+	"positronVersion": "2026.03.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -198,8 +198,8 @@
 		},
 		{
 			"name": "meta.pyrefly",
-			"version": "0.43.1",
-			"sha256sum": "4ec7c80a766fb54e6aa0c034127d4a6cdd2404048ae2e19b5f6f789db9dbb1f0",
+			"version": "0.50.1",
+			"sha256sum": "9ade789c0ed5ec3fd6813397243d1dc12d86221f935220451dbbde9b43feebef",
 			"repo": "https://github.com/facebook/pyrefly",
 			"metadata": {
 				"publisherId": {
@@ -241,8 +241,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.128.0",
-			"sha256sum": "2114a97cd472a6c951ce968813343129f372b94affaaa1106d98200668072231",
+			"version": "1.129.0",
+			"sha256sum": "3c83da9901146e546e90085835ecfe2b2b7d8398c6ddb179601ec765bd521fa5",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

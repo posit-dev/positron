@@ -220,6 +220,24 @@ function isOpenSUSE(): boolean {
 	}
 }
 
+/**
+ * Check if the current platform is SLES (SUSE Linux Enterprise Server)
+ */
+function isSLES(): boolean {
+	try {
+		const osRelease = fs.readFileSync('/etc/os-release', 'utf8').toLowerCase();
+		const id = osRelease.match(/^id=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+		const idLike = osRelease.match(/^id_like=(.*)$/m)?.[1]?.trim().replace(/^"|"$/g, '') ?? '';
+
+		return id === 'sles' || idLike.includes('sles');
+	} catch {
+		return false;
+	}
+}
+
 // Set environment variable for tests to check
 const IS_OPENSUSE = isOpenSUSE();
 process.env.IS_OPENSUSE = IS_OPENSUSE ? 'true' : 'false';
+
+const IS_SLES = isSLES();
+process.env.IS_SLES = IS_SLES ? 'true' : 'false';

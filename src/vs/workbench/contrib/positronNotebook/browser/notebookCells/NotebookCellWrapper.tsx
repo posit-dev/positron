@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,34 +24,42 @@ import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProv
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 import { CONTEXT_FIND_INPUT_FOCUSED } from '../../../../../editor/contrib/find/browser/findModel.js';
 
-export function NotebookCellWrapper({ cell, children, hasError }: {
+export function NotebookCellWrapper({ cell, children }: {
 	cell: IPositronNotebookCell;
 	children: React.ReactNode;
-	hasError?: boolean;
 }) {
-	const cellRef = React.useRef<HTMLDivElement>(null);
+	/**
+	 * We need to use state to track the cell ref to ensure the cell action bar
+	 * receives a valid element (not null) after the first render cycle.
+	 *
+	 * This is required to ensure the cell action bar is not empty on first render,
+	 * so behavior such as hover works. The cell action bar relies on context keys
+	 * that are bound in useCellContextKeys which required a valid cell ref.
+	 */
+	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
+	const cellRef = React.useCallback((node: HTMLDivElement | null) => { setCellElement(node); }, []);
+
 	const notebookInstance = useNotebookInstance();
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
-	const executionStatus = useObservedValue(cell.executionStatus);
 	const isActiveCell = useObservedValue(cell.isActive);
 	// Track previous selection status to detect edit mode exit
 	const prevSelectionStatusRef = React.useRef<CellSelectionStatus | undefined>();
 
 	React.useEffect(() => {
-		if (cellRef.current) {
+		if (cellElement) {
 			// Attach the container so the cell instance can properly control focus.
-			cell.attachContainer(cellRef.current);
+			cell.attachContainer(cellElement);
 		}
-	}, [cell, cellRef]);
+	}, [cell, cellElement]);
 
 	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
 		const prevStatus = prevSelectionStatusRef.current;
 		prevSelectionStatusRef.current = selectionStatus;
 
-		if (!cellRef.current) {
+		if (!cellElement) {
 			return;
 		}
 
@@ -69,12 +77,12 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			!wasEditingCodeCell &&
 			// 3. The find widget is focused (to keep focus in the find input)
 			!findWidgetFocused) {
-			cellRef.current.focus();
+			cellElement.focus();
 		}
-	}, [isActiveCell, selectionStatus, cellRef, cell, notebookInstance]);
+	}, [isActiveCell, selectionStatus, cellElement, cell, notebookInstance]);
 
 	// Manage context keys for this cell
-	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
+	const scopedContextKeyService = useCellContextKeys(cell, cellElement, environment, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
@@ -128,8 +136,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			: localize('notebookCellEditable', '{0} cell - Press Enter to edit', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
-		data-has-error={hasError}
-		data-is-running={executionStatus === 'running'}
 		data-testid='notebook-cell'
 		role='article'
 		tabIndex={0}

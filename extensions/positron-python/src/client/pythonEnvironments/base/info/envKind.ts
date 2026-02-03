@@ -15,6 +15,7 @@ export function getKindDisplayName(kind: PythonEnvKind): string {
         [PythonEnvKind.MicrosoftStore, 'Microsoft Store'],
         // --- Start Positron ---
         [PythonEnvKind.Uv, 'uv'],
+        [PythonEnvKind.Module, 'Module'],
         // --- End Positron ---
         [PythonEnvKind.Pyenv, 'pyenv'],
         [PythonEnvKind.Poetry, 'Poetry'],
@@ -69,6 +70,7 @@ export function getPrioritizedEnvKinds(): PythonEnvKind[] {
         PythonEnvKind.MicrosoftStore,
         // --- Start Positron ---
         PythonEnvKind.Uv, // Placed here since uv environments are essentially venvs
+        PythonEnvKind.Module,
         // --- End Positron ---
         PythonEnvKind.Pipenv,
         PythonEnvKind.Poetry,

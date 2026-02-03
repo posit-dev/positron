@@ -2022,6 +2022,15 @@ export const POSITRON_WELCOME_HOVER_BACKGROUND = registerColor('positronWelcome.
 	hcLight: listHoverBackground
 }, localize('positronWelcome.hoverBackground', "Positron welcome page hover background color."));
 
+
+// Positron Notebooks cell footer foreground color for execution status, duration, and timestamp.
+export const POSITRON_NOTEBOOK_CELL_FOOTER_FOREGROUND = registerColor('positronNotebook.cellFooterForeground', {
+	dark: '#929292',
+	light: '#929292',
+	hcDark: editorForeground,
+	hcLight: editorForeground
+}, localize('positronNotebook.cellFooterForeground', "Positron notebook cell footer foreground color for execution status, duration, and timestamp."));
+
 // *************************************************************************************************
 // *************************************************************************************************
 // *************************************************************************************************

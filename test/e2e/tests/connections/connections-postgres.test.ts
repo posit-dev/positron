@@ -109,7 +109,7 @@ test.describe('Postgres DB Connection', {
 
 		await test.step('Open periodic table connection', async () => {
 
-			await app.code.driver.page.locator('.codicon-arrow-circle-right').click();
+			await app.workbench.connections.viewConnection('PqConnection');
 
 			await app.workbench.connections.expandConnectionDetails('PqConnection');
 

@@ -22,7 +22,6 @@ import { createAzure } from '@ai-sdk/azure';
 import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { CopilotService } from './copilot.js';
 
 /**
  * Models used for autocomplete/ghost text.
@@ -189,7 +188,7 @@ class OpenAILegacyCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!(await positron.ai.areCompletionsEnabled(document.uri))) {
 			return [];
 		}
 
@@ -376,7 +375,7 @@ class VertexLegacyCompletion extends MistralCompletion {
 // (Anthropic, OpenAI, Bedrock, OpenRouter, Gemini, Azure)
 
 abstract class FimPromptCompletion extends CompletionModel {
-	protected abstract model: ai.LanguageModelV1;
+	protected abstract model: ai.LanguageModel;
 
 	async provideInlineCompletionItems(
 		document: vscode.TextDocument,
@@ -385,7 +384,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!(await positron.ai.areCompletionsEnabled(document.uri))) {
 			return [];
 		}
 
@@ -412,7 +411,6 @@ abstract class FimPromptCompletion extends CompletionModel {
 			messages: [
 				{ role: 'user', content: `${relatedText}\n<|file_separator|>${document.fileName}\n<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>` }
 			],
-			maxTokens: 128,
 			temperature: 0.2,
 			stopSequences: ['\n\n', '<|fim_prefix|>', '<|fim_suffix|>', '<|file_separator|>'],
 			abortSignal: signal,
@@ -500,7 +498,7 @@ class OpenAICompatibleCompletion extends OpenAICompletion {
 }
 
 class OpenRouterCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModelV1;
+	protected model: ai.LanguageModel;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
@@ -526,7 +524,7 @@ class OpenRouterCompletion extends FimPromptCompletion {
 }
 
 class AWSCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModelV1;
+	protected model: ai.LanguageModel;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
@@ -544,15 +542,15 @@ class AWSCompletion extends FimPromptCompletion {
 	constructor(_config: ModelConfig) {
 		super(_config);
 
-		// Cast to ai.LanguageModelV1 to satisfy base class type
+		// Cast to ai.LanguageModel to satisfy base class type
 		this.model = createAmazonBedrock({
 			credentialProvider: fromNodeProviderChain(),
-		})(this._config.model) as unknown as ai.LanguageModelV1;
+		})(this._config.model) as unknown as ai.LanguageModel;
 	}
 }
 
 class VertexCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModelV1;
+	protected model: ai.LanguageModel;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
@@ -579,7 +577,7 @@ class VertexCompletion extends FimPromptCompletion {
 }
 
 class GoogleCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModelV1;
+	protected model: ai.LanguageModel;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
@@ -606,7 +604,7 @@ class GoogleCompletion extends FimPromptCompletion {
 }
 
 class AzureCompletion extends FimPromptCompletion {
-	protected model: ai.LanguageModelV1;
+	protected model: ai.LanguageModel;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,

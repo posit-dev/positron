@@ -170,19 +170,20 @@ export class DebugService implements IDebugService {
 			}
 		}));
 		this.disposables.add(Event.any(this.adapterManager.onDidRegisterDebugger, this.configurationManager.onDidSelectConfiguration)(() => {
-			const debugUxValue = (this.state !== State.Inactive || (this.configurationManager.getAllConfigurations().length > 0 && this.adapterManager.hasEnabledDebuggers())) ? 'default' : 'simple';
+			// --- Start Positron ---
+			// Original code:
+			// const debugUxValue = (this.state !== State.Inactive || (this.configurationManager.getAllConfigurations().length > 0 && this.adapterManager.hasEnabledDebuggers())) ? 'default' : 'simple';
+			const debugUxValue = this.computeDebugUxValue();
+			// --- End Positron ---
 			this.debugUx.set(debugUxValue);
 			this.debugStorage.storeDebugUxState(debugUxValue);
 		}));
 		this.disposables.add(this.model.onDidChangeCallStack(() => {
-			const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession).length;
-			this.activity?.dispose();
-			if (numberOfSessions > 0) {
-				const viewContainer = this.viewDescriptorService.getViewContainerByViewId(CALLSTACK_VIEW_ID);
-				if (viewContainer) {
-					this.activity = this.activityService.showViewContainerActivity(viewContainer.id, { badge: new NumberBadge(numberOfSessions, n => n === 1 ? nls.localize('1activeSession', "1 active session") : nls.localize('nActiveSessions', "{0} active sessions", n)) });
-				}
-			}
+			// --- Start Positron ---
+			// The implementation of this handler is called in two different places in Positron.
+			// If the VS Code impl changes, please update the following method accordingly.
+			this.updateActivityBadge();
+			// --- End Positron ---
 		}));
 
 		this.disposables.add(editorService.onDidActiveEditorChange(() => {
@@ -205,12 +206,27 @@ export class DebugService implements IDebugService {
 			}
 		}));
 
+		// --- Start Positron ---
+		// Only veto extension host restart for foreground debug sessions.
+		// Background sessions (with suppressDebugToolbar) should be gracefully
+		// disconnected without blocking the restart.
 		this.disposables.add(extensionService.onWillStop(evt => {
+			const sessions = this.model.getSessions();
+			const foregroundSessions = sessions.filter(s => !s.suppressDebugToolbar);
+			const backgroundSessions = sessions.filter(s => s.suppressDebugToolbar);
+
+			// Gracefully disconnect background sessions to avoid "terminated unexpectedly" errors
+			for (const session of backgroundSessions) {
+				session.disconnect();
+			}
+
+			// Only veto if there are foreground debug sessions
 			evt.veto(
-				this.model.getSessions().length > 0,
+				foregroundSessions.length > 0,
 				nls.localize('active debug session', 'A debug session is still running that would terminate.'),
 			);
 		}));
+		// --- End Positron ---
 
 		this.initContextKeys(contextKeyService);
 	}
@@ -310,7 +326,11 @@ export class DebugService implements IDebugService {
 				this.debugState.set(getStateLabel(state));
 				this.inDebugMode.set(state !== State.Inactive);
 				// Only show the simple ux if debug is not yet started and if no launch.json exists
-				const debugUxValue = ((state !== State.Inactive && state !== State.Initializing) || (this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name)) ? 'default' : 'simple';
+				// --- Start Positron ---
+				// Original code:
+				// const debugUxValue = ((state !== State.Inactive && state !== State.Initializing) || (this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name)) ? 'default' : 'simple';
+				const debugUxValue = this.computeDebugUxValue();
+				// --- End Positron ---
 				this.debugUx.set(debugUxValue);
 				this.debugStorage.storeDebugUxState(debugUxValue);
 			});
@@ -641,8 +661,11 @@ export class DebugService implements IDebugService {
 		this._onWillNewSession.fire(session);
 
 		const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
-		// Open debug viewlet based on the visibility of the side bar and openDebug setting. Do not open for 'run without debug'
-		if (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug !== 'neverOpen' && this.viewModel.firstSessionStart)) && !session.suppressDebugView) {
+		// --- Start Positron ---
+		// Open debug viewlet based on the visibility of the side bar and openDebug setting.
+		// Do not open for 'run without debug' or for background sessions (suppressDebugToolbar).
+		if (!configuration.resolved.noDebug && (openDebug === 'openOnSessionStart' || (openDebug !== 'neverOpen' && this.viewModel.firstSessionStart)) && !session.suppressDebugView && !session.suppressDebugToolbar) {
+			// --- End Positron ---
 			await this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
 		}
 
@@ -972,6 +995,60 @@ export class DebugService implements IDebugService {
 
 		return Promise.all(sessions.map(s => disconnect ? s.disconnect(undefined, suspend) : s.terminate()));
 	}
+
+	// --- Start Positron ---
+	private updateActivityBadge(): void {
+		// Positron: The following line is the only change. We added a check for
+		// `suppressDebugToolbar`. Old code:
+		// const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession).length;
+		const numberOfSessions = this.model.getSessions().filter(s => !s.parentSession && !s.suppressDebugToolbar).length;
+		this.activity?.dispose();
+		if (numberOfSessions > 0) {
+			const viewContainer = this.viewDescriptorService.getViewContainerByViewId(CALLSTACK_VIEW_ID);
+			if (viewContainer) {
+				this.activity = this.activityService.showViewContainerActivity(viewContainer.id, { badge: new NumberBadge(numberOfSessions, n => n === 1 ? nls.localize('1activeSession', "1 active session") : nls.localize('nActiveSessions', "{0} active sessions", n)) });
+			}
+		}
+	}
+
+	setSessionForeground(session: IDebugSession, foreground: boolean): void {
+		session.setSuppressDebugToolbar(!foreground);
+		session.setSuppressDebugStatusbar(!foreground);
+
+		// Update debugUx to show/hide welcome view based on suppression
+		const debugUxValue = this.computeDebugUxValue();
+		this.debugUx.set(debugUxValue);
+		this.debugStorage.storeDebugUxState(debugUxValue);
+
+		// Update activity badge to reflect foreground/background change
+		this.updateActivityBadge();
+
+		// Trigger toolbar update
+		this._onDidChangeState.fire(this.state);
+
+		// When bringing a session to the foreground, open the debug pane based on user settings
+		if (foreground && !session.suppressDebugView) {
+			const openDebug = this.configurationService.getValue<IDebugConfiguration>('debug').openDebug;
+			if (openDebug !== 'neverOpen') {
+				this.paneCompositeService.openPaneComposite(VIEWLET_ID, ViewContainerLocation.Sidebar);
+			}
+		}
+	}
+
+	/**
+	 * Computes the debugUx value based on current state and session suppression.
+	 * Returns 'simple' (welcome view) when there's no foreground debug session.
+	 * A foreground session is one that is active and doesn't have its toolbar suppressed.
+	 */
+	private computeDebugUxValue(): 'default' | 'simple' {
+		const state = this.state;
+		const sessions = this.model.getSessions();
+		const allSessionsSuppressed = sessions.length > 0 && sessions.every(s => s.suppressDebugToolbar);
+		const hasForegroundSession = (state !== State.Inactive && state !== State.Initializing) && !allSessionsSuppressed;
+		const hasDebugConfig = this.adapterManager.hasEnabledDebuggers() && this.configurationManager.selectedConfiguration.name;
+		return (hasForegroundSession || hasDebugConfig) ? 'default' : 'simple';
+	}
+	// --- End Positron ---
 
 	private async substituteVariables(launch: ILaunch | undefined, config: IConfig): Promise<IConfig | undefined> {
 		const dbg = this.adapterManager.getDebugger(config.type);

@@ -1,0 +1,109 @@
+{
+	"name": "positron-environment-modules",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "positron",
+	"private": true,
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"configuration": {
+			"title": "%configuration.title%",
+			"properties": {
+				"positron.environmentModules.enabled": {
+					"type": "boolean",
+					"scope": "resource",
+					"default": true,
+					"description": "%configuration.enabled.description%"
+				},
+				"positron.environmentModules.moduleCommand": {
+					"type": "string",
+					"scope": "resource",
+					"default": "module",
+					"description": "%configuration.moduleCommand.description%"
+				},
+				"positron.environmentModules.moduleLoadTimeout": {
+					"type": "number",
+					"scope": "resource",
+					"default": 5000,
+					"description": "%configuration.moduleLoadTimeout.description%"
+				},
+				"positron.environmentModules.initScript": {
+					"type": "string",
+					"scope": "resource",
+					"default": "",
+					"description": "%configuration.initScript.description%"
+				},
+				"positron.environmentModules.environments": {
+					"type": "object",
+					"default": {},
+					"description": "%configuration.environments.description%",
+					"scope": "resource",
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"languages": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "%configuration.environments.languages.description%"
+							},
+							"modules": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "%configuration.environments.modules.description%"
+							}
+						},
+						"required": [
+							"languages",
+							"modules"
+						]
+					}
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "positron.environmentModules.refreshEnvironments",
+				"title": "%command.refreshEnvironments.title%",
+				"category": "Environment Modules",
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
+			},
+			{
+				"command": "positron.environmentModules.diagnosticsReport",
+				"title": "%command.diagnosticsReport.title%",
+				"category": "Environment Modules",
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
+			},
+			{
+				"command": "positron.environmentModules.manageEnvironments",
+				"title": "%command.manageEnvironments.title%",
+				"category": "Environment Modules",
+				"enablement": "workspacePlatform == 'linux' && config.positron.environmentModules.enabled"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "18.x",
+		"@types/vscode": "^1.65.0",
+		"typescript": "^5.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/posit-dev/positron"
+	}
+}

@@ -43,6 +43,7 @@ const convertedKinds = new Map(
         // --- Start Positron ---
         [PythonEnvKind.Uv]: EnvironmentType.Uv,
         [PythonEnvKind.Custom]: EnvironmentType.Custom,
+        [PythonEnvKind.Module]: EnvironmentType.Module,
         // --- End Positron ---
         [PythonEnvKind.Venv]: EnvironmentType.Venv,
         [PythonEnvKind.VirtualEnvWrapper]: EnvironmentType.VirtualEnvWrapper,

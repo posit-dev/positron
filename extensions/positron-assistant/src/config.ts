@@ -194,7 +194,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			})
 			.map(async (source) => {
 				// Handle autoconfigurable providers
-				if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+				if (!source.signedIn && 'autoconfigure' in source.defaults && source.defaults.autoconfigure) {
 					// Resolve environment variables
 					if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
 						const envVarName = source.defaults.autoconfigure.key;
@@ -299,12 +299,13 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 
 	// Add new configuration
+	// Spread otherConfig first so our explicit values (especially id) take precedence
 	const newConfig: StoredModelConfig = {
+		...otherConfig,
 		id,
 		name,
 		model,
 		baseUrl,
-		...otherConfig,
 	};
 
 

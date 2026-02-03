@@ -2,8 +2,7 @@
  *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-/* eslint-disable global-require */
-/* eslint-disable class-methods-use-this */
+
 import * as portfinder from 'portfinder';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -38,6 +37,10 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
 import { untildify } from '../common/helpers';
+import {
+    pendingModuleRuntimeRegistrations,
+    getEnvironmentModulesApi,
+} from '../pythonEnvironments/base/locators/lowLevel/moduleEnvironmentLocator';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -207,8 +210,41 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
             this._onDidDiscoverRuntime.fire(runtime);
+
+            // If this is a module environment runtime, register it with the environment-modules API
+            const pendingRegistration = pendingModuleRuntimeRegistrations.get(extraData.pythonPath);
+            if (pendingRegistration) {
+                this.registerModuleRuntimeWithApi(
+                    pendingRegistration.environmentName,
+                    runtime.runtimeId,
+                    extraData.pythonPath,
+                );
+                // Remove from pending registrations
+                pendingModuleRuntimeRegistrations.delete(extraData.pythonPath);
+            }
         } else {
             traceInfo(`Not registering runtime ${extraData.pythonPath} as it is excluded via user settings.`);
+        }
+    }
+
+    /**
+     * Register a module runtime with the environment-modules API for tracking.
+     */
+    private async registerModuleRuntimeWithApi(
+        environmentName: string,
+        runtimeId: string,
+        interpreterPath: string,
+    ): Promise<void> {
+        try {
+            const api = await getEnvironmentModulesApi();
+            if (api) {
+                api.registerDiscoveredRuntime(environmentName, 'python', interpreterPath);
+                traceInfo(
+                    `Registered module runtime ${runtimeId} for environment "${environmentName}" with environment-modules API`,
+                );
+            }
+        } catch (error) {
+            traceError(`Failed to register module runtime with environment-modules API: ${error}`);
         }
     }
 
@@ -300,6 +336,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             kernel_protocol_version: '5.3',
             env,
         };
+
+        // If this Python is from a module environment, set the startup command
+        // to load the required modules before starting the kernel
+        if (extraData.moduleMetadata?.startupCommand) {
+            kernelSpec.startup_command = extraData.moduleMetadata.startupCommand;
+            traceInfo(`createPythonSession: using module startup command: ${kernelSpec.startup_command}`);
+        }
 
         traceInfo(`createPythonSession: kernelSpec argv: ${args}`);
 

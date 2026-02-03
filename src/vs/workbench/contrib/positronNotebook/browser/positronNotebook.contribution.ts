@@ -30,7 +30,7 @@ import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEdito
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
+import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../common/positronNotebookConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
@@ -40,7 +40,7 @@ import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../note
 import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID, PositronNotebookCellActionBarLeftGroup, usingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { getActiveCell, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -65,11 +65,13 @@ export const POSITRON_NOTEBOOK_COMMAND_MODE = ContextKeyExpr.and(
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
+// Group IDs used to organize cell actions in menus and context menus
 enum PositronNotebookCellActionGroup {
 	Clipboard = '0_clipboard',
-	Insert = '1_insert',
-	Order = '2_order',
-	Execution = '3_execution',
+	CellType = '1_celltype',
+	Insert = '2_insert',
+	Order = '3_order',
+	Execution = '4_execution',
 }
 
 /**
@@ -695,7 +697,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.execute', "Run Cell"),
 			icon: ThemeIcon.fromId('notebook-execute'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
@@ -721,7 +725,9 @@ registerAction2(class extends NotebookAction2 {
 			title: localize2('positronNotebook.cell.stopExecution', "Stop Cell Execution"),
 			icon: ThemeIcon.fromId('primitive-square'),
 			menu: {
-				id: MenuId.PositronNotebookCellActionLeft,
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
+				order: 1, // gauranteed to be the first item in the cell action bar
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
@@ -878,6 +884,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('edit'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
@@ -913,6 +920,7 @@ registerAction2(class extends NotebookAction2 {
 			icon: ThemeIcon.fromId('check'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
+				group: PositronNotebookCellActionBarLeftGroup.Primary,
 				order: 10,
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
@@ -1183,6 +1191,100 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Change to Code cell - y key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToCode',
+			title: localize2('positronNotebook.cell.changeToCode', "Change to Code"),
+			icon: ThemeIcon.fromId('code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 10,
+				when: ContextKeyExpr.or(CELL_CONTEXT_KEYS.isCode.toNegated(), CELL_CONTEXT_KEYS.isRaw)
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyY
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		// Change to code cell with kernel's default language
+		const kernelLanguage = notebook.kernel.get()?.supportedLanguages?.[0];
+		notebook.changeCellType(CellKind.Code, kernelLanguage);
+	}
+});
+
+// Change to Markdown cell - m key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToMarkdown',
+			title: localize2('positronNotebook.cell.changeToMarkdown', "Change to Markdown"),
+			icon: ThemeIcon.fromId('markdown'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 20,
+				when: CELL_CONTEXT_KEYS.isMarkdown.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyM
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Markup);
+	}
+});
+
+// Change to Raw cell - r key (Jupyter-style)
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.changeToRaw',
+			title: localize2('positronNotebook.cell.changeToRaw', "Change to Raw"),
+			icon: ThemeIcon.fromId('file-code'),
+			menu: [{
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: PositronNotebookCellActionGroup.CellType,
+				order: 30,
+				when: CELL_CONTEXT_KEYS.isRaw.toNegated()
+			}],
+			keybinding: {
+				when: POSITRON_NOTEBOOK_COMMAND_MODE,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyR
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.changeCellType(CellKind.Code, 'raw');
+	}
+});
 
 //#endregion Cell Commands
 
@@ -1362,46 +1464,6 @@ registerAction2(class extends NotebookAction2 {
 
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
 // Action is defined in AskAssistantAction.ts
-
-// Toggle Assistant Auto-Follow - Status indicator for automatic scrolling to AI-modified cells
-// This action displays as a status indicator showing "Following assistant" when enabled.
-// Clicking the status will toggle auto-follow off.
-registerAction2(class extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.toggleAssistantAutoFollow',
-			title: localize2('toggleAssistantAutoFollow.disabled', 'Follow assistant'),
-			tooltip: localize2('toggleAssistantAutoFollow.disabledTooltip', 'Click to follow assistant edits and automatically scroll to cells modified by the AI assistant.'),
-			icon: ThemeIcon.fromId('eye-watch'),
-			f1: true,
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			positronActionBarOptions: {
-				controlType: 'button',
-				displayTitle: true
-			},
-			toggled: {
-				condition: ContextKeyExpr.equals('config.positron.assistant.notebook.autoFollow', true),
-				title: localize('toggleAssistantAutoFollow.status', 'Following assistant'),
-				tooltip: localize('toggleAssistantAutoFollow.enabledTooltip', 'Click to stop following assistant edits.')
-			},
-			menu: {
-				id: MenuId.EditorActionsLeft,
-				group: 'navigation',
-				order: 55, // After Ask Assistant (50)
-				when: ContextKeyExpr.and(
-					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-					ContextKeyExpr.has('config.positron.assistant.enable'),
-				)
-			}
-		});
-	}
-
-	override runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor): void {
-		const configurationService = accessor.get(IConfigurationService);
-		const currentValue = configurationService.getValue<boolean>(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY) ?? true;
-		configurationService.updateValue(POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY, !currentValue);
-	}
-});
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton

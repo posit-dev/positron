@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,6 +20,7 @@ import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useMenuActions } from '../useMenuActions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { PositronNotebookCellActionBarLeftGroup } from '../../common/positronNotebookCommon.js';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -31,6 +32,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
+	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);
@@ -41,29 +43,45 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 
 	const hasSubmenuActions = submenuActions.length > 0;
 
+	// Process actions and identify which ones are primary actions based on group ID
+	const actionsWithMetadata = leftActions
+		.flatMap(([groupId, actions]) =>
+			actions.map(action => ({
+				action,
+				isPrimary: groupId === PositronNotebookCellActionBarLeftGroup.Primary
+			}))
+		);
+
+	// Find the index of the last primary action so we know where to place
+	// the separator between primary actions and all other actions
+	const lastPrimaryIndex = actionsWithMetadata.findLastIndex(item => item.isPrimary);
+
 	return <div
 		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
-		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : 'hidden'}`}
+		className={`positron-notebooks-cell-action-bar ${isActiveCell || isMenuOpen ? 'visible' : ''}`}
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
-		{leftActions
-			.flatMap(([_group, actions]) => actions)
-			.map(action => (
-				<CellActionButton
-					key={action.id}
-					action={action}
-					cell={cell}
-					hoverManager={instance.hoverManager}
-				/>
-			))}
+		{actionsWithMetadata.map((item, index) => (
+			<CellActionButton
+				key={item.action.id}
+				action={item.action}
+				cell={cell}
+				hoverManager={instance.hoverManager}
+				showSeparator={index === lastPrimaryIndex}
+			/>
+		))}
 
 		{/* Dropdown menu for additional actions - only render if there are menu actions */}
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
+				cell={cell}
 				hoverManager={instance.hoverManager}
+				instance={instance}
+				isMenuOpen={isMenuOpen}
 				menuActions={submenuActions}
+				setIsMenuOpen={setIsMenuOpen}
 			/>
 		) : null}
 
