@@ -1057,8 +1057,8 @@ test.describe('Quarto - Inline Output', {
 
 			await runCommand('positronQuarto.runCurrentCell');
 
-			// Wait for output to update
-			await page.waitForTimeout(3000);
+			// Wait for output to update (longer timeout for kernel execution after reload)
+			await page.waitForTimeout(5000);
 
 			// Scroll to see the output
 			const inlineOutput = page.locator('.quarto-inline-output');
@@ -1068,7 +1068,7 @@ test.describe('Quarto - Inline Output', {
 				await page.keyboard.press('Enter');
 				await page.waitForTimeout(500);
 				await expect(inlineOutput).toBeVisible({ timeout: 1000 });
-			}).toPass({ timeout: 30000 });
+			}).toPass({ timeout: 60000 }); // Increased timeout for kernel startup after reload
 
 			const outputItem = inlineOutput.locator('.quarto-output-item');
 			const outputText = await outputItem.first().textContent();
@@ -1097,7 +1097,17 @@ test.describe('Quarto - Inline Output', {
 		// Wait for Quarto features to initialize
 		const kernelStatusWidget = page.locator('[data-testid="quarto-kernel-status"]');
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
-		await page.waitForTimeout(2000);
+
+		// Wait for kernel to reattach - the label should show a runtime name, not "No Kernel"
+		const kernelLabel = kernelStatusWidget.locator('.kernel-label');
+		await expect(async () => {
+			const text = await kernelLabel.textContent();
+			expect(text).not.toBe('No Kernel');
+			expect(text).toBeTruthy();
+		}).toPass({ timeout: 30000 });
+
+		// Additional wait for session to stabilize after reattachment
+		await page.waitForTimeout(3000);
 
 		// Step 5: We should be on the second document (last opened). Get its PID.
 		const pid2After = await getPidFromCurrentDoc();
@@ -1107,6 +1117,14 @@ test.describe('Quarto - Inline Output', {
 		await runCommand('workbench.action.previousEditor');
 		await page.waitForTimeout(1000);
 		await expect(kernelStatusWidget.first()).toBeVisible({ timeout: 30000 });
+
+		// Wait for this document's kernel to be ready too
+		await expect(async () => {
+			const text = await kernelLabel.textContent();
+			expect(text).not.toBe('No Kernel');
+			expect(text).toBeTruthy();
+		}).toPass({ timeout: 30000 });
+		await page.waitForTimeout(2000);
 
 		const pid1After = await getPidFromCurrentDoc();
 
@@ -1394,8 +1412,23 @@ test.describe('Quarto - Inline Output', {
 			expect(count).toBe(2);
 		}).toPass({ timeout: 180000 }); // Long timeout for first cell sleep + kernel startup
 
-		// Verify both outputs are visible
+		// Scroll to line 18 to show the first output (which is after line 16)
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('18');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Verify first output is visible (it's near line 16)
 		await expect(inlineOutputs.nth(0)).toBeVisible({ timeout: 10000 });
+
+		// Scroll further down to ensure the second output (after line 22) is in the viewport
+		// Monaco virtualizes content, so we need to scroll to make the second view zone visible
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('25');
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(500);
+
+		// Verify second output is visible
 		await expect(inlineOutputs.nth(1)).toBeVisible({ timeout: 10000 });
 
 		// Step 2: Add text BETWEEN the two cells
