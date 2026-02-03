@@ -8,8 +8,8 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { QuartoOutputViewZone, CopyOutputRequest, SavePlotRequest } from './quartoOutputViewZone.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
@@ -21,7 +21,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { dirname, basename, extname } from '../../../../base/common/resources.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager, ICellOutput, ICellOutputItem, CellExecutionState, IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IQuartoKernelManager } from './quartoKernelManager.js';
 
@@ -113,7 +113,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		@IQuartoKernelManager private readonly _kernelManager: IQuartoKernelManager,
 		@IQuartoOutputCacheService private readonly _cacheService: IQuartoOutputCacheService,
 		@IPositronNotebookOutputWebviewService private readonly _webviewService: IPositronNotebookOutputWebviewService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IQuartoOutputManager private readonly _outputManager: IQuartoOutputManager,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
@@ -127,12 +127,12 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 		const model = this._editor.getModel();
 		this._documentUri = model?.uri;
 
-		// Check if feature is enabled
-		this._featureEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		// Check if feature is enabled (context key checks both setting and extension installation)
+		this._featureEnabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 
-		// Always listen for configuration changes so we can initialize when feature is enabled
-		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
+		// Always listen for context key changes so we can initialize when feature is enabled
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
 				this._handleFeatureToggle();
 			}
 		}));
@@ -1045,7 +1045,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 	}
 
 	private _handleFeatureToggle(): void {
-		const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		const enabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 		this._featureEnabled = enabled;
 
 		if (!enabled) {

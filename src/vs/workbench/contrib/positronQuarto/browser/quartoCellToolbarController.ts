@@ -6,13 +6,13 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICodeEditor, IEditorMouseEvent, MouseTargetType } from '../../../../editor/browser/editorBrowser.js';
 import { IEditorContribution } from '../../../../editor/common/editorCommon.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
 import { QuartoCodeCell, IQuartoDocumentModel, QuartoCellChangeEvent } from '../common/quartoTypes.js';
 import { QuartoCellToolbar } from './quartoCellToolbar.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 
@@ -34,7 +34,7 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 		private readonly _editor: ICodeEditor,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILogService private readonly _logService: ILogService,
@@ -50,10 +50,10 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 			this._onEditorModelChanged();
 		}));
 
-		// Listen for configuration changes
-		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
-				this._logService.debug('[QuartoCellToolbarController] Configuration changed');
+		// Listen for context key changes (feature enabled/disabled)
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
+				this._logService.debug('[QuartoCellToolbarController] Context key changed');
 				this._onEditorModelChanged();
 			}
 		}));
@@ -84,8 +84,8 @@ export class QuartoCellToolbarController extends Disposable implements IEditorCo
 
 		this._logService.debug(`[QuartoCellToolbarController] Model URI: ${model.uri.toString()}`);
 
-		// Check if feature is enabled
-		const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		// Check if feature is enabled (context key checks both setting and extension installation)
+		const enabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 		this._logService.info(`[QuartoCellToolbarController] Feature enabled: ${enabled}`);
 		console.log(`[QuartoCellToolbarController] Feature enabled: ${enabled}`);
 		if (!enabled) {

@@ -11,8 +11,8 @@ import { registerColor } from '../../../../platform/theme/common/colorRegistry.j
 import { localize } from '../../../../nls.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { CellExecutionState, IQuartoExecutionManager } from '../common/quartoExecutionTypes.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, isQuartoDocument } from '../common/positronQuartoConfig.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { QUARTO_INLINE_OUTPUT_ENABLED, isQuartoDocument } from '../common/positronQuartoConfig.js';
 import { themeColorFromId } from '../../../../platform/theme/common/themeService.js';
 import { IEditorContribution, IEditorDecorationsCollection } from '../../../../editor/common/editorCommon.js';
 
@@ -177,7 +177,7 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 		private readonly _editor: ICodeEditor,
 		@IQuartoDocumentModelService private readonly _documentModelService: IQuartoDocumentModelService,
 		@IQuartoExecutionManager private readonly _executionManager: IQuartoExecutionManager,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		super();
 
@@ -186,8 +186,8 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			this._onEditorModelChanged();
 		}));
 
-		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_QUARTO_INLINE_OUTPUT_KEY)) {
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(new Set([QUARTO_INLINE_OUTPUT_ENABLED.key]))) {
 				this._onEditorModelChanged();
 			}
 		}));
@@ -212,8 +212,8 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			return;
 		}
 
-		// Check if feature is enabled
-		const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		// Check if feature is enabled (context key checks both setting and extension installation)
+		const enabled = this._contextKeyService.getContextKeyValue<boolean>(QUARTO_INLINE_OUTPUT_ENABLED.key) ?? false;
 		if (!enabled) {
 			return;
 		}
