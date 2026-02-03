@@ -7,7 +7,7 @@
 import './createConnectionState.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
@@ -24,6 +24,7 @@ import { PositronModalReactRenderer } from '../../../../../../base/browser/posit
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
+import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
 
 interface CreateConnectionProps {
 	readonly renderer: PositronModalReactRenderer;
@@ -42,10 +43,10 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
 	const [codeState, setCodeState] = useState<{ code: string; errorMessage?: string } | undefined>(undefined);
 
-	const editorOptions = useMemo(() => ({
+	const editorOptions: IEditorOptions = {
 		readOnly: true,
 		cursorBlinking: 'solid' as const
-	}), []);
+	};
 
 	useEffect(() => {
 		// Debounce the code generation to avoid unnecessary re-renders
@@ -130,7 +131,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<Form inputs={metadata.inputs} onInputsChange={setInputs}></Form>
+		<Form inputs={inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
@@ -201,12 +202,9 @@ const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (input
 			inputs.map((input) => {
 				return <FormElement key={input.id} input={input} onChange={(value) => {
 					onInputsChange(
-						inputs.map((i) => {
-							if (i.id === input.id) {
-								i.value = value;
-							}
-							return i;
-						})
+						inputs.map((i) =>
+							i.id === input.id ? { ...i, value } : i
+						)
 					);
 				}}></FormElement>;
 			})
