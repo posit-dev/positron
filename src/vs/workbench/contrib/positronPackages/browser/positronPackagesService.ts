@@ -145,8 +145,6 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
-	installState: boolean = false;
-
 	readonly onDidChangeActivePackagesInstance = this._onDidChangeActivePackagesInstance.event;
 
 	readonly onDidStopPackagesInstance = this._onDidStopPositronPackagesInstanceEmitter.event;
