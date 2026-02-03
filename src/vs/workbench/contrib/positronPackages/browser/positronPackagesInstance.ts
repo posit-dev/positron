@@ -144,8 +144,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			if (newPackages) {
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
-			return;
-
 		} finally {
 			// Completed
 			this._onDidChangeUninstallState.fire(false);
@@ -169,8 +167,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			if (newPackages) {
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
-			return;
-
 		} finally {
 			// Completed
 			this._onDidChangeUpdateState.fire(false);
@@ -194,8 +190,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			if (newPackages) {
 				this._onDidRefreshPackagesInstance.fire(newPackages);
 			}
-			return;
-
 		} finally {
 			// Completed
 			this._onDidChangeUpdateAllState.fire(false);
@@ -207,8 +201,8 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 		if (!session.searchPackages) {
 			throw new Error('Method not implemented.');
 		}
-		return await session.searchPackages(name);
 
+		return await session.searchPackages(name);
 	}
 
 	async searchPackageVersions(name: string): Promise<string[]> {
