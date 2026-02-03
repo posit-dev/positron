@@ -247,7 +247,9 @@ class PlotsService:
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
         plot_comm = PositronComm.create(self._target_name, comm_id)
-        plot = Plot(plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num, on_close)
+        plot = Plot(
+            plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num, on_close
+        )
         self._plots.append(plot)
         return plot
 
