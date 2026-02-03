@@ -112,7 +112,7 @@
 }
 
 /* Error state for code editor */
-.create-connection-code-editor.has-error {
+.create-connection-code-editor {
 	position: relative;
 }
 
@@ -127,26 +127,23 @@
 	border-top: 1px solid var(--vscode-inputValidation-errorBorder);
 	color: var(--vscode-inputValidation-errorForeground);
 	transform-origin: bottom;
-	animation: growUp 0.2s ease-out;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	transform: scaleY(0);
+	opacity: 0;
+	transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.create-connection-code-editor.has-error .connection-error-message {
+	transform: scaleY(1);
+	opacity: 1;
 }
 
 .connection-error-message > .codicon.codicon-error {
 	color: var(--vscode-inputValidation-errorBorder);
 }
 
-@keyframes growUp {
-	from {
-		transform: scaleY(0);
-		opacity: 0;
-	}
-	to {
-		transform: scaleY(1);
-		opacity: 1;
-	}
-}
