@@ -85,7 +85,9 @@
     "extensions-ci-pr": "node ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
     "update-build-ts-version": "npm install -D typescript@next && npm install -D @typescript/native-preview && (cd build && npm run compile)",
-    "rebuild": ". $NVM_DIR/nvm.sh && nvm use && ./rebuild.sh"
+    "rebuild": ". $NVM_DIR/nvm.sh && nvm use && ./rebuild.sh",
+    "build-ps": "./scripts/build-ps.sh",
+    "build-check": "./scripts/build-check.sh"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.914.0",

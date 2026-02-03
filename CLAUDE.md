@@ -18,14 +18,25 @@ Positron is a next-generation data science IDE built on VS Code, designed for Py
 
 ## 🚨 CRITICAL: Build System Requirements
 
-**MANDATORY: Always check if build daemons are running before any development work:**
-```bash
-ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
-```
-
 **NEVER run direct TypeScript compilation** (`npx tsc`, `tsc --noEmit`, etc.) on this project—it's too large and will fail or hang. The background daemons handle all compilation. If you need to verify code compiles:
-1. Check daemon status first
-2. Ask the user about any compilation errors shown by daemons
+1. Check daemon status first:
+
+	```bash
+	npm run build-ps
+	```
+2. Start missing daemons in the background if needed:
+
+	```bash
+	npx deemon -- --detach npm run watch-client     # Core compilation daemon
+	npx deemon -- --detach npm run watch-extensions # Extensions compilation daemon
+	npx deemon -- --detach npm run watch-e2e        # E2E tests daemon
+	```
+3. Complete your task while the daemons compile in the background (30-60 seconds initial startup)
+4. Check errors from the latest TypeScript compilation cycle. **ALWAYS use this to check TypeScript compilation status**:
+
+	```bash
+	npm run build-check
+	```
 
 **Essential workflows:**
 - **Launching Positron**: Read `.claude/launch-positron.md` for non-blocking launch protocol
@@ -54,12 +65,12 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 ### Development
 ```bash
 # STEP 1: Check if daemons are already running
-ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
+npm run build-ps
 
 # STEP 2: If NOT running, start build daemons (CRITICAL: Wait for completion!)
 npm run watch-clientd &     # Core compilation daemon
 npm run watch-extensionsd & # Extensions compilation daemon
-# Optional: npm run watch-e2ed & # E2E tests daemon (only if doing E2E testing)
+npm run watch-e2ed &        # E2E tests daemon
 
 # STEP 3: Wait for initial compilation (30-60 seconds)
 sleep 30
@@ -81,12 +92,6 @@ timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 
 # Run tests (after Positron is running)
 npm test
-
-# Shutdown build daemons
-# On macOS/Linux:
-pkill -f "gulp watch-client" && pkill -f "gulp watch-extensions" && pkill -f "deemon" && pkill -f "npm run watch"
-# On Windows:
-taskkill /F /IM node.exe /FI "WINDOWTITLE eq *watch*"
 ```
 
 ### Code Formatting & Linting
