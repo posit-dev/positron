@@ -44,7 +44,7 @@ class Plot:
     """
     The backend representation of a frontend plot instance.
 
-    Paramaters
+    Parameters
     ----------
     comm
         The communication channel to the frontend plot instance.
