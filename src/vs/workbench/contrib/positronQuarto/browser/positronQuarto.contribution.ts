@@ -10,6 +10,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoKernelManager, IQuartoKernelManager } from './quartoKernelManager.js';
@@ -58,6 +59,12 @@ registerEditorContribution(QuartoMultiLanguageWarning.ID, QuartoMultiLanguageWar
 registerEditorContribution(QuartoCellToolbarController.ID, QuartoCellToolbarController, EditorContributionInstantiation.AfterFirstRender);
 
 /**
+ * Extension ID for the Quarto extension.
+ * The inline output feature requires this extension to be installed.
+ */
+const QUARTO_EXTENSION_ID = 'quarto.quarto';
+
+/**
  * Contribution that manages Quarto inline output functionality.
  * Responsible for:
  * - Tracking context keys for Quarto documents
@@ -75,6 +82,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 	) {
 		super();
 
@@ -100,11 +108,26 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		this._register(this._quartoKernelManager.onDidChangeKernelState(() => {
 			this._updateKernelRunning();
 		}));
+
+		// Listen for extension changes (install/uninstall)
+		this._register(this._extensionService.onDidChangeExtensions(() => {
+			this._updateInlineOutputEnabled();
+		}));
 	}
 
 	private _updateInlineOutputEnabled(): void {
-		const enabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
-		this._inlineOutputEnabledKey.set(enabled);
+		const settingEnabled = this._configurationService.getValue<boolean>(POSITRON_QUARTO_INLINE_OUTPUT_KEY) ?? false;
+		if (!settingEnabled) {
+			// If the setting is disabled, the feature is disabled regardless of extension status
+			this._inlineOutputEnabledKey.set(false);
+			return;
+		}
+
+		// Setting is enabled, now check if the Quarto extension is installed
+		this._extensionService.getExtension(QUARTO_EXTENSION_ID).then(extension => {
+			// Only enable if both the setting is enabled AND the extension is installed
+			this._inlineOutputEnabledKey.set(extension !== undefined);
+		});
 	}
 
 	private _updateIsQuartoDocument(): void {
