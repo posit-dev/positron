@@ -164,7 +164,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "os":
-                        key = alias.asname if alias.asname else "os"
+                        key = alias.asname or "os"
                         imports[key] = "os"
         return imports
     except SyntaxError:
@@ -183,7 +183,7 @@ def _parse_os_imports(source: str) -> dict[str, str]:
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name == "os":
-                            key = alias.asname if alias.asname else "os"
+                            key = alias.asname or "os"
                             imports[key] = "os"
         except SyntaxError:
             continue
