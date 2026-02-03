@@ -262,13 +262,15 @@ export class PositModelProvider extends VercelModelProvider {
 			// Initialize native Anthropic SDK (existing behavior)
 			this._anthropicClient = new Anthropic({
 				authToken: '_', // Actual token is set in authFetch
+				apiKey: '_',   // API key is not used
 				fetch: this.authFetch.bind(this),
 				baseURL: `${params.baseUrl}/anthropic`,
 			});
 		} else {
 			// Initialize Vercel AI SDK provider with OAuth fetch
+			// Note: Vercel SDK expects baseURL to include /v1 (default is https://api.anthropic.com/v1)
 			this.aiProvider = createAnthropic({
-				baseURL: `${params.baseUrl}/anthropic`,
+				baseURL: `${params.baseUrl}/anthropic/v1`,
 				fetch: this.authFetch.bind(this),
 			});
 		}
