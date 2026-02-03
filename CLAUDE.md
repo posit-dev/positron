@@ -40,7 +40,6 @@ Positron is a next-generation data science IDE built on VS Code, designed for Py
 
 **Essential workflows:**
 - **Launching Positron**: Read `.claude/launch-positron.md` for non-blocking launch protocol
-- **Build system**: Read `.claude/build-system.md` for detailed daemon management
 - **Component development**: Read specific `.claude/<component>.md` files for targeted workflows
 
 ## Using Modular Prompts
@@ -57,7 +56,6 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 - **Language Support**: `Please read .claude/language-support.md` - For Python/R language features
 - **UI Components**: `Please read .claude/ui-components.md` - For Positron-specific UI development
 - **Backend Services**: `Please read .claude/backend.md` - For kernel and service integration
-- **Build System**: `Please read .claude/build-system.md` - For build, packaging, and deployment
 - **PR Creation**: `Please use the positron-pr-helper skill` - For creating well-structured PR bodies with up-to-date e2e test tags
 
 ## Quick Start Commands
@@ -243,14 +241,13 @@ Remember to read the appropriate modular prompt file(s) for your specific task a
 ## Development Workflow Summary
 
 1. **Check daemon status** (mandatory first step)
-2. **Start missing daemons** if needed (see `.claude/build-system.md`)
+2. **Start missing daemons** if needed
 3. **Wait for compilation** (30-60 seconds)
 4. **Launch Positron** (see `.claude/launch-positron.md` for non-blocking protocol)
 5. **Run tests/development tasks** after confirming daemons are ready
 
 ## When to Use Which Documentation
 
-- **New to Positron development**: Start here in `CLAUDE.md`, then read `.claude/build-system.md`
 - **Launching Positron**: `.claude/launch-positron.md` (critical for non-blocking sessions)
 - **Extension development**: `.claude/<extension-name>.md` (e.g., `positron-duckdb.md`)
 - **E2E testing**: `.claude/e2e-testing.md`
