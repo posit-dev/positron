@@ -35,12 +35,34 @@
 	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 }
 
-/* Running: filled rectangle */
-.monaco-editor .quarto-execution-running {
+/* Running: filled rectangle with pulsing animation */
+/* Multiple delay classes to create organic "twinkle" effect where each line pulses independently */
+.monaco-editor .quarto-execution-running-0,
+.monaco-editor .quarto-execution-running-1,
+.monaco-editor .quarto-execution-running-2,
+.monaco-editor .quarto-execution-running-3,
+.monaco-editor .quarto-execution-running-4,
+.monaco-editor .quarto-execution-running-5,
+.monaco-editor .quarto-execution-running-6,
+.monaco-editor .quarto-execution-running-7,
+.monaco-editor .quarto-execution-running-8,
+.monaco-editor .quarto-execution-running-9 {
 	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 	margin-left: 10px;
 	animation: quarto-pulse 1.5s ease-in-out infinite;
 }
+
+/* Stagger animation start times across the 1.5s cycle */
+.monaco-editor .quarto-execution-running-0 { animation-delay: 0s; }
+.monaco-editor .quarto-execution-running-1 { animation-delay: -0.15s; }
+.monaco-editor .quarto-execution-running-2 { animation-delay: -0.3s; }
+.monaco-editor .quarto-execution-running-3 { animation-delay: -0.45s; }
+.monaco-editor .quarto-execution-running-4 { animation-delay: -0.6s; }
+.monaco-editor .quarto-execution-running-5 { animation-delay: -0.75s; }
+.monaco-editor .quarto-execution-running-6 { animation-delay: -0.9s; }
+.monaco-editor .quarto-execution-running-7 { animation-delay: -1.05s; }
+.monaco-editor .quarto-execution-running-8 { animation-delay: -1.2s; }
+.monaco-editor .quarto-execution-running-9 { animation-delay: -1.35s; }
 
 @keyframes quarto-pulse {
 	0%, 100% {
@@ -48,6 +70,29 @@
 	}
 	50% {
 		opacity: 0.5;
+	}
+}
+
+/* Completed: solid green that fades out */
+.monaco-editor .quarto-execution-completed {
+	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	margin-left: 10px;
+	opacity: 1;
+}
+
+/* Completed fading: transitions from solid to transparent */
+.monaco-editor .quarto-execution-completed-fading {
+	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	margin-left: 10px;
+	animation: quarto-fade-out 300ms ease-out forwards;
+}
+
+@keyframes quarto-fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
 	}
 }
 
