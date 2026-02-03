@@ -8,7 +8,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { ILanguageRuntimePackage, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronPackagesInstance } from '../positronPackagesInstance.js';
 
-// Create the decorator for the Positron variables service (used in dependency injection).
+// Create the decorator for the Positron packages service (used in dependency injection).
 export const IPositronPackagesService = createDecorator<IPositronPackagesService>('positronPackagesService');
 
 /**

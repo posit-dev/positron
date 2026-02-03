@@ -16,7 +16,7 @@
 .packages-list-header {
 	display: flex;
 	align-items: center;
-	border-bottom: 1px solid var(--vscode-positronVariables-border);
+	border-bottom: 1px solid var(--vscode-positronPackages-border);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

@@ -35,9 +35,9 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { Separator } from '../../../../../base/common/actions.js';
 import { PackagesInstanceMenuButton } from './packagesInstanceMenuButton.js';
 
-const positronRefreshObjects = localize(
-	'positronRefreshObjects',
-	'Refresh objects',
+const positronRefreshPackages = localize(
+	'positronRefreshPackages',
+	'Refresh packages',
 );
 
 const positronInstallPackage = localize(
@@ -348,10 +348,10 @@ const ActionBar = ({
 					<ActionBarRegion location='right'>
 						<ActionBarButton
 							align='right'
-							ariaLabel={positronRefreshObjects}
+							ariaLabel={positronRefreshPackages}
 							disabled={busy || !activeSession}
 							icon={ThemeIcon.fromId('refresh')}
-							tooltip={positronRefreshObjects}
+							tooltip={positronRefreshPackages}
 							onPressed={onRefreshPackages}
 						/>
 						<ActionBarMenuButton

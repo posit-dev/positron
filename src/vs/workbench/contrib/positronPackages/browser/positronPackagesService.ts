@@ -38,12 +38,7 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	/**
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
-	 * @param _runtimeNotebookKernelService The runtime notebook kernel service.
-	 * @param _logService The log service.
-	 * @param _notificationService The notification service.
-	 * @param _accessibilityService The accessibility service.
 	 * @param _editorService The editor service.
-	 * @param _configurationService The configuration service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -119,18 +114,18 @@ export class PositronPackagesService extends Disposable implements IPositronPack
 	}
 
 	/**
-	 * Syncs the active variables instance to the active editor.
+	 * Syncs the active packages instance to the active editor.
 	 * This is called when the active editor changes or the service is initialized.
 	 */
 	private _syncToActiveEditor() {
 		const editorInput = this._editorService.activeEditor;
 		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
-			// If this is a notebook editor try and set the active variables session to the one
+			// If this is a notebook editor try and set the active packages session to the one
 			// that corresponds with it.
 			const notebookSession = this._runtimeSessionService.activeSessions.find(
 				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
 			);
-			// If the editor is not for a jupyter notebook, just leave variables session as is.
+			// If the editor is not for a jupyter notebook, just leave packages session as is.
 			if (!notebookSession) { return; }
 			this.setActiveInstance(notebookSession.sessionId);
 		} else if (this._runtimeSessionService.foregroundSession) {

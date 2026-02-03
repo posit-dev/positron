@@ -15,7 +15,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronPackagesContextProvider } from './positronPackagesContext.js';
 import { PackagesCore } from './components/packagesCore.js';
 
-export interface PositronConnectionsProps {
+export interface PositronPackagesProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
@@ -26,7 +26,7 @@ export interface ViewsProps {
 }
 
 export const PositronPackages = (
-	props: React.PropsWithChildren<PositronConnectionsProps>,
+	props: React.PropsWithChildren<PositronPackagesProps>,
 ) => {
 	// This allows us to introspect the size of the component. Which then allows
 	// us to efficiently only render items that are in view.

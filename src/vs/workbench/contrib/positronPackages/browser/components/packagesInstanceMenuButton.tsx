@@ -25,7 +25,7 @@ const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
 };
 
 /**
- * VariablesInstanceMenuButton component.
+ * PackagesInstanceMenuButton component.
  * @returns The rendered component.
  */
 export const PackagesInstanceMenuButton = () => {
@@ -67,7 +67,7 @@ export const PackagesInstanceMenuButton = () => {
 				class: undefined,
 				enabled: true,
 				run: () => {
-					// Set the active variables session to the one the user selected.
+					// Set the active packages session to the one the user selected.
 					const session = instance.session;
 					services.positronPackagesService.setActivePositronPackagesSession(session)
 

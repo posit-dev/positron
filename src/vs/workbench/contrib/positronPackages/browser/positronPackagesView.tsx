@@ -112,11 +112,11 @@ export class PositronPackagesView
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Create and append the Positron variables container.
+		// Create and append the Positron packages container.
 		this.positronPackagesContainer = DOM.$('.positron-packages-container');
 		container.appendChild(this.positronPackagesContainer);
 
-		// Create the PositronReactRenderer for the PositronVariables component and render it.
+		// Create the PositronReactRenderer for the PositronPackages component and render it.
 		this.positronReactRenderer = this._register(
 			new PositronReactRenderer(this.positronPackagesContainer),
 		);
