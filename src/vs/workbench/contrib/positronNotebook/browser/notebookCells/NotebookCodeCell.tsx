@@ -24,6 +24,7 @@ import { CellOutputLeftActionMenu } from './CellOutputLeftActionMenu.js';
 import { CodeCellStatusFooter } from './CodeCellStatusFooter.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { Markdown } from './Markdown.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 
 interface CellOutputsSectionProps {
@@ -32,14 +33,28 @@ interface CellOutputsSectionProps {
 }
 
 function CellOutputsSection({ cell, outputs }: CellOutputsSectionProps) {
+	const isCollapsed = useObservedValue(cell.outputIsCollapsed);
+
 	return (
 		<div className={`positron-notebook-outputs-section ${outputs.length > 0 ? '' : 'no-outputs'}`}>
 			<CellOutputLeftActionMenu cell={cell} />
 			<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
 				<div className='positron-notebook-code-cell-outputs-inner'>
-					{outputs?.map((output) => (
-						<CellOutput key={output.outputId} {...output} />
-					))}
+					{isCollapsed
+						? (<Button
+							ariaLabel={localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+							className='show-hidden-output-button'
+							onPressed={() => cell.expandOutput()}
+						>
+							{localize('positron.notebook.showHiddenOutput', 'Show hidden output')}
+						</Button>
+						)
+						: (<>
+							{outputs?.map((output) => (
+								<CellOutput key={output.outputId} {...output} />
+							))}
+						</>
+						)}
 				</div>
 			</div>
 		</div>

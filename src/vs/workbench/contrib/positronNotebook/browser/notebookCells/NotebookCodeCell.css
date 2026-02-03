@@ -53,5 +53,22 @@
 				padding-right: 5px;
 			}
 		}
+
+		/* Button to show hidden outputs styled as a link */
+		.show-hidden-output-button {
+			color: var(--vscode-textLink-foreground);
+			background: none;
+			border: none;
+		}
+
+		.show-hidden-output-button:hover {
+			text-decoration: underline;
+		}
+
+		/* override the global .monaco-workbench button focus outline style */
+		.show-hidden-output-button:focus,
+		.show-hidden-output-button:focus-visible {
+			outline-offset: 2px !important;
+		}
 	}
 }
