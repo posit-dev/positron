@@ -63,7 +63,7 @@ export class Barrier {
  *
  * @returns The wrapped promise
  */
-export function withTimeout<T>(promise: Promise<T>,
+export function withTimeout<T>(promise: Thenable<T>,
 	timeout: number,
 	message: string): Promise<T> {
 	return Promise.race([
