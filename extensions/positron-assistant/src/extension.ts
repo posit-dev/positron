@@ -481,20 +481,33 @@ export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; p
 async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext): Promise<void> {
 	const storedModels = getStoredModels(context);
 
+	// Start with known keys from Posit AI
+	const keysToMigrate: string[] = [
+		'positron.assistant.positai.access_token',
+		'positron.assistant.positai.refresh_token',
+		'positron.assistant.positai.token_expiry',
+	];
+
+	// Add keys for all stored models
 	for (const model of storedModels) {
 		const globalStateKey = `apiKey-${model.id}`;
-		const apiKey = context.globalState.get<string>(globalStateKey);
+		keysToMigrate.push(globalStateKey);
+	}
+
+	// Migrate all keys that exist in global state to encrypted storage
+	for (const key of keysToMigrate) {
+		const apiKey = context.globalState.get<string>(key);
 
 		if (apiKey) {
-			log.info(`Migrating API key for model ${model.id} to encrypted storage`);
+			log.info(`Migrating ${key} to encrypted storage`);
 			try {
 				// Save to encrypted storage
-				await context.secrets.store(globalStateKey, apiKey);
+				await context.secrets.store(key, apiKey);
 				// Remove from global state
-				await context.globalState.update(globalStateKey, undefined);
-				log.info(`Successfully migrated API key for model ${model.id}`);
+				await context.globalState.update(key, undefined);
+				log.info(`Successfully migrated API key for model ${key}`);
 			} catch (error) {
-				log.error(`Failed to migrate API key for model ${model.id}:`, error);
+				log.error(`Failed to migrate API key for model ${key}:`, error);
 			}
 		}
 	}
