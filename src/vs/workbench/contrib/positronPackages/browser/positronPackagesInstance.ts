@@ -121,8 +121,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 			if (pkgs) {
 				this._onDidRefreshPackagesInstance.fire(pkgs);
 			}
-			return;
-
 		} finally {
 			// Completed
 			this._onDidChangeInstallState.fire(false);
@@ -206,9 +204,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async searchPackages(name: string): Promise<ILanguageRuntimePackage[]> {
 		const session = this._session;
-		if (!session) {
-			throw new Error('No active session found.');
-		}
 		if (!session.searchPackages) {
 			throw new Error('Method not implemented.');
 		}
@@ -218,9 +213,6 @@ export class PositronPackagesInstance extends Disposable implements IPositronPac
 
 	async searchPackageVersions(name: string): Promise<string[]> {
 		const session = this._session;
-		if (!session) {
-			throw new Error('No active session found.');
-		}
 		if (!session.searchPackageVersions) {
 			throw new Error('Method not implemented.');
 		}

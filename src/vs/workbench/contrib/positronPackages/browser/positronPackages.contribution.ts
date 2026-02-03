@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../base/common/codicons.js';
-import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import * as nls from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -42,7 +42,7 @@ const viewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensio
 		id: 'workbench.action.positron.openPackages',
 		title: nls.localize2('positronPackages.openPackages', 'Packages'),
 		mnemonicTitle: nls.localize('positronPackages.openPackagesMnemonic', 'Packages'),
-		keybindings: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyE },
+		keybindings: { primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV },
 		order: 0
 	},
 }, ViewContainerLocation.Sidebar, { isDefault: false });
@@ -59,20 +59,6 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronSessionViewIcon,
-			openCommandActionDescriptor: {
-				id: 'workbench.action.positron.togglePackages',
-				mnemonicTitle: nls.localize({ key: 'miTogglePackages', comment: ['&& denotes a mnemonic'] }, '&&Packages'),
-				keybindings: {
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
-				},
-				order: 1,
-			},
-			focusCommand: {
-				id: 'positronPackages.focus',
-				keybindings: {
-					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyV),
-				}
-			},
 			when: ContextKeyExpr.equals('config.positron.environments.enable', true)
 		}
 	],
@@ -149,7 +135,7 @@ class InstallPackageAction extends Action2 {
 					title: nls.localize('positronPackages.installingPackages', 'Installing Packages...'),
 					location: ProgressLocation.Notification,
 					delay: 500
-				}, async (progress) => {
+				}, async (_progress) => {
 					try {
 						await service.installPackages([`${pkg}@${version}`]);
 					} catch (e) {
@@ -214,7 +200,7 @@ class UninstallPackageAction extends Action2 {
 					title: nls.localize('positronPackages.uninstallingPackages', 'Uninstalling Packages...'),
 					location: ProgressLocation.Notification,
 					delay: 500
-				}, async (progress) => {
+				}, async (_progress) => {
 					try {
 						await service.uninstallPackages([pkg]);
 					} catch (e) {
@@ -294,7 +280,7 @@ class UpdatePackageAction extends Action2 {
 					title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 					location: ProgressLocation.Notification,
 					delay: 500
-				}, async (progress) => {
+				}, async (_progress) => {
 					try {
 						await service.updatePackages([`${pkg}@${version}`]);
 					} catch (e) {
@@ -349,7 +335,7 @@ class UpdateAllPackagesAction extends Action2 {
 			title: nls.localize('positronPackages.updatingPackages', 'Updating Packages...'),
 			location: ProgressLocation.Notification,
 			delay: 500
-		}, async (progress) => {
+		}, async (_progress) => {
 			try {
 				await service.updateAllPackages();
 			} catch (e) {
