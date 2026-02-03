@@ -505,9 +505,8 @@ async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext
 				await context.secrets.store(key, apiKey);
 				// Remove from global state
 				await context.globalState.update(key, undefined);
-				log.info(`Successfully migrated API key for model ${key}`);
 			} catch (error) {
-				log.error(`Failed to migrate API key for model ${key}:`, error);
+				log.error(`Failed to migrate API ${key}:`, error);
 			}
 		}
 	}
