@@ -233,7 +233,10 @@
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
             "default": false,
-            "description": "%configuration.useAnthropicSdk.description%"
+            "description": "%configuration.useAnthropicSdk.description%",
+			"tags": [
+			  "advanced"
+			]
           },
           "positron.assistant.streamingEdits.enable": {
             "type": "boolean",
