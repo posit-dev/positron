@@ -260,9 +260,12 @@ export class ChatModelsViewModel extends EditorModel {
 			// --- Start Positron ---
 			if (a.vendor === 'posit-ai') { return -1; }
 			if (b.vendor === 'posit-ai') { return 1; }
-			// --- End Positron ---
+			// Don't show Copilot at the top anymore
+			/*
 			if (a.vendor === 'copilot') { return -1; }
 			if (b.vendor === 'copilot') { return 1; }
+			*/
+			// --- End Positron ---
 			return a.displayName.localeCompare(b.displayName);
 		});
 	}

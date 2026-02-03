@@ -93,9 +93,17 @@ function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, te
 			// Sort vendors for consistent ordering
 			const sortedVendors = Array.from(modelsByVendor.entries())
 				.sort((a, b) => {
+					// --- Start Positron ---
+					// Prioritize Posit AI, then alphabetically
+					if (a[0] === 'posit-ai') { return -1; }
+					if (b[0] === 'posit-ai') { return 1; }
+					// Don't show Copilot at the top anymore
+					/*
 					// Prioritize Copilot, then alphabetically
 					if (a[0] === 'copilot') { return -1; }
 					if (b[0] === 'copilot') { return 1; }
+					*/
+					// --- End Positron ---
 					return a[0].localeCompare(b[0]);
 				});
 
