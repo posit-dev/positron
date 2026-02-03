@@ -21,6 +21,9 @@ import { DropDownListBox } from '../../../../../browser/positronComponents/dropD
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 interface CreateConnectionProps {
 	readonly renderer: PositronModalReactRenderer;
@@ -143,7 +146,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</SimpleCodeEditor>
 			{codeState?.errorMessage && (
 				<div className='connection-error-message'>
-					<span className='codicon codicon-error'></span>
+					<Icon icon={Codicon.error} />
 					{codeState.errorMessage}
 				</div>
 			)}
