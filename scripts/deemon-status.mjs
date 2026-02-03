@@ -179,8 +179,7 @@ async function main() {
 	await done;
 
 	if (noDaemon) {
-		log(opts.name, `Daemon not running, start it first`);
-		process.exit(1);
+		log(opts.name, `Daemon not running`);
 	} else if (state === 'idle') {
 		if (idleAfterReplay) {
 			for (const line of cycleLines) {
