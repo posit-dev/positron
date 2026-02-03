@@ -237,12 +237,13 @@ export function getEnabledTools(
 		// If the tool requires a session to be active for a specific
 		// language, but no active session is available for that
 		// language, don't allow the tool.
-		for (const tag of tool.tags) {
-			if (tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':') &&
-				!activeSessions.has(tag.split(':')[1])) {
-				disabledTools.push({ name: tool.name, reason: `Requires active ${tag.split(':')[1]} session` });
-				continue;
-			}
+		const missingLanguage = tool.tags
+			.filter(tag => tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':'))
+			.map(tag => tag.split(':')[1])
+			.find(lang => !activeSessions.has(lang));
+		if (missingLanguage) {
+			disabledTools.push({ name: tool.name, reason: `Requires active ${missingLanguage} session` });
+			continue;
 		}
 
 		// If the tool requires a notebook, but no notebook is attached with active editor,

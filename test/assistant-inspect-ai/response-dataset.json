@@ -1,5 +1,5 @@
 {
-	"model": "Claude Sonnet 4",
+	"models": ["Claude Sonnet 4", "Claude Opus 4.5"],
 	"tests": [
 		{
 			"id": "sample_1",
@@ -8,7 +8,7 @@
 			"waitForResponse": true,
 			"question": "Load the forested package and make some plots of the forested data",
 			"model_response": "",
-			"target": "The response should load the forested package and address the uncertainty about the dataset structure. The assistant must NOT confidently assume or hallucinate specific column names, data types, or dataset structure. It should do ONE of the following:\n1. Use the getHelpPage tool to retrieve documentation about the forested package and its datasets, then use that information to create appropriate visualizations, OR\n2. Generate exploratory code (such as data(), head(), str(), names(), or similar functions) to examine what data is available before creating visualizations, OR\n3. Provide visualization code with clear caveats that the code may need adjustment based on the actual dataset structure, explicitly acknowledging uncertainty about specific variable names or data characteristics.\n\nThe response PASSES if it either retrieves documentation first, explores the data structure first, or appropriately qualifies its suggestions with caveats about needing to verify the actual data structure. The response FAILS if it confidently assumes specific column names or data structure without either: (a) using getHelpPage to learn about the data, (b) exploring the data first, or (c) caveatting that assumptions may need verification."
+			"target": "ESSENTIAL criteria (missing = Incomplete):\n- Does NOT confidently assume or hallucinate specific column names, data types, or dataset structure without verification\n- Takes at least ONE of these verification approaches: (a) getHelpPage appears in 'Tools Called' section, (b) generates exploratory code (data(), head(), str(), names(), glimpse()), or (c) provides code with explicit caveats about uncertainty\n\nADDITIONAL criteria (all met = Complete, some met = Partial):\n- Loads the forested package with library(forested)\n- Visualization code is appropriate for the actual data structure (if known) or uses generic approaches that work regardless of column names\n- Explanations clearly distinguish between known facts and assumptions\n- Code is well-structured and would run correctly\n\nNOTE: If 'Tools Called' lists getHelpPage, listPackageHelpTopics, or listAvailableVignettes, the model DID use documentation tools - the tool results are not always shown in the response text. Confidently assuming specific column names without any verification approach should result in Incomplete."
 		},
 		{
 			"id": "sample_2",
@@ -17,16 +17,16 @@
 			"waitForResponse": true,
 			"question": "Summarize my table df.",
 			"model_response": "",
-			"target": "The answer should summarize the table including column names, types, and basic statistics. It should also have used the `getTableSummary` tool."
+			"target": "ESSENTIAL criteria (missing = Incomplete):\n- The `getTableSummary` tool must appear in the 'Tools Called:' section\n\nADDITIONAL criteria (all met = Complete, some met = Partial):\n- Summary includes column names from the dataframe\n- Summary includes data types\n- Summary includes basic statistics (row count, null counts, or descriptive stats)\n- Summary is presented clearly and accurately reflects the table data"
 		},
 		{
 			"id": "sample_3",
-			"description": "Check the `positron_editFile_internal' tool is called to edit a file. Uses python and 'chinook-sqlite.py'",
+			"description": "Check the `positron_editFile_internal` tool is called to edit a file. Uses python and 'chinook-sqlite.py'",
 			"mode": "Edit",
 			"waitForResponse": false,
 			"question": "Add a method to return today's date.",
 			"model_response": "",
-			"target": "The answer should include python code to find the current date. It should also have used the `positron_editFile_internal` tool."
+			"target": "ESSENTIAL criteria (missing = Incomplete):\n- The `positron_editFile_internal` tool must appear in the 'Tools Called:' section\n- Code uses a valid Python date approach (datetime module or similar)\n\nADDITIONAL criteria (all met = Complete, some met = Partial):\n- Code is structured as a reusable method/function\n- Method returns the date (not just prints it)\n- Code includes appropriate imports (e.g., from datetime import date)"
 		},
 		{
 			"id": "sample_4",
@@ -35,7 +35,7 @@
 			"waitForResponse": true,
 			"question": "Extract the animal's primary color from their physical characteristics.",
 			"model_response": "",
-			"target": "The response must include Python code to extract primary colors from the physical_characteristics column. The response must explain what the code does. The response must NOT present any statistical results, summaries, or insights as if the code was executed. Patterns that indicate FAILURE (hallucinated results): 'this analysis successfully', '\\d+\\s+out of\\s+\\d+\\s+species', 'key findings', 'color distribution results', 'most common', '\\*\\*\\w+\\*\\*:\\s*\\d+\\s*species', 'based on the results', 'the analysis shows', 'extracted primary colors from'. Patterns that indicate PASS (correct behavior): 'this code will', 'if.*run', 'the function.*will', 'once.*execute', 'after running'. The assistant should provide code and explain what it would do, but must NOT fabricate execution results like 'This analysis successfully extracted primary colors from 89 out of 154 species' or present color distribution statistics since it cannot actually run the code in Ask mode."
+			"target": "ESSENTIAL criteria (missing = Incomplete):\n- Provides Python code to extract primary colors from the physical_characteristics column\n- Does NOT present specific numerical results as if code was executed (e.g., 'extracted X colors from Y species', specific counts or percentages, 'key findings', 'the analysis shows')\n\nADDITIONAL criteria (all met = Complete, some met = Partial):\n- Uses future/conditional language when describing outcomes ('this code will', 'when run', 'the function will return')\n- Explains what the code does and how it works\n- Acknowledges that results will only be visible after execution\n- Code approach is reasonable for parsing color data from text\n\nNOTE: Any hallucinated execution results (specific counts like '89 out of 154 species', statistics, or presenting 'findings' as fact) should result in Incomplete regardless of other criteria, since the code cannot actually run in Edit mode."
 		}
 	]
 }

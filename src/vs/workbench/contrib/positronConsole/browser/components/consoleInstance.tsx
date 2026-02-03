@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -338,7 +338,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
 		const selection = getSelection();
 		if (!selection || selection.type !== 'Range') {
-			props.positronConsoleInstance.focusInput();
+			// Don't steal focus when the user has scrolled up to view history.
+			// Focusing the input causes the browser to scroll it into view.
+			if (!props.positronConsoleInstance.scrollLocked) {
+				props.positronConsoleInstance.focusInput();
+			}
 		}
 	};
 
