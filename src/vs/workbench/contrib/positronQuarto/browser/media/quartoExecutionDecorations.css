@@ -5,11 +5,37 @@
 
 /* Gutter decorations for Quarto cell execution state */
 
-.monaco-editor .quarto-execution-queued {
-	border-left: 5px solid var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
+/* Queued: hollow rectangle using the running color */
+/* Base styles for all queued lines */
+/* Width: 3px content + 1px left border + 1px right border = 5px total */
+/* Note: !important needed to override Monaco's inline width style */
+.monaco-editor .quarto-execution-queued-first,
+.monaco-editor .quarto-execution-queued-middle,
+.monaco-editor .quarto-execution-queued-last,
+.monaco-editor .quarto-execution-queued-single {
+	width: 3px !important;
 	margin-left: 10px;
+	border-left: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-right: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 }
 
+/* First line of multi-line cell: top border */
+.monaco-editor .quarto-execution-queued-first {
+	border-top: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+}
+
+/* Last line of multi-line cell: bottom border */
+.monaco-editor .quarto-execution-queued-last {
+	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+}
+
+/* Single-line cell: all borders */
+.monaco-editor .quarto-execution-queued-single {
+	border-top: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+}
+
+/* Running: filled rectangle */
 .monaco-editor .quarto-execution-running {
 	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 	margin-left: 10px;
@@ -27,7 +53,7 @@
 
 /* Overview ruler markers */
 .monaco-editor .quarto-queued-overview-ruler {
-	background-color: var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
+	background-color: var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 }
 
 .monaco-editor .quarto-running-overview-ruler {

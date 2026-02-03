@@ -38,16 +38,55 @@ export const quartoExecutionRunning = registerColor(
 );
 
 /**
- * Decoration options for queued cells.
+ * Decoration options for queued cells - first line of multi-line cell.
  */
-const queuedDecorationOptions: IModelDecorationOptions = {
-	description: 'quarto-queued-execution',
+const queuedFirstDecorationOptions: IModelDecorationOptions = {
+	description: 'quarto-queued-execution-first',
 	isWholeLine: true,
-	linesDecorationsClassName: 'quarto-execution-queued',
+	linesDecorationsClassName: 'quarto-execution-queued-first',
+	linesDecorationsTooltip: localize('quartoQueued', 'Queued for execution'),
+	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+};
+
+/**
+ * Decoration options for queued cells - middle lines of multi-line cell.
+ */
+const queuedMiddleDecorationOptions: IModelDecorationOptions = {
+	description: 'quarto-queued-execution-middle',
+	isWholeLine: true,
+	linesDecorationsClassName: 'quarto-execution-queued-middle',
+	linesDecorationsTooltip: localize('quartoQueued', 'Queued for execution'),
+	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+};
+
+/**
+ * Decoration options for queued cells - last line of multi-line cell.
+ */
+const queuedLastDecorationOptions: IModelDecorationOptions = {
+	description: 'quarto-queued-execution-last',
+	isWholeLine: true,
+	linesDecorationsClassName: 'quarto-execution-queued-last',
 	linesDecorationsTooltip: localize('quartoQueued', 'Queued for execution'),
 	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
 	overviewRuler: {
-		color: themeColorFromId(quartoExecutionQueued),
+		// Use the same color as running, but with hollow gutter decoration
+		color: themeColorFromId(quartoExecutionRunning),
+		position: OverviewRulerLane.Full,
+	},
+};
+
+/**
+ * Decoration options for queued cells - single line cell.
+ */
+const queuedSingleDecorationOptions: IModelDecorationOptions = {
+	description: 'quarto-queued-execution-single',
+	isWholeLine: true,
+	linesDecorationsClassName: 'quarto-execution-queued-single',
+	linesDecorationsTooltip: localize('quartoQueued', 'Queued for execution'),
+	stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+	overviewRuler: {
+		// Use the same color as running, but with hollow gutter decoration
+		color: themeColorFromId(quartoExecutionRunning),
 		position: OverviewRulerLane.Full,
 	},
 };
@@ -167,10 +206,32 @@ export class QuartoExecutionDecorations extends Disposable implements IEditorCon
 			const state = this._executionManager.getExecutionState(cell.id);
 
 			if (state === CellExecutionState.Queued) {
-				decorations.push({
-					range: new Range(cell.startLine, 1, cell.endLine, 1),
-					options: queuedDecorationOptions,
-				});
+				// For queued cells, apply different decorations per line to form a single outline
+				const isSingleLine = cell.startLine === cell.endLine;
+				if (isSingleLine) {
+					decorations.push({
+						range: new Range(cell.startLine, 1, cell.startLine, 1),
+						options: queuedSingleDecorationOptions,
+					});
+				} else {
+					// First line
+					decorations.push({
+						range: new Range(cell.startLine, 1, cell.startLine, 1),
+						options: queuedFirstDecorationOptions,
+					});
+					// Middle lines
+					for (let line = cell.startLine + 1; line < cell.endLine; line++) {
+						decorations.push({
+							range: new Range(line, 1, line, 1),
+							options: queuedMiddleDecorationOptions,
+						});
+					}
+					// Last line
+					decorations.push({
+						range: new Range(cell.endLine, 1, cell.endLine, 1),
+						options: queuedLastDecorationOptions,
+					});
+				}
 			} else if (state === CellExecutionState.Running) {
 				decorations.push({
 					range: new Range(cell.startLine, 1, cell.endLine, 1),
