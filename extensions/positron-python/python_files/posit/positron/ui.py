@@ -253,7 +253,7 @@ class UiService:
             logger.warning(f"Unhandled request: {request}")
 
     def _call_method(self, rpc_request: CallMethodParams) -> None:
-        func = _RPC_METHODS.get(rpc_request.method, None)
+        func = _RPC_METHODS.get(rpc_request.method)
         if func is None:
             return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
 
