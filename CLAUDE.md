@@ -65,10 +65,10 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 # STEP 1: Check if daemons are already running
 npm run build-ps
 
-# STEP 2: If NOT running, start build daemons (CRITICAL: Wait for completion!)
-npm run watch-clientd &     # Core compilation daemon
-npm run watch-extensionsd & # Extensions compilation daemon
-npm run watch-e2ed &        # E2E tests daemon
+# STEP 2: If NOT running, start build daemons
+npx deemon -- --detach npm run watch-client     # Core compilation daemon
+npx deemon -- --detach npm run watch-extensions # Extensions compilation daemon
+# Optional: npx deemon -- --detach npm run watch-e2e        # E2E tests daemon (only if doing E2E testing)
 
 # STEP 3: Wait for initial compilation (30-60 seconds)
 sleep 30
