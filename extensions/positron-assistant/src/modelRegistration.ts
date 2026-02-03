@@ -173,7 +173,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				// This is needed since auto-configured models are not
 				// stored in persistent storage like manually configured models
 				// are, and configuration data needs to be retrieved from memory.
-				autoconfiguredModels.push(config);
+				addAutoconfiguredModel(config);
 			}
 		} catch (e) {
 			if (!(e instanceof AssistantError) || e.display) {

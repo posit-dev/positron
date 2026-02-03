@@ -33,7 +33,6 @@ export function getCustomModels(providerId: string): ModelDefinition[] {
 	return [];
 }
 
-
 /**
  * Built-in model definitions that serve as fallback defaults when no user configuration
  * is provided and dynamic model querying is not available or fails.

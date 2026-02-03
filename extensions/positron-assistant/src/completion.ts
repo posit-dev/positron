@@ -139,6 +139,11 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 //#region OpenAI Legacy API
 // (OpenAI FIM, Mistral)
 
+/**
+ * This is currently unused code, and this completions provider
+ * can't actually be enabled via settings. This is left here for future
+ * work on completions providers.
+ */
 class OpenAILegacyCompletion extends CompletionModel {
 	url: string;
 
@@ -229,6 +234,11 @@ class OpenAILegacyCompletion extends CompletionModel {
 	}
 }
 
+/**
+ * This is currently unused code, and this completions provider
+ * can't actually be enabled via settings. This is left here for future
+ * work on completions providers.
+ */
 class MistralCompletion extends OpenAILegacyCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
