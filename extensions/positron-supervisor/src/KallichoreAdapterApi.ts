@@ -567,6 +567,8 @@ export class KCApi implements PositronSupervisorApi {
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
 		// HTTP server is ready, so we may need to retry a few times.
+		retry = 0;
+		let status: ServerStatus | undefined = undefined;
 		do {
 
 			// Update elapsed time
@@ -574,24 +576,25 @@ export class KCApi implements PositronSupervisorApi {
 			retry++;
 
 			try {
-				const status = await this._api.api.serverStatus();
-				this.log(`Kallichore ${status.data.version} server online with ${status.data.sessions} sessions`);
+				const serverStatus = await this._api.api.serverStatus();
+				status = serverStatus.data;
+				this.log(`Kallichore ${status.version} server online with ${status.sessions} sessions`);
 
 				// Update the process ID; this can be different than the process
 				// ID in the hosting terminal when the supervisor is run in an
 				// shell and/or with nohup
-				if (processId !== status.data.process_id) {
-					this.log(`Running as pid ${status.data.process_id} (terminal pid ${processId})`);
-					processId = status.data.process_id;
+				if (processId !== status.process_id) {
+					this.log(`Running as pid ${status.process_id} (terminal pid ${processId})`);
+					processId = status.process_id;
 				}
 
 				// Make sure the version is the one expected in package.json.
 				const version = this._context.extension.packageJSON.positron.binaryDependencies.kallichore;
-				if (status.data.version !== version) {
+				if (status.version !== version) {
 					vscode.window.showWarningMessage(vscode.l10n.t(
 						'Positron Supervisor version {0} is unsupported (expected {1}). ' +
 						'This may result in unexpected behavior or errors.',
-						status.data.version,
+						status.version,
 						version)
 					);
 				}
@@ -628,7 +631,7 @@ export class KCApi implements PositronSupervisorApi {
 						// user can see it without clicking over to the logs.
 						if (fs.existsSync(outFile)) {
 							// Note that we don't need to append this content
-							// to the lgos since the output file is already
+							// to the logs since the output file is already
 							// being watched by the log streamer.
 							const contents = fs.readFileSync(outFile, 'utf8');
 							if (contents) {
@@ -637,22 +640,27 @@ export class KCApi implements PositronSupervisorApi {
 						}
 						throw new Error(message);
 					}
-				}
-
-				// If the request times out, go ahead and try again as long as
-				// the startup timeout hasn't been reached. This can happen if
-				// the server is slow to start.
-				if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
+				} else if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
+					// If the request times out, go ahead and try again as long as
+					// the startup timeout hasn't been reached. This can happen if
+					// the server is slow to start.
 					this.log(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
-					continue;
+				} else {
+					// We don't know what happened; re-raise the error
+					this.log(`Failed to get initial server status from Kallichore; ` +
+						`server may not be running or may not be ready. Check the terminal for errors. ` +
+						`Error: ${JSON.stringify(err)}`);
+					throw err;
 				}
-
-				this.log(`Failed to get initial server status from Kallichore; ` +
-					`server may not be running or may not be ready. Check the terminal for errors. ` +
-					`Error: ${JSON.stringify(err)}`);
-				throw err;
 			}
 		} while (elapsed < startupTimeout);
+
+		// If we don't have a status here, something went wrong.
+		if (!status) {
+			let message = `Could not get Kallichore server status after ${elapsed}ms`;
+			this.log(message);
+			throw new Error(message);
+		}
 
 		this.log(`Kallichore server started in ${Date.now() - supervisorStartTime}ms`);
 
