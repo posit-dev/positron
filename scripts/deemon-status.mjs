@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 // @ts-check
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
 
 /**
  * @typedef {{
@@ -15,6 +15,10 @@ import { spawn } from 'child_process';
  */
 
 /** @typedef {'unknown' | 'compiling' | 'idle'} State */
+
+const DEEMON_READY = /\[deemon\] (Spawned|Attached to running) build daemon/;
+const DEEMON_MISSING = /\[deemon\] No daemon running/;
+const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g;
 
 /**
  * @param {string[]} args
@@ -71,11 +75,7 @@ Example:
  * @returns {void}
  */
 function log(name, msg) {
-	if (name) {
-		console.log(`[${name}] ${msg}`);
-	} else {
-		console.log(msg);
-	}
+	console.log(name ? `[${name}] ${msg}` : msg);
 }
 
 /**
@@ -83,116 +83,109 @@ function log(name, msg) {
  * @returns {string}
  */
 function stripAnsi(str) {
-	return str.replace(/\x1b\[[0-9;]*m/g, '');
+	return str.replace(ANSI_ESCAPE, '');
 }
 
-async function main() {
-	const opts = parseArgs(process.argv.slice(2));
+const opts = parseArgs(process.argv.slice(2));
 
-	const child = spawn('npx', ['deemon', '--attach', '--', ...opts.command], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-	});
+const child = spawn('npx', ['deemon', '--attach', '--', ...opts.command], {
+	stdio: ['ignore', 'pipe', 'pipe'],
+});
 
-	let state = /** @type {State} */ ('unknown');
-	/** @type {string[]} */
-	let cycleLines = [];
-	let replayDone = false;
-	let idleAfterReplay = false;
-	let noDaemon = false;
-	/** @type {() => void} */
-	let onIdle;
+let state = /** @type {State} */ ('unknown');
+/** @type {string[]} */
+let cycleLines = [];
+let replayDone = false;
+let idleAfterReplay = false;
+let noDaemon = false;
+/** @type {() => void} */
+let onIdle;
 
-	/**
-	 * @param {string} raw
-	 * @returns {void}
-	 */
-	const processLine = (raw) => {
-		if (raw.includes('[deemon]')) {
-			if (/\[deemon\] (Spawned|Attached to running) build daemon/.test(raw)) {
-				replayDone = true;
-				if (state === 'idle') {
-					idleAfterReplay = true;
-					onIdle();
-				}
-			} else if (/\[deemon\] No daemon running/.test(raw)) {
-				noDaemon = true;
-			}
-			return;
-		}
-
-		const line = stripAnsi(raw);
-
-		if (opts.begins.test(line)) {
-			state = 'compiling';
-			cycleLines = [];
-			cycleLines.push(raw);
-			if (replayDone) {
-				log(opts.name, raw);
-			}
-			return;
-		}
-
-		if (opts.ends.test(line)) {
-			cycleLines.push(raw);
-			state = 'idle';
-			if (replayDone) {
-				log(opts.name, raw);
+/**
+ * @param {string} raw
+ * @returns {void}
+ */
+const processLine = (raw) => {
+	if (raw.includes('[deemon]')) {
+		if (DEEMON_READY.test(raw)) {
+			replayDone = true;
+			if (state === 'idle') {
+				idleAfterReplay = true;
 				onIdle();
 			}
-			return;
+		} else if (DEEMON_MISSING.test(raw)) {
+			noDaemon = true;
 		}
-
-		if (state === 'compiling') {
-			cycleLines.push(raw);
-			if (replayDone) {
-				log(opts.name, raw);
-			}
-		}
-	};
-
-	let pending = '';
-	/**
-	 * @param {Buffer} data
-	 * @returns {void}
-	 */
-	const processData = (data) => {
-		pending += data.toString();
-		const lines = pending.split('\n');
-		pending = lines.pop() || '';
-		for (const line of lines) {
-			processLine(line);
-		}
-	};
-
-	/** @type {Promise<void>} */
-	const done = new Promise((resolve) => {
-		onIdle = () => {
-			child.kill();
-			resolve();
-		};
-		child.on('close', resolve);
-	});
-
-	child.stdout.on('data', processData);
-	child.stderr.on('data', processData);
-
-	await done;
-
-	if (noDaemon) {
-		log(opts.name, `Daemon not running`);
-	} else if (state === 'idle') {
-		if (idleAfterReplay) {
-			for (const line of cycleLines) {
-				log(opts.name, line);
-			}
-		}
-	} else {
-		log(opts.name, 'Daemon stopped before reaching idle');
-		process.exit(1);
+		return;
 	}
+
+	const line = stripAnsi(raw);
+
+	if (opts.begins.test(line)) {
+		state = 'compiling';
+		cycleLines = [raw];
+		if (replayDone) {
+			log(opts.name, raw);
+		}
+		return;
+	}
+
+	if (opts.ends.test(line)) {
+		cycleLines.push(raw);
+		state = 'idle';
+		if (replayDone) {
+			log(opts.name, raw);
+			onIdle();
+		}
+		return;
+	}
+
+	if (state === 'compiling') {
+		cycleLines.push(raw);
+		if (replayDone) {
+			log(opts.name, raw);
+		}
+	}
+};
+
+let pending = '';
+/**
+ * @param {Buffer} data
+ * @returns {void}
+ */
+const processData = (data) => {
+	pending += data.toString();
+	const lines = pending.split('\n');
+	pending = lines.pop() || '';
+	for (const line of lines) {
+		processLine(line);
+	}
+};
+
+/** @type {Promise<void>} */
+const done = new Promise((resolve) => {
+	onIdle = () => {
+		child.kill();
+		resolve();
+	};
+	child.on('close', resolve);
+});
+
+child.stdout.on('data', processData);
+child.stderr.on('data', processData);
+
+await done;
+
+if (noDaemon) {
+	log(opts.name, `Daemon not running`);
+} else if (state === 'idle') {
+	if (idleAfterReplay) {
+		for (const line of cycleLines) {
+			log(opts.name, line);
+		}
+	}
+} else {
+	log(opts.name, 'Daemon stopped before reaching idle');
+	process.exit(1);
 }
 
-main().catch((err) => {
-	console.error(err);
-	process.exit(1);
-});
