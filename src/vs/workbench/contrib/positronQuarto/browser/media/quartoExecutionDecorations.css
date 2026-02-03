@@ -5,31 +5,57 @@
 
 /* Gutter decorations for Quarto cell execution state */
 
+/*
+ * Queued cells: hollow rectangle spanning all lines of the cell.
+ * Uses separate classes for first/middle/last/single line positioning.
+ * All use the same color as running cells.
+ */
+
+/* Base queued styles - left border on all lines */
 .monaco-editor .quarto-execution-queued {
-	border-left: 5px solid var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
-	margin-left: 10px;
+	border-left: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-right: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	width: 10px !important;
+	box-sizing: border-box;
 }
 
-.monaco-editor .quarto-execution-running {
-	border-left: 5px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
-	margin-left: 10px;
-	animation: quarto-pulse 1.5s ease-in-out infinite;
+/* First line of multi-line queued cell - add top border */
+.monaco-editor .quarto-execution-queued-first {
+	border-left: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-right: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-top: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	width: 10px !important;
+	box-sizing: border-box;
 }
 
-@keyframes quarto-pulse {
-	0%, 100% {
-		opacity: 1;
-	}
-	50% {
-		opacity: 0.5;
-	}
+/* Last line of multi-line queued cell - add bottom border */
+.monaco-editor .quarto-execution-queued-last {
+	border-left: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-right: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	border-bottom: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	width: 10px !important;
+	box-sizing: border-box;
 }
 
-/* Overview ruler markers */
-.monaco-editor .quarto-queued-overview-ruler {
-	background-color: var(--vscode-editorGutter-quartoQueuedBackground, #2090D3);
+/* Single-line queued cell - all borders */
+.monaco-editor .quarto-execution-queued-single {
+	border: 1px solid var(--vscode-editorGutter-quartoRunningBackground, #48985D);
+	width: 10px !important;
+	box-sizing: border-box;
 }
 
+/*
+ * Running cells: The visual noise effect is rendered by a canvas overlay widget
+ * in quartoExecutionDecorations.ts. The CSS class is kept invisible but still
+ * used for the overview ruler marker and tooltip.
+ */
+.monaco-editor .margin-view-overlays .cldr.quarto-execution-running {
+	/* Visual rendering handled by canvas overlay - keep this invisible */
+	width: 10px !important;
+}
+
+/* Overview ruler markers - both use the same running color */
+.monaco-editor .quarto-queued-overview-ruler,
 .monaco-editor .quarto-running-overview-ruler {
 	background-color: var(--vscode-editorGutter-quartoRunningBackground, #48985D);
 }
