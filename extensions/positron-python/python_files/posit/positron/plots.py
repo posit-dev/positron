@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 from .plot_comm import (
     GetIntrinsicSizeRequest,
@@ -60,6 +60,9 @@ class Plot:
         The code fragment that produced the plot.
     figure_num
         The matplotlib figure number, used for generating plot names.
+    on_close
+        An optional callback to invoke when the plot is closed. Used to clean up
+        external resources (e.g., closing the matplotlib figure).
     """
 
     def __init__(
@@ -71,6 +74,7 @@ class Plot:
         execution_id: str,
         code: str,
         figure_num: int | str,
+        on_close: Callable[[], None] | None = None,
     ) -> None:
         self._comm = comm
         self._render = render
@@ -79,6 +83,7 @@ class Plot:
         self._execution_id = execution_id
         self._code = code
         self._figure_num = figure_num
+        self._on_close = on_close
 
         self._closed = False
 
@@ -103,6 +108,11 @@ class Plot:
         if self._closed:
             return
         self._closed = True
+
+        # Invoke the on_close callback to clean up external resources.
+        if self._on_close is not None:
+            self._on_close()
+
         self._comm.close()
 
     def show(self) -> None:
@@ -208,6 +218,7 @@ class PlotsService:
         execution_id: str,
         code: str,
         figure_num: int | str,
+        on_close: Callable[[], None] | None = None,
     ) -> Plot:
         """
         Create a plot.
@@ -226,6 +237,8 @@ class PlotsService:
             The code fragment that produced the plot.
         figure_num
             The matplotlib figure number, used for generating plot names.
+        on_close
+            An optional callback to invoke when the plot is closed.
 
         See Also
         --------
@@ -234,7 +247,7 @@ class PlotsService:
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
         plot_comm = PositronComm.create(self._target_name, comm_id)
-        plot = Plot(plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num)
+        plot = Plot(plot_comm, render, intrinsic_size, kind, execution_id, code, figure_num, on_close)
         self._plots.append(plot)
         return plot
 

@@ -91,14 +91,23 @@ class FigureManagerPositron(FigureManagerBase):
         content: dict[str, Any] = cast("dict[str, Any]", parent.get("content", {}))
         execution_id: str = header.get("msg_id", "")
         code: str = content.get("code", "")
+        num: int | str = num
 
         # Detect which plotting library was used
         kind = _detect_plotting_library()
 
+        # Create a callback to close the matplotlib figure when the plot is closed.
+        # This ensures matplotlib's internal figure cache is cleared when the frontend
+        # closes the plot, preventing figures from being restored when the comm reopens.
+        def on_close() -> None:
+            import matplotlib.pyplot as plt
+
+            plt.close(num)
+
         # Create the plot instance via the plots service.
         self._plots_service = kernel.plots_service
         self._plot = self._plots_service.create_plot(
-            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num
+            canvas.render, canvas.intrinsic_size, kind, execution_id, code, num, on_close
         )
 
     @property
