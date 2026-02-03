@@ -472,11 +472,46 @@ export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; p
 	return requestTokenUsage.get(requestId);
 }
 
+/**
+ * One-time migration to move API keys from global state to encrypted storage.
+ *
+ * Previously, API keys were stored in global state in web mode.  This migration
+ * moves those keys to encrypted storage and removes them from global state.
+ */
+async function migrateApiKeysToEncryptedStorage(context: vscode.ExtensionContext): Promise<void> {
+	const storedModels = getStoredModels(context);
+
+	for (const model of storedModels) {
+		const globalStateKey = `apiKey-${model.id}`;
+		const apiKey = context.globalState.get<string>(globalStateKey);
+
+		if (apiKey) {
+			log.info(`Migrating API key for model ${model.id} to encrypted storage`);
+			try {
+				// Save to encrypted storage
+				await context.secrets.store(globalStateKey, apiKey);
+				// Remove from global state
+				await context.globalState.update(globalStateKey, undefined);
+				log.info(`Successfully migrated API key for model ${model.id}`);
+			} catch (error) {
+				log.error(`Failed to migrate API key for model ${model.id}:`, error);
+			}
+		}
+	}
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
 	tokenTracker = new TokenTracker(context);
+
+	// Migrate API keys from global state to encrypted storage. This is a
+	// one-time migration of keys that were stored in global state in versions
+	// of Positron 2026.01 and prior.
+	//
+	// This migration can be removed in a future version.
+	await migrateApiKeysToEncryptedStorage(context);
 
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
