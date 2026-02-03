@@ -88,10 +88,8 @@ export class AnthropicAIModelProvider extends VercelModelProvider implements pos
 	 * @param _context - VS Code extension context for storage and features
 	 */
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
-		// Initialize native client before super() calls initializeProvider()
-		// Note: We need to initialize _client here because initializeProvider() is
-		// called from the parent constructor, and _client must be set by then.
 		super(_config, _context);
+		// Initialize native client for API operations like model listing
 		this._client = new Anthropic({ apiKey: _config.apiKey });
 	}
 
