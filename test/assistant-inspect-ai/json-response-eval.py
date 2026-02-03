@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------------------------
-# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 """
@@ -82,12 +82,17 @@ def json_model_graded_eval():
 		data = json.load(f)
 
 	test_data = data.get("tests", [])
-	model_name = "anthropic/claude-haiku-4-5-20251001"
+	# Get the model that generated the responses (for tracking in logs)
+	response_model = data.get("model", "Unknown Model")
+	scorer_model = "anthropic/claude-haiku-4-5-20251001"
 
 	# Create samples from the loaded JSON data
 	samples = [record_to_sample(record) for record in test_data]
 	# Create a dataset from the samples
 	dataset = samples
+
+	# Create task name that includes the model being evaluated
+	task_name = f"json_model_graded_eval ({response_model})"
 
 	return Task(
 		dataset=dataset,
@@ -99,7 +104,7 @@ You are an expert evaluator for checking how well LLMs respond and use tools in 
 
 CRITICAL INSTRUCTIONS:
 1. The question asked does not matter as much as the criteria provided in the target. Focus ENTIRELY on whether the response meets the criteria.
-2. When the criteria mentions specific tools called, they should be included in the response in a section denoted by "Tools Called:".
+2. When the criteria mentions that a specific tools must be called, they should be included in the response in a section denoted by "Tools Called:".
 
 GRADING SCALE:
 - C (Complete): ALL criteria are met
@@ -112,6 +117,8 @@ EXPLANATION: [Brief explanation focusing ONLY on how well the specified criteria
 			""",
 			grade_pattern=r"GRADE:\s*([CPI])",
 			partial_credit=True,
-			model=model_name
+			model=scorer_model
 		),
+		name=task_name,
+		metadata={"response_model": response_model, "input_file": input_filename},
 	)
