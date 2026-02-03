@@ -133,7 +133,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
 		</div>
 
-		<div className={`create-connection-code-editor${codeState?.errorMessage ? ' has-error' : ''}`}>
+		<div className={positronClassNames('create-connection-code-editor', { 'has-error': codeState?.errorMessage })}>
 			<SimpleCodeEditor
 				ref={editorRef}
 				code={codeState?.code || ''}
@@ -172,7 +172,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
 			</PositronButton>
 			<PositronButton
-				className={`button action-bar-button${!codeState?.errorMessage ? ' default' : ''}`}
+				className={`button action-bar-button`}
 				disabled={!codeState || !!codeState.errorMessage}
 				onPressed={onConnectHandler}
 			>
