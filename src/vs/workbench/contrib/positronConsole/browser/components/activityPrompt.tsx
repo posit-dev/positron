@@ -7,12 +7,13 @@
 import './activityPrompt.css';
 
 // React.
-import React, { KeyboardEvent, useEffect, useRef } from 'react';
+import React, { KeyboardEvent, useCallback, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../../base/common/event.js';
 import { KeyCode } from '../../../../../base/common/keyCodes.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { StandardKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
@@ -30,6 +31,23 @@ export interface ActivityPromptProps {
 }
 
 /**
+ * Inserts text at the current selection in the editor, stripping newlines.
+ * Used for paste operations in single-line activity prompts.
+ */
+const insertTextAtSelection = (editor: CodeEditorWidget, text: string) => {
+	const cleanedText = text.replace(/[\r\n]+/g, ' ');
+	const selection = editor.getSelection();
+	if (selection) {
+		const startPosition = selection.getStartPosition();
+		editor.executeEdits('paste', [EditOperation.replace(selection, cleanedText)]);
+		editor.setPosition({
+			lineNumber: startPosition.lineNumber,
+			column: startPosition.column + cleanedText.length
+		});
+	}
+};
+
+/**
  * ActivityPrompt component.
  * @param props An ActivityPromptProps that contains the component properties.
  * @returns The rendered component.
@@ -39,8 +57,8 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
-	const passwordInputRef = useRef<HTMLInputElement>(undefined!);
-	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+	const passwordInputRef = useRef<HTMLInputElement>(null);
+	const editorContainerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<CodeEditorWidget | null>(null);
 
 	// Whether to use the password input (HTML input) or the editor (CodeEditorWidget).
@@ -50,19 +68,15 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	/**
 	 * Focuses the appropriate input element.
 	 */
-	const focusInput = () => {
+	const focusInput = useCallback(() => {
 		if (isPassword) {
-			if (passwordInputRef.current) {
-				passwordInputRef.current.scrollIntoView({ behavior: 'auto' });
-				passwordInputRef.current.focus();
-			}
+			passwordInputRef.current?.scrollIntoView({ behavior: 'auto' });
+			passwordInputRef.current?.focus();
 		} else {
-			if (editorRef.current) {
-				editorContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-				editorRef.current.focus();
-			}
+			editorContainerRef.current?.scrollIntoView({ behavior: 'auto' });
+			editorRef.current?.focus();
 		}
-	};
+	}, [isPassword]);
 
 	// Set up the CodeEditorWidget for non-password prompts.
 	useEffect(() => {
@@ -105,7 +119,42 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 		);
 		editor.setModel(model);
 
-		// Handle keyboard events.
+		// Handle paste and select all via capture phase to intercept before VS Code's keybinding system.
+		// This is necessary because the keybinding system processes events before the editor's handlers.
+		const container = editorContainerRef.current;
+		const handleKeydownCapture = async (e: globalThis.KeyboardEvent) => {
+			const ke = new StandardKeyboardEvent(e);
+			const cmdOrCtrlKey = isMacintosh ? ke.metaKey && !ke.ctrlKey : ke.ctrlKey && !ke.metaKey;
+
+			// Cmd/Ctrl+V - paste from clipboard.
+			if (ke.keyCode === KeyCode.KeyV && cmdOrCtrlKey && !ke.shiftKey && !ke.altKey) {
+				ke.preventDefault();
+				ke.stopPropagation();
+
+				const clipboardText = await services.clipboardService.readText();
+				if (clipboardText) {
+					insertTextAtSelection(editor, clipboardText);
+				}
+				return;
+			}
+
+			// Cmd/Ctrl+A - select all text in the editor.
+			if (ke.keyCode === KeyCode.KeyA && cmdOrCtrlKey && !ke.shiftKey && !ke.altKey) {
+				ke.preventDefault();
+				ke.stopPropagation();
+
+				const textModel = editor.getModel();
+				if (textModel) {
+					const fullModelRange = textModel.getFullModelRange();
+					editor.setSelection(fullModelRange);
+				}
+				return;
+			}
+		};
+		container.addEventListener('keydown', handleKeydownCapture, true);
+		disposableStore.add({ dispose: () => container.removeEventListener('keydown', handleKeydownCapture, true) });
+
+		// Handle keyboard events for Enter and Ctrl+C.
 		disposableStore.add(editor.onKeyDown(async e => {
 			// Enter key - submit the prompt.
 			if (e.keyCode === KeyCode.Enter) {
@@ -115,59 +164,45 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 				return;
 			}
 
-			// Ctrl+C - interrupt the runtime.
+			// Ctrl+C handling (matches consoleInput.tsx behavior).
 			if (e.keyCode === KeyCode.KeyC && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
 				e.preventDefault();
 				e.stopPropagation();
-				props.positronConsoleInstance.interrupt();
-				return;
-			}
 
-			// Cmd+V (Mac) or Ctrl+V (Windows/Linux) - paste from clipboard.
-			// VS Code's keybinding system intercepts paste before it reaches the editor,
-			// so we handle it explicitly here.
-			const isPasteKey = e.keyCode === KeyCode.KeyV &&
-				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
-				!e.shiftKey && !e.altKey;
-			if (isPasteKey) {
-				e.preventDefault();
-				e.stopPropagation();
-
-				const clipboardText = await services.clipboardService.readText();
-				if (clipboardText) {
-					// Insert at current selection (replaces selection if any).
-					// Uses EditOperation.replace for consistency with consoleInput.tsx.
+				// On macOS, Ctrl+C always interrupts the runtime.
+				// On Windows/Linux, Ctrl+C copies if there's a selection, otherwise interrupts.
+				if (isMacintosh) {
+					props.positronConsoleInstance.interrupt();
+				} else {
 					const selection = editor.getSelection();
-					if (selection) {
-						editor.executeEdits('paste', [
-							EditOperation.replace(selection, clipboardText)
-						]);
-					}
-				}
-				return;
-			}
-
-			// Cmd+A (Mac) or Ctrl+A (Windows/Linux) - select all text in the editor.
-			// Handled explicitly to prevent the event from bubbling to the console
-			// which would select all console output instead.
-			const isSelectAllKey = e.keyCode === KeyCode.KeyA &&
-				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
-				!e.shiftKey && !e.altKey;
-			if (isSelectAllKey) {
-				e.preventDefault();
-				e.stopPropagation();
-
-				const selection = editor.getSelection();
-				const textModel = editor.getModel();
-				if (selection && textModel) {
-					const fullModelRange = textModel.getFullModelRange();
-					if (!selection.equalsRange(fullModelRange)) {
-						editor.setSelection(fullModelRange);
+					if (!selection || selection.isEmpty()) {
+						props.positronConsoleInstance.interrupt();
+					} else {
+						const textModel = editor.getModel();
+						if (textModel) {
+							const value = textModel.getValueInRange(selection);
+							await services.clipboardService.writeText(value);
+						}
 					}
 				}
 				return;
 			}
 		}));
+
+		// Handle paste events from context menu and drag-drop via DOM paste event.
+		// We intercept BEFORE the editor processes the paste so there's only one undo operation.
+		const handlePasteCapture = (e: ClipboardEvent) => {
+			const clipboardText = e.clipboardData?.getData('text/plain');
+			if (clipboardText && (clipboardText.includes('\n') || clipboardText.includes('\r'))) {
+				// Prevent the native paste since we'll insert cleaned text manually.
+				e.preventDefault();
+				e.stopPropagation();
+				insertTextAtSelection(editor, clipboardText);
+			}
+			// If no newlines, let the native paste handle it.
+		};
+		container.addEventListener('paste', handlePasteCapture, true);
+		disposableStore.add({ dispose: () => container.removeEventListener('paste', handlePasteCapture, true) });
 
 		// Stop mouse down events from propagating to the ConsoleInstance, which has its
 		// own context menu. This allows the editor's context menu to appear on right-click.
@@ -180,7 +215,6 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 		editorRef.current = editor;
 
 		// Layout the editor to match container size.
-		const container = editorContainerRef.current;
 		editor.layout({ width: container.clientWidth, height: container.clientHeight });
 
 		// Focus the editor.
@@ -209,13 +243,13 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 
 		// Handle paste via capture phase to intercept before VS Code's keybinding system.
 		const handlePasteKeydown = async (e: globalThis.KeyboardEvent) => {
-			const isPasteKey = e.key === 'v' &&
-				(isMacintosh ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
-				!e.shiftKey && !e.altKey;
+			const ke = new StandardKeyboardEvent(e);
+			const cmdOrCtrlKey = isMacintosh ? ke.metaKey && !ke.ctrlKey : ke.ctrlKey && !ke.metaKey;
+			const isPasteKey = ke.keyCode === KeyCode.KeyV && cmdOrCtrlKey && !ke.shiftKey && !ke.altKey;
 
 			if (isPasteKey) {
-				e.preventDefault();
-				e.stopPropagation();
+				ke.preventDefault();
+				ke.stopPropagation();
 
 				const clipboardText = await services.clipboardService.readText();
 				if (clipboardText) {
@@ -249,25 +283,27 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 		}));
 
 		return () => disposableStore.dispose();
-	}, [props.positronConsoleInstance, isPassword]);
+	}, [props.positronConsoleInstance, focusInput]);
 
 	/**
 	 * Password input keydown handler.
 	 * @param e A KeyboardEvent that describes a user interaction with the keyboard.
 	 */
 	const passwordKeyDownHandler = (e: KeyboardEvent<HTMLInputElement>) => {
+		const ke = new StandardKeyboardEvent(e.nativeEvent);
+
 		// Enter key - submit the prompt.
-		if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-			e.preventDefault();
-			e.stopPropagation();
+		if (ke.keyCode === KeyCode.Enter && !ke.ctrlKey && !ke.metaKey && !ke.shiftKey && !ke.altKey) {
+			ke.preventDefault();
+			ke.stopPropagation();
 			props.positronConsoleInstance.replyToPrompt(passwordInputRef.current?.value ?? '');
 			return;
 		}
 
 		// Ctrl+C - interrupt the runtime.
-		if (e.key === 'c' && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-			e.preventDefault();
-			e.stopPropagation();
+		if (ke.keyCode === KeyCode.KeyC && ke.ctrlKey && !ke.metaKey && !ke.shiftKey && !ke.altKey) {
+			ke.preventDefault();
+			ke.stopPropagation();
 			props.positronConsoleInstance.interrupt();
 			return;
 		}
