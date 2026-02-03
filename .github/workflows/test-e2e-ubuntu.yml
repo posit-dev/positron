@@ -255,6 +255,7 @@ jobs:
       - name: 🧪 Run Playwright Tests
         shell: bash
         env:
+          PW_PROJECT_NAME: ${{ inputs.project }}
           PLAYWRIGHT_BROWSERS_PATH: .playwright-browsers
           POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
