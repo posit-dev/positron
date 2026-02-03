@@ -71,7 +71,7 @@ python inspect_result_parser.py <json_log_file> --threshold 0.8
 ### 1. Run the e2e test to capture responses
 
 ```bash
-npx playwright test inspect-ai.test.ts --project e2e-electron
+npx playwright test --project e2e-electron
 ```
 
 ### 2. Run the Inspect AI evaluation for each model
