@@ -172,10 +172,8 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 	<script type="module" nonce="${nonce}">
 		import * as pdfjsLib from '${pdfJsUri}';
 
-		// Configure worker.
 		pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsUri}'.replace('pdf.mjs', 'pdf.worker.mjs');
 
-		// Decode PDF data.
 		const base64 = '${base64PdfData}';
 		const binary = atob(base64);
 		const bytes = new Uint8Array(binary.length);
@@ -189,7 +187,6 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 		let currentPage = 1;
 		let canvases = [];
 
-		// Load and render PDF.
 		pdfjsLib.getDocument({ data: bytes }).promise.then(async pdf => {
 			console.log('PDF loaded, pages:', pdf.numPages);
 			pdfDoc = pdf;
@@ -210,22 +207,28 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 
 				const canvas = document.createElement('canvas');
 				canvas.className = 'page';
-				canvas.height = viewport.height;
-				canvas.width = viewport.width;
+
+				const outputScale = window.devicePixelRatio || 1;
+				canvas.width = Math.floor(viewport.width * outputScale);
+				canvas.height = Math.floor(viewport.height * outputScale);
+				canvas.style.width = Math.floor(viewport.width) + 'px';
+				canvas.style.height = Math.floor(viewport.height) + 'px';
+
 				canvas.dataset.pageNum = pageNum;
 
 				container.appendChild(canvas);
 				canvases.push(canvas);
 
 				const context = canvas.getContext('2d');
+				const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
 				await page.render({
 					canvasContext: context,
-					viewport: viewport
+					viewport: viewport,
+					transform: transform
 				}).promise;
 			}
 		}
 
-		// Toolbar controls.
 		document.getElementById('zoomIn').addEventListener('click', async () => {
 			currentScale *= 1.2;
 			await renderAllPages();
@@ -270,7 +273,6 @@ export class PdfPreviewProvider implements vscode.CustomReadonlyEditorProvider {
 			}
 		}
 
-		// Update current page based on scroll position.
 		container.addEventListener('scroll', () => {
 			const containerTop = container.scrollTop + 50;
 			for (let i = 0; i < canvases.length; i++) {
