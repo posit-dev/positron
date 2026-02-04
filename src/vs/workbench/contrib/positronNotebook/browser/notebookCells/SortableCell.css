@@ -53,13 +53,18 @@ body.dragging-notebook-cell * {
 	cursor: grabbing !important;
 }
 
-/* Cell being dragged (placeholder) */
+/* Cell being dragged - ensure it appears above others */
 .sortable-cell.dragging {
-	opacity: 0.4;
+	z-index: 10;
 }
 
 /* Hide cell action bar during drag for cleaner preview */
 .sortable-cell.dragging .positron-notebooks-cell-action-bar {
+	display: none;
+}
+
+/* Hide execution order badge during drag for cleaner preview */
+.sortable-cell.dragging .left-hand-action-container {
 	display: none;
 }
 
@@ -81,12 +86,62 @@ body.dragging-notebook-cell * {
 	pointer-events: none;
 }
 
-/* Drag overlay (preview following cursor) */
-.cell-drag-overlay {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	border-radius: 4px;
-	background: var(--vscode-editor-background);
-	border: 1px solid var(--vscode-focusBorder);
-	opacity: 0.95;
-	pointer-events: none;
+/* Container for drag indicator lines */
+.drag-lines-container {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 4px 12px;
 }
+
+.drag-lines-above {
+	margin-bottom: 4px;
+}
+
+.drag-lines-below {
+	margin-top: 4px;
+}
+
+/* Individual drag indicator line */
+.drag-indicator-line {
+	height: 4px;
+	background-color: var(--vscode-widget-border);
+	border-radius: 2px;
+	opacity: 0.7;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	animation: line-appear 150ms ease-out;
+}
+
+@keyframes line-appear {
+	from {
+		opacity: 0;
+		transform: scaleX(0.8);
+	}
+	to {
+		opacity: 0.7;
+		transform: scaleX(1);
+	}
+}
+
+/* Collapse secondary drag participants (cells selected but not being directly dragged) */
+.sortable-cell.secondary-drag {
+	opacity: 0;
+	max-height: 0;
+	overflow: hidden;
+	margin: 0;
+	padding: 0;
+	pointer-events: none;
+	transition: opacity 150ms ease, max-height 150ms ease;
+}
+
+/* Hide add cell buttons adjacent to secondary drag participants */
+.sortable-cell.secondary-drag + .positron-add-cell-buttons {
+	opacity: 0;
+	max-height: 0;
+	overflow: hidden;
+	margin: 0;
+	padding: 0;
+	pointer-events: none;
+	transition: opacity 150ms ease, max-height 150ms ease;
+}
+

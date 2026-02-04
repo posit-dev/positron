@@ -32,6 +32,7 @@ import { useContextKeyValue } from './useContextKeyValue.js';
 import { CONTEXT_FIND_WIDGET_VISIBLE } from '../../../../editor/contrib/find/browser/findModel.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { IDeletionSentinel } from './IPositronNotebookInstance.js';
+import { getSelectedCells } from './selectionMachine.js';
 
 
 export function PositronNotebookComponent() {
@@ -94,6 +95,16 @@ export function PositronNotebookComponent() {
 		notebookInstance.moveCell(oldIndex, newIndex);
 	}, [notebookInstance]);
 
+	// Handler for multi-cell drag-and-drop reordering
+	const handleMultiReorder = React.useCallback((cells: IPositronNotebookCell[], targetIndex: number) => {
+		notebookInstance.moveCells(cells, targetIndex);
+	}, [notebookInstance]);
+
+	// Get currently selected cells for multi-drag support
+	const getSelectedCellsCallback = React.useCallback(() => {
+		return getSelectedCells(notebookInstance.selectionStateMachine.state.get());
+	}, [notebookInstance]);
+
 	// Check if notebook is read-only
 	const isReadOnly = notebookInstance.isReadOnly;
 
@@ -111,6 +122,8 @@ export function PositronNotebookComponent() {
 				<SortableCellList
 					cells={notebookCells}
 					disabled={isReadOnly}
+					getSelectedCells={getSelectedCellsCallback}
+					onMultiReorder={handleMultiReorder}
 					onReorder={handleReorder}
 				>
 					{renderCellsAndSentinels(notebookCells, deletionSentinels, services)}
