@@ -45,6 +45,59 @@ interface ConcreteModelProviderConstructor {
 }
 
 /**
+ * Result of resolving autoconfigure credentials for a model.
+ */
+interface ResolvedCredentials {
+	apiKey: string;
+	baseUrl?: string;
+	autoconfigure: NonNullable<ModelConfig['autoconfigure']>;
+}
+
+/**
+ * Resolves credentials for an autoconfigurable model based on its autoconfigure type.
+ * Returns undefined if credentials cannot be resolved.
+ */
+async function resolveAutoconfigureCredentials(model: ConcreteModelProviderConstructor): Promise<ResolvedCredentials | undefined> {
+	const { autoconfigure } = model.source.defaults;
+
+	if (!autoconfigure) {
+		return undefined;
+	}
+
+	if (autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
+		const key = autoconfigure.key;
+		const apiKey = key ? process.env[key] : undefined;
+		if (key && apiKey) {
+			return {
+				apiKey,
+				autoconfigure: {
+					type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+					key,
+					signedIn: true,
+				}
+			};
+		}
+	} else if (autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
+		if (model.autoconfigure) {
+			const result = await model.autoconfigure();
+			if (result.configured && result.configuration?.apiKey) {
+				return {
+					apiKey: result.configuration.apiKey,
+					baseUrl: result.configuration.baseUrl,
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.Custom,
+						message: result.message,
+						signedIn: true,
+					}
+				};
+			}
+		}
+	}
+
+	return undefined;
+}
+
+/**
  * Gets all available language model provider classes.
  *
  * @returns Array of all provider classes that can be instantiated
@@ -94,54 +147,21 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 			continue;
 		}
 
-		if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
-			// Handle environment variable based auto-configuration
-			const key = model.source.defaults.autoconfigure.key;
-			// pragma: allowlist nextline secret
-			const apiKey = key ? process.env[key] : undefined;
-
-			if (key && apiKey) {
-				const modelConfig: ModelConfig = {
-					id: `${model.source.provider.id}`,
-					provider: model.source.provider.id,
-					type: positron.PositronLanguageModelType.Chat,
-					name: model.source.provider.displayName,
-					model: model.source.defaults.model,
-					apiKey: apiKey,
-					toolCalls: model.source.defaults.toolCalls,
-					completions: model.source.defaults.completions,
-					autoconfigure: {
-						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
-						key: key,
-						signedIn: true,
-					}
-				};
-				modelConfigs.push(modelConfig);
-			}
-		} else if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
-			// Handle custom auto-configuration
-			if (model.autoconfigure !== undefined) {
-				const result = await model.autoconfigure();
-				if (result.configured) {
-					const modelConfig: ModelConfig = {
-						id: `${model.source.provider.id}`,
-						provider: model.source.provider.id,
-						type: positron.PositronLanguageModelType.Chat,
-						name: model.source.provider.displayName,
-						model: model.source.defaults.model,
-						// Apply configuration from autoconfigure result
-						...(result.configuration?.apiKey && { apiKey: result.configuration.apiKey }),
-						...(result.configuration?.baseUrl && { baseUrl: result.configuration.baseUrl }),
-						// pragma: allowlist nextline secret
-						autoconfigure: {
-							type: positron.ai.LanguageModelAutoconfigureType.Custom,
-							message: result.message,
-							signedIn: true
-						}
-					};
-					modelConfigs.push(modelConfig);
-				}
-			}
+		const credentials = await resolveAutoconfigureCredentials(model);
+		if (credentials) {
+			const modelConfig: ModelConfig = {
+				id: `${model.source.provider.id}`,
+				provider: model.source.provider.id,
+				type: positron.PositronLanguageModelType.Chat,
+				name: model.source.provider.displayName,
+				model: model.source.defaults.model,
+				toolCalls: model.source.defaults.toolCalls,
+				completions: model.source.defaults.completions,
+				apiKey: credentials.apiKey,
+				...(credentials.baseUrl && { baseUrl: credentials.baseUrl }),
+				autoconfigure: credentials.autoconfigure,
+			};
+			modelConfigs.push(modelConfig);
 		}
 	}
 
