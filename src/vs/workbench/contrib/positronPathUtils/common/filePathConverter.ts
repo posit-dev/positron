@@ -8,36 +8,26 @@ import { URI } from '../../../../base/common/uri.js';
 import { relativePath, isEqualOrParent } from '../../../../base/common/resources.js';
 
 /**
- * Options for formatting a file path for use in code.
+ * A resolved base directory for relative path calculation.
  */
-export interface FormatPathForCodeOptions {
-	/**
-	 * Whether to prefer relative paths when baseUri is available.
-	 */
-	preferRelative?: boolean;
-
-	/**
-	 * Base URI for relative path calculation (typically the workspace folder).
-	 */
-	baseUri?: URI;
-
-	/**
-	 * User home directory URI for home-relative path calculation.
-	 */
-	homeUri?: URI;
+export interface ResolvedBase {
+	/** The base URI to make paths relative to */
+	uri: URI;
+	/** Optional prefix to prepend to relative paths (e.g., '~/' for home) */
+	prefix?: string;
 }
 
 /**
  * Converts clipboard files to forward-slash, quoted file paths.
- * Optionally, returns relative paths.
+ * Optionally makes paths relative to provided base directories.
  *
  * @param uriListData Raw URI list data from clipboard
- * @param options Options for path conversion
+ * @param bases Base directories to try for relative path calculation, in priority order
  * @returns Array of quoted, forward-slash file paths, or null if no conversion should be applied
  */
 export function convertClipboardFiles(
 	uriListData: string,
-	options?: FormatPathForCodeOptions
+	bases?: ResolvedBase[]
 ): string[] | null {
 	let filePaths: string[] = [];
 
@@ -64,39 +54,33 @@ export function convertClipboardFiles(
 		return null;
 	}
 
-	return filePaths.map(filePath => formatPathForCode(filePath, options));
+	return filePaths.map(filePath => formatPathForCode(filePath, bases));
 }
 
 /**
  * Formats a file path for use in code: forward slashes, optionally relative,
  * wrapped in double quotes with escaped internal quotes.
  *
- * Priority: workspace-relative > home-relative > absolute
- *
  * @param filePath The file path to format
- * @param options Options for path formatting
+ * @param bases Base directories to try for relative path calculation, in priority order
  * @returns Quoted forward-slash path: "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
  */
-export function formatPathForCode(filePath: string, options?: FormatPathForCodeOptions): string {
+export function formatPathForCode(filePath: string, bases?: ResolvedBase[]): string {
 	if (!filePath) {
 		return '';
 	}
 
 	let processedPath = filePath;
 
-	// If requested and possible, make a relative path
-	if (options?.preferRelative) {
+	// Try each base in order to find a relative path
+	if (bases) {
 		const fileUri = URI.file(filePath);
 
-		// Try workspace-relative first
-		const workspaceRelative = getRelativePathIfInside(fileUri, options.baseUri);
-		if (workspaceRelative) {
-			processedPath = workspaceRelative;
-		} else {
-			// If workspace-relative failed, try home-relative
-			const homeRelative = getRelativePathIfInside(fileUri, options.homeUri);
-			if (homeRelative) {
-				processedPath = `~/${homeRelative}`;
+		for (const base of bases) {
+			const relative = getRelativePathIfInside(fileUri, base.uri);
+			if (relative) {
+				processedPath = base.prefix ? `${base.prefix}${relative}` : relative;
+				break;
 			}
 		}
 	}

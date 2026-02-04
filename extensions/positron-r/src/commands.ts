@@ -468,37 +468,12 @@ async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 }
 
 /**
- * Gets R's current working directory by executing getwd().
- * @returns The working directory path, or undefined if unable to retrieve
- */
-async function getRWorkingDirectory(): Promise<string | undefined> {
-	try {
-		const result = await positron.runtime.executeCode(
-			'r',
-			'getwd()',
-			false, // don't focus console
-			false, // don't allow incomplete
-			positron.RuntimeCodeExecutionMode.Interactive
-		);
-		// Result is a Record<string, any> with MIME types as keys
-		// The text/plain value should be the path, e.g., "[1] \"/Users/jenny/work\""
-		const textResult = result?.['text/plain'];
-		if (typeof textResult === 'string') {
-			// Extract just the path from R's output
-			const match = textResult.match(/"([^"]+)"/);
-			return match ? match[1] : undefined;
-		}
-		return undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-/**
  * Gets the file path for loading operations.
+ * Formats the path for use in R console: forward slashes, relative to R
+ * session's working directory if possible, otherwise home-relative or absolute.
  *
  * @param resource Optional URI from context menu
- * @returns The file path, or undefined if not found
+ * @returns The formatted file path (quoted), or undefined if not found
  */
 export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string | undefined> {
 	let filePath: string | undefined;
@@ -526,11 +501,9 @@ export async function getFilePathForLoad(resource?: vscode.Uri): Promise<string 
 	try {
 		await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
 
-		// Get R's current working directory to make paths relative to it
-		const rWorkingDir = await getRWorkingDirectory();
-		return positron.paths.formatPathForCode(filePath, {
-			preferRelative: true,
-			baseUri: rWorkingDir ? vscode.Uri.file(rWorkingDir) : undefined,
+		// Format path relative to R's working directory, falling back to home-relative
+		return await positron.paths.formatPathForCode(filePath, {
+			relativeTo: ['session', 'home'],
 			homeUri: vscode.Uri.file(os.homedir())
 		});
 	} catch {

@@ -72,7 +72,7 @@ export class PythonFilePasteAndDropProvider
         }
 
         const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, {
-            preferRelative: true,
+            relativeTo: ['workspace', 'home'],
             homeUri: vscode.Uri.file(os.homedir()),
         });
 

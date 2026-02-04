@@ -1611,6 +1611,19 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(session.dynState);
 	}
 
+	$getSessionWorkingDirectory(sessionId?: string): Promise<string | undefined> {
+		let session;
+		if (sessionId) {
+			session = this.findSession(sessionId);
+		} else {
+			session = this._runtimeSessionService.foregroundSession;
+		}
+		if (session) {
+			return Promise.resolve(session.dynState.currentWorkingDirectory || undefined);
+		}
+		return Promise.resolve(undefined);
+	}
+
 	$callMethod(sessionId: string, method: string, args: unknown[]): Thenable<unknown> {
 		const session = this.findSession(sessionId);
 		return session.callMethod(method, args);

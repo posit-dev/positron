@@ -55,61 +55,49 @@ suite('File Path Converter Tests', () => {
 		assert.strictEqual(result, null);
 	});
 
-	test('Absolute path when preferRelative is false', () => {
+	test('Absolute path when no bases provided', () => {
 		const uriListData = 'file:///c%3A/Users/test/project/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: false,
-			baseUri: URI.file('c:/Users/test/project')
-		});
+		const result = convertClipboardFiles(uriListData, []);
 		assert.deepStrictEqual(result, ['"c:/Users/test/project/file.txt"']);
 	});
 
 	test('Workspace-relative path when file is inside workspace', () => {
 		const uriListData = 'file:///c%3A/Users/test/project/src/components/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project')
-		});
+		const result = convertClipboardFiles(uriListData, [{ uri: URI.file('c:/Users/test/project') }]);
 		assert.deepStrictEqual(result, ['"src/components/file.txt"']);
 	});
 
 	test('Absolute path when file is outside workspace', () => {
 		const uriListData = 'file:///c%3A/Users/test/other-project/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project')
-		});
+		const result = convertClipboardFiles(uriListData, [{ uri: URI.file('c:/Users/test/project') }]);
 		assert.deepStrictEqual(result, ['"c:/Users/test/other-project/file.txt"']);
 	});
 
 	test('Home-relative path when file is in home directory but outside workspace', () => {
 		const uriListData = 'file:///c%3A/Users/test/Documents/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project'),
-			homeUri: URI.file('c:/Users/test')
-		});
+		const result = convertClipboardFiles(uriListData, [
+			{ uri: URI.file('c:/Users/test/project') },
+			{ uri: URI.file('c:/Users/test'), prefix: '~/' }
+		]);
 		assert.deepStrictEqual(result, ['"~/Documents/file.txt"']);
 	});
 
 	test('Workspace-relative takes priority over home-relative', () => {
 		const uriListData = 'file:///c%3A/Users/test/project/src/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project'),
-			homeUri: URI.file('c:/Users/test')
-		});
+		const result = convertClipboardFiles(uriListData, [
+			{ uri: URI.file('c:/Users/test/project') },
+			{ uri: URI.file('c:/Users/test'), prefix: '~/' }
+		]);
 		// Should use workspace-relative, not ~/project/src/file.txt
 		assert.deepStrictEqual(result, ['"src/file.txt"']);
 	});
 
 	test('Multiple files with mixed relative paths', () => {
 		const uriListData = 'file:///c%3A/Users/test/project/src/file1.txt\r\nfile:///c%3A/Users/test/other/file2.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project'),
-			homeUri: URI.file('c:/Users/test')
-		});
+		const result = convertClipboardFiles(uriListData, [
+			{ uri: URI.file('c:/Users/test/project') },
+			{ uri: URI.file('c:/Users/test'), prefix: '~/' }
+		]);
 		assert.deepStrictEqual(result, [
 			'"src/file1.txt"',  // workspace-relative
 			'"~/other/file2.txt"'  // home-relative
@@ -118,56 +106,43 @@ suite('File Path Converter Tests', () => {
 
 	test('Absolute path when file is outside both workspace and home', () => {
 		const uriListData = 'file:///d%3A/external/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project'),
-			homeUri: URI.file('c:/Users/test')
-		});
+		const result = convertClipboardFiles(uriListData, [
+			{ uri: URI.file('c:/Users/test/project') },
+			{ uri: URI.file('c:/Users/test'), prefix: '~/' }
+		]);
 		assert.deepStrictEqual(result, ['"d:/external/file.txt"']);
 	});
 
-	test('Home-relative when only homeUri is provided', () => {
+	test('Home-relative when only home base is provided', () => {
 		const uriListData = 'file:///c%3A/Users/test/Documents/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			homeUri: URI.file('c:/Users/test')
-		});
+		const result = convertClipboardFiles(uriListData, [{ uri: URI.file('c:/Users/test'), prefix: '~/' }]);
 		assert.deepStrictEqual(result, ['"~/Documents/file.txt"']);
 	});
 
-	test('Absolute path when preferRelative is true but no baseUri or homeUri', () => {
+	test('Absolute path when bases array is empty', () => {
 		const uriListData = 'file:///c%3A/Users/test/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true
-		});
+		const result = convertClipboardFiles(uriListData, []);
 		assert.deepStrictEqual(result, ['"c:/Users/test/file.txt"']);
 	});
 
 	test('POSIX paths: workspace-relative', () => {
 		const uriListData = 'file:///home/user/project/src/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('/home/user/project')
-		});
+		const result = convertClipboardFiles(uriListData, [{ uri: URI.file('/home/user/project') }]);
 		assert.deepStrictEqual(result, ['"src/file.txt"']);
 	});
 
 	test('POSIX paths: home-relative', () => {
 		const uriListData = 'file:///home/user/Documents/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('/home/user/project'),
-			homeUri: URI.file('/home/user')
-		});
+		const result = convertClipboardFiles(uriListData, [
+			{ uri: URI.file('/home/user/project') },
+			{ uri: URI.file('/home/user'), prefix: '~/' }
+		]);
 		assert.deepStrictEqual(result, ['"~/Documents/file.txt"']);
 	});
 
 	test('Relative path with spaces preserved', () => {
 		const uriListData = 'file:///c%3A/Users/test/project/My%20Documents/file.txt';
-		const result = convertClipboardFiles(uriListData, {
-			preferRelative: true,
-			baseUri: URI.file('c:/Users/test/project')
-		});
+		const result = convertClipboardFiles(uriListData, [{ uri: URI.file('c:/Users/test/project') }]);
 		assert.deepStrictEqual(result, ['"My Documents/file.txt"']);
 	});
 });
