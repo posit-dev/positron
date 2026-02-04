@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
-import { deleteConfiguration, ModelConfig, SecretStorage } from '../../config';
+import { deleteConfiguration, ModelConfig } from '../../config';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from '../../constants';
 import { log, recordRequestTokenUsage, recordTokenUsage } from '../../extension.js';
 import { isCacheControlOptions, toAnthropicMessages, toAnthropicSystem, toAnthropicToolChoice, toAnthropicTools, toTokenUsage } from '../anthropic/anthropicProvider.js';
@@ -67,7 +67,7 @@ export class PositModelProvider extends ModelProvider {
 		return { authHost, scope, clientId, baseUrl };
 	}
 
-	public static async signIn(storage: SecretStorage): Promise<void> {
+	public static async signIn(context: vscode.ExtensionContext): Promise<void> {
 		log.info('[Posit AI] Signing in.');
 
 		const params = PositModelProvider.getOAuthParameters();
@@ -130,9 +130,9 @@ export class PositModelProvider extends ModelProvider {
 					log.info('[Posit AI] Sign-in successful.');
 
 					const expiryTime = Date.now() + expires_in * 1000;
-					storage.store('positron.assistant.positai.access_token', access_token);
-					storage.store('positron.assistant.positai.refresh_token', refresh_token);
-					storage.store('positron.assistant.positai.token_expiry', expiryTime.toString());
+					context.secrets.store('positron.assistant.positai.access_token', access_token);
+					context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
+					context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
 					break;
 				}
 
@@ -166,14 +166,14 @@ export class PositModelProvider extends ModelProvider {
 		return;
 	}
 
-	public static async signOut(storage: SecretStorage): Promise<boolean> {
+	public static async signOut(context: vscode.ExtensionContext): Promise<boolean> {
 		log.info('[Posit AI] Signing out.');
 
 		try {
 			// Sign-out is considered successful when the model is deleted in the config service
-			storage.delete('positron.assistant.positai.access_token');
-			storage.delete('positron.assistant.positai.refresh_token');
-			storage.delete('positron.assistant.positai.token_expiry');
+			context.secrets.delete('positron.assistant.positai.access_token');
+			context.secrets.delete('positron.assistant.positai.refresh_token');
+			context.secrets.delete('positron.assistant.positai.token_expiry');
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -191,11 +191,11 @@ export class PositModelProvider extends ModelProvider {
 		PositModelProvider._cancellationToken = null;
 	}
 
-	public static async refreshAccessToken(storage: SecretStorage): Promise<{ success: false } | { success: true; accessToken: string }> {
+	public static async refreshAccessToken(context: vscode.ExtensionContext): Promise<{ success: false } | { success: true; accessToken: string }> {
 		log.info('[Posit AI] Refreshing access token.');
 		const params = PositModelProvider.getOAuthParameters();
 
-		const refreshToken = await storage.get('positron.assistant.positai.refresh_token');
+		const refreshToken = await context.secrets.get('positron.assistant.positai.refresh_token');
 		if (!refreshToken) {
 			log.error('[Posit AI] No refresh token found.');
 			return { success: false };
@@ -229,9 +229,9 @@ export class PositModelProvider extends ModelProvider {
 		const { access_token, refresh_token, expires_in } = tokenData;
 		const expiryTime = Date.now() + expires_in * 1000;
 
-		await storage.store('positron.assistant.positai.access_token', access_token);
-		await storage.store('positron.assistant.positai.refresh_token', refresh_token);
-		await storage.store('positron.assistant.positai.token_expiry', expiryTime.toString());
+		await context.secrets.store('positron.assistant.positai.access_token', access_token);
+		await context.secrets.store('positron.assistant.positai.refresh_token', refresh_token);
+		await context.secrets.store('positron.assistant.positai.token_expiry', expiryTime.toString());
 
 		log.info('[Posit AI] Access token refreshed successfully.');
 		return { success: true, accessToken: access_token };
@@ -240,9 +240,8 @@ export class PositModelProvider extends ModelProvider {
 	constructor(
 		_config: ModelConfig,
 		_context?: vscode.ExtensionContext,
-		_storage?: SecretStorage,
 	) {
-		super(_config, _context, _storage);
+		super(_config, _context);
 	}
 
 	/**
@@ -271,8 +270,8 @@ export class PositModelProvider extends ModelProvider {
 	 * Gets the current access token, refreshing if necessary.
 	 */
 	async getAccessToken(): Promise<string> {
-		let accessToken = await this._storage!.get('positron.assistant.positai.access_token');
-		const tokenExpiry = await this._storage!.get('positron.assistant.positai.token_expiry');
+		let accessToken = await this._context!.secrets.get('positron.assistant.positai.access_token');
+		const tokenExpiry = await this._context!.secrets.get('positron.assistant.positai.token_expiry');
 
 		this.logger.debug(`Token expiry at ${tokenExpiry}. Current time is ${Date.now()}.`);
 
@@ -280,9 +279,9 @@ export class PositModelProvider extends ModelProvider {
 		const expiry = parseInt(tokenExpiry) - tenMin;
 		if (tokenExpiry && Date.now() >= expiry) {
 			this.logger.info('Access token has expired.');
-			const result = await PositModelProvider.refreshAccessToken(this._storage!);
+			const result = await PositModelProvider.refreshAccessToken(this._context!);
 			if (!result.success) {
-				deleteConfiguration(this._context, this._storage, this.providerId);
+				deleteConfiguration(this._context, this.providerId);
 				throw new Error('Failed to refresh Posit AI access token. Please sign in again.');
 			}
 			accessToken = result.accessToken;

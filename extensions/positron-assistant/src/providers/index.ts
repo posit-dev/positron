@@ -13,7 +13,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ModelConfig, SecretStorage } from '../config';
+import { ModelConfig } from '../config';
 
 // Import provider classes for use in utility functions
 import { ErrorModelProvider } from './test/errorProvider';
@@ -39,7 +39,7 @@ import { CopilotModelProvider } from '../copilot.js';
  * Type for a concrete (non-abstract) model provider constructor with static metadata.
  */
 interface ConcreteModelProviderConstructor {
-	new(config: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): ModelProvider;
+	new(config: ModelConfig, context: vscode.ExtensionContext): ModelProvider;
 	source: positron.ai.LanguageModelSource;
 	autoconfigure?: () => Promise<AutoconfigureResult>;
 }
@@ -152,12 +152,12 @@ export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
  * Creates a new language model chat provider instance based on the configuration.
  * This is used to instantiate the appropriate provider class.
  */
-export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): positron.ai.LanguageModelChatProvider {
+export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 	const providerClass = getModelProviders().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
-	return new providerClass(config, context, storage);
+	return new providerClass(config, context);
 }
 
 export { AutoconfigureResult };
